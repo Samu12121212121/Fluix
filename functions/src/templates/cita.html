@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333; margin: 0; padding: 20px; }
+        .card { max-width: 500px; background: white; margin: 20px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .header h2 { color: #2c3e50; }
+        .details { background: #eaf6fc; padding: 15px; margin: 20px 0; border-radius: 5px; text-align: left; border-left: 4px solid #3498db; }
+        .details p { margin: 5px 0; font-size: 1.1em; }
+        .action-button { display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+        .footer { font-size: 0.8em; color: #7f8c8d; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h2>Recordatorio de Cita</h2>
+        </div>
+        <p>Hola <strong>{{clienteNombre}}</strong>,</p>
+        <p>Te recordamos tu próxima cita con <strong>{{empresaNombre}}</strong>.</p>
+
+        <div class="details">
+            <p><strong>📅 Fecha:</strong> {{fecha}}</p>
+            <p><strong>⏰ Hora:</strong> {{hora}}</p>
+            <p><strong>📍 Lugar:</strong> {{direccion}}</p>
+            <p><strong>💼 Servicio:</strong> {{servicio}}</p>
+        </div>
+
+        <p>Si necesitas cancelar o reprogramar, por favor contáctanos lo antes posible.</p>
+
+        {{#if telefonoContacto}}
+        <a href="tel:{{telefonoContacto}}" class="action-button">Llamar: {{telefonoContacto}}</a>
+        {{/if}}
+
+        <div class="footer">
+            <p>Gracias por confiar en {{empresaNombre}}.</p>
+        </div>
+    </div>
+</body>
+</html>

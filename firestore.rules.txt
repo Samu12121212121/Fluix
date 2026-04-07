@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // PERFIL DE USUARIO
+    // Cualquiera puede leer su propio perfil.
+    // Solo el propio usuario puede actualizar su perfil.
+    match /usuarios/{userId} {
+      allow read: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      // La creación de usuarios se gestiona desde la app al registrarse.
+      allow create: if request.auth != null;
+    }
+
+    // CONVENIOS COLECTIVOS
+    // Cualquiera puede leer los datos de los convenios. Son datos públicos.
+    // Nadie puede escribir, solo se gestionan desde la consola de Firebase.
+    match /convenios/{convenioId} {
+      allow read: if true;
+      allow write: if false; // Bloquea la escritura desde la app para seguridad
+    }
+
+    // DATOS DE EMPRESA
+    // Reglas para proteger los datos de cada empresa.
+    match /empresas/{empresaId} {
+      // El propietario y los empleados de la empresa pueden leer los datos.
+      allow read: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+
+      // Solo el propietario puede escribir en la configuración general de la empresa.
+      allow write: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'propietario'
+                   && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+
+      // REGLAS PARA SUBCOLECCIONES (CLIENTES, EMPLEADOS, FACTURAS, etc.)
+      // Cualquiera de la empresa puede leer.
+      // La escritura/borrado puede tener lógicas más específicas.
+      match /{subcollection}/{docId} {
+        allow read: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+
+        // Permite crear, actualizar y borrar a admins y propietarios.
+        allow write: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
+                     && (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'propietario'
+                         || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin');
+      }
+    }
+  }
+}
+

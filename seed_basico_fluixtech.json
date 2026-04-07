@@ -1,0 +1,37 @@
+{
+  "__collections__": {
+    "empresas": {
+      "fluixtech": {
+        "nombre": "Fluixtech",
+        "sector": "hosteleria",
+        "activo": true,
+        "created_at": "2026-03-16T00:00:00Z",
+        "telefono": "",
+        "direccion": "",
+        "nif": "",
+        "plan": "propietario",
+        "web": "https://fluixtech.com"
+      }
+    },
+    "usuarios": {
+      "propietario_fluixtech": {
+        "nombre": "Propietario Fluixtech",
+        "email": "owner@fluixtech.com",
+        "rol": "propietario",
+        "empresa_id": "fluixtech",
+        "activo": true,
+        "fecha_alta": "2026-03-16T00:00:00Z",
+        "datos_nomina": {
+          "salario_bruto_anual": 22000,
+          "num_pagas": 15,
+          "pagas_prorrateadas": false,
+          "prorrateo_pagas_extras": false,
+          "tipo_contrato": "indefinido",
+          "grupo_cotizacion": "grupo7",
+          "categoria_convenio_id": "nivel-1"
+        }
+      }
+    }
+  }
+}
+

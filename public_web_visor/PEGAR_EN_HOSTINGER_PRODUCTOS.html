@@ -1,0 +1,217 @@
+<script>
+/*
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  FLUIX — Script para sección de PRODUCTOS                       ║
+ * ║                                                                  ║
+ * ║  REQUISITO: pegar ANTES el HTML de                              ║
+ * ║  SECCION_PRODUCTOS_CON_ATRIBUTOS.html (que ya tiene los         ║
+ * ║  data-fluix-item y data-fluix-campo en cada elemento)           ║
+ * ║                                                                  ║
+ * ║  PASOS:                                                          ║
+ * ║  1. Pega el HTML de SECCION_PRODUCTOS_CON_ATRIBUTOS.html        ║
+ * ║  2. Pega ESTE script justo después (o al final de la página)    ║
+ * ║  3. F12 → consola → FluixProductos.sincronizar()                ║
+ * ║  4. Ya aparece en la app para editar                            ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
+(function () {
+    var CFG = {
+        empresaId:  'ztZblwm1w71wNQtzHV7S',
+        seccionId:  'productos',
+        tipo:       'carta',
+        nombre:     'Productos',
+        firebaseConfig: {
+            apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+            authDomain:        "planeaapp-4bea4.firebaseapp.com",
+            projectId:         "planeaapp-4bea4",
+            storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+            messagingSenderId: "1085482191658",
+            appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+        }
+    };
+
+    function cargarScript(src, cb) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = cb || function () {};
+        s.onerror = function () { console.error('Fluix: error cargando ' + src); };
+        document.head.appendChild(s);
+    }
+
+    function formatearPrecio(val) {
+        var n = parseFloat(String(val).replace('€', '').replace(',', '.').trim());
+        if (isNaN(n)) return String(val);
+        return '€' + n.toFixed(2);
+    }
+
+    function parsearPrecio(texto) {
+        return parseFloat(String(texto).replace('€', '').replace(',', '.').trim()) || 0;
+    }
+
+    // ── No hay marcarDOM(): los atributos ya están en el HTML ─────────────────
+
+    function conectar() {
+        // Buscamos el contenedor por data-seccion (puesto en el HTML)
+        var section = document.querySelector('[data-seccion="' + CFG.seccionId + '"]')
+                   || document.getElementById('zh0Bnf');
+        if (!section) {
+            console.error('Fluix Productos: no encontrado el contenedor #zh0Bnf');
+            return;
+        }
+
+        var appName  = 'FluixInlineProductos';
+        var existing = (firebase.apps || []).find(function (a) { return a.name === appName; });
+        var app      = existing || firebase.initializeApp(CFG.firebaseConfig, appName);
+        var db       = app.firestore();
+        console.log('Fluix Productos: conectado ✅ Escuchando cambios en tiempo real...');
+
+        window._fluixDBProductos      = db;
+        window._fluixSectionProductos = section;
+
+        db.collection('empresas').doc(CFG.empresaId)
+          .collection('contenido_web').doc(CFG.seccionId)
+          .onSnapshot(function (doc) {
+              if (!doc.exists) {
+                  console.warn('Fluix Productos: sin datos. Ejecuta FluixProductos.sincronizar()');
+                  return;
+              }
+
+              var data = doc.data();
+
+              // Toggle visible/oculto desde la app
+              if (data.activa === false) {
+                  section.style.display = 'none';
+                  return;
+              }
+              section.style.display = '';
+
+              var contenido = data.contenido !== undefined ? data.contenido : data;
+              var items     = contenido.items_carta || contenido.items_productos || [];
+              if (items.length === 0) return;
+
+              // Mapa rápido: id → datos
+              var dataMap = {};
+              items.forEach(function (it) { if (it.id) dataMap[it.id] = it; });
+              console.log('Fluix Productos: ' + items.length + ' productos. Actualizando...');
+
+              // Recorrer todos los elementos marcados en el HTML
+              section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                  var itemId   = el.getAttribute('data-fluix-item');
+                  var campo    = el.getAttribute('data-fluix-campo');
+                  var itemData = dataMap[itemId];
+                  if (!itemData) return;
+
+                  // Disponible / agotado
+                  var card = el.closest('.product-list-item');
+                  if (card) {
+                      if (itemData.disponible === false) {
+                          card.style.opacity       = '0.4';
+                          card.style.pointerEvents = 'none';
+                      } else {
+                          card.style.opacity       = '';
+                          card.style.pointerEvents = '';
+                      }
+                  }
+
+                  if (campo === 'precio') {
+                      if (itemData[campo] !== undefined)
+                          el.innerText = formatearPrecio(itemData[campo]);
+
+                  } else if (campo === 'imagen') {
+                      var url = itemData['imagen'] || itemData['imagen_url'];
+                      if (el.tagName === 'IMG' && url) {
+                          el.src    = url;
+                          el.srcset = '';
+                          el.alt    = itemData['nombre'] || el.alt;
+                      }
+
+                  } else {
+                      // nombre y cualquier otro campo de texto
+                      if (itemData[campo] !== undefined)
+                          el.innerText = itemData[campo];
+                  }
+              });
+
+          }, function (err) {
+              console.error('Fluix Productos error:', err.message);
+          });
+    }
+
+    // ── API pública ───────────────────────────────────────────────────────────
+
+    window.FluixProductos = {
+
+        sincronizar: function () {
+            var section = window._fluixSectionProductos;
+            var db      = window._fluixDBProductos;
+            if (!section || !db) { console.error('FluixProductos: no iniciado.'); return; }
+
+            var grupos = {};
+            section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                var itemId = el.getAttribute('data-fluix-item');
+                var campo  = el.getAttribute('data-fluix-campo');
+                if (!grupos[itemId]) grupos[itemId] = { id: itemId, disponible: true, categoria: 'Productos' };
+
+                if (campo === 'imagen') {
+                    var src = (el.tagName === 'IMG') ? el.src : '';
+                    grupos[itemId]['imagen']     = src;
+                    grupos[itemId]['imagen_url'] = src;
+                } else if (campo === 'precio') {
+                    grupos[itemId]['precio'] = parsearPrecio(el.innerText);
+                } else {
+                    grupos[itemId][campo] = el.innerText.trim();
+                }
+            });
+
+            var items = Object.values(grupos);
+            console.log('FluixProductos Sync: subiendo ' + items.length + ' productos...', items);
+
+            db.collection('empresas').doc(CFG.empresaId)
+              .collection('contenido_web').doc(CFG.seccionId)
+              .set({
+                  tipo: CFG.tipo, nombre: CFG.nombre,
+                  descripcion: 'Productos y servicios',
+                  activa: true, orden: 1,
+                  fecha_creacion: new Date(), fecha_actualizacion: new Date(),
+                  contenido: { titulo: CFG.nombre, items_carta: items }
+              })
+              .then(function () { console.log('✅ FluixProductos: ¡Sincronizado! Edita desde la app.'); })
+              .catch(function (e) { console.error('❌ FluixProductos error:', e.message); });
+        },
+
+        debug: function () {
+            var section = window._fluixSectionProductos;
+            console.log('=== FLUIX PRODUCTOS DEBUG ===');
+            if (!section) { console.error('Script no iniciado'); return; }
+            var campos = section.querySelectorAll('[data-fluix-item][data-fluix-campo]');
+            console.log('Campos en HTML: ' + campos.length);
+            campos.forEach(function (el) {
+                var v = (el.tagName === 'IMG') ? el.src.substring(0,50) : el.innerText.trim().substring(0,35);
+                console.log('  ' + el.getAttribute('data-fluix-item')
+                    + '.' + el.getAttribute('data-fluix-campo') + ' = "' + v + '"');
+            });
+            console.log('Firebase: ' + (window._fluixDBProductos ? 'OK ✅' : 'NO ❌'));
+            console.log('=============================');
+        }
+    };
+
+    // ── Inicio ────────────────────────────────────────────────────────────────
+
+    function iniciar() {
+        if (typeof firebase === 'undefined') {
+            cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js', function () {
+                cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js', conectar);
+            });
+        } else {
+            conectar();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciar);
+    } else {
+        iniciar();
+    }
+})();
+</script>
+

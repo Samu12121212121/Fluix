@@ -1,0 +1,16 @@
+{
+  "nombre": "Peluquerías, Estética y Gimnasios 2024-2026",
+  "ambito": "estatal",
+  "sector": "peluqueria-estetica-gimnasios",
+  "vigencia": { "inicio": "2024-01-01", "fin": "2026-12-31" },
+  "tablas_2026": [
+    { "grupo": "I",  "salario_mes": 1250.00, "salario_anual": 17500.00 },
+    { "grupo": "II", "salario_mes": 1325.00, "salario_anual": 18550.00 },
+    { "grupo": "III","salario_mes": 1350.00, "salario_anual": 18900.00 },
+    { "grupo": "IV", "salario_mes": 1375.00, "salario_anual": 19250.00 }
+  ],
+  "num_pagas": 14,
+  "pluses": [
+    { "nombre": "plus_transporte", "vigente_hasta": "2024-12-31", "importe": 0, "estado": "suprimido_desde_2025" }
+  ]
+}

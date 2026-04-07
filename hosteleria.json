@@ -1,0 +1,16 @@
+{
+  "nombre": "Hostelería Guadalajara 2025-2026",
+  "ambito": "provincial",
+  "sector": "hostelería",
+  "vigencia": { "inicio": "2025-01-01", "fin": "2026-12-31" },
+  "tablas_2026": [
+    { "nivel": 1, "salario_mensual": 1569.03, "grati_sept": 532.70, "salario_anual_15": 22499.10 },
+    { "nivel": 2, "salario_mensual": 1512.91, "grati_sept": 528.83, "salario_anual_15": 21709.50 },
+    { "nivel": 3, "salario_mensual": 1438.86, "grati_sept": 523.72, "salario_anual_15": 20667.73 },
+    { "nivel": 4, "salario_mensual": 1342.08, "grati_sept": 517.05, "salario_anual_15": 19306.11 },
+    { "nivel": 5, "salario_mensual": 1290.80, "grati_sept": 513.51, "salario_anual_15": 18584.71 }
+  ],
+  "num_pagas": 15,
+  "grati_especial": "septiembre",
+  "observaciones": "Tablas provisionales 2026; actualizar cuando salgan las definitivas."
+}

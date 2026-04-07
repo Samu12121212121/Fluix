@@ -1,0 +1,68 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha_entrega", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha_creacion", "order": "DESCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tareas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha_limite", "order": "ASCENDING" },
+        { "fieldPath": "completada", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha_emision", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_emision", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ejercicio", "order": "ASCENDING" },
+        { "fieldPath": "trimestre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_recibidas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "es_arrendamiento", "order": "ASCENDING" },
+        { "fieldPath": "fecha_recepcion", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

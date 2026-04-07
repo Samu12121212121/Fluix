@@ -1,0 +1,310 @@
+rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+
+        // ── HELPERS ────────────────────────────────────────────────────────────────
+
+        function isAuth() {
+          return request.auth != null;
+        }
+
+        function uid() {
+          return request.auth.uid;
+        }
+
+        // Obtiene el doc del usuario de forma segura (devuelve null si no existe)
+        function getUserData() {
+          return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+        }
+
+        function perteneceAEmpresa(empresaId) {
+          return isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().empresa_id == empresaId;
+        }
+
+        function getRol() {
+          return isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            ? getUserData().rol
+            : '';
+        }
+
+        function esPropietario(empresaId) {
+          return perteneceAEmpresa(empresaId) && getRol() == 'propietario';
+        }
+
+        function esAdminOPropietario(empresaId) {
+          return perteneceAEmpresa(empresaId)
+            && (getRol() == 'admin' || getRol() == 'propietario');
+        }
+
+        function esStaffOSuperior(empresaId) {
+          return perteneceAEmpresa(empresaId)
+            && (getRol() == 'staff' || getRol() == 'admin' || getRol() == 'propietario');
+        }
+
+        // ── USUARIOS ───────────────────────────────────────────────────────────────
+
+        match /usuarios/{userId} {
+          // El propio usuario puede leer/escribir su doc
+          allow read, write: if isAuth() && uid() == userId;
+          // Admin/propietario puede leer docs de su empresa
+          allow read: if isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().empresa_id == resource.data.empresa_id
+            && (getUserData().rol == 'admin' || getUserData().rol == 'propietario');
+          // Cualquier auth puede crear su propio doc (registro)
+          allow create: if isAuth() && uid() == userId;
+
+          // EMBARGOS — subcolección de cada usuario
+          // [FIX-9] Lectura/escritura: el propio usuario O admin/propietario de su empresa
+          match /embargos/{embargoId} {
+            allow read, write: if isAuth() && uid() == userId;
+            allow read, write: if isAuth()
+              && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+              && exists(/databases/$(database)/documents/usuarios/$(userId))
+              && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+              && (getUserData().rol == 'admin' || getUserData().rol == 'propietario');
+          }
+
+          // Subcolecciones genéricas del usuario (bajas_laborales, historial_salarial, etc.)
+          match /{subcollection}/{docId} {
+            allow read, write: if isAuth() && uid() == userId;
+            allow read, write: if isAuth()
+              && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+              && exists(/databases/$(database)/documents/usuarios/$(userId))
+              && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+              && (getUserData().rol == 'admin' || getUserData().rol == 'propietario');
+          }
+        }
+
+        // ── NOTIFICACIONES IN-APP (colección raíz) ────────────────────────────
+        // [FIX-8] notificaciones/{empresaId}/items/{itemId}
+        // Lectura: cualquier miembro de la empresa
+        // Escritura: solo Cloud Functions (Admin SDK) — el cliente solo lee y marca leídas
+        match /notificaciones/{empresaId}/items/{itemId} {
+          allow read: if perteneceAEmpresa(empresaId);
+          allow update: if esAdminOPropietario(empresaId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
+          allow create, delete: if false; // Solo Admin SDK
+        }
+
+        // ── VACACIONES ─────────────────────────────────────────────────────────────
+        match /vacaciones/{empresaId}/{document=**} {
+          allow read, write: if esAdminOPropietario(empresaId);
+        }
+
+        // ── LOGIN_INTENTOS — [FIX-7] Solo accesible desde Admin SDK ────────────
+        match /login_intentos/{email} {
+          allow read, write: if false;
+        }
+
+        // ── INVITACIONES — [FIX-7] Solo accesible desde Admin SDK ──────────────
+        match /invitaciones/{token} {
+          allow read, write: if false;
+        }
+
+        // ── EMPRESAS ───────────────────────────────────────────────────────────────
+
+        match /empresas/{empresaId} {
+          // [FIX-1] Lectura SOLO para miembros de la empresa (antes: allow read: if true)
+          allow read: if perteneceAEmpresa(empresaId);
+          // Solo propietario puede escribir el doc raíz
+          allow write: if esPropietario(empresaId);
+          // Cualquier auth puede crear una empresa (al registrarse)
+          allow create: if isAuth();
+          // Bootstrap: permite que el propietario escriba su empresa aunque
+          // el doc de configuracion/modulos todavía no exista
+          allow write: if isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().empresa_id == empresaId
+            && getUserData().rol == 'propietario';
+
+          // CLIENTES
+          match /clientes/{clienteId} {
+            allow read: if esStaffOSuperior(empresaId);
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // RESERVAS
+          match /reservas/{reservaId} {
+            allow read: if esStaffOSuperior(empresaId);
+            allow write: if esStaffOSuperior(empresaId);
+            allow create: if isAuth(); // clientes externos pueden crear reservas
+          }
+
+          // VALORACIONES — [FIX-5] lectura pública, creación con validación anti-spam
+          match /valoraciones/{valoracionId} {
+            allow read: if true;
+            allow create: if request.resource.data.keys().hasAll(['cliente', 'calificacion'])
+              && request.resource.data.calificacion is int
+              && request.resource.data.calificacion >= 1
+              && request.resource.data.calificacion <= 5
+              && request.resource.data.size() <= 10;
+            allow update, delete: if esAdminOPropietario(empresaId);
+          }
+
+          // RESEÑAS — lectura pública (Google Reviews / WordPress), creación con validación
+          match /resenas/{resenaId} {
+            allow read: if true;
+            allow create: if request.resource.data.keys().hasAll(['calificacion'])
+              && request.resource.data.calificacion is int
+              && request.resource.data.calificacion >= 1
+              && request.resource.data.calificacion <= 5
+              && request.resource.data.size() <= 15;
+            allow update, delete: if esAdminOPropietario(empresaId);
+          }
+
+          // PEDIDOS — [FIX-6] creación con validación (antes: allow create: if true)
+          match /pedidos/{pedidoId} {
+            allow read: if esStaffOSuperior(empresaId);
+            allow create: if request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
+              && request.resource.data.empresaId == empresaId;
+            allow update: if esStaffOSuperior(empresaId);
+            allow delete: if esAdminOPropietario(empresaId);
+          }
+
+          // PEDIDOS WHATSAPP — [FIX-6]
+          match /pedidos_whatsapp/{pedidoId} {
+            allow read: if esStaffOSuperior(empresaId);
+            allow create: if request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
+              && request.resource.data.empresaId == empresaId;
+            allow update, delete: if esAdminOPropietario(empresaId);
+          }
+
+          // PRODUCTOS — catálogo público para web
+          match /productos/{productoId} {
+            allow read: if true;
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // FACTURAS
+          match /facturas/{facturaId} {
+            allow read, write: if esAdminOPropietario(empresaId);
+          }
+
+          // FACTURAS RECIBIDAS
+          match /facturas_recibidas/{facturaId} {
+            allow read, write: if esAdminOPropietario(empresaId);
+          }
+
+          // FINIQUITOS
+          match /finiquitos/{finiquitoId} {
+            allow read, write: if esAdminOPropietario(empresaId);
+          }
+
+          // TRANSACCIONES
+          match /transacciones/{transaccionId} {
+            allow read: if esAdminOPropietario(empresaId);
+            allow write: if esStaffOSuperior(empresaId);
+          }
+
+          // TAREAS
+          match /tareas/{tareaId} {
+            allow read, write: if esStaffOSuperior(empresaId);
+          }
+
+          // NÓMINAS — [FIX-4] Staff solo puede ver sus propias nóminas (RGPD)
+          match /nominas/{nominaId} {
+            allow read: if esAdminOPropietario(empresaId)
+              || (esStaffOSuperior(empresaId)
+                  && resource.data.empleado_id == request.auth.uid);
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // EQUIPOS
+          match /equipos/{equipoId} {
+            allow read: if esStaffOSuperior(empresaId);
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // SECCIONES WEB — lectura pública para WordPress
+          match /secciones_web/{seccionId} {
+            allow read: if true;
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // CONTENIDO WEB — lectura pública para visor web
+          match /contenido_web/{docId} {
+            allow read: if true;
+            allow write: if esAdminOPropietario(empresaId);
+          }
+
+          // DISPOSITIVOS FCM — cada usuario escribe su propio token
+          match /dispositivos/{dispositivoId} {
+            allow read: if esAdminOPropietario(empresaId);
+            allow write: if isAuth();
+          }
+
+          // SUSCRIPCIÓN — [FIX-2] Solo miembros de la empresa (antes: allow read: if true)
+          match /suscripcion/{docId} {
+            allow read: if perteneceAEmpresa(empresaId);
+            allow write: if false; // Solo Admin SDK (Cloud Functions)
+          }
+
+          // ESTADÍSTICAS — [FIX-3] Solo miembros de la empresa (antes: allow read: if true)
+          match /estadisticas/{docId} {
+            allow read: if perteneceAEmpresa(empresaId);
+            allow write: if perteneceAEmpresa(empresaId);
+          }
+          match /estadisticas/{docId}/{subcol}/{subId} {
+            allow read: if perteneceAEmpresa(empresaId);
+            allow write: if perteneceAEmpresa(empresaId);
+          }
+
+          // CACHÉ (estadísticas calculadas)
+          match /cache/{docId} {
+            allow read, write: if perteneceAEmpresa(empresaId);
+          }
+
+          // CONFIGURACIÓN (módulos, widgets, ajustes)
+          match /configuracion/{docId} {
+            allow read: if perteneceAEmpresa(empresaId);
+            allow write: if esPropietario(empresaId);
+          }
+
+          // (Se deja por compatibilidad — convenios es colección raíz)
+          match /convenios/{convenioId} {
+            allow read: if true;
+            allow write: if false;
+          }
+
+          // FALLBACK para cualquier otra subcolección de empresas
+          match /{subcollection}/{documentId} {
+            allow read: if perteneceAEmpresa(empresaId);
+            allow write: if esAdminOPropietario(empresaId);
+          }
+        }
+
+        // ── CONVENIOS COLECTIVOS (colección raíz) ───────────────────────────────
+        match /convenios/{convenioId} {
+          allow read: if isAuth();
+          allow create, update: if isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().rol == 'propietario';
+          allow delete: if false;
+
+          match /{subcollection}/{docId} {
+            allow read: if isAuth();
+            allow create, update: if isAuth()
+              && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+              && getUserData().rol == 'propietario';
+            allow delete: if false;
+          }
+        }
+
+        // ── PAGOS DE PLATAFORMA ─────────────────────────────────────────────────
+        match /plataforma_pagos/{pagoId} {
+          allow read: if isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().es_plataforma_admin == true;
+          allow write: if false; // Solo Admin SDK
+        }
+
+        // ── REGLA POR DEFECTO: denegar todo lo demás ──────────────────────────────
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+    }

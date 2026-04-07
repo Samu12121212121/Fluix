@@ -1,0 +1,256 @@
+<!-- 🔥 PLANEAGUADA CRM - SCRIPT LISTO PARA USAR (YA CONFIGURADO) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    console.log('🚀 Inicializando PlaneaGuada CRM...');
+
+    // 🔥 Configuración Firebase (YA CONFIGURADO CON TUS DATOS)
+    const firebaseConfig = {
+        apiKey: "AIzaSyDpAGshzWcOWsJ1dRhBZybnhBjm8tY5234", // ✅ TU API KEY
+        authDomain: "planeaapp-4bea4.firebaseapp.com",
+        projectId: "planeaapp-4bea4",
+        storageBucket: "planeaapp-4bea4.appspot.com",
+        messagingSenderId: "1085482191658",
+        appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+    };
+
+    // 🏢 CONFIGURACIÓN (YA CON TU EMPRESA ID)
+    const EMPRESA_ID = "ulhYZOjxH35a663JdU3y"; // ✅ TU EMPRESA ID
+
+    // Inicializar Firebase
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+
+    const db = firebase.firestore();
+
+    // 📊 REGISTRAR VISITA WEB
+    async function registrarVisita() {
+        try {
+            const fechaHoy = new Date().toISOString().substring(0, 10);
+
+            // Actualizar estadísticas generales
+            await db.collection('empresas').doc(EMPRESA_ID).collection('estadisticas').doc('resumen').set({
+                visitas_web_mes: firebase.firestore.FieldValue.increment(1),
+                ultima_visita: firebase.firestore.FieldValue.serverTimestamp(),
+                fecha_actualizacion: new Date().toISOString()
+            }, { merge: true });
+
+            // Actualizar visitas diarias para el gráfico
+            await actualizarGraficoVisitas(fechaHoy);
+
+            console.log('✅ Visita registrada:', fechaHoy);
+        } catch (error) {
+            console.error('❌ Error:', error);
+        }
+    }
+
+    // 📈 ACTUALIZAR GRÁFICO VISITAS
+    async function actualizarGraficoVisitas(fechaHoy) {
+        const statsRef = db.collection('empresas').doc(EMPRESA_ID).collection('estadisticas').doc('resumen');
+        const doc = await statsRef.get();
+        let visitasDiarias = [];
+
+        if (doc.exists && doc.data().visitas_diarias) {
+            visitasDiarias = doc.data().visitas_diarias;
+        }
+
+        const indiceHoy = visitasDiarias.findIndex(v => v.fecha === fechaHoy);
+        if (indiceHoy >= 0) {
+            visitasDiarias[indiceHoy].visitas++;
+        } else {
+            visitasDiarias.push({ fecha: fechaHoy, visitas: 1 });
+            visitasDiarias.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            if (visitasDiarias.length > 30) visitasDiarias = visitasDiarias.slice(-30);
+        }
+
+        await statsRef.set({ visitas_diarias: visitasDiarias }, { merge: true });
+    }
+
+    // 📝 CAPTURAR FORMULARIOS DE CONTACTO
+    function detectarFormularios() {
+        // Contact Form 7
+        document.addEventListener('wpcf7mailsent', function(event) {
+            procesarFormulario(event.detail);
+        });
+
+        // Formularios genéricos
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                setTimeout(() => {
+                    const formData = new FormData(form);
+                    procesarFormulario(formData);
+                }, 1000);
+            });
+        });
+    }
+
+    async function procesarFormulario(formData) {
+        try {
+            const nombre = formData.get('your-name') || formData.get('nombre') || formData.get('name') || '';
+            const email = formData.get('your-email') || formData.get('email') || formData.get('correo') || '';
+            const telefono = formData.get('your-phone') || formData.get('telefono') || formData.get('phone') || '';
+            const servicio = formData.get('service') || formData.get('servicio') || 'Consulta general';
+            const mensaje = formData.get('your-message') || formData.get('mensaje') || formData.get('message') || '';
+
+            if (nombre && email) {
+                await db.collection('empresas').doc(EMPRESA_ID).collection('reservas').add({
+                    nombre_cliente: nombre,
+                    correo_cliente: email,
+                    telefono_cliente: telefono,
+                    servicio: servicio,
+                    fecha_hora: new Date().toISOString(),
+                    estado: 'pendiente',
+                    notas: mensaje,
+                    origen: 'web',
+                    fecha_creacion: new Date().toISOString()
+                });
+
+                console.log('✅ Reserva creada:', nombre);
+                mostrarMensaje('¡Formulario enviado! Te contactaremos pronto.', '#4CAF50');
+            }
+        } catch (error) {
+            console.error('❌ Error procesando formulario:', error);
+        }
+    }
+
+    // ⭐ CAPTURAR RESEÑAS DE LA WEB
+    function detectarResenas() {
+        // Detectar envío de comentarios
+        document.querySelectorAll('.comment-form, form[class*="review"]').forEach(form => {
+            form.addEventListener('submit', function() {
+                setTimeout(capturarResena, 2000);
+            });
+        });
+    }
+
+    async function capturarResena() {
+        try {
+            const ultimoComentario = document.querySelector('.comment:last-child, .review:last-child');
+            if (!ultimoComentario) return;
+
+            const nombre = ultimoComentario.querySelector('.comment-author, .author')?.textContent?.trim() || 'Usuario Web';
+            const comentario = ultimoComentario.querySelector('.comment-content, .content')?.textContent?.trim() || '';
+            const estrellas = ultimoComentario.querySelectorAll('.star, [class*="star"]').length || 5;
+
+            if (comentario.length > 10) {
+                await db.collection('empresas').doc(EMPRESA_ID).collection('valoraciones').add({
+                    nombre_persona: nombre,
+                    estrellas: Math.min(estrellas, 5),
+                    comentario: comentario,
+                    fecha: new Date().toISOString(),
+                    respuesta: null,
+                    origen: 'wordpress'
+                });
+
+                console.log('✅ Reseña capturada:', nombre);
+            }
+        } catch (error) {
+            console.error('❌ Error capturando reseña:', error);
+        }
+    }
+
+    // 💬 ESCUCHAR RESPUESTAS DEL ADMIN DESDE EL CRM
+    function escucharRespuestas() {
+        db.collection('empresas').doc(EMPRESA_ID).collection('valoraciones')
+            .where('origen', '==', 'wordpress')
+            .onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'modified') {
+                        const data = change.doc.data();
+                        if (data.respuesta && !data.respuesta_mostrada) {
+                            mostrarMensaje(`Respuesta para ${data.nombre_persona}: ${data.respuesta}`, '#2196F3', 8000);
+                            change.doc.ref.update({ respuesta_mostrada: true });
+                        }
+                    }
+                });
+            });
+    }
+
+    // 🎨 MOSTRAR MENSAJES VISUALES
+    function mostrarMensaje(texto, color, duracion = 4000) {
+        const div = document.createElement('div');
+        div.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: ${color}; color: white;
+            padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 10000; font-family: Arial, sans-serif; font-size: 14px; max-width: 350px;
+        `;
+        div.innerHTML = texto;
+        document.body.appendChild(div);
+
+        setTimeout(() => {
+            div.style.opacity = '0';
+            div.style.transition = 'opacity 0.3s';
+            setTimeout(() => document.body.removeChild(div), 300);
+        }, duracion);
+    }
+
+    // 🎯 INICIALIZAR DATOS DEMO (SOLO SI NO EXISTEN)
+    async function inicializarDemo() {
+        try {
+            const valoracionesRef = db.collection('empresas').doc(EMPRESA_ID).collection('valoraciones');
+            const snapshot = await valoracionesRef.limit(1).get();
+
+            if (!snapshot.empty) {
+                console.log('ℹ️ Datos ya existen, no se duplican');
+                return;
+            }
+
+            // Insertar valoraciones demo solo si no hay datos
+            const valoraciones = [
+                { nombre_persona: 'Laura Martínez', estrellas: 5, comentario: 'Increíble atención, el mejor sitio. Volveré seguro.', fecha: new Date(Date.now() - 3*24*60*60*1000).toISOString(), respuesta: null, origen: 'wordpress' },
+                { nombre_persona: 'Carlos Gómez', estrellas: 4, comentario: 'Muy buena atención y rapidez en el servicio.', fecha: new Date(Date.now() - 5*24*60*60*1000).toISOString(), respuesta: '¡Gracias Carlos! Nos alegra saber eso.', origen: 'wordpress' },
+                { nombre_persona: 'Ana López', estrellas: 5, comentario: 'Excelente experiencia, totalmente recomendado.', fecha: new Date(Date.now() - 8*24*60*60*1000).toISOString(), respuesta: null, origen: 'wordpress' },
+                { nombre_persona: 'Pedro Sánchez', estrellas: 5, comentario: 'Servicio de primera calidad, instalaciones perfectas.', fecha: new Date(Date.now() - 12*24*60*60*1000).toISOString(), respuesta: null, origen: 'wordpress' }
+            ];
+
+            const batch = db.batch();
+            valoraciones.forEach(v => {
+                const docRef = valoracionesRef.doc();
+                batch.set(docRef, v);
+            });
+            await batch.commit();
+
+            // Inicializar estadísticas con gráfico de 30 días
+            const visitasDiarias = [];
+            for (let i = 29; i >= 0; i--) {
+                const fecha = new Date();
+                fecha.setDate(fecha.getDate() - i);
+                visitasDiarias.push({
+                    fecha: fecha.toISOString().substring(0, 10),
+                    visitas: Math.floor(Math.random() * 50) + 20
+                });
+            }
+
+            await db.collection('empresas').doc(EMPRESA_ID).collection('estadisticas').doc('resumen').set({
+                visitas_web_mes: 1240,
+                visitas_web_mes_anterior: 980,
+                porcentaje_cambio_visitas: 26.5,
+                visitas_diarias: visitasDiarias,
+                fecha_actualizacion: new Date().toISOString()
+            }, { merge: true });
+
+            console.log('✅ Datos demo inicializados');
+        } catch (error) {
+            console.error('❌ Error inicializando demo:', error);
+        }
+    }
+
+    // 🚀 INICIAR TODO
+    async function iniciar() {
+        await registrarVisita();
+        detectarFormularios();
+        detectarResenas();
+        escucharRespuestas();
+        await inicializarDemo();
+
+        console.log('🎉 PlaneaGuada CRM iniciado correctamente');
+        mostrarMensaje('🔗 Conectado con PlaneaGuada CRM', '#4CAF50', 3000);
+    }
+
+    // ⚡ EJECUTAR
+    iniciar();
+});
+</script>

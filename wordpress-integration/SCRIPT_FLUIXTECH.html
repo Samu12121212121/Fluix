@@ -1,0 +1,191 @@
+<!-- ============================================================
+     🔥 PLANEAGUADA CRM - SCRIPT FOOTER DINÁMICO
+     Web: fluixtech.com
+     Empresa: FluxTech (propietario de la plataforma)
+     Versión: 2.0 — Con tracking de compras Stripe
+     ============================================================ -->
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── CONFIGURACIÓN ──────────────────────────────────────────────────────
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCvOaB1hF_sF-A6jMZ0MusttuhzSMDezb4",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  // ⚠️ ID FIJO de la empresa propietaria en Firestore — no cambiar
+  const EMPRESA_ID    = "fluixtech";
+  const DOMINIO_WEB   = "fluixtech.com";
+  const NOMBRE_EMPRESA = "FluxTech";
+
+  // ── ARRANQUE SEGURO ────────────────────────────────────────────────────
+  window.addEventListener('load', function () {
+    try { inicializar(); }
+    catch (e) { console.warn('FluxTech CRM script: error al inicializar', e); }
+  });
+
+  // ── INICIALIZACIÓN ─────────────────────────────────────────────────────
+  function inicializar() {
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    var db = firebase.firestore();
+    registrarVisita(db).catch(function(e) { console.warn('error visita', e); });
+    rastrearEventos(db).catch(function(e) { console.warn('error eventos', e); });
+    rastrearCompras(db).catch(function(e) { console.warn('error compras', e); });
+  }
+
+  // ── REGISTRAR VISITA ───────────────────────────────────────────────────
+  async function registrarVisita(db) {
+    var fechaHoy  = new Date().toISOString().substring(0, 10);
+    var pagina    = window.location.pathname || '/';
+    var hora      = new Date().getHours();
+    var referrer  = document.referrer || 'Directo';
+
+    await db.collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('web_resumen')
+      .set({
+        visitas_totales: firebase.firestore.FieldValue.increment(1),
+        visitas_mes:     firebase.firestore.FieldValue.increment(1),
+        ultima_visita:   firebase.firestore.FieldValue.serverTimestamp(),
+        sitio_web:       DOMINIO_WEB,
+        nombre_empresa:  NOMBRE_EMPRESA,
+        pagina_actual:   pagina,
+        referrer_actual: referrer
+      }, { merge: true });
+
+    await db.collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('visitas_' + fechaHoy)
+      .set({
+        fecha:          fechaHoy,
+        sitio:          DOMINIO_WEB,
+        visitas:        firebase.firestore.FieldValue.increment(1),
+        paginas_vistas: firebase.firestore.FieldValue.arrayUnion(pagina),
+        referrers:      firebase.firestore.FieldValue.arrayUnion(referrer),
+        ['visitas_hora_' + hora]: firebase.firestore.FieldValue.increment(1),
+        timestamp:      firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+    // También registrar en trafico_web (para ModuloEstadisticas)
+    await db.collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('trafico_web')
+      .set({
+        total_visitas:   firebase.firestore.FieldValue.increment(1),
+        visitas_mes:     firebase.firestore.FieldValue.increment(1),
+        ultima_visita:   firebase.firestore.FieldValue.serverTimestamp(),
+        dominio:         DOMINIO_WEB,
+      }, { merge: true });
+
+    console.log('✅ Visita registrada — ' + NOMBRE_EMPRESA + ' — ' + fechaHoy);
+  }
+
+  // ── RASTREAR EVENTOS ───────────────────────────────────────────────────
+  async function rastrearEventos(db) {
+    // Teléfono
+    document.querySelectorAll('a[href^="tel:"], .telefono, .phone')
+      .forEach(function(el) {
+        el.addEventListener('click', function() {
+          registrarEvento(db, 'llamada_telefonica', { numero: el.textContent || el.href });
+        });
+      });
+
+    // Formularios de contacto
+    document.querySelectorAll('form[id*="contact"], form[class*="contact"], .contact-form, [class*="wpcf7"]')
+      .forEach(function(form) {
+        form.addEventListener('submit', function() {
+          registrarEvento(db, 'formulario_contacto', {});
+        });
+      });
+
+    // WhatsApp
+    document.querySelectorAll('a[href*="wa.me"], a[href*="whatsapp"], .whatsapp-btn')
+      .forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          registrarEvento(db, 'whatsapp_click', {});
+        });
+      });
+
+    // Clicks en botones de planes/precios
+    document.querySelectorAll('[class*="price"], [class*="plan"], [class*="pricing"], [id*="plan"]')
+      .forEach(function(el) {
+        el.addEventListener('click', function() {
+          registrarEvento(db, 'click_plan', { texto: el.textContent?.trim().substring(0, 50) || '' });
+        });
+      });
+  }
+
+  async function registrarEvento(db, tipo, extra) {
+    await db.collection('empresas').doc(EMPRESA_ID)
+      .collection('eventos')
+      .add(Object.assign({
+        tipo:      tipo,
+        sitio:     DOMINIO_WEB,
+        pagina:    window.location.pathname,
+        fecha:     firebase.firestore.FieldValue.serverTimestamp()
+      }, extra));
+  }
+
+  // ── RASTREAR COMPRAS STRIPE ────────────────────────────────────────────
+  // Detecta si estamos en la página de éxito de pago (/gracias, /success, etc.)
+  // y registra el evento de compra para las estadísticas web
+  async function rastrearCompras(db) {
+    var path = window.location.pathname.toLowerCase();
+    var params = new URLSearchParams(window.location.search);
+
+    var esPaginaExito = (
+      path.includes('/gracias') ||
+      path.includes('/success') ||
+      path.includes('/thank') ||
+      params.get('payment') === 'success' ||
+      params.get('estado') === 'exito'
+    );
+
+    if (!esPaginaExito) return;
+
+    // Registrar conversión en estadísticas web
+    var fechaHoy = new Date().toISOString().substring(0, 10);
+    await db.collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('web_resumen')
+      .set({
+        conversiones_totales: firebase.firestore.FieldValue.increment(1),
+        conversiones_mes:     firebase.firestore.FieldValue.increment(1),
+      }, { merge: true });
+
+    await registrarEvento(db, 'compra_completada', {
+      fecha_str: fechaHoy,
+      session_id: params.get('session_id') || null
+    });
+
+    console.log('✅ Conversión (compra) registrada en estadísticas web');
+  }
+
+})();
+</script>
+
+<!--
+🎯 INSTRUCCIONES:
+1. Copia este código completo
+2. Pégalo en el footer de fluixtech.com (antes del </body>)
+3. En cada Checkout Session de Stripe, asegúrate de incluir:
+   - success_url: "https://fluixtech.com/gracias?session_id={CHECKOUT_SESSION_ID}"
+   - metadata: { empresa_id: "ID_EMPRESA_CLIENTE", paquete: "Nombre del plan" }
+
+📊 QUÉ REGISTRA ESTE SCRIPT:
+✓ Visitas (totales, por día, por hora)
+✓ Llamadas, formularios, clicks en WhatsApp
+✓ Clicks en botones de planes/precios
+✓ Conversiones (compras completadas)
+✓ Todo sincronizado en tiempo real con la app
+
+🌐 ID de empresa en Firestore: fluixtech
+-->

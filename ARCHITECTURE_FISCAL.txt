@@ -1,0 +1,251 @@
+// ARQUITECTURA FISCAL — App de Facturación Española
+// ====================================================
+//
+// Esta es la jerarquía y flujo de validaciones fiscales
+// integradas en la aplicación.
+
+/*
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│   ENTRADA: Usuario crea una factura en la aplicación                   │
+│                                                                         │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+         ┌─────────────────────────────────────────────┐
+         │  VALIDADOR FISCAL INTEGRAL                 │
+         │  (validador_fiscal_integral.dart)          │
+         │                                             │
+         │  • R1: Correlatividad de series             │
+         │  • R4: NIF válido (emisor + destinatario)  │
+         │  • R6: Sincronización de fecha/hora        │
+         │  • R7: Conservación 4 años                 │
+         │  • R8: Desglose de IVA por tipo            │
+         │  • R9: Series separadas (rectificativas)   │
+         │                                             │
+         └────────────┬─────────────────┬──────────────┘
+                      │                 │
+         ┌────────────▼──┐    ┌─────────▼──────────┐
+         │  VALIDO ✅    │    │  INVÁLIDO ❌       │
+         │               │    │  Mostrar error    │
+         │  Continuar ▼  │    │  + normativa      │
+         └────────────┬──┘    └──────────────────┘
+                      │
+                      ▼
+         ┌─────────────────────────────────┐
+         │  GENERAR FACTURA                │
+         │  (facturacion_service.dart)     │
+         │                                 │
+         │  1. Calcular totales            │
+         │  2. Asignar número correlativo  │
+         │  3. Registrar fecha/hora        │
+         │  4. Almacenar en Firestore      │
+         │                                 │
+         └────────────┬────────────────────┘
+                      │
+                      ▼
+         ┌────────────────────────────────────────┐
+         │  GENERAR DOCUMENTO DE FACTURA          │
+         │  (mod_303_service.dart, etc.)          │
+         │                                        │
+         │  A) MOD 303 DR303e26v101               │
+         │     • Página 01: IVA devengado        │
+         │     • Página 03: IVA deducible        │
+         │     • Envolvente + Cierre             │
+         │                                        │
+         │  B) MOD 349 (si intracomunitaria)     │
+         │     • Registro tipo 1 (declarante)    │
+         │     • Registros tipo 2 (operadores)   │
+         │     • Registros rectificación         │
+         │                                        │
+         └────────────┬─────────────────────────┘
+                      │
+                      ▼
+         ┌──────────────────────────────────────┐
+         │  GUARDAR LOCALMENTE                  │
+         │  • PDF en dispositivo                │
+         │  • XML en Firestore                  │
+         │  • Historial de cambios              │
+         │                                      │
+         └────────────┬───────────────────────┘
+                      │
+                      ▼
+    ┌─────────────────────────────────────────────┐
+    │  FASE 2: VERIFACTU (Roadmap Q2 2026)       │
+    │                                             │
+    │  ▼ Firma electrónica XAdES Enveloped      │
+    │  ▼ Hash chain (encadenamiento)             │
+    │  ▼ Validación representación (Anexo I/II/III)
+    │  ▼ Envío automático a AEAT                 │
+    │  ▼ Certificado cualificado EU Trusted List│
+    │                                             │
+    └──────────────────┬──────────────────────────┘
+                       │
+                       ▼
+         ┌──────────────────────────────┐
+         │  ARCHIVADO EN AEAT           │
+         │  ✅ Factura verificable      │
+         │  ✅ Compliant 100% normativa │
+         │                              │
+         └──────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+CAPAS DE VALIDACIÓN EN PARALELO
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        CAPA 1: DATOS DE ENTRADA                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ✓ NIF emisor (ValidadorFiscalIntegral.R4)                             │
+│  ✓ Nombre/razón social del emisor                                      │
+│  ✓ Domicilio del emisor                                                │
+│  ✓ NIF destinatario B2B (ValidadorFiscalIntegral.R4)                   │
+│  ✓ Tipo de IVA aplicable                                               │
+│  ✓ Descripción operación                                               │
+└─────────────────────────────────────────────────────────────────────────┘
+                             ▼▼▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│               CAPA 2: CORRELATIVIDAD Y SERIES                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ✓ Número correlativo (ValidadorFiscalIntegral.R1)                     │
+│  ✓ Serie correcta (rect/normal/auto)  (ValidadorFiscalIntegral.R9)    │
+│  ✓ Sin huecos en numeración (ValidadorFiscalIntegral.R1)              │
+│  ✓ Series separadas por tipo (ValidadorFiscalIntegral.R9)            │
+└─────────────────────────────────────────────────────────────────────────┘
+                             ▼▼▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                CAPA 3: CÁLCULOS FISCALES Y IVA                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ✓ Base imponible por tipo (ValidadorFiscalIntegral.R8)               │
+│  ✓ Cuota IVA por tipo (ValidadorFiscalIntegral.R8)                    │
+│  ✓ Desglose separado si hay múltiples tipos (R8)                     │
+│  ✓ Operaciones intracomunitarias → MOD 349                             │
+│  ✓ Exclusión automática de MOD 303 si es intracomunitaria              │
+└─────────────────────────────────────────────────────────────────────────┘
+                             ▼▼▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│              CAPA 4: TIEMPO Y CONSERVACIÓN                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ✓ Fecha/hora de expedición (ValidadorFiscalIntegral.R6)              │
+│  ✓ Diferencia < 1 minuto con sistema (R6)                            │
+│  ✓ Fecha de operación (si distinta)                                    │
+│  ✓ Plazo conservación 4 años (ValidadorFiscalIntegral.R7)            │
+│  ✓ Alertas de caducidad (R7)                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                             ▼▼▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│            CAPA 5: EXPORTACIÓN Y MODELOS FISCALES                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ✓ MOD 303: Liquidación IVA trimestral/mensual (DR303e26v101)         │
+│  ✓ MOD 349: Operaciones intracomunitarias (si aplica)                 │
+│  ✓ Desglose automático por casilla y período                           │
+│  ✓ Formateo posicional AEAT exacto                                     │
+│  ✓ Encoding ISO-8859-1                                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+FLUJO DE FACTURAS INTRACOMUNITARIAS (EU)
+
+  Cliente UE (NIF-IVA válido)
+           │
+           ▼
+  ✓ Marcar como intracomunitario
+  ✓ Validar NIF-IVA comunitario por país
+  ✓ IVA forzado a 0%
+  ✓ Texto legal: "Exenta de IVA - art. 25 Ley 37/1992"
+  ✓ Generar código QR (posición, importe, etc.)
+           │
+           ▼
+  OPCIÓN A: ENTREGA BIENES (Clave E)
+  └─→ Factura 0% IVA
+      → MOD 349 (registro tipo 2, operador)
+      → Excluir de MOD 303
+
+  OPCIÓN B: PRESTACIÓN SERVICIOS (Clave S)
+  └─→ Factura 0% IVA
+      → Texto: "Inversión del sujeto pasivo - art. 84 LIVA"
+      → MOD 349 (registro tipo 2, operador)
+      → Excluir de MOD 303
+
+═══════════════════════════════════════════════════════════════════════════
+
+ALMACENAMIENTO Y SEGURIDAD
+
+Firestore
+├─ /empresas/{empresaId}/
+│  ├─ facturas/{facturaId}
+│  │  └─ estado, nif, serie, número, fecha, importe, lineas, etc.
+│  │
+│  ├─ facturas_recibidas/{recibidaId}
+│  │  └─ nif_proveedor, base_imponible, iva_deducible, etc.
+│  │
+│  ├─ configuracion/fiscal
+│  │  └─ criterio_iva, nif_real, es_placeholder_legacy, etc.
+│  │
+│  └─ audit_trail/{eventId}
+│     └─ [Fase 3] usuario, accion, fecha, IP, hash_previo, etc.
+│
+Local Storage (Dispositivo)
+├─ PDF de facturas emitidas
+├─ XML de registros de facturación [Fase 2]
+├─ Certificados digitales [Fase 2]
+└─ Copias de seguridad locales
+
+═══════════════════════════════════════════════════════════════════════════
+
+MATRIZ DE RESPONSABILIDADES NORMATIVAS
+
+APLICACIÓN (PlaneaG)
+├─ R1: Correlatividad ........................... ✅ IMPLEMENTADO
+├─ R2: Hash chain .............................. ⏳ FASE 2 Verifactu
+├─ R3: Inalterabilidad (no deletions) ......... ✅ PARCIAL
+├─ R4: NIF válido .............................. ✅ IMPLEMENTADO
+├─ R5: Representación (Anexos I/II/III) ...... ⏳ FASE 2 Verifactu
+├─ R6: Sincronización tiempo .................. ✅ IMPLEMENTADO
+├─ R7: Conservación 4 años .................... ✅ MONITORIZADO
+├─ R8: Desglose IVA por tipo .................. ✅ IMPLEMENTADO
+├─ R9: Series separadas ....................... ✅ IMPLEMENTADO
+└─ R10: Firma cualificada ..................... ⏳ FASE 2 Verifactu
+
+INFRAESTRUCTURA (Firestore + BD)
+├─ Replicación segura ......................... 🔄 Cloud Native
+├─ Backups automáticos ........................ 🔄 Nativo GCP
+├─ Retention policies (4 años) ............... ⏳ Configurar
+└─ Auditoría de cambios ....................... ⏳ Habilitar
+
+USUARIO / EMPRESA
+├─ Mantener representación legal actualizada . 👤 Responsabilidad
+├─ Usar NIF real (no placeholder) ........... 👤 Responsabilidad
+├─ Confirmar precisión de datos .............. 👤 Responsabilidad
+├─ Respetar plazos de presentación (AEAT) ... 👤 Responsabilidad
+└─ Realizar auditorías periódicas ........... 👤 Recomendado
+
+═══════════════════════════════════════════════════════════════════════════
+*/
+
+// CÓDIGO DE REFERENCIA — Puntos de control clave
+
+// 1. CREACIÓN DE FACTURA CON VALIDACIÓN COMPLETA
+// en: facturacion_service.dart
+// Flujo: crearFactura() → validarFacturaCompleta() → StoreDB
+
+// 2. EXPORTACIÓN MOD 303
+// en: mod_303_service.dart → dr303e26v101_exporter.dart
+// Output: formato AEAT DR303e26v101 v1.01
+
+// 3. EXPORTACIÓN MOD 349
+// en: mod_349_service.dart → mod_349_exporter.dart
+// Output: formato AEAT posicional 500 chars + CRLF
+
+// 4. VALIDACIÓN INTEGRAL
+// en: validador_fiscal_integral.dart
+// Llamada: ValidadorFiscalIntegral.validarFacturaCompleta()
+
+// 5. MODELOS EXTENDIDOS
+// en: domain/modelos/factura.dart, empresa_config.dart, etc.
+// Campos: esIntracomunitario, nifIvaComunitario, tieneNifValido, etc.
+
+═══════════════════════════════════════════════════════════════════════════
+

@@ -1,0 +1,7 @@
+# Carpeta del icono de la app
+# Coloca aquí app_icon.png (1024x1024 px, sin transparencia para Android)
+# Para iOS puede tener transparencia.
+# Formato recomendado: PNG, 1024x1024 px
+# Una vez colocado, ejecuta:
+#   flutter pub run flutter_launcher_icons
+

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #00796B; padding-bottom: 10px; margin-bottom: 20px; }
+        .logo { max-height: 60px; }
+        .content { padding: 10px; }
+        .summary { background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .total { font-weight: bold; font-size: 1.2em; color: #00796B; border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px; }
+        .footer { text-align: center; font-size: 0.8em; color: #777; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {{#if logoUrl}}<img src="{{logoUrl}}" alt="Logo" class="logo">{{/if}}
+            <h2>Nómina: {{periodo}}</h2>
+        </div>
+        <div class="content">
+            <p>Hola <strong>{{empleadoNombre}}</strong>,</p>
+            <p>Adjunto encontrarás tu nómina correspondiente al período <strong>{{periodo}}</strong>.</p>
+
+            <div class="summary">
+                <div class="summary-item"><span>Salario Bruto:</span> <span>{{salarioBruto}}€</span></div>
+                <div class="summary-item"><span>Deducción SS:</span> <span>-{{deduccionSS}}€</span></div>
+                <div class="summary-item"><span>Retención IRPF:</span> <span>-{{retencionIRPF}}€</span></div>
+                <div class="summary-item total"><span>Líquido a Percibir:</span> <span>{{salarioNeto}}€</span></div>
+            </div>
+
+            <p>El documento PDF adjunto contiene el detalle completo con validez legal.</p>
+        </div>
+        <div class="footer">
+            <p>{{empresaNombre}}<br>{{empresaDireccion}}</p>
+            <p>Este es un mensaje automático, por favor no respondas a este correo.</p>
+        </div>
+    </div>
+</body>
+</html>

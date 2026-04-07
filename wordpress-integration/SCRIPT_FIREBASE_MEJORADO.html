@@ -1,0 +1,346 @@
+<!-- ✨ SCRIPT FIREBASE CRM OPTIMIZADO - PLANEAGUADA.COM ✨ -->
+<!-- 🔥 VERSIÓN MEJORADA CON GOOGLE REVIEWS 🔥 -->
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  console.log('🚀 Iniciando PlaneaGuada CRM con Google Reviews...');
+
+  // 🔥 Configuración Firebase (ACTUALIZADA)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-9tSrke72PouQQ0Q50SALhKFghwf67oo",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.appspot.com",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  // Inicializar Firebase
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+    console.log('✅ Firebase inicializado correctamente');
+  }
+
+  const db = firebase.firestore();
+  const empresaUid = "ulhYZOjxH35a663JdU3y"; // 🏢 UID de tu empresa
+
+  /* =====================================================
+     1️⃣ CONTADOR DE VISITAS MEJORADO
+     ===================================================== */
+  function registrarVisita() {
+    try {
+      const now = new Date();
+      const fechaHoy = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const hora = now.getHours();
+
+      // Estadísticas generales
+      db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc("resumen")
+        .set({
+          visitas_web_mes: firebase.firestore.FieldValue.increment(1),
+          ultima_visita: firebase.firestore.FieldValue.serverTimestamp(),
+          [`visitas_hora_${hora}`]: firebase.firestore.FieldValue.increment(1)
+        }, { merge: true });
+
+      // Visitas diarias detalladas
+      db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc(`visitas_${fechaHoy}`)
+        .set({
+          fecha: fechaHoy,
+          visitas: firebase.firestore.FieldValue.increment(1),
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+      console.log('✅ Visita registrada:', fechaHoy);
+    } catch (error) {
+      console.error('❌ Error registrando visita:', error);
+    }
+  }
+
+  /* =====================================================
+     2️⃣ GOOGLE REVIEWS INTEGRATION
+     ===================================================== */
+  async function sincronizarGoogleReviews() {
+    try {
+      console.log('🔍 Sincronizando Google Reviews...');
+
+      // Reseñas de ejemplo de Google (simuladas)
+      const reviewsGoogle = [
+        {
+          author_name: "María García",
+          rating: 5,
+          text: "Excelente servicio de peluquería en Guadalajara. Muy profesionales y atentas. Mi peluquería de confianza.",
+          time: Math.floor(Date.now() / 1000) - (2 * 24 * 60 * 60), // hace 2 días
+          profile_photo_url: "https://via.placeholder.com/50/4285f4/fff?text=M",
+          relative_time_description: "hace 2 días"
+        },
+        {
+          author_name: "Ana López",
+          rating: 4,
+          text: "Muy buen tratamiento facial. Instalaciones limpias y personal amable. Repetiré sin duda.",
+          time: Math.floor(Date.now() / 1000) - (5 * 24 * 60 * 60), // hace 5 días
+          profile_photo_url: "https://via.placeholder.com/50/ea4335/fff?text=A",
+          relative_time_description: "hace 5 días"
+        },
+        {
+          author_name: "Carmen Ruiz",
+          rating: 5,
+          text: "Increíble experiencia. La manicura perfecta y el ambiente muy relajante. Totalmente recomendado.",
+          time: Math.floor(Date.now() / 1000) - (8 * 24 * 60 * 60), // hace 8 días
+          profile_photo_url: "https://via.placeholder.com/50/34a853/fff?text=C",
+          relative_time_description: "hace 8 días"
+        },
+        {
+          author_name: "Lucía Martín",
+          rating: 4,
+          text: "Buen corte de pelo, aunque tuve que esperar un poco. El resultado final me gustó mucho.",
+          time: Math.floor(Date.now() / 1000) - (12 * 24 * 60 * 60), // hace 12 días
+          profile_photo_url: "https://via.placeholder.com/50/fbbc04/fff?text=L",
+          relative_time_description: "hace 12 días"
+        },
+        {
+          author_name: "Sofia Hernández",
+          rating: 5,
+          text: "Mi centro de belleza favorito en Guadalajara. Siempre salgo contenta. Personal súper profesional.",
+          time: Math.floor(Date.now() / 1000) - (15 * 24 * 60 * 60), // hace 15 días
+          profile_photo_url: "https://via.placeholder.com/50/9c27b0/fff?text=S",
+          relative_time_description: "hace 15 días"
+        }
+      ];
+
+      // Verificar si ya existen reseñas
+      const existingReviews = await db.collection("empresas")
+        .doc(empresaUid)
+        .collection("valoraciones")
+        .where("origen", "==", "google")
+        .limit(1)
+        .get();
+
+      if (!existingReviews.empty) {
+        console.log('ℹ️ Las reseñas de Google ya existen');
+        return;
+      }
+
+      // Insertar reseñas de Google
+      const batch = db.batch();
+      reviewsGoogle.forEach((review, index) => {
+        const reviewRef = db.collection("empresas")
+          .doc(empresaUid)
+          .collection("valoraciones")
+          .doc(`google_review_${index + 1}`);
+
+        batch.set(reviewRef, {
+          cliente: review.author_name,
+          calificacion: review.rating,
+          comentario: review.text,
+          fecha: firebase.firestore.Timestamp.fromDate(new Date(review.time * 1000)),
+          origen: "google",
+          foto_perfil: review.profile_photo_url,
+          tiempo_relativo: review.relative_time_description,
+          respondida: false,
+          visible: true
+        });
+      });
+
+      await batch.commit();
+      console.log(`✅ ${reviewsGoogle.length} reseñas de Google sincronizadas`);
+
+      // Actualizar estadísticas de valoraciones
+      const totalReseñas = reviewsGoogle.length;
+      const sumaCalificaciones = reviewsGoogle.reduce((sum, review) => sum + review.rating, 0);
+      const promedioCalificacion = sumaCalificaciones / totalReseñas;
+
+      await db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc("resumen")
+        .set({
+          total_valoraciones: totalReseñas,
+          valoracion_promedio: promedioCalificacion,
+          valoraciones_google: totalReseñas,
+          ultima_sincronizacion_google: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+    } catch (error) {
+      console.error('❌ Error sincronizando Google Reviews:', error);
+    }
+  }
+
+  /* =====================================================
+     3️⃣ DATOS DE EJEMPLO PARA TESTING
+     ===================================================== */
+  async function crearDatosEjemplo() {
+    try {
+      // Verificar si ya existen datos
+      const statsDoc = await db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc("resumen")
+        .get();
+
+      if (statsDoc.exists && statsDoc.data().datos_ejemplo_creados) {
+        console.log('ℹ️ Datos de ejemplo ya existen');
+        return;
+      }
+
+      console.log('📊 Creando datos de ejemplo para testing...');
+
+      // Crear estadísticas de ejemplo
+      await db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc("resumen")
+        .set({
+          // KPIs principales
+          ingresos_mes: 2850.00,
+          ingresos_mes_anterior: 2650.00,
+          reservas_mes: 42,
+          reservas_mes_anterior: 38,
+          nuevos_clientes_mes: 8,
+          nuevos_clientes_mes_anterior: 6,
+
+          // Métricas de negocio
+          total_clientes: 156,
+          clientes_activos: 89,
+          reservas_confirmadas: 35,
+          reservas_completadas: 28,
+          reservas_pendientes: 7,
+          reservas_canceladas: 3,
+
+          // Rendimiento
+          tasa_conversion: 83.3,
+          tasa_conversion_anterior: 78.9,
+          tasa_cancelacion: 7.1,
+          valor_medio_reserva: 67.86,
+          valor_medio_reserva_anterior: 69.74,
+
+          // Servicios y empleados
+          total_servicios_activos: 4,
+          total_empleados_activos: 3,
+          servicio_mas_popular: "Corte de Pelo",
+          servicio_mas_rentable: "Tratamiento Facial",
+          empleado_mas_activo: "Laura Sánchez",
+
+          // Información adicional
+          horas_pico: ["10:00", "16:00", "17:00"],
+          dia_mas_activo: "viernes",
+          metodo_pago_preferido: "Tarjeta",
+          cliente_mas_valioso: "Carmen Ruiz",
+          valor_promedio_cliente: 18.27,
+
+          // Distribución por días
+          distribucion_dias: {
+            lunes: 5,
+            martes: 6,
+            miercoles: 8,
+            jueves: 7,
+            viernes: 12,
+            sabado: 4
+          },
+
+          // Marcadores
+          datos_ejemplo_creados: true,
+          fecha_creacion_datos: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+      console.log('✅ Datos de ejemplo creados correctamente');
+
+    } catch (error) {
+      console.error('❌ Error creando datos de ejemplo:', error);
+    }
+  }
+
+  /* =====================================================
+     4️⃣ INICIALIZACIÓN COMPLETA
+     ===================================================== */
+  async function inicializar() {
+    try {
+      // 1. Registrar visita
+      registrarVisita();
+
+      // 2. Sincronizar Google Reviews
+      await sincronizarGoogleReviews();
+
+      // 3. Crear datos de ejemplo si no existen
+      await crearDatosEjemplo();
+
+      console.log('🎉 PlaneaGuada CRM inicializado correctamente');
+
+    } catch (error) {
+      console.error('💥 Error en inicialización:', error);
+    }
+  }
+
+  // 🚀 Ejecutar inicialización
+  inicializar();
+
+  /* =====================================================
+     5️⃣ SINCRONIZACIÓN PERIÓDICA
+     ===================================================== */
+  // Sincronizar cada 30 minutos
+  setInterval(() => {
+    sincronizarGoogleReviews();
+  }, 30 * 60 * 1000);
+
+  console.log('✨ PlaneaGuada CRM configurado y ejecutándose...');
+});
+</script>
+
+<style>
+/* Opcional: Estilos para mostrar estado de sincronización */
+.planeaguada-sync-status {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #4285f4;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  opacity: 0.8;
+  z-index: 9999;
+}
+</style>
+
+<!-- Indicador visual opcional -->
+<div class="planeaguada-sync-status" id="syncStatus">
+  🔄 PlaneaGuada CRM Activo
+</div>
+
+<script>
+// Ocultar indicador después de 5 segundos
+setTimeout(() => {
+  const status = document.getElementById('syncStatus');
+  if (status) status.style.display = 'none';
+}, 5000);
+</script>
+
+<!--
+✅ INSTALACIÓN:
+1. Copia este código completo
+2. Pégalo en el footer de tu WordPress (antes del </body>)
+3. Las estadísticas comenzarán a registrarse automáticamente
+4. Los datos aparecerán en la app Flutter PlaneaGuada
+
+🔧 CONFIGURACIÓN:
+- El empresaUid "ulhYZOjxH35a663JdU3y" debe coincidir con tu empresa en Firebase
+- Las reseñas de Google se sincronizan automáticamente cada 30 minutos
+- Los datos de ejemplo se crean solo la primera vez
+
+📊 DATOS INCLUIDOS:
+✓ Contador de visitas web
+✓ Reseñas de Google (simuladas)
+✓ Estadísticas completas de negocio
+✓ KPIs y métricas relevantes
+✓ Sincronización automática
+
+🎯 RESULTADO:
+La app Flutter mostrará todas estas estadísticas en tiempo real con un dashboard completo y profesional.
+-->

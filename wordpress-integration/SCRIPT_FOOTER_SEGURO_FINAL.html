@@ -1,0 +1,189 @@
+<!-- ============================================================
+     🔥 PLANEAGUADA CRM - SCRIPT FOOTER SEGURO     Web: fluixtech.com
+     Versión: FINAL SEGURA (no bloquea la web si Firebase falla)
+     ============================================================ -->
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── CONFIGURACIÓN ──────────────────────────────────────────────────────────
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCvOaB1hF_sF-A6jMZ0MusttuhzSMDezb4",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  const EMPRESA_ID = "ztZblwm1w71wNQtzHV7S"; // Fluixtech
+
+  // ── ARRANQUE SEGURO ────────────────────────────────────────────────────────
+  // Usamos window.addEventListener para no bloquear el DOMContentLoaded principal
+  window.addEventListener('load', function () {
+    try {
+      inicializar();
+    } catch (e) {
+      // Si falla, la web sigue funcionando con normalidad
+      console.warn('PlaneaGuada CRM: error al inicializar (la web funciona igualmente)', e);
+    }
+  });
+
+  // ── INICIALIZACIÓN ─────────────────────────────────────────────────────────
+  function inicializar() {
+    // Evitar doble inicialización
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+
+    var db = firebase.firestore();
+
+    // Ejecutar tareas de forma independiente: si una falla, las demás continúan
+    registrarVisita(db).catch(function (e) {
+      console.warn('PlaneaGuada: error registrando visita', e);
+    });
+
+    cargarContenidoDinamico(db).catch(function (e) {
+      console.warn('PlaneaGuada: error cargando contenido dinámico', e);
+    });
+  }
+
+  // ── REGISTRAR VISITA ───────────────────────────────────────────────────────
+  async function registrarVisita(db) {
+    var fechaHoy = new Date().toISOString().substring(0, 10);
+    var paginaActual = window.location.pathname || '/';
+
+    // Estadísticas generales
+    await db
+      .collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('web_resumen')
+      .set({
+        visitas_totales: firebase.firestore.FieldValue.increment(1),
+        visitas_mes:     firebase.firestore.FieldValue.increment(1),
+        ultima_visita:   firebase.firestore.FieldValue.serverTimestamp(),ra        sitio_web:       'fluixtech.com'
+      }, { merge: true });
+
+    // Visitas diarias (para gráfico en la app)
+    await db
+      .collection('empresas').doc(EMPRESA_ID)
+      .collection('estadisticas').doc('visitas_' + fechaHoy)
+      .set({
+        fecha:        fechaHoy,
+        visitas:      firebase.firestore.FieldValue.increment(1),
+        paginas:      firebase.firestore.FieldValue.arrayUnion(paginaActual),
+        timestamp:    firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+  }
+
+  // ── CONTENIDO DINÁMICO (secciones_web) ────────────────────────────────────
+  // Lee las secciones que tú configuras desde la app y las inyecta en la web.
+  // Busca divs con id="planeaguada_{tipo}" y los rellena.
+  // Ejemplo: <div id="planeaguada_carta"></div>
+  async function cargarContenidoDinamico(db) {
+    var snap = await db
+      .collection('empresas').doc(EMPRESA_ID)
+      .collection('secciones_web')
+      .get();
+
+    if (snap.empty) return;
+
+    snap.forEach(function (doc) {
+      try {
+        var seccion = doc.data();
+        if (!seccion.activa) return;
+
+        // Buscar el div correspondiente en la página
+        var contenedor = document.getElementById('planeaguada_' + seccion.tipo);
+        if (!contenedor) return;
+
+        // Renderizar elementos
+        var elementos = (seccion.elementos || []).filter(function (e) { return e.visible !== false; });
+        if (!elementos.length) return;
+
+        var html = '<div class="planeaguada-seccion">';
+        if (seccion.titulo) {
+          html += '<h3 class="planeaguada-titulo">' + escaparHTML(seccion.titulo) + '</h3>';
+        }
+        if (seccion.descripcion) {
+          html += '<p class="planeaguada-descripcion">' + escaparHTML(seccion.descripcion) + '</p>';
+        }
+        if (seccion.imagen_url) {
+          html += '<img src="' + escaparHTML(seccion.imagen_url) + '" alt="' + escaparHTML(seccion.titulo || '') + '" class="planeaguada-imagen" style="max-width:100%;border-radius:8px;margin:8px 0;">';
+        }
+        html += '<ul class="planeaguada-lista">';
+
+        elementos.forEach(function (el) {
+          html += '<li class="planeaguada-item">';
+          html += '<strong>' + escaparHTML(el.titulo || '') + '</strong>';
+          if (el.precio) {
+            html += ' — <span class="planeaguada-precio">€' + parseFloat(el.precio).toFixed(2) + '</span>';
+          }
+          if (el.descripcion) {
+            html += '<br><small>' + escaparHTML(el.descripcion) + '</small>';
+          }
+          if (el.imagen_url) {
+            html += '<br><img src="' + escaparHTML(el.imagen_url) + '" alt="' + escaparHTML(el.titulo || '') + '" style="max-width:100%;border-radius:4px;margin-top:4px;">';
+          }
+          html += '</li>';
+        });
+
+        html += '</ul></div>';
+        contenedor.innerHTML = html;
+
+      } catch (eSeccion) {
+        console.warn('PlaneaGuada: error renderizando sección', eSeccion);
+      }
+    });
+  }
+
+  // ── UTILIDADES ─────────────────────────────────────────────────────────────
+  function escaparHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+})();
+</script>
+
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║  📋 INSTRUCCIONES PARA WORDPRESS - DAMAJUANAGUADALAJARA.COM      ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  1. Apariencia → Editor de temas (o usa un plugin como          ║
+║     "Insert Headers and Footers" o "WPCode")                    ║
+║                                                                  ║
+║  2. Pega TODO este bloque justo antes del </body>               ║
+║                                                                  ║
+║  3. IMPORTANTE: Si ya tenías un script anterior de PlaneaGuada  ║
+║     BÓRRALO primero para evitar conflictos.                     ║
+║                                                                  ║
+║  ✅ CARACTERÍSTICAS DE ESTA VERSIÓN:                            ║
+║  • No bloquea la web aunque Firebase falle                      ║
+║  • No sobreescribe datos de la empresa                          ║
+║  • Registra visitas diarias para el gráfico de la app           ║
+║  • Muestra contenido dinámico que configures desde la app       ║
+║                                                                  ║
+║  📌 PARA MOSTRAR CONTENIDO DINÁMICO EN LA WEB:                 ║
+║  Añade divs con el id correspondiente donde quieras que         ║
+║  aparezca el contenido que gestiones desde la app:              ║
+║                                                                  ║
+║  <div id="planeaguada_carta"></div>       → Carta del menú     ║
+║  <div id="planeaguada_ofertas"></div>     → Ofertas del día    ║
+║  <div id="planeaguada_servicios"></div>   → Lista servicios    ║
+║  <div id="planeaguada_vinos"></div>       → Carta de vinos     ║
+║  <div id="planeaguada_eventos"></div>     → Próximos eventos   ║
+║  (el tipo lo defines tú al crear la sección en la app)         ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+

@@ -1,0 +1,103 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STORAGE RULES — Fluix CRM
+    //
+    // LIMITACIÓN: Storage rules NO pueden consultar Firestore.
+    // No es posible verificar empresa_id del usuario contra Firestore.
+    // Se usa request.auth != null como mínimo + custom claims si disponibles.
+    // Las rutas más sensibles (certificados) están bloqueadas: solo Admin SDK.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── FUNCIÓN AUXILIAR ────────────────────────────────────────────────────
+    // Verificar custom claim de empresa (si se implementa en el futuro)
+    // function perteneceAEmpresa(empresaId) {
+    //   return request.auth.token.empresa_id == empresaId;
+    // }
+
+    // ── RUTAS PÚBLICAS (catálogo web, logo, web content) ────────────────────
+
+    // Logo de la empresa — visible públicamente (para la web)
+    match /empresas/{empresaId}/logo.jpg {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024  // max 5MB
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Catálogo de productos — lectura pública (widgets web, WordPress)
+    match /empresas/{empresaId}/catalogo/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024  // max 10MB
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Contenido web público (imágenes de secciones, blog, etc.)
+    match /empresas/{empresaId}/web/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // ── RUTAS PROTEGIDAS (solo usuarios autenticados) ───────────────────────
+
+    // Documentos de empleados (foto, contratos, etc.)
+    // Solo admin/propietario debería acceder — verificación completa en app
+    match /empresas/{empresaId}/empleados/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024  // max 20MB
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+    }
+
+    // Facturas (PDFs generados)
+    match /empresas/{empresaId}/facturas/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Finiquitos (PDFs firmados)
+    match /empresas/{empresaId}/finiquitos/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Nóminas (PDFs) — el empleado puede leer las suyas, admin las de todos
+    // NOTA: Storage rules no pueden filtrar por empleado_id.
+    // La restricción real se aplica en Firestore (nominas rule) y en la app.
+    match /empresas/{empresaId}/nominas/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Adjuntos de tareas
+    match /empresas/{empresaId}/tareas/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024; // max 50MB
+    }
+
+    // ── CERTIFICADOS DIGITALES — NUNCA accesibles desde el cliente ──────────
+    // Solo Cloud Functions (Admin SDK) puede leer/escribir .p12/.pfx
+    match /empresas/{empresaId}/certificados/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // ── REGLA POR DEFECTO: denegar todo lo demás ────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

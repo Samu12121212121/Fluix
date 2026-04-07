@@ -1,0 +1,165 @@
+{
+  "__collections__": {
+    "convenios": {
+      "hosteleria-guadalajara": {
+        "nombre": "Convenio Colectivo de Hostelería de la provincia de Guadalajara",
+        "ambito": "provincial",
+        "sector": "hosteleria",
+        "tipo_convenio": "sectorial_provincial",
+        "vigencia": { "inicio": "2025-01-01", "fin": "2026-12-31" },
+        "fuente": { "documento": "Tablas provisionales 2026", "version": "v1" },
+        "__collections__": {
+          "categorias": {
+            "nivel-1": {
+              "id": "nivel-1",
+              "nombre": "Nivel 1",
+              "grupo_profesional": "Grupo establecimiento 1",
+              "salario_base_mensual": 1569.03,
+              "salario_anual": 22499.10,
+              "num_pagas": 15
+            },
+            "nivel-2": {
+              "id": "nivel-2",
+              "nombre": "Nivel 2",
+              "grupo_profesional": "Grupo establecimiento 2",
+              "salario_base_mensual": 1512.91,
+              "salario_anual": 21709.50,
+              "num_pagas": 15
+            },
+            "nivel-3": {
+              "id": "nivel-3",
+              "nombre": "Nivel 3",
+              "grupo_profesional": "Grupo establecimiento 3",
+              "salario_base_mensual": 1438.86,
+              "salario_anual": 20667.73,
+              "num_pagas": 15
+            },
+            "nivel-4": {
+              "id": "nivel-4",
+              "nombre": "Nivel 4",
+              "grupo_profesional": "Grupo establecimiento 4",
+              "salario_base_mensual": 1342.08,
+              "salario_anual": 19306.11,
+              "num_pagas": 15
+            },
+            "nivel-5": {
+              "id": "nivel-5",
+              "nombre": "Nivel 5",
+              "grupo_profesional": "Grupo establecimiento 5",
+              "salario_base_mensual": 1290.80,
+              "salario_anual": 18584.71,
+              "num_pagas": 15
+            }
+          },
+          "pluses": {
+            "nocturnidad": {"id": "nocturnidad", "nombre": "Plus de Nocturnidad", "tipo": "porcentaje", "importe": 25.0, "base_calculo": "salario_base_hora"},
+            "transporte": {"id": "transporte", "nombre": "Plus de Transporte", "tipo": "fijo", "importe": 80.0, "base_calculo": "mes"},
+            "festivos": {"id": "festivos", "nombre": "Plus de Festivos", "tipo": "fijo", "importe": 50.0, "base_calculo": "dia_festivo_trabajado"}
+          }
+        }
+      },
+      "comercio-guadalajara": {
+        "nombre": "Convenio Colectivo de Comercio de la provincia de Guadalajara",
+        "ambito": "provincial",
+        "sector": "comercio",
+        "tipo_convenio": "sectorial_provincial",
+        "vigencia": { "inicio": "2026-01-01", "fin": "2026-12-31" },
+        "fuente": { "documento": "Tabla salarial 2026", "version": "v1" },
+        "__collections__": {
+          "categorias": {
+            "grp1-nivel1": {
+              "id": "grp1-nivel1",
+              "nombre": "Alta responsabilidad / Dirección tienda",
+              "grupo_profesional": "Grupo 1",
+              "salario_base_mensual": 1700.0,
+              "salario_anual": 25900.0,
+              "num_pagas": 14
+            },
+            "grp2-nivel2": {
+              "id": "grp2-nivel2",
+              "nombre": "Jefes de sección / Vendedores cualificados",
+              "grupo_profesional": "Grupo 2",
+              "salario_base_mensual": 1400.0,
+              "salario_anual": 21000.0,
+              "num_pagas": 14
+            },
+            "grp3-nivel3": {
+              "id": "grp3-nivel3",
+              "nombre": "Dependientes / Reponedores",
+              "grupo_profesional": "Grupo 3",
+              "salario_base_mensual": 1200.0,
+              "salario_anual": 17920.0,
+              "num_pagas": 14
+            },
+            "grp4-nivel4": {
+              "id": "grp4-nivel4",
+              "nombre": "Personal base / Auxiliares",
+              "grupo_profesional": "Grupo 4",
+              "salario_base_mensual": 1050.0,
+              "salario_anual": 15400.0,
+              "num_pagas": 14
+            }
+          },
+          "pluses": {
+            "plus_jornada_6_dias": {"id": "plus_jornada_6_dias", "nombre": "Plus jornada 6 días", "tipo": "fijo_mensual", "importe": 120},
+            "apertura_domingos": {"id": "apertura_domingos", "nombre": "Apertura domingos", "tipo": "fijo_por_dia", "importe": 85},
+            "plus_conductor": {"id": "plus_conductor", "nombre": "Plus conductor", "tipo": "fijo_mensual", "importe": 50},
+            "dietas": {"id": "dietas", "nombre": "Dietas", "tipo": "fijo_por_dia", "importe": 25},
+            "media_dieta": {"id": "media_dieta", "nombre": "Media dieta", "tipo": "fijo_por_dia", "importe": 12.5}
+          }
+        }
+      },
+      "peluqueria-estetica-gimnasios": {
+        "nombre": "Peluquerías, Estética y Gimnasios 2024-2026",
+        "ambito": "estatal",
+        "sector": "peluqueria-estetica-gimnasios",
+        "tipo_convenio": "sectorial_estatal",
+        "vigencia": { "inicio": "2024-01-01", "fin": "2026-12-31" },
+        "fuente": { "documento": "Tablas oficiales 2026 BOE", "version": "v1" },
+        "__collections__": {
+          "categorias": {
+            "grupo-i": {
+              "id": "grupo-i",
+              "nombre": "Grupo I",
+              "grupo_profesional": "Grupo I",
+              "salario_base_mensual": 1250.0,
+              "salario_anual": 17500.0,
+              "num_pagas": 14
+            },
+            "grupo-ii": {
+              "id": "grupo-ii",
+              "nombre": "Grupo II",
+              "grupo_profesional": "Grupo II",
+              "salario_base_mensual": 1325.0,
+              "salario_anual": 18550.0,
+              "num_pagas": 14
+            },
+            "grupo-iii": {
+              "id": "grupo-iii",
+              "nombre": "Grupo III",
+              "grupo_profesional": "Grupo III",
+              "salario_base_mensual": 1350.0,
+              "salario_anual": 18900.0,
+              "num_pagas": 14
+            },
+            "grupo-iv": {
+              "id": "grupo-iv",
+              "nombre": "Grupo IV",
+              "grupo_profesional": "Grupo IV",
+              "salario_base_mensual": 1375.0,
+              "salario_anual": 19250.0,
+              "num_pagas": 14
+            }
+          },
+          "pluses": {
+            "plus_transporte": {"id": "plus_transporte", "nombre": "Plus transporte", "tipo": "fijo", "importe": 0, "base_calculo": "mes"}
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+

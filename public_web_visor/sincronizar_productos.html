@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sincronizar Productos → Firebase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f4f6f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 800;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+    .logo span { color: #4f46e5; }
+    .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .empresa-badge {
+      background: #eef2ff;
+      color: #4f46e5;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-bottom: 24px;
+      font-family: monospace;
+    }
+    .productos-lista {
+      margin-bottom: 28px;
+    }
+    .productos-lista h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .producto-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #f9fafb;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .producto-item .id   { color: #6b7280; font-family: monospace; font-size: 12px; }
+    .producto-item .nom  { color: #111827; font-weight: 500; }
+    .producto-item .prec { color: #4f46e5; font-weight: 600; }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #d1d5db;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-sync {
+      background: #4f46e5;
+      color: white;
+    }
+    .btn-sync:hover { background: #4338ca; transform: translateY(-1px); }
+    .btn-sync:disabled { background: #a5b4fc; cursor: not-allowed; transform: none; }
+    .log-area {
+      margin-top: 20px;
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 13px;
+      color: #94a3b8;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .log-area.visible { display: block; }
+    .log-line { margin-bottom: 4px; }
+    .log-line.ok  { color: #4ade80; }
+    .log-line.err { color: #f87171; }
+    .log-line.inf { color: #60a5fa; }
+    .result-banner {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-banner.ok  { background: #dcfce7; color: #166534; display: flex; }
+    .result-banner.err { background: #fee2e2; color: #991b1b; display: flex; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">Fluix<span>Tech</span></div>
+  <div class="subtitle">Panel de sincronización · Productos → Firebase</div>
+
+  <div class="empresa-badge" id="badge-empresa">Cargando empresa...</div>
+
+  <div class="productos-lista">
+    <h3>Productos detectados</h3>
+    <div id="lista-productos">
+      <!-- se rellena por JS -->
+    </div>
+  </div>
+
+  <button class="btn btn-sync" id="btn-sync" disabled>
+    ⏳ Cargando Firebase...
+  </button>
+
+  <div class="log-area" id="log-area"></div>
+  <div class="result-banner" id="result-banner"></div>
+</div>
+
+<!-- ── DATOS DE PRODUCTOS (extraídos del productos.html) ───────── -->
+<script>
+  var EMPRESA_ID = 'ztZblwm1w71wNQtzHV7S';
+  var SECCION_ID = 'productos';
+
+  // Lista de productos a sincronizar
+  // Edita aquí si añades o quitas productos
+  var PRODUCTOS = [
+    {
+      id:          'pack_nominas',
+      nombre:      'Pack Nóminas – 300 € + 3 €/empleado/mes',
+      descripcion: 'Gestión completa de nóminas para tu empresa.',
+      precio:      300.00,
+      categoria:   'Gestión',
+      disponible:  true,
+      imagen:      '',
+      imagen_url:  ''
+    },
+    {
+      id:          'pack_tienda_online',
+      nombre:      'Pack Tienda Online – 450 €',
+      descripcion: 'Tienda online completa con gestión de pedidos.',
+      precio:      450.00,
+      categoria:   'E-commerce',
+      disponible:  true,
+      imagen:      '',
+      imagen_url:  ''
+    },
+    {
+      id:          'pack_gestion',
+      nombre:      'Pack Gestión – 300 €',
+      descripcion: 'Control total de la gestión de tu negocio.',
+      precio:      300.00,
+      categoria:   'Gestión',
+      disponible:  true,
+      imagen:      '',
+      imagen_url:  ''
+    },
+    {
+      id:          'pack_basico',
+      nombre:      'Pack Básico – 250 €',
+      descripcion: 'Todo lo esencial para empezar.',
+      precio:      250.00,
+      categoria:   'Básico',
+      disponible:  true,
+      imagen:      '',
+      imagen_url:  ''
+    },
+    {
+      id:          'compra_facil',
+      nombre:      'Compra fácil aquí',
+      descripcion: 'Producto de prueba para pago rápido.',
+      precio:      0.01,
+      categoria:   'Otros',
+      disponible:  true,
+      imagen:      'https://images.unsplash.com/photo-1699293935954-47d86d319ef0?auto=format&fit=crop&w=328&h=410&q=100',
+      imagen_url:  'https://images.unsplash.com/photo-1699293935954-47d86d319ef0?auto=format&fit=crop&w=328&h=410&q=100'
+    }
+  ];
+
+  // ── UI inicial ──────────────────────────────────────────────────
+  document.getElementById('badge-empresa').textContent = '🏢 ' + EMPRESA_ID;
+
+  var lista = document.getElementById('lista-productos');
+  PRODUCTOS.forEach(function(p) {
+    var div = document.createElement('div');
+    div.className = 'producto-item';
+    div.innerHTML =
+      '<div style="display:flex;align-items:center">' +
+        '<div class="status-dot" id="dot-' + p.id + '"></div>' +
+        '<div>' +
+          '<div class="nom">' + p.nombre + '</div>' +
+          '<div class="id">' + p.id + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="prec">€' + p.precio.toFixed(2) + '</div>';
+    lista.appendChild(div);
+  });
+
+  // ── LOG ────────────────────────────────────────────────────────
+  function log(msg, tipo) {
+    var area = document.getElementById('log-area');
+    area.classList.add('visible');
+    var line = document.createElement('div');
+    line.className = 'log-line ' + (tipo || '');
+    line.textContent = (new Date().toLocaleTimeString()) + '  ' + msg;
+    area.appendChild(line);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  // ── FIREBASE ───────────────────────────────────────────────────
+  var firebaseConfig = {
+    apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain:        "planeaapp-4bea4.firebaseapp.com",
+    projectId:         "planeaapp-4bea4",
+    storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  function cargarScript(src, cb) {
+    var s = document.createElement('script');
+    s.src = src; s.onload = cb;
+    document.head.appendChild(s);
+  }
+
+  var db;
+
+  function iniciarFirebase() {
+    log('Conectando con Firebase...', 'inf');
+    var app = firebase.apps.length
+      ? firebase.apps[0]
+      : firebase.initializeApp(firebaseConfig, 'FluixSync');
+    db = app.firestore();
+    log('Firebase conectado ✓', 'ok');
+    var btn = document.getElementById('btn-sync');
+    btn.disabled = false;
+    btn.textContent = '🚀 Sincronizar ' + PRODUCTOS.length + ' productos con la App';
+  }
+
+  // ── SINCRONIZACIÓN ─────────────────────────────────────────────
+  function sincronizar() {
+    var btn = document.getElementById('btn-sync');
+    btn.disabled = true;
+    btn.textContent = '⏳ Sincronizando...';
+
+    log('Iniciando sincronización de ' + PRODUCTOS.length + ' productos...', 'inf');
+
+    var ahora = new Date();
+
+    db.collection('empresas').doc(EMPRESA_ID)
+      .collection('contenido_web').doc(SECCION_ID)
+      .set({
+        tipo:               'carta',
+        nombre:             'Productos',
+        descripcion:        'Productos y servicios de la empresa',
+        activa:             true,
+        orden:              1,
+        fecha_creacion:     ahora,
+        fecha_actualizacion: ahora,
+        contenido: {
+          titulo:      'Productos',
+          items_carta: PRODUCTOS
+        }
+      })
+      .then(function() {
+        PRODUCTOS.forEach(function(p) {
+          var dot = document.getElementById('dot-' + p.id);
+          if (dot) dot.style.background = '#4ade80';
+          log('✓ ' + p.nombre, 'ok');
+        });
+
+        log('✅ Sincronización completada. La App ya puede ver y editar los productos.', 'ok');
+
+        var banner = document.getElementById('result-banner');
+        banner.className = 'result-banner ok';
+        banner.innerHTML = '✅ ¡Listo! ' + PRODUCTOS.length + ' productos sincronizados. Ahora ábrelos en la App para editarlos.';
+
+        btn.textContent = '✅ Sincronizado correctamente';
+      })
+      .catch(function(err) {
+        log('❌ Error: ' + err.message, 'err');
+        var banner = document.getElementById('result-banner');
+        banner.className = 'result-banner err';
+        banner.innerHTML = '❌ Error: ' + err.message;
+        btn.disabled = false;
+        btn.textContent = '🔄 Reintentar';
+      });
+  }
+
+  document.getElementById('btn-sync').addEventListener('click', sincronizar);
+
+  // ── CARGAR FIREBASE AL INICIO ──────────────────────────────────
+  cargarScript(
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+    function() {
+      cargarScript(
+        'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',
+        iniciarFirebase
+      );
+    }
+  );
+</script>
+</body>
+</html>
+

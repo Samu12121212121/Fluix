@@ -1,0 +1,504 @@
+<!-- 🌟 SCRIPT DINÁMICO FLUIXTECH - CONTENIDO WEB ACTUALIZABLE 🌟 -->
+<!-- 🔗 Web: fluixtech.com | CRM: PlaneaGuada 🔗 -->
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  console.log('🌟 Iniciando CONTENIDO DINÁMICO para Fluixtech...');
+
+  // 🔥 Configuración Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-9tSrke72PouQQ0Q50SALhKFghwf67oo",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.appspot.com",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  // Inicializar Firebase
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+    console.log('✅ Firebase inicializado para contenido dinámico');
+  }
+
+  const db = firebase.firestore();
+  const empresaUid = "ztZblwm1w71wNQtzHV7S"; // 🏪 Dama Juana Guadalajara
+
+  /* =====================================================
+     🎯 CARGAR CONTENIDO DINÁMICO EN TIEMPO REAL
+     ===================================================== */
+  function cargarContenidoDinamico() {
+    console.log('🔄 Cargando contenido dinámico desde PlaneaGuada CRM...');
+
+    // Escuchar cambios en tiempo real
+    db.collection('empresas')
+      .doc(empresaUid)
+      .collection('contenido_web')
+      .where('activa', '==', true)
+      .orderBy('orden', 'asc')
+      .onSnapshot((snapshot) => {
+        console.log('📦 Actualizando contenido dinámico...');
+
+        snapshot.docs.forEach((doc) => {
+          const seccion = doc.data();
+          actualizarSeccionEnWeb(seccion);
+        });
+
+        console.log('✅ Contenido dinámico actualizado');
+      }, (error) => {
+        console.error('❌ Error escuchando cambios:', error);
+        // Fallback con datos estáticos
+        cargarDatosEstaticos();
+      });
+  }
+
+  /* =====================================================
+     🔧 ACTUALIZAR SECCIÓN ESPECÍFICA EN LA WEB
+     ===================================================== */
+  function actualizarSeccionEnWeb(seccion) {
+    const contenedor = document.getElementById(`planeaguada_${seccion.id}`);
+    if (!contenedor) {
+      console.warn(`⚠️ Contenedor planeaguada_${seccion.id} no encontrado`);
+      return;
+    }
+
+    console.log(`🔄 Actualizando sección: ${seccion.nombre}`);
+
+    let html = '';
+
+    if (seccion.elementos && seccion.elementos.length > 0) {
+      // Header de la sección
+      html += `<div class="planeaguada-seccion" data-tipo="${seccion.tipo}">`;
+      html += `  <h3 class="planeaguada-titulo">${seccion.nombre}</h3>`;
+      html += `  <div class="planeaguada-elementos">`;
+
+      // Renderizar elementos
+      seccion.elementos
+        .filter(elemento => elemento.visible)
+        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+        .forEach((elemento) => {
+          html += `    <div class="planeaguada-elemento" data-tipo="${seccion.tipo}">`;
+          html += `      <h4 class="planeaguada-elemento-titulo">${elemento.titulo}</h4>`;
+
+          if (elemento.descripcion) {
+            html += `      <p class="planeaguada-elemento-descripcion">${elemento.descripcion}</p>`;
+          }
+
+          // Precio (para ofertas, carta, servicios)
+          if (elemento.precio && (seccion.tipo === 'ofertas' || seccion.tipo === 'carta' || seccion.tipo === 'servicios')) {
+            html += `      <span class="planeaguada-precio">€${elemento.precio.toFixed(2)}</span>`;
+          }
+
+          // Campos personalizados
+          if (elemento.campos_personalizados) {
+            Object.entries(elemento.campos_personalizados).forEach(([key, value]) => {
+              html += `      <div class="planeaguada-campo-${key}">${value}</div>`;
+            });
+          }
+
+          html += `    </div>`;
+        });
+
+      html += `  </div>`;
+      html += `</div>`;
+    } else {
+      // Sección vacía
+      html += `<div class="planeaguada-vacio">`;
+      html += `  <p>No hay elementos en ${seccion.nombre}</p>`;
+      html += `</div>`;
+    }
+
+    // Actualizar el contenido
+    contenedor.innerHTML = html;
+  }
+
+  /* =====================================================
+     📊 REGISTRAR ESTADÍSTICAS DE LA WEB
+     ===================================================== */
+  function registrarEstadisticasWeb() {
+    try {
+      const now = new Date();
+      const fechaHoy = now.toISOString().split('T')[0];
+      const paginaActual = window.location.pathname;
+
+      db.collection("empresas")
+        .doc(empresaUid)
+        .collection("estadisticas")
+        .doc("web_resumen")
+        .set({
+          sitio_web: "fluixtech.com",
+          visitas_totales: firebase.firestore.FieldValue.increment(1),
+          visitas_mes: firebase.firestore.FieldValue.increment(1),
+          ultima_visita: firebase.firestore.FieldValue.serverTimestamp(),
+          pagina_actual: paginaActual,
+          tiene_contenido_dinamico: true
+        }, { merge: true });
+
+      console.log('✅ Estadísticas web registradas');
+    } catch (error) {
+      console.error('❌ Error registrando estadísticas:', error);
+    }
+  }
+
+  /* =====================================================
+     🎭 DATOS ESTÁTICOS DE FALLBACK
+     ===================================================== */
+  function cargarDatosEstaticos() {
+    console.log('📋 Cargando datos estáticos de fallback...');
+
+    // Datos de emergencia para Dama Juana
+    const seccionesEstaticas = [
+      {
+        id: 'ofertas_mes',
+        nombre: 'Ofertas del Mes',
+        tipo: 'ofertas',
+        elementos: [
+          {
+            titulo: '20% Descuento en Coloración',
+            descripcion: 'Válido hasta fin de mes en todos nuestros servicios de coloración profesional',
+            precio: null,
+            visible: true,
+            campos_personalizados: {
+              'descuento': '20% OFF',
+              'validez': 'Hasta 31/12'
+            }
+          },
+          {
+            titulo: 'Pack Belleza Completo',
+            descripcion: 'Corte + Coloración + Tratamiento por un precio especial',
+            precio: 89.99,
+            visible: true,
+            campos_personalizados: {
+              'ahorro': 'Ahorra 25€'
+            }
+          }
+        ]
+      },
+      {
+        id: 'servicios_destacados',
+        nombre: 'Servicios Destacados',
+        tipo: 'servicios',
+        elementos: [
+          {
+            titulo: 'Corte de Pelo Profesional',
+            descripcion: 'Corte personalizado según tu estilo y tipo de cabello',
+            precio: 28.00,
+            visible: true,
+            campos_personalizados: {}
+          },
+          {
+            titulo: 'Coloración Completa',
+            descripcion: 'Tinte profesional con productos de alta calidad',
+            precio: 65.00,
+            visible: true,
+            campos_personalizados: {}
+          },
+          {
+            titulo: 'Tratamiento Capilar',
+            descripcion: 'Mascarilla nutritiva y reparadora para tu cabello',
+            precio: 45.00,
+            visible: true,
+            campos_personalizados: {}
+          }
+        ]
+      }
+    ];
+
+    // Renderizar secciones estáticas
+    seccionesEstaticas.forEach(seccion => {
+      actualizarSeccionEnWeb(seccion);
+    });
+  }
+
+  /* =====================================================
+     🎨 ESTILOS CSS DINÁMICOS
+     ===================================================== */
+  function aplicarEstilos() {
+    // Verificar si ya existen los estilos
+    if (document.getElementById('planeaguada-styles')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'planeaguada-styles';
+    style.textContent = `
+      /* 🎨 Estilos PlaneaGuada CRM - Dama Juana Guadalajara */
+      .planeaguada-seccion {
+        margin: 25px 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      }
+
+      .planeaguada-titulo {
+        font-size: 1.8em;
+        font-weight: bold;
+        margin-bottom: 20px;
+        color: #2c3e50;
+        text-align: center;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+      }
+
+      .planeaguada-elementos {
+        display: grid;
+        gap: 15px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .planeaguada-elemento {
+        padding: 18px;
+        background: white;
+        border: 1px solid #e1e8ed;
+        border-radius: 10px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+      }
+
+      .planeaguada-elemento:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      }
+
+      .planeaguada-elemento-titulo {
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2c3e50;
+        font-size: 1.1em;
+      }
+
+      .planeaguada-elemento-descripcion {
+        color: #666;
+        margin-bottom: 12px;
+        line-height: 1.5;
+        font-size: 0.95em;
+      }
+
+      .planeaguada-precio {
+        color: #e74c3c;
+        font-weight: bold;
+        font-size: 1.3em;
+        background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: block;
+        margin-top: 8px;
+      }
+
+      /* Estilos específicos por tipo */
+      .planeaguada-elemento[data-tipo="ofertas"] {
+        border-left: 4px solid #e74c3c;
+        background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+      }
+
+      .planeaguada-elemento[data-tipo="servicios"] {
+        border-left: 4px solid #3498db;
+        background: linear-gradient(135deg, #f0f8ff 0%, #dbeafe 100%);
+      }
+
+      .planeaguada-elemento[data-tipo="carta"] {
+        border-left: 4px solid #27ae60;
+        background: linear-gradient(135deg, #f0fff4 0%, #d4edda 100%);
+      }
+
+      /* Campos personalizados */
+      .planeaguada-campo-descuento {
+        background: #e74c3c;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: bold;
+        display: inline-block;
+        margin-top: 8px;
+      }
+
+      .planeaguada-campo-validez {
+        color: #7f8c8d;
+        font-size: 0.8em;
+        font-style: italic;
+        margin-top: 5px;
+      }
+
+      .planeaguada-campo-ahorro {
+        background: #27ae60;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 15px;
+        font-size: 0.75em;
+        font-weight: bold;
+        position: absolute;
+        top: -8px;
+        right: 10px;
+      }
+
+      .planeaguada-vacio {
+        padding: 30px;
+        text-align: center;
+        color: #999;
+        font-style: italic;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 2px dashed #dee2e6;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .planeaguada-elementos {
+          grid-template-columns: 1fr;
+        }
+
+        .planeaguada-titulo {
+          font-size: 1.4em;
+        }
+
+        .planeaguada-elemento {
+          padding: 15px;
+        }
+      }
+
+      /* Animación de entrada */
+      .planeaguada-elemento {
+        animation: fadeInUp 0.6s ease-out;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /* =====================================================
+     🚀 INICIALIZACIÓN
+     ===================================================== */
+  function inicializar() {
+    console.log('🎬 Iniciando contenido dinámico para Dama Juana...');
+
+    // 1. Aplicar estilos
+    aplicarEstilos();
+
+    // 2. Registrar estadísticas
+    registrarEstadisticasWeb();
+
+    // 3. Cargar contenido dinámico
+    cargarContenidoDinamico();
+
+    // 4. Mostrar notificación
+    mostrarNotificacionContenido();
+  }
+
+  function mostrarNotificacionContenido() {
+    const notificacion = document.createElement('div');
+    notificacion.innerHTML = `
+      <div style="
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 12px;
+        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        animation: slideInLeft 0.5s ease-out;
+      ">
+        🌟 Contenido Dinámico Activo
+      </div>
+      <style>
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(notificacion);
+
+    setTimeout(() => {
+      if (notificacion.parentNode) {
+        notificacion.style.animation = 'slideInLeft 0.5s ease-out reverse';
+        setTimeout(() => notificacion.remove(), 500);
+      }
+    }, 4000);
+  }
+
+  // 🚀 Inicializar todo
+  inicializar();
+
+  console.log('✨ Dama Juana Guadalajara - Contenido Dinámico ACTIVO');
+});
+</script>
+
+<!--
+🎯 INSTRUCCIONES DE USO PARA DAMAJUANAGUADALAJARA.COM:
+
+📋 1. INSTALACIÓN:
+   - Copia este código completo
+   - Pégalo en el footer de WordPress (antes del </body>)
+   - Guarda los cambios
+
+🏗️ 2. AÑADIR CONTENEDORES EN TU HTML:
+   Para cada sección que quieras que sea dinámica, añade:
+
+   <div id="planeaguada_ofertas_mes"></div>
+   <div id="planeaguada_servicios_destacados"></div>
+   <div id="planeaguada_carta_platos"></div>
+   <div id="planeaguada_promociones"></div>
+
+   (El ID debe ser: planeaguada_[id_de_seccion])
+
+📱 3. GESTIONAR DESDE LA APP:
+   - Ve al módulo "Web" en la app PlaneaGuada
+   - Crea secciones (ofertas, servicios, carta, etc.)
+   - Añade elementos con títulos, descripciones y precios
+   - ¡Los cambios aparecen INSTANTÁNEAMENTE en la web!
+
+🎨 4. PERSONALIZACIÓN:
+   - Los estilos se aplican automáticamente
+   - Cada tipo de sección tiene colores únicos
+   - Responsive para móviles
+   - Animaciones suaves incluidas
+
+✨ 5. CARACTERÍSTICAS:
+   ✓ Actualizaciones en TIEMPO REAL
+   ✓ Sin necesidad de recargar la página
+   ✓ Estilos profesionales automáticos
+   ✓ Compatible con móviles
+   ✓ Fallback con datos estáticos
+
+🔄 RESULTADO:
+Tu web se actualizará automáticamente cada vez que hagas cambios en la app.
+¡Gestiona ofertas, carta, promociones y más desde tu móvil!
+
+📞 SOPORTE: Contacta al equipo de PlaneaGuada CRM para ayuda técnica.
+-->
+
+<!-- Ejemplo de HTML en tu página -->
+<!--
+<section class="ofertas">
+  <div id="planeaguada_ofertas_mes">
+    <!-- El contenido se carga automáticamente aquí -->
+  </div>
+</section>
+
+<section class="servicios">
+  <div id="planeaguada_servicios_destacados">
+    <!-- El contenido se carga automáticamente aquí -->
+  </div>
+</section>
+-->

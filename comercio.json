@@ -1,0 +1,20 @@
+{
+  "nombre": "Comercio Guadalajara 2026",
+  "ambito": "provincial",
+  "sector": "comercio",
+  "vigencia": { "inicio": "2026-01-01", "fin": "2026-12-31" },
+  "tablas_2026": [
+    { "grupo": 1, "nivel": 1, "salario_base_mensual": 1700, "complemento_convenio": 150, "salario_mensual_total": 1850, "salario_anual_14": 25900 },
+    { "grupo": 2, "nivel": 2, "salario_base_mensual": 1400, "complemento_convenio": 100, "salario_mensual_total": 1500, "salario_anual_14": 21000 },
+    { "grupo": 3, "nivel": 3, "salario_base_mensual": 1200, "complemento_convenio": 80, "salario_mensual_total": 1280, "salario_anual_14": 17920 },
+    { "grupo": 4, "nivel": 4, "salario_base_mensual": 1050, "complemento_convenio": 50, "salario_mensual_total": 1100, "salario_anual_14": 15400 }
+  ],
+  "num_pagas": 14,
+  "pluses": [
+    { "nombre": "plus_jornada_6_dias", "tipo": "fijo_mensual", "importe": 120 },
+    { "nombre": "apertura_domingos", "tipo": "fijo_por_dia", "importe": 85 },
+    { "nombre": "plus_conductor", "tipo": "fijo_mensual", "importe": 50 },
+    { "nombre": "dietas", "tipo": "fijo_por_dia", "importe": 25 },
+    { "nombre": "media_dieta", "tipo": "fijo_por_dia", "importe": 12.5 }
+  ]
+}

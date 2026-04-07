@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Contenido Web en Directo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .section-hero { background-size: cover; background-position: center; }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+    <!-- Firebase SDK (Versión Compat para funcionar sin servidor local) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <div class="bg-white shadow-lg rounded-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold text-blue-800 mb-2">Visor de Contenido Web</h1>
+            <p class="text-gray-600 mb-4">Conectado a Firebase. Los cambios en la app aparecerán aquí en tiempo real.</p>
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+                <input type="text" id="empresaIdInput" placeholder="Pega tu ID de Empresa aquí (ej: ztZblwm1w71wNQtzHV7S)" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="conectarBtn" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 transition">Conectar</button>
+            </div>
+
+            <!-- Estado y Logs -->
+            <div id="loading" class="hidden text-center p-2 mb-2">
+                <p class="text-blue-600 font-semibold animate-pulse">⏳ Conectando a Firebase...</p>
+            </div>
+             <div id="error" class="hidden p-3 bg-red-100 text-red-700 border border-red-300 rounded-md mb-2 text-sm"></div>
+             <div id="status" class="hidden p-2 bg-green-100 text-green-800 border border-green-300 rounded-md text-sm"></div>
+        </div>
+
+        <main id="web-content" class="space-y-12 pb-20"></main>
+    </div>
+
+    <script>
+        // Configuración de Firebase (Copiada de tu proyecto)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+            appId: "1:1085482191658:web:c5461353b123ab92d62c53",
+            messagingSenderId: "1085482191658",
+            projectId: "planeaapp-4bea4",
+            authDomain: "planeaapp-4bea4.firebaseapp.com",
+            storageBucket: "planeaapp-4bea4.firebasestorage.app",
+            measurementId: "G-D71JMGGGZM"
+        };
+
+        // Inicializar Firebase (Versión Compat)
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            console.log("Firebase inicializado correctamente");
+        } catch (e) {
+            document.getElementById('error').textContent = "Error iniciando Firebase: " + e.message;
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        const empresaIdInput = document.getElementById('empresaIdInput');
+        const conectarBtn = document.getElementById('conectarBtn');
+        const webContentContainer = document.getElementById('web-content');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const statusDiv = document.getElementById('status');
+
+        let unsubscribe = null;
+
+        // Auto-rellenar si hay hash en la URL
+        if(window.location.hash) {
+            empresaIdInput.value = window.location.hash.substring(1);
+        }
+
+        async function conectar() {
+            const empresaId = empresaIdInput.value.trim();
+            if (!empresaId) {
+                showError("Por favor, introduce un ID de empresa.");
+                return;
+            }
+
+            // UI Reset
+            webContentContainer.innerHTML = '';
+            errorDiv.classList.add('hidden');
+            statusDiv.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
+            conectarBtn.disabled = true;
+            conectarBtn.textContent = "Conectando...";
+
+            // Limpiar listener anterior
+            if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+            }
+
+            try {
+                // Referencia a la colección con nombre 'contenido_web' como está en tu código Dart
+                // Asegúrate que tu app guarda en /empresas/{id}/contenido_web
+                const seccionesRef = firebase.firestore().collection('empresas').doc(empresaId).collection('contenido_web');
+
+                // Escuchar cambios en tiempo real ordenados por 'orden'
+                unsubscribe = seccionesRef.orderBy("orden").onSnapshot((snapshot) => {
+                    loadingDiv.classList.add('hidden');
+                    conectarBtn.disabled = false;
+                    conectarBtn.textContent = "Conectar";
+
+                    if (snapshot.empty) {
+                        showStatus(`⚠️ Conectado a empresa ${empresaId}, pero la colección 'contenido_web' está vacía. Añade secciones desde la App móvil.`);
+                        webContentContainer.innerHTML = '<div class="text-center text-gray-500 py-10">No hay contenido web publicado aún.</div>';
+                        return;
+                    }
+
+                    showStatus(`✅ Conectado. Recibidos ${snapshot.size} elementos.`);
+                    webContentContainer.innerHTML = ''; // Limpiar
+
+                    snapshot.forEach((doc) => {
+                        const seccion = doc.data();
+                        renderSeccion(seccion);
+                    });
+
+                }, (error) => {
+                    loadingDiv.classList.add('hidden');
+                    conectarBtn.disabled = false;
+                    conectarBtn.textContent = "Reintentar";
+                    console.error("Error Firestore:", error);
+
+                    if (error.code === 'permission-denied') {
+                        showError("⛔ Permiso denegado. Asegúrate de que las reglas de Firestore (firestore.rules) permiten la lectura pública ('allow read: if true') en '/empresas/{id}/contenido_web'.");
+                    } else {
+                        showError(`Error de conexión: ${error.message} (${error.code})`);
+                    }
+                });
+
+                // Actualizar URL para compartir
+                window.location.hash = empresaId;
+
+            } catch (err) {
+                loadingDiv.classList.add('hidden');
+                conectarBtn.disabled = false;
+                conectarBtn.textContent = "Conectar";
+                showError("Error inesperado: " + err.message);
+                console.error(err);
+            }
+        }
+
+        conectarBtn.addEventListener('click', conectar);
+
+        function showError(message) {
+            errorDiv.innerHTML = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showStatus(message) {
+            statusDiv.textContent = message;
+            statusDiv.classList.remove('hidden');
+        }
+
+        // --- RENDERIZADO (Igual que antes pero adaptado) ---
+
+        function renderSeccion(seccion) {
+            const { tipo, contenido } = seccion;
+            let element;
+
+            // Mapeo seguro de tipos
+            const tipoNormalizado = tipo ? tipo.toString().toLowerCase() : 'desconocido';
+
+            switch (tipoNormalizado) {
+                case 'hero':
+                    element = renderHero(contenido);
+                    break;
+                case 'sobrenostros':
+                case 'sobre_nosotros':
+                case 'about':
+                    element = renderSobreNosotros(contenido);
+                    break;
+                case 'galeria':
+                    element = renderGaleria(contenido);
+                    break;
+                case 'servicios':
+                case 'servicios_lista':
+                    element = renderServicios(contenido);
+                    break;
+                case 'contacto':
+                    element = renderContacto(contenido);
+                    break;
+                case 'texto':
+                case 'texto_simple':
+                     element = renderTextoSimple(contenido);
+                    break;
+                case 'carta':
+                case 'menu':
+                     element = renderCarta(contenido);
+                     break;
+                case 'ofertas':
+                     element = renderOfertas(contenido);
+                     break;
+                case 'horarios':
+                     element = renderHorarios(contenido);
+                     break;
+                default:
+                    // Intento genérico si no coincide exacto
+                    if (tipoNormalizado.includes('hero')) element = renderHero(contenido);
+                    else if (tipoNormalizado.includes('texto')) element = renderTextoSimple(contenido);
+                    else {
+                        element = document.createElement('div');
+                        element.className = 'bg-yellow-50 p-4 rounded-md border border-yellow-200 text-sm text-yellow-800';
+                        element.innerHTML = `Tipo de sección no reconocido por el visor: <strong>${tipo}</strong>. <br>Contenido: ${JSON.stringify(contenido).substring(0, 100)}...`;
+                    }
+            }
+            if (element) {
+                webContentContainer.appendChild(element);
+            }
+        }
+
+        function renderHero(contenido) {
+            const div = document.createElement('div');
+            div.className = 'section-hero w-full h-96 rounded-xl shadow-2xl flex items-center justify-center text-white p-4 text-center relative overflow-hidden group';
+
+            const imgUrl = contenido.imagen_url || contenido.imagenFondoUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80';
+
+            div.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${imgUrl}')`;
+            div.innerHTML = `
+                <div class="relative z-10 transform transition duration-500 group-hover:scale-105">
+                    <h2 class="text-5xl md:text-6xl font-extrabold tracking-tight mb-4 drop-shadow-lg">${contenido.titulo || 'Bienvenido'}</h2>
+                    <p class="text-xl md:text-2xl font-light text-gray-100 max-w-2xl mx-auto drop-shadow-md">${contenido.subtitulo || contenido.descripcion || ''}</p>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderSobreNosotros(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-6 md:p-12 rounded-xl shadow-lg';
+            const imgUrl = contenido.imagen_url || contenido.imagenUrl || 'https://via.placeholder.com/500x400?text=Sobre+Nosotros';
+            div.innerHTML = `
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div class="order-2 md:order-1">
+                        <h3 class="text-3xl font-bold text-gray-800 mb-6 border-l-4 border-blue-600 pl-4">${contenido.titulo || 'Sobre Nosotros'}</h3>
+                        <p class="text-gray-600 leading-relaxed text-lg whitespace-pre-wrap">${contenido.texto || contenido.descripcion || ''}</p>
+                    </div>
+                    <div class="order-1 md:order-2">
+                        <img src="${imgUrl}" alt="Sobre Nosotros" class="rounded-lg shadow-xl w-full h-80 object-cover transform rotate-2 hover:rotate-0 transition duration-500">
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderTextoSimple(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-8 md:p-10 rounded-xl shadow-md border-t-4 border-gray-200';
+            div.innerHTML = `
+                <h3 class="text-2xl font-bold text-gray-900 mb-4">${contenido.titulo || ''}</h3>
+                <div class="text-gray-700 leading-relaxed space-y-4 whitespace-pre-wrap">${contenido.texto || contenido.contenido || ''}</div>
+            `;
+            return div;
+        }
+
+        function renderGaleria(contenido) {
+            const div = document.createElement('div');
+            div.className = 'py-8';
+            const imagenes = contenido.imagenes || [];
+
+            const imagenesHtml = imagenes.map(img => {
+                const url = typeof img === 'string' ? img : (img.url || '');
+                return `<div class="overflow-hidden rounded-xl shadow-lg aspect-square group">
+                    <img src="${url}" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out" alt="Galería">
+                </div>`;
+            }).join('');
+
+            div.innerHTML = `
+                <h3 class="text-3xl font-bold text-gray-900 mb-8 text-center">${contenido.titulo || 'Galería'}</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${imagenesHtml || '<p class="text-center w-full text-gray-500 col-span-4">No hay imágenes disponibles</p>'}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderServicios(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-gray-50 p-8 rounded-2xl';
+
+            // Adaptar estructura de servicios si viene de dos formas posibles
+            let servicios = [];
+            if (Array.isArray(contenido.servicios)) servicios = contenido.servicios;
+
+            const serviciosHtml = servicios.map(srv => `
+                    <div class="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition border border-gray-100">
+                        <h4 class="font-bold text-xl text-blue-900 mb-2">${srv.nombre || 'Servicio'}</h4>
+                        <p class="text-gray-600 text-sm mb-4 line-clamp-2">${srv.descripcion || ''}</p>
+                        <div class="flex justify-between items-end border-t border-gray-100 pt-3">
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">${srv.duracion ? srv.duracion + ' min' : ''}</span>
+                            <span class="font-bold text-lg text-green-600">${srv.precio ? srv.precio + ' €' : ''}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+            div.innerHTML = `
+                <h3 class="text-3xl font-bold text-gray-900 mb-8 text-center">${contenido.titulo || 'Nuestros Servicios'}</h3>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${serviciosHtml || '<div class="col-span-3 text-center text-gray-500 py-8 bg-white rounded-lg">Lista de servicios vacía</div>'}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderContacto(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-slate-900 text-white p-10 rounded-2xl shadow-2xl mt-12';
+            div.innerHTML = `
+                <div class="text-center mb-10">
+                     <h3 class="text-3xl font-bold mb-2">${contenido.titulo || 'Contáctanos'}</h3>
+                     <p class="text-slate-400">Estamos aquí para ayudarte</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-8 text-center">
+                    <div class="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition">
+                        <div class="text-2xl mb-3">📞</div>
+                        <h4 class="font-semibold mb-1">Llámanos</h4>
+                        <p class="text-blue-300 font-mono">${contenido.telefono || 'Sin especificar'}</p>
+                    </div>
+                    <div class="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition">
+                        <div class="text-2xl mb-3">✉️</div>
+                        <h4 class="font-semibold mb-1">Escríbenos</h4>
+                        <p class="text-blue-300">${contenido.email || 'Sin especificar'}</p>
+                    </div>
+                    <div class="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition">
+                        <div class="text-2xl mb-3">📍</div>
+                        <h4 class="font-semibold mb-1">Visítanos</h4>
+                        <p class="text-gray-300 text-sm mt-1">${contenido.direccion || 'Sin especificar'}</p>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderCarta(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-8 rounded-2xl shadow-lg border border-orange-100';
+
+            // Agrupar por categoría
+            const items = contenido.items_carta || [];
+            const itemsPorCategoria = {};
+            items.forEach(item => {
+                const cat = item.categoria || 'General';
+                if (!itemsPorCategoria[cat]) itemsPorCategoria[cat] = [];
+                itemsPorCategoria[cat].push(item);
+            });
+
+            let htmlCategorias = '';
+            for (const [categoria, platos] of Object.entries(itemsPorCategoria)) {
+                const platosHtml = platos.map(plato => `
+                    <div class="flex justify-between items-start py-4 border-b border-gray-100 last:border-0 hover:bg-orange-50 transition p-2 rounded-lg">
+                        <div class="flex-1 pr-4">
+                            <h5 class="font-bold text-gray-800 ${!plato.disponible ? 'line-through text-gray-400' : ''}">${plato.nombre}</h5>
+                            <p class="text-sm text-gray-500 mt-1 line-clamp-2">${plato.descripcion || ''}</p>
+                            ${!plato.disponible ? '<span class="text-xs text-red-500 font-bold uppercase mt-1 inline-block">Agotado</span>' : ''}
+                        </div>
+                        <div class="text-right">
+                             <span class="font-bold text-orange-600 text-lg">${plato.precio ? plato.precio.toFixed(2) + ' €' : ''}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                htmlCategorias += `
+                    <div class="mb-8 last:mb-0">
+                        <h4 class="text-xl font-bold text-orange-800 mb-4 border-b-2 border-orange-200 pb-2 uppercase tracking-wide">${categoria}</h4>
+                        <div class="space-y-1">
+                            ${platosHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="text-center mb-10">
+                    <span class="text-orange-500 font-bold tracking-widest uppercase text-sm">Nuestro Menú</span>
+                    <h3 class="text-4xl font-extrabold text-gray-900 mt-2">${contenido.titulo || 'La Carta'}</h3>
+                </div>
+                <div>
+                    ${items.length > 0 ? htmlCategorias : '<p class="text-center text-gray-500 italic">No hay platos disponibles en este momento.</p>'}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderOfertas(contenido) {
+            const div = document.createElement('div');
+            div.className = 'py-10 bg-green-50 rounded-2xl px-6';
+
+            const items = contenido.ofertas || [];
+            const ofertasHtml = items.map(oferta => `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-green-100 transform hover:-translate-y-1 transition duration-300 relative">
+                    ${oferta.imagen_url ? `<img src="${oferta.imagen_url}" class="w-full h-48 object-cover" alt="${oferta.titulo}">` : ''}
+                    <div class="absolute top-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">OFERTA</div>
+                    <div class="p-6">
+                        <h4 class="font-bold text-xl text-gray-800 mb-2">${oferta.titulo}</h4>
+                        <p class="text-gray-600 text-sm mb-4 line-clamp-3">${oferta.descripcion || ''}</p>
+                        <div class="flex items-center justify-between mt-4">
+                            <div>
+                                ${oferta.precio_original ? `<span class="text-gray-400 line-through text-sm mr-2">${oferta.precio_original}€</span>` : ''}
+                                <span class="text-2xl font-bold text-green-600">${oferta.precio_oferta ? oferta.precio_oferta + '€' : 'Consultar'}</span>
+                            </div>
+                            <button class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">Ver más</button>
+                        </div>
+                         ${oferta.fecha_fin ? `<div class="mt-4 pt-3 border-t border-gray-100 text-xs text-center text-gray-400">Válido hasta: ${new Date(oferta.fecha_fin).toLocaleDateString()}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            div.innerHTML = `
+                <div class="text-center mb-10">
+                    <h3 class="text-3xl font-extrabold text-green-900">${contenido.titulo || 'Ofertas Especiales'}</h3>
+                    <p class="text-green-700 mt-2">¡Aprovecha nuestras promociones por tiempo limitado!</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${items.length > 0 ? ofertasHtml : '<p class="col-span-3 text-center text-gray-500">No hay ofertas activas actualmente.</p>'}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderHorarios(contenido) {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-8 rounded-2xl shadow-lg border-l-8 border-blue-500 max-w-3xl mx-auto';
+
+            const items = contenido.horarios || [];
+
+            const filasHtml = items.map(h => `
+                <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0 hover:bg-blue-50 px-4 rounded-lg transition ${h.dia === new Date().toLocaleDateString('es-ES', {weekday: 'long'}) ? 'bg-blue-50 font-semibold' : ''}">
+                    <div class="w-1/3 text-gray-700">${h.dia}</div>
+                    <div class="w-2/3 text-right">
+                        ${h.cerrado
+                            ? '<span class="px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-xs font-bold uppercase">Cerrado</span>'
+                            : `<span class="text-gray-900 font-mono">${h.apertura} - ${h.cierre}</span>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+
+            div.innerHTML = `
+                <div class="flex items-center justify-center mb-8 gap-3">
+                    <span class="text-3xl">🕒</span>
+                    <h3 class="text-2xl font-bold text-gray-900">${contenido.titulo || 'Horarios de Apertura'}</h3>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4">
+                    ${items.length > 0 ? filasHtml : '<p class="text-center text-gray-500">Horarios no disponibles.</p>'}
+                </div>
+                <div class="mt-6 text-center text-sm text-gray-400">
+                    * Los horarios pueden variar en festivos
+                </div>
+            `;
+            return div;
+        }
+
+    </script>
+</body>
+</html>
+
+
+

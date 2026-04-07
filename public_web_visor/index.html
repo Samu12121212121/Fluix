@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluix CRM - Tu Negocio Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .section-hero { background-size: cover; background-position: center; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+    <!-- Firebase SDK (Versión Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header (Solo visible en modo landing o error) -->
+    <header id="main-header" class="bg-white shadow-sm sticky top-0 z-50 hidden">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="font-bold text-xl text-blue-900 flex items-center gap-2">
+                <span class="text-2xl">🚀</span> Fluix CRM
+            </div>
+            <a href="#" onclick="window.location.reload()" class="text-sm text-gray-500 hover:text-blue-600">Inicio</a>
+        </div>
+    </header>
+
+    <div class="flex-grow container mx-auto p-4 md:p-8">
+
+        <!-- Panel de Conexión (Modo Dev / Landing) -->
+        <div id="connection-panel" class="max-w-md mx-auto bg-white shadow-xl rounded-2xl p-8 mb-12 mt-10 transition-all duration-500">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2 text-center">Ver tu Página Web</h1>
+            <p class="text-gray-500 mb-6 text-center text-sm">Introduce el ID de tu empresa para visualizar tu contenido en tiempo real.</p>
+
+            <div class="flex flex-col gap-3">
+                <input type="text" id="empresaIdInput" placeholder="ID de Empresa (ej: ztZbl...)" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                <button id="conectarBtn" class="w-full bg-blue-600 text-white font-semibold p-3 rounded-lg hover:bg-blue-700 transition shadow-md hover:shadow-lg transform active:scale-95">
+                    Ver Página
+                </button>
+            </div>
+
+            <!-- Logs -->
+            <div id="loading" class="hidden mt-4 text-center">
+                <div class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <span class="ml-2 text-sm text-gray-600">Cargando...</span>
+            </div>
+            <div id="error" class="hidden mt-4 p-3 bg-red-50 text-red-600 border border-red-100 rounded-lg text-xs text-center"></div>
+        </div>
+
+        <!-- Contenido Web Dinámico -->
+        <div id="web-container" class="hidden fade-in">
+             <!-- Botón flotante para volver (solo visible cuando hay contenido) -->
+            <button onclick="resetView()" class="fixed bottom-4 right-4 bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-black z-50" title="Volver al inicio">
+                ↩️
+            </button>
+
+            <main id="web-content" class="space-y-16 pb-20 max-w-5xl mx-auto"></main>
+        </div>
+
+    </div>
+
+    <!-- Footer Simple -->
+    <footer class="bg-gray-100 border-t border-gray-200 py-6 mt-auto">
+        <div class="container mx-auto px-4 text-center text-gray-400 text-sm">
+            &copy; 2024 Fluix CRM. Potenciado por Firebase.
+        </div>
+    </footer>
+
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+            appId: "1:1085482191658:web:c5461353b123ab92d62c53",
+            messagingSenderId: "1085482191658",
+            projectId: "planeaapp-4bea4",
+            authDomain: "planeaapp-4bea4.firebaseapp.com",
+            storageBucket: "planeaapp-4bea4.firebasestorage.app",
+            measurementId: "G-D71JMGGGZM"
+        };
+
+        // Inicializar Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+        } catch (e) {
+            console.error("Firebase Init Error:", e);
+            document.getElementById('error').textContent = "Error iniciando sistema.";
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        // Elementos DOM
+        const connectionPanel = document.getElementById('connection-panel');
+        const webContainer = document.getElementById('web-content');
+        const webWrapper = document.getElementById('web-container');
+        const empresaIdInput = document.getElementById('empresaIdInput');
+        const conectarBtn = document.getElementById('conectarBtn');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const mainHeader = document.getElementById('main-header');
+
+        let unsubscribe = null;
+
+        // --- Lógica Principal ---
+
+        // 1. Comprobar URL al cargar
+        function checkUrlHash() {
+            const hash = window.location.hash.substring(1);
+            if(hash && hash.length > 5) {
+                // Si hay hash válido, conectar automáticamente
+                empresaIdInput.value = hash;
+                modeViewer();
+                conectar(hash);
+            } else {
+                // Si no, mostrar landing
+                modeLanding();
+            }
+        }
+
+        // Modos de visualización
+        function modeLanding() {
+            connectionPanel.classList.remove('hidden');
+            webWrapper.classList.add('hidden');
+            mainHeader.classList.remove('hidden');
+            if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+            document.title = "Fluix CRM - Tu Negocio Online";
+        }
+
+        function modeViewer() {
+            connectionPanel.classList.add('hidden');
+            webWrapper.classList.remove('hidden');
+            mainHeader.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
+        }
+
+        // Función para volver atrás
+        window.resetView = function() {
+            window.location.hash = '';
+            modeLanding();
+        }
+
+        // Acción Conectar
+        conectarBtn.addEventListener('click', () => {
+            const id = empresaIdInput.value.trim();
+            if(id) {
+                window.location.hash = id;
+                checkUrlHash();
+            }
+        });
+
+        // Listener de cambios en Hash (para navegación fluida)
+        window.addEventListener('hashchange', checkUrlHash);
+
+        // Iniciar
+        checkUrlHash();
+
+
+        // --- Conexión a Firestore ---
+
+        async function conectar(empresaId) {
+            webContainer.innerHTML = '';
+            loadingDiv.classList.remove('hidden'); // Mostrar spinner en panel (si visible) o overlay?
+            // Aquí si ya estamos en modo viewer, el loading del panel no se ve.
+            // Podríamos añadir un loader global, pero por simplicidad usaremos el flujo actual.
+
+            // Render loader en el contenedor web
+            webContainer.innerHTML = '<div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>';
+
+            try {
+                const seccionesRef = firebase.firestore().collection('empresas').doc(empresaId).collection('contenido_web');
+
+                unsubscribe = seccionesRef.orderBy("orden").onSnapshot((snapshot) => {
+                    webContainer.innerHTML = ''; // Limpiar loader
+
+                    if (snapshot.empty) {
+                        webContainer.innerHTML = `
+                            <div class="text-center py-20">
+                                <div class="text-6xl mb-4">✨</div>
+                                <h2 class="text-2xl font-bold text-gray-800">Página Web en Construcción</h2>
+                                <p class="text-gray-500 mt-2">Este negocio aún no ha publicado contenido.</p>
+                                <button onclick="resetView()" class="mt-8 text-blue-600 hover:underline">Volver</button>
+                            </div>
+                        `;
+                        document.title = "Página en Construcción";
+                        return;
+                    }
+
+                    // Renderizar secciones
+                    snapshot.forEach((doc) => {
+                        renderSeccion(doc.data());
+                    });
+
+                    // Actualizar título de la página (opcional, requeriría leer doc de empresa)
+                     document.title = "Pagina Web - " + empresaId;
+
+                }, (error) => {
+                    console.error("Error Firestore:", error);
+                    webContainer.innerHTML = `
+                        <div class="text-center py-20 bg-red-50 rounded-xl">
+                            <div class="text-4xl mb-4">⚠️</div>
+                            <h2 class="text-xl font-bold text-red-700">No se pudo cargar la página</h2>
+                            <p class="text-red-500 mt-2 text-sm">${error.code === 'permission-denied' ? 'Acceso denegado (Revisa reglas de seguridad)' : error.message}</p>
+                            <button onclick="resetView()" class="mt-6 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50">Intentar de nuevo</button>
+                        </div>
+                    `;
+                });
+
+            } catch (err) {
+                console.error(err);
+                modeLanding(); // Volver si fallo crítico
+                errorDiv.textContent = "Error inesperado: " + err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+
+        // --- RENDERIZADO (Reutilizando y mejorando funciones anteriores) ---
+
+        function renderSeccion(seccion) {
+            const { tipo, contenido } = seccion;
+            let element;
+            const tipoNormalizado = tipo ? tipo.toString().toLowerCase() : 'desconocido';
+
+            try {
+                switch (tipoNormalizado) {
+                    case 'hero': element = renderHero(contenido); break;
+                    case 'sobrenostros':
+                    case 'sobre_nosotros':
+                    case 'about': element = renderSobreNosotros(contenido); break;
+                    case 'galeria': element = renderGaleria(contenido); break;
+                    case 'servicios':
+                    case 'servicios_lista': element = renderServicios(contenido); break;
+                    case 'contacto': element = renderContacto(contenido); break;
+                    case 'texto':
+                    case 'texto_simple': element = renderTextoSimple(contenido); break;
+                    case 'carta':
+                    case 'menu': element = renderCarta(contenido); break;
+                    case 'ofertas': element = renderOfertas(contenido); break;
+                    case 'horarios': element = renderHorarios(contenido); break;
+                    default:
+                        // Intento de fallback inteligente
+                        if (tipoNormalizado.includes('hero')) element = renderHero(contenido);
+                        else if (tipoNormalizado.includes('texto')) element = renderTextoSimple(contenido);
+                }
+            } catch(e) {
+                console.warn("Error renderizando sección:", tipo, e);
+            }
+
+            if (element) {
+                // Añadir animación de entrada
+                element.classList.add('fade-in');
+                webContainer.appendChild(element);
+            }
+        }
+
+        // (Funciones de renderizado específicas - Copiadas y estilizadas)
+
+        function renderHero(c) {
+            const div = document.createElement('section');
+            div.className = 'w-full h-[500px] rounded-3xl shadow-2xl flex items-center justify-center text-white p-6 text-center relative overflow-hidden group mb-12';
+            const img = c.imagen_url || c.imagenFondoUrl || 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1600&q=80';
+            div.style.backgroundImage = `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('${img}')`;
+            div.style.backgroundSize = 'cover';
+            div.style.backgroundPosition = 'center';
+            div.innerHTML = `
+                <div class="relative z-10 max-w-4xl">
+                    <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 drop-shadow-xl leading-tight">${c.titulo || 'Bienvenido'}</h1>
+                    <p class="text-xl md:text-3xl font-light text-gray-100 drop-shadow-md">${c.subtitulo || c.descripcion || ''}</p>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderSobreNosotros(c) {
+            const div = document.createElement('section');
+            div.className = 'bg-white p-8 md:p-16 rounded-3xl shadow-xl mb-12';
+            const img = c.imagen_url || c.imagenUrl || 'https://via.placeholder.com/600x400?text=Nosotros';
+            div.innerHTML = `
+                <div class="grid lg:grid-cols-2 gap-16 items-center">
+                    <div>
+                         <span class="text-blue-600 font-bold uppercase tracking-wider text-sm mb-2 block">Nuestra Historia</span>
+                        <h2 class="text-4xl font-extrabold text-gray-900 mb-8">${c.titulo || 'Sobre Nosotros'}</h2>
+                        <div class="prose prose-lg text-gray-600 leading-relaxed whitespace-pre-wrap">${c.texto || c.descripcion || ''}</div>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute inset-0 bg-blue-100 rounded-3xl transform rotate-3 translate-x-3 translate-y-3"></div>
+                        <img src="${img}" class="relative rounded-3xl shadow-lg w-full h-auto object-cover transform transition hover:-translate-y-1 hover:shadow-2xl duration-500">
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderTextoSimple(c) {
+            const div = document.createElement('section');
+            div.className = 'bg-white p-10 md:p-14 rounded-3xl shadow-lg border border-gray-100 mb-12 max-w-4xl mx-auto';
+            div.innerHTML = `
+                <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">${c.titulo || ''}</h2>
+                <div class="prose prose-blue mx-auto text-gray-700 whitespace-pre-wrap text-lg leading-relaxed">${c.texto || c.contenido || ''}</div>
+            `;
+            return div;
+        }
+
+        function renderGaleria(c) {
+            const div = document.createElement('section');
+            div.className = 'py-10 mb-12';
+            const imgs = c.imagenes || [];
+            div.innerHTML = `
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-extrabold text-gray-900">${c.titulo || 'Galería'}</h2>
+                    <div class="h-1 w-20 bg-blue-600 mx-auto mt-4 rounded-full"></div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
+                    ${imgs.map((img, i) => {
+                        const url = (typeof img === 'string') ? img : (img.url || '');
+                        // Alternar tamaños para efecto masonry simple
+                        const spanClass = (i % 3 === 0) ? 'md:col-span-2 md:row-span-2' : '';
+                        return `
+                        <div class="relative group overflow-hidden rounded-2xl shadow-md ${spanClass}">
+                            <img src="${url}" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out cursor-pointer" loading="lazy">
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition duration-300"></div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderServicios(c) {
+            const div = document.createElement('section');
+            div.className = 'mb-12';
+            const srvs = Array.isArray(c.servicios) ? c.servicios : [];
+            div.innerHTML = `
+                <div class="text-center mb-16">
+                    <span class="text-blue-600 font-bold uppercase tracking-wider text-sm">Lo que hacemos</span>
+                    <h2 class="text-4xl font-extrabold text-gray-900 mt-2">${c.titulo || 'Nuestros Servicios'}</h2>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    ${srvs.map(s => `
+                        <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300 flex flex-col">
+                            <h3 class="font-bold text-xl text-gray-900 mb-3">${s.nombre || 'Servicio'}</h3>
+                            <p class="text-gray-600 mb-6 flex-grow leading-relaxed">${s.descripcion || ''}</p>
+                            <div class="flex justify-between items-center pt-4 border-t border-gray-50">
+                                <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">${s.duracion ? s.duracion + ' min' : ''}</span>
+                                <span class="font-bold text-2xl text-gray-900">${s.precio ? s.precio + '€' : ''}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderCarta(c) {
+            const div = document.createElement('section');
+            div.className = 'bg-[#FFFBF0] p-8 md:p-12 rounded-3xl shadow-xl border border-orange-100 mb-12';
+
+            const items = c.items_carta || [];
+            const cats = {};
+            items.forEach(i => {
+                const cat = i.categoria || 'General';
+                if (!cats[cat]) cats[cat] = [];
+                cats[cat].push(i);
+            });
+
+            div.innerHTML = `
+                <div class="text-center mb-12">
+                    <span class="text-orange-500 font-bold tracking-widest uppercase text-xs">Menú del Día</span>
+                    <h2 class="text-4xl font-serif font-bold text-gray-900 mt-2 italic">${c.titulo || 'Nuestra Carta'}</h2>
+                     <div class="w-16 h-1 bg-orange-400 mx-auto mt-4"></div>
+                </div>
+                <div class="grid lg:grid-cols-2 gap-12">
+                    ${Object.entries(cats).map(([cat, platos]) => `
+                        <div>
+                            <h3 class="text-2xl font-bold text-orange-900 mb-6 border-b border-orange-200 pb-2">${cat}</h3>
+                            <ul class="space-y-6">
+                                ${platos.map(p => `
+                                    <li class="relative pl-4 group">
+                                        <div class="flex justify-between items-baseline">
+                                            <h4 class="font-bold text-gray-800 text-lg group-hover:text-orange-600 transition ${!p.disponible ? 'line-through text-gray-400' : ''}">${p.nombre}</h4>
+                                            <div class="flex-grow border-b border-dashed border-orange-200 mx-4 relative top-[-6px]"></div>
+                                            <span class="font-bold text-orange-700 text-xl">${p.precio ? p.precio.toFixed(2) : ''}</span>
+                                        </div>
+                                        <p class="text-gray-600 text-sm italic mt-1">${p.descripcion || ''}</p>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderOfertas(c) {
+            const div = document.createElement('section');
+            div.className = 'py-12 bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl mb-12 px-6 shadow-inner';
+            const items = c.ofertas || [];
+            div.innerHTML = `
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-extrabold text-gray-900">${c.titulo || 'Ofertas Especiales'}</h2>
+                    <p class="text-green-800 mt-2 font-medium">¡Solo por tiempo limitado!</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    ${items.map(o => `
+                        <div class="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden group hover:shadow-2xl transition duration-300">
+                            ${o.imagen_url ? `
+                                <div class="relative h-56 overflow-hidden">
+                                    <img src="${o.imagen_url}" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700">
+                                    <div class="absolute top-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse shadow-md">OFERTA</div>
+                                </div>
+                            ` : `<div class="h-24 bg-green-100 flex items-center justify-center text-green-300"><span class="text-4xl">🏷️</span></div>`}
+                            <div class="p-6">
+                                <h3 class="font-bold text-2xl text-gray-800 mb-2">${o.titulo}</h3>
+                                <p class="text-gray-600 text-sm mb-4 min-h-[40px]">${o.descripcion || ''}</p>
+                                <div class="flex items-end gap-3 mt-4">
+                                    ${o.precio_original ? `<span class="text-gray-400 line-through text-sm mb-1">${o.precio_original}€</span>` : ''}
+                                    <span class="text-3xl font-extrabold text-green-600">${o.precio_oferta ? o.precio_oferta + '€' : ''}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderHorarios(c) {
+            const div = document.createElement('section');
+            div.className = 'max-w-2xl mx-auto bg-gray-900 text-white p-10 rounded-3xl shadow-2xl mb-12';
+            const items = c.horarios || [];
+            div.innerHTML = `
+                <div class="text-center mb-10">
+                    <h2 class="text-3xl font-bold">${c.titulo || 'Horarios'}</h2>
+                    <div class="w-12 h-1 bg-blue-500 mx-auto mt-4 rounded-full"></div>
+                </div>
+                <div class="space-y-4">
+                    ${items.map(h => {
+                        const isToday = h.dia === new Date().toLocaleDateString('es-ES', {weekday: 'long'});
+                        return `
+                        <div class="flex justify-between items-center p-4 rounded-xl ${isToday ? 'bg-blue-600 shadow-lg scale-105 font-bold' : 'bg-gray-800'} transition">
+                            <span class="${isToday ? 'text-white' : 'text-gray-300'}">${h.dia}</span>
+                            <span class="${isToday ? 'text-white' : 'text-gray-300'}">
+                                ${h.cerrado ? 'Cerrado' : `${h.apertura} - ${h.cierre}`}
+                            </span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            `;
+            return div;
+        }
+
+        function renderContacto(c) {
+            const div = document.createElement('section');
+            div.className = 'bg-blue-900 text-white p-12 md:p-20 rounded-3xl shadow-2xl mb-12 text-center';
+            div.innerHTML = `
+                <h2 class="text-4xl font-bold mb-12">${c.titulo || '¿Hablamos?'}</h2>
+                <div class="grid md:grid-cols-3 gap-10 max-w-4xl mx-auto">
+                    <div class="group">
+                        <div class="bg-blue-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-700 transition">📞</div>
+                        <h3 class="font-bold text-lg mb-2">Teléfono</h3>
+                        <p class="text-blue-200 text-lg hover:text-white transition cursor-pointer">${c.telefono || '-'}</p>
+                    </div>
+                    <div class="group">
+                        <div class="bg-blue-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-700 transition">✉️</div>
+                        <h3 class="font-bold text-lg mb-2">Email</h3>
+                        <p class="text-blue-200 text-lg hover:text-white transition cursor-pointer">${c.email || '-'}</p>
+                    </div>
+                    <div class="group">
+                        <div class="bg-blue-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-700 transition">📍</div>
+                        <h3 class="font-bold text-lg mb-2">Ubicación</h3>
+                        <p class="text-blue-200 text-lg hover:text-white transition cursor-pointer">${c.direccion || '-'}</p>
+                    </div>
+                </div>
+            `;
+            return div;
+        }
+
+    </script>
+</body>
+</html>
+

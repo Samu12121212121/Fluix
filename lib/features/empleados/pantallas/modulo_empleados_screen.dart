@@ -1,0 +1,232 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/utils/permisos_service.dart';
+import '../../../domain/modelos/convenio_colectivo.dart';
+import '../../../services/convenio_firestore_service.dart';
+// Widgets extraídos por funcionalidad
+import '../widgets/tarjeta_empleado_widget.dart';
+import '../widgets/selector_foto_widget.dart';
+import '../widgets/seccion_embargos_widget.dart';
+import 'formulario_empleado_form.dart';
+import 'formulario_datos_nomina_form.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MÓDULO EMPLEADOS
+// ═════════════════════════════════════════════════════════════════════════════
+
+class ModuloEmpleadosScreen extends StatefulWidget {
+  final String empresaId;
+  final SesionUsuario? sesion;
+  const ModuloEmpleadosScreen({super.key, required this.empresaId, this.sesion});
+
+  @override
+  State<ModuloEmpleadosScreen> createState() => _ModuloEmpleadosScreenState();
+}
+
+class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
+  final _firestore = FirebaseFirestore.instance;
+  final _convenioService = ConvenioFirestoreService();
+
+  bool get _esPropietario =>
+      widget.sesion?.esPropietario ??
+      (PermisosService().sesion?.esPropietario ?? false);
+
+  @override
+  void initState() {
+    super.initState();
+    _seedConveniosSeguros();
+  }
+
+  Future<void> _seedConveniosSeguros() async {
+    final seeds = [
+      _convenioService.seedConvenioHosteleriaGuadalajara,
+      _convenioService.seedConvenioComercioGuadalajara,
+      _convenioService.seedConvenioPeluqueriaEsteticaGimnasios,
+      _convenioService.seedConvenioCarniceriasGuadalajara2025,
+      _convenioService.seedConvenioVeterinariosGuadalajara2026,
+    ];
+    for (final seed in seeds) {
+      try { await seed(); } catch (e) { debugPrint('⚠️ seed: $e'); }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('usuarios')
+            .where('empresa_id', isEqualTo: widget.empresaId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          final empleados = snapshot.data?.docs ?? [];
+          if (empleados.isEmpty) return _buildVacio();
+          return Column(children: [
+            _buildResumen(empleados),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: empleados.length,
+                itemBuilder: (context, i) {
+                  final data = empleados[i].data() as Map<String, dynamic>;
+                  final id   = empleados[i].id;
+                  return TarjetaEmpleado(
+                    id: id,
+                    data: data,
+                    esPropietario: _esPropietario,
+                    empresaId: widget.empresaId,
+                    onEditar: () => _abrirFormulario(id: id, data: data),
+                    onToggleActivo: () => _toggleActivo(id, data['activo'] ?? true),
+                    onDatosNomina: () => _abrirFormularioNomina(id, data),
+                    onEmbargos: () => _abrirEmbargos(id, data['nombre'] ?? 'Empleado'),
+                    onFoto: () => _abrirFoto(id, data['nombre'] ?? 'Empleado'),
+                  );
+                },
+              ),
+            ),
+          ]);
+        },
+      ),
+      floatingActionButton: _esPropietario
+          ? FloatingActionButton.extended(
+              onPressed: () => _abrirFormulario(),
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Nuevo empleado'),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildResumen(List<QueryDocumentSnapshot> empleados) {
+    int activos = 0, propietarios = 0, admins = 0, staff = 0;
+    for (final e in empleados) {
+      final d = e.data() as Map<String, dynamic>;
+      if (d['activo'] == true) activos++;
+      if (d['rol'] == 'propietario') propietarios++;
+      if (d['rol'] == 'admin') admins++;
+      if (d['rol'] == 'staff') staff++;
+    }
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          EmpleadosStatChip(label: 'Total',       valor: '${empleados.length}', icono: Icons.group),
+          const SizedBox(width: 20),
+          EmpleadosStatChip(label: 'Activos',     valor: '$activos',    icono: Icons.check_circle),
+          const SizedBox(width: 20),
+          EmpleadosStatChip(label: 'Propietario', valor: '$propietarios', icono: Icons.star),
+          const SizedBox(width: 20),
+          EmpleadosStatChip(label: 'Admin',       valor: '$admins',     icono: Icons.admin_panel_settings),
+          const SizedBox(width: 20),
+          EmpleadosStatChip(label: 'Staff',       valor: '$staff',      icono: Icons.badge),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildVacio() {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.group_add, size: 72, color: Colors.grey[400]),
+        const SizedBox(height: 16),
+        Text('No hay empleados registrados',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text(
+          _esPropietario
+              ? 'Pulsa el botón para añadir el primero'
+              : 'Solo el propietario puede añadir empleados',
+          style: TextStyle(color: Colors.grey[500]),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _toggleActivo(String id, bool actual) async {
+    await _firestore.collection('usuarios').doc(id).update({'activo': !actual});
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(!actual ? 'Empleado activado' : 'Empleado desactivado')));
+    }
+  }
+
+  Future<void> _abrirFormulario({String? id, Map<String, dynamic>? data}) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FormularioEmpleado(empresaId: widget.empresaId, id: id, data: data),
+    );
+  }
+
+  void _abrirFoto(String empleadoId, String nombre) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SelectorFotoEmpleado(
+          empresaId: widget.empresaId, empleadoId: empleadoId, nombreEmpleado: nombre),
+    );
+  }
+
+  void _abrirEmbargos(String empleadoId, String nombreEmpleado) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => SeccionEmbargos(empleadoId: empleadoId, nombreEmpleado: nombreEmpleado),
+    );
+  }
+
+  Future<void> _abrirFormularioNomina(String empleadoId, Map<String, dynamic> data) async {
+    final datosNomina = data['datos_nomina'] as Map<String, dynamic>?;
+    final empresaDoc  = await _firestore.collection('empresas').doc(widget.empresaId).get();
+    final sector      = empresaDoc.data()?['sector'] as String? ?? 'otros';
+
+    List<CategoriaConvenio> categorias = [];
+    if (sector == 'hosteleria') {
+      categorias = await _convenioService.obtenerCategorias('hosteleria-guadalajara');
+    } else if (sector == 'comercio') {
+      categorias = await _convenioService.obtenerCategorias('comercio-guadalajara');
+    } else if (sector == 'peluqueria') {
+      categorias = await _convenioService.obtenerCategorias('peluqueria-estetica-gimnasios');
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => Material(
+        color: Colors.transparent,
+        child: FormularioDatosNomina(
+          empleadoId: empleadoId,
+          empleadoNombre: data['nombre'] ?? 'Empleado',
+          datosActuales: datosNomina,
+          categoriasConvenio: categorias,
+        ),
+      ),
+    );
+  }
+}
+

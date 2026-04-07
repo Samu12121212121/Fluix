@@ -1,0 +1,78 @@
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "default",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "*.local"
+    ],
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  },
+  "hosting": {
+    "public": "web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "planeaapp-4bea4",
+          "appId": "1:1085482191658:android:c2de28caf383e9e4d62c53",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "planeaapp-4bea4",
+          "configurations": {
+            "android": "1:1085482191658:android:c2de28caf383e9e4d62c53",
+            "ios": "1:1085482191658:ios:580c2ff49b326bb1d62c53",
+            "macos": "1:1085482191658:ios:580c2ff49b326bb1d62c53",
+            "web": "1:1085482191658:web:c5461353b123ab92d62c53",
+            "windows": "1:1085482191658:web:00209c643c77226bd62c53"
+          }
+        }
+      }
+    }
+  }
+}

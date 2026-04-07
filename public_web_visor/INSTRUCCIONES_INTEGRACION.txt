@@ -1,0 +1,386 @@
+INSTRUCCIONES PARA CONECTAR LOS PRODUCTOS EN HOSTINGER
+=========================================================
+
+Para que la sección de productos se conecte con la App, debes hacer dos cosas en Hostinger:
+
+1. PEGAR EL CÓDIGO HTML (MODIFICADO)
+--------------------------------------
+En el editor de Hostinger, borra tu sección actual de productos y pega el contenido del archivo "productos.html" que te he generado.
+
+Este código ya tiene los atributos especiales (data-fluix-item y data-fluix-campo) que indican qué parte es el precio, el nombre y la imagen de cada producto.
+
+2. AÑADIR EL SCRIPT DE CONEXIÓN
+-------------------------------
+Justo debajo de ese HTML (o en un bloque de código "Embed Code" separado), pega este script. Este es el "cerebro" que se conecta a Firebase y actualiza los precios/imágenes cuando los cambias en la App.
+
+<script>
+  (function () {
+      // ── CONFIGURACIÓN ─────────────────────────────────────────────────────────
+      var empresaId = 'ztZblwm1w71wNQtzHV7S';
+      var firebaseConfig = {
+          apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+          authDomain:        "planeaapp-4bea4.firebaseapp.com",
+          projectId:         "planeaapp-4bea4",
+          storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+          messagingSenderId: "1085482191658",
+          appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+      };
+
+      // ID de la sección en Firestore (debe coincidir con la App)
+      var CFG_PRODUCTOS = { seccionId: 'productos', tipo: 'carta' };
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // LÓGICA DE PRODUCTOS
+      // ─────────────────────────────────────────────────────────────────────────
+
+      function formatearPrecioProductos(val) {
+          var n = parseFloat(String(val).replace('€','').replace(',','.').trim());
+          if (isNaN(n)) return String(val);
+          return '€' + n.toFixed(2);
+      }
+
+      function escucharProductos(db) {
+          // Buscamos la sección por el atributo que añadimos al HTML
+          var section = document.querySelector('[data-seccion="productos"]');
+
+          // Si no la encuentra por atributo, intentamos por ID (fallback)
+          if (!section) section = document.getElementById('zh0Bnf');
+
+          if (!section) {
+              console.warn('Fluix: No se encontró la sección de productos.');
+              return;
+          }
+
+          db.collection('empresas').doc(empresaId)
+            .collection('contenido_web').doc(CFG_PRODUCTOS.seccionId)
+            .onSnapshot(function (doc) {
+                if (!doc.exists) return;
+                var data = doc.data();
+
+                // Ocultar sección si está desactivada en la App
+                if (data.activa === false) {
+                    section.style.display = 'none';
+                    return;
+                }
+                section.style.display = '';
+
+                var contenido = data.contenido !== undefined ? data.contenido : data;
+                var items = contenido.items_carta || contenido.items_productos || [];
+
+                // Mapa para búsqueda rápida
+                var dataMap = {};
+                items.forEach(function (it) { if (it.id) dataMap[it.id] = it; });
+
+                // Actualizar cada elemento marcado en el HTML
+                section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                    var itemId   = el.getAttribute('data-fluix-item');
+                    var campo    = el.getAttribute('data-fluix-campo');
+                    var itemData = dataMap[itemId];
+
+                    if (!itemData) return;
+
+                    // Gestionar disponibilidad (opacity)
+                    var card = el.closest('.product-list-item');
+                    if (card) {
+                        card.style.opacity       = itemData.disponible === false ? '0.4' : '';
+                        card.style.pointerEvents = itemData.disponible === false ? 'none' : '';
+                    }
+
+                    // Actualizar contenido
+                    if (campo.indexOf('precio') !== -1) {
+                         if (itemData[campo] !== undefined) el.innerText = formatearPrecioProductos(itemData[campo]);
+                    } else if (campo === 'imagen' || campo === 'imagen_url') {
+                        var url = itemData['imagen'] || itemData['imagen_url'];
+                        if (el.tagName === 'IMG' && url) {
+                            el.src = url;
+                            el.srcset = ''; // Limpiar srcset para evitar conflictos
+                            el.alt = itemData['nombre'] || el.alt;
+                        }
+                    } else {
+                        if (itemData[campo] !== undefined) el.innerText = itemData[campo];
+                    }
+                });
+            });
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // INICIALIZACIÓN
+      // ─────────────────────────────────────────────────────────────────────────
+
+      function cargarScript(src, cb) {
+          var s = document.createElement('script');
+          s.src = src;
+          s.onload = cb;
+          document.head.appendChild(s);
+      }
+
+      function iniciar() {
+          if (!window.firebase) return;
+          var appName = 'FluixProductosOnly';
+          var app = (firebase.apps && firebase.apps.length > 0)
+              ? firebase.apps[0]
+              : firebase.initializeApp(firebaseConfig, appName);
+
+          var db = app.firestore();
+          escucharProductos(db);
+      }
+
+      // Cargar Firebase si no existe
+      if (typeof firebase === 'undefined') {
+          cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js', function () {
+              cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js', iniciar);
+          });
+      } else {
+          iniciar();
+      }
+  })();
+</script>
+
+
+══════════════════════════════════════════════════════════════
+GUÍA COMPLETA DE ETIQUETAS — VALE PARA CUALQUIER HTML
+══════════════════════════════════════════════════════════════
+
+Regla universal: a cualquier elemento HTML le puedes añadir
+estos dos atributos y el script lo actualizará solo:
+
+   data-fluix-item="ID_DEL_ELEMENTO"
+   data-fluix-campo="CAMPO"
+
+──────────────────────────────────────────────────────────────
+1. CAMPOS DISPONIBLES — qué puedes poner en data-fluix-campo
+──────────────────────────────────────────────────────────────
+
+   CAMPO           ETIQUETA HTML RECOMENDADA       QUÉ HACE
+   ─────────────────────────────────────────────────────────
+   nombre          <h1> <h2> <h3> <h4> <h5> <h6>  Cambia el título
+   descripcion     <p> <span> <div>                Cambia el texto
+   precio          <span> <p>                      Cambia el precio (formatea €)
+   imagen          <img>                           Cambia el src de la foto
+   categoria       <span> <p>                      Cambia la categoría
+   disponible      (automático)                    Pone opacity 0.4 si es false
+
+──────────────────────────────────────────────────────────────
+2. EJEMPLOS PARA CADA TIPO DE ELEMENTO
+──────────────────────────────────────────────────────────────
+
+A) TÍTULO / NOMBRE:
+   Cualquier etiqueta de texto: h1, h2, h3, h4, h5, h6, p, span, div
+
+   <h2 data-fluix-item="pack_nominas" data-fluix-campo="nombre">
+       Pack Nóminas
+   </h2>
+
+   <p data-fluix-item="pack_nominas" data-fluix-campo="nombre">
+       Pack Nóminas
+   </p>
+
+──────────────────────────────────────────────────────────────
+
+B) DESCRIPCIÓN / TEXTO:
+
+   <p data-fluix-item="pack_nominas" data-fluix-campo="descripcion">
+       Texto original que se reemplazará...
+   </p>
+
+   <span data-fluix-item="pack_nominas" data-fluix-campo="descripcion">
+       Texto original...
+   </span>
+
+──────────────────────────────────────────────────────────────
+
+C) PRECIO:
+   El script formatea automáticamente el número como €XX.XX
+
+   <span data-fluix-item="pack_nominas" data-fluix-campo="precio">
+       €300.00
+   </span>
+
+   <p data-fluix-item="pack_nominas" data-fluix-campo="precio">
+       €300.00
+   </p>
+
+──────────────────────────────────────────────────────────────
+
+D) IMAGEN:
+   SIEMPRE en la etiqueta <img> directamente, NO en el div contenedor.
+
+   ✅ CORRECTO — atributos en el <img>:
+   <img src="foto-actual.jpg"
+        data-fluix-item="pack_nominas"
+        data-fluix-campo="imagen"
+        alt="Pack Nóminas">
+
+   ❌ INCORRECTO — atributos en el div que rodea la imagen:
+   <div data-fluix-item="pack_nominas" data-fluix-campo="imagen">
+       <img src="foto-actual.jpg">   ← el script NO llega aquí
+   </div>
+
+   ──────────────────────────────────────────────────
+   CASOS ESPECIALES DE IMAGEN
+   ──────────────────────────────────────────────────
+
+   D1) IMG con srcset (como las de Hostinger/Zyro):
+       El script borra el srcset automáticamente para que
+       no sobreescriba la nueva imagen de Firebase.
+       Solo añade los atributos al <img>, nada más.
+
+       <img src="placeholder.png"
+            srcset="placeholder.png 328w, placeholder.png 656w"
+            data-fluix-item="pack_nominas"
+            data-fluix-campo="imagen"
+            alt="Pack Nóminas"
+            width="328" height="410">
+
+   ──────────────────────────────────────────────────
+
+   D2) IMG dentro de un div con clase (caso Hostinger):
+       Aunque esté dentro de muchos divs, mientras los
+       atributos estén EN el <img>, funciona.
+
+       <div class="product-list-item__image-wrapper">
+           <img class="product-list-item__image"
+                src="placeholder.png"
+                data-fluix-item="pack_nominas"
+                data-fluix-campo="imagen"
+                alt="Pack Nóminas">
+       </div>
+
+   ──────────────────────────────────────────────────
+
+   D3) IMG de fondo CSS (background-image):
+       El script NO puede cambiar fondos CSS directamente.
+       En ese caso usa un <img> normal y escóndelo con CSS
+       si necesitas usarlo como fondo, o usa object-fit:cover.
+
+       ❌ NO funciona con:
+       <div style="background-image: url(foto.jpg)"></div>
+
+       ✅ Alternativa que SÍ funciona:
+       <img src="foto.jpg"
+            style="width:100%; height:100%; object-fit:cover;"
+            data-fluix-item="mi_elemento"
+            data-fluix-campo="imagen">
+
+   ──────────────────────────────────────────────────
+
+   D4) DÓNDE GUARDA LA URL EN FIREBASE:
+       El script busca la imagen en estos campos (por orden):
+         1. imagen
+         2. imagen_url
+       Guarda la URL de la imagen en cualquiera de los dos
+       desde la App y se actualizará automáticamente.
+
+──────────────────────────────────────────────────────────────
+
+E) CATEGORÍA:
+
+   <span data-fluix-item="pack_nominas" data-fluix-campo="categoria">
+       Gestión
+   </span>
+
+──────────────────────────────────────────────────────────────
+
+F) SECCIÓN COMPLETA (contenedor padre):
+   Para que el script sepa dónde buscar los elementos,
+   el div/section contenedor debe tener estos dos atributos:
+
+   <section data-empresa="ztZblwm1w71wNQtzHV7S"
+            data-seccion="productos">
+       ... aquí dentro van los elementos con data-fluix-item ...
+   </section>
+
+   Los valores de data-seccion posibles son:
+      - "productos"   → sección de productos/servicios
+      - "carta"       → sección de carta/menú
+      - "horarios"    → sección de horarios
+      - "ofertas"     → sección de ofertas
+
+──────────────────────────────────────────────────────────────
+3. TABLA RÁPIDA DE REFERENCIA
+──────────────────────────────────────────────────────────────
+
+   QUIERO CAMBIAR...        AÑADO ESTO AL ELEMENTO HTML
+   ──────────────────────────────────────────────────────
+   El nombre/título         data-fluix-campo="nombre"
+   La descripción           data-fluix-campo="descripcion"
+   El precio                data-fluix-campo="precio"
+   La foto                  data-fluix-campo="imagen"
+   La categoría             data-fluix-campo="categoria"
+   ──────────────────────────────────────────────────────
+   + SIEMPRE también:       data-fluix-item="ID_QUE_TU_ELIJAS"
+
+──────────────────────────────────────────────────────────────
+4. CÓMO ELEGIR EL ID (data-fluix-item)
+──────────────────────────────────────────────────────────────
+
+   El ID lo decides tú, pero debe ser:
+   - Único por elemento (no repitas el mismo ID en dos productos distintos)
+   - Sin espacios (usar guión bajo: pack_nominas, NO "pack nominas")
+   - En minúsculas
+   - Descriptivo: pack_basico, paella_mixta, horario_lunes, etc.
+
+   IMPORTANTE: El mismo ID que pongas en el HTML debes usarlo
+   en la App cuando crees/edites ese elemento desde el panel.
+
+──────────────────────────────────────────────────────────────
+5. EJEMPLO COMPLETO — UNA TARJETA DE PRODUCTO
+──────────────────────────────────────────────────────────────
+
+<div class="mi-tarjeta-producto">
+
+    <img src="foto-placeholder.jpg"
+         data-fluix-item="pack_basico"
+         data-fluix-campo="imagen"
+         alt="Pack Básico">
+
+    <h3 data-fluix-item="pack_basico" data-fluix-campo="nombre">
+        Pack Básico
+    </h3>
+
+    <p data-fluix-item="pack_basico" data-fluix-campo="descripcion">
+        Descripción del pack básico...
+    </p>
+
+    <span data-fluix-item="pack_basico" data-fluix-campo="precio">
+        €250.00
+    </span>
+
+</div>
+
+──────────────────────────────────────────────────────────────
+6. EJEMPLO COMPLETO — UNA TARJETA DE CARTA/MENÚ
+──────────────────────────────────────────────────────────────
+
+<div class="mi-plato">
+
+    <img src="foto-paella.jpg"
+         data-fluix-item="paella_mixta"
+         data-fluix-campo="imagen"
+         alt="Paella Mixta">
+
+    <h4 data-fluix-item="paella_mixta" data-fluix-campo="nombre">
+        Paella Mixta
+    </h4>
+
+    <p data-fluix-item="paella_mixta" data-fluix-campo="descripcion">
+        Arroz con marisco y carne...
+    </p>
+
+    <strong data-fluix-item="paella_mixta" data-fluix-campo="precio">
+        12€
+    </strong>
+
+</div>
+
+──────────────────────────────────────────────────────────────
+NOTA FINAL
+──────────────────────────────────────────────────────────────
+Los atributos data-fluix-item y data-fluix-campo se pueden
+añadir a CUALQUIER etiqueta HTML visible (h1-h6, p, span,
+div, strong, em, img...). No importa el diseño ni los
+estilos que tenga, solo añade los dos atributos y el script
+lo detectará automáticamente.
+
+
+

@@ -1,0 +1,67 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Codemagic CI/CD — Compilar Fluix CRM para iOS y Android
+# Docs: https://docs.codemagic.io/yaml/yaml-getting-started/
+# ═══════════════════════════════════════════════════════════════════════════════
+
+workflows:
+  # ─── iOS — App Store ──────────────────────────────────────────────────────
+  ios-release:
+    name: iOS App Store Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials  # Configura en Codemagic UI
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.fluixtech.crm
+    scripts:
+      - name: Install dependencies
+        script: |
+          flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Flutter build IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        # Configurar API Key en Codemagic UI:
+        # Settings → Code signing → App Store Connect API key
+        auth: integration
+        submit_to_testflight: true
+
+  # ─── Android — Play Store ─────────────────────────────────────────────────
+  android-release:
+    name: Android Play Store Release
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - google_play_credentials  # Configura en Codemagic UI
+        - keystore_credentials     # Configura en Codemagic UI
+    scripts:
+      - name: Install dependencies
+        script: |
+          flutter pub get
+      - name: Build AAB
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal  # internal → alpha → beta → production
+

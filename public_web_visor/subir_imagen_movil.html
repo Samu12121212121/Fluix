@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Subir imagen · Fluix</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      padding: 20px 16px 40px;
+    }
+
+    .header { text-align: center; margin-bottom: 28px; padding-top: 8px; }
+    .header h1 { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+    .header h1 span { color: #4f46e5; }
+    .header p { color: #6b7280; font-size: 13px; margin-top: 4px; }
+
+    /* SELECTOR DE PRODUCTO */
+    .label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: block; }
+    .select-producto {
+      width: 100%; padding: 14px 16px;
+      border: 2px solid #e5e7eb; border-radius: 12px;
+      font-size: 15px; color: #111827; background: white;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center;
+      margin-bottom: 20px;
+    }
+    .select-producto:focus { outline: none; border-color: #4f46e5; }
+
+    /* ZONA DE IMAGEN */
+    .zona-imagen {
+      width: 100%; aspect-ratio: 4/3;
+      border: 2.5px dashed #d1d5db; border-radius: 16px;
+      background: white; overflow: hidden;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; position: relative;
+      transition: border-color .2s;
+      margin-bottom: 16px;
+    }
+    .zona-imagen.activa { border-color: #4f46e5; border-style: solid; }
+    .zona-imagen img#preview {
+      width: 100%; height: 100%; object-fit: cover;
+      display: none; position: absolute; inset: 0;
+    }
+    .zona-imagen img#preview.visible { display: block; }
+    .zona-placeholder { text-align: center; padding: 20px; }
+    .zona-placeholder .icono { font-size: 48px; margin-bottom: 8px; }
+    .zona-placeholder p { color: #6b7280; font-size: 14px; line-height: 1.4; }
+    .zona-placeholder strong { color: #4f46e5; }
+    input[type="file"] { display: none; }
+
+    /* BOTÓN SUBIR */
+    .btn-subir {
+      width: 100%; padding: 16px;
+      background: #4f46e5; color: white;
+      border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: background .2s, transform .1s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-subir:active { transform: scale(0.98); }
+    .btn-subir:disabled { background: #a5b4fc; cursor: not-allowed; transform: none; }
+
+    /* PROGRESS */
+    .progress-wrap {
+      display: none; margin-top: 16px;
+      background: #e5e7eb; border-radius: 99px; overflow: hidden; height: 8px;
+    }
+    .progress-bar {
+      height: 100%; background: #4f46e5;
+      border-radius: 99px; width: 0%;
+      transition: width .3s ease;
+    }
+    .progress-txt { text-align: center; font-size: 13px; color: #6b7280; margin-top: 6px; }
+
+    /* RESULTADO */
+    .resultado {
+      display: none; margin-top: 20px;
+      padding: 16px; border-radius: 12px;
+      font-size: 14px; font-weight: 600;
+      text-align: center; line-height: 1.5;
+    }
+    .resultado.ok  { background: #dcfce7; color: #166534; }
+    .resultado.err { background: #fee2e2; color: #991b1b; }
+
+    /* HISTORIAL */
+    .historial { margin-top: 28px; }
+    .historial h3 { font-size: 13px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+    .hist-item {
+      background: white; border-radius: 10px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .hist-item img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+    .hist-item .hist-info { flex: 1; overflow: hidden; }
+    .hist-item .hist-id  { font-weight: 600; color: #111827; }
+    .hist-item .hist-url { color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Fluix<span>Tech</span></h1>
+    <p>Subir imagen desde galería</p>
+  </div>
+
+  <label class="label">1. Elige el producto</label>
+  <select class="select-producto" id="selectProducto">
+    <option value="">— Selecciona un producto —</option>
+    <option value="pack_nominas">Pack Nóminas</option>
+    <option value="pack_tienda_online">Pack Tienda Online</option>
+    <option value="pack_gestion">Pack Gestión</option>
+    <option value="pack_basico">Pack Básico</option>
+    <option value="compra_facil">Compra fácil aquí</option>
+  </select>
+
+  <label class="label">2. Toca para abrir la galería</label>
+  <div class="zona-imagen" id="zonaImagen">
+    <img id="preview" alt="Vista previa">
+    <div class="zona-placeholder" id="placeholder">
+      <div class="icono">🖼️</div>
+      <p>Toca aquí para elegir<br>una foto de tu galería</p>
+    </div>
+  </div>
+  <input type="file" id="inputFile" accept="image/*">
+
+  <button class="btn-subir" id="btnSubir" disabled>
+    📤 Subir imagen a la web
+  </button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="progress-txt" id="progressTxt"></div>
+
+  <div class="resultado" id="resultado"></div>
+
+  <div class="historial" id="historialWrap" style="display:none">
+    <h3>Subidas recientes</h3>
+    <div id="historialLista"></div>
+  </div>
+
+<script>
+// ── CONFIGURACIÓN ──────────────────────────────────────────────────
+var EMPRESA_ID    = 'ztZblwm1w71wNQtzHV7S';
+var SECCION_ID    = 'productos';
+var firebaseConfig = {
+  apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+  authDomain:        "planeaapp-4bea4.firebaseapp.com",
+  projectId:         "planeaapp-4bea4",
+  storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+  messagingSenderId: "1085482191658",
+  appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+};
+
+// ── ESTADO ────────────────────────────────────────────────────────
+var archivoSeleccionado = null;
+var db, storage;
+
+// ── ELEMENTOS DOM ─────────────────────────────────────────────────
+var zonaImagen   = document.getElementById('zonaImagen');
+var inputFile    = document.getElementById('inputFile');
+var preview      = document.getElementById('preview');
+var placeholder  = document.getElementById('placeholder');
+var btnSubir     = document.getElementById('btnSubir');
+var progressWrap = document.getElementById('progressWrap');
+var progressBar  = document.getElementById('progressBar');
+var progressTxt  = document.getElementById('progressTxt');
+var resultado    = document.getElementById('resultado');
+var selectProd   = document.getElementById('selectProducto');
+
+// ── ABRIR GALERÍA al tocar la zona ────────────────────────────────
+zonaImagen.addEventListener('click', function() {
+  inputFile.click();
+});
+
+inputFile.addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  archivoSeleccionado = file;
+
+  // Mostrar vista previa
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    preview.src = ev.target.result;
+    preview.classList.add('visible');
+    placeholder.style.display = 'none';
+    zonaImagen.classList.add('activa');
+  };
+  reader.readAsDataURL(file);
+
+  actualizarBoton();
+  resetResultado();
+});
+
+selectProd.addEventListener('change', function() {
+  actualizarBoton();
+  resetResultado();
+});
+
+function actualizarBoton() {
+  btnSubir.disabled = !(selectProd.value && archivoSeleccionado);
+}
+
+function resetResultado() {
+  resultado.style.display = 'none';
+  resultado.className = 'resultado';
+}
+
+// ── SUBIR ─────────────────────────────────────────────────────────
+btnSubir.addEventListener('click', function() {
+  if (!db || !storage) return mostrarError('Firebase aún cargando. Espera un momento.');
+  if (!selectProd.value) return mostrarError('Selecciona un producto primero.');
+  if (!archivoSeleccionado) return mostrarError('Selecciona una imagen primero.');
+
+  subirImagen(selectProd.value, archivoSeleccionado);
+});
+
+function subirImagen(productoId, archivo) {
+  btnSubir.disabled = true;
+  btnSubir.textContent = '⏳ Subiendo...';
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressTxt.textContent = 'Preparando...';
+
+  // Ruta en Firebase Storage: productos/EMPRESA/PRODUCTO_TIMESTAMP.ext
+  var ext      = archivo.name.split('.').pop().toLowerCase() || 'jpg';
+  var ruta     = 'productos/' + EMPRESA_ID + '/' + productoId + '_' + Date.now() + '.' + ext;
+  var storageRef = storage.ref(ruta);
+  var uploadTask = storageRef.put(archivo);
+
+  uploadTask.on('state_changed',
+    function(snap) {
+      var pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+      progressBar.style.width = pct + '%';
+      progressTxt.textContent = 'Subiendo... ' + pct + '%';
+    },
+    function(err) {
+      console.error(err);
+      mostrarError('Error al subir: ' + err.message);
+      resetBoton();
+    },
+    function() {
+      // Subida completada — obtener URL pública
+      progressTxt.textContent = 'Guardando en base de datos...';
+      uploadTask.snapshot.ref.getDownloadURL().then(function(url) {
+        return guardarEnFirestore(productoId, url);
+      }).then(function(url) {
+        mostrarExito(productoId, url);
+        agregarHistorial(productoId, url);
+        resetBoton();
+        // Limpiar selección
+        archivoSeleccionado = null;
+        inputFile.value = '';
+        preview.classList.remove('visible');
+        placeholder.style.display = '';
+        zonaImagen.classList.remove('activa');
+        selectProd.value = '';
+        actualizarBoton();
+      }).catch(function(e) {
+        mostrarError('Imagen subida pero error al guardar: ' + e.message);
+        resetBoton();
+      });
+    }
+  );
+}
+
+function guardarEnFirestore(productoId, url) {
+  return db.collection('empresas').doc(EMPRESA_ID)
+    .collection('contenido_web').doc(SECCION_ID)
+    .get().then(function(doc) {
+      if (!doc.exists) throw new Error('Documento productos no existe. Sincroniza primero desde sincronizar_productos.html');
+      var d     = doc.data();
+      var items = (d.contenido && d.contenido.items_carta) || [];
+      var found = false;
+      items = items.map(function(it) {
+        if (it.id === productoId) {
+          found = true;
+          return Object.assign({}, it, { imagen: url, imagen_url: url });
+        }
+        return it;
+      });
+      if (!found) throw new Error('Producto "' + productoId + '" no encontrado en Firebase.');
+      return db.collection('empresas').doc(EMPRESA_ID)
+        .collection('contenido_web').doc(SECCION_ID)
+        .update({
+          'contenido.items_carta': items,
+          fecha_actualizacion: new Date()
+        }).then(function() { return url; });
+    });
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────
+function mostrarExito(id, url) {
+  resultado.className = 'resultado ok';
+  resultado.innerHTML = '✅ ¡Imagen subida!<br><small>Producto: <b>' + id + '</b><br>La web se actualiza automáticamente.</small>';
+  resultado.style.display = 'block';
+}
+
+function mostrarError(msg) {
+  resultado.className = 'resultado err';
+  resultado.innerHTML = '❌ ' + msg;
+  resultado.style.display = 'block';
+}
+
+function resetBoton() {
+  btnSubir.disabled = false;
+  btnSubir.innerHTML = '📤 Subir imagen a la web';
+  progressWrap.style.display = 'none';
+  progressTxt.textContent = '';
+}
+
+function agregarHistorial(id, url) {
+  document.getElementById('historialWrap').style.display = 'block';
+  var lista = document.getElementById('historialLista');
+  var div = document.createElement('div');
+  div.className = 'hist-item';
+  div.innerHTML = '<img src="' + url + '" onerror="this.style.display=\'none\'">' +
+    '<div class="hist-info">' +
+      '<div class="hist-id">' + id + '</div>' +
+      '<div class="hist-url">' + url + '</div>' +
+    '</div>';
+  lista.insertBefore(div, lista.firstChild);
+}
+
+// ── CARGAR FIREBASE ───────────────────────────────────────────────
+function cargarScript(src, cb) {
+  var s = document.createElement('script');
+  s.src = src; s.onload = cb;
+  document.head.appendChild(s);
+}
+
+function iniciar() {
+  var app = firebase.apps.length
+    ? firebase.apps[0]
+    : firebase.initializeApp(firebaseConfig, 'FluixImagen');
+  db      = app.firestore();
+  storage = app.storage();
+  console.log('Fluix imagen: Firebase listo ✓');
+}
+
+cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js', function() {
+  cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js', function() {
+    cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js', iniciar);
+  });
+});
+</script>
+</body>
+</html>
+

@@ -1,0 +1,487 @@
+<!-- ===================================================
+     SCRIPT PLANEAGUADA — Footer Combinado COMPLETO
+     fluixtech.com
+
+     Funcionalidades:
+     ✅ Registro de visitas (total, dispositivo, página, ubicación)
+     ✅ Duración media y tasa de rebote
+     ✅ Históricos diarios (30 días) para gráficas
+     ✅ Captura de formularios de contacto / reservas
+     ✅ Captura de reseñas / comentarios de WordPress
+     ✅ Escucha respuestas del admin desde la app CRM
+     ✅ Sube respuestas a Google My Business (OAuth2 — ver instrucciones)
+     ✅ Mensajes visuales tipo toast
+=================================================== -->
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  console.log('🚀 Inicializando PlaneaGuada CRM...');
+
+  // 🔥 Configuración Firebase — API Key WEB correcta del proyecto planeaapp-4bea4
+  const firebaseConfig = {
+    apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  // 🏢 ID de la empresa Dama Juana en Firestore
+  const EMPRESA_ID = "ztZblwm1w71wNQtzHV7S";
+
+  // 🔑 Google Business Profile OAuth2 — para responder en Google automáticamente
+  // INSTRUCCIONES para activarlo:
+  //   1. Ve a https://console.cloud.google.com/apis/library (proyecto planeaapp-4bea4)
+  //   2. Activa "Business Profile API"
+  //   3. Ve a Credenciales → Crear credencial → ID de cliente OAuth 2.0 → Aplicación web
+  //   4. En "Orígenes autorizados" añade: https://fluixtech.com
+  //   5. Copia el Client ID generado y sustitúyelo aquí:
+  const GOOGLE_CLIENT_ID = ""; // ← Pega aquí tu OAuth Client ID cuando lo tengas
+
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // ============================================================
+  // GOOGLE OAUTH2 — Subir respuestas a Google My Business
+  // ============================================================
+
+  let googleAccessToken = sessionStorage.getItem('google_biz_token') || null;
+
+  function solicitarTokenGoogle() {
+    return new Promise((resolve, reject) => {
+      if (!GOOGLE_CLIENT_ID) {
+        reject(new Error('Google Client ID no configurado'));
+        return;
+      }
+      const scope = encodeURIComponent('https://www.googleapis.com/auth/business.manage');
+      const redirectUri = encodeURIComponent(window.location.origin);
+      const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
+
+      const popup = window.open(url, 'google_auth', 'width=520,height=620');
+      const check = setInterval(() => {
+        try {
+          if (popup.closed) { clearInterval(check); reject(new Error('Cancelado')); return; }
+          const params = new URLSearchParams(popup.location.hash.substring(1));
+          const token = params.get('access_token');
+          if (token) {
+            clearInterval(check);
+            popup.close();
+            googleAccessToken = token;
+            sessionStorage.setItem('google_biz_token', token);
+            console.log('✅ Token de Google My Business obtenido');
+            resolve(token);
+          }
+        } catch (e) { /* cross-origin mientras popup está en Google — ignorar */ }
+      }, 500);
+    });
+  }
+
+  async function responderEnGoogle(reviewName, respuesta, token) {
+    try {
+      // reviewName tiene el formato: accounts/XXX/locations/YYY/reviews/ZZZ
+      const url = `https://mybusiness.googleapis.com/v4/${reviewName}/reply`;
+      const resp = await fetch(url, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: respuesta })
+      });
+      if (resp.ok) {
+        console.log('✅ Respuesta publicada en Google Maps');
+        return true;
+      }
+      const err = await resp.json();
+      console.error('❌ Error API Google My Business:', err);
+      // Si el token expiró (401), limpiarlo
+      if (resp.status === 401) { googleAccessToken = null; sessionStorage.removeItem('google_biz_token'); }
+      return false;
+    } catch (e) {
+      console.error('❌ Error respondiendo en Google:', e);
+      return false;
+    }
+  }
+
+  // ============================================================
+  // ESCUCHAR RESPUESTAS DEL ADMIN (desde la app CRM)
+  // ============================================================
+  function escucharRespuestas() {
+    db.collection('empresas').doc(EMPRESA_ID).collection('valoraciones')
+      .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(async change => {
+          if (change.type !== 'modified') return;
+
+          const data = change.doc.data();
+          const respuesta = data.respuesta;
+          if (!respuesta) return;
+
+          const origen = data.origen || 'app';
+          const nombreCliente = data.cliente || data.nombre_persona || 'Cliente';
+
+          // ── Mostrar toast en la web (todos los orígenes) ──────────────────
+          if (!data.respuesta_mostrada_web) {
+            mostrarMensaje(
+              `💬 Respuesta para <strong>${nombreCliente}</strong>:<br><em>"${respuesta}"</em>`,
+              '#1976D2', 7000
+            );
+            change.doc.ref.update({ respuesta_mostrada_web: true });
+          }
+
+          // ── Si es reseña de Google → subir a Google My Business ──────────
+          if (origen === 'google' && !data.respuesta_subida_google) {
+            const reviewName = data.google_review_name; // Campo necesario para la API
+
+            if (!reviewName) {
+              // Sin google_review_name no podemos subir la respuesta vía API
+              // En el futuro se puede guardar este campo al sincronizar desde Google
+              return;
+            }
+
+            let token = googleAccessToken;
+            if (!token) {
+              if (GOOGLE_CLIENT_ID) {
+                mostrarBotonAutorizarGoogle(change.doc.ref, reviewName, respuesta, nombreCliente);
+              }
+              return;
+            }
+
+            const exito = await responderEnGoogle(reviewName, respuesta, token);
+            if (exito) {
+              change.doc.ref.update({ respuesta_subida_google: true });
+              mostrarMensaje('✅ Respuesta publicada automáticamente en Google Maps', '#4CAF50', 5000);
+            }
+          }
+        });
+      });
+  }
+
+  function mostrarBotonAutorizarGoogle(docRef, reviewName, respuesta, nombreCliente) {
+    const div = document.createElement('div');
+    div.style.cssText = `
+      position: fixed; bottom: 24px; right: 24px; background: white;
+      border: 2px solid #4285F4; border-radius: 12px; padding: 18px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 10001;
+      font-family: Arial, sans-serif; max-width: 320px;
+    `;
+    div.innerHTML = `
+      <div style="font-weight:bold;color:#1976D2;margin-bottom:8px;font-size:15px;">📤 Publicar en Google</div>
+      <div style="font-size:13px;color:#555;margin-bottom:14px;">
+        Respuesta pendiente para <strong>${nombreCliente}</strong>.<br>
+        Autoriza Google My Business para publicarla.
+      </div>
+      <button id="btn-auth-google" style="background:#4285F4;color:white;border:none;padding:11px;border-radius:8px;cursor:pointer;width:100%;font-size:14px;font-weight:bold;">
+        🔑 Autorizar y publicar
+      </button>
+      <button id="btn-skip-google" style="background:none;border:none;color:#999;margin-top:8px;cursor:pointer;font-size:12px;width:100%;">
+        Omitir (responder manualmente en Google)
+      </button>
+    `;
+    document.body.appendChild(div);
+
+    document.getElementById('btn-auth-google').onclick = async () => {
+      try {
+        const token = await solicitarTokenGoogle();
+        const exito = await responderEnGoogle(reviewName, respuesta, token);
+        if (exito) {
+          docRef.update({ respuesta_subida_google: true });
+          mostrarMensaje('✅ Respuesta publicada en Google Maps', '#4CAF50', 5000);
+        } else {
+          mostrarMensaje('❌ No se pudo publicar. Responde en business.google.com/reviews', '#F44336', 6000);
+        }
+      } catch (e) {
+        mostrarMensaje('❌ Autorización cancelada. Responde en business.google.com/reviews', '#F57C00', 6000);
+      }
+      if (div.parentNode) document.body.removeChild(div);
+    };
+
+    document.getElementById('btn-skip-google').onclick = () => {
+      if (div.parentNode) document.body.removeChild(div);
+    };
+  }
+
+  // ============================================================
+  // DETECTAR DISPOSITIVO
+  // ============================================================
+  function detectarDispositivo() {
+    const ua = navigator.userAgent;
+    if (/tablet|ipad|playbook|silk/i.test(ua)) return "tablet";
+    if (/mobile|android|iphone|ipod|blackberry|phone/i.test(ua)) return "movil";
+    return "desktop";
+  }
+
+  // ============================================================
+  // OBTENER PÁGINA ACTUAL
+  // ============================================================
+  function obtenerPagina() {
+    const path = window.location.pathname;
+    if (path === "/" || path === "") return "Inicio";
+    const partes = path.replace(/^\/|\/$/g, "").split("/");
+    return "/" + partes.slice(0, 2).join("/");
+  }
+
+  // ============================================================
+  // DETECTAR UBICACIÓN
+  // ============================================================
+  async function obtenerUbicacion() {
+    try {
+      const resp = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) });
+      const data = await resp.json();
+      if (data && data.city) return data.city + (data.region ? ", " + data.region : "");
+      return data.country_name || "Desconocido";
+    } catch (e) {
+      return "Desconocido";
+    }
+  }
+
+  // ============================================================
+  // FECHAS Y PERIODOS
+  // ============================================================
+  function claveHoy() {
+    const hoy = new Date();
+    return `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}-${String(hoy.getDate()).padStart(2,"0")}`;
+  }
+
+  function inicioSemana() {
+    const hoy = new Date();
+    const dia = hoy.getDay();
+    const diff = hoy.getDate() - dia + (dia === 0 ? -6 : 1);
+    return new Date(new Date().setDate(diff));
+  }
+
+  // ============================================================
+  // TIEMPO EN PÁGINA (duración media y rebotes)
+  // ============================================================
+  const inicioVisita = Date.now();
+
+  function registrarTiempoSalida() {
+    const tiempoFinal = Math.round((Date.now() - inicioVisita) / 1000);
+    const esRebote = tiempoFinal < 15;
+    if (tiempoFinal > 2) {
+      db.collection("empresas").doc(EMPRESA_ID).collection("estadisticas").doc("trafico_web")
+        .set({
+          duracion_media_segundos: firebase.firestore.FieldValue.increment(tiempoFinal),
+          total_duraciones: firebase.firestore.FieldValue.increment(1),
+          rebotes: firebase.firestore.FieldValue.increment(esRebote ? 1 : 0),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(() => {});
+    }
+  }
+
+  window.addEventListener("beforeunload", registrarTiempoSalida);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") registrarTiempoSalida();
+  });
+
+  // ============================================================
+  // REGISTRAR VISITA COMPLETA
+  // ============================================================
+  async function registrarVisita() {
+    const dispositivo = detectarDispositivo();
+    const pagina      = obtenerPagina();
+    const ubicacion   = await obtenerUbicacion();
+    const hoyKey      = claveHoy();
+
+    const statsRef   = db.collection("empresas").doc(EMPRESA_ID).collection("estadisticas").doc("resumen");
+    const traficoRef = db.collection("empresas").doc(EMPRESA_ID).collection("estadisticas").doc("trafico_web");
+
+    const batch = db.batch();
+
+    // Contador general
+    batch.set(statsRef, {
+      visitas: firebase.firestore.FieldValue.increment(1),
+      ultima_actualizacion: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // Tráfico detallado
+    const clavesPagina = (pagina === 'Inicio' ? 'inicio' : pagina.replace(/^\//, '').replace(/\//g, '_'));
+    const claveUbicacion = ubicacion.replace(/[.\/,]/g, '_');
+
+    const extras = {};
+    extras[`visitas_${dispositivo}`] = firebase.firestore.FieldValue.increment(1);
+    extras[`paginas_mas_vistas.${clavesPagina}`] = firebase.firestore.FieldValue.increment(1);
+    extras[`ubicaciones.${claveUbicacion}`] = firebase.firestore.FieldValue.increment(1);
+
+    batch.set(traficoRef, {
+      visitas_total: firebase.firestore.FieldValue.increment(1),
+      ultima_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+      ...extras
+    }, { merge: true });
+
+    // Histórico diario
+    batch.set(traficoRef.collection("historico_diario").doc(hoyKey), {
+      fecha: hoyKey,
+      visitas: firebase.firestore.FieldValue.increment(1),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    await batch.commit();
+
+    // Calcular totales hoy / semana / mes
+    const histSnap = await traficoRef.collection("historico_diario")
+      .orderBy("fecha", "desc").limit(31).get();
+
+    const semanaInicio = inicioSemana();
+    const ahora = new Date();
+    const mesInicio = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}-01`;
+
+    let visitasHoy = 0, visitasSemana = 0, visitasMes = 0;
+    histSnap.forEach(doc => {
+      const d = doc.data();
+      const v = d.visitas || 0;
+      if (d.fecha === hoyKey) visitasHoy += v;
+      if (new Date(d.fecha + "T00:00:00") >= semanaInicio) visitasSemana += v;
+      if (d.fecha >= mesInicio) visitasMes += v;
+    });
+
+    await traficoRef.set({ visitas_hoy: visitasHoy, visitas_semana: visitasSemana, visitas_mes: visitasMes }, { merge: true });
+
+    console.log(`✅ Visita — ${dispositivo} | ${pagina} | ${ubicacion}`);
+  }
+
+  // ============================================================
+  // TASA DE REBOTE
+  // ============================================================
+  async function actualizarTasaRebote() {
+    try {
+      const traficoRef = db.collection("empresas").doc(EMPRESA_ID).collection("estadisticas").doc("trafico_web");
+      const doc = await traficoRef.get();
+      if (!doc.exists) return;
+      const data = doc.data();
+      const total = data.total_duraciones || 0;
+      if (total > 0) {
+        await traficoRef.set({
+          tasa_rebote: Math.round(((data.rebotes || 0) / total) * 100),
+          duracion_media_segundos: Math.round((data.duracion_media_segundos || 0) / total)
+        }, { merge: true });
+      }
+    } catch (e) {}
+  }
+
+  // ============================================================
+  // FORMULARIOS DE CONTACTO / RESERVAS
+  // ============================================================
+  function detectarFormularios() {
+    // Contact Form 7
+    document.addEventListener('wpcf7mailsent', event => {
+      const inputs = event.detail.inputs || [];
+      const fd = {};
+      inputs.forEach(i => { fd[i.name] = i.value; });
+      procesarFormulario(fd);
+    });
+
+    // Formularios genéricos
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', () => {
+        setTimeout(() => procesarFormulario(new FormData(form)), 1000);
+      });
+    });
+  }
+
+  async function procesarFormulario(fd) {
+    try {
+      const get = (...keys) => {
+        for (const k of keys) {
+          const v = fd instanceof FormData ? fd.get(k) : fd[k];
+          if (v && String(v).trim()) return String(v).trim();
+        }
+        return '';
+      };
+      const nombre   = get('your-name', 'nombre', 'name', 'fullname');
+      const email    = get('your-email', 'email', 'correo', 'mail');
+      const telefono = get('your-phone', 'telefono', 'phone', 'tel');
+      const servicio = get('service', 'servicio', 'subject', 'asunto') || 'Consulta general';
+      const mensaje  = get('your-message', 'mensaje', 'message', 'comments');
+
+      if (nombre && (email || telefono)) {
+        await db.collection('empresas').doc(EMPRESA_ID).collection('reservas').add({
+          nombre_cliente: nombre,
+          correo_cliente: email,
+          telefono_cliente: telefono,
+          servicio: servicio,
+          notas: mensaje,
+          estado: 'pendiente',
+          origen: 'web',
+          fecha_creacion: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('✅ Reserva desde web:', nombre);
+        mostrarMensaje('¡Formulario enviado correctamente! 👋 Te contactaremos pronto.', '#4CAF50');
+      }
+    } catch (e) { console.error('❌ Error procesando formulario:', e); }
+  }
+
+  // ============================================================
+  // CAPTURA DE RESEÑAS DE WORDPRESS
+  // ============================================================
+  function detectarResenas() {
+    document.querySelectorAll('.comment-form, form[class*="review"], #commentform').forEach(form => {
+      form.addEventListener('submit', () => setTimeout(capturarResena, 2000));
+    });
+  }
+
+  async function capturarResena() {
+    try {
+      const items = document.querySelectorAll('.comment, .review, article[class*="comment"]');
+      const ultimo = items[items.length - 1];
+      if (!ultimo) return;
+
+      const nombre     = ultimo.querySelector('.comment-author, .author, cite')?.textContent?.trim() || 'Usuario Web';
+      const comentario = ultimo.querySelector('.comment-content p, .content, .comment-text')?.textContent?.trim() || '';
+      const estrellas  = Math.min(ultimo.querySelectorAll('.star.filled, .star-full, [class*="star-on"]').length || 5, 5);
+
+      if (comentario.length > 10) {
+        await db.collection('empresas').doc(EMPRESA_ID).collection('valoraciones').add({
+          cliente: nombre,
+          calificacion: estrellas,
+          comentario: comentario,
+          fecha: firebase.firestore.FieldValue.serverTimestamp(),
+          respuesta: null,
+          origen: 'wordpress'
+        });
+        console.log('✅ Reseña capturada:', nombre);
+      }
+    } catch (e) { console.error('❌ Error capturando reseña:', e); }
+  }
+
+  // ============================================================
+  // MENSAJES VISUALES (toast)
+  // ============================================================
+  function mostrarMensaje(texto, color = '#333', duracion = 4000) {
+    const div = document.createElement('div');
+    div.style.cssText = `
+      position: fixed; top: 20px; right: 20px; background: ${color}; color: white;
+      padding: 14px 18px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      z-index: 10000; font-family: Arial, sans-serif; font-size: 14px;
+      max-width: 360px; line-height: 1.5; opacity: 1; transition: opacity 0.3s;
+    `;
+    div.innerHTML = texto;
+    document.body.appendChild(div);
+    setTimeout(() => {
+      div.style.opacity = '0';
+      setTimeout(() => { if (div.parentNode) document.body.removeChild(div); }, 300);
+    }, duracion);
+  }
+
+  // ============================================================
+  // ARRANCAR TODO
+  // ============================================================
+  async function iniciar() {
+    try {
+      await registrarVisita();
+      await actualizarTasaRebote();
+      detectarFormularios();
+      detectarResenas();
+      escucharRespuestas();
+      console.log('🎉 PlaneaGuada CRM listo');
+    } catch (e) {
+      console.error('❌ Error iniciando PlaneaGuada CRM:', e);
+    }
+  }
+
+  iniciar();
+});
+</script>
+

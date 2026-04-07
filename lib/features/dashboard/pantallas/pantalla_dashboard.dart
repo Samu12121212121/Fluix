@@ -1,0 +1,1392 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/modulo_valoraciones_fixed.dart';
+import '../widgets/modulo_citas.dart';
+import '../widgets/modulo_reservas.dart';
+import '../widgets/modulo_estadisticas.dart';
+import '../widgets/modulo_propietario.dart';
+import '../widgets/widget_factory.dart';
+import '../widgets/badge_icon.dart';
+import '../widgets/offline_banner.dart';
+import '../../../core/constantes/constantes_app.dart';
+import '../../../services/widget_manager_service.dart';
+import '../../../services/contenido_web_service.dart';
+import '../../../services/notificaciones_service.dart';
+import '../../../services/datos_prueba_service.dart';
+import '../../../services/datos_prueba_contabilidad_service.dart';
+import '../../../services/bandeja_notificaciones_service.dart';
+import '../../../services/badge_service.dart';
+import '../../../domain/modelos/widget_config.dart';
+import 'configuracion_dashboard_screen.dart';
+import 'bandeja_notificaciones_screen.dart';
+import '../../tareas/pantallas/modulo_tareas_screen.dart';
+import '../../tareas/pantallas/detalle_tarea_screen.dart'; // Add import
+import '../../../services/tareas_service.dart'; // Add import
+import '../../../domain/modelos/tarea.dart'; // Add import
+import '../../pedidos/pantallas/modulo_pedidos_nuevo_screen.dart';
+import '../../pedidos/pantallas/modulo_whatsapp_screen.dart';
+import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
+import '../../empleados/pantallas/modulo_empleados_screen.dart';
+import '../../clientes/pantallas/modulo_clientes_screen.dart';
+import '../../servicios/pantallas/modulo_servicios_screen.dart';
+import '../../nominas/pantallas/modulo_nominas_screen.dart';
+import '../../vacaciones/pantallas/vacaciones_screen.dart';
+import '../../../core/utils/permisos_service.dart';
+import '../../suscripcion/widgets/banner_suscripcion.dart';
+import '../../perfil/pantallas/pantalla_perfil.dart';
+import 'pantalla_contenido_web.dart';
+
+class PantallaDashboard extends StatefulWidget {
+  const PantallaDashboard({super.key});
+
+  @override
+  State<PantallaDashboard> createState() => _PantallaDashboardState();
+}
+
+class _PantallaDashboardState extends State<PantallaDashboard>
+    with TickerProviderStateMixin {
+  TabController? _tabController;
+  final WidgetManagerService _widgetService = WidgetManagerService();
+  final ContenidoWebService _contenidoWebService = ContenidoWebService();
+  final DatosPruebaService _datosPruebaService = DatosPruebaService();
+  final DatosPruebaContabilidadService _datosPruebaContabilidad =
+      DatosPruebaContabilidadService();
+  String? _empresaId;
+  String _nombreUsuario = '';
+  bool _cargando = true;
+  bool _generandoPrueba = false;
+  List<String> _modulosActivos = [];
+  SesionUsuario? _sesion;
+  StreamSubscription? _notifSubscription;
+
+  // ── Modo edición dashboard (reordenar widgets) ────────────────────────────
+  bool _editandoDashboard = false;
+
+  // ── Vista simulada (solo Propietario) ─────────────────────────────────────
+  /// Rol que el Propietario está simulando. null = vista real de Propietario.
+  RolApp? _rolVistaActual;
+
+  /// Sesión efectiva: la real del propietario, o una sesión simulada con el
+  /// rol elegido para ver exactamente lo que vería ese rol.
+  SesionUsuario? get _sesionEfectiva {
+    if (_sesion == null || _rolVistaActual == null) return _sesion;
+    return SesionUsuario(
+      uid: _sesion!.uid,
+      nombre: _sesion!.nombre,
+      correo: _sesion!.correo,
+      empresaId: _sesion!.empresaId,
+      rol: _rolVistaActual!,
+      activo: _sesion!.activo,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosUsuario();
+    
+    // Escuchar notificaciones
+    _notifSubscription = NotificacionesService().onTap.listen((data) {
+      if (!mounted) return;
+      _manejarNavegacionNotificacion(data);
+    });
+    
+    // Check initial message (app opened from terminated state)
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+        if (message != null) {
+            _manejarNavegacionNotificacion(message.data);
+        }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    _notifSubscription?.cancel(); // Cancel subscription
+    super.dispose();
+  }
+
+  Future<void> _manejarNavegacionNotificacion(Map<String, dynamic> data) async {
+      final tipo = data['tipo'];
+      final empresaId = data['empresa_id'];
+      
+      if (tipo == 'tarea_asignada' && empresaId != null && _empresaId != null) {
+          final tareaId = data['tarea_id'];
+          if (tareaId == null) return;
+          
+          try {
+              // Fetch tarea
+              final doc = await FirebaseFirestore.instance
+                  .collection('empresas')
+                  .doc(empresaId)
+                  .collection('tareas')
+                  .doc(tareaId)
+                  .get();
+                  
+              if (doc.exists && mounted) {
+                  final tarea = Tarea.fromFirestore(doc);
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => DetalleTareaScreen(
+                              tarea: tarea,
+                              empresaId: empresaId,
+                              usuarioId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                          ),
+                      ),
+                  );
+              }
+          } catch (e) {
+              print('❌ Error navegando a tarea: $e');
+          }
+      }
+  }
+
+  /// Actualiza el TabController de forma segura FUERA del build
+  void _sincronizarTabs(List<String> nuevosIds) {
+    if (_modulosActivos.length == nuevosIds.length &&
+        _modulosActivos.join(',') == nuevosIds.join(',')) return;
+
+    final prevIndex = _tabController?.index ?? 0;
+    final controller = _tabController;
+
+    setState(() {
+      _modulosActivos = List.from(nuevosIds);
+      _tabController = TabController(
+        length: nuevosIds.isEmpty ? 1 : nuevosIds.length,
+        vsync: this,
+        initialIndex: prevIndex.clamp(0, (nuevosIds.length - 1).clamp(0, 99)),
+      );
+    });
+
+    // Dispose del viejo DESPUÉS de setState para que Flutter no use un ref roto
+    Future.microtask(() => controller?.dispose());
+  }
+
+  Future<void> _cargarDatosUsuario() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      print('🔍 Cargando datos para UID: $uid');
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        print('✅ Documento usuario encontrado: $data');
+        final empresaId = data['empresa_id'] as String?;
+
+        // Asegurar que el dueño de fluixtech siempre sea propietario
+        if (empresaId == ConstantesApp.empresaPropietariaId &&
+            data['rol'] != 'propietario' &&
+            !uid.startsWith('emp_fluix_')) {
+          await FirebaseFirestore.instance
+              .collection('usuarios').doc(uid)
+              .update({'rol': 'propietario'});
+          print('👑 Rol forzado a propietario en _cargarDatosUsuario');
+        }
+
+        // Si no hay propietario en la empresa, promover al usuario actual
+        if (data['rol'] != 'propietario' && empresaId != null) {
+          try {
+            final propSnap = await FirebaseFirestore.instance
+                .collection('usuarios')
+                .where('empresa_id', isEqualTo: empresaId)
+                .where('rol', isEqualTo: 'propietario')
+                .limit(1)
+                .get();
+            if (propSnap.docs.isEmpty) {
+              await FirebaseFirestore.instance
+                  .collection('usuarios').doc(uid)
+                  .update({'rol': 'propietario'});
+              print('👑 Promovido a propietario (empresa sin dueño)');
+            }
+          } catch (e) {
+            print('ℹ️ Check propietario omitido (permisos): $e');
+          }
+        }
+
+        // Cargar sesión con permisos
+        final sesion = await PermisosService().cargarSesion();
+        setState(() {
+          _empresaId = empresaId;
+          _sesion = sesion;
+          _nombreUsuario = data['nombre'] ??
+              FirebaseAuth.instance.currentUser?.displayName ??
+              '';
+          _cargando = false;
+        });
+        // Suscribir a notificaciones de la empresa
+        if (empresaId != null) {
+          NotificacionesService().suscribirseATopic(empresaId);
+        }
+        print('✅ EmpresaId cargado: $_empresaId');
+      } else {
+        print('❌ No existe documento de usuario, buscando empresas...');
+
+        // Fallback: buscar empresa donde el correo del usuario coincida
+        final email = FirebaseAuth.instance.currentUser?.email;
+        if (email != null) {
+          final empresasQuery = await FirebaseFirestore.instance
+              .collection('empresas')
+              .where('perfil.correo', isEqualTo: email)
+              .limit(1)
+              .get();
+
+          if (empresasQuery.docs.isNotEmpty) {
+            final empresaDoc = empresasQuery.docs.first;
+            final fallbackEmpresaId = empresaDoc.id;
+            print('✅ Empresa encontrada como fallback: $fallbackEmpresaId');
+
+            // Crear documento de usuario que faltaba
+            await FirebaseFirestore.instance
+                .collection('usuarios')
+                .doc(uid)
+                .set({
+              'nombre': FirebaseAuth.instance.currentUser?.displayName ??
+                  'Administrador Fluix',
+              'correo': email,
+              'telefono': '+34 900 123 456',
+              'empresa_id': fallbackEmpresaId,
+              'rol': 'propietario',
+              'activo': true,
+              'fecha_creacion': DateTime.now().toIso8601String(),
+              'permisos': [],
+              'token_dispositivo': null,
+            });
+
+            setState(() {
+              _empresaId = fallbackEmpresaId;
+              _nombreUsuario = FirebaseAuth.instance.currentUser?.displayName ??
+                  'Administrador';
+              _cargando = false;
+            });
+            print('✅ Usuario y empresa creados automáticamente');
+            return;
+          }
+        }
+
+        setState(() {
+          _nombreUsuario =
+              FirebaseAuth.instance.currentUser?.displayName ??
+                  FirebaseAuth.instance.currentUser?.email
+                      ?.split('@')
+                      .first ??
+                  'Usuario';
+          _cargando = false;
+        });
+        print('❌ No se encontró empresa asociada');
+      }
+    } catch (e) {
+      print('❌ Error cargando datos usuario: $e');
+      setState(() {
+        _nombreUsuario =
+            FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
+        _cargando = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cargando) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        title: const Text(
+          'Fluix CRM',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() => _cargando = true);
+              _cargarDatosUsuario();
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: _manejarMenu,
+            itemBuilder: (context) =>
+            const [
+              PopupMenuItem(
+                value: 'perfil',
+                child: ListTile(
+                  leading: Icon(Icons.person),
+                  title: Text('Mi Perfil'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'cerrar_sesion',
+                child: ListTile(
+                  leading: Icon(Icons.logout, color: Colors.red),
+                  title: Text('Cerrar Sesión',
+                      style: TextStyle(color: Colors.red)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: _empresaId != null
+          ? StreamBuilder<List<ModuloConfig>>(
+              stream: _widgetService.obtenerModulosActivos(_empresaId!),
+              builder: (context, snapshot) {
+                final esPropietario = _empresaId == ConstantesApp.empresaPropietariaId;
+
+                final modulosActivos = snapshot.data ??
+                    ModulosDisponibles.todos
+                        .where((m) => ModulosDisponibles.activosPorDefecto.contains(m.id))
+                        .toList();
+
+                // El módulo 'propietario' solo es visible para fluixtech
+                // Las demás empresas nunca lo ven
+                final modulosFiltrados = modulosActivos.where((m) {
+                  if (m.id == 'propietario') return esPropietario;
+                  return true;
+                }).toList();
+
+                // Filtrar por permisos del rol efectivo (real o simulado)
+                final sesionActiva = _sesionEfectiva;
+                final modulosVisibles = sesionActiva != null
+                    ? modulosFiltrados.where((m) => sesionActiva.modulosVisibles.contains(m.id)).toList()
+                    : modulosFiltrados;
+
+                // Sincronizar tabs DESPUÉS del frame para evitar dispose durante build
+                final ids = modulosVisibles.map((m) => m.id).toList();
+                if (_modulosActivos.join(',') != ids.join(',')) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _sincronizarTabs(ids);
+                  });
+                }
+
+                // Inicialización en el primer frame (sin controller todavía)
+                if (_tabController == null) {
+                  _tabController = TabController(
+                    length: ids.isEmpty ? 1 : ids.length,
+                    vsync: this,
+                  );
+                  _modulosActivos = List.from(ids);
+                }
+
+                // Guardia: si lengths no coinciden aún, mostrar loader
+                if (_tabController!.length != modulosVisibles.length) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return Column(
+                  children: [
+                    _buildTarjetaBienvenida(),
+                    // Banner de aviso si la suscripción vence pronto
+                    if (_empresaId != null)
+                      BannerSuscripcion(
+                        empresaId: _empresaId!,
+                        esPropietario: _sesion?.esPropietario ?? false,
+                      ),
+                    // Botones de cambio de vista: solo visibles para el Propietario real
+                    if (_sesion?.esPropietario == true)
+                      _buildBotonesVistaPropietario(),
+                    Container(
+                      color: Colors.white,
+                      child: TabBar(
+                        controller: _tabController!,
+                        labelColor: const Color(0xFF0D47A1),
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: const Color(0xFF0D47A1),
+                        indicatorWeight: 3,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        padding: EdgeInsets.zero,
+                        labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                        tabs: modulosVisibles
+                            .map((m) => Tab(icon: Icon(m.icono, size: 20), text: m.nombre))
+                            .toList(),
+                      ),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController!,
+                        children: modulosVisibles
+                            .map((m) => _buildContenidoModulo(m.id))
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            )
+          : Column(
+              children: [
+                _buildTarjetaBienvenida(),
+                Expanded(child: _buildSinEmpresa()),
+              ],
+            ),
+    );
+  }
+
+  /// Devuelve el widget correspondiente a cada módulo por su ID
+  Widget _buildContenidoModulo(String moduloId) {
+    final id = _empresaId!;
+    final sesionActiva = _sesionEfectiva;
+    // Módulo exclusivo de la cuenta propietaria
+    final esPropietario = id == ConstantesApp.empresaPropietariaId;
+    switch (moduloId) {
+      case 'propietario':     return esPropietario ? const ModuloPropietario() : const Center(child: Text('Sin acceso'));
+      case 'dashboard':       return _buildDashboardModular();
+      case 'valoraciones':    return ModuloValoraciones(empresaId: id);
+      case 'reservas':        return ModuloReservas(empresaId: id, sesion: sesionActiva);
+      case 'citas':           return ModuloCitas(empresaId: id, sesion: sesionActiva);
+      case 'estadisticas':    return ModuloEstadisticas(empresaId: id);
+      case 'tareas':          return ModuloTareasScreen(empresaId: id);
+      case 'pedidos':         return ModuloPedidosNuevoScreen(empresaId: id);
+      case 'whatsapp':        return ModuloWhatsAppScreen(empresaId: id);
+      case 'facturacion':     return ModuloFacturacionScreen(empresaId: id);
+      case 'empleados':       return ModuloEmpleadosScreen(empresaId: id, sesion: sesionActiva);
+      case 'clientes':        return ModuloClientesScreen(empresaId: id, sesion: sesionActiva);
+      case 'servicios':       return ModuloServiciosScreen(empresaId: id, sesion: sesionActiva);
+      case 'nominas':         return ModuloNominasScreen(empresaId: id, sesion: sesionActiva);
+      case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
+      case 'web':             return _buildVistaWeb();
+      default:                return const Center(child: Text('Módulo no disponible'));
+    }
+  }
+
+  /// Barra de selección de vista para el Propietario.
+  /// Solo visible cuando el usuario real tiene rol Propietario.
+  Widget _buildBotonesVistaPropietario() {
+    // Si está simulando, mostramos un banner de aviso
+    final simulando = _rolVistaActual != null;
+
+    return Column(
+      children: [
+        if (simulando)
+          Container(
+            width: double.infinity,
+            color: Colors.amber[700],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.preview, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Vista de ${_rolVistaActual == RolApp.admin ? 'Administrador' : 'Usuario/Staff'}  —  no ves lo que ven los propietarios',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Vista:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _chipVista(
+                label: '👑 Propietario',
+                activo: _rolVistaActual == null,
+                color: const Color(0xFF0D47A1),
+                onTap: () => setState(() => _rolVistaActual = null),
+              ),
+              const SizedBox(width: 6),
+              _chipVista(
+                label: '🛡️ Admin',
+                activo: _rolVistaActual == RolApp.admin,
+                color: const Color(0xFF7B1FA2),
+                onTap: () => setState(() => _rolVistaActual = RolApp.admin),
+              ),
+              const SizedBox(width: 6),
+              _chipVista(
+                label: '👤 Usuario',
+                activo: _rolVistaActual == RolApp.staff,
+                color: const Color(0xFF388E3C),
+                onTap: () => setState(() => _rolVistaActual = RolApp.staff),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chipVista({
+    required String label,
+    required bool activo,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: activo ? color : Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: activo ? color : Colors.grey[300]!,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: activo ? FontWeight.w700 : FontWeight.normal,
+            color: activo ? Colors.white : Colors.grey[700],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTarjetaBienvenida() {
+    final primerNombre = _obtenerPrimerNombre(_nombreUsuario);
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D47A1), Color(0xFF1976D2), Color(0xFF42A5F5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D47A1).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                _obtenerIniciales(_nombreUsuario),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Texto
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bienvenido, $primerNombre',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                  Text(
+                    user?.email ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (_sesion != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _rolVistaActual == null
+                          ? '${_sesion!.rolEmoji} ${_sesion!.rolNombre}'
+                          : '${_sesionEfectiva!.rolEmoji} ${_sesionEfectiva!.rolNombre} (simulado)',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+              ],
+            ),
+          ),
+
+          // Badge estado
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF69F0AE).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: const Color(0xFF69F0AE).withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle, size: 8, color: Color(0xFF69F0AE)),
+                SizedBox(width: 4),
+                Text('Online',
+                    style: TextStyle(
+                        color: Color(0xFF69F0AE),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSinEmpresa() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.business, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'No se encontró empresa asociada',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Usuario: ${user?.email}\nUID: ${user?.uid}',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Intentando crear empresa automáticamente...',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _cargando = true);
+                _cargarDatosUsuario();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Cerrar Sesión'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Dashboard modular con widgets personalizables.
+  /// Si el módulo "facturacion" o "pedidos" está activo,
+  /// sus widgets de resumen se inyectan automáticamente en el dashboard.
+  Widget _buildDashboardModular() {
+    return StreamBuilder<List<ModuloConfig>>(
+      stream: _widgetService.obtenerModulosActivos(_empresaId!),
+      builder: (context, moduloSnap) {
+        final modulos = moduloSnap.data ?? [];
+        final facturacionActiva =
+            modulos.any((m) => m.id == 'facturacion' && m.activo);
+        final pedidosActivos =
+            modulos.any((m) => m.id == 'pedidos' && m.activo);
+
+        return StreamBuilder<List<WidgetConfig>>(
+          stream: _widgetService.obtenerWidgetsActivos(_empresaId!),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildDashboardVacio();
+            }
+
+            // Widgets activados manualmente por el usuario
+            var widgets = snapshot.data!;
+
+            // Inyectar resumen_facturacion si módulo activo y widget no está ya
+            if (facturacionActiva &&
+                !widgets.any((w) => w.id == 'resumen_facturacion')) {
+              widgets = [
+                ...widgets,
+                WidgetConfig(
+                  id: 'resumen_facturacion',
+                  nombre: 'Resumen Facturación',
+                  descripcion: 'Total facturado hoy y del mes',
+                  icono: Icons.receipt_long,
+                  activo: true,
+                  orden: 98,
+                ),
+              ];
+            }
+
+            // Inyectar resumen_pedidos si módulo activo y widget no está ya
+            if (pedidosActivos &&
+                !widgets.any((w) => w.id == 'resumen_pedidos')) {
+              widgets = [
+                ...widgets,
+                WidgetConfig(
+                  id: 'resumen_pedidos',
+                  nombre: 'Resumen Pedidos',
+                  descripcion: 'Pedidos del día y pendientes',
+                  icono: Icons.shopping_bag_outlined,
+                  activo: true,
+                  orden: 99,
+                ),
+              ];
+            }
+
+            // Ordenar por orden
+            widgets.sort((a, b) => a.orden.compareTo(b.orden));
+
+            return Column(
+              children: [
+                // ── Banner offline ──────────────────────────────
+                const OfflineBanner(),
+
+                _buildHeaderDashboard(),
+
+
+                // ── Lista de widgets (reordenable o normal) ─────
+                Expanded(
+                  child: _editandoDashboard
+                      ? _buildReorderableList(widgets)
+                      : _buildNormalList(widgets),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNormalList(List<WidgetConfig> widgets) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 20),
+        itemCount: widgets.length,
+        itemBuilder: (context, index) =>
+            _buildWidgetItem(widgets[index], index),
+      ),
+    );
+  }
+
+  Widget _buildReorderableList(List<WidgetConfig> widgets) {
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: widgets.length,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (ctx, ch) => Material(
+            elevation: 6,
+            borderRadius: BorderRadius.circular(14),
+            shadowColor: const Color(0xFF0D47A1).withValues(alpha: 0.3),
+            child: ch,
+          ),
+          child: child,
+        );
+      },
+      onReorderStart: (_) => HapticFeedback.mediumImpact(),
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          if (newIndex > oldIndex) newIndex--;
+          final item = widgets.removeAt(oldIndex);
+          widgets.insert(newIndex, item);
+        });
+        _widgetService.reordenarWidgets(_empresaId!, widgets);
+      },
+      itemBuilder: (context, index) {
+        final config = widgets[index];
+        return Container(
+          key: ValueKey(config.id),
+          child: Stack(
+            children: [
+              _buildWidgetItem(config, index),
+              // Handle visual en modo edición
+              Positioned(
+                left: 4, top: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D47A1).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.drag_handle,
+                      color: Colors.white, size: 18),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWidgetItem(WidgetConfig widgetConfig, int index) {
+    // Widgets con altura dinámica (sin restricción de height)
+    if (widgetConfig.id == 'briefing_matutino' ||
+        widgetConfig.id == 'alertas_fiscales' ||
+        widgetConfig.id == 'proximos_dias') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
+      );
+    }
+    if (widgetConfig.id == 'reservas_hoy' ||
+        widgetConfig.id == 'valoraciones_recientes' ||
+        widgetConfig.id == 'citas_resumen') {
+      return Container(
+        height: 280,
+        margin: const EdgeInsets.only(bottom: 16),
+        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
+      );
+    }
+    if (widgetConfig.id == 'resumen_facturacion' ||
+        widgetConfig.id == 'resumen_pedidos') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
+      );
+    }
+    return Container(
+      height: 160,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
+    );
+  }
+
+  /// Header del dashboard con botón de configuración
+  Widget _buildHeaderDashboard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1976D2).withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.dashboard, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dashboard Personalizado',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Tu resumen de negocio personalizado',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Botón datos de prueba (SOLO en debug)
+          if (kDebugMode) ...[
+          if (_generandoPrueba)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2),
+              ),
+            )
+          else
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.science_outlined,
+                  color: Colors.white, size: 22),
+              tooltip: 'Datos de prueba',
+              color: Colors.white,
+              onSelected: (v) {
+                if (v == 'generar') _generarDatosPrueba();
+                if (v == 'limpiar') _limpiarDatosPrueba();
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'generar',
+                  child: ListTile(
+                    leading: Icon(Icons.add_chart, color: Colors.green),
+                    title: Text('Generar datos de prueba'),
+                    subtitle: Text('Reservas · Facturas · Pedidos · Gastos'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'limpiar',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_sweep, color: Colors.red),
+                    title: Text('Limpiar datos de prueba'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+              ],
+            ),
+          ], // fin kDebugMode
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ConfiguracionDashboardScreen(empresaId: _empresaId!),
+                ),
+              );
+            },
+            icon: const Icon(Icons.settings, color: Colors.white),
+            tooltip: 'Configuración del Dashboard',
+          ),
+
+          // ── Campana de notificaciones con badge ─────────────────────
+          if (_empresaId != null)
+            StreamBuilder<int>(
+              stream: BandejaNotificacionesService().noLeidasCount(_empresaId!),
+              builder: (ctx, snap) {
+                final count = snap.data ?? 0;
+                return IconButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!),
+                  )),
+                  icon: BadgeIcon(
+                    icon: Icons.notifications_outlined,
+                    count: count,
+                    iconColor: Colors.white,
+                    iconSize: 22,
+                  ),
+                  tooltip: 'Notificaciones',
+                );
+              },
+            ),
+
+          // ── Botón editar/reordenar dashboard ────────────────────────
+          IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              setState(() => _editandoDashboard = !_editandoDashboard);
+            },
+            icon: Icon(
+              _editandoDashboard ? Icons.check : Icons.swap_vert,
+              color: _editandoDashboard ? Colors.greenAccent : Colors.white,
+            ),
+            tooltip: _editandoDashboard ? 'Guardar orden' : 'Reordenar widgets',
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dashboard vacío (sin widgets configurados)
+  Widget _buildDashboardVacio() {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.widgets, size: 64, color: Colors.grey[400]),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Dashboard Vacío',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No tienes widgets activos en tu dashboard',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ConfiguracionDashboardScreen(empresaId: _empresaId!),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text('Configurar Dashboard'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1976D2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => _widgetService.resetearWidgets(_empresaId!),
+            child: const Text('Usar configuración por defecto'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _manejarMenu(String accion) {
+    switch (accion) {
+      case 'perfil':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PantallaPerfil(sesion: _sesion),
+          ),
+        );
+        break;
+      case 'cerrar_sesion':
+        showDialog(
+          context: context,
+          builder: (ctx) =>
+              AlertDialog(
+                title: const Text('Cerrar Sesión'),
+                content: const Text('¿Estás seguro?'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancelar')),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      PermisosService().limpiarSesion();
+                      await FirebaseAuth.instance.signOut();
+                    },
+                    style:
+                    ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('Cerrar Sesión',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+        );
+        break;
+    }
+  }
+
+  String _obtenerIniciales(String nombre) {
+    if (nombre.contains('@')) nombre = nombre
+        .split('@')
+        .first;
+    final partes =
+    nombre.trim().split(' ').where((s) => s.isNotEmpty).toList();
+    if (partes.length >= 2) {
+      return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
+    }
+    return nombre.isNotEmpty ? nombre[0].toUpperCase() : 'U';
+  }
+
+  String _obtenerPrimerNombre(String nombre) {
+    if (nombre.contains('@')) {
+      return nombre
+          .split('@')
+          .first
+          .split('.')
+          .first;
+    }
+    return nombre
+        .trim()
+        .split(' ')
+        .first;
+  }
+
+  /// Vista cuando el contenido web está desactivado
+  /// Genera datos de prueba completos (reservas, facturas, pedidos, gastos...)
+  Future<void> _generarDatosPrueba() async {
+    if (_empresaId == null) return;
+    setState(() => _generandoPrueba = true);
+    try {
+      await Future.wait([
+        _datosPruebaService.crearDatosPrueba(_empresaId!),
+        _datosPruebaContabilidad.generarDatosDePrueba(_empresaId!),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Datos de prueba generados — reservas, facturas, pedidos, gastos'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _generandoPrueba = false);
+    }
+  }
+
+  Future<void> _limpiarDatosPrueba() async {
+    if (_empresaId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Limpiar datos de prueba?'),
+        content: const Text(
+            'Se eliminarán reservas, facturas, pedidos, gastos y proveedores de prueba.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _generandoPrueba = true);
+    try {
+      await Future.wait([
+        _datosPruebaService.limpiarDatosPrueba(_empresaId!),
+        _datosPruebaContabilidad.limpiarDatosDePrueba(_empresaId!),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('🗑️ Datos de prueba eliminados'),
+          backgroundColor: Colors.orange,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error: $e'), backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _generandoPrueba = false);
+    }
+  }
+
+  Widget _buildVistaWebDesactivada() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1976D2).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.web_outlined, size: 64, color: Color(0xFF1976D2)),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Gestión Web Desactivada',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D47A1),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Activa la gestión de contenido web para administrar\nlas secciones de tu página desde la app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Funcionalidades disponibles:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildFuncionalidadItem(Icons.edit, 'Editar secciones dinámicas'),
+                  _buildFuncionalidadItem(Icons.local_offer, 'Gestionar ofertas y carta'),
+                  _buildFuncionalidadItem(Icons.language, 'Ver estado de la web'),
+                  _buildFuncionalidadItem(Icons.code, 'Generar código JavaScript'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              onPressed: _toggleContenidoWeb,
+              icon: const Icon(Icons.power_settings_new),
+              label: const Text('Activar Gestión Web'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1976D2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFuncionalidadItem(IconData icono, String texto) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icono, size: 16, color: const Color(0xFF1976D2)),
+          const SizedBox(width: 8),
+          Text(texto, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+        ],
+      ),
+    );
+  }
+
+  /// Vista completa para gestión de contenido web — usa la pantalla real
+  Widget _buildVistaWeb() {
+    return PantallaContenidoWeb(empresaId: _empresaId!);
+  }
+
+  /// Activa/desactiva el módulo web desde el dashboard
+  void _toggleContenidoWeb() async {
+    if (_empresaId == null) return;
+    try {
+      final modulos = await _widgetService.obtenerTodosModulos(_empresaId!).first;
+      final webActivo = modulos.any((m) => m.id == 'web' && m.activo);
+      await _widgetService.toggleModulo(_empresaId!, 'web', !webActivo);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(!webActivo
+              ? '🌐 Contenido web activado'
+              : '📱 Contenido web desactivado'),
+          backgroundColor:
+              !webActivo ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+}
+
+

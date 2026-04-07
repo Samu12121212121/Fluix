@@ -1,0 +1,346 @@
+<script>
+/*
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  FLUIX — Script combinado  CARTA + PRODUCTOS                    ║
+ * ║                                                                  ║
+ * ║  Gestiona las dos secciones con una sola conexión Firebase.     ║
+ * ║                                                                  ║
+ * ║  CONSOLA (F12):                                                  ║
+ * ║    Fluix.sincronizar()          → sube la CARTA a Firestore     ║
+ * ║    Fluix.sincronizarProductos() → sube los PRODUCTOS            ║
+ * ║    Fluix.debug()                → diagnóstico de ambas          ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
+(function () {
+
+    // ── CONFIGURACIÓN COMPARTIDA ──────────────────────────────────────────────
+    var empresaId = 'ztZblwm1w71wNQtzHV7S';
+    var firebaseConfig = {
+        apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+        authDomain:        "planeaapp-4bea4.firebaseapp.com",
+        projectId:         "planeaapp-4bea4",
+        storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+        messagingSenderId: "1085482191658",
+        appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+    };
+
+    // ── CONFIG CARTA ──────────────────────────────────────────────────────────
+    var CFG_CARTA = { seccionId: 'carta', tipo: 'carta', blockId: 'z1Oz3q' };
+
+    // MAPA: cada elemento de la sección carta con su ID de Hostinger
+    var MAPA = [
+        { hostingerId: 'ai-7JVlSQ', item: 'paella_mixta',      campo: 'nombre'      },
+        { hostingerId: 'ai-c9wmty', item: 'paella_mixta',      campo: 'descripcion' },
+        { hostingerId: 'ai-PPa5hQ', item: 'paella_mixta',      campo: 'precio'      },
+        { hostingerId: 'ai-SRuENI', item: 'tortilla_espanola', campo: 'nombre'      },
+        { hostingerId: 'ai-3y3igJ', item: 'tortilla_espanola', campo: 'descripcion' },
+        { hostingerId: 'ai-SVrip_', item: 'tortilla_espanola', campo: 'precio'      },
+        { hostingerId: 'ai-J6nmoh', item: 'gazpacho',          campo: 'nombre'      },
+        { hostingerId: 'ai-no3Odr', item: 'gazpacho',          campo: 'descripcion' },
+        { hostingerId: 'ai-hhwZTU', item: 'gazpacho',          campo: 'precio'      },
+        { hostingerId: 'ai-5HsDcs', item: 'pulpo_gallega',     campo: 'nombre'      },
+        { hostingerId: 'ai-Ho562p', item: 'pulpo_gallega',     campo: 'descripcion' },
+        { hostingerId: 'ai-dKvHF-', item: 'pulpo_gallega',     campo: 'precio'      },
+        { hostingerId: 'ai-eEbZC6', item: 'croquetas',         campo: 'nombre'      },
+        { hostingerId: 'ai-IqRj67', item: 'croquetas',         campo: 'descripcion' },
+        { hostingerId: 'ai-tEa_Ri', item: 'croquetas',         campo: 'precio'      }
+    ];
+
+    // ── CONFIG PRODUCTOS ──────────────────────────────────────────────────────
+    // Los data-fluix-item ya están en el HTML (SECCION_PRODUCTOS_CON_ATRIBUTOS.html)
+    // No necesita MAPA — solo buscamos el contenedor
+    var CFG_PRODUCTOS = { seccionId: 'productos', tipo: 'carta', blockId: 'zh0Bnf' };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UTILIDADES
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function cargarScript(src, cb) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = cb || function () {};
+        s.onerror = function () { console.error('Fluix: error cargando ' + src); };
+        document.head.appendChild(s);
+    }
+
+    // Precio carta: "12€" o "12.50€"
+    function formatearPrecioCarta(val) {
+        var n = parseFloat(String(val).replace('€','').replace(',','.').trim());
+        if (isNaN(n)) return String(val);
+        return Number.isInteger(n) ? n + '€' : n.toFixed(2) + '€';
+    }
+
+    // Precio productos: "€300.00"
+    function formatearPrecioProductos(val) {
+        var n = parseFloat(String(val).replace('€','').replace(',','.').trim());
+        if (isNaN(n)) return String(val);
+        return '€' + n.toFixed(2);
+    }
+
+    function parsearPrecio(texto) {
+        return parseFloat(String(texto).replace('€','').replace(',','.').trim()) || 0;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CARTA — marcarDOM + listener
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function marcarDOMCarta() {
+        var section = document.getElementById(CFG_CARTA.blockId);
+        if (!section) { console.warn('Fluix Carta: no encontrado #' + CFG_CARTA.blockId); return null; }
+
+        section.classList.add('fluix-widget');
+        section.setAttribute('data-empresa', empresaId);
+        section.setAttribute('data-seccion', CFG_CARTA.seccionId);
+
+        var ok = 0;
+        MAPA.forEach(function (e) {
+            var wrapper = document.getElementById(e.hostingerId);
+            if (!wrapper) { console.warn('Fluix Carta: no encontrado #' + e.hostingerId); return; }
+            var targetEl = (e.campo === 'imagen' || e.campo === 'imagen_url')
+                ? (wrapper.querySelector('img') || wrapper)
+                : (wrapper.querySelector('strong, p, h6, h5, h4, h3, h2, h1') || wrapper);
+            targetEl.setAttribute('data-fluix-item',  e.item);
+            targetEl.setAttribute('data-fluix-campo', e.campo);
+            ok++;
+        });
+        console.log('Fluix Carta DOM: ' + ok + '/' + MAPA.length + ' campos marcados');
+        return section;
+    }
+
+    function escucharCarta(db, section) {
+        db.collection('empresas').doc(empresaId)
+          .collection('contenido_web').doc(CFG_CARTA.seccionId)
+          .onSnapshot(function (doc) {
+              if (!doc.exists) { console.warn('Fluix Carta: sin datos. Ejecuta Fluix.sincronizar()'); return; }
+              var data = doc.data();
+              if (data.activa === false) { section.style.display = 'none'; return; }
+              section.style.display = '';
+
+              var contenido = data.contenido !== undefined ? data.contenido : data;
+              var items = contenido.items_carta || contenido.ofertas || contenido.horarios || [];
+              var dataMap = {};
+              items.forEach(function (it) { if (it.id) dataMap[it.id] = it; });
+              console.log('Fluix Carta: ' + items.length + ' items recibidos.');
+
+              section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                  var itemId   = el.getAttribute('data-fluix-item');
+                  var campo    = el.getAttribute('data-fluix-campo');
+                  var itemData = dataMap[itemId];
+                  if (!itemData || itemData[campo] === undefined) return;
+
+                  if (itemData.disponible === false) {
+                      var p = el.parentElement;
+                      while (p && !p.getAttribute('data-fluix-item')) p = p.parentElement;
+                      if (p) p.style.opacity = '0.4';
+                  }
+
+                  if (campo.indexOf('precio') !== -1) {
+                      el.innerText = formatearPrecioCarta(itemData[campo]);
+                  } else if (campo === 'imagen' || campo === 'imagen_url') {
+                      var imgEl = (el.tagName === 'IMG') ? el : el.querySelector('img');
+                      if (imgEl && itemData[campo]) { imgEl.src = itemData[campo]; imgEl.style.opacity = ''; }
+                  } else {
+                      el.innerText = itemData[campo];
+                  }
+              });
+          }, function (err) { console.error('Fluix Carta error:', err.message); });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRODUCTOS — listener (sin marcarDOM: los atributos están en el HTML)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function escucharProductos(db) {
+        var section = document.querySelector('[data-seccion="productos"]')
+                   || document.getElementById(CFG_PRODUCTOS.blockId);
+        if (!section) { console.warn('Fluix Productos: no encontrado #' + CFG_PRODUCTOS.blockId); return; }
+        window._fluixSectionProductos = section;
+
+        db.collection('empresas').doc(empresaId)
+          .collection('contenido_web').doc(CFG_PRODUCTOS.seccionId)
+          .onSnapshot(function (doc) {
+              if (!doc.exists) { console.warn('Fluix Productos: sin datos. Ejecuta Fluix.sincronizarProductos()'); return; }
+              var data = doc.data();
+              if (data.activa === false) { section.style.display = 'none'; return; }
+              section.style.display = '';
+
+              var contenido = data.contenido !== undefined ? data.contenido : data;
+              var items = contenido.items_carta || contenido.items_productos || [];
+              if (items.length === 0) return;
+
+              var dataMap = {};
+              items.forEach(function (it) { if (it.id) dataMap[it.id] = it; });
+              console.log('Fluix Productos: ' + items.length + ' productos recibidos.');
+
+              section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                  var itemId   = el.getAttribute('data-fluix-item');
+                  var campo    = el.getAttribute('data-fluix-campo');
+                  var itemData = dataMap[itemId];
+                  if (!itemData) return;
+
+                  var card = el.closest('.product-list-item');
+                  if (card) {
+                      card.style.opacity       = itemData.disponible === false ? '0.4' : '';
+                      card.style.pointerEvents = itemData.disponible === false ? 'none' : '';
+                  }
+
+                  if (campo === 'precio') {
+                      if (itemData[campo] !== undefined) el.innerText = formatearPrecioProductos(itemData[campo]);
+                  } else if (campo === 'imagen') {
+                      var url = itemData['imagen'] || itemData['imagen_url'];
+                      if (el.tagName === 'IMG' && url) { el.src = url; el.srcset = ''; el.alt = itemData['nombre'] || el.alt; }
+                  } else {
+                      if (itemData[campo] !== undefined) el.innerText = itemData[campo];
+                  }
+              });
+          }, function (err) { console.error('Fluix Productos error:', err.message); });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // API PÚBLICA
+    // ─────────────────────────────────────────────────────────────────────────
+
+    window.Fluix = {
+
+        // Sube la CARTA a Firestore
+        sincronizar: function () {
+            var section = window._fluixSection;
+            var db      = window._fluixDB;
+            if (!section || !db) { console.error('Fluix: no iniciado.'); return; }
+
+            var grupos = {};
+            section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                var itemId = el.getAttribute('data-fluix-item');
+                var campo  = el.getAttribute('data-fluix-campo');
+                if (!grupos[itemId]) grupos[itemId] = { id: itemId, disponible: true, categoria: 'General' };
+                var val;
+                if (campo === 'imagen' || campo === 'imagen_url') {
+                    var imgEl = (el.tagName === 'IMG') ? el : el.querySelector('img');
+                    val = imgEl ? imgEl.src : '';
+                } else {
+                    val = el.innerText.trim();
+                    if (campo.indexOf('precio') !== -1) val = parsearPrecio(val);
+                }
+                grupos[itemId][campo] = val;
+            });
+
+            var items = Object.values(grupos);
+            console.log('Fluix Carta Sync: ' + items.length + ' items', items);
+            db.collection('empresas').doc(empresaId)
+              .collection('contenido_web').doc(CFG_CARTA.seccionId)
+              .set({
+                  tipo: CFG_CARTA.tipo, nombre: 'Carta', descripcion: '',
+                  activa: true, orden: 0,
+                  fecha_creacion: new Date(), fecha_actualizacion: new Date(),
+                  contenido: { titulo: 'Carta', items_carta: items }
+              })
+              .then(function () { console.log('✅ Fluix Carta: ¡Sincronizado!'); })
+              .catch(function (e) { console.error('Fluix Carta Sync error:', e.message); });
+        },
+
+        // Sube los PRODUCTOS a Firestore
+        sincronizarProductos: function () {
+            var section = window._fluixSectionProductos;
+            var db      = window._fluixDB;
+            if (!section || !db) { console.error('FluixProductos: no iniciado.'); return; }
+
+            var grupos = {};
+            section.querySelectorAll('[data-fluix-item][data-fluix-campo]').forEach(function (el) {
+                var itemId = el.getAttribute('data-fluix-item');
+                var campo  = el.getAttribute('data-fluix-campo');
+                if (!grupos[itemId]) grupos[itemId] = { id: itemId, disponible: true, categoria: 'Productos' };
+                if (campo === 'imagen') {
+                    var src = (el.tagName === 'IMG') ? el.src : '';
+                    grupos[itemId]['imagen']     = src;
+                    grupos[itemId]['imagen_url'] = src;
+                } else if (campo === 'precio') {
+                    grupos[itemId]['precio'] = parsearPrecio(el.innerText);
+                } else {
+                    grupos[itemId][campo] = el.innerText.trim();
+                }
+            });
+
+            var items = Object.values(grupos);
+            console.log('Fluix Productos Sync: ' + items.length + ' productos', items);
+            db.collection('empresas').doc(empresaId)
+              .collection('contenido_web').doc(CFG_PRODUCTOS.seccionId)
+              .set({
+                  tipo: CFG_PRODUCTOS.tipo, nombre: 'Productos', descripcion: 'Productos y servicios',
+                  activa: true, orden: 1,
+                  fecha_creacion: new Date(), fecha_actualizacion: new Date(),
+                  contenido: { titulo: 'Productos', items_carta: items }
+              })
+              .then(function () { console.log('✅ Fluix Productos: ¡Sincronizado!'); })
+              .catch(function (e) { console.error('Fluix Productos Sync error:', e.message); });
+        },
+
+        debug: function () {
+            console.log('=== FLUIX DEBUG ===');
+            var sc = window._fluixSection;
+            if (sc) {
+                var c = sc.querySelectorAll('[data-fluix-item][data-fluix-campo]');
+                console.log('CARTA: ' + c.length + ' campos');
+                c.forEach(function (el) {
+                    console.log('  ' + el.getAttribute('data-fluix-item') + '.' + el.getAttribute('data-fluix-campo') + ' = "' + el.innerText.trim().substring(0,30) + '"');
+                });
+            } else { console.warn('CARTA: sección no encontrada'); }
+
+            var sp = window._fluixSectionProductos;
+            if (sp) {
+                var cp = sp.querySelectorAll('[data-fluix-item][data-fluix-campo]');
+                console.log('PRODUCTOS: ' + cp.length + ' campos');
+                cp.forEach(function (el) {
+                    var v = (el.tagName === 'IMG') ? el.src.substring(0,40) : el.innerText.trim().substring(0,30);
+                    console.log('  ' + el.getAttribute('data-fluix-item') + '.' + el.getAttribute('data-fluix-campo') + ' = "' + v + '"');
+                });
+            } else { console.warn('PRODUCTOS: sección no encontrada'); }
+
+            console.log('Firebase: ' + (window._fluixDB ? 'OK ✅' : 'NO conectado ❌'));
+            console.log('==================');
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INICIO
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function iniciar() {
+        var appName  = 'FluixInline';
+        var existing = (firebase.apps || []).find(function (a) { return a.name === appName; });
+        var app      = existing || firebase.initializeApp(firebaseConfig, appName);
+        var db       = app.firestore();
+        window._fluixDB = db;
+
+        // ── CARTA ─────────────────────────────────────────────────────────────
+        var sectionCarta = marcarDOMCarta();
+        if (sectionCarta) {
+            window._fluixSection = sectionCarta;
+            escucharCarta(db, sectionCarta);
+        }
+
+        // ── PRODUCTOS ─────────────────────────────────────────────────────────
+        // Los data-fluix-item ya están en el HTML → solo escuchamos Firestore
+        escucharProductos(db);
+    }
+
+    function arrancar() {
+        if (typeof firebase === 'undefined') {
+            cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js', function () {
+                cargarScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js', iniciar);
+            });
+        } else {
+            iniciar();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', arrancar);
+    } else {
+        arrancar();
+    }
+})();
+</script>
+
+
+

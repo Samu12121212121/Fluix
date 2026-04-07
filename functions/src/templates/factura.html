@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #444; }
+        .invoice-box {
+            max-width: 800px; margin: auto; padding: 30px;
+            border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15);
+            font-size: 16px; line-height: 24px; color: #555;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logo { max-width: 150px; }
+        .title { font-size: 32px; color: #333; }
+        .info { margin-bottom: 30px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { text-align: left; border-bottom: 2px solid #eee; padding: 5px; color: #000; }
+        .table td { padding: 5px; border-bottom: 1px solid #eee; }
+        .total { font-weight: bold; border-top: 2px solid #eee; margin-top: 20px; text-align: right; font-size: 1.25em; }
+        .btn { display: inline-block; background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="invoice-box">
+        <div class="header">
+            {{#if logoUrl}}<img src="{{logoUrl}}" class="logo">{{/if}}
+            <div class="title">FACTURA</div>
+        </div>
+
+        <div class="info">
+            <p><strong>Nº Factura:</strong> {{numeroFactura}}<br>
+            <strong>Fecha:</strong> {{fecha}}<br>
+            <strong>Cliente:</strong> {{clienteNombre}}</p>
+        </div>
+
+        <p>Apreciado cliente, adjuntamos la factura correspondiente a los servicios prestados.</p>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th style="text-align: right;">Importe</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each conceptos}}
+                <tr>
+                    <td>{{nombre}}</td>
+                    <td style="text-align: right;">{{importe}}€</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <div class="total">
+            Total a Pagar: {{importeTotal}}€
+        </div>
+
+        {{#if metodoPago}}<p><strong>Forma de Pago:</strong> {{metodoPago}}</p>{{/if}}
+
+        <p style="text-align: center; color: #999; margin-top: 40px; font-size: 0.8em;">
+            {{empresaNombre}} | {{empresaDireccion}}
+        </p>
+    </div>
+</body>
+</html>
