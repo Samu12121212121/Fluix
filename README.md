@@ -1,16 +1,26 @@
 # 🏢 Fluix CRM
 
-**CRM/ERP multiempresa para PYMES españolas** desarrollado con Flutter + Firebase.
+**CRM/ERP multiempresa SaaS para PYMES españolas** desarrollado con Flutter + Firebase.
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)](https://flutter.dev)
+[![Flutter](https://img.shields.io/badge/Flutter-3.41+-blue?logo=flutter)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Backend-orange?logo=firebase)](https://firebase.google.com)
+[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Android%20%7C%20Web-blueviolet)]()
 [![License](https://img.shields.io/badge/License-Proprietary-red)]()
+
+**Estado:** 🟡 En desarrollo (Alpha Testing)
 
 ---
 
 ## 📋 Descripción
 
-Fluix CRM es una aplicación de gestión empresarial completa diseñada específicamente para **pequeñas y medianas empresas españolas** en Castilla-La Mancha. Integra facturación con cumplimiento fiscal español, nóminas con convenios colectivos, gestión de clientes, reservas, citas, pedidos y más.
+**Fluix CRM** es una plataforma SaaS modular de gestión empresarial diseñada específicamente para **pequeñas y medianas empresas españolas**. Integra:
+
+- ✅ Facturación electrónica (RD 1619/2012, Art. 17 LCS, RD-XML 3/2024)
+- ✅ Nóminas con cumplimiento SS 2026 + IRPF + SEPA XML
+- ✅ Gestión multiempresa y multiusuario con roles
+- ✅ Integración con Google Reviews y WhatsApp
+- ✅ Dashboard modular y personalizable
+- ✅ Sincronización WordPress ↔ App ↔ Web en tiempo real
 
 ## 🎯 Sectores Target
 

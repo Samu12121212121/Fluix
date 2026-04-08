@@ -48,20 +48,17 @@ class ValidadorVerifactu {
       errores.add('HAC1177-ALTA-003: Importe/Cuota no pueden ser negativos.');
     }
 
-    return ValidacionVerifactuResultado(
-      esValido: errores.isEmpty,
-      errores: errores,
-      advertencias: advertencias,
-      hashCalculado: registro.hash,
-      hashPrimeros64: registro.hash64,
-    );
-  }
+    // R6 — Precisión temporal (art. 29.2.j LGT)
+    final diferenciaSegundos =
+        DateTime.now().difference(registro.fechaHoraGeneracion).inSeconds.abs();
+    if (diferenciaSegundos > 60) {
+      errores.add(
+        'VERIFACTU-005: La hora de generación difiere '
+        '${(diferenciaSegundos / 60).toStringAsFixed(1)} min del reloj del sistema '
+        '(máximo 1 min, art. 29.2.j LGT).',
+      );
+    }
 
-  static ValidacionVerifactuResultado validarRegistroAnulacion(
-    RegistroFacturacionAnulacion registro,
-    RegistroFacturacionAnulacion? registroAnterior,
-  ) {
-    final errores = <String>[];
 
     if (RegistroFacturacionAnulacion.idVersion != '1.0') {
       errores.add('HAC1177-ANU-001: IDVersion debe ser 1.0.');

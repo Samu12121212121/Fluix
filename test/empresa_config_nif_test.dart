@@ -6,7 +6,7 @@ void main() {
     test('ignora el placeholder legacy si existe un NIF real en empresa', () {
       final config = EmpresaConfig.fromSources(
         empresaDoc: const {
-          'nif': 'B76543210',
+          'nif': 'B76543214',
           'razon_social': 'Empresa Real SL',
         },
         fiscalDoc: const {
@@ -15,7 +15,7 @@ void main() {
         },
       );
 
-      expect(config.nifNormalizado, 'B76543210');
+      expect(config.nifNormalizado, 'B76543214');
       expect(config.tieneNifValido, isTrue);
       expect(config.usaNifPlaceholderLegacy, isFalse);
     });
@@ -40,12 +40,12 @@ void main() {
           'razon_social': 'Empresa Legacy SL',
         },
         fiscalDoc: const {
-          'nif': 'B76543210',
+          'nif': 'B76543214',
           'razon_social': 'Empresa Fiscal Real SL',
         },
       );
 
-      expect(config.nifNormalizado, 'B76543210');
+      expect(config.nifNormalizado, 'B76543214');
       expect(config.tieneNifValido, isTrue);
       expect(config.usaNifPlaceholderLegacy, isFalse);
     });

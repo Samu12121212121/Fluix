@@ -7,7 +7,7 @@ import '../core/utils/validador_nif_cif.dart';
 /// Servicio central de contabilidad.
 /// Gestiona gastos, proveedores, libros contables y exportación CSV.
 class ContabilidadService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   // ── REFS ──────────────────────────────────────────────────────────────────
 

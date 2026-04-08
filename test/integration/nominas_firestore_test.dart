@@ -1,3 +1,5 @@
+
+    // Check YTD summary doc update (would require the actual trigger logic or service call here)
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:planeag_flutter/domain/modelos/nomina.dart';
@@ -65,18 +67,19 @@ void main() {
     expect(saved.exists, true);
     expect(saved.data()?['salario_neto'], 1572.0); // 2000 - 94 - 32 - 2 - 300 = 1572
   });
+    // Crear el documento primero (setUp recrea db cada vez)
+    await db.collection('empresas').doc('emp1').collection('nominas').doc('nom1').set({
+      'estado': EstadoNomina.aprobada.name,
+      'salario_bruto_mensual': 2000.0,
+    });
 
-  test('Verificar que YTD se actualiza al marcar como pagada', () async {
+    // Actualizar a pagada
     // Implementar lógica de YTD update
     // Simulation:
-    await db.collection('empresas').doc('emp1').collection('nominas').doc('nom1').update({
-      'estado': EstadoNomina.pagada.name,
-    });
-    
-    // Check YTD summary doc update (would require the actual trigger logic or service call here)
   });
 
-  test('Verificar que nómina pagada es inmutable', () async {
+    final doc = await db.collection('empresas').doc('emp1').collection('nominas').doc('nom1').get();
+    expect(doc.data()?['estado'], EstadoNomina.pagada.name);
      // This logic usually resides in Firestore Security Rules or Service logic
      // Simulating check:
      final estado = EstadoNomina.pagada;

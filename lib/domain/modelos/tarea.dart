@@ -365,7 +365,7 @@ class Tarea {
     historial: historial ?? this.historial,
     esRecurrente: esRecurrente ?? this.esRecurrente,
     frecuenciaRecurrencia: frecuenciaRecurrencia ?? this.frecuenciaRecurrencia,
-    soloPropietario: soloPropietario ?? this.soloPropietario,
+    etiquetas: etiquetas ?? this.etiquetas,
     sugerenciaId: sugerenciaId ?? this.sugerenciaId,
     clienteId: clienteId ?? this.clienteId,
     configuracionRecurrencia: configuracionRecurrencia ?? this.configuracionRecurrencia,

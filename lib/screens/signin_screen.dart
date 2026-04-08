@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// ⚠️ ARCHIVO LEGACY — NO USAR
+// La pantalla real de login/bienvenida está en:
+//   lib/features/autenticacion/pantallas/pantalla_login.dart
+
 import '../models/user_model.dart';
 import '../models/company_model.dart';
 import 'dashboard_screen.dart';

@@ -131,6 +131,7 @@ dependencies:
   flutter_image_compress: ^2.3.0
   path: ^1.9.0
 
+
   # ── SEGURIDAD ─────────────────────────────────────────────────────────────
   # Autenticación biométrica (FaceID / Huella dactilar)
   local_auth: ^2.3.0

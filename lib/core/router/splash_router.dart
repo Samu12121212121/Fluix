@@ -5,7 +5,7 @@ import 'package:logger/logger.dart';
 import '../../features/autenticacion/pantallas/pantalla_login.dart';
 import '../../features/dashboard/pantallas/pantalla_dashboard.dart';
 import '../../features/onboarding/pantallas/pantalla_onboarding.dart';
-import '../../features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
+import '../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
 
 final _log = Logger();
 
@@ -40,22 +40,18 @@ class _SplashRouterState extends State<SplashRouter> {
       final empresaId = userData?['empresa_id'] as String?;
 
       if (empresaId == null) return const PantallaDashboard();
-
+      // Sin empresa (null o vacío) → flujo de registro social incompleto
+      if (empresaId == null || empresaId.isEmpty) {
+        final nombre = (userData?['nombre'] as String?) ?? '';
+        final correo = (userData?['correo'] as String?) ?? '';
+        return PantallaRegistrarEmpresaSocial(
+          nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',
+          correoUsuario: correo,
+        );
+      }
       // Ahora traer empresa y suscripción en paralelo
       final results = await Future.wait([
-        db.collection('empresas').doc(empresaId).get(),
-        db.collection('empresas').doc(empresaId)
-            .collection('suscripcion').doc('actual').get(),
-      ]);
-
-      final empresaData = results[0].data();
-      final suscData = results[1].data();
-
-      final onboardingCompletado =
-          (empresaData?['onboarding_completado'] as bool?) ?? false;
-
-      if (!onboardingCompletado) {
-        return PantallaOnboarding(empresaId: empresaId);
+      if (empresaId == null) return const PantallaDashboard();
       }
 
       // Verificar suscripción

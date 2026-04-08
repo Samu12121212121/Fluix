@@ -1,8 +1,5 @@
+import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-      ];
-          ? DateTime.parse(datos['ultima_actividad'])
-      fechaRegistro: DateTime.parse(
-          ? DateTime.parse(datos['ultima_visita'])
 
 /// Estados posibles de un cliente.
 /// - contacto: persona guardada sin transacciones
@@ -61,7 +58,10 @@ class Cliente extends Equatable {
     this.ultimaActividad,
   });
 
-  factory Cliente.fromFirestore(Map<String, dynamic> datos, String id) {
+  factory Cliente.fromFirestore(DocumentSnapshot doc) {
+    final datos = doc.data() as Map<String, dynamic>;
+    final id = doc.id;
+
     return Cliente(
       id: id,
       nombre: datos['nombre'] ?? '',
@@ -69,29 +69,28 @@ class Cliente extends Equatable {
       correo: datos['correo'] ?? '',
       nif: datos['nif'],
       direccion: datos['direccion'],
-          ? _parseDate(datos['ultima_visita'])
+      localidad: datos['localidad'],
       totalGastado: (datos['total_gastado'] ?? 0.0).toDouble(),
+      numeroReservas: datos['numero_reservas'] ?? 0,
       ultimaVisita: datos['ultima_visita'] != null
-          ? DateTime.parse(datos['ultima_visita'])
+          ? _parseDate(datos['ultima_visita'])
           : null,
-      fechaRegistro: _parseDate(
       etiquetas: List<String>.from(datos['etiquetas'] ?? []),
       notas: datos['notas'],
-      fechaRegistro: DateTime.parse(
-          datos['fecha_registro'] ?? DateTime.now().toIso8601String()),
+      fechaRegistro: _parseDate(datos['fecha_registro'] ?? DateTime.now().toIso8601String()),
       activo: datos['activo'] ?? true,
       esIntracomunitario: datos['es_intracomunitario'] ?? false,
       nifIvaComunitario: datos['nif_iva_comunitario'],
       estado: EstadoCliente.values.firstWhere(
-        (e) => e.name == (datos['estado_cliente'] ?? 'contacto'),
+        (e) => e.name == (datos['estado'] ?? 'contacto'),
         orElse: () => EstadoCliente.contacto,
       ),
       fichaIncompleta: datos['ficha_incompleta'] ?? false,
       noContactar: datos['no_contactar'] ?? false,
-          ? _parseDate(datos['ultima_actividad'])
+      estadoFusionado: datos['estado_fusionado'] ?? false,
       fusionadoConId: datos['fusionado_con_id'],
       ultimaActividad: datos['ultima_actividad'] != null
-          ? DateTime.parse(datos['ultima_actividad'])
+          ? _parseDate(datos['ultima_actividad'])
           : null,
     );
   }
@@ -177,21 +176,42 @@ class Cliente extends Equatable {
       noContactar: noContactar ?? this.noContactar,
       estadoFusionado: estadoFusionado ?? this.estadoFusionado,
       fusionadoConId: fusionadoConId ?? this.fusionadoConId,
-      ultimaActividad: ultimaActividad ?? this.ultimaActividad,
+       ];
     );
   }
 
   @override
   List<Object?> get props => [
-        id, nombre, telefono, correo, nif, direccion, localidad,
-        totalGastado, ultimaVisita, numeroReservas, etiquetas, notas,
-       ];
-        estado, fichaIncompleta, noContactar, estadoFusionado,
-        fusionadoConId, ultimaActividad,
+        id,
+        nombre,
+        telefono,
+        correo,
+        nif,
+        direccion,
+        localidad,
+        totalGastado,
+        ultimaVisita,
+        numeroReservas,
+        etiquetas,
+        notas,
+        fechaRegistro,
+        activo,
+        esIntracomunitario,
+        nifIvaComunitario,
+        estado,
+        fichaIncompleta,
+        noContactar,
+        estadoFusionado,
+        fusionadoConId,
+        ultimaActividad,
+      ];
+}
+
+/// Helper para parsear fechas desde Firestore
 DateTime _parseDate(dynamic v) {
+  if (v == null) return DateTime.now();
   if (v is Timestamp) return v.toDate();
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   if (v is DateTime) return v;
   return DateTime.now();
 }
-      ];

@@ -205,10 +205,8 @@ class ValidadorFiscalIntegral {
     // R4: NIF válido
     todosLosErrores.addAll(validarNifesObligatorios(factura, empresaEmisora));
 
-    // R6: Tiempo
-    todosLosErrores.addAll(validarTiempoGeneracion(factura));
-
-    // R8: Desglose IVA
+    // R6: Tiempo (informativo — no bloquea validación de facturas ya emitidas)
+    todasLasAdvertencias.addAll(validarTiempoGeneracion(factura));
     todasLasAdvertencias.addAll(validarDesgloseIva(factura));
 
     // R1: Correlatividad (solo si hay facturas del período)

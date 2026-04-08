@@ -61,8 +61,9 @@ class EmbargoCalculator {
     double? importeMensualMaximo,
   }) {
     final maxLec = calcularMaximoEmbargable(salarioNeto);
-    if (importeMensualMaximo != null && importeMensualMaximo > 0) {
-      return maxLec.clamp(0.0, importeMensualMaximo);
+    if (importeMensualMaximo != null) {
+      // Tope = 0 → el juez ordena no embargar nada
+      if (importeMensualMaximo <= 0) return 0;
     }
     return maxLec;
   }

@@ -1,4 +1,12 @@
-# 🚀 Pasos para publicar PlaneaGuada CRM
+# 🚀 Pasos para Publicar Fluix CRM
+
+**Última actualización:** 08/04/2026  
+**Versión objetivo:** 1.0.0  
+**Estado:** En preparación
+
+---
+
+## ⚠️ PRE-REQUISITOS (Resolver antes de cualquier cosa)
 
 ## ✅ Ya hecho automáticamente
 - [x] `applicationId` cambiado a `com.planeaguada.crm`

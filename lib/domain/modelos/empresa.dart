@@ -1,8 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-      fechaActualizacion: DateTime.parse(datos['fecha_actualizacion']),
-      fechaInicio: DateTime.parse(datos['fecha_inicio']),
-      fechaFin: DateTime.parse(datos['fecha_fin']),
-      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
+import '../../core/enums/enums.dart';
 
 // Criterio de liquidación de IVA para la empresa
 // devengo: por fecha de emisión/recepción (régimen general)
@@ -33,10 +30,10 @@ class PerfilEmpresa {
       nombre: datos['nombre'] ?? '',
       correo: datos['correo'] ?? '',
       telefono: datos['telefono'] ?? '',
-      fechaCreacion: _parseDate(datos['fecha_creacion']),
+      direccion: datos['direccion'] ?? '',
       descripcion: datos['descripcion'] ?? '',
       logoUrl: datos['logo_url'],
-      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
+      fechaCreacion: _parseDate(datos['fecha_creacion']),
     );
   }
 
@@ -92,11 +89,11 @@ class SuscripcionEmpresa {
   factory SuscripcionEmpresa.fromFirestore(Map<String, dynamic> datos) {
     return SuscripcionEmpresa(
       estado: EstadoSuscripcion.values.firstWhere(
+        (e) => e.name == (datos['estado'] ?? 'pendiente'),
+        orElse: () => EstadoSuscripcion.pendiente,
+      ),
       fechaInicio: _parseDate(datos['fecha_inicio']),
       fechaFin: _parseDate(datos['fecha_fin']),
-      ),
-      fechaInicio: DateTime.parse(datos['fecha_inicio']),
-      fechaFin: DateTime.parse(datos['fecha_fin']),
       avisoEnviado: datos['aviso_enviado'] ?? false,
       monto: (datos['monto'] ?? 0.0).toDouble(),
       transaccionId: datos['transaccion_id'],
@@ -249,10 +246,10 @@ class EstadisticasEmpresa {
       totalReservas: datos['total_reservas'] ?? 0,
       totalServicios: datos['total_servicios'] ?? 0,
       ingresosMes: (datos['ingresos_mes'] ?? 0.0).toDouble(),
-      fechaActualizacion: _parseDate(datos['fecha_actualizacion']),
+      ingresosAnio: (datos['ingresos_anio'] ?? 0.0).toDouble(),
       valoracionPromedio: (datos['valoracion_promedio'] ?? 0.0).toDouble(),
       totalValoraciones: datos['total_valoraciones'] ?? 0,
-      fechaActualizacion: DateTime.parse(datos['fecha_actualizacion']),
+      fechaActualizacion: _parseDate(datos['fecha_actualizacion']),
     );
   }
 
@@ -331,7 +328,6 @@ class Empresa {
   Empresa copyWith({
     PerfilEmpresa? perfil,
     SuscripcionEmpresa? suscripcion,
-    ConfiguracionEmpresa? configuracion,
     EstadisticasEmpresa? estadisticas,
   }) {
     return Empresa(
@@ -350,10 +346,14 @@ class Empresa {
   }
 
   @override
+  int get hashCode => id.hashCode;
+}
+
+/// Helper para parsear fechas desde Firestore
 DateTime _parseDate(dynamic v) {
+  if (v == null) return DateTime.now();
   if (v is Timestamp) return v.toDate();
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   if (v is DateTime) return v;
   return DateTime.now();
 }
-  int get hashCode => id.hashCode;

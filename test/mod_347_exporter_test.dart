@@ -47,7 +47,7 @@ void main() {
     required double base,
     required double iva,
     required double total,
-    EstadoFacturaRecibida estado = EstadoFacturaRecibida.registrada,
+    EstadoFacturaRecibida estado = EstadoFacturaRecibida.recibida,
   }) {
     return FacturaRecibida(
       id: id,

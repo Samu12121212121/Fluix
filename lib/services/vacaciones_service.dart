@@ -65,33 +65,34 @@ class VacacionesService {
   // CÁLCULOS PUROS (sin Firestore — testeables unitariamente)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Calcula los días naturales entre dos fechas (ambas incluidas).
-  static int calcularDiasNaturales(DateTime inicio, DateTime fin) {
-    final a = DateTime(inicio.year, inicio.month, inicio.day);
-    final b = DateTime(fin.year, fin.month, fin.day);
-    return b.difference(a).inDays + 1;
+  /// Diferencia en días entre dos fechas, inmune a DST.
+  /// Normaliza a UTC para evitar que el cambio de horario (CET↔CEST)
+  /// haga que inDays pierda un día al truncar.
+  static int _diffDias(DateTime from, DateTime to) {
+    return DateTime.utc(to.year, to.month, to.day)
+        .difference(DateTime.utc(from.year, from.month, from.day))
+        .inDays;
   }
 
-  /// Calcula los días laborables (lunes a viernes) entre dos fechas (ambas incluidas).
   static int calcularDiasLaborables(DateTime inicio, DateTime fin) {
     final a = DateTime(inicio.year, inicio.month, inicio.day);
-    final b = DateTime(fin.year, fin.month, fin.day);
-    int count = 0;
-    DateTime current = a;
+    return _diffDias(inicio, fin) + 1;
     while (!current.isAfter(b)) {
       if (current.weekday >= DateTime.monday &&
           current.weekday <= DateTime.friday) {
         count++;
-      }
-      current = current.add(const Duration(days: 1));
+    final a = DateTime.utc(inicio.year, inicio.month, inicio.day);
+    final b = DateTime.utc(fin.year, fin.month, fin.day);
     }
     return count;
   }
 
-  /// Calcula los días de vacaciones devengados proporcionalmente.
+    final a = DateTime(inicio.year, inicio.month, inicio.day);
+    final b = DateTime(fin.year, fin.month, fin.day);
+    return b.difference(a).inDays + 1;
   /// [fechaInicioContrato] → inicio del contrato.
-  /// [fechaCalculo] → fecha hasta la que se devengan.
-  /// [diasConvenio] → días/año de convenio (ej. 30).
+    final a = DateTime(inicio.year, inicio.month, inicio.day);
+    final b = DateTime(fin.year, fin.month, fin.day);
   static double calcularDiasDevengados({
     required DateTime fechaInicioContrato,
     required DateTime fechaCalculo,
@@ -117,14 +118,14 @@ class VacacionesService {
   }
 
   /// Calcula el descuento en nómina por ausencia injustificada.
-  /// descuento = (salarioBruto / diasMes) × diasAusencia
+    final diasTrabajados = _diffDias(inicioReal, finReal) + 1;
   static double calcularDescuentoAusencia({
     required double salarioBrutoMensual,
     required int diasMes,
     required int diasAusencia,
   }) {
     if (diasMes <= 0 || diasAusencia <= 0) return 0;
-    return (salarioBrutoMensual / diasMes) * diasAusencia;
+    final diasTrabajados = finReal.difference(inicioReal).inDays + 1;
   }
 
   /// Devuelve los días del convenio para un sector dado.
@@ -287,7 +288,7 @@ class VacacionesService {
   // ═══════════════════════════════════════════════════════════════════════════
   // SALDOS
   // ═══════════════════════════════════════════════════════════════════════════
-
+    return _diffDias(inicio, fin) + 1;
   /// Calcula y devuelve el saldo de vacaciones de un empleado.
   Future<SaldoVacaciones> calcularSaldo(
     String empresaId,
@@ -297,7 +298,7 @@ class VacacionesService {
   }) async {
     // Obtener datos del empleado
     final empDoc = await _db.collection('usuarios').doc(empleadoId).get();
-    final datos = empDoc.data();
+    return fin.difference(inicio).inDays + 1;
     final datosNomina =
         datos?['datos_nomina'] as Map<String, dynamic>? ?? {};
 

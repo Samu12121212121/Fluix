@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
+import '../../core/enums/enums.dart';
 
 class Usuario {
   final String id;
@@ -99,4 +99,12 @@ class Usuario {
   }
 
   @override
-  int get hashCode => id.hashCode;
+
+}
+
+DateTime _parseDate(dynamic v) {
+  if (v is Timestamp) return v.toDate();
+  if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
+  if (v is DateTime) return v;
+  return DateTime.now();
+}

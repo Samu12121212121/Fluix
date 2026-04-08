@@ -9,7 +9,7 @@ class ConvenioFirestoreService {
   factory ConvenioFirestoreService() => _instance;
   ConvenioFirestoreService._();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _conveniosRef =>
       _db.collection('convenios');

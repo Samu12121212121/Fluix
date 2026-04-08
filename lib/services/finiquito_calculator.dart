@@ -113,13 +113,13 @@ class FiniquitoCalculator {
     // ═══════════════════════════════════════════════════════════════════════
     // 2. VACACIONES NO DISFRUTADAS
     // ═══════════════════════════════════════════════════════════════════════
-    // Total días desde inicio contrato hasta baja (para calcular total vacaciones
-    // pendientes de todo el contrato, no solo del año en curso)
-    final totalDiasTrabajados = fechaBaja.difference(fechaInicio).inDays + 1;
-    final diasVacDevengadas = (totalDiasTrabajados / 365.0 * diasVacConvenio).floor();
-    final diasVacPendientes = (diasVacDevengadas - diasVacacionesDisfrutadas).clamp(0, diasVacConvenio);
-
-    // Base de vacaciones incluye pagas extra si se prorratean
+    // Se calculan proporcionalmente a los días trabajados del contrato.
+    // Para contratos ≥ 1 año se generan los días completos del convenio;
+    // para contratos < 1 año se prorratea (art. 38 ET).
+    final diasTrabajados = fechaBaja.difference(fechaInicio).inDays + 1;
+    final diasVacGeneradosRaw = (diasVacConvenio * diasTrabajados / 365.0).floor();
+    final diasVacGenerados = diasVacGeneradosRaw.clamp(0, diasVacConvenio);
+    final diasVacPendientes = (diasVacGenerados - diasVacacionesDisfrutadas).clamp(0, diasVacConvenio);
     final baseVacaciones = config.pagasProrrateadas
         ? salarioTotalAnual / 365.0
         : config.salarioBrutoAnual / 365.0 + config.complementoFijo / 30.42;

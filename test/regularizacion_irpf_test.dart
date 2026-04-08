@@ -119,11 +119,11 @@ void main() {
       );
       final pctSinHijos = NominasService.calcularPorcentajeIrpf(30000, config: configSinHijos);
 
-      // A partir de junio: 1 hijo
+      // A partir de junio: 1 hijo (menor de 3 años → art. 58.2 LIRPF)
       final configConHijo = DatosNominaEmpleado(
         salarioBrutoAnual: 30000,
         numHijos: 1,
-        comunidadAutonoma: ComunidadAutonoma.castillaMancha,
+        numHijosMenores3: 1,
       );
       final pctConHijo = NominasService.calcularPorcentajeIrpf(30000, config: configConHijo);
 
@@ -131,16 +131,16 @@ void main() {
       expect(pctConHijo, lessThan(pctSinHijos));
 
       // La regularización en diciembre corrige la diferencia
-      // Si se retuvo 5 meses al tipo viejo y luego cambió...
-      final retenidoMesesAltos = 5 * (30000 / 12) * pctSinHijos / 100;
-      final retenidoMesesBajos = 6 * (30000 / 12) * pctConHijo / 100;
-      final totalRetenido = retenidoMesesAltos + retenidoMesesBajos;
+      // Caso más realista: el empleador no recalculó hasta diciembre,
+      // así que los 11 meses (ene-nov) se retuvieron al tipo viejo
+      final totalRetenido = 11 * (30000 / 12) * pctSinHijos / 100;
 
-      // El correcto para el año completo (con hijo):
+      // El correcto para el año completo (con hijo desde junio):
+      // En España, el mínimo por descendientes se aplica al año completo
       final irpfAnualCorrecto = 30000 * pctConHijo / 100;
 
+      // Se habrá retenido de más → ajuste negativo (devolver al trabajador)
       // Se habrá retenido de más
-      final ajuste = irpfAnualCorrecto - totalRetenido;
       expect(ajuste, lessThan(0)); // devolver al trabajador
     });
   });

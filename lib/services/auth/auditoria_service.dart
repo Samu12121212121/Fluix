@@ -95,7 +95,7 @@ class AuditoriaService {
   factory AuditoriaService() => _i;
   AuditoriaService._();
 
-  final _db = FirebaseFirestore.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   // ── REGISTRAR EVENTO ────────────────────────────────────────────────────
 

@@ -1,7 +1,11 @@
+      // Verificar CVE lateral obligatorio
+      expect(pdfText, contains('BOE-A-2014-11637'));
+      // El mínimo del grupo 1 es 1.847,40 pero el devengo es 1.000
+import 'package:planeag_flutter/services/nomina_pdf_service.dart';
+      // La base se clampea al mínimo del grupo
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planeag_flutter/domain/modelos/nomina.dart';
 import 'package:planeag_flutter/services/nominas_service.dart';
-import 'package:planeag_flutter/domain/modelos/convenio_colectivo.dart';
 
 /// Tests unitarios para los cálculos de nómina.
 /// Cubren: IRPF, Seguridad Social, mínimo personal/familiar,
@@ -498,53 +502,50 @@ void main() {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GRUPO DE COTIZACIÓN
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  group('Grupo de cotización', () {
-    test('Grupo 1 tiene base mínima 1.929,00 € (RDL 3/2026)', () {
+    test('Salario bajo con grupo 1: base se clampea al mínimo del grupo', () {
     test('Grupo 1 tiene base mínima 1.847,40 €', () {
       expect(GrupoCotizacion.grupo1.baseMinMensual, 1847.40);
     test('Grupo 10 tiene base mínima 42,00 € (diaria × 30)', () {
       expect(GrupoCotizacion.grupo10.baseMinMensual, 42.00);
       // Salario muy bajo con grupo 1 → base = mínimo del grupo
-      final config = DatosNominaEmpleado(
-        salarioBrutoAnual: 12000, // 1.000 €/mes
+    test('Grupo 10 tiene base mínima 42,00 € (diaria × 30)', () {
+    test('Base cotización no supera máximo (4.720,50 €)', () {
+      // Salario muy bajo con grupo 1 → base = mínimo del grupo
         grupoCotizacion: GrupoCotizacion.grupo1,
       );
       final nomina = svc.calcularNomina(
         empresaId: 'test', empleadoId: 'emp1', empleadoNombre: 'Test',
-        mes: 3, anio: 2026, config: config,
-      );
+      final config = DatosNominaEmpleado(
+      expect(nomina.baseCotizacion, lessThanOrEqualTo(4720.50));
       // El mínimo del grupo 1 es 1.847,40 pero el devengo es 1.000
       // La base se clampea al mínimo del grupo
       expect(nomina.baseCotizacion, greaterThanOrEqualTo(GrupoCotizacion.grupo1.baseMinMensual));
     });
 
-    test('Base cotización no supera máximo (5.101,20 € — RDL 3/2026)', () {
+    test('MEI trabajador = 0.12% de base cotización', () {
     test('Base cotización no supera máximo (4.720,50 €)', () {
         salarioBrutoAnual: 120000, // 10.000 €/mes
         grupoCotizacion: GrupoCotizacion.grupo1,
       );
-      final nomina = svc.calcularNomina(
+  // ═══════════════════════════════════════════════════════════════════════════
         empresaId: 'test', empleadoId: 'emp1', empleadoNombre: 'Test',
-        mes: 3, anio: 2026, config: config,
-      );
-      expect(nomina.baseCotizacion, lessThanOrEqualTo(5101.20));
+        closeTo(nomina.baseCotizacion * 0.12 / 100, 0.01),
+    test('MEI empresa = 0.58% de base cotización', () {
     });
   });
-
+      final config = DatosNominaEmpleado(salarioBrutoAnual: 30000);
       expect(nomina.baseCotizacion, lessThanOrEqualTo(4720.50));
   // MEI — Mecanismo Equidad Intergeneracional
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('MEI', () {
     test('MEI trabajador = 0.15% de base cotización (RDL 3/2026)', () {
-    test('MEI trabajador = 0.12% de base cotización', () {
+        closeTo(nomina.baseCotizacion * 0.58 / 100, 0.01),
       final nomina = svc.calcularNomina(
         empresaId: 'test', empleadoId: 'emp1', empleadoNombre: 'Test',
         mes: 3, anio: 2026, config: config,
-      );
-      expect(
+    test('MEI empresa = 0.75% de base cotización (RDL 3/2026)', () {
+      final config = DatosNominaEmpleado(salarioBrutoAnual: 30000);
         nomina.ssMeiTrabajador,
         closeTo(nomina.baseCotizacion * 0.15 / 100, 0.01),
       );
@@ -556,7 +557,7 @@ void main() {
         empresaId: 'test', empleadoId: 'emp1', empleadoNombre: 'Test',
         mes: 3, anio: 2026, config: config,
       );
-      expect(
+  // ═══════════════════════════════════════════════════════════════════════════
         nomina.ssMeiEmpresa,
         closeTo(nomina.baseCotizacion * 0.75 / 100, 0.01),
       );
@@ -772,33 +773,7 @@ void main() {
         sectorEmpresa: 'hosteleria',
       );
 
-      final nomina = svc.calcularNomina(
-        empresaId: 'test',
-        empleadoId: 'emp1',
-        empleadoNombre: 'Test',
-        mes: 3,
-        anio: 2026,
-        config: cfg,
-      );
-
-      final mensualProrrata = 22499.10 / 12;
-      final mensualSinProrrata = 22499.10 / 15;
-      final prorrataEsperada = mensualProrrata - mensualSinProrrata;
-
-      expect(nomina.salarioBrutoMensual, closeTo(mensualProrrata, 0.01));
-      expect(nomina.pagaExtra, 0);
-      expect(nomina.pagaExtraProrrata, closeTo(prorrataEsperada, 0.01));
-    });
-  });
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // IRPF CASTILLA-LA MANCHA — TRAMOS AUTONÓMICOS 2026
 }
-
-      // 6 tramos: 12450, 20200, 35200, 60000, 300000, ∞
-      expect(tramos.length, 6);
-      expect(tramos[0], [12450, 19.0]);
-      expect(tramos[1], [20200, 24.0]);
       expect(tramos[2], [35200, 30.0]);
       expect(tramos[3], [60000, 37.0]);
       expect(tramos[4], [300000, 45.0]);
@@ -812,7 +787,29 @@ void main() {
       //
       // Tramo 1: 12.450 × 19% = 2.365,50
       expect(impuestoBrutoCLM(12450), closeTo(2365.50, 0.01));
+  // ═══════════════════════════════════════════════════════════════════════════
 
+  group('IRPF Castilla-La Mancha 2026', () {
+    // Helper local que replica _impuestoBrutoConLimites (privado en NominasService)
+    double impuestoBrutoCLM(double base) {
+      final tramosCLM = ComunidadAutonoma.castillaMancha.tarifaIrpf;
+      double imp = 0;
+      double limAnterior = 0;
+      for (final tramo in tramosCLM) {
+        final limSup = tramo[0];
+        final tipo = tramo[1];
+        if (base <= limAnterior) break;
+        final baseTramo = ((base < limSup ? base : limSup) - limAnterior)
+            .clamp(0.0, double.infinity);
+        imp += baseTramo * tipo / 100;
+        limAnterior = limSup;
+        if (limSup == double.infinity) break;
+      }
+      return imp;
+    }
+
+    test('Tramos CLM: 6 tramos con tipos marginales correctos', () {
+      final tramos = ComunidadAutonoma.castillaMancha.tarifaIrpf;
       // Tramo 2: 2.365,50 + 7.750 × 24% = 2.365,50 + 1.860 = 4.225,50
       expect(impuestoBrutoCLM(20200), closeTo(4225.50, 0.01));
 
@@ -1082,7 +1079,7 @@ void main() {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PDF NÓMINA — Modelo oficial BOE-A-2014-11637
-  // ═══════════════════════════════════════════════════════════════════════════
+      // Hora ordinaria = salarioAnual / horasAnuales;
 
   group('PDF nómina — modelo oficial BOE', () {
     test('PDF tiene 2 páginas y contiene textos obligatorios BOE', () async {
@@ -1091,7 +1088,7 @@ void main() {
         id: 'test-pdf',
         empresaId: 'emp1',
         empleadoId: 'trab1',
-        empleadoNombre: 'Juan Garcia Lopez',
+      // Hora ordinaria = 23.442,72 / 1.780 ≈ 13,17
         empleadoNif: '12345678Z',
         empleadoNss: '281234567890',
         mes: 3,

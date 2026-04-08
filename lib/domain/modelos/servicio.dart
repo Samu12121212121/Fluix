@@ -1,5 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-      ];
+      ),
+import 'package:equatable/equatable.dart';
+          ? DateTime.parse(datos['fecha_modificacion'])
+      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
           ? DateTime.parse(datos['fecha_modificacion'])
       fechaCreacion: DateTime.parse(datos['fecha_creacion']),
 
@@ -39,15 +41,12 @@ class Servicio extends Equatable {
       descripcion: datos['descripcion'] ?? '',
       precio: (datos['precio'] ?? 0.0).toDouble(),
       duracion: Duration(minutes: datos['duracion_minutos'] ?? 60),
-      empleadoAsignado: datos['empleado_asignado'],
-      categoria: datos['categoria'],
-      activo: datos['activo'] ?? true,
       imagenes: List<String>.from(datos['imagenes'] ?? []),
-      configuracionAdicional: Map<String, dynamic>.from(
-      fechaCreacion: _parseDate(datos['fecha_creacion']),
+        datos['configuracion_adicional'] ?? {},
       ),
+      configuracionAdicional: Map<String, dynamic>.from(
           ? _parseDate(datos['fecha_modificacion'])
-      fechaModificacion: datos['fecha_modificacion'] != null
+          ? _parseDate(datos['fecha_modificacion'])
           ? DateTime.parse(datos['fecha_modificacion'])
           : null,
     );
@@ -119,16 +118,17 @@ class Servicio extends Equatable {
         id,
         nombre,
         descripcion,
-        precio,
+       ];
         duracion,
         empleadoAsignado,
-        categoria,
         activo,
         imagenes,
         configuracionAdicional,
-       ];
+        fechaCreacion,
         fechaModificacion,
       ];
+}
+
 DateTime _parseDate(dynamic v) {
   if (v is Timestamp) return v.toDate();
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();

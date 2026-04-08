@@ -20,32 +20,32 @@
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tareas",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "fecha_limite", "order": "ASCENDING" },
-        { "fieldPath": "completada", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "facturas",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "fecha_emision", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "facturas",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "ASCENDING" }
+        { "fieldPath": "fecha_hora", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cliente_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha_hora", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "telefono", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "servicios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
       ]
     },
     {

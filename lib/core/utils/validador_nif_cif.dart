@@ -82,7 +82,7 @@ class ValidadorNifCif {
     }
 
     // Tipos que exigen control alfabético
-    if ('KPQSNW'.contains(letraInicial)) {
+    if ('KNPQRSW'.contains(letraInicial)) {
       return control == letraControl;
     }
 

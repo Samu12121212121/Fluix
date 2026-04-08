@@ -82,13 +82,10 @@ class BajaLaboral {
   /// Número total de días de baja hasta la fecha dada (o hasta hoy si activa).
   int diasTotales([DateTime? hasta]) {
     final fin = fechaFin ?? hasta ?? DateTime.now();
-    return fin.difference(fechaInicio).inDays + 1;
-  }
-
-  /// Días de baja que caen dentro de un mes concreto.
-  int diasEnMes(int mes, int anio) {
-    final inicioMes = DateTime(anio, mes, 1);
-    final finMes    = DateTime(anio, mes + 1, 0); // último día del mes
+    // Usar UTC para evitar problemas con cambio de hora (DST)
+    final a = DateTime.utc(fechaInicio.year, fechaInicio.month, fechaInicio.day);
+    final b = DateTime.utc(fin.year, fin.month, fin.day);
+    return b.difference(a).inDays + 1;
     final fin       = fechaFin ?? DateTime.now();
 
     if (fechaInicio.isAfter(finMes) || fin.isBefore(inicioMes)) return 0;
@@ -102,25 +99,26 @@ class BajaLaboral {
   /// Día de baja en el que empieza el mes (relativo al inicio de la baja).
   /// Ejemplo: baja empezó el 20/01, mes febrero → diaInicioRelativo = 12.
   int diaInicioRelativo(int mes, int anio) {
-    final inicioMes = DateTime(anio, mes, 1);
+    // Usar aritmética de días de calendario (start y end están en el mismo mes)
+    // para evitar errores por cambio de hora (DST).
+    return end.day - start.day + 1;
     if (fechaInicio.isAfter(inicioMes)) return 1;
     return inicioMes.difference(fechaInicio).inDays + 1;
   }
 
-  factory BajaLaboral.fromMap(Map<String, dynamic> m) => BajaLaboral(
-    id:                     m['id'] as String? ?? '',
-    empleadoId:             m['empleado_id'] as String? ?? '',
+    return end.difference(start).inDays + 1;
     tipo: TipoContingencia.values.firstWhere(
       (e) => e.name == (m['tipo'] as String?),
-      orElse: () => TipoContingencia.enfermedadComun,
+    // Usar UTC para evitar problemas con cambio de hora (DST)
+    final a = DateTime.utc(fechaInicio.year, fechaInicio.month, fechaInicio.day);
+    final b = DateTime.utc(anio, mes, 1);
+    return b.difference(a).inDays + 1;
     ),
     fechaInicio:            _parseDate(m['fecha_inicio']),
     fechaFin:               m['fecha_fin'] != null ? _parseDate(m['fecha_fin']) : null,
     numeroParteMedico:      m['numero_parte_medico'] as String?,
     diagnostico:            m['diagnostico'] as String?,
-    observaciones:          m['observaciones'] as String?,
-    baseReguladoraDiaria:   (m['base_reguladora_diaria'] as num?)?.toDouble() ?? 0,
-    mejoraConvenioDias1a3:  m['mejora_convenio_dias_1a3'] as bool? ?? false,
+    return inicioMes.difference(fechaInicio).inDays + 1;
     porcentajeMejoraDias1a3: (m['porcentaje_mejora_dias_1a3'] as num?)?.toDouble() ?? 0,
     fechaCreacion:          _parseDate(m['fecha_creacion']),
   );

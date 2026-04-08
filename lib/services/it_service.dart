@@ -35,18 +35,12 @@ class ITService {
     bool mejoraConvenioDias1a3 = false,
     double porcentajeMejoraDias1a3 = 0,
   }) async {
-    final baseReguladoraDiaria = baseCotizacionMesAnterior / 30;
-
-    final ref = _bajasRef(empleadoId).doc();
-    final baja = BajaLaboral(
-      id: ref.id,
-      empleadoId: empleadoId,
-      tipo: tipo,
-      fechaInicio: fechaInicio,
-      baseReguladoraDiaria: baseReguladoraDiaria,
-      numeroParteMedico: numeroParteMedico,
-      diagnostico: diagnostico,
-      observaciones: observaciones,
+    // Base reguladora diaria = base cotización mes anterior / días reales del mes anterior
+    // (art. 13 D. 3158/1966 · Orden TAS/399/2004)
+    final mesAnterior = fechaInicio.month == 1 ? 12 : fechaInicio.month - 1;
+    final anioMesAnterior = fechaInicio.month == 1 ? fechaInicio.year - 1 : fechaInicio.year;
+    final diasMesAnterior = DateTime(anioMesAnterior, mesAnterior + 1, 0).day;
+    final baseReguladoraDiaria = baseCotizacionMesAnterior / diasMesAnterior;
       mejoraConvenioDias1a3: mejoraConvenioDias1a3,
       porcentajeMejoraDias1a3: porcentajeMejoraDias1a3,
       fechaCreacion: DateTime.now(),

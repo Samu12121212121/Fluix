@@ -13,7 +13,7 @@ void main() {
 
   setUp(() {
     builder = Mod390Builder();
-    modeloBase = const Modelo390(
+    modeloBase = Modelo390(
       id: 'test-001',
       empresaId: 'empresa-test',
       ejercicio: 2025,

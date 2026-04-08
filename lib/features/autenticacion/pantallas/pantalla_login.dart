@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
 import '../../../features/registro/pantallas/pantalla_registro.dart';
-import '../../../services/apple_auth_service.dart';
+import '../../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
 import '../../../services/notificaciones_service.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../core/utils/admin_initializer.dart';
@@ -560,11 +560,11 @@ class _PantallaLoginState extends State<PantallaLogin> {
           .collection('usuarios').doc(user.uid).get();
 
       if (!userDoc.exists) {
+      bool esNuevoUsuario = false;
         // Primera vez con Google → crear documento base
-        // El usuario deberá completar registro de empresa después
         await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
-          'nombre': user.displayName ?? user.email?.split('@').first ?? 'Usuario',
-          'correo': user.email,
+        esNuevoUsuario = true;
+        // El usuario deberá completar registro de empresa después
           'telefono': user.phoneNumber ?? '',
           'empresa_id': '', // Se asigna al completar registro
           'rol': 'propietario',
@@ -573,25 +573,37 @@ class _PantallaLoginState extends State<PantallaLogin> {
           'permisos': [],
         });
       }
+          'proveedor_auth': 'google',
 
+      } else {
+        // Usuario existente: verificar si tiene empresa vinculada
+        final empresaId = (userDoc.data()?['empresa_id'] as String?) ?? '';
+        esNuevoUsuario = empresaId.isEmpty;
       await Future.wait([
         NotificacionesService().guardarTokenTrasLogin(),
         PermisosService().cargarSesion(),
       ]);
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error con Google: ${e.message}'),
           backgroundColor: Colors.red,
-        ));
-      }
-    } catch (e) {
+        if (esNuevoUsuario) {
+          // Nuevo usuario sin empresa → completar registro de empresa
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => PantallaRegistrarEmpresaSocial(
+                nombreUsuario: user.displayName ??
+                    user.email?.split('@').first ??
+                    'Usuario',
+                correoUsuario: user.email ?? '',
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+          );
+        }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
@@ -603,23 +615,9 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // APPLE SIGN-IN
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Construye el botón de Apple Sign-In.
-  /// Solo visible en plataformas Apple (iOS/macOS).
-  /// Usa el estilo oficial negro con icono Apple.
-  Widget _buildAppleSignInButton() {
-    // No disponible en web
-    if (kIsWeb) return const SizedBox.shrink();
-
-    // Solo mostrar en plataformas Apple
-    final bool isApplePlatform;
-    try {
-      isApplePlatform = Platform.isIOS || Platform.isMacOS;
-    } catch (_) {
-      return const SizedBox.shrink();
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+        );
     }
 
     if (!isApplePlatform) return const SizedBox.shrink();
@@ -695,6 +693,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
           'email_relay': correo.contains('@privaterelay.appleid.com'),
         });
       }
+      bool esNuevoUsuario = false;
 
       await Future.wait([
         NotificacionesService().guardarTokenTrasLogin(),
@@ -702,6 +701,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
       ]);
 
       if (mounted) {
+        esNuevoUsuario = true;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const PantallaDashboard()),
         );
@@ -717,8 +717,10 @@ class _PantallaLoginState extends State<PantallaLogin> {
         ));
       }
     } on FirebaseAuthException catch (e) {
+      } else {
+        final empresaId = (userDoc.data()?['empresa_id'] as String?) ?? '';
+        esNuevoUsuario = empresaId.isEmpty;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error de autenticación: ${e.message}'),
           backgroundColor: Colors.red,
         ));
@@ -726,13 +728,23 @@ class _PantallaLoginState extends State<PantallaLogin> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ));
+        if (esNuevoUsuario) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => PantallaRegistrarEmpresaSocial(
+                nombreUsuario: user.displayName ?? 'Usuario Apple',
+                correoUsuario: user.email ?? '',
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _cargandoApple = false);
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -748,8 +760,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.',
               style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -758,23 +768,9 @@ class _PantallaLoginState extends State<PantallaLogin> {
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Correo electrónico',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = emailCtrl.text.trim();
-              if (email.isEmpty) return;
-              Navigator.pop(ctx);
-              try {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+        );
                 await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(

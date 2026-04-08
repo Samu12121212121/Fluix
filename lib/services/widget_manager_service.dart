@@ -1,22 +1,8 @@
-      print('❌ Error inicializando módulos: $e');
 import 'package:flutter/foundation.dart';
-      print('✅ Módulos por defecto inicializados para $empresaId');
-      print('❌ Error toggle módulo: $e');
-      print('✅ Módulo $moduloId ${activo ? 'activado' : 'desactivado'}');
-      print('❌ Error obteniendo estadísticas: $e');
-      print('❌ Error reseteando widgets: $e');
-      print('✅ Widgets reseteados a configuración por defecto');
-      print('❌ Error reordenando widgets: $e');
-      print('✅ Widgets reordenados');
-      print('❌ Error toggle widget: $e');
-          print('✅ Widget $widgetId ${activo ? 'activado' : 'desactivado'}');
-      print('❌ Error actualizando widget: $e');
-        print('✅ Widget ${widget.id} actualizado');
-      print('❌ Error inicializando widgets: $e');
-      print('✅ Widgets por defecto inicializados para $empresaId');
-      print('⚠️ Error en migración de widgets: $e');
-      print('✅ Migración de widgets completada para $empresaId');
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../domain/modelos/widget_config.dart';
+import '../domain/modelos/modulo_config.dart';
+import '../core/constants/modulos_disponibles.dart';
 
 class WidgetManagerService {
   static final WidgetManagerService _instance = WidgetManagerService._internal();
@@ -49,6 +35,8 @@ class WidgetManagerService {
         .toList();
   }
 
+  // ── GESTIÓN DE WIDGETS ─────────────────────────────────────────────────────
+
   /// Obtener configuración de widgets del usuario
   Stream<List<WidgetConfig>> obtenerConfiguracionWidgets(String empresaId) {
     return _firestore
@@ -59,37 +47,40 @@ class WidgetManagerService {
         .snapshots()
         .map((doc) {
       if (!doc.exists) {
-        // Primera vez - crear configuración por defecto
         _inicializarWidgetsDefault(empresaId);
         return WidgetConfig.obtenerWidgetsDefault();
       }
 
       final data = doc.data()!;
-      final widgetsList = data['widgets'] as List<dynamic>? ?? [];
+      final widgetsList = data['widgets'] as List<dynamic>?;
+
+      if (widgetsList == null || widgetsList.isEmpty) {
+        return WidgetConfig.obtenerWidgetsDefault();
+      }
 
       final resultado = widgetsList
           .map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
-          .toList()
-          ..sort((a, b) => a.orden.compareTo(b.orden));
+          .toList();
 
-      // ── Migración: agregar widgets nuevos que no existan todavía ──
       final idsExistentes = resultado.map((w) => w.id).toSet();
       final todosDefault = WidgetConfig.obtenerWidgetsDefault();
       final faltantes = todosDefault.where((w) => !idsExistentes.contains(w.id)).toList();
       if (faltantes.isNotEmpty) {
-        // Agregar al final con orden incremental
         int maxOrden = resultado.isEmpty ? 0 : resultado.map((w) => w.orden).reduce((a, b) => a > b ? a : b);
         for (final w in faltantes) {
           maxOrden++;
           resultado.add(w.copyWith(orden: maxOrden));
         }
-        // Persistir la migración en background
         _guardarMigracion(empresaId, resultado);
       }
 
       debugPrint('✅ Migración de widgets completada para $empresaId');
-    });
+      return resultado;
+    }).handleError((e) {
       debugPrint('⚠️ Error en migración de widgets: $e');
+      return <WidgetConfig>[];
+    });
+  }
 
   /// Persiste widgets nuevos detectados por migración
   Future<void> _guardarMigracion(String empresaId, List<WidgetConfig> widgets) async {
@@ -100,12 +91,11 @@ class WidgetManagerService {
           .collection('configuracion')
           .doc('widgets')
           .update({
-        'widgets': widgets.map((w) => w.toMap()).toList(),
-        'ultima_actualizacion': FieldValue.serverTimestamp(),
-      });
-      print('✅ Migración de widgets completada para $empresaId');
+            'widgets': widgets.map((w) => w.toMap()).toList(),
+            'ultima_actualizacion': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
-      print('⚠️ Error en migración de widgets: $e');
+      debugPrint('⚠️ Error en migración de widgets: $e');
     }
   }
 
@@ -115,9 +105,9 @@ class WidgetManagerService {
         .map((widgets) => widgets.where((w) => w.activo).toList());
   }
 
-      debugPrint('✅ Widgets por defecto inicializados para $empresaId');
+  /// Inicializar widgets por defecto para una empresa
   Future<void> _inicializarWidgetsDefault(String empresaId) async {
-      debugPrint('❌ Error inicializando widgets: $e');
+    try {
       final widgetsDefault = WidgetConfig.obtenerWidgetsDefault();
 
       await _firestore
@@ -126,14 +116,14 @@ class WidgetManagerService {
           .collection('configuracion')
           .doc('widgets')
           .set({
-        'widgets': widgetsDefault.map((w) => w.toMap()).toList(),
-        'ultima_actualizacion': FieldValue.serverTimestamp(),
-        'version': 1,
-      });
+            'widgets': widgetsDefault.map((w) => w.toMap()).toList(),
+            'ultima_actualizacion': FieldValue.serverTimestamp(),
+            'version': 1,
+          });
 
-      print('✅ Widgets por defecto inicializados para $empresaId');
+      debugPrint('✅ Widgets por defecto inicializados para $empresaId');
     } catch (e) {
-      print('❌ Error inicializando widgets: $e');
+      debugPrint('❌ Error inicializando widgets: $e');
     }
   }
 
@@ -149,32 +139,27 @@ class WidgetManagerService {
 
       if (doc.exists) {
         final data = doc.data()!;
-        final widgetsList = (data['widgets'] as List<dynamic>)
-            .map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
-            .toList();
+        final widgetsList = (data['widgets'] as List<dynamic>?)
+            ?.map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
+            .toList() ?? [];
 
-        // Actualizar o agregar widget
         final index = widgetsList.indexWhere((w) => w.id == widget.id);
-        debugPrint('✅ Widget ${widget.id} actualizado');
+        if (index >= 0) {
           widgetsList[index] = widget;
-        } else {
-      debugPrint('❌ Error actualizando widget: $e');
+          await _firestore
+              .collection('empresas')
+              .doc(empresaId)
+              .collection('configuracion')
+              .doc('widgets')
+              .update({
+                'widgets': widgetsList.map((w) => w.toMap()).toList(),
+                'ultima_actualizacion': FieldValue.serverTimestamp(),
+              });
+          debugPrint('✅ Widget ${widget.id} actualizado');
         }
-
-        await _firestore
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('configuracion')
-            .doc('widgets')
-            .update({
-          'widgets': widgetsList.map((w) => w.toMap()).toList(),
-          'ultima_actualizacion': FieldValue.serverTimestamp(),
-        });
-
-        print('✅ Widget ${widget.id} actualizado');
       }
     } catch (e) {
-      print('❌ Error actualizando widget: $e');
+      debugPrint('❌ Error actualizando widget: $e');
       rethrow;
     }
   }
@@ -191,39 +176,35 @@ class WidgetManagerService {
 
       if (doc.exists) {
         final data = doc.data()!;
-        final widgetsList = (data['widgets'] as List<dynamic>)
-            .map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
-            .toList();
-          debugPrint('✅ Widget $widgetId ${activo ? 'activado' : 'desactivado'}');
-        // Encontrar y actualizar widget
+        final widgetsList = (data['widgets'] as List<dynamic>?)
+            ?.map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
+            .toList() ?? [];
+
         final index = widgetsList.indexWhere((w) => w.id == widgetId);
         if (index >= 0) {
-      debugPrint('❌ Error toggle widget: $e');
-
+          widgetsList[index] = widgetsList[index].copyWith(activo: activo);
           await _firestore
               .collection('empresas')
               .doc(empresaId)
               .collection('configuracion')
               .doc('widgets')
               .update({
-            'widgets': widgetsList.map((w) => w.toMap()).toList(),
-            'ultima_actualizacion': FieldValue.serverTimestamp(),
-          });
-
-          print('✅ Widget $widgetId ${activo ? 'activado' : 'desactivado'}');
+                'widgets': widgetsList.map((w) => w.toMap()).toList(),
+                'ultima_actualizacion': FieldValue.serverTimestamp(),
+              });
+          debugPrint('✅ Widget $widgetId ${activo ? 'activado' : 'desactivado'}');
         }
       }
     } catch (e) {
-      print('❌ Error toggle widget: $e');
+      debugPrint('❌ Error toggle widget: $e');
       rethrow;
     }
   }
 
   /// Reordenar widgets
   Future<void> reordenarWidgets(String empresaId, List<WidgetConfig> widgetsOrdenados) async {
-      debugPrint('✅ Widgets reordenados');
-      // Asignar nuevo orden
-      debugPrint('❌ Error reordenando widgets: $e');
+    try {
+      for (var i = 0; i < widgetsOrdenados.length; i++) {
         widgetsOrdenados[i] = widgetsOrdenados[i].copyWith(orden: i + 1);
       }
 
@@ -233,15 +214,15 @@ class WidgetManagerService {
           .collection('configuracion')
           .doc('widgets')
           .update({
-        'widgets': widgetsOrdenados.map((w) => w.toMap()).toList(),
-        'ultima_actualizacion': FieldValue.serverTimestamp(),
-      });
+            'widgets': widgetsOrdenados.map((w) => w.toMap()).toList(),
+            'ultima_actualizacion': FieldValue.serverTimestamp(),
+          });
 
-      print('✅ Widgets reordenados');
+      debugPrint('✅ Widgets reordenados');
     } catch (e) {
-      debugPrint('✅ Widgets reseteados a configuración por defecto');
+      debugPrint('❌ Error reordenando widgets: $e');
       rethrow;
-      debugPrint('❌ Error reseteando widgets: $e');
+    }
   }
 
   /// Resetear a configuración por defecto
@@ -255,9 +236,9 @@ class WidgetManagerService {
           .delete();
 
       await _inicializarWidgetsDefault(empresaId);
-      print('✅ Widgets reseteados a configuración por defecto');
+      debugPrint('✅ Widgets reseteados a configuración por defecto');
     } catch (e) {
-      print('❌ Error reseteando widgets: $e');
+      debugPrint('❌ Error reseteando widgets: $e');
       rethrow;
     }
   }
@@ -274,13 +255,13 @@ class WidgetManagerService {
 
       if (doc.exists) {
         final data = doc.data()!;
-        final widgetsList = (data['widgets'] as List<dynamic>)
-            .map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
-            .toList();
+        final widgetsList = (data['widgets'] as List<dynamic>?)
+            ?.map((w) => WidgetConfig.fromMap(w as Map<String, dynamic>))
+            .toList() ?? [];
 
         final totalWidgets = widgetsList.length;
         final widgetsActivos = widgetsList.where((w) => w.activo).length;
-      debugPrint('❌ Error obteniendo estadísticas: $e');
+        final widgetsInactivos = totalWidgets - widgetsActivos;
 
         return {
           'total_widgets': totalWidgets,
@@ -296,7 +277,7 @@ class WidgetManagerService {
 
       return {};
     } catch (e) {
-      print('❌ Error obteniendo estadísticas: $e');
+      debugPrint('❌ Error obteniendo estadísticas: $e');
       return {};
     }
   }
@@ -324,7 +305,6 @@ class WidgetManagerService {
       final saved = _obtenerModulosGuardados(data);
 
       return todosModulos.map((base) {
-        // Los módulos siempre activos se fuerzan a true
         if (ModulosDisponibles.siempreActivos.contains(base.id)) {
           return base.copyWith(activo: true);
         }
@@ -358,7 +338,6 @@ class WidgetManagerService {
       final saved = _obtenerModulosGuardados(data);
 
       return todosModulos.map((base) {
-        // Siempre activos se fuerzan
         if (ModulosDisponibles.siempreActivos.contains(base.id)) {
           return base.copyWith(activo: true);
         }
@@ -376,7 +355,6 @@ class WidgetManagerService {
 
   /// Activar/desactivar un módulo
   Future<void> toggleModulo(String empresaId, String moduloId, bool activo) async {
-    // No permitir desactivar módulos siempre activos
     if (ModulosDisponibles.siempreActivos.contains(moduloId)) return;
 
     try {
@@ -397,9 +375,9 @@ class WidgetManagerService {
       }
 
       final idx = modulos.indexWhere((m) => m['id'] == moduloId);
-      debugPrint('✅ Módulo $moduloId ${activo ? 'activado' : 'desactivado'}');
+      if (idx >= 0) {
         modulos[idx] = {'id': moduloId, 'activo': activo};
-      debugPrint('❌ Error toggle módulo: $e');
+      } else {
         modulos.add({'id': moduloId, 'activo': activo});
       }
 
@@ -409,23 +387,24 @@ class WidgetManagerService {
           .collection('configuracion')
           .doc('modulos')
           .set({
-        'modulos': modulos,
-        'ultima_actualizacion': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+            'modulos': modulos,
+            'ultima_actualizacion': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
 
-      print('✅ Módulo $moduloId ${activo ? 'activado' : 'desactivado'}');
+      debugPrint('✅ Módulo $moduloId ${activo ? 'activado' : 'desactivado'}');
     } catch (e) {
-      print('❌ Error toggle módulo: $e');
+      debugPrint('❌ Error toggle módulo: $e');
       rethrow;
     }
   }
 
-      debugPrint('✅ Módulos por defecto inicializados para $empresaId');
+  /// Inicializar módulos por defecto
+  Future<void> _inicializarModulosDefault(String empresaId) async {
     try {
-      debugPrint('❌ Error inicializando módulos: $e');
-        'id': m.id,
-        'activo': ModulosDisponibles.activosPorDefecto.contains(m.id),
-      }).toList();
+      final modulos = ModulosDisponibles.todos.map((m) => {
+            'id': m.id,
+            'activo': ModulosDisponibles.activosPorDefecto.contains(m.id),
+          }).toList();
 
       await _firestore
           .collection('empresas')
@@ -433,12 +412,12 @@ class WidgetManagerService {
           .collection('configuracion')
           .doc('modulos')
           .set({
-        'modulos': modulos,
-        'ultima_actualizacion': FieldValue.serverTimestamp(),
-      });
-      print('✅ Módulos por defecto inicializados para $empresaId');
+            'modulos': modulos,
+            'ultima_actualizacion': FieldValue.serverTimestamp(),
+          });
+      debugPrint('✅ Módulos por defecto inicializados para $empresaId');
     } catch (e) {
-      print('❌ Error inicializando módulos: $e');
+      debugPrint('❌ Error inicializando módulos: $e');
     }
   }
 }

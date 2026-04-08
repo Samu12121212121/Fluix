@@ -239,7 +239,7 @@ void main() {
 
     setUp(() {
       empresa = const EmpresaConfig(
-        nif: 'B19123456',
+        nif: 'B19123454',
         razonSocial: 'Bar La Esquina S.L.',
       );
 
@@ -286,7 +286,7 @@ void main() {
       final txt = Modelo111AeatExporter.exportarTexto(
           modelo: modelo, empresa: empresa);
       final reg1 = txt.split('\r\n')[0];
-      expect(reg1.substring(10, 19).trim(), 'B19123456');
+      expect(reg1.substring(10, 19).trim(), 'B19123454');
     });
 
     test('Registro 1: tipo declaración = "I"', () {
@@ -533,7 +533,7 @@ void main() {
   group('Integridad formato AEAT', () {
     test('Importes en céntimos sin decimales', () {
       final empresa = const EmpresaConfig(
-        nif: 'A28123456',
+        nif: 'A28123453',
         razonSocial: 'Test S.L.',
       );
       final modelo = Modelo111(
@@ -555,7 +555,7 @@ void main() {
 
     test('Razón social con acentos se normaliza', () {
       final empresa = const EmpresaConfig(
-        nif: 'B12345678',
+        nif: 'B12345674',
         razonSocial: 'Peluquería María José S.L.',
       );
       final modelo = Modelo111(

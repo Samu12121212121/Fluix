@@ -6,7 +6,7 @@ import 'package:planeag_flutter/services/validador_fiscal_integral.dart';
 void main() {
   group('ValidadorFiscalIntegral', () {
     final empresaValida = const EmpresaConfig(
-      nif: 'B76543210',
+      nif: 'B76543214',
       razonSocial: 'Empresa Test SL',
       domicilioFiscal: 'Calle Test 123',
       codigoPostal: '28001',
@@ -227,7 +227,7 @@ void main() {
 
       expect(mensaje.contains('R4-NIF-VALIDO'), isTrue);
       expect(mensaje.contains('ADVERTENCIA DE INCUMPLIMIENTO FISCAL'), isTrue);
-      expect(mensaje.contains('150.000€'), isTrue);
+      expect(mensaje.contains('150.000 EUR'), isTrue);
     });
   });
 }

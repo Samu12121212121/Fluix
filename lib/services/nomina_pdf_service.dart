@@ -749,7 +749,7 @@ class NominaPdfService {
           ]),
         ),
 
-        pw.Spacer(),
+        pw.SizedBox(height: 20 * _mm),
 
         // ── Pie reverso ──────────────────────────────────────────────────
         pw.Divider(color: _negro, height: 1, thickness: 0.3),

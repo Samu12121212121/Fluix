@@ -212,7 +212,7 @@ class RegistroFacturacionAlta {
         '${tipoFactura.codigo}'
         '$cuotaStr'
         '$importeStr'
-        '${registroAnterior.hash64Caracteres}'
+        '$descripcion'
         '$fechaHoraStr';
 
     return sha256.convert(utf8.encode(concatenado)).toString();
