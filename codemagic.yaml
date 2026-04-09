@@ -10,7 +10,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: Codemagic  # Nombre de la API Key creada en Codemagic UI
+      app_store_connect: Fluix tech sl
     environment:
       flutter: stable
       xcode: latest
@@ -30,16 +30,13 @@ workflows:
           xcode-project use-profiles
       - name: Flutter build IPA
         script: |
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa --release
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        beta_groups:
-          - Testers  # Crea este grupo en App Store Connect
 
   # ─── Android — Play Store ─────────────────────────────────────────────────
   android-release:
@@ -64,5 +61,6 @@ workflows:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
         track: internal  # internal → alpha → beta → production
+
 
 
