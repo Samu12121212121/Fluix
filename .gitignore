@@ -48,10 +48,10 @@ app.*.map.json
 key.properties
 *.jks
 *.keystore
-google-services.json
+# google-services.json  ← Se necesita en CI/CD (Codemagic), no es secreto
 
 # iOS Secrets
-ios/Runner/GoogleService-Info.plist
+# ios/Runner/GoogleService-Info.plist  ← Se necesita en CI/CD (Codemagic)
 
 # Environment / credentials — NEVER commit secrets
 functions/.env
