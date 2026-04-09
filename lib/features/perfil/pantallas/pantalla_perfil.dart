@@ -9,6 +9,7 @@ import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
 import '../../../services/auth/auditoria_service.dart';
 import 'gestionar_cuentas_screen.dart';
+import 'pantalla_configuracion_pagos.dart';
 import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
 
@@ -43,19 +44,19 @@ class _PantallaPerfilState extends State<PantallaPerfil>
 
   int _calcularNumTabs() {
     int n = 1; // Mi Perfil siempre
-    if (widget.sesion?.esPropietario ?? false) n++; // Mi Empresa
+    if (widget.sesion?.esAdmin ?? false) n++; // Mi Empresa (propietario + admin)
     if (widget.sesion?.esPropietarioPlatforma ?? false) n++; // Gestión Cuentas
     return n;
   }
 
   @override
   Widget build(BuildContext context) {
-    final esPropietario = widget.sesion?.esPropietario ?? false;
+    final esAdminOProp = widget.sesion?.esAdmin ?? false;
     final esPlatAdmin = widget.sesion?.esPropietarioPlatforma ?? false;
 
     final tabs = <Tab>[
       const Tab(icon: Icon(Icons.person), text: 'Mi Perfil'),
-      if (esPropietario)
+      if (esAdminOProp)
         const Tab(icon: Icon(Icons.store), text: 'Mi Empresa'),
       if (esPlatAdmin)
         const Tab(icon: Icon(Icons.manage_accounts), text: 'Cuentas'),
@@ -63,7 +64,7 @@ class _PantallaPerfilState extends State<PantallaPerfil>
 
     final views = <Widget>[
       _TabPerfil(sesion: widget.sesion),
-      if (esPropietario) _TabEmpresa(sesion: widget.sesion),
+      if (esAdminOProp) _TabEmpresa(sesion: widget.sesion),
       if (esPlatAdmin) const GestionarCuentasScreen(),
     ];
 
@@ -358,8 +359,8 @@ class _TabPerfilState extends State<_TabPerfil> {
             _ToggleBiometria(),
             const SizedBox(height: 12),
 
-            // Auditoría (solo propietario)
-            if (widget.sesion?.esPropietario ?? false) ...[
+            // Auditoría (propietario y admin)
+            if (widget.sesion?.esAdmin ?? false) ...[
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -831,6 +832,29 @@ class _TabEmpresaState extends State<_TabEmpresa> {
               ],
             ),
             const SizedBox(height: 32),
+
+            // ── Configuración de pagos ─────────────────────────────────────
+            if (widget.sesion?.empresaId != null) ...[
+              _seccion('Pasarelas de pago y cobros'),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => PantallaConfiguracionPagos(empresaId: widget.sesion!.empresaId),
+                  )),
+                  icon: const Icon(Icons.account_balance_wallet, size: 22),
+                  label: const Text('Configurar pagos (Stripe, Banco, TPV…)',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0D47A1),
+                    side: const BorderSide(color: Color(0xFF0D47A1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
 
             // ── Sugerencias de mejora ──────────────────────────────────────
             if (!_cargando && widget.sesion?.empresaId != null)

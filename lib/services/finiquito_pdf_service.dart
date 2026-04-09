@@ -149,7 +149,6 @@ class FiniquitoPdfService {
   static Future<void> generarYCompartir(
     BuildContext context,
     Finiquito f,
-    String empresaId,
   ) async {
     final bytes = await generar(f);
     final nombre = 'finiquito_${f.empleadoNombre.replaceAll(' ', '_')}_'

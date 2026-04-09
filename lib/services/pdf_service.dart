@@ -226,6 +226,7 @@ class PdfService {
                 if (factura.datosFiscales?.direccion != null)
                   pw.Text(factura.datosFiscales!.direccion!, style: pw.TextStyle(fontSize: 10, color: colorGris)),
               ]),
+            ),
             pw.SizedBox(height: 20),
 
             // CABECERA TABLA
@@ -258,9 +259,9 @@ class PdfService {
               final l = e.value;
               final bg = e.key.isEven ? PdfColors.white : PdfColor.fromHex('#FAFBFC');
               return pw.Container(
-                color: bg,
                 padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 decoration: pw.BoxDecoration(
+                  color: bg,
                   border: pw.Border(bottom: pw.BorderSide(color: colorLinea, width: 0.5)),
                 ),
                 child: pw.Row(children: [
