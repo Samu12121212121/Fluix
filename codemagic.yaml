@@ -30,6 +30,26 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      - name: Verificar perfil instalado
+        script: |
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "=== Perfiles instalados ==="
+          for f in "$PROFILES_DIR"/*.mobileprovision; do
+            [ -f "$f" ] || continue
+            security cms -D -i "$f" 2>/dev/null | python3 -c "
+import sys, plistlib
+data = sys.stdin.buffer.read()
+try:
+  p = plistlib.loads(data)
+  print('Nombre:', p.get('Name'))
+  print('UUID:', p.get('UUID'))
+  ents = p.get('Entitlements', {})
+  print('Sign In with Apple:', 'com.apple.developer.applesignin' in ents)
+  print('Entitlements:', list(ents.keys()))
+except Exception as e:
+  print('Error:', e)
+" || true
+          done
       - name: Create export options
         script: |
           cat > /tmp/ExportOptions.plist << EOF
