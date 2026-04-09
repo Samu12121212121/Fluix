@@ -1,5 +1,3 @@
-        icono: Icons.shopping_bag_outlined,
-      WidgetConfig(
 import 'package:flutter/material.dart';
 
 // ── PLANES DE SUSCRIPCIÓN ─────────────────────────────────────────────────────
@@ -335,10 +333,11 @@ class WidgetConfig {
       case 'receipt_long':          return Icons.receipt_long;
       case 'wb_sunny':              return Icons.wb_sunny;
       case 'gavel':                 return Icons.gavel;
-      default:                       return Icons.widgets;
       case 'event_available':       return Icons.event_available;
       case 'notifications_active':  return Icons.notifications_active;
+      default:                      return Icons.widgets;
     }
+  }
 
   static String _iconToString(IconData icon) {
     if (icon == Icons.calendar_view_week)    return 'calendar_view_week';
@@ -373,7 +372,7 @@ class WidgetConfig {
         icono: Icons.wb_sunny,
         activo: true,
         orden: 0,
-      WidgetConfig(
+      ),
       WidgetConfig(
         id: 'proximos_dias',
         nombre: 'Próximos 3 Días',
@@ -389,14 +388,18 @@ class WidgetConfig {
         icono: Icons.calendar_today,
         activo: true,
         orden: 2,
-      WidgetConfig(
       ),
+      WidgetConfig(
+        id: 'alertas_fiscales',
         nombre: 'Alertas Fiscales',
         descripcion: 'Alertas de obligaciones fiscales próximas',
         icono: Icons.gavel,
         activo: true,
         orden: 3,
-        icono: Icons.calendar_today,
+      ),
+      WidgetConfig(
+        id: 'citas_resumen',
+        nombre: 'Citas del Día',
         descripcion: 'Próximas citas del día con hora y cliente',
         icono: Icons.event_available,
         activo: true,
@@ -425,12 +428,13 @@ class WidgetConfig {
         descripcion: 'Total facturado hoy y del mes, pendientes de cobro',
         activo: false,
         orden: 7,
-        icono: Icons.shopping_bag_outlined,
+      ),
       WidgetConfig(
-        activo: false,
+        id: 'resumen_pedidos',
         nombre: 'Resumen Pedidos',
         descripcion: 'Pedidos y ventas del día',
         icono: Icons.receipt_long,
+        activo: false,
         orden: 8,
       ),
       // ── PRÓXIMAMENTE ──────────────────────────────────────────────────────

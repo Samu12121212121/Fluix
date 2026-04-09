@@ -115,7 +115,7 @@ extension ComunidadAutonomaExt on ComunidadAutonoma {
       // ── Cataluña (tipo más alto) ─────────────────────────────────────────
       // Autonómica 2026 (LLEI 5/2020): 10,5%|12%|15%|18,8%|21,5%|23,5%|24,5%|25,5%
       // Combinada (estatal 9,5/12/15/18,5/22,5/24,5 + autonómica):
-
+      case ComunidadAutonoma.cataluna:
         return [[12450,20.0],[17707,24.0],[20200,27.0],[33007,30.0],[35200,33.8],[53407,37.3],[60000,40.0],[90000,44.0],[120000,46.0],[175000,47.0],[300000,48.0],[double.infinity,50.0]];
       case ComunidadAutonoma.andalucia:
         return [[12450,21.5],[17707,23.5],[33007,27.5],[53407,32.0],[90000,39.5],[120000,48.0],[175000,49.0],[double.infinity,50.0]];

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../../../services/apple_auth_service.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
 import '../../../features/registro/pantallas/pantalla_registro.dart';
 import '../../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
@@ -541,7 +542,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       final GoogleSignIn googleSignIn = GoogleSignIn();
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        // Usuario canceló
         if (mounted) setState(() => _cargandoGoogle = false);
         return;
       }
@@ -555,40 +555,35 @@ class _PantallaLoginState extends State<PantallaLogin> {
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user!;
 
-      // Verificar si ya tiene documento de usuario en Firestore
       final userDoc = await FirebaseFirestore.instance
           .collection('usuarios').doc(user.uid).get();
 
-      if (!userDoc.exists) {
       bool esNuevoUsuario = false;
-        // Primera vez con Google → crear documento base
-        await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
+      if (!userDoc.exists) {
         esNuevoUsuario = true;
-        // El usuario deberá completar registro de empresa después
+        await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
+          'nombre': user.displayName ?? user.email?.split('@').first ?? 'Usuario',
+          'correo': user.email ?? '',
           'telefono': user.phoneNumber ?? '',
-          'empresa_id': '', // Se asigna al completar registro
+          'empresa_id': '',
           'rol': 'propietario',
           'activo': true,
           'fecha_creacion': DateTime.now().toIso8601String(),
           'permisos': [],
-        });
-      }
           'proveedor_auth': 'google',
-
+        });
       } else {
-        // Usuario existente: verificar si tiene empresa vinculada
         final empresaId = (userDoc.data()?['empresa_id'] as String?) ?? '';
         esNuevoUsuario = empresaId.isEmpty;
+      }
+
       await Future.wait([
         NotificacionesService().guardarTokenTrasLogin(),
         PermisosService().cargarSesion(),
       ]);
 
       if (mounted) {
-          content: Text('Error con Google: ${e.message}'),
-          backgroundColor: Colors.red,
         if (esNuevoUsuario) {
-          // Nuevo usuario sin empresa → completar registro de empresa
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => PantallaRegistrarEmpresaSocial(
@@ -604,6 +599,15 @@ class _PantallaLoginState extends State<PantallaLogin> {
             MaterialPageRoute(builder: (_) => const PantallaDashboard()),
           );
         }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error con Google: ${e.message}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
@@ -615,11 +619,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-        );
-    }
-
+  Widget _buildAppleSignInButton() {
+    final isApplePlatform = !kIsWeb && (Platform.isIOS || Platform.isMacOS);
     if (!isApplePlatform) return const SizedBox.shrink();
 
     return SizedBox(
@@ -664,19 +665,15 @@ class _PantallaLoginState extends State<PantallaLogin> {
       final userCredential = await AppleAuthService.signIn();
       final user = userCredential.user!;
 
-      // Verificar si ya tiene documento de usuario en Firestore
       final userDoc = await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(user.uid)
           .get();
 
+      bool esNuevoUsuario = false;
       if (!userDoc.exists) {
-        // Primera vez con Apple → crear documento base
-        // Nota: Apple puede devolver un email relay (@privaterelay.appleid.com)
-        // si el usuario elige "Ocultar mi email"
         final nombre = user.displayName ?? 'Usuario Apple';
         final correo = user.email ?? '';
-
         await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(user.uid)
@@ -684,7 +681,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
           'nombre': nombre,
           'correo': correo,
           'telefono': '',
-          'empresa_id': '', // Se asigna al completar registro
+          'empresa_id': '',
           'rol': 'propietario',
           'activo': true,
           'fecha_creacion': DateTime.now().toIso8601String(),
@@ -692,8 +689,11 @@ class _PantallaLoginState extends State<PantallaLogin> {
           'proveedor_auth': 'apple',
           'email_relay': correo.contains('@privaterelay.appleid.com'),
         });
+        esNuevoUsuario = true;
+      } else {
+        final empresaId = (userDoc.data()?['empresa_id'] as String?) ?? '';
+        esNuevoUsuario = empresaId.isEmpty;
       }
-      bool esNuevoUsuario = false;
 
       await Future.wait([
         NotificacionesService().guardarTokenTrasLogin(),
@@ -701,33 +701,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       ]);
 
       if (mounted) {
-        esNuevoUsuario = true;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-        );
-      }
-    } on SignInWithAppleAuthorizationException catch (e) {
-      // El usuario canceló el flujo de Apple
-      if (e.code == AuthorizationErrorCode.canceled) {
-        debugPrint('Apple Sign-In cancelado por el usuario');
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error con Apple: ${e.message}'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } on FirebaseAuthException catch (e) {
-      } else {
-        final empresaId = (userDoc.data()?['empresa_id'] as String?) ?? '';
-        esNuevoUsuario = empresaId.isEmpty;
-      if (mounted) {
-          content: Text('Error de autenticación: ${e.message}'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         if (esNuevoUsuario) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -743,8 +716,32 @@ class _PantallaLoginState extends State<PantallaLogin> {
           );
         }
       }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        debugPrint('Apple Sign-In cancelado por el usuario');
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error con Apple: ${e.message}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error de autenticación: ${e.message}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
     } finally {
       if (mounted) setState(() => _cargandoApple = false);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -760,6 +757,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Text(
+              'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
               style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 16),
@@ -768,9 +767,22 @@ class _PantallaLoginState extends State<PantallaLogin> {
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Correo electrónico',
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-        );
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailCtrl.text.trim();
+              if (email.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
                 await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(

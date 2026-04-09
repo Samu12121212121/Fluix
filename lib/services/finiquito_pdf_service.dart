@@ -1,5 +1,3 @@
-      final nombre = 'finiquito_${f.empleadoNombre.replaceAll(' ', '_')}_'
-          '${f.fechaBaja.day}${f.fechaBaja.month}${f.fechaBaja.year}.pdf';
 import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'dart:typed_data';
@@ -9,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
 import '../domain/modelos/finiquito.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 /// Genera PDF de finiquito con formato laboral español.
 class FiniquitoPdfService {
@@ -150,13 +149,15 @@ class FiniquitoPdfService {
   static Future<void> generarYCompartir(
     BuildContext context,
     Finiquito f,
+    String empresaId,
+  ) async {
     final bytes = await generar(f);
-    final dir = await getTemporaryDirectory();
+    final nombre = 'finiquito_${f.empleadoNombre.replaceAll(' ', '_')}_'
         '${f.fechaBaja.day}${f.fechaBaja.month}${f.fechaBaja.year}.pdf';
-    final dir = await getTemporaryDirectory();
 
     // En Web no existe dart:io — usar Printing.sharePdf directamente
-        '${f.fechaBaja.day}${f.fechaBaja.month}${f.fechaBaja.year}.pdf';
+    if (kIsWeb) {
+      await Printing.sharePdf(bytes: bytes, filename: nombre);
       return;
     }
 
