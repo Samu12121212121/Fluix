@@ -1,6 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Codemagic CI/CD — Compilar Fluix CRM para iOS y Android
-# Docs: https://docs.codemagic.io/yaml/yaml-getting-started/
 # ═══════════════════════════════════════════════════════════════════════════════
 
 workflows:
@@ -9,6 +8,8 @@ workflows:
     name: iOS App Store Release
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Fluix tech sl
     environment:
       flutter: stable
       xcode: latest
@@ -28,106 +29,23 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
-      - name: Verificar perfil instalado
-        script: |
-          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          for f in "$PROFILES_DIR"/*.mobileprovision; do
-            [ -f "$f" ] || continue
-            security cms -D -i "$f" 2>/dev/null | python3 -c "
-import sys, plistlib
-data = sys.stdin.buffer.read()
-try:
-  p = plistlib.loads(data)
-  print('Nombre:', p.get('Name'))
-  ents = p.get('Entitlements', {})
-  print('Sign In with Apple:', 'com.apple.developer.applesignin' in ents)
-except Exception as e:
-  print('Error:', e)
-" || true
-          done
-      - name: Create export options
-        script: |
-          cat > /tmp/ExportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>3AMXPPGLN8</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-          </dict>
-          </plist>
-          EOF
-      - name: Flutter build IPA
-        script: |
-          flutter build ipa --release \
-            --export-options-plist=/tmp/ExportOptions.plist
-    artifacts:
-      - build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
-    scripts:
-      - name: Install dependencies
-        script: |
-          flutter pub get
-      - name: Install CocoaPods
-        script: |
-          cd ios && pod install
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Verificar perfil instalado
+      - name: Verificar perfil
         script: |
           PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           echo "=== Perfiles instalados ==="
           for f in "$PROFILES_DIR"/*.mobileprovision; do
             [ -f "$f" ] || continue
-            security cms -D -i "$f" 2>/dev/null | python3 -c "
-import sys, plistlib
-data = sys.stdin.buffer.read()
-try:
-  p = plistlib.loads(data)
-  print('Nombre:', p.get('Name'))
-  print('UUID:', p.get('UUID'))
-  ents = p.get('Entitlements', {})
-  print('Sign In with Apple:', 'com.apple.developer.applesignin' in ents)
-  print('Entitlements:', list(ents.keys()))
-except Exception as e:
-  print('Error:', e)
-" || true
+            DECODED=$(security cms -D -i "$f" 2>/dev/null)
+            NAME=$(echo "$DECODED" | grep -A1 "<key>Name</key>" | grep "<string>" | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+            SIWAP=$(echo "$DECODED" | grep -c "applesignin" || true)
+            echo "  Nombre: $NAME | Sign In with Apple: $SIWAP"
           done
-      - name: Create export options
-        script: |
-          cat > /tmp/ExportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>3AMXPPGLN8</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-          </dict>
-          </plist>
-          EOF
       - name: Flutter build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/tmp/ExportOptions.plist
+            --export-options-plist=ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/ExportOptions.plist
     publishing:
       app_store_connect:
         auth: integration
@@ -141,8 +59,8 @@ except Exception as e:
     environment:
       flutter: stable
       groups:
-        - google_play_credentials  # Configura en Codemagic UI
-        - keystore_credentials     # Configura en Codemagic UI
+        - google_play_credentials
+        - keystore_credentials
     scripts:
       - name: Install dependencies
         script: |
@@ -155,7 +73,4 @@ except Exception as e:
     publishing:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal  # internal → alpha → beta → production
-
-
-
+        track: internal
