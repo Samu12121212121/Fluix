@@ -26,8 +26,7 @@ workflows:
         script: |
           keychain initialize
           app-store-connect fetch-signing-files com.fluixtech.crm \
-            --type IOS_APP_STORE \
-            --create
+            --type IOS_APP_STORE
           keychain add-certificates
           xcode-project use-profiles
       - name: Flutter build IPA
