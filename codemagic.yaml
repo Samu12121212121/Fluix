@@ -30,11 +30,29 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      - name: Create export options
+        script: |
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>3AMXPPGLN8</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+          </dict>
+          </plist>
+          EOF
       - name: Flutter build IPA
         script: |
-          flutter build ipa --release
+          flutter build ipa --release \
+            --export-options-plist=/tmp/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/ExportOptions.plist
     publishing:
       app_store_connect:
         auth: integration
