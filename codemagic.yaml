@@ -10,7 +10,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: Fluix tech sl
+      app_store_connect: Codemagic Admin
     environment:
       flutter: stable
       xcode: latest
