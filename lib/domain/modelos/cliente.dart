@@ -176,7 +176,7 @@ class Cliente extends Equatable {
       noContactar: noContactar ?? this.noContactar,
       estadoFusionado: estadoFusionado ?? this.estadoFusionado,
       fusionadoConId: fusionadoConId ?? this.fusionadoConId,
-       ];
+      ultimaActividad: ultimaActividad ?? this.ultimaActividad,
     );
   }
 
