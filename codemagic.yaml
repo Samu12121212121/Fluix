@@ -29,6 +29,14 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      - name: Debug signing
+        script: |
+          echo "=== PROFILES INSTALADOS ==="
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/ 2>/dev/null || echo "NINGUNO"
+          echo "=== CERTIFICADOS EN KEYCHAIN ==="
+          security find-identity -v -p codesigning
+          echo "=== VARIABLES ==="
+          echo "CM_PROVISIONING_PROFILE está vacío: ${CM_PROVISIONING_PROFILE:-VACIO}"
       - name: Flutter build IPA
         script: |
           flutter build ipa --release
