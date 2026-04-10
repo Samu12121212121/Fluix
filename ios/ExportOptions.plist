@@ -7,11 +7,16 @@
     <key>teamID</key>
     <string>3AMXPPGLN8</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
     <key>uploadBitcode</key>
     <false/>
     <key>uploadSymbols</key>
     <true/>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.fluixtech.crm</key>
+        <string>PLACEHOLDER</string>
+    </dict>
     <key>signingCertificate</key>
     <string>Apple Distribution: SAMUEL CORCHO ORTEGA (3AMXPPGLN8)</string>
 </dict>

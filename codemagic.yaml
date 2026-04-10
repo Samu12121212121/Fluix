@@ -29,6 +29,14 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+          # Obtener UUID real del perfil instalado
+          PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -1)
+          UUID=$(security cms -D -i "$PROFILE" | plutil -extract UUID xml1 - -o - | xmllint --xpath '//string/text()' -)
+          NAME=$(security cms -D -i "$PROFILE" | plutil -extract Name xml1 - -o - | xmllint --xpath '//string/text()' -)
+          echo "✅ Perfil: $NAME ($UUID)"
+          # Inyectar UUID en ExportOptions.plist
+          plutil -replace provisioningProfiles -json "{\"com.fluixtech.crm\": \"$UUID\"}" ios/ExportOptions.plist
+          echo "✅ ExportOptions.plist actualizado con UUID: $UUID"
       - name: Debug signing
         script: |
           echo "=== PROFILES INSTALADOS ==="
