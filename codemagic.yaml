@@ -29,6 +29,32 @@ workflows:
             --create
           keychain add-certificates
           xcode-project use-profiles
+          # Inyectar UUID del perfil directamente en el proyecto
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          PROFILE_FILE=$(ls "$PROFILES_DIR"/*.mobileprovision 2>/dev/null | head -1)
+          if [ -n "$PROFILE_FILE" ]; then
+            PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" 2>/dev/null | \
+              grep -A1 "<key>UUID</key>" | grep "<string>" | \
+              sed 's/.*<string>\(.*\)<\/string>.*/\1/' | head -1)
+            PROFILE_NAME=$(security cms -D -i "$PROFILE_FILE" 2>/dev/null | \
+              grep -A1 "<key>Name</key>" | grep "<string>" | \
+              sed 's/.*<string>\(.*\)<\/string>.*/\1/' | head -1)
+            echo "=== Perfil encontrado: $PROFILE_NAME (UUID: $PROFILE_UUID) ==="
+            if [ -n "$PROFILE_UUID" ]; then
+              sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\"/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_UUID\"/g" \
+                ios/Runner.xcodeproj/project.pbxproj
+              echo "✅ PROVISIONING_PROFILE_SPECIFIER = $PROFILE_UUID"
+              # Actualizar ExportOptions con el nombre del perfil
+              sed -i '' "s/<key>signingStyle<\/key>/<key>provisioningProfiles<\/key>\n\t<dict>\n\t\t<key>com.fluixtech.crm<\/key>\n\t\t<string>$PROFILE_NAME<\/string>\n\t<\/dict>\n\t<key>signingStyle<\/key>/g" \
+                ios/ExportOptions.plist
+            else
+              echo "❌ ERROR: No se pudo leer el UUID del perfil"
+              exit 1
+            fi
+          else
+            echo "❌ ERROR: No se encontró ningún perfil instalado"
+            exit 1
+          fi
       - name: Flutter build IPA
         script: |
           flutter build ipa --release \
