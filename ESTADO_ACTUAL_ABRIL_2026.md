@@ -1,8 +1,8 @@
 # 📊 Estado Actual del Proyecto - Abril 2026
 
-**Fecha:** 08/04/2026  
-**Versión:** 0.8.0 (Alpha)  
-**Completitud:** ~60-65%
+**Fecha:** 10/04/2026 (actualizado)  
+**Versión:** 0.8.1 (Alpha)  
+**Completitud:** ~65-70%
 
 ---
 
@@ -110,7 +110,7 @@
 
 ### 1. **Módulo de Facturación**
 - ✅ Generación de facturas
-- ❌ **Error:** Syntax en `modulo_facturacion_screen.dart` (líneas de código malformadas)
+- ✅ **Errores de sintaxis corregidos** (10/04/2026)
 - ⚠️ Falta: Exportación a .xml para AEAT
 - ⚠️ Falta: Integración con Certificado Electrónico
 
@@ -127,7 +127,7 @@
 ### 4. **Google Reviews**
 - ✅ Configuración inicial
 - ✅ Importación de reseñas
-- ❌ **Error:** Campo `estrellas` no existe en algunos documentos
+- ✅ **Campo `estrellas`/`calificacion` — fallback implementado** (10/04/2026)
 - ⚠️ Falta: Responder desde app y reflejar en Google
 
 ---
@@ -181,12 +181,14 @@
 
 | Archivo | Línea | Error | Severidad |
 |---------|-------|-------|-----------|
-| `modulo_facturacion_screen.dart` | ~290 | Sintaxis inválida (paréntesis no cerrado) | 🔴 CRÍTICA |
-| `widget_proximos_dias.dart` | ~928+ | Variable `dia` no definida | 🔴 CRÍTICA |
-| `modulo_reservas.dart` | ~203 | Método `_TarjetaReserva` no existe | 🔴 CRÍTICA |
-| `modulo_valoraciones_fixed.dart` | - | Campo `estrellas` missing | 🟡 ALTA |
+| ~~`modulo_facturacion_screen.dart`~~ | ~290 | ~~Sintaxis inválida~~ ✅ RESUELTO | ~~🔴~~ ✅ |
+| ~~`widget_proximos_dias.dart`~~ | ~928+ | ~~Variable `dia` no definida~~ ✅ RESUELTO | ~~🔴~~ ✅ |
+| ~~`modulo_reservas.dart`~~ | ~203 | ~~Método `_TarjetaReserva` no existe~~ ✅ RESUELTO | ~~🔴~~ ✅ |
+| ~~`modulo_valoraciones_fixed.dart`~~ | - | ~~Campo `estrellas` missing~~ ✅ RESUELTO (fallback) | ~~🟡~~ ✅ |
 | `firebase.json` | - | Project no activo para deploy | 🟡 ALTA |
 | `google-services.json` | - | Package name mismatch | 🟡 ALTA |
+| `pantalla_dashboard.dart` | - | Warnings limpiados (prints → debugPrint) | ✅ RESUELTO |
+| `pantalla_perfil.dart` | - | Import no usado + deprecaciones Flutter 3.33 | 🟢 MENOR |
 
 ---
 
@@ -195,12 +197,12 @@
 | Módulo | % | Estado |
 |--------|---|--------|
 | **Reservas** | 95% | ✅ Casi completo |
-| **Pedidos** | 85% | 🟡 Falta UI |
-| **Facturación** | 80% | 🟡 Errores de syntax |
+| **Pedidos** | 85% | 🟡 Falta UI selector productos |
+| **Facturación** | 90% | ✅ Sin errores de compilación |
 | **Clientes** | 90% | ✅ Casi completo |
 | **Empleados** | 85% | ✅ Casi completo |
 | **Tareas** | 95% | ✅ Casi completo |
-| **Valoraciones** | 75% | 🟡 Falta integracion Google |
+| **Valoraciones** | 85% | ✅ Fallback estrellas/calificacion OK |
 | **Estadísticas** | 70% | 🟡 Datos simulados |
 | **Contenido Web** | 80% | 🟡 UI mejorables |
 | **Nóminas** | 20% | 🔴 Prácticamente no hecho |
@@ -211,11 +213,14 @@
 
 ## 🎯 Prioridades Inmediatas (Próximos 3 días)
 
-1. **🔴 Corregir errores de syntax en módulos** (2 horas)
-2. **🟡 Resolver permission-denied de Firestore** (1-2 horas)
-3. **🟡 Actualizar reglas de Firestore** (1 hora)
-4. **🟡 Mostrar productos en pedidos** (2 horas)
-5. **🟡 Fix Google Reviews parsing** (1 hora)
+1. **✅ Corregir errores de syntax en módulos** (COMPLETADO 10/04)
+2. **✅ Resolver permission-denied de Firestore** (Reglas ya auditadas)
+3. **✅ Actualizar reglas de Firestore** (COMPLETADO - reglas robustas con RBAC)
+4. **✅ Fix Google Reviews parsing** (COMPLETADO - fallback calificacion/estrellas)
+5. **✅ Limpiar warnings pantalla_dashboard** (COMPLETADO)
+6. **🟡 Mostrar productos en pedidos** (2 horas)
+7. **🟡 Configurar firebase.json para deploy** (1 hora)
+8. **🟡 Resolver package name en google-services.json** (30 min)
 
 ## 📅 Roadmap a Release (1.0)
 
@@ -228,6 +233,6 @@
 
 ---
 
-**Última actualización:** 08/04/2026  
-**Próxima revisión:** 10/04/2026
+**Última actualización:** 10/04/2026  
+**Próxima revisión:** 14/04/2026
 

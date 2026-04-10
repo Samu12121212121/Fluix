@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -44,7 +45,10 @@ class _PantallaLoginState extends State<PantallaLogin> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -96,79 +100,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Información de credenciales admin (SOLO en debug)
-                    if (kDebugMode) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1976D2).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF1976D2).withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.admin_panel_settings,
-                                color: Color(0xFF1976D2),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Credenciales de Demo',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[800],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Email: ${AdminInitializer.adminEmail}\nPassword: ${AdminInitializer.adminPassword}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[700],
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextButton.icon(
-                                  onPressed: _llenarCredencialesAdmin,
-                                  icon: const Icon(Icons.copy, size: 16),
-                                  label: const Text('Usar credenciales'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF1976D2),
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: TextButton.icon(
-                                  onPressed: _cargando ? null : _reinicializarEmpresa,
-                                  icon: const Icon(Icons.refresh, size: 16),
-                                  label: const Text('Reinicializar'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.orange[700],
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ], // fin kDebugMode
-
                     // Campo de correo
                     TextFormField(
                       controller: _correoController,
@@ -330,6 +261,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -604,6 +536,13 @@ class _PantallaLoginState extends State<PantallaLogin> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error con Google: ${e.message}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error de plataforma: ${e.message ?? e.code}'),
           backgroundColor: Colors.red,
         ));
       }

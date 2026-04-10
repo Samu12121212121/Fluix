@@ -45,6 +45,8 @@ class _ConfiguracionDashboardScreenState
           final modulos = snapshot.data ?? ModulosDisponibles.todos.map((m) => m.copyWith(
             activo: ModulosDisponibles.activosPorDefecto.contains(m.id),
           )).toList();
+          // Ocultar módulo propietario de la lista configurable
+          final modulosVisibles = modulos.where((m) => m.id != 'propietario').toList();
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -54,21 +56,21 @@ class _ConfiguracionDashboardScreenState
               const SizedBox(height: 20),
               _buildSeccionPlan(
                 plan: PlanModulo.basico,
-                modulos: modulos.where((m) => m.plan == PlanModulo.basico && m.incluidoEnPlan).toList(),
+                modulos: modulosVisibles.where((m) => m.plan == PlanModulo.basico && m.incluidoEnPlan).toList(),
               ),
               const SizedBox(height: 16),
               _buildSeccionPlan(
                 plan: PlanModulo.gestion,
-                modulos: modulos.where((m) => m.plan == PlanModulo.gestion && m.incluidoEnPlan).toList(),
+                modulos: modulosVisibles.where((m) => m.plan == PlanModulo.gestion && m.incluidoEnPlan).toList(),
               ),
               const SizedBox(height: 16),
               _buildSeccionPlan(
                 plan: PlanModulo.tienda,
-                modulos: modulos.where((m) => m.plan == PlanModulo.tienda && m.incluidoEnPlan).toList(),
+                modulos: modulosVisibles.where((m) => m.plan == PlanModulo.tienda && m.incluidoEnPlan).toList(),
               ),
               const SizedBox(height: 16),
               _buildSeccionAddOns(
-                modulos.where((m) => !m.incluidoEnPlan).toList(),
+                modulosVisibles.where((m) => !m.incluidoEnPlan).toList(),
               ),
               const SizedBox(height: 16),
               _buildSeccionOtras(),

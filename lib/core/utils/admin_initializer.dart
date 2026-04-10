@@ -9,14 +9,14 @@ import 'package:flutter/foundation.dart';
 class AdminInitializer {
 
   // ╔══════════════════════════════════════════════════════════════════════╗
-  // ║  ⚠️ CREDENCIALES SOLO DISPONIBLES EN DEBUG — NUNCA EN PRODUCCIÓN   ║
-  // ╠══════════════════════════════════════════════════════════════════════╣
-  static const String adminEmail    = kDebugMode ? 'samuel.corcho@fluixtech.com' : '';
-  static const String adminPassword = kDebugMode ? 'CAMBIAR_EN_FIREBASE_CONSOLE'  : '';
-  static const String empresaId     = 'ztZblwm1w71wNQtzHV7S';
+  // ║  ⚠️ Credenciales eliminadas — configura tu cuenta en Firebase Auth  ║
   // ╚══════════════════════════════════════════════════════════════════════╝
+  static const String adminEmail    = '';
+  static const String adminPassword = '';
+  static const String empresaId     = 'ztZblwm1w71wNQtzHV7S';
 
   static const List<Map<String, dynamic>> _todosModulos = [
+    {'id': 'propietario','activo': true},
     {'id': 'dashboard',    'activo': true},
     {'id': 'valoraciones', 'activo': true},
     {'id': 'estadisticas', 'activo': true},
@@ -45,18 +45,18 @@ class AdminInitializer {
   /// si el email ya existe en Auth, hace signIn automáticamente.
   static Future<void> crearUsuarioAdmin() async {
     if (!kDebugMode) {
-      print('⛔ AdminInitializer deshabilitado en release');
+      debugPrint('⛔ AdminInitializer deshabilitado en release');
       return;
     }
     if (adminEmail.isEmpty || adminPassword.isEmpty) {
-      print('⛔ AdminInitializer: credenciales no configuradas');
+      debugPrint('⛔ AdminInitializer: credenciales no configuradas');
       return;
     }
 
     final auth = FirebaseAuth.instance;
     final db   = FirebaseFirestore.instance;
 
-    print('🔧 Verificando cuenta propietaria...');
+    debugPrint('🔧 Verificando cuenta propietaria...');
 
     // ── PASO 1: Obtener UID (crear cuenta o hacer login) ─────────────
     String uid;
@@ -64,7 +64,7 @@ class AdminInitializer {
     if (auth.currentUser?.email?.toLowerCase() == adminEmail.toLowerCase()) {
       // Ya estamos logueados con la cuenta correcta
       uid = auth.currentUser!.uid;
-      print('✅ Ya autenticado: $uid');
+      debugPrint('✅ Ya autenticado: $uid');
     } else {
       // Intentar crear la cuenta en Firebase Auth
       try {
@@ -74,7 +74,7 @@ class AdminInitializer {
         );
         await cred.user!.updateDisplayName('Administrador Fluix CRM');
         uid = cred.user!.uid;
-        print('✅ Cuenta Auth creada: $uid');
+        debugPrint('✅ Cuenta Auth creada: $uid');
       } on FirebaseAuthException catch (e) {
         if (e.code == 'email-already-in-use') {
           // La cuenta ya existe → hacer login (NO signOut hasta terminar)
@@ -83,12 +83,12 @@ class AdminInitializer {
             password: adminPassword,
           );
           uid = cred.user!.uid;
-          print('✅ Login correcto: $uid');
+          debugPrint('✅ Login correcto: $uid');
         } else if (e.code == 'network-request-failed') {
-          print('ℹ️ Sin red — AdminInitializer pospuesto');
+          debugPrint('ℹ️ Sin red — AdminInitializer pospuesto');
           return;
         } else {
-          print('❌ Error Auth: ${e.code} — ${e.message}');
+          debugPrint('❌ Error Auth: ${e.code} — ${e.message}');
           rethrow;
         }
       }
@@ -114,7 +114,7 @@ class AdminInitializer {
       'token_actualizado': null,
       'plataforma':        null,
     }, SetOptions(merge: true));
-    print('✅ /usuarios/$uid → propietario');
+    debugPrint('✅ /usuarios/$uid → propietario');
 
     // ── PASO 3: Documento raíz de empresa ─────────────────────────────
     // Ahora la regla esPropietario() pasará porque el doc de usuarios existe.
@@ -131,7 +131,7 @@ class AdminInitializer {
       'activa':                true,
       'fecha_creacion':        Timestamp.fromDate(now),
     }, SetOptions(merge: true));
-    print('✅ Empresa actualizada');
+    debugPrint('✅ Empresa actualizada');
 
     // ── PASO 4: Módulos (lista completa) ──────────────────────────────
     await _actualizarModulosInterno(empresaRef);
@@ -147,7 +147,7 @@ class AdminInitializer {
         'aviso_enviado': false,
         'ultimo_aviso':  null,
       });
-      print('✅ Suscripción creada');
+      debugPrint('✅ Suscripción creada');
     }
 
     // ── PASO 6: Configuraciones auxiliares ───────────────────────────
@@ -176,7 +176,7 @@ class AdminInitializer {
       'fecha_inicio_estadisticas': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    print('🎉 AdminInitializer completado — $adminEmail / $empresaId');
+    debugPrint('🎉 AdminInitializer completado — $adminEmail / $empresaId');
   }
 
   static Future<void> _actualizarModulosInterno(DocumentReference empresaRef) async {
@@ -184,7 +184,7 @@ class AdminInitializer {
       'modulos': _todosModulos,
       'ultima_actualizacion': FieldValue.serverTimestamp(),
     });
-    print('✅ ${_todosModulos.length} módulos configurados');
+    debugPrint('✅ ${_todosModulos.length} módulos configurados');
   }
 
   /// Limpia subcolecciones de datos de prueba sin tocar config ni suscripción.
@@ -192,7 +192,7 @@ class AdminInitializer {
     final db  = FirebaseFirestore.instance;
     final ref = db.collection('empresas').doc(empresaId);
 
-    print('🧹 Limpiando datos de $empresaId...');
+    debugPrint('🧹 Limpiando datos de $empresaId...');
     for (final col in _subcoleccionesLimpiables) {
       try {
         final snap = await ref.collection(col).get();
@@ -200,12 +200,12 @@ class AdminInitializer {
         final batch = db.batch();
         for (final doc in snap.docs) batch.delete(doc.reference);
         await batch.commit();
-        print('  🗑️ $col: ${snap.docs.length} eliminados');
+        debugPrint('  🗑️ $col: ${snap.docs.length} eliminados');
       } catch (e) {
-        print('  ⚠️ Error en $col: $e');
+        debugPrint('  ⚠️ Error en $col: $e');
       }
     }
-    print('✅ Limpieza completada');
+    debugPrint('✅ Limpieza completada');
   }
 
   /// Actualiza la lista de módulos a la versión completa.

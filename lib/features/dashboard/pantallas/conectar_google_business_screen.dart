@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../services/gmb_auth_service.dart';
 
 /// Pantalla de conexión a Google Business Profile.
@@ -89,47 +90,62 @@ class _ConectarGoogleBusinessScreenState
       _error = null;
     });
 
-    // 1. Iniciar OAuth y guardar tokens en Secret Manager
-    final errorAuth = await _svc.conectar(widget.empresaId);
-    if (!mounted) return;
+    try {
+      // 1. Iniciar OAuth y guardar tokens en Secret Manager
+      final errorAuth = await _svc.conectar(widget.empresaId);
+      if (!mounted) return;
 
-    if (errorAuth != null) {
+      if (errorAuth != null) {
+        setState(() {
+          _paso = _Paso.error;
+          _error = errorAuth;
+        });
+        return;
+      }
+
+      // 2. Obtener fichas del empresario
+      final resultado = await _svc.obtenerFichas(widget.empresaId);
+      if (!mounted) return;
+
+      if (resultado.error != null) {
+        setState(() {
+          _paso = _Paso.error;
+          _error = resultado.error;
+        });
+        return;
+      }
+
+      if (resultado.fichas.isEmpty) {
+        setState(() {
+          _paso = _Paso.error;
+          _error = 'No encontramos ninguna ficha de Google Business en tu cuenta. '
+              'Asegúrate de tener un perfil creado en business.google.com';
+        });
+        return;
+      }
+
+      if (resultado.fichas.length == 1) {
+        // Solo una ficha → guardar directamente
+        await _guardarFicha(resultado.fichas.first);
+      } else {
+        // Múltiples fichas → dejar que el empresario elija
+        setState(() {
+          _fichas = resultado.fichas;
+          _paso = _Paso.seleccionarFicha;
+        });
+      }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
       setState(() {
         _paso = _Paso.error;
-        _error = errorAuth;
+        _error = 'Error de plataforma al conectar con Google: ${e.message ?? e.code}.\n'
+            'Verifica que Google Sign-In esté configurado correctamente.';
       });
-      return;
-    }
-
-    // 2. Obtener fichas del empresario
-    final resultado = await _svc.obtenerFichas(widget.empresaId);
-    if (!mounted) return;
-
-    if (resultado.error != null) {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
         _paso = _Paso.error;
-        _error = resultado.error;
-      });
-      return;
-    }
-
-    if (resultado.fichas.isEmpty) {
-      setState(() {
-        _paso = _Paso.error;
-        _error = 'No encontramos ninguna ficha de Google Business en tu cuenta. '
-            'Asegúrate de tener un perfil creado en business.google.com';
-      });
-      return;
-    }
-
-    if (resultado.fichas.length == 1) {
-      // Solo una ficha → guardar directamente
-      await _guardarFicha(resultado.fichas.first);
-    } else {
-      // Múltiples fichas → dejar que el empresario elija
-      setState(() {
-        _fichas = resultado.fichas;
-        _paso = _Paso.seleccionarFicha;
+        _error = 'Error inesperado al conectar con Google: $e';
       });
     }
   }

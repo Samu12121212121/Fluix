@@ -203,6 +203,11 @@ rules_version = '2';
           // TAREAS
           match /tareas/{tareaId} {
             allow read, write: if esStaffOSuperior(empresaId);
+
+            // Mensajes del chat de tareas
+            match /mensajes/{mensajeId} {
+              allow read, write: if esStaffOSuperior(empresaId);
+            }
           }
 
           // NÓMINAS — [FIX-4] Staff solo puede ver sus propias nóminas (RGPD)

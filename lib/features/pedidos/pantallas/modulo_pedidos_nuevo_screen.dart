@@ -37,7 +37,10 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Pedidos', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -135,6 +138,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
         backgroundColor: const Color(0xFF1976D2),
         foregroundColor: Colors.white,
       ),
+    ),
     );
   }
 

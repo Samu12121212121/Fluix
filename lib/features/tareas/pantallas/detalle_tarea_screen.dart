@@ -65,7 +65,10 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   }
 
   Widget _buildScaffold() {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: Text(_tarea.titulo,
@@ -97,6 +100,8 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
           unselectedLabelColor: Colors.white60,
           indicatorColor: Colors.white,
           isScrollable: true,
+          padding: EdgeInsets.zero,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(icon: Icon(Icons.info_outline, size: 18), text: 'Detalle'),
             Tab(icon: Icon(Icons.attach_file, size: 18), text: 'Adjuntos'),
@@ -114,6 +119,7 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
           _buildTabHistorial(),
         ],
       ),
+    ),
     );
   }
 
@@ -288,7 +294,9 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
                         fontSize: 13,
                         color: Colors.grey)),
                 const Spacer(),
-                _badgePrioridad(_tarea.prioridad),
+                _tarea.creadoPorId == widget.usuarioId
+                    ? _selectorPrioridad()
+                    : _badgePrioridad(_tarea.prioridad),
               ],
             ),
             if (_tarea.fechaLimite != null) ...[
@@ -858,6 +866,52 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   }
 
   // ── HELPERS ──────────────────────────────────────────────────────────────
+
+  Widget _selectorPrioridad() {
+    return DropdownButton<PrioridadTarea>(
+      value: _tarea.prioridad,
+      isDense: true,
+      underline: const SizedBox(),
+      items: PrioridadTarea.values.map((p) {
+        final (color, label) = switch (p) {
+          PrioridadTarea.urgente => (Colors.red, '🔴 Urgente'),
+          PrioridadTarea.alta    => (Colors.orange, '🟠 Alta'),
+          PrioridadTarea.media   => (Colors.blue, '🔵 Media'),
+          PrioridadTarea.baja    => (Colors.grey, '⚪ Baja'),
+        };
+        return DropdownMenuItem(
+          value: p,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(label,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        );
+      }).toList(),
+      onChanged: (nuevo) async {
+        if (nuevo == null || nuevo == _tarea.prioridad) return;
+        await _svc.actualizarTarea(
+          widget.empresaId,
+          _tarea.id,
+          {'prioridad': nuevo.name},
+          widget.usuarioId,
+          'Prioridad cambiada a ${nuevo.name}',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Prioridad cambiada a ${nuevo.name}'),
+            backgroundColor: const Color(0xFF4CAF50),
+            duration: const Duration(seconds: 2),
+          ));
+        }
+      },
+    );
+  }
 
   Widget _badgePrioridad(PrioridadTarea p) {
     final (color, label) = switch (p) {

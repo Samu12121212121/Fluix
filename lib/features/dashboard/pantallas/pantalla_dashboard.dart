@@ -15,19 +15,17 @@ import '../widgets/badge_icon.dart';
 import '../widgets/offline_banner.dart';
 import '../../../core/constantes/constantes_app.dart';
 import '../../../services/widget_manager_service.dart';
-import '../../../services/contenido_web_service.dart';
 import '../../../services/notificaciones_service.dart';
 import '../../../services/datos_prueba_service.dart';
 import '../../../services/datos_prueba_contabilidad_service.dart';
 import '../../../services/bandeja_notificaciones_service.dart';
-import '../../../services/badge_service.dart';
+import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_dashboard_screen.dart';
 import 'bandeja_notificaciones_screen.dart';
 import '../../tareas/pantallas/modulo_tareas_screen.dart';
-import '../../tareas/pantallas/detalle_tarea_screen.dart'; // Add import
-import '../../../services/tareas_service.dart'; // Add import
-import '../../../domain/modelos/tarea.dart'; // Add import
+import '../../tareas/pantallas/detalle_tarea_screen.dart';
+import '../../../domain/modelos/tarea.dart';
 import '../../pedidos/pantallas/modulo_pedidos_nuevo_screen.dart';
 import '../../pedidos/pantallas/modulo_whatsapp_screen.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
@@ -52,14 +50,15 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     with TickerProviderStateMixin {
   TabController? _tabController;
   final WidgetManagerService _widgetService = WidgetManagerService();
-  final ContenidoWebService _contenidoWebService = ContenidoWebService();
   final DatosPruebaService _datosPruebaService = DatosPruebaService();
   final DatosPruebaContabilidadService _datosPruebaContabilidad =
       DatosPruebaContabilidadService();
+  final DemoCuentaService _demoService = DemoCuentaService();
   String? _empresaId;
   String _nombreUsuario = '';
   bool _cargando = true;
   bool _generandoPrueba = false;
+  bool _generandoDemo = false;
   List<String> _modulosActivos = [];
   SesionUsuario? _sesion;
   StreamSubscription? _notifSubscription;
@@ -142,7 +141,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   );
               }
           } catch (e) {
-              print('❌ Error navegando a tarea: $e');
+              debugPrint('❌ Error navegando a tarea: $e');
           }
       }
   }
@@ -173,7 +172,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     if (uid == null) return;
 
     try {
-      print('🔍 Cargando datos para UID: $uid');
+      debugPrint('🔍 Cargando datos para UID: $uid');
 
       final userDoc = await FirebaseFirestore.instance
           .collection('usuarios')
@@ -182,7 +181,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
       if (userDoc.exists) {
         final data = userDoc.data()!;
-        print('✅ Documento usuario encontrado: $data');
+        debugPrint('✅ Documento usuario encontrado: $data');
         final empresaId = data['empresa_id'] as String?;
 
         // Asegurar que el dueño de fluixtech siempre sea propietario
@@ -192,7 +191,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           await FirebaseFirestore.instance
               .collection('usuarios').doc(uid)
               .update({'rol': 'propietario'});
-          print('👑 Rol forzado a propietario en _cargarDatosUsuario');
+           debugPrint('👑 Rol forzado a propietario en _cargarDatosUsuario');
         }
 
         // Si no hay propietario en la empresa, promover al usuario actual
@@ -208,10 +207,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               await FirebaseFirestore.instance
                   .collection('usuarios').doc(uid)
                   .update({'rol': 'propietario'});
-              print('👑 Promovido a propietario (empresa sin dueño)');
+              debugPrint('👑 Promovido a propietario (empresa sin dueño)');
             }
           } catch (e) {
-            print('ℹ️ Check propietario omitido (permisos): $e');
+            debugPrint('ℹ️ Check propietario omitido (permisos): $e');
           }
         }
 
@@ -229,9 +228,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (empresaId != null) {
           NotificacionesService().suscribirseATopic(empresaId);
         }
-        print('✅ EmpresaId cargado: $_empresaId');
+        debugPrint('✅ EmpresaId cargado: $_empresaId');
       } else {
-        print('❌ No existe documento de usuario, buscando empresas...');
+        debugPrint('❌ No existe documento de usuario, buscando empresas...');
 
         // Fallback: buscar empresa donde el correo del usuario coincida
         final email = FirebaseAuth.instance.currentUser?.email;
@@ -245,7 +244,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           if (empresasQuery.docs.isNotEmpty) {
             final empresaDoc = empresasQuery.docs.first;
             final fallbackEmpresaId = empresaDoc.id;
-            print('✅ Empresa encontrada como fallback: $fallbackEmpresaId');
+            debugPrint('✅ Empresa encontrada como fallback: $fallbackEmpresaId');
 
             // Crear documento de usuario que faltaba
             await FirebaseFirestore.instance
@@ -270,7 +269,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   'Administrador';
               _cargando = false;
             });
-            print('✅ Usuario y empresa creados automáticamente');
+            debugPrint('✅ Usuario y empresa creados automáticamente');
             return;
           }
         }
@@ -284,10 +283,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   'Usuario';
           _cargando = false;
         });
-        print('❌ No se encontró empresa asociada');
+        debugPrint('❌ No se encontró empresa asociada');
       }
     } catch (e) {
-      print('❌ Error cargando datos usuario: $e');
+      debugPrint('❌ Error cargando datos usuario: $e');
       setState(() {
         _nombreUsuario =
             FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
@@ -304,7 +303,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       );
     }
 
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text(
@@ -362,15 +364,23 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
                 // El módulo 'propietario' solo es visible para fluixtech
                 // Las demás empresas nunca lo ven
-                final modulosFiltrados = modulosActivos.where((m) {
+                // Asegurar que el módulo propietario siempre esté presente para fluixtech
+                var modulosFiltrados = modulosActivos.where((m) {
                   if (m.id == 'propietario') return esPropietario;
                   return true;
                 }).toList();
+                if (esPropietario && !modulosFiltrados.any((m) => m.id == 'propietario')) {
+                  final propMod = ModulosDisponibles.todos.where((m) => m.id == 'propietario').firstOrNull;
+                  if (propMod != null) {
+                    modulosFiltrados.insert(0, propMod.copyWith(activo: true));
+                  }
+                }
 
                 // Filtrar por permisos del rol efectivo (real o simulado)
                 final sesionActiva = _sesionEfectiva;
                 final modulosVisibles = sesionActiva != null
-                    ? modulosFiltrados.where((m) => sesionActiva.modulosVisibles.contains(m.id)).toList()
+                    ? modulosFiltrados.where((m) =>
+                        m.id == 'propietario' || sesionActiva.modulosVisibles.contains(m.id)).toList()
                     : modulosFiltrados;
 
                 // Sincronizar tabs DESPUÉS del frame para evitar dispose durante build
@@ -443,6 +453,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 Expanded(child: _buildSinEmpresa()),
               ],
             ),
+      floatingActionButton: _buildDemoFab(),
+    ),
     );
   }
 
@@ -1128,6 +1140,86 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     );
   }
 
+  // ── DEMO FAB ─────────────────────────────────────────────────────────────
+  Widget? _buildDemoFab() {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (!_demoService.esDemo(email) || _empresaId == null) return null;
+
+    return FloatingActionButton(
+      onPressed: _generandoDemo ? null : _generarDatosDemo,
+      backgroundColor: const Color(0xFF7C4DFF),
+      child: _generandoDemo
+          ? const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+          : const Icon(Icons.auto_fix_high, color: Colors.white),
+    );
+  }
+
+  Future<void> _generarDatosDemo() async {
+    if (_empresaId == null) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.auto_fix_high, color: Color(0xFF7C4DFF)),
+          SizedBox(width: 8),
+          Text('Generar datos de prueba'),
+        ]),
+        content: const Text(
+          'Se crearán datos de ejemplo para que puedas explorar toda la app:\n\n'
+          '• 10 clientes españoles\n'
+          '• 5 reservas próximas\n'
+          '• 3 facturas\n'
+          '• 3 empleados\n'
+          '• 2 nóminas\n'
+          '• 5 tareas\n'
+          '• 10 pedidos WhatsApp\n'
+          '• Datos fiscales del trimestre\n\n'
+          '¿Continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C4DFF),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Generar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _generandoDemo = true);
+    try {
+      await _demoService.generarDatosPrueba(_empresaId!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Datos de prueba generados correctamente'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error generando datos: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _generandoDemo = false);
+    }
+  }
+
   void _manejarMenu(String accion) {
     switch (accion) {
       case 'perfil':
@@ -1267,6 +1359,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
   }
 
+  // ignore: unused_element
   Widget _buildVistaWebDesactivada() {
     return Center(
       child: Padding(

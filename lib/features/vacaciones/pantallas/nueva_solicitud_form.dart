@@ -91,16 +91,28 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
           padding: const EdgeInsets.all(20),
           children: [
             // Título
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+            // Handle / Botón cerrar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(width: 40),
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
+                SizedBox(
+                  width: 40,
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
             ),
             const Text(
               'Nueva solicitud',
@@ -335,6 +347,8 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
           Text(
             'Vacaciones ${s.anio}: ${s.diasDisfrutados.toStringAsFixed(1)}/${s.diasDevengados.toStringAsFixed(1)} días',
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
           const SizedBox(height: 6),
           ClipRRect(
@@ -351,6 +365,8 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
             'Disponibles: ${s.totalDisponible.toStringAsFixed(1)} días'
             '${s.diasPendientesAnoAnterior > 0 ? ' (incl. ${s.diasPendientesAnoAnterior.toStringAsFixed(1)} del año anterior)' : ''}',
             style: const TextStyle(fontSize: 11, color: Colors.grey),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ],
       ),

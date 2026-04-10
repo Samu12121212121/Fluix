@@ -19,7 +19,8 @@ class _State extends State<PantallaConfiguracionPagos> {
 
   final _redsysMerchantCtrl = TextEditingController();
   final _redsysTerminalCtrl = TextEditingController(text: '001');
-  String? _bancoSel;
+  String? _bancoSel; // Banco seleccionado actualmente para conectar
+  final List<String> _bancosConectados = []; // Bancos ya conectados
 
   static const _bancos = [
     {'id': 'caixabank', 'nombre': 'CaixaBank', 'icono': '🏦'},
@@ -46,7 +47,11 @@ class _State extends State<PantallaConfiguracionPagos> {
       if (!mounted) return;
       _redsysMerchantCtrl.text = c.redsysMerchantCode ?? '';
       _redsysTerminalCtrl.text = c.redsysTerminal ?? '001';
-      _bancoSel = c.bancoId;
+      _bancoSel = null;
+      // Cargar bancos ya conectados
+      if (c.bancoId != null && !_bancosConectados.contains(c.bancoId)) {
+        _bancosConectados.add(c.bancoId!);
+      }
       setState(() { _config = c; _cargando = false; });
     } catch (e) {
       if (mounted) { setState(() => _cargando = false); _snack('Error: $e', err: true); }
@@ -61,7 +66,10 @@ class _State extends State<PantallaConfiguracionPagos> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Configuración de pagos', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -70,6 +78,7 @@ class _State extends State<PantallaConfiguracionPagos> {
       body: _cargando ? const Center(child: CircularProgressIndicator())
           : _config == null ? const Center(child: Text('Error cargando datos'))
           : _body(),
+    ),
     );
   }
 
@@ -362,6 +371,24 @@ class _State extends State<PantallaConfiguracionPagos> {
       ],
     ));
     if (ok == true) {
+      // Intentar abrir la web del banco para autenticación PSD2
+      try {
+        final bankUrls = {
+          'caixabank': 'https://www.caixabank.es/particular/banca-digital.html',
+          'santander': 'https://www.bancosantander.es/particulares',
+          'bbva': 'https://www.bbva.es/personas.html',
+          'sabadell': 'https://www.bancsabadell.com/cs/Satellite/SabAtl/Particulars/1191332202086/es/',
+          'bankinter': 'https://www.bankinter.com/',
+        };
+        final url = bankUrls[b['id']] ?? 'https://www.google.com';
+        final uri = Uri.parse(url);
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          if (mounted) _snack('No se pudo abrir el navegador. Visita la web de ${b['nombre']} manualmente.', err: true);
+        }
+      } catch (e) {
+        if (mounted) _snack('Error al abrir el navegador: $e', err: true);
+      }
+
       await _svc.conectarBanco(widget.empresaId, bancoId: b['id']!, bancoNombre: b['nombre']!,
         fechaExpiracion: DateTime.now().add(const Duration(days: 90)));
       _snack('✅ ${b['nombre']} conectado'); _cargar();

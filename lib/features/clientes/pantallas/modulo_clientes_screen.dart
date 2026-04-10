@@ -68,7 +68,10 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Clientes', style: TextStyle(color: Colors.black)),
@@ -191,6 +194,7 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
               label: const Text('Nuevo cliente'),
             )
           : null,
+    ),
     );
   }
 

@@ -49,7 +49,10 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
         children: [
@@ -140,6 +143,7 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
               label: Text(_generando ? 'Generando...' : 'Generar nóminas'),
             )
           : null,
+    ),
     );
   }
 
@@ -169,7 +173,11 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
                 Text('Pulsa "Generar nóminas" para crear las del mes',
                     style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                 const SizedBox(height: 16),
-                _buildInfoConfiguracion(),
+                TextButton.icon(
+                  onPressed: () => _mostrarInfoConfiguracion(context),
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  label: const Text('¿Cómo generar nóminas?'),
+                ),
               ],
             ),
           );
@@ -249,22 +257,41 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
               ),
             ),
             if (tienenIrpfAjustado)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF90CAF9)),
-                ),
-                child: const Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Algunas nóminas tienen IRPF recalculado por regularización anual (YTD)',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF0D47A1)),
+                    const Text('Nóminas del mes',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Info IRPF regularizado',
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Color(0xFF1976D2)),
+                              SizedBox(width: 8),
+                              Expanded(child: Text('IRPF Regularizado', style: TextStyle(fontSize: 16))),
+                            ],
+                          ),
+                          content: const Text(
+                            'Algunas nóminas tienen IRPF recalculado por regularización anual (YTD).\n\n'
+                            'Esto significa que el tipo de retención se ha ajustado según los ingresos '
+                            'acumulados del trabajador durante el año fiscal, conforme a la normativa vigente.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Entendido'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -288,24 +315,25 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
     );
   }
 
-  Widget _buildInfoConfiguracion() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 32),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange[200]!),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.info_outline, color: Colors.orange, size: 20),
-          SizedBox(height: 8),
-          Text(
-            'Para generar nóminas, cada empleado debe tener configurados '
-            'sus datos salariales desde su perfil → Datos de nómina.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.orange),
+  void _mostrarInfoConfiguracion(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Configurar nóminas', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'Para generar nóminas, cada empleado debe tener configurados '
+          'sus datos salariales desde su perfil → Datos de nómina.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
           ),
         ],
       ),

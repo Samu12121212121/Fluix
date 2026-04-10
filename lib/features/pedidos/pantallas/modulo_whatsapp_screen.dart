@@ -40,7 +40,10 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -62,6 +65,8 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
+          padding: EdgeInsets.zero,
+          tabAlignment: TabAlignment.start,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           indicatorColor: Colors.white,
@@ -95,6 +100,7 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
         backgroundColor: const Color(0xFF25D366),
         foregroundColor: Colors.white,
       ),
+    ),
     );
   }
 

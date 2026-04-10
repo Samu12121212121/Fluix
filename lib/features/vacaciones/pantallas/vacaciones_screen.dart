@@ -46,7 +46,10 @@ class _VacacionesScreenState extends State<VacacionesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
         children: [
@@ -133,6 +136,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         icon: const Icon(Icons.add),
         label: const Text('Nueva solicitud'),
       ),
+    ),
     );
   }
 

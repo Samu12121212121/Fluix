@@ -62,6 +62,46 @@
         { "fieldPath": "es_arrendamiento", "order": "ASCENDING" },
         { "fieldPath": "fecha_recepcion", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "blog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publicada", "order": "ASCENDING" },
+        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "actividad",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "anio", "order": "ASCENDING" },
+        { "fieldPath": "mes", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tareas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

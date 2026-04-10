@@ -52,7 +52,10 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
@@ -103,6 +106,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
               label: const Text('Nuevo empleado'),
             )
           : null,
+    ),
     );
   }
 
