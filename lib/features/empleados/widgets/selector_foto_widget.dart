@@ -38,38 +38,34 @@ class _SelectorFotoEmpleadoState extends State<SelectorFotoEmpleado> {
   }
 
   Future<void> _seleccionar(ImageSource source) async {
-    Navigator.pop(context);
-    await Future.delayed(const Duration(milliseconds: 200));
-
     try {
       final file = await _storageSvc.seleccionarFoto(source: source);
       if (file == null) return;
 
       if (mounted) setState(() => _subiendo = true);
 
-      final url = await _storageSvc.subirFotoEmpleado(
+      await _storageSvc.subirFotoEmpleado(
         empresaId: widget.empresaId,
         empleadoId: widget.empleadoId,
         fotoFile: file,
       );
 
       if (mounted) {
+        Navigator.pop(context); // Cerrar bottom sheet DESPUÉS de subir
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Text('✅ Foto de perfil actualizada'),
           backgroundColor: Colors.green[700],
           behavior: SnackBarBehavior.floating,
         ));
       }
-      debugPrint('Foto subida: $url');
     } catch (e) {
       if (mounted) {
+        setState(() => _subiendo = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error al subir la foto: $e'),
           backgroundColor: Colors.red,
         ));
       }
-    } finally {
-      if (mounted) setState(() => _subiendo = false);
     }
   }
 

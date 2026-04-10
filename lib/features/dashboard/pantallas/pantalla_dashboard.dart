@@ -247,16 +247,19 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             debugPrint('✅ Empresa encontrada como fallback: $fallbackEmpresaId');
 
             // Crear documento de usuario que faltaba
+            // NOTA: 'propietario' es exclusivo de FluixTech
             await FirebaseFirestore.instance
                 .collection('usuarios')
                 .doc(uid)
                 .set({
               'nombre': FirebaseAuth.instance.currentUser?.displayName ??
-                  'Administrador Fluix',
+                  'Administrador',
               'correo': email,
               'telefono': '+34 900 123 456',
               'empresa_id': fallbackEmpresaId,
-              'rol': 'propietario',
+              'rol': fallbackEmpresaId == ConstantesApp.empresaPropietariaId
+                  ? 'propietario'
+                  : 'admin',
               'activo': true,
               'fecha_creacion': DateTime.now().toIso8601String(),
               'permisos': [],
@@ -414,7 +417,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                         empresaId: _empresaId!,
                         esPropietario: _sesion?.esPropietario ?? false,
                       ),
-                    // Botones de cambio de vista: solo visibles para el Propietario real
+                    // Botones de cambio de vista: solo visibles para el Propietario (FluixTech)
                     if (_sesion?.esPropietario == true)
                       _buildBotonesVistaPropietario(),
                     Container(

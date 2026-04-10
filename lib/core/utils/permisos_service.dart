@@ -1,7 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../constantes/constantes_app.dart';
 import 'package:planeag_flutter/services/suscripcion_service.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SISTEMA DE ROLES Y PERMISOS — Fluix CRM
+//
+// ROLES:
+//   - propietario: EXCLUSIVO de la empresa FluixTech (plataforma).
+//     Solo el admin de la plataforma tiene este rol.
+//     ID fijo: ConstantesApp.empresaPropietariaId
+//
+//   - admin: Dueño de una empresa cliente. Tiene acceso completo a todos
+//     los módulos de SU empresa (igual que propietario excepto el módulo
+//     'propietario' de la plataforma). Puede gestionar empleados,
+//     facturación, configuración, suscripción, etc.
+//
+//   - staff: Empleado invitado. Solo ve los módulos que el admin le
+//     haya asignado (o los del rol por defecto: reservas, citas, clientes,
+//     valoraciones).
+//
+// PROTECCIONES AUTOMÁTICAS (en cargarSesion):
+//   1. Si empresa == empresaPropietariaId → fuerza rol a 'propietario'
+//   2. Si no hay admin/propietario en la empresa → promueve al usuario
+//   3. Si correo usuario == correo empresa → promueve al usuario
+//
+// Ver documentación completa: FLUJO_CREACION_CUENTAS.md
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /// Roles disponibles en la app
 enum RolApp { propietario, admin, staff, desconocido }
@@ -43,10 +69,10 @@ class SesionUsuario {
   bool get puedeVerFinanzas => esAdmin;
 
   /// Puede crear/editar/borrar empleados
-  bool get puedeGestionarEmpleados => esPropietario;
+  bool get puedeGestionarEmpleados => esAdmin;
 
   /// Puede cambiar la configuración de módulos del dashboard
-  bool get puedeConfigurarDashboard => esPropietario;
+  bool get puedeConfigurarDashboard => esAdmin;
 
   /// Puede crear/editar servicios
   bool get puedeGestionarServicios => esAdmin;
@@ -73,7 +99,7 @@ class SesionUsuario {
   bool get puedeCrearFacturas => esAdmin;
 
   /// Puede ver el resumen fiscal
-  bool get puedeVerResumenFiscal => esPropietario;
+  bool get puedeVerResumenFiscal => esAdmin;
 
   /// Puede editar contenido web
   bool get puedeEditarWeb => esAdmin;
@@ -85,7 +111,7 @@ class SesionUsuario {
   bool get puedeAsignarTareas => esAdmin;
 
   /// Puede gestionar la suscripción
-  bool get puedeGestionarSuscripcion => esPropietario;
+  bool get puedeGestionarSuscripcion => esAdmin;
 
   /// Puede ver valoraciones
   bool get puedeVerValoraciones => true; // todos
@@ -119,7 +145,7 @@ class SesionUsuario {
         ];
 
       case RolApp.admin:
-        // Ve todo excepto empleados, facturación completa y web
+        // Dueño de empresa: ve todo excepto el módulo 'propietario' (exclusivo FluxTech)
         return [
           'dashboard',
           'reservas',
@@ -131,7 +157,11 @@ class SesionUsuario {
           'pedidos',
           'whatsapp',
           'tareas',
+          'empleados',
+          'facturacion',
           'nominas',
+          'vacaciones',
+          'web',
         ];
 
       case RolApp.staff:
@@ -221,39 +251,43 @@ class PermisosService {
             .collection('usuarios')
             .doc(uid)
             .update({'rol': 'propietario'});
-        print('👑 Rol corregido a propietario (empresa propietaria) para $uid');
+        debugPrint('👑 Rol corregido a propietario (empresa propietaria) para $uid');
       }
 
-      // ── PROTECCIÓN 2: si no hay ningún propietario en esta empresa,
+      // ── PROTECCIÓN 2: si no hay ningún propietario/admin en esta empresa,
       //    el usuario actual se promueve automáticamente. Esto evita
       //    que una empresa quede "huérfana" sin dueño.
       //    Nota: puede fallar con PERMISSION_DENIED para staff;
       //    en ese caso simplemente lo ignoramos. ─────────────────────
-      if (rolStr != 'propietario' && empresaId.isNotEmpty) {
+      if (rolStr != 'propietario' && rolStr != 'admin' && empresaId.isNotEmpty) {
         try {
           final propietariosSnap = await FirebaseFirestore.instance
               .collection('usuarios')
               .where('empresa_id', isEqualTo: empresaId)
-              .where('rol', isEqualTo: 'propietario')
+              .where('rol', whereIn: ['propietario', 'admin'])
               .limit(1)
               .get();
 
           if (propietariosSnap.docs.isEmpty) {
-            rolStr = 'propietario';
+            // Solo la empresa plataforma usa 'propietario'
+            final nuevoRol = empresaId == ConstantesApp.empresaPropietariaId
+                ? 'propietario'
+                : 'admin';
+            rolStr = nuevoRol;
             await FirebaseFirestore.instance
                 .collection('usuarios')
                 .doc(uid)
-                .update({'rol': 'propietario'});
-            print('👑 Rol promovido a propietario (sin dueño en empresa) para $uid');
+                .update({'rol': nuevoRol});
+            debugPrint('👑 Rol promovido a $nuevoRol (sin dueño en empresa) para $uid');
           }
         } catch (e) {
-          print('ℹ️ Protección 2 omitida (sin permisos para consultar usuarios): $e');
+          debugPrint('ℹ️ Protección 2 omitida (sin permisos para consultar usuarios): $e');
         }
       }
 
       // ── PROTECCIÓN 3: si el correo del usuario coincide con el
       //    correo principal de la empresa, es el dueño real. ─────────
-      if (rolStr != 'propietario' && empresaId.isNotEmpty) {
+      if (rolStr != 'propietario' && rolStr != 'admin' && empresaId.isNotEmpty) {
         try {
           final correoUsuario = data['correo'] as String? ??
               FirebaseAuth.instance.currentUser?.email ?? '';
@@ -268,12 +302,15 @@ class PermisosService {
                   (empresaData['perfil'] as Map<String, dynamic>?)?['correo'] as String? ?? '';
               if (correoEmpresa.isNotEmpty &&
                   correoUsuario.toLowerCase() == correoEmpresa.toLowerCase()) {
-                rolStr = 'propietario';
+                final nuevoRol = empresaId == ConstantesApp.empresaPropietariaId
+                    ? 'propietario'
+                    : 'admin';
+                rolStr = nuevoRol;
                 await FirebaseFirestore.instance
                     .collection('usuarios')
                     .doc(uid)
-                    .update({'rol': 'propietario'});
-                print('👑 Rol promovido a propietario (correo coincide con empresa) para $uid');
+                    .update({'rol': nuevoRol});
+                debugPrint('👑 Rol promovido a $nuevoRol (correo coincide con empresa) para $uid');
               }
             }
           }

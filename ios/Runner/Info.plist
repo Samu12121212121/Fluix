@@ -47,14 +47,21 @@
 		<string>remote-notification</string>
 	</array>
 	<!-- ═══ Google Sign-In URL Scheme (REVERSED_CLIENT_ID) ═══ -->
+	<!-- IMPORTANTE: Obtén el valor exacto de GoogleService-Info.plist → REVERSED_CLIENT_ID -->
+	<!-- Firebase Console → Configuración del proyecto → Tu app iOS → Descargar GoogleService-Info.plist -->
 	<key>CFBundleURLTypes</key>
 	<array>
+		<!-- Google Sign-In reversed client ID -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-sign-in</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.1085482191658-XXXXXXXXXX</string>
+				<!-- ⚠️ Reemplaza este valor con REVERSED_CLIENT_ID de GoogleService-Info.plist -->
+				<!-- Ejemplo real: com.googleusercontent.apps.1085482191658-abcdefghijklmnop -->
+				<string>$(REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
 	</array>

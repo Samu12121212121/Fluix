@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 /// Servicio para la cuenta demo de Fluix CRM.
 /// Crea la cuenta demoFluix2026@gmail.com / FlFluix26 si no existe
@@ -10,8 +11,9 @@ class DemoCuentaService {
   factory DemoCuentaService() => _i;
   DemoCuentaService._();
 
-  static const String demoEmail = 'demoFluix2026@gmail.com';
-  static const String demoPassword = 'FlFluix26';
+  static const String demoEmail     = 'demoFluix2026@gmail.com';
+  static const String demoPassword  = 'FlFluix26';
+  static const String demoEmpresaId = 'demo_empresa_fluix2026';
 
   final _db = FirebaseFirestore.instance;
   final _random = Random();
@@ -20,11 +22,114 @@ class DemoCuentaService {
   bool esDemo(String? email) =>
       email?.toLowerCase() == demoEmail.toLowerCase();
 
+  /// Inicia sesión como demo:
+  ///  - Crea la cuenta en Firebase Auth si no existe.
+  ///  - Configura empresa + usuario en Firestore si es la primera vez.
+  ///  - Devuelve el UID del usuario demo.
+  Future<String> loginComoDemo() async {
+    User? user;
+
+    try {
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: demoEmail,
+        password: demoPassword,
+      );
+      user = cred.user!;
+      debugPrint('✅ Demo: cuenta creada — ${user.uid}');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: demoEmail,
+          password: demoPassword,
+        );
+        user = cred.user!;
+        debugPrint('✅ Demo: login correcto — ${user.uid}');
+      } else {
+        rethrow;
+      }
+    }
+
+    await _configurarFirestoreDemo(user.uid);
+    return user.uid;
+  }
+
   /// Crea la cuenta demo en Firebase Auth si no existe.
-  /// No afecta la sesión actual.
+  /// No afecta la sesión actual (solo garantiza que Auth existe).
   Future<void> crearCuentaDemoSiNoExiste() async {
-    // La cuenta demo se crea con el primer login.
-    // No es necesario crearla proactivamente.
+    try {
+      await loginComoDemo();
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      debugPrint('⚠️ Demo crearCuentaDemoSiNoExiste: $e');
+    }
+  }
+
+  /// Configura los documentos de Firestore para la empresa demo.
+  Future<void> _configurarFirestoreDemo(String uid) async {
+    final now        = DateTime.now();
+    final empresaRef = _db.collection('empresas').doc(demoEmpresaId);
+
+    // ── Empresa ──────────────────────────────────────────────────
+    await empresaRef.set({
+      'nombre':                'Empresa Demo Fluix',
+      'correo':                demoEmail,
+      'telefono':              '+34 900 000 000',
+      'direccion':             'Calle Demo 1, Madrid',
+      'descripcion':           'Cuenta de demostración de Fluix CRM',
+      'categoria':             'Demostración',
+      'onboarding_completado': true,
+      'activa':                true,
+      'fecha_creacion':        Timestamp.fromDate(now),
+      'es_demo':               true,
+    }, SetOptions(merge: true));
+
+    // ── Módulos ───────────────────────────────────────────────────
+    await empresaRef.collection('configuracion').doc('modulos').set({
+      'modulos': [
+        {'id': 'dashboard',    'activo': true},
+        {'id': 'valoraciones', 'activo': true},
+        {'id': 'estadisticas', 'activo': true},
+        {'id': 'reservas',     'activo': true},
+        {'id': 'facturacion',  'activo': true},
+        {'id': 'pedidos',      'activo': true},
+        {'id': 'tareas',       'activo': true},
+        {'id': 'clientes',     'activo': true},
+        {'id': 'empleados',    'activo': true},
+        {'id': 'nominas',      'activo': true},
+        {'id': 'whatsapp',     'activo': true},
+        {'id': 'web',          'activo': true},
+      ],
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // ── Suscripción ───────────────────────────────────────────────
+    await empresaRef.collection('suscripcion').doc('actual').set({
+      'estado':        'ACTIVA',
+      'plan':          'enterprise',
+      'fecha_inicio':  Timestamp.fromDate(now),
+      'fecha_fin':     Timestamp.fromDate(now.add(const Duration(days: 365))),
+      'aviso_enviado': false,
+      'ultimo_aviso':  null,
+    }, SetOptions(merge: true));
+
+    // ── Config facturación ────────────────────────────────────────
+    await empresaRef.collection('configuracion').doc('facturacion').set(
+      {'ultimo_numero_factura': 0}, SetOptions(merge: true));
+
+    // ── Usuario ───────────────────────────────────────────────────
+    await _db.collection('usuarios').doc(uid).set({
+      'nombre':         'Usuario Demo',
+      'correo':         demoEmail,
+      'telefono':       '',
+      'rol':            'admin',
+      'empresa_id':     demoEmpresaId,
+      'activo':         true,
+      'permisos':       [],
+      'fecha_creacion': now.toIso8601String(),
+      'es_demo':        true,
+    }, SetOptions(merge: true));
+
+    debugPrint('✅ Demo: Firestore configurado para $uid / $demoEmpresaId');
   }
 
   /// Genera datos de prueba completos para la empresa del usuario demo.
@@ -261,5 +366,6 @@ class DemoCuentaService {
     } catch (_) {}
   }
 }
+
 
 

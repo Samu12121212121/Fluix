@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVICIO — Autenticación de dos factores por SMS (Firebase Phone Auth)
@@ -53,32 +54,51 @@ class DosFactoresService {
     required String telefono,
     required void Function(String mensaje) onError,
   }) async {
+    // ── Normalizar y validar formato E.164 ──────────────────────────────
+    final tel = telefono.trim().replaceAll(RegExp(r'\s+'), '');
+    if (!RegExp(r'^\+\d{7,15}$').hasMatch(tel)) {
+      const msg = 'Número inválido. Usa formato internacional: +34612345678';
+      onError(msg);
+      throw msg;
+    }
+
     final completer = Completer<String>();
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: telefono,
-      timeout: const Duration(seconds: 60),
-      verificationCompleted: (PhoneAuthCredential credential) {
-        // Android: auto-completado (no se usa para 2FA manual, lo ignoramos)
-        debugPrint('2FA auto-completado (Android)');
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        final msg = switch (e.code) {
-          'invalid-phone-number' => 'Número de teléfono no válido.',
-          'quota-exceeded'       => 'Demasiadas solicitudes. Inténtalo más tarde.',
-          'network-request-failed' => 'Sin conexión. Comprueba tu red.',
-          _ => 'Error al enviar código: ${e.message}',
-        };
-        onError(msg);
-        if (!completer.isCompleted) completer.completeError(msg);
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        if (!completer.isCompleted) completer.complete(verificationId);
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        if (!completer.isCompleted) completer.complete(verificationId);
-      },
-    );
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: tel,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) {
+          // Android: auto-completado (no se usa para 2FA manual, lo ignoramos)
+          debugPrint('2FA auto-completado (Android)');
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          final msg = switch (e.code) {
+            'invalid-phone-number'   => 'Número de teléfono no válido.',
+            'quota-exceeded'         => 'Demasiadas solicitudes. Inténtalo más tarde.',
+            'network-request-failed' => 'Sin conexión. Comprueba tu red.',
+            'operation-not-allowed'  => 'Verificación SMS no activada. Contacta con soporte.',
+            _                        => 'Error al enviar código: ${e.message}',
+          };
+          onError(msg);
+          if (!completer.isCompleted) completer.completeError(msg);
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (!completer.isCompleted) completer.complete(verificationId);
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (!completer.isCompleted) completer.complete(verificationId);
+        },
+      );
+    } on PlatformException catch (e) {
+      final msg = 'Error de plataforma al enviar SMS: ${e.message ?? e.code}';
+      onError(msg);
+      if (!completer.isCompleted) completer.completeError(msg);
+    } catch (e) {
+      final msg = 'Error inesperado al enviar SMS: $e';
+      onError(msg);
+      if (!completer.isCompleted) completer.completeError(msg);
+    }
 
     return completer.future;
   }

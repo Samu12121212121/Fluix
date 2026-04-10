@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/notificaciones_service.dart';
+import '../../../core/utils/permisos_service.dart';
+import '../../dashboard/pantallas/pantalla_dashboard.dart';
 
 class FormularioRegistro extends StatefulWidget {
   const FormularioRegistro({super.key});
@@ -467,11 +470,13 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
       });
 
       // 3. Crear documento de usuario
+      // NOTA: El rol 'propietario' es exclusivo de la empresa FluixTech.
+      // Los dueños de otras empresas se crean con rol 'admin'.
       await db.collection('usuarios').doc(uid).set({
         'nombre':            _nombrePropietarioController.text.trim(),
         'correo':            _correoPropietarioController.text.trim(),
         'telefono':          _telefonoPropietarioController.text.trim(),
-        'rol':               'propietario',
+        'rol':               'admin',
         'empresa_id':        empresaId,
         'activo':            true,
         'permisos':          [],
@@ -515,13 +520,22 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
       });
 
       if (mounted) {
+        // Cargar sesión y navegar al dashboard directamente
+        await Future.wait([
+          NotificacionesService().guardarTokenTrasLogin(),
+          PermisosService().cargarSesion(),
+        ]);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('¡Empresa registrada exitosamente!'),
             backgroundColor: Color(0xFF4CAF50),
           ),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+          (_) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapearErrorAuth(e));

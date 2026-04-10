@@ -27,12 +27,14 @@
 	<key>GOOGLE_APP_ID</key>
 	<string>1:1085482191658:ios:2c2c15efeb1d0c04d62c53</string>
 	<!-- ═══ OBLIGATORIO para Google Sign-In en iOS ═══ -->
-	<!-- Obtener CLIENT_ID desde Firebase Console → Configuración del proyecto → iOS app -->
-	<!-- REVERSED_CLIENT_ID = CLIENT_ID con los segmentos separados por punto al revés -->
+	<!-- Obtén el CLIENT_ID desde Firebase Console → Configuración → iOS → Descargar plist -->
+	<!-- REVERSED_CLIENT_ID = CLIENT_ID con los segmentos al revés (separados por .) -->
+	<!-- Ejemplo: si CLIENT_ID = 1085482191658-abc123.apps.googleusercontent.com -->
+	<!--           REVERSED_CLIENT_ID = com.googleusercontent.apps.1085482191658-abc123 -->
 	<key>CLIENT_ID</key>
-	<string>1085482191658-XXXXXXXXXX.apps.googleusercontent.com</string>
+	<string>1085482191658-REEMPLAZAR_CON_VALOR_REAL.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.1085482191658-XXXXXXXXXX</string>
+	<string>com.googleusercontent.apps.1085482191658-REEMPLAZAR_CON_VALOR_REAL</string>
 </dict>
 </plist>
 

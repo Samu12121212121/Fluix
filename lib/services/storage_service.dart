@@ -81,22 +81,23 @@ class StorageService {
     final url = await ref.getDownloadURL();
     final cacheBustUrl = '$url&v=${DateTime.now().millisecondsSinceEpoch}';
 
-    // 7. Guardar URL en Firestore (campo foto_url) — en el documento del empleado
+    // 7. Guardar URL en Firestore (campo foto_url)
+    // Primero en usuarios/{empleadoId} — que es donde el listado de empleados lee
     await _firestore
-        .collection('empresas')
-        .doc(empresaId)
-        .collection('empleados')
+        .collection('usuarios')
         .doc(empleadoId)
         .update({'foto_url': cacheBustUrl});
 
-    // También actualizar en usuarios por si el empleado tiene cuenta
+    // También guardar en empresas/{empresaId}/empleados por si existe
     try {
       await _firestore
-          .collection('usuarios')
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('empleados')
           .doc(empleadoId)
           .update({'foto_url': cacheBustUrl});
     } catch (_) {
-      // El empleado puede no tener cuenta de usuario — ignorar
+      // Puede no existir esta subcolección — ignorar
     }
 
     return cacheBustUrl;
@@ -114,15 +115,17 @@ class StorageService {
     } catch (_) {
       // Puede que el archivo no exista — ignorar
     }
+    // Borrar de usuarios (principal)
     await _firestore
-        .collection('empresas')
-        .doc(empresaId)
-        .collection('empleados')
+        .collection('usuarios')
         .doc(empleadoId)
         .update({'foto_url': FieldValue.delete()});
+    // Borrar de empresas/empleados (fallback)
     try {
       await _firestore
-          .collection('usuarios')
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('empleados')
           .doc(empleadoId)
           .update({'foto_url': FieldValue.delete()});
     } catch (_) {}

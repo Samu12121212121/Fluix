@@ -447,53 +447,93 @@ class _SeccionSeguridad2FAState extends State<_SeccionSeguridad2FA> {
 
   void _mostrarDialogoActivar2FA() {
     final telefonoCtrl = TextEditingController();
+    bool enviando = false;
+    String? errorLocal;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Activar verificación SMS'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Introduce tu número de teléfono con prefijo país (ej: +34612345678)'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: telefonoCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.phone),
-              border: OutlineInputBorder(),
-              hintText: '+34 612 345 678',
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Activar verificación SMS'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Introduce tu número con prefijo país (ej: +34612345678)'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: telefonoCtrl,
+              keyboardType: TextInputType.phone,
+              enabled: !enviando,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.phone),
+                border: const OutlineInputBorder(),
+                hintText: '+34 612 345 678',
+                errorText: errorLocal,
+              ),
             ),
-          ),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                final verificationId = await _svc.enviarCodigo(
-                  telefono: telefonoCtrl.text.trim(),
-                  onError: (msg) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                );
-                if (mounted) _mostrarDialogoCodigo(telefonoCtrl.text.trim(), verificationId);
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1), foregroundColor: Colors.white),
-            child: const Text('Enviar código'),
-          ),
-        ],
+          ]),
+          actions: [
+            TextButton(
+              onPressed: enviando ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: enviando
+                  ? null
+                  : () async {
+                      final tel = telefonoCtrl.text
+                          .trim()
+                          .replaceAll(RegExp(r'\s+'), '');
+                      if (!RegExp(r'^\+\d{7,15}$').hasMatch(tel)) {
+                        setStateDialog(() =>
+                            errorLocal = 'Formato: +34612345678');
+                        return;
+                      }
+                      setStateDialog(() {
+                        errorLocal = null;
+                        enviando = true;
+                      });
+                      try {
+                        final verificationId = await _svc.enviarCodigo(
+                          telefono: tel,
+                          onError: (msg) {
+                            setStateDialog(() {
+                              errorLocal = msg;
+                              enviando = false;
+                            });
+                          },
+                        );
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          _mostrarDialogoCodigo(tel, verificationId);
+                        }
+                      } catch (e) {
+                        setStateDialog(() => enviando = false);
+                        if (mounted && errorLocal == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+              ),
+              child: enviando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Enviar código'),
+            ),
+          ],
+        ),
       ),
     );
   }

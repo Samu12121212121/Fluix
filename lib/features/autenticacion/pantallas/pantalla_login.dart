@@ -1,6 +1,37 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// PANTALLA DE LOGIN — Fluix CRM
+//
+// FLUJOS DE CREACIÓN DE CUENTAS:
+//
+// 1. REGISTRO EMAIL (botón "Registrar Nueva Empresa"):
+//    → PantallaRegistro → FormularioRegistro
+//    → Crea Auth user + empresa + usuario con rol 'admin'
+//    → Navega directamente al Dashboard
+//
+// 2. GOOGLE / APPLE SIGN-IN:
+//    → Si usuario nuevo: crea doc con rol 'admin' y empresa_id vacío
+//    → Redirige a PantallaRegistrarEmpresaSocial para completar empresa
+//    → Si ya existe con empresa: navega al Dashboard
+//
+// 3. INVITACIÓN EMPLEADO (deep link fluixcrm://invite?token=XXX):
+//    → PantallaRegistroInvitacion
+//    → Crea Auth + doc usuario con rol asignado por el admin
+//    → empresa_id del invitador, módulos limitados
+//
+// ROLES:
+//    - 'propietario': EXCLUSIVO de FluixTech (empresaPropietariaId)
+//    - 'admin': dueño de cualquier otra empresa (acceso total a su empresa)
+//    - 'staff': empleado invitado (acceso limitado por módulos asignados)
+//
+// BIOMETRÍA (Face ID / Huella):
+//    - Tras primer login exitoso se ofrece activar biometría (diálogo bloqueante)
+//    - Si acepta → siguiente apertura muestra PantallaLoginBiometrico
+//    - NSFaceIDUsageDescription configurado en ios/Runner/Info.plist
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,6 +49,7 @@ import '../../../services/auth/auditoria_service.dart';
 import '../../../services/auth/fuerza_bruta_service.dart';
 import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
+import '../../../services/demo_cuenta_service.dart';
 import 'pantalla_verificacion_2fa.dart';
 
 class PantallaLogin extends StatefulWidget {
@@ -254,6 +286,28 @@ class _PantallaLoginState extends State<PantallaLogin> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // ── Botón Demo ──────────────────────────────────────
+                    OutlinedButton.icon(
+                      onPressed: _cargando ? null : _entrarComoDemo,
+                      icon: const Icon(Icons.play_circle_outline, size: 20),
+                      label: const Text(
+                        'Probar Demo gratis',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        foregroundColor: const Color(0xFF43A047),
+                        side: const BorderSide(color: Color(0xFF43A047)),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -354,7 +408,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
         if (!bioActiva && uid != null && mounted) {
           final soportada = await _bioSvc.tiposDisponibles();
           if (soportada.isNotEmpty) {
-            _ofrecerBiometria(uid, email);
+            await _ofrecerBiometria(uid, email);
           }
         }
 
@@ -464,6 +518,42 @@ class _PantallaLoginState extends State<PantallaLogin> {
     );
   }
 
+  /// Autenticación one-tap como usuario demo.
+  /// Crea la cuenta y la empresa en Firestore si es la primera vez.
+  void _entrarComoDemo() async {
+    setState(() => _cargando = true);
+    try {
+      await DemoCuentaService().loginComoDemo();
+      await Future.wait([
+        NotificacionesService().guardarTokenTrasLogin(),
+        PermisosService().cargarSesion(),
+      ]);
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error Firebase demo: ${e.message}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al entrar como demo: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GOOGLE SIGN-IN
   // ═══════════════════════════════════════════════════════════════════════════
@@ -472,6 +562,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
     setState(() => _cargandoGoogle = true);
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn();
+      // Forzar selección de cuenta limpiando sesión previa
+      await googleSignIn.signOut();
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         if (mounted) setState(() => _cargandoGoogle = false);
@@ -493,12 +585,13 @@ class _PantallaLoginState extends State<PantallaLogin> {
       bool esNuevoUsuario = false;
       if (!userDoc.exists) {
         esNuevoUsuario = true;
+        // NOTA: 'propietario' es exclusivo de FluixTech. Nuevos usuarios → 'admin'
         await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
           'nombre': user.displayName ?? user.email?.split('@').first ?? 'Usuario',
           'correo': user.email ?? '',
           'telefono': user.phoneNumber ?? '',
           'empresa_id': '',
-          'rol': 'propietario',
+          'rol': 'admin',
           'activo': true,
           'fecha_creacion': DateTime.now().toIso8601String(),
           'permisos': [],
@@ -533,17 +626,34 @@ class _PantallaLoginState extends State<PantallaLogin> {
         }
       }
     } on FirebaseAuthException catch (e) {
+      String msg;
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          msg = 'Ya existe una cuenta con este email. Inicia sesión con email y contraseña.';
+          break;
+        case 'invalid-credential':
+          msg = 'Credencial de Google no válida. Inténtalo de nuevo.';
+          break;
+        default:
+          msg = 'Error de Firebase: ${e.message}';
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error con Google: ${e.message}'),
+          content: Text(msg),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ));
       }
     } on PlatformException catch (e) {
+      // 10 = DEVELOPER_ERROR — CLIENT_ID no configurado correctamente en Info.plist
+      final esConfigError = e.code == '10' || e.code == 'sign_in_failed';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error de plataforma: ${e.message ?? e.code}'),
-          backgroundColor: Colors.red,
+          content: Text(esConfigError
+              ? 'Google Sign-In no configurado correctamente. Usa email y contraseña por ahora.'
+              : 'Error de plataforma: ${e.message ?? e.code}'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 5),
         ));
       }
     } catch (e) {
@@ -613,6 +723,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
       if (!userDoc.exists) {
         final nombre = user.displayName ?? 'Usuario Apple';
         final correo = user.email ?? '';
+        // NOTA: 'propietario' es exclusivo de FluixTech. Nuevos usuarios → 'admin'
         await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(user.uid)
@@ -621,7 +732,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
           'correo': correo,
           'telefono': '',
           'empresa_id': '',
-          'rol': 'propietario',
+          'rol': 'admin',
           'activo': true,
           'fecha_creacion': DateTime.now().toIso8601String(),
           'permisos': [],
@@ -658,9 +769,32 @@ class _PantallaLoginState extends State<PantallaLogin> {
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
         debugPrint('Apple Sign-In cancelado por el usuario');
+        // No mostramos error — el usuario canceló voluntariamente
+      } else if (e.code == AuthorizationErrorCode.unknown) {
+        // Error 1000: Sign In with Apple no está activado en el App ID
+        // del Apple Developer Portal, o el provisioning profile no incluye la capability
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+              'Apple Sign-In no está configurado en este dispositivo. '
+              'Usa email y contraseña por ahora.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 6),
+          ));
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error con Apple: ${e.message}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } on PlatformException catch (e) {
+      debugPrint('Apple Sign-In PlatformException: ${e.code} — ${e.message}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error de plataforma Apple: ${e.message ?? e.code}'),
           backgroundColor: Colors.red,
         ));
       }
@@ -692,20 +826,46 @@ class _PantallaLoginState extends State<PantallaLogin> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Recuperar Contraseña'),
+        title: const Row(children: [
+          Icon(Icons.lock_reset, color: Color(0xFF1976D2)),
+          SizedBox(width: 8),
+          Text('Recuperar contraseña'),
+        ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
+              'Te enviaremos un enlace a tu correo para restablecer la contraseña.',
               style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            // Aviso sobre spam
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[300]!),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Revisa también la carpeta de spam si no lo recibes en 2 minutos.',
+                    style: TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ),
+              ]),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
+              autofocus: true,
               decoration: const InputDecoration(
                 labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email_outlined),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -725,27 +885,39 @@ class _PantallaLoginState extends State<PantallaLogin> {
                 await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('📧 Enlace de recuperación enviado a $email'),
+                    content: Text('📧 Enlace enviado a $email — revisa también spam'),
                     backgroundColor: const Color(0xFF4CAF50),
-                    duration: const Duration(seconds: 5),
+                    duration: const Duration(seconds: 6),
                   ));
                 }
               } on FirebaseAuthException catch (e) {
                 if (mounted) {
                   String msg = switch (e.code) {
-                    'user-not-found' => 'No hay ninguna cuenta con ese correo.',
-                    'invalid-email' => 'El correo no es válido.',
-                    _ => 'Error: ${e.message}',
+                    'user-not-found' => 'No existe cuenta con ese correo. ¿Quizás te registraste con Google o Apple?',
+                    'invalid-email' => 'El correo no tiene un formato válido.',
+                    'too-many-requests' => 'Demasiados intentos. Espera unos minutos.',
+                    _ => 'Error al enviar el email: ${e.message}',
                   };
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(msg),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                  ));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Error inesperado: $e'),
                     backgroundColor: Colors.red,
                   ));
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2)),
-            child: const Text('Enviar enlace', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1976D2),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Enviar enlace'),
           ),
         ],
       ),
@@ -767,42 +939,49 @@ class _PantallaLoginState extends State<PantallaLogin> {
     );
   }
 
-  /// Ofrece activar biometría tras login exitoso con email/contraseña
-  void _ofrecerBiometria(String uid, String email) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
-            Icon(Icons.fingerprint, color: Color(0xFF0D47A1)),
-            SizedBox(width: 8),
-            Text('Acceso rápido'),
-          ]),
-          content: const Text(
-            '¿Quieres usar huella dactilar o Face ID para acceder más rápido la próxima vez?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Ahora no'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await _bioSvc.activar(uid: uid, email: email);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D47A1),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Activar'),
-            ),
-          ],
+  /// Ofrece activar biometría tras login exitoso con email/contraseña.
+  /// Devuelve Future para poder await antes de navegar al dashboard.
+  Future<void> _ofrecerBiometria(String uid, String email) async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.fingerprint, color: Color(0xFF0D47A1)),
+          SizedBox(width: 8),
+          Text('Acceso rápido'),
+        ]),
+        content: const Text(
+          '¿Quieres usar huella dactilar o Face ID para acceder más rápido la próxima vez?',
         ),
-      );
-    });
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Ahora no'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _bioSvc.activar(uid: uid, email: email);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('✅ Acceso biométrico activado'),
+                  backgroundColor: Color(0xFF4CAF50),
+                  duration: Duration(seconds: 2),
+                ));
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Activar'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Limpia los datos de prueba y reinicializa la empresa con módulos completos.

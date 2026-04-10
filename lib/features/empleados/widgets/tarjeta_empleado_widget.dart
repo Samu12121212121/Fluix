@@ -129,51 +129,72 @@ class TarjetaEmpleado extends StatelessWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.grey),
                 onSelected: (v) {
-                  if (v == 'editar')    onEditar();
-                  if (v == 'toggle')   onToggleActivo();
-                  if (v == 'nomina')   onDatosNomina?.call();
-                  if (v == 'embargos') onEmbargos?.call();
-                  if (v == 'foto')     onFoto?.call();
-                  if (v == 'finiquito') {
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => NuevoFiniquitoForm(
-                            empresaId: empresaId, empleadoIdPreseleccionado: id)));
-                  }
-                  if (v == 'ver_finiquitos') {
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => FiniquitosScreen(empresaId: empresaId, empleadoIdFiltro: id)));
-                  }
-                  if (v == 'vacaciones') {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      useSafeArea: true,
-                      builder: (_) => NuevaSolicitudForm(empresaId: empresaId, empleadoIdFijo: id),
-                    );
-                  }
-                  if (v == 'ver_saldo_vacaciones') {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: Text('Vacaciones — ${data['nombre'] ?? ''}'),
-                        content: SizedBox(
-                          width: double.maxFinite,
-                          child: SaldoVacacionesWidget(
-                              empresaId: empresaId, empleadoId: id, anio: DateTime.now().year),
-                        ),
-                        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
-                      ),
-                    );
-                  }
-                  if (v == 'ver_antiguedad') _mostrarDialogoAntiguedad(context, id, data);
-                  if (v == 'modulos') {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ConfigurarModulosEmpleadoScreen(
-                        empresaId: empresaId,
-                        empleadoUid: id,
-                        empleadoNombre: data['nombre'] ?? 'Empleado',
-                      ),
+                  try {
+                    switch (v) {
+                      case 'editar':
+                        onEditar();
+                        break;
+                      case 'toggle':
+                        onToggleActivo();
+                        break;
+                      case 'nomina':
+                        onDatosNomina?.call();
+                        break;
+                      case 'embargos':
+                        onEmbargos?.call();
+                        break;
+                      case 'foto':
+                        onFoto?.call();
+                        break;
+                      case 'finiquito':
+                        Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => NuevoFiniquitoForm(
+                                empresaId: empresaId, empleadoIdPreseleccionado: id)));
+                        break;
+                      case 'ver_finiquitos':
+                        Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => FiniquitosScreen(empresaId: empresaId, empleadoIdFiltro: id)));
+                        break;
+                      case 'vacaciones':
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          useSafeArea: true,
+                          builder: (_) => NuevaSolicitudForm(empresaId: empresaId, empleadoIdFijo: id),
+                        );
+                        break;
+                      case 'ver_saldo_vacaciones':
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Text('Vacaciones — ${data['nombre'] ?? ''}'),
+                            content: SizedBox(
+                              width: double.maxFinite,
+                              child: SaldoVacacionesWidget(
+                                  empresaId: empresaId, empleadoId: id, anio: DateTime.now().year),
+                            ),
+                            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
+                          ),
+                        );
+                        break;
+                      case 'ver_antiguedad':
+                        _mostrarDialogoAntiguedad(context, id, data);
+                        break;
+                      case 'modulos':
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => ConfigurarModulosEmpleadoScreen(
+                            empresaId: empresaId,
+                            empleadoUid: id,
+                            empleadoNombre: data['nombre'] ?? 'Empleado',
+                          ),
+                        ));
+                        break;
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('❌ Error al ejecutar acción: $e'),
+                      backgroundColor: Colors.red,
                     ));
                   }
                 },

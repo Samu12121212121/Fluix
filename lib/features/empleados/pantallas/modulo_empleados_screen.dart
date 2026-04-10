@@ -27,9 +27,10 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
   final _firestore = FirebaseFirestore.instance;
   final _convenioService = ConvenioFirestoreService();
 
+  // Admin y propietario pueden gestionar empleados
   bool get _esPropietario =>
-      widget.sesion?.esPropietario ??
-      (PermisosService().sesion?.esPropietario ?? false);
+      widget.sesion?.esAdmin ??
+      (PermisosService().sesion?.esAdmin ?? false);
 
   @override
   void initState() {
