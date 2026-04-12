@@ -1,5 +1,6 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
@@ -578,20 +579,21 @@ class _TarjetaResena extends StatelessWidget {
                       publicadoEnGoogle = true;
                     }
                   }
-                } on PlatformException catch (e) {
+                } on PlatformException catch (_) {
                 } catch (_) { msgExtra = ' (Conecta Google Business para publicar en Maps)'; }
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                content: Row(children: [
-                  Icon(publicadoEnGoogle ? Icons.check_circle : Icons.save, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(data['origen'] == 'google'
-                    ? (publicadoEnGoogle ? 'Respuesta publicada en Google Maps ✅' : 'Guardada localmente$msgExtra')
-                    : 'Respuesta guardada correctamente')),
-                ]),
-                backgroundColor: publicadoEnGoogle ? const Color(0xFF4CAF50) : const Color(0xFF1976D2),
-                duration: const Duration(seconds: 4)));
-            }
+              }  // closes else
+            }  // closes if (data['origen'] == 'google')
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+              content: Row(children: [
+                Icon(publicadoEnGoogle ? Icons.check_circle : Icons.save, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(data['origen'] == 'google'
+                  ? (publicadoEnGoogle ? 'Respuesta publicada en Google Maps ✅' : 'Guardada localmente$msgExtra')
+                  : 'Respuesta guardada correctamente')),
+              ]),
+              backgroundColor: publicadoEnGoogle ? const Color(0xFF4CAF50) : const Color(0xFF1976D2),
+              duration: const Duration(seconds: 4)));
           },
           child: const Text('Guardar')),
       ]));

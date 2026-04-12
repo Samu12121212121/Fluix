@@ -81,9 +81,10 @@ class Mod303Service {
     required int anio,
     required int trimestre,
   }) async {
-    final rango = Mod303Exporter.rangoMesesTrimestre(trimestre);
-    final fechaInicio = DateTime(anio, rango.mesInicio, 1);
-    final fechaFin = DateTime(anio, rango.mesFin + 1, 1);
+    final mesInicio = (trimestre - 1) * 3 + 1;
+    final mesFin = trimestre * 3;
+    final fechaInicio = DateTime(anio, mesInicio, 1);
+    final fechaFin = DateTime(anio, mesFin + 1, 1);
     final criterio = await _obtenerCriterioIVA(empresaId);
 
     // Obtener facturas emitidas y recibidas con ventana amplia y filtrar por criterio

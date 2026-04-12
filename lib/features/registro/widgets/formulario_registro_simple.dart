@@ -466,9 +466,9 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
         'fecha_creacion': Timestamp.fromDate(now),
       });
 
-      // 3. Crear documento de usuario
-      // NOTA: El rol 'propietario' es exclusivo de la empresa FluixTech.
-      // Los dueños de otras empresas se crean con rol 'admin'.
+      // 3. Crear documento de usuario con rol 'admin' (dueños de empresas externas)
+      await db.collection('usuarios').doc(uid).set({
+        'nombre':            _nombrePropietarioController.text.trim(),
         'correo':            _correoPropietarioController.text.trim(),
         'telefono':          _telefonoPropietarioController.text.trim(),
         'rol':               'admin',
@@ -478,7 +478,6 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
         'fecha_creacion':    now.toIso8601String(),
         'token_dispositivo': null,
         'token_actualizado': null,
-        'rol':               'propietario',
       });
 
       // 4. configuracion/modulos — catálogo inicial (citas apagado por defecto)
@@ -510,21 +509,15 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
 
       // 6. estadisticas/resumen — vacío inicial
       await empresaRef.collection('estadisticas').doc('resumen').set({
-        'fecha_calculo':       now.toIso8601String(),
+        'fecha_calculo':        now.toIso8601String(),
         'ultima_actualizacion': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        // Cargar sesión y navegar al dashboard directamente
-        await Future.wait([
-          NotificacionesService().guardarTokenTrasLogin(),
-          PermisosService().cargarSesion(),
-        ]);
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-          (_) => false,
+          const SnackBar(content: Text('¡Empresa registrada exitosamente!')),
         );
+        Navigator.of(context).pop();
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapearErrorAuth(e));
@@ -538,7 +531,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
   String _mapearErrorAuth(FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':
-        Navigator.of(context).pop();
+        return 'Este correo ya está registrado. Intenta iniciar sesión.';
       default:
         return 'Error al crear la cuenta: ${e.message}';
     }

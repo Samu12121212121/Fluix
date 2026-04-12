@@ -361,24 +361,51 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
               setState(() {
                 _categoriaConvenioSeleccionada = v;
                 if (v != null) {
-                  final categoria = widget.categoriasConvenio.firstWhere((c) => c.id == v);
-                  _numPagas = categoria.numPagas > 0 ? categoria.numPagas : 14;
-                final categoria = widget.categoriasConvenio.firstWhere((c) => c.id == v);
-                _salarioCtrl.text = categoria.salarioAnual.toString();
-                _numPagas = categoria.numPagas;
-                .toList(),
+                  try {
+                    final categoria = widget.categoriasConvenio.firstWhere((c) => c.id == v);
+                    _numPagas = categoria.numPagas > 0 ? categoria.numPagas : 14;
+                    if (!categoria.salarioLibre) {
+                      _salarioCtrl.text = categoria.salarioAnual.toString();
+                    }
+                  } catch (_) {}
+                }
+              });
+            },
+            (v) {
+              try { return widget.categoriasConvenio.firstWhere((c) => c.id == v).nombre; }
+              catch (_) { return v; }
+            },
+            Icons.category,
           ),
-          // ── Aviso Nivel I salario libre ─────────────────────────────────
-          if (_categoriaConvenioSeleccionada != null) ...[
-            () {
-              final cat = widget.categoriasConvenio
-                  .cast<CategoriaConvenio?>()
+          if (_categoriaConvenioSeleccionada != null)
+            Builder(builder: (_) {
+              final cat = widget.categoriasConvenio.cast<CategoriaConvenio?>()
                   .firstWhere((c) => c?.id == _categoriaConvenioSeleccionada, orElse: () => null);
               if (cat != null && (cat.salarioLibre || (cat.nota?.isNotEmpty ?? false))) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
-            ),
-          ),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.info_outline, size: 14, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(cat.nota ?? 'Salario libre según convenio',
+                          style: const TextStyle(fontSize: 12))),
+                    ]),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+        ],
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _buildCampoTexto(_salarioCtrl, 'Salario bruto anual (€)', 'Ej: 20000', Icons.euro, numerico: true)),
           const SizedBox(width: 12),
           Expanded(child: _buildCampoTexto(_horasCtrl, 'Horas semanales', 'Ej: 40', Icons.timer, numerico: true)),
         ]),
@@ -388,7 +415,14 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
           value: _prorrateoPagas,
           onChanged: (v) => setState(() => _prorrateoPagas = v),
         ),
-        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _tabSalario() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
         _buildCampoTexto(_irpfPctCtrl, 'Retención IRPF (%)', 'Ej: 15', Icons.percent, numerico: true),
         const SizedBox(height: 16),
         _buildCampoTexto(_otrasRentasCtrl, 'Otras rentas anuales (€)', 'Ej: 0', Icons.savings, numerico: true),

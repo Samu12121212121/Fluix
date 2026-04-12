@@ -129,7 +129,6 @@ class _ImportarCsvScreenState extends State<ImportarCsvScreen> {
           ],
         ],
       ),
-      ),
     );
   }
 
