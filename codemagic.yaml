@@ -28,12 +28,15 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          echo "=== VARIABLES ==="
-          echo "CM_PROVISIONING_PROFILE está vacío: ${CM_PROVISIONING_PROFILE:-VACIO}"
+          app-store-connect fetch-signing-files com.fluixtech.crm \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Flutter build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
