@@ -32,9 +32,8 @@ workflows:
           echo "CM_PROVISIONING_PROFILE está vacío: ${CM_PROVISIONING_PROFILE:-VACIO}"
       - name: Flutter build IPA
         script: |
-          flutter build ipa --release
           flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
