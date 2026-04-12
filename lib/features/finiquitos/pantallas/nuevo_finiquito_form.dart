@@ -159,6 +159,10 @@ class _NuevoFiniquitoFormState extends State<NuevoFiniquitoForm> {
       case 'veterinaria':
       case 'clinica_veterinaria':
         return 'veterinarios-guadalajara-2026';
+      case 'construccion':
+      case 'obras_publicas':
+      case 'construccion_obras_publicas':
+        return 'construccion-obras-publicas-guadalajara';
       default:
         return 'hosteleria-guadalajara';
     }

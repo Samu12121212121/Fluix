@@ -110,6 +110,11 @@ rules_version = '2';
         match /empresas/{empresaId} {
           // [FIX-1] Lectura SOLO para miembros de la empresa (antes: allow read: if true)
           allow read: if perteneceAEmpresa(empresaId);
+          // [DEMO-FIX] Permite buscar empresa por correo aunque el usuario aún no tenga
+          // documento en usuarios/{uid}. Necesario para la cuenta demo y usuarios recién
+          // creados cuyo documento en Firestore se está creando en ese momento.
+          allow read: if request.auth != null
+            && resource.data.perfil.correo == request.auth.token.email;
           // Solo propietario puede escribir el doc raíz
           allow write: if esPropietario(empresaId);
           // Cualquier auth puede crear una empresa (al registrarse)

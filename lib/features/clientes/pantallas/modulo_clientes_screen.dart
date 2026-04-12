@@ -100,90 +100,96 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Buscador
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _busquedaCtrl,
-              onChanged: (v) => setState(() => _filtro = v.toLowerCase()),
-              decoration: InputDecoration(
-                hintText: 'Buscar cliente por nombre o teléfono...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _filtro.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
-                        _busquedaCtrl.clear();
-                        setState(() => _filtro = '');
-                      })
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-          ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('empresas')
+            .doc(widget.empresaId)
+            .collection('clientes')
+            .orderBy('nombre')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
 
-          // Barra de filtros de segmentación
-          _buildFiltrosBar(),
+          var clientes = snapshot.data?.docs ?? [];
 
-          // Lista
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('empresas')
-                  .doc(widget.empresaId)
-                  .collection('clientes')
-                  .orderBy('nombre')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+          // Aplicar todos los filtros de segmentación
+          clientes = ClientesService.filtrarClientes(
+            docs: clientes,
+            textoBusqueda: _filtro,
+            etiquetasActivas: _etiquetasActivas,
+            minFacturacion: _minFacturacion,
+            mesesActividad: _mesesActividad,
+            localidad: _localidadFiltro,
+          );
 
-                var clientes = snapshot.data?.docs ?? [];
-
-                // Aplicar todos los filtros de segmentación
-                clientes = ClientesService.filtrarClientes(
-                  docs: clientes,
-                  textoBusqueda: _filtro,
-                  etiquetasActivas: _etiquetasActivas,
-                  minFacturacion: _minFacturacion,
-                  mesesActividad: _mesesActividad,
-                  localidad: _localidadFiltro,
-                );
-
-                if (clientes.isEmpty) {
-                  return _buildVacio();
-                }
-
-                return Column(
-                  children: [
-                    _buildResumen(clientes),
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: clientes.length,
-                        itemBuilder: (context, i) {
-                          final data = clientes[i].data() as Map<String, dynamic>;
-                          return _TarjetaCliente(
-                            id: clientes[i].id,
-                            data: data,
-                            onTap: () => _verDetalle(clientes[i].id, data),
-                          );
-                        },
-                      ),
+          return CustomScrollView(
+            slivers: [
+              // Buscador
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    controller: _busquedaCtrl,
+                    onChanged: (v) => setState(() => _filtro = v.toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar cliente por nombre o teléfono...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _filtro.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _busquedaCtrl.clear();
+                                setState(() => _filtro = '');
+                              })
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+                  ),
+                ),
+              ),
+
+              // Barra de filtros de segmentación
+              SliverToBoxAdapter(child: _buildFiltrosBar()),
+
+              // Lista vacía o contenido
+              if (clientes.isEmpty)
+                SliverFillRemaining(child: _buildVacio())
+              else ...[
+                // Resumen estadístico
+                SliverToBoxAdapter(child: _buildResumen(clientes)),
+                // Tarjetas de clientes
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) {
+                        final data =
+                            clientes[i].data() as Map<String, dynamic>;
+                        return _TarjetaCliente(
+                          id: clientes[i].id,
+                          data: data,
+                          onTap: () => _verDetalle(clientes[i].id, data),
+                        );
+                      },
+                      childCount: clientes.length,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
       floatingActionButton: (widget.sesion?.puedeGestionarClientes ?? true)
           ? FloatingActionButton.extended(

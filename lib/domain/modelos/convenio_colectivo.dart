@@ -35,6 +35,10 @@ class CategoriaConvenio {
   final double salarioBaseMensual;
   final double salarioAnual;
   final int numPagas;
+  /// true cuando el salario no está fijado por tabla (Nivel I — salario libre).
+  final bool salarioLibre;
+  /// Aviso que debe mostrarse al seleccionar esta categoría (opcional).
+  final String? nota;
 
   CategoriaConvenio({
     required this.id,
@@ -43,6 +47,8 @@ class CategoriaConvenio {
     required this.salarioBaseMensual,
     required this.salarioAnual,
     required this.numPagas,
+    this.salarioLibre = false,
+    this.nota,
   });
 
     factory CategoriaConvenio.fromMap(Map<String, dynamic> map) {
@@ -53,6 +59,8 @@ class CategoriaConvenio {
       salarioBaseMensual: (map['salario_base_mensual'] as num? ?? 0).toDouble(),
       salarioAnual: (map['salario_anual'] as num? ?? 0).toDouble(),
       numPagas: (map['num_pagas'] as num? ?? 0).toInt(),
+      salarioLibre: map['salario_libre'] as bool? ?? false,
+      nota: map['nota'] as String?,
     );
   }
 }

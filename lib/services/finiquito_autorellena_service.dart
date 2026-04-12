@@ -272,6 +272,10 @@ class FiniquitoAutoRellenaService {
       case 'veterinaria':
       case 'clinica_veterinaria':
         return 'veterinarios-guadalajara-2026';
+      case 'construccion':
+      case 'obras_publicas':
+      case 'construccion_obras_publicas':
+        return 'construccion-obras-publicas-guadalajara';
       default:
         return 'hosteleria-guadalajara';
     }
@@ -284,6 +288,7 @@ class FiniquitoAutoRellenaService {
       'peluqueria-estetica-gimnasios': 30,
       'industrias-carnicas-guadalajara-2025': 31,
       'veterinarios-guadalajara-2026': 30,
+      'construccion-obras-publicas-guadalajara': 30,
     };
     return mapa[convenioId] ?? 30;
   }

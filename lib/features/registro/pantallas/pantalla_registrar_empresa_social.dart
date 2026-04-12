@@ -43,6 +43,7 @@ class _PantallaRegistrarEmpresaSocialState
     ('servicios', 'Servicios profesionales'),
     ('peluqueria', 'Peluquería / Estética'),
     ('salud', 'Salud / Clínica'),
+    ('construccion', 'Construcción / Obra'),
     ('otro', 'Otro'),
   ];
 
@@ -303,5 +304,6 @@ class _PantallaRegistrarEmpresaSocialState
     );
   }
 }
+
 
 

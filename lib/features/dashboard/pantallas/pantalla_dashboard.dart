@@ -38,6 +38,7 @@ import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
 import 'pantalla_contenido_web.dart';
+import '../../../services/auth/token_refresh_service.dart';
 
 class PantallaDashboard extends StatefulWidget {
   const PantallaDashboard({super.key});
@@ -290,11 +291,24 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       }
     } catch (e) {
       debugPrint('❌ Error cargando datos usuario: $e');
-      setState(() {
-        _nombreUsuario =
-            FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
-        _cargando = false;
-      });
+      // Manejo de permission-denied: renovar token y reintentar UNA vez
+      final esPermissionDenied = e.toString().contains('permission-denied') ||
+          e.toString().contains('PERMISSION_DENIED');
+      if (esPermissionDenied) {
+        debugPrint('⚠️ permission-denied — renovando token y reintentando...');
+        final renovado = await TokenRefreshService().manejarPermissionDenied();
+        if (renovado && mounted) {
+          // Reintento tras renovación del token
+          return _cargarDatosUsuario();
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _nombreUsuario =
+              FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -813,37 +827,36 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             // Ordenar por orden
             widgets.sort((a, b) => a.orden.compareTo(b.orden));
 
-            return Column(
-              children: [
-                // ── Banner offline ──────────────────────────────
-                const OfflineBanner(),
+            // Modo edición: header fijo + lista reordenable
+            if (_editandoDashboard) {
+              return Column(
+                children: [
+                  const OfflineBanner(),
+                  _buildHeaderDashboard(),
+                  Expanded(child: _buildReorderableList(widgets)),
+                ],
+              );
+            }
 
-                _buildHeaderDashboard(),
-
-
-                // ── Lista de widgets (reordenable o normal) ─────
-                Expanded(
-                  child: _editandoDashboard
-                      ? _buildReorderableList(widgets)
-                      : _buildNormalList(widgets),
+            // Modo normal: todo en scroll (banner + header + widgets)
+            return CustomScrollView(
+              slivers: [
+                const SliverToBoxAdapter(child: OfflineBanner()),
+                SliverToBoxAdapter(child: _buildHeaderDashboard()),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildWidgetItem(widgets[index], index),
+                      childCount: widgets.length,
+                    ),
+                  ),
                 ),
               ],
             );
           },
         );
       },
-    );
-  }
-
-  Widget _buildNormalList(List<WidgetConfig> widgets) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: 20),
-        itemCount: widgets.length,
-        itemBuilder: (context, index) =>
-            _buildWidgetItem(widgets[index], index),
-      ),
     );
   }
 
@@ -1146,16 +1159,23 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   // ── DEMO FAB ─────────────────────────────────────────────────────────────
   Widget? _buildDemoFab() {
     final email = FirebaseAuth.instance.currentUser?.email;
+    // Visible para la cuenta demo tanto en debug como en release
     if (!_demoService.esDemo(email) || _empresaId == null) return null;
 
-    return FloatingActionButton(
+    return FloatingActionButton.extended(
       onPressed: _generandoDemo ? null : _generarDatosDemo,
       backgroundColor: const Color(0xFF7C4DFF),
-      child: _generandoDemo
+      icon: _generandoDemo
           ? const SizedBox(
-              width: 24, height: 24,
-              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+            )
           : const Icon(Icons.auto_fix_high, color: Colors.white),
+      label: const Text(
+        'Generar datos demo',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      ),
     );
   }
 

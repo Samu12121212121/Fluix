@@ -42,6 +42,10 @@ class EmpresaConfig {
   final CriterioIVA criterioIva;
   final String ibanEmpresa;
   final String bicEmpresa;
+  // Prefijos de serie (máx. 5 caracteres)
+  final String serieFactura;       // default 'F'
+  final String serieRectificativa; // default 'R'
+  final String serieProforma;      // default 'P'
 
   const EmpresaConfig({
     this.nif = '',
@@ -56,6 +60,9 @@ class EmpresaConfig {
     this.criterioIva = CriterioIVA.devengo,
     this.ibanEmpresa = '',
     this.bicEmpresa = '',
+    this.serieFactura = 'F',
+    this.serieRectificativa = 'R',
+    this.serieProforma = 'P',
   });
 
   factory EmpresaConfig.fromSources({
@@ -81,6 +88,9 @@ class EmpresaConfig {
       ),
       ibanEmpresa: (empresa['iban_empresa'] ?? fiscal['iban_empresa'] ?? '').toString(),
       bicEmpresa: (empresa['bic_empresa'] ?? fiscal['bic_empresa'] ?? '').toString(),
+      serieFactura: _serieValida(empresa['serie_factura'] ?? 'F', 'F'),
+      serieRectificativa: _serieValida(empresa['serie_rectificativa'] ?? 'R', 'R'),
+      serieProforma: _serieValida(empresa['serie_proforma'] ?? 'P', 'P'),
     );
   }
 
@@ -94,6 +104,9 @@ class EmpresaConfig {
         'epigraf_iae': epigrafIAE.trim(),
         if (ibanEmpresa.trim().isNotEmpty) 'iban_empresa': ibanEmpresa.trim(),
         if (bicEmpresa.trim().isNotEmpty) 'bic_empresa': bicEmpresa.trim(),
+        'serie_factura': serieFactura.trim().toUpperCase(),
+        'serie_rectificativa': serieRectificativa.trim().toUpperCase(),
+        'serie_proforma': serieProforma.trim().toUpperCase(),
       };
 
   Map<String, dynamic> toFiscalDoc() => {
@@ -119,6 +132,9 @@ class EmpresaConfig {
     CriterioIVA? criterioIva,
     String? ibanEmpresa,
     String? bicEmpresa,
+    String? serieFactura,
+    String? serieRectificativa,
+    String? serieProforma,
   }) {
     return EmpresaConfig(
       nif: nif ?? this.nif,
@@ -132,6 +148,9 @@ class EmpresaConfig {
       criterioIva: criterioIva ?? this.criterioIva,
       ibanEmpresa: ibanEmpresa ?? this.ibanEmpresa,
       bicEmpresa: bicEmpresa ?? this.bicEmpresa,
+      serieFactura: serieFactura ?? this.serieFactura,
+      serieRectificativa: serieRectificativa ?? this.serieRectificativa,
+      serieProforma: serieProforma ?? this.serieProforma,
     );
   }
 
@@ -170,3 +189,12 @@ class EmpresaConfig {
 
 
 // EmpresaConfig — fin del archivo
+
+/// Valida y normaliza el prefijo de una serie (máx. 5 caracteres alfanuméricos).
+String _serieValida(dynamic valor, String porDefecto) {
+  final s = (valor ?? '').toString().trim().toUpperCase();
+  if (s.isEmpty || s.length > 5) return porDefecto;
+  final soloAlfa = RegExp(r'^[A-Z0-9\-]+$');
+  return soloAlfa.hasMatch(s) ? s : porDefecto;
+}
+

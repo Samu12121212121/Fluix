@@ -30,6 +30,7 @@ class NominasService {
   static const String _convPeluqueriaId = 'peluqueria-estetica-gimnasios';
   static const String _convCarnicasId   = 'industrias-carnicas-guadalajara-2025';
   static const String _convVetId        = 'veterinarios-guadalajara-2026';
+  static const String _convConstruccionId = 'construccion-obras-publicas-guadalajara';
 
   // Referencia SMI 2026 (anual, 14 pagas). Se usa como umbral mínimo.
   static const double _smiAnual2026 = 15876.0;
@@ -41,6 +42,7 @@ class NominasService {
     _convPeluqueriaId: 1782, // sin dato oficial en seed, usamos 1782 como base estándar
     _convCarnicasId: 1748,   // BOE-A-2025-13965, desde 01/01/2025
     _convVetId: 1780,        // BOE-A-2023-21910, art. 38
+    _convConstruccionId: 1736, // Convenio provincial Construcción Guadalajara 2025-2026
   };
 
   String _resolverConvenioPorSector(String? sector) {
@@ -58,6 +60,10 @@ class NominasService {
       case 'veterinaria':
       case 'clinica_veterinaria':
         return _convVetId;
+      case 'construccion':
+      case 'obras_publicas':
+      case 'construccion_obras_publicas':
+        return _convConstruccionId;
       default:
         return _convHosteleriaId;
     }

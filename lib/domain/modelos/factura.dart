@@ -305,6 +305,8 @@ class Factura {
   // Notas
   final String? notasInternas;
   final String? notasCliente;
+  // Fecha de operación (Art. 6.1.f RD 1619/2012): obligatoria si difiere de fechaEmision
+  final DateTime? fechaOperacion;
   // Verifactu (registro fiscal electrónico RD 1007/2023)
   final Map<String, dynamic>? verifactu;
   // Auditoría
@@ -345,6 +347,7 @@ class Factura {
     this.motivoRectificacionTexto,
     this.notasInternas,
     this.notasCliente,
+    this.fechaOperacion,
     this.verifactu,
     required this.historial,
     required this.fechaEmision,
@@ -397,6 +400,7 @@ class Factura {
     String? motivoRectificacionTexto,
     String? notasInternas,
     String? notasCliente,
+    DateTime? fechaOperacion,
     List<EntradaHistorialFactura>? historial,
     DateTime? fechaEmision,
     DateTime? fechaVencimiento,
@@ -433,6 +437,7 @@ class Factura {
     motivoRectificacionTexto: motivoRectificacionTexto ?? this.motivoRectificacionTexto,
     notasInternas: notasInternas ?? this.notasInternas,
     notasCliente: notasCliente ?? this.notasCliente,
+    fechaOperacion: fechaOperacion ?? this.fechaOperacion,
     historial: historial ?? this.historial,
     fechaEmision: fechaEmision ?? this.fechaEmision,
     fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
@@ -520,6 +525,9 @@ class Factura {
       motivoRectificacionTexto: d['motivo_rectificacion_texto'],
       notasInternas: d['notas_internas'],
       notasCliente: d['notas_cliente'],
+      fechaOperacion: d['fecha_operacion'] != null
+          ? _parseTs(d['fecha_operacion'])
+          : null,
       verifactu: d['verifactu'],
       historial: (d['historial'] as List<dynamic>? ?? [])
           .map((h) => EntradaHistorialFactura.fromMap(h as Map<String, dynamic>))
@@ -567,6 +575,9 @@ class Factura {
     'motivo_rectificacion_texto': motivoRectificacionTexto,
     'notas_internas': notasInternas,
     'notas_cliente': notasCliente,
+    'fecha_operacion': fechaOperacion != null
+        ? Timestamp.fromDate(fechaOperacion!)
+        : null,
     'verifactu': verifactu,
     'historial': historial.map((h) => h.toMap()).toList(),
     'fecha_emision': Timestamp.fromDate(fechaEmision),

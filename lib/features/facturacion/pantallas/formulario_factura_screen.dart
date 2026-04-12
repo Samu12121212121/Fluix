@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/core/utils/validador_nif_cif.dart';
@@ -31,6 +32,7 @@ class FormularioFacturaScreen extends StatefulWidget {
 class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   final _formKey = GlobalKey<FormState>();
   final _service = FacturacionService();
+  final _firestore = FirebaseFirestore.instance;
   bool _guardando = false;
   bool get _esEdicion => widget.facturaExistente != null;
 
@@ -57,6 +59,15 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
   // Líneas
   final List<LineaFactura> _lineas = [];
+
+  // Bandera para empresas del sector construcción / obras
+  bool _esConstruccion = false;
+  // Bandera para hostelería (IVA por defecto 10%)
+  bool _esHosteleria = false;
+  // Bandera para comercio (IVA obligatorio por línea, sin valor por defecto)
+  bool _esComercio = false;
+  // Fecha de operación (opcional; obligatoria si difiere de emisión)
+  DateTime? _fechaOperacion;
 
   // Notas
   final _ctrlNotasInternas = TextEditingController();
@@ -85,6 +96,55 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
         }
       }
     }
+
+    _cargarContextoEmpresa();
+  }
+
+  Future<void> _cargarContextoEmpresa() async {
+    try {
+      final doc = await _firestore
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .get();
+      final data = doc.data() ?? <String, dynamic>{};
+      final sector = (data['sector'] as String? ?? '').toLowerCase();
+      final tipo = (data['tipo_negocio'] as String? ?? '').toLowerCase();
+
+      final esConstruccion = sector.contains('construcci') ||
+          tipo.contains('construcci') ||
+          tipo.contains('obra');
+
+      final esHosteleria = sector.contains('hostel') ||
+          sector.contains('restaura') ||
+          sector.contains('cafeter') ||
+          sector.contains('bar') ||
+          tipo.contains('hostel') ||
+          tipo.contains('restaura');
+
+      final esComercio = sector.contains('comerci') ||
+          tipo.contains('comerci') ||
+          tipo.contains('tienda') ||
+          tipo.contains('bazar');
+
+      // IVA por defecto según sector:
+      //  - Hostelería: 10% (comidas y bebidas no alcohólicas)
+      //  - Comercio: sin defecto (obligatorio elegir por línea)
+      //  - Construcción: 21% (el asistente ajustará según obra)
+      //  - Resto: 21%
+      double ivaDefecto = esHosteleria ? 10.0 : 21.0;
+
+      if (mounted) {
+        setState(() {
+          _esConstruccion = esConstruccion;
+          _esHosteleria = esHosteleria;
+          _esComercio = esComercio;
+          // Solo sobreescribir el IVA si es una factura nueva
+          if (!_esEdicion) _porcentajeIva = ivaDefecto;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error cargando contexto empresa: $e');
+    }
   }
 
   void _precargarFactura(Factura f) {
@@ -99,6 +159,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
     _ctrlNotasInternas.text = f.notasInternas ?? '';
     _ctrlNotasCliente.text = f.notasCliente ?? '';
     _lineas.addAll(f.lineas);
+    _fechaOperacion = f.fechaOperacion;
     _tipoCliente = ((f.datosFiscales?.razonSocial?.trim().isNotEmpty ?? false) ||
             (f.datosFiscales?.direccion?.trim().isNotEmpty ?? false))
         ? TipoClienteFactura.empresaAutonomo
@@ -109,7 +170,6 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
       _ctrlRazonSocial.text = f.datosFiscales?.razonSocial ?? '';
       _ctrlDireccion.text = f.datosFiscales?.direccion ?? '';
     }
-    // Intentar leer el IVA de la primera línea
     if (f.lineas.isNotEmpty) {
       _porcentajeIva = f.lineas.first.porcentajeIva;
     }
@@ -139,6 +199,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   bool get _esEmpresaOProfesional =>
       _tipoCliente == TipoClienteFactura.empresaAutonomo;
   bool get _nifObligatorio => _esEmpresaOProfesional || _importeTotalActual >= 400;
+  /// Si es empresa/autónomo el NIF es obligatorio estrictamente (no se puede continuar sin él)
+  bool get _nifEstrictamenteObligatorio => _esEmpresaOProfesional || _ctrlRazonSocial.text.trim().isNotEmpty;
   bool get _debeMostrarDatosFiscales =>
       _mostrarDatosFiscales ||
       _esEmpresaOProfesional ||
@@ -291,6 +353,51 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
                 onChanged: (v) => setState(() => _tipoFactura = v!),
               ),
               const SizedBox(height: 12),
+              // ── Fecha de operación (Art. 6.1.f RD 1619/2012) ──────────
+              InkWell(
+                onTap: () async {
+                  final fecha = await showDatePicker(
+                    context: context,
+                    initialDate: _fechaOperacion ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    helpText: 'Fecha de realización de la operación',
+                  );
+                  if (fecha != null) {
+                    setState(() => _fechaOperacion = fecha);
+                  }
+                },
+                child: InputDecorator(
+                  decoration: _inputDeco(
+                    'Fecha de operación (opcional)',
+                    hintText: 'Solo si difiere de la fecha de emisión',
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _fechaOperacion != null
+                              ? '${_fechaOperacion!.day.toString().padLeft(2, '0')}/${_fechaOperacion!.month.toString().padLeft(2, '0')}/${_fechaOperacion!.year}'
+                              : 'Igual que la fecha de emisión',
+                          style: TextStyle(
+                            color: _fechaOperacion != null
+                                ? Colors.black87
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                      if (_fechaOperacion != null)
+                        GestureDetector(
+                          onTap: () => setState(() => _fechaOperacion = null),
+                          child: const Icon(Icons.close, size: 18, color: Colors.grey),
+                        )
+                      else
+                        const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<double>(
                 value: _porcentajeIva,
                 decoration: _inputDeco('IVA aplicable'),
@@ -302,6 +409,57 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
                 ],
                 onChanged: (v) => setState(() => _porcentajeIva = v!),
               ),
+              if (_esHosteleria) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFCC02)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 14, color: Color(0xFFF57F17)),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Hostelería: comidas/bebidas sin alcohol → 10% · '
+                          'Bebidas alcohólicas → 21% · '
+                          'Cambia el IVA por línea si mezclas tipos.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFFF57F17)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_esComercio) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF1565C0)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.shopping_cart_outlined, size: 14, color: Color(0xFF1565C0)),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Comercio: selecciona el IVA por cada línea · '
+                          '4% Alimentación básica/medicamentos · '
+                          '10% Alimentación general · '
+                          '21% Ropa, electrónica y resto.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF1565C0)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               DropdownButtonFormField<MetodoPagoFactura?>(
                 value: _metodoPago,
@@ -608,7 +766,11 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   void _agregarLinea() async {
     final linea = await showDialog<LineaFactura>(
       context: context,
-      builder: (ctx) => _DialogLineaFactura(ivaDefault: _porcentajeIva),
+      builder: (ctx) => _DialogLineaFactura(
+        ivaDefault: _porcentajeIva,
+        mostrarAsistente: _esConstruccion,
+        esComercio: _esComercio,
+      ),
     );
     if (linea != null) {
       setState(() => _lineas.add(linea));
@@ -640,7 +802,24 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
       }
     }
 
-    if (_nifObligatorio && !hayNifValido) {
+    // Bloqueo estricto: empresa/autónomo SIEMPRE requiere NIF válido
+    if (_nifEstrictamenteObligatorio && !hayNifValido) {
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '❌ NIF/CIF obligatorio para empresas y autónomos. '
+            'Introduce un NIF/CIF válido antes de continuar.',
+          ),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    // Advertencia (no bloqueo) para particulares con total ≥ 400 €
+    if (_nifObligatorio && !_nifEstrictamenteObligatorio && !hayNifValido) {
       final continuar = await _mostrarDialogoAdvertenciaFiscal();
       if (continuar != true) return;
     }
@@ -688,6 +867,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
               ? null : _ctrlNotasInternas.text,
           notasCliente: _ctrlNotasCliente.text.isEmpty
               ? null : _ctrlNotasCliente.text,
+          fechaOperacion: _fechaOperacion,
           diasVencimiento: diasVenc,
           descuentoGlobal: _descuentoGlobal,
           porcentajeIrpf: _porcentajeIrpf,
@@ -711,6 +891,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
               ? null : _ctrlNotasInternas.text,
           notasCliente: _ctrlNotasCliente.text.isEmpty
               ? null : _ctrlNotasCliente.text,
+          fechaOperacion: _fechaOperacion,
           diasVencimiento: diasVenc,
           descuentoGlobal: _descuentoGlobal,
           porcentajeIrpf: _porcentajeIrpf,
@@ -782,7 +963,16 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
 class _DialogLineaFactura extends StatefulWidget {
   final double ivaDefault;
-  const _DialogLineaFactura({required this.ivaDefault});
+  final bool mostrarAsistente;
+  /// Si true (sector Comercio) el IVA no tiene valor por defecto:
+  /// el usuario DEBE seleccionarlo antes de confirmar.
+  final bool esComercio;
+
+  const _DialogLineaFactura({
+    required this.ivaDefault,
+    this.mostrarAsistente = false,
+    this.esComercio = false,
+  });
 
   @override
   State<_DialogLineaFactura> createState() => _DialogLineaFacturaState();
@@ -793,13 +983,14 @@ class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
   final _ctrlPrecio = TextEditingController();
   final _ctrlCantidad = TextEditingController(text: '1');
   final _ctrlDescuento = TextEditingController(text: '0');
-  late double _iva;
+  double? _iva; // null en modo comercio hasta que el usuario elige
   double _recargoEquivalencia = 0;
+  bool _mostrarErrorIva = false;
 
   @override
   void initState() {
     super.initState();
-    _iva = widget.ivaDefault;
+    _iva = widget.esComercio ? null : widget.ivaDefault;
   }
 
   @override
@@ -833,20 +1024,45 @@ class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
               decoration: const InputDecoration(labelText: 'Descuento línea (%)'),
             ),
             const SizedBox(height: 8),
+            // Selector IVA: con etiquetas de categoría para Comercio
             DropdownButtonFormField<double>(
-              initialValue: _iva,
-              decoration: const InputDecoration(labelText: 'IVA %'),
-              items: const [
-                DropdownMenuItem(value: 0.0, child: Text('0%')),
-                DropdownMenuItem(value: 4.0, child: Text('4%')),
-                DropdownMenuItem(value: 10.0, child: Text('10%')),
-                DropdownMenuItem(value: 21.0, child: Text('21%')),
-              ],
-              onChanged: (v) => setState(() => _iva = v!),
+              value: _iva,
+              decoration: InputDecoration(
+                labelText: widget.esComercio ? 'IVA % *' : 'IVA %',
+                errorText: _mostrarErrorIva ? 'Selecciona el tipo de IVA' : null,
+              ),
+              hint: widget.esComercio
+                  ? const Text('Selecciona el IVA aplicable *')
+                  : null,
+              items: widget.esComercio
+                  ? const [
+                      DropdownMenuItem(
+                        value: 4.0,
+                        child: Text('4% — Alimentación básica, medicamentos'),
+                      ),
+                      DropdownMenuItem(
+                        value: 10.0,
+                        child: Text('10% — Alimentación general'),
+                      ),
+                      DropdownMenuItem(
+                        value: 21.0,
+                        child: Text('21% — Ropa, electrónica, resto'),
+                      ),
+                    ]
+                  : const [
+                      DropdownMenuItem(value: 0.0, child: Text('0% — Exento')),
+                      DropdownMenuItem(value: 4.0, child: Text('4%')),
+                      DropdownMenuItem(value: 10.0, child: Text('10%')),
+                      DropdownMenuItem(value: 21.0, child: Text('21%')),
+                    ],
+              onChanged: (v) => setState(() {
+                _iva = v;
+                _mostrarErrorIva = false;
+              }),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<double>(
-              initialValue: _recargoEquivalencia,
+              value: _recargoEquivalencia,
               decoration: const InputDecoration(labelText: 'Recargo equivalencia'),
               items: const [
                 DropdownMenuItem(value: 0.0, child: Text('Sin recargo')),
@@ -867,8 +1083,7 @@ class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
           onPressed: _confirmar,
           style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1)),
-          child:
-              const Text('Añadir', style: TextStyle(color: Colors.white)),
+          child: const Text('Añadir', style: TextStyle(color: Colors.white)),
         ),
       ],
     );
@@ -878,9 +1093,16 @@ class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
     final desc = _ctrlDesc.text.trim();
     final precio = double.tryParse(_ctrlPrecio.text.replaceAll(',', '.'));
     final cantidad = int.tryParse(_ctrlCantidad.text) ?? 1;
-    final descuento = double.tryParse(_ctrlDescuento.text.replaceAll(',', '.')) ?? 0;
+    final descuento =
+        double.tryParse(_ctrlDescuento.text.replaceAll(',', '.')) ?? 0;
 
     if (desc.isEmpty || precio == null) return;
+
+    // Comercio: IVA obligatorio
+    if (_iva == null) {
+      setState(() => _mostrarErrorIva = true);
+      return;
+    }
 
     Navigator.pop(
       context,
@@ -888,7 +1110,7 @@ class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
         descripcion: desc,
         precioUnitario: precio,
         cantidad: cantidad,
-        porcentajeIva: _iva,
+        porcentajeIva: _iva!,
         descuento: descuento,
         recargoEquivalencia: _recargoEquivalencia,
       ),

@@ -49,6 +49,7 @@ class VacacionesService {
     'peluqueria-estetica-gimnasios': 30,
     'industrias-carnicas-guadalajara-2025': 31,
     'veterinarios-guadalajara-2026': 30,
+    'construccion-obras-publicas-guadalajara': 30,
   };
   static const int diasLegalesET = 30; // art. 38 ET — mínimo legal
 

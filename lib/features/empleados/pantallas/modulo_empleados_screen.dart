@@ -39,12 +39,21 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
   }
 
   Future<void> _seedConveniosSeguros() async {
+    // Solo se hace el seed de los convenios activos para el sector
+    // El convenio de construcción solo se inicializa para empresas del sector
+    final doc = await _firestore.collection('empresas').doc(widget.empresaId).get();
+    final sector = (doc.data()?['sector'] as String? ?? '').toLowerCase();
+    final tipo = (doc.data()?['tipo_negocio'] as String? ?? '').toLowerCase();
+    final esConstruccion = sector.contains('construcci') || tipo.contains('construcci') || tipo.contains('obra');
+
     final seeds = [
       _convenioService.seedConvenioHosteleriaGuadalajara,
       _convenioService.seedConvenioComercioGuadalajara,
       _convenioService.seedConvenioPeluqueriaEsteticaGimnasios,
       _convenioService.seedConvenioCarniceriasGuadalajara2025,
       _convenioService.seedConvenioVeterinariosGuadalajara2026,
+      if (esConstruccion)
+        _convenioService.seedConvenioConstruccionObrasPublicasGuadalajara,
     ];
     for (final seed in seeds) {
       try { await seed(); } catch (e) { debugPrint('⚠️ seed: $e'); }
@@ -215,6 +224,14 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
       categorias = await _convenioService.obtenerCategorias('comercio-guadalajara');
     } else if (sector == 'peluqueria') {
       categorias = await _convenioService.obtenerCategorias('peluqueria-estetica-gimnasios');
+    } else if (sector == 'carniceria' || sector == 'industrias_carnicas') {
+      categorias = await _convenioService.obtenerCategorias('industrias-carnicas-guadalajara-2025');
+    } else if (sector == 'veterinarios' || sector == 'veterinaria' || sector == 'clinica_veterinaria') {
+      categorias = await _convenioService.obtenerCategorias('veterinarios-guadalajara-2026');
+    } else if (sector == 'construccion' || sector == 'obras_publicas' || sector == 'construccion_obras_publicas') {
+      // Cargar solo las categorías 2026 (año vigente por defecto)
+      final todas = await _convenioService.obtenerCategorias('construccion-obras-publicas-guadalajara');
+      categorias = todas.where((c) => c.id.endsWith('-2026')).toList();
     }
 
     await showModalBottomSheet(

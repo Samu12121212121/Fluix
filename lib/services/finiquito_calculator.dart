@@ -35,6 +35,7 @@ class FiniquitoCalculator {
     'peluqueria-estetica-gimnasios':            30,
     'industrias-carnicas-guadalajara-2025':      31,
     'veterinarios-guadalajara-2026':            30,
+    'construccion-obras-publicas-guadalajara':  30,
   };
 
   /// Meses de devengo de las pagas extra por convenio.
@@ -60,6 +61,10 @@ class FiniquitoCalculator {
     ],
     'veterinarios-guadalajara-2026': [
       ['Paga extra julio', 7],
+      ['Paga extra navidad', 12],
+    ],
+    'construccion-obras-publicas-guadalajara': [
+      ['Paga extra verano', 6],
       ['Paga extra navidad', 12],
     ],
   };

@@ -62,6 +62,12 @@ class _PantallaLoginBiometricoState extends State<PantallaLoginBiometrico> {
         );
       }
     } else {
+      // Si el usuario canceló voluntariamente, no contar como intento fallido
+      if (resultado.razon == BiometriaRazon.cancelada) {
+        setState(() { _autenticando = false; _error = null; });
+        return;
+      }
+
       _intentos++;
       final restantes = _maxIntentos - _intentos;
 
@@ -69,8 +75,9 @@ class _PantallaLoginBiometricoState extends State<PantallaLoginBiometrico> {
         await _cerrarSesionYFallback();
       } else {
         setState(() {
-          _error = '${resultado.mensajeError ?? 'Autenticación fallida'}.'
-              ' Quedan $restantes intento${restantes == 1 ? '' : 's'}.';
+          _error = resultado.mensajeError != null
+              ? '${resultado.mensajeError} Quedan $restantes intento${restantes == 1 ? '' : 's'}.'
+              : 'Autenticación fallida. Quedan $restantes intento${restantes == 1 ? '' : 's'}.';
           _autenticando = false;
         });
       }

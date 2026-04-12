@@ -514,6 +514,7 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
     'Gimnasio / Fitness',
     'Taller / Reparaciones',
     'Tienda / Comercio',
+    'Construcción / Obra',
     'Otro',
   ];
 

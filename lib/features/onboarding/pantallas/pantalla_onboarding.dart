@@ -279,6 +279,7 @@ class _PasoPerfilState extends State<_PasoPerfil> {
     'Gimnasio / Fitness',
     'Taller / Reparaciones',
     'Tienda / Comercio',
+    'Construcción / Obra',
     'Otro',
   ];
 

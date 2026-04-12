@@ -125,8 +125,80 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
       create: (_) => EmpresaConfigProvider(widget.empresaId)..cargar(),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text(
+            'Contabilidad',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          actions: [
+            if (kDebugMode)
+              _cargandoPrueba
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      ),
+                    )
+                  : PopupMenuButton<String>(
+                      icon: const Icon(Icons.science_outlined, color: Colors.white, size: 22),
+                      tooltip: 'Datos de prueba',
+                      color: Colors.white,
+                      onSelected: (v) {
+                        if (v == 'generar') _generarDatosPrueba();
+                        if (v == 'limpiar') _limpiarDatosPrueba();
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'generar',
+                          child: ListTile(
+                            leading: Icon(Icons.add_chart, color: Colors.green),
+                            title: Text('Generar datos de prueba'),
+                            subtitle: Text('Crea gastos y proveedores de ejemplo'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'limpiar',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_sweep, color: Colors.red),
+                            title: Text('Limpiar datos de prueba'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: _anio,
+                  dropdownColor: color,
+                  iconEnabledColor: Colors.white,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  items: [2024, 2025, 2026]
+                      .map((y) => DropdownMenuItem(
+                            value: y,
+                            child: Text('$y', style: const TextStyle(color: Colors.white)),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _anio = v);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
         body: Column(children: [
-          _buildHeader(color),
           TabBar(
             controller: _tab,
             labelColor: color,
@@ -170,103 +242,6 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
     );
   }
 
-  Widget _buildHeader(Color color) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color, color.withValues(alpha: 0.75)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.calculate, color: Colors.white, size: 24),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Contabilidad', style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text('IVA · Gastos · Libros · Gestoría',
-                style: TextStyle(color: Colors.white70, fontSize: 12)),
-          ],
-        )),
-        // Botón datos de prueba (SOLO en debug)
-        if (kDebugMode) ...[
-        if (_cargandoPrueba)
-          const SizedBox(
-            width: 20, height: 20,
-            child: CircularProgressIndicator(
-                color: Colors.white, strokeWidth: 2),
-          )
-        else
-          SizedBox(
-            width: 36, height: 36,
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.science_outlined,
-                  color: Colors.white, size: 18),
-              tooltip: 'Datos de prueba',
-              padding: EdgeInsets.zero,
-              onSelected: (v) {
-                if (v == 'generar') _generarDatosPrueba();
-                if (v == 'limpiar') _limpiarDatosPrueba();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'generar',
-                  child: ListTile(
-                    leading: Icon(Icons.add_chart, color: Colors.green),
-                    title: Text('Generar datos de prueba'),
-                    subtitle: Text('Crea gastos y proveedores de ejemplo'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'limpiar',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_sweep, color: Colors.red),
-                    title: Text('Limpiar datos de prueba'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ], // fin kDebugMode
-        const SizedBox(width: 4),
-        // Selector de año
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(children: [
-            GestureDetector(
-              onTap: () => setState(() => _anio--),
-              child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
-            ),
-            Text('$_anio', style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-            GestureDetector(
-              onTap: () {
-                if (_anio < DateTime.now().year) setState(() => _anio++);
-              },
-              child: const Icon(Icons.chevron_right, color: Colors.white, size: 20),
-            ),
-          ]),
-        ),
-      ]),
-    );
-  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

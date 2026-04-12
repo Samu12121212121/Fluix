@@ -686,13 +686,14 @@ class _TabEmpresaState extends State<_TabEmpresa> {
   final _tiposNegocio = [
     'Peluquería / Estética', 'Restaurante / Bar', 'Clínica / Salud',
     'Spa / Masajes', 'Gimnasio / Fitness', 'Taller / Reparaciones',
-    'Tienda / Comercio', 'Otro',
+    'Tienda / Comercio', 'Construcción / Obra', 'Otro',
   ];
 
   static const List<Map<String, String>> _sectoresEmpresa = [
     {'id': 'hosteleria', 'label': 'Hostelería y Turismo'},
     {'id': 'comercio', 'label': 'Comercio'},
     {'id': 'peluqueria', 'label': 'Peluquería y Estética'},
+    {'id': 'construccion', 'label': 'Construcción y Obras Públicas'},
     {'id': 'otros', 'label': 'Otro sector'},
   ];
 
@@ -701,6 +702,7 @@ class _TabEmpresaState extends State<_TabEmpresa> {
     if (t.contains('restaurante') || t.contains('bar') || t.contains('hostel')) return 'hosteleria';
     if (t.contains('tienda') || t.contains('comercio')) return 'comercio';
     if (t.contains('peluquer') || t.contains('estética') || t.contains('estetica') || t.contains('gimnasio')) return 'peluqueria';
+    if (t.contains('construcci') || t.contains('obra')) return 'construccion';
     return 'otros';
   }
 

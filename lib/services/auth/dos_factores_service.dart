@@ -48,18 +48,17 @@ class DosFactoresService {
 
   // ── ENVIAR CÓDIGO ─────────────────────────────────────────────────────────
 
-  /// Envía SMS al teléfono y devuelve el verificationId (o un completer).
+  /// Envía SMS al teléfono y devuelve el verificationId.
   /// Compatible con Android (auto-verificación) e iOS.
   Future<String> enviarCodigo({
     required String telefono,
     required void Function(String mensaje) onError,
   }) async {
-    // ── Normalizar y validar formato E.164 ──────────────────────────────
     final tel = telefono.trim().replaceAll(RegExp(r'\s+'), '');
     if (!RegExp(r'^\+\d{7,15}$').hasMatch(tel)) {
       const msg = 'Número inválido. Usa formato internacional: +34612345678';
       onError(msg);
-      throw msg;
+      throw Exception(msg);
     }
 
     final completer = Completer<String>();
@@ -69,7 +68,6 @@ class DosFactoresService {
         phoneNumber: tel,
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) {
-          // Android: auto-completado (no se usa para 2FA manual, lo ignoramos)
           debugPrint('2FA auto-completado (Android)');
         },
         verificationFailed: (FirebaseAuthException e) {
@@ -108,6 +106,9 @@ class DosFactoresService {
   /// Verifica el código SMS durante el flujo de login.
   /// Devuelve true si es correcto, false si es incorrecto.
   /// Lanza [TooManyAttemptsException] si se superan los intentos.
+  ///
+  /// IMPORTANTE: usa reauthenticateWithCredential cuando el usuario ya está
+  /// autenticado (email/password) para NO cambiar la sesión activa.
   Future<bool> verificarCodigo({
     required String verificationId,
     required String codigo,
@@ -122,27 +123,54 @@ class DosFactoresService {
         smsCode: codigo,
       );
 
-      // Intento de sign-in para validar el código (si el teléfono está
-      // vinculado a la cuenta, devuelve el mismo usuario).
-      final result = await FirebaseAuth.instance
-          .signInWithCredential(credential);
+      final currentUser = FirebaseAuth.instance.currentUser;
 
-      final currentUid = result.user?.uid;
-      final expectedUid = FirebaseAuth.instance.currentUser?.uid ?? currentUid;
-
-      if (currentUid == expectedUid) {
-        resetIntentos();
-        return true;
+      if (currentUser != null) {
+        // Usuario ya autenticado con email/contraseña.
+        // Usar reauthenticateWithCredential para validar el teléfono
+        // sin cambiar el usuario en sesión ni crear otra cuenta.
+        try {
+          await currentUser.reauthenticateWithCredential(credential);
+        } on FirebaseAuthException catch (reauthErr) {
+          if (reauthErr.code == 'user-mismatch' ||
+              reauthErr.code == 'user-not-found') {
+            // Teléfono no vinculado aún — intentar vincularlo
+            try {
+              await currentUser.linkWithCredential(credential);
+            } on FirebaseAuthException catch (linkErr) {
+              final yaVinculado =
+                  linkErr.code == 'provider-already-linked' ||
+                  linkErr.code == 'credential-already-in-use';
+              if (!yaVinculado) {
+                _incrementarIntentos();
+                return false;
+              }
+              // Ya vinculado → reintentar reauthenticate
+              await currentUser.reauthenticateWithCredential(credential);
+            }
+          } else {
+            rethrow;
+          }
+        }
+      } else {
+        // Fallback: sign-in directo (el usuario no estaba en sesión)
+        await FirebaseAuth.instance.signInWithCredential(credential);
       }
-      _incrementarIntentos();
-      return false;
+
+      resetIntentos();
+      return true;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'invalid-verification-code' ||
-          e.code == 'invalid-verification-id') {
+          e.code == 'invalid-verification-id' ||
+          e.code == 'invalid-credential') {
         _incrementarIntentos();
         return false;
       }
-      rethrow;
+      if (e.code == 'session-expired') {
+        rethrow; // La UI mostrará "código expirado"
+      }
+      _incrementarIntentos();
+      return false;
     }
   }
 
@@ -160,19 +188,15 @@ class DosFactoresService {
       smsCode: codigo,
     );
 
-    // Vincular teléfono a la cuenta de Firebase Auth
     try {
-      await FirebaseAuth.instance.currentUser!
-          .linkWithCredential(credential);
+      await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
     } on FirebaseAuthException catch (e) {
-      // Si ya estaba vinculado, continuar
       if (e.code != 'provider-already-linked' &&
           e.code != 'credential-already-in-use') {
         rethrow;
       }
     }
 
-    // Guardar en Firestore
     await FirebaseFirestore.instance.collection('usuarios').doc(uid).update({
       'dos_factores_activo':   true,
       'dos_factores_telefono': telefono,
@@ -185,14 +209,13 @@ class DosFactoresService {
     await FirebaseFirestore.instance.collection('usuarios').doc(uid).update({
       'dos_factores_activo': false,
     });
-    // Desvincula el proveedor de teléfono si está vinculado
     try {
       await FirebaseAuth.instance.currentUser!
           .unlink(PhoneAuthProvider.PROVIDER_ID);
     } catch (_) {}
   }
 
-  // ── PRIVADO ────────────────────────────────────────────────────────────────
+  // ── PRIVADO ───────────────────────────────────────────────────────────────
 
   void _incrementarIntentos() {
     _intentosFallidos++;
@@ -205,4 +228,3 @@ class TooManyAttemptsException implements Exception {
   String toString() =>
       'Se ha superado el límite de intentos. La sesión ha sido cerrada.';
 }
-

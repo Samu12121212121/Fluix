@@ -406,8 +406,12 @@ class _PantallaLoginState extends State<PantallaLogin> {
         // ── 4. Ofrecer biometría (si primer login sin biometría activa) ─
         final bioActiva = await _bioSvc.estaActiva;
         if (!bioActiva && uid != null && mounted) {
-          final soportada = await _bioSvc.tiposDisponibles();
-          if (soportada.isNotEmpty) {
+          // Usar dispositivoSoportaBiometria() en lugar de tiposDisponibles()
+          // para detectar Face ID antes de que el permiso sea concedido.
+          // El diálogo de permiso de Face ID se mostrará automáticamente
+          // cuando el usuario pulse "Activar" y se llame a autenticar().
+          final soportada = await _bioSvc.dispositivoSoportaBiometria();
+          if (soportada) {
             await _ofrecerBiometria(uid, email);
           }
         }

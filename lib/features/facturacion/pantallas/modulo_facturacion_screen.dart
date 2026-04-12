@@ -30,6 +30,21 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
     _tabController = TabController(length: 6, vsync: this);
     // Detect and mark overdue invoices
     _service.detectarYMarcarVencidas(widget.empresaId);
+    // Al pulsar tab 5 (Contabilidad), navegar a pantalla separada
+    _tabController.addListener(() {
+      if (_tabController.index == 5 && !_tabController.indexIsChanging) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _tabController.animateTo(4);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PantallaContabilidad(empresaId: widget.empresaId),
+            ),
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -57,7 +72,8 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
                 _buildListaFacturas(EstadoFactura.pagada),
                 _buildListaFacturas(EstadoFactura.vencida),
                 _buildEstadisticas(),
-                PantallaContabilidad(empresaId: widget.empresaId),
+                // Slot dummy – la navegación real ocurre en el listener del TabController
+                const SizedBox.shrink(),
               ],
             ),
           ),

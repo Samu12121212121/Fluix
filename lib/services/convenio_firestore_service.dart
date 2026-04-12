@@ -949,6 +949,425 @@ class ConvenioFirestoreService {
     _log.i('✅ Datos del convenio de Veterinarios (Guadalajara, prórroga 2026) creados en Firestore.');
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVENIO CONSTRUCCIÓN Y OBRAS PÚBLICAS — GUADALAJARA
+  // Código: 19000105011981  |  Tablas 2025 y 2026 (provincial)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> seedConvenioConstruccionObrasPublicasGuadalajara({bool force = false}) async {
+    const convenioId = 'construccion-obras-publicas-guadalajara';
+    final doc = await _conveniosRef.doc(convenioId).get();
+    if (doc.exists && !force) {
+      _log.i('El convenio de Construcción y O.P. de Guadalajara ya existe en Firestore. No se hará nada.');
+      return;
+    }
+
+    _log.i('Creando datos para el convenio de Construcción y Obras Públicas (Guadalajara 2025-2026)...');
+
+    // Jornada anual de referencia del convenio estatal de construcción
+    const int horasAnuales = 1736;
+
+    // ── Tablas 2025 ───────────────────────────────────────────────────────
+    final List<Map<String, dynamic>> categorias2025 = [
+      {
+        "id": "nivel-i-2025",
+        "nombre": "Nivel I — Titulado Superior / Director (salario libre)",
+        "grupo_profesional": "Nivel I",
+        "nivel": 1, "anio": 2025, "salario_libre": true,
+        "salario_base": 0.0, "plus_actividad_asistencia": 0.0, "plus_extrasalarial": 0.0,
+        "salario_base_mensual": 0.0, "importe_vacaciones": 0.0,
+        "paga_extra_importe": 0.0, "salario_anual": 0.0, "num_pagas": 14,
+        "dieta_completa": 45.60, "media_dieta": 15.46,
+        "nota": "Salario del Nivel I se pacta individualmente. El usuario debe introducir el salario acordado.",
+      },
+      {
+        "id": "nivel-ii-2025",
+        "nombre": "Nivel II — Titulado Superior / Jefe de Obra",
+        "grupo_profesional": "Nivel II",
+        "nivel": 2, "anio": 2025, "salario_libre": false,
+        "salario_base": 1521.24, "plus_actividad_asistencia": 734.95, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 2389.32, "importe_vacaciones": 2708.90,
+        "paga_extra_importe": 2708.90, "salario_anual": 34409.22, "num_pagas": 14,
+        "dieta_completa": 45.60, "media_dieta": 15.46,
+      },
+      {
+        "id": "nivel-iii-2025",
+        "nombre": "Nivel III — Titulado Medio / Jefe de Sección",
+        "grupo_profesional": "Nivel III",
+        "nivel": 3, "anio": 2025, "salario_libre": false,
+        "salario_base": 1289.88, "plus_actividad_asistencia": 632.21, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 2055.22, "importe_vacaciones": 2285.84,
+        "paga_extra_importe": 2285.84, "salario_anual": 29464.94, "num_pagas": 14,
+        "dieta_completa": 45.60, "media_dieta": 15.46,
+      },
+      {
+        "id": "nivel-iv-2025",
+        "nombre": "Nivel IV — Jefe Administrativo / Encargado General",
+        "grupo_profesional": "Nivel IV",
+        "nivel": 4, "anio": 2025, "salario_libre": false,
+        "salario_base": 1256.75, "plus_actividad_asistencia": 628.09, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 2017.97, "importe_vacaciones": 2241.48,
+        "paga_extra_importe": 2241.48, "salario_anual": 28922.11, "num_pagas": 14,
+        "dieta_completa": 38.02, "media_dieta": 15.05,
+      },
+      {
+        "id": "nivel-v-2025",
+        "nombre": "Nivel V — Encargado / Delineante",
+        "grupo_profesional": "Nivel V",
+        "nivel": 5, "anio": 2025, "salario_libre": false,
+        "salario_base": 1201.41, "plus_actividad_asistencia": 554.97, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1889.51, "importe_vacaciones": 2086.18,
+        "paga_extra_importe": 2086.18, "salario_anual": 27043.15, "num_pagas": 14,
+        "dieta_completa": 38.02, "media_dieta": 15.05,
+      },
+      {
+        "id": "nivel-vi-2025",
+        "nombre": "Nivel VI — Capataz / Oficial Administrativo 1ª",
+        "grupo_profesional": "Nivel VI",
+        "nivel": 6, "anio": 2025, "salario_libre": false,
+        "salario_base": 1086.96, "plus_actividad_asistencia": 500.59, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1720.68, "importe_vacaciones": 1888.46,
+        "paga_extra_importe": 1888.46, "salario_anual": 24592.86, "num_pagas": 14,
+        "dieta_completa": 37.62, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-vii-2025",
+        "nombre": "Nivel VII — Oficial 1ª",
+        "grupo_profesional": "Nivel VII",
+        "nivel": 7, "anio": 2025, "salario_libre": false,
+        "salario_base": 1070.98, "plus_actividad_asistencia": 491.14, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1695.25, "importe_vacaciones": 1840.49,
+        "paga_extra_importe": 1840.49, "salario_anual": 24169.22, "num_pagas": 14,
+        "dieta_completa": 37.62, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-viii-2025",
+        "nombre": "Nivel VIII — Oficial 2ª",
+        "grupo_profesional": "Nivel VIII",
+        "nivel": 8, "anio": 2025, "salario_libre": false,
+        "salario_base": 1065.52, "plus_actividad_asistencia": 451.01, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1649.66, "importe_vacaciones": 1749.22,
+        "paga_extra_importe": 1749.22, "salario_anual": 23393.92, "num_pagas": 14,
+        "dieta_completa": 34.01, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-ix-2025",
+        "nombre": "Nivel IX — Oficial 3ª / Ayudante",
+        "grupo_profesional": "Nivel IX",
+        "nivel": 9, "anio": 2025, "salario_libre": false,
+        "salario_base": 1039.78, "plus_actividad_asistencia": 387.67, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1560.58, "importe_vacaciones": 1689.25,
+        "paga_extra_importe": 1689.25, "salario_anual": 22234.13, "num_pagas": 14,
+        "dieta_completa": 34.01, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-x-2025",
+        "nombre": "Nivel X — Especialista",
+        "grupo_profesional": "Nivel X",
+        "nivel": 10, "anio": 2025, "salario_libre": false,
+        "salario_base": 1012.71, "plus_actividad_asistencia": 346.55, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1492.39, "importe_vacaciones": 1607.77,
+        "paga_extra_importe": 1607.77, "salario_anual": 21239.60, "num_pagas": 14,
+        "dieta_completa": 34.01, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-xi-2025",
+        "nombre": "Nivel XI — Peón Especializado",
+        "grupo_profesional": "Nivel XI",
+        "nivel": 11, "anio": 2025, "salario_libre": false,
+        "salario_base": 994.45, "plus_actividad_asistencia": 346.55, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1474.13, "importe_vacaciones": 1580.82,
+        "paga_extra_importe": 1580.82, "salario_anual": 20957.89, "num_pagas": 14,
+        "dieta_completa": 34.01, "media_dieta": 12.91,
+      },
+      {
+        "id": "nivel-xii-2025",
+        "nombre": "Nivel XII — Peón Ordinario",
+        "grupo_profesional": "Nivel XII",
+        "nivel": 12, "anio": 2025, "salario_libre": false,
+        "salario_base": 991.61, "plus_actividad_asistencia": 346.55, "plus_extrasalarial": 133.13,
+        "salario_base_mensual": 1471.29, "importe_vacaciones": 1579.07,
+        "paga_extra_importe": 1579.07, "salario_anual": 20921.40, "num_pagas": 14,
+        "dieta_completa": 34.01, "media_dieta": 12.91,
+      },
+    ];
+
+    // ── Tablas 2026 ───────────────────────────────────────────────────────
+    final List<Map<String, dynamic>> categorias2026 = [
+      {
+        "id": "nivel-i-2026",
+        "nombre": "Nivel I — Titulado Superior / Director (salario libre)",
+        "grupo_profesional": "Nivel I",
+        "nivel": 1, "anio": 2026, "salario_libre": true,
+        "salario_base": 0.0, "plus_actividad_asistencia": 0.0, "plus_extrasalarial": 0.0,
+        "salario_base_mensual": 0.0, "importe_vacaciones": 0.0,
+        "paga_extra_importe": 0.0, "salario_anual": 0.0, "num_pagas": 14,
+        "hora_extra_diaria": 0.0,
+        "plan_pensiones_mensual": 0.0, "plan_pensiones_vacaciones": 0.0,
+        "plan_pensiones_paga_extra": 0.0, "plan_pensiones_anual": 0.0,
+        "dieta_completa": 46.97, "media_dieta": 15.92,
+        "nota": "Salario del Nivel I se pacta individualmente. El usuario debe introducir el salario acordado.",
+      },
+      {
+        "id": "nivel-ii-2026",
+        "nombre": "Nivel II — Titulado Superior / Jefe de Obra",
+        "grupo_profesional": "Nivel II",
+        "nivel": 2, "anio": 2026, "salario_libre": false,
+        "salario_base": 1566.88, "plus_actividad_asistencia": 757.00, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 2461.00, "importe_vacaciones": 2790.17,
+        "paga_extra_importe": 2790.17, "salario_anual": 35441.51, "num_pagas": 14,
+        "hora_extra_diaria": 0.0,
+        "plan_pensiones_mensual": 50.43, "plan_pensiones_vacaciones": 60.54,
+        "plan_pensiones_paga_extra": 60.54, "plan_pensiones_anual": 736.35,
+        "dieta_completa": 46.97, "media_dieta": 15.92,
+      },
+      {
+        "id": "nivel-iii-2026",
+        "nombre": "Nivel III — Titulado Medio / Jefe de Sección",
+        "grupo_profesional": "Nivel III",
+        "nivel": 3, "anio": 2026, "salario_libre": false,
+        "salario_base": 1328.58, "plus_actividad_asistencia": 651.18, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 2116.88, "importe_vacaciones": 2354.42,
+        "paga_extra_importe": 2354.42, "salario_anual": 30348.94, "num_pagas": 14,
+        "hora_extra_diaria": 0.0,
+        "plan_pensiones_mensual": 42.95, "plan_pensiones_vacaciones": 51.08,
+        "plan_pensiones_paga_extra": 51.08, "plan_pensiones_anual": 625.69,
+        "dieta_completa": 46.97, "media_dieta": 15.92,
+      },
+      {
+        "id": "nivel-iv-2026",
+        "nombre": "Nivel IV — Jefe Administrativo / Encargado General",
+        "grupo_profesional": "Nivel IV",
+        "nivel": 4, "anio": 2026, "salario_libre": false,
+        "salario_base": 1294.45, "plus_actividad_asistencia": 646.93, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 2078.50, "importe_vacaciones": 2308.72,
+        "paga_extra_importe": 2308.72, "salario_anual": 29789.66, "num_pagas": 14,
+        "hora_extra_diaria": 0.0,
+        "plan_pensiones_mensual": 42.11, "plan_pensiones_vacaciones": 50.10,
+        "plan_pensiones_paga_extra": 50.10, "plan_pensiones_anual": 613.51,
+        "dieta_completa": 39.16, "media_dieta": 15.50,
+      },
+      {
+        "id": "nivel-v-2026",
+        "nombre": "Nivel V — Encargado / Delineante",
+        "grupo_profesional": "Nivel V",
+        "nivel": 5, "anio": 2026, "salario_libre": false,
+        "salario_base": 1237.45, "plus_actividad_asistencia": 571.62, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1946.19, "importe_vacaciones": 2148.77,
+        "paga_extra_importe": 2148.77, "salario_anual": 27854.40, "num_pagas": 14,
+        "hora_extra_diaria": 0.0,
+        "plan_pensiones_mensual": 39.25, "plan_pensiones_vacaciones": 46.63,
+        "plan_pensiones_paga_extra": 46.63, "plan_pensiones_anual": 571.64,
+        "dieta_completa": 39.16, "media_dieta": 15.50,
+      },
+      {
+        "id": "nivel-vi-2026",
+        "nombre": "Nivel VI — Capataz / Oficial Administrativo 1ª",
+        "grupo_profesional": "Nivel VI",
+        "nivel": 6, "anio": 2026, "salario_libre": false,
+        "salario_base": 1119.57, "plus_actividad_asistencia": 515.61, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1772.30, "importe_vacaciones": 1945.11,
+        "paga_extra_importe": 1945.11, "salario_anual": 25330.63, "num_pagas": 14,
+        "hora_extra_diaria": 14.07,
+        "plan_pensiones_mensual": 35.49, "plan_pensiones_vacaciones": 42.20,
+        "plan_pensiones_paga_extra": 42.20, "plan_pensiones_anual": 516.99,
+        "dieta_completa": 38.75, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-vii-2026",
+        "nombre": "Nivel VII — Oficial 1ª",
+        "grupo_profesional": "Nivel VII",
+        "nivel": 7, "anio": 2026, "salario_libre": false,
+        "salario_base": 1103.11, "plus_actividad_asistencia": 505.87, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1746.10, "importe_vacaciones": 1895.70,
+        "paga_extra_importe": 1895.70, "salario_anual": 24894.20, "num_pagas": 14,
+        "hora_extra_diaria": 14.18,
+        "plan_pensiones_mensual": 34.91, "plan_pensiones_vacaciones": 41.13,
+        "plan_pensiones_paga_extra": 41.13, "plan_pensiones_anual": 507.40,
+        "dieta_completa": 38.75, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-viii-2026",
+        "nombre": "Nivel VIII — Oficial 2ª",
+        "grupo_profesional": "Nivel VIII",
+        "nivel": 8, "anio": 2026, "salario_libre": false,
+        "salario_base": 1097.49, "plus_actividad_asistencia": 464.54, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1699.15, "importe_vacaciones": 1801.70,
+        "paga_extra_importe": 1801.70, "salario_anual": 24095.75, "num_pagas": 14,
+        "hora_extra_diaria": 13.66,
+        "plan_pensiones_mensual": 33.90, "plan_pensiones_vacaciones": 39.09,
+        "plan_pensiones_paga_extra": 39.09, "plan_pensiones_anual": 490.17,
+        "dieta_completa": 35.03, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-ix-2026",
+        "nombre": "Nivel IX — Oficial 3ª / Ayudante",
+        "grupo_profesional": "Nivel IX",
+        "nivel": 9, "anio": 2026, "salario_libre": false,
+        "salario_base": 1070.97, "plus_actividad_asistencia": 399.30, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1607.39, "importe_vacaciones": 1739.93,
+        "paga_extra_importe": 1739.93, "salario_anual": 22901.08, "num_pagas": 14,
+        "hora_extra_diaria": 13.01,
+        "plan_pensiones_mensual": 31.89, "plan_pensiones_vacaciones": 37.75,
+        "plan_pensiones_paga_extra": 37.75, "plan_pensiones_anual": 464.04,
+        "dieta_completa": 35.03, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-x-2026",
+        "nombre": "Nivel X — Especialista",
+        "grupo_profesional": "Nivel X",
+        "nivel": 10, "anio": 2026, "salario_libre": false,
+        "salario_base": 1043.09, "plus_actividad_asistencia": 356.95, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1537.16, "importe_vacaciones": 1656.00,
+        "paga_extra_importe": 1656.00, "salario_anual": 21876.76, "num_pagas": 14,
+        "hora_extra_diaria": 12.42,
+        "plan_pensiones_mensual": 30.37, "plan_pensiones_vacaciones": 35.93,
+        "plan_pensiones_paga_extra": 35.93, "plan_pensiones_anual": 441.86,
+        "dieta_completa": 35.03, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-xi-2026",
+        "nombre": "Nivel XI — Peón Especializado",
+        "grupo_profesional": "Nivel XI",
+        "nivel": 11, "anio": 2026, "salario_libre": false,
+        "salario_base": 1024.28, "plus_actividad_asistencia": 356.95, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1518.35, "importe_vacaciones": 1628.24,
+        "paga_extra_importe": 1628.24, "salario_anual": 21586.57, "num_pagas": 14,
+        "hora_extra_diaria": 12.30,
+        "plan_pensiones_mensual": 29.97, "plan_pensiones_vacaciones": 35.34,
+        "plan_pensiones_paga_extra": 35.34, "plan_pensiones_anual": 435.69,
+        "dieta_completa": 35.03, "media_dieta": 13.30,
+      },
+      {
+        "id": "nivel-xii-2026",
+        "nombre": "Nivel XII — Peón Ordinario",
+        "grupo_profesional": "Nivel XII",
+        "nivel": 12, "anio": 2026, "salario_libre": false,
+        "salario_base": 1021.36, "plus_actividad_asistencia": 356.95, "plus_extrasalarial": 137.12,
+        "salario_base_mensual": 1515.43, "importe_vacaciones": 1626.44,
+        "paga_extra_importe": 1626.44, "salario_anual": 21549.05, "num_pagas": 14,
+        "hora_extra_diaria": 12.24,
+        "plan_pensiones_mensual": 29.90, "plan_pensiones_vacaciones": 35.30,
+        "plan_pensiones_paga_extra": 35.30, "plan_pensiones_anual": 434.80,
+        "dieta_completa": 35.03, "media_dieta": 13.30,
+      },
+    ];
+
+    // ── Datos del convenio ─────────────────────────────────────────────────
+    final Map<String, dynamic> convenioData = {
+      "nombre": "Convenio Colectivo de Construcción y Obras Públicas — Guadalajara",
+      "codigo": "19000105011981",
+      "ambito": "provincial",
+      "sector": "construccion",
+      "tipo_convenio": "sectorial_provincial",
+      "provincia": "Guadalajara",
+      "anio_vigente_defecto": 2026,
+      "vigencia": {
+        "inicio": "2025-01-01",
+        "fin": "2026-12-31",
+        "estado_dato": "tablas_2025_2026_provinciales"
+      },
+      "fuente": {
+        "documento": "Tablas salariales Convenio Provincial Construcción Guadalajara 2025-2026",
+        "fecha_extraccion": "2026-04-11",
+        "version": "v1"
+      },
+      "nivel_i_salario_libre": true,
+      "nota_nivel_i": "El salario del Nivel I se pacta individualmente. Introduce el salario acordado.",
+      "horas_anuales": horasAnuales,
+      "formula_anual": "Total×11 + Vac + PExt×2",
+    };
+
+    final List<Map<String, dynamic>> pluses = [
+      {
+        "id": "plus_actividad_asistencia",
+        "nombre": "Plus de Actividad y Asistencia (PAA)",
+        "tipo": "fijo", "importe": 0.0, "base_calculo": "segun_nivel",
+        "descripcion": "Incluido en la tabla salarial por nivel."
+      },
+      {
+        "id": "plus_extrasalarial",
+        "nombre": "Plus Extrasalarial (PE)",
+        "tipo": "fijo", "importe": 137.12, "base_calculo": "mes",
+        "descripcion": "Plus extrasalarial mensual 2026 (133.13€ en 2025). No cotiza a SS."
+      },
+      // ── Dietas por grupo de niveles ──────────────────────────────────────
+      {
+        "id": "dieta_completa_niv_i_ii_iii",
+        "nombre": "Dieta completa — Niveles I, II y III",
+        "tipo": "fijo", "importe": 46.97, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [1, 2, 3], "importe_2025": 45.60
+      },
+      {
+        "id": "media_dieta_niv_i_ii_iii",
+        "nombre": "Media dieta — Niveles I, II y III",
+        "tipo": "fijo", "importe": 15.92, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [1, 2, 3], "importe_2025": 15.46
+      },
+      {
+        "id": "dieta_completa_niv_iv_v",
+        "nombre": "Dieta completa — Niveles IV y V",
+        "tipo": "fijo", "importe": 39.16, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [4, 5], "importe_2025": 38.02
+      },
+      {
+        "id": "media_dieta_niv_iv_v",
+        "nombre": "Media dieta — Niveles IV y V",
+        "tipo": "fijo", "importe": 15.50, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [4, 5], "importe_2025": 15.05
+      },
+      {
+        "id": "dieta_completa_niv_vi_vii",
+        "nombre": "Dieta completa — Niveles VI y VII",
+        "tipo": "fijo", "importe": 38.75, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [6, 7], "importe_2025": 37.62
+      },
+      {
+        "id": "media_dieta_niv_vi_vii",
+        "nombre": "Media dieta — Niveles VI y VII",
+        "tipo": "fijo", "importe": 13.30, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [6, 7], "importe_2025": 12.91
+      },
+      {
+        "id": "dieta_completa_resto",
+        "nombre": "Dieta completa — Niveles VIII y ss.",
+        "tipo": "fijo", "importe": 35.03, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [8, 9, 10, 11, 12], "importe_2025": 34.01
+      },
+      {
+        "id": "media_dieta_resto",
+        "nombre": "Media dieta — Niveles VIII y ss.",
+        "tipo": "fijo", "importe": 13.30, "base_calculo": "dia_desplazamiento",
+        "aplica_niveles": [8, 9, 10, 11, 12], "importe_2025": 12.91
+      },
+      // ── Horas extras diarias 2026 (Niveles VI-XII) ───────────────────────
+      {"id": "hora_extra_vi",   "nombre": "Hora extra diaria — Nivel VI",   "tipo": "fijo", "importe": 14.07, "base_calculo": "hora_extra", "aplica_niveles": [6]},
+      {"id": "hora_extra_vii",  "nombre": "Hora extra diaria — Nivel VII",  "tipo": "fijo", "importe": 14.18, "base_calculo": "hora_extra", "aplica_niveles": [7]},
+      {"id": "hora_extra_viii", "nombre": "Hora extra diaria — Nivel VIII", "tipo": "fijo", "importe": 13.66, "base_calculo": "hora_extra", "aplica_niveles": [8]},
+      {"id": "hora_extra_ix",   "nombre": "Hora extra diaria — Nivel IX",   "tipo": "fijo", "importe": 13.01, "base_calculo": "hora_extra", "aplica_niveles": [9]},
+      {"id": "hora_extra_x",    "nombre": "Hora extra diaria — Nivel X",    "tipo": "fijo", "importe": 12.42, "base_calculo": "hora_extra", "aplica_niveles": [10]},
+      {"id": "hora_extra_xi",   "nombre": "Hora extra diaria — Nivel XI",   "tipo": "fijo", "importe": 12.30, "base_calculo": "hora_extra", "aplica_niveles": [11]},
+      {"id": "hora_extra_xii",  "nombre": "Hora extra diaria — Nivel XII",  "tipo": "fijo", "importe": 12.24, "base_calculo": "hora_extra", "aplica_niveles": [12]},
+    ];
+
+    final WriteBatch batch = _db.batch();
+    final convenioDocRef = _conveniosRef.doc(convenioId);
+    batch.set(convenioDocRef, convenioData);
+
+    for (final catData in [...categorias2025, ...categorias2026]) {
+      final catId = catData['id'] as String;
+      batch.set(convenioDocRef.collection('categorias').doc(catId), catData);
+    }
+
+    for (final plusData in pluses) {
+      final plusId = plusData['id'] as String;
+      batch.set(convenioDocRef.collection('pluses').doc(plusId), plusData);
+    }
+
+    await batch.commit();
+    _log.i('✅ Datos del convenio de Construcción y O.P. (Guadalajara 2025-2026) creados en Firestore.');
+  }
+
   /// Siembra todos los convenios Fluixtech.
   /// Usa [force] para reescribir valores en caso de tablas nuevas.
   Future<void> seedConveniosFluixtech({bool force = false}) async {
@@ -957,6 +1376,7 @@ class ConvenioFirestoreService {
     await seedConvenioPeluqueriaEsteticaGimnasios(force: force);
     await seedConvenioCarniceriasGuadalajara2025(force: force);
     await seedConvenioVeterinariosGuadalajara2026(force: force);
+    await seedConvenioConstruccionObrasPublicasGuadalajara(force: force);
   }
 
   Future<CategoriaConvenio?> obtenerCategoriaPorId(String convenioId, String categoriaId) async {

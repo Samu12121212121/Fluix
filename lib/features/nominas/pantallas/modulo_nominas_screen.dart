@@ -54,82 +54,86 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: Column(
-        children: [
-          // ── Cabecera ────────────────────────────────────────────────────
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          // ── Cabecera desplazable ─────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.payments, color: Colors.white, size: 24),
                   ),
-                  child: const Icon(Icons.payments, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Gestión de Nóminas',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                      Text('Cálculo automático · Normativa española 2026',
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ],
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Gestión de Nóminas',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                        Text('Cálculo automático · Normativa española 2026',
+                            style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Tabs ────────────────────────────────────────────────────────
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TabBar(
-              controller: _tabs,
-              labelColor: const Color(0xFF0D47A1),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: const Color(0xFF0D47A1),
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              tabs: const [
-                Tab(text: 'Este Mes'),
-                Tab(text: 'Historial'),
-                Tab(text: 'Costes'),
-                Tab(text: 'Resumen'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _buildTabMesActual(),
-                _buildTabHistorial(),
-                _buildTabCostes(),
-                _buildTabResumen(),
-              ],
+                ],
+              ),
             ),
           ),
         ],
+        body: Column(
+          children: [
+            // ── Tabs ──────────────────────────────────────────────────────
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabs,
+                labelColor: const Color(0xFF0D47A1),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: const Color(0xFF0D47A1),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                tabs: const [
+                  Tab(text: 'Este Mes'),
+                  Tab(text: 'Historial'),
+                  Tab(text: 'Costes'),
+                  Tab(text: 'Resumen'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
+                children: [
+                  _buildTabMesActual(),
+                  _buildTabHistorial(),
+                  _buildTabCostes(),
+                  _buildTabResumen(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: _esPropietario
           ? FloatingActionButton.extended(

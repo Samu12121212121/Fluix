@@ -28,6 +28,7 @@ enum SectorEmpresa {
   inmobiliaria,
   logisticaAlmacen,
   energiaYAgua,
+  construccionObrasPublicasGuadalajara,
   otros,
 }
 
@@ -54,6 +55,7 @@ extension SectorEmpresaExt on SectorEmpresa {
       case SectorEmpresa.inmobiliaria:         return 'Inmobiliaria y Gestión de Patrimonios';
       case SectorEmpresa.logisticaAlmacen:     return 'Logística y Almacenaje';
       case SectorEmpresa.energiaYAgua:         return 'Energía, Agua y Medioambiente';
+      case SectorEmpresa.construccionObrasPublicasGuadalajara: return 'Construcción y Obras Públicas — Guadalajara';
       case SectorEmpresa.otros:                return 'Otro sector';
     }
   }
@@ -80,6 +82,7 @@ extension SectorEmpresaExt on SectorEmpresa {
       case SectorEmpresa.inmobiliaria:         return '🏠';
       case SectorEmpresa.logisticaAlmacen:     return '📦';
       case SectorEmpresa.energiaYAgua:         return '⚡';
+      case SectorEmpresa.construccionObrasPublicasGuadalajara: return '🏗️';
       case SectorEmpresa.otros:                return '📋';
     }
   }
@@ -306,6 +309,25 @@ class ConvenioService {
     CategoriaConvenio(codigo: 'ENE-05', descripcion: 'Auxiliar técnico',                     salarioMinimoAnual: 18_000, grupoCotizacion: GrupoCotizacion.grupo9),
   ];
 
+  // ── CONSTRUCCIÓN Y OBRAS PÚBLICAS — GUADALAJARA (Provincial 2026) ────────
+  // Código convenio: 19000105011981
+  // Salario mínimo anual = columna Anual de las tablas 2026.
+  // Nivel I: salario libre, se usa el SMI como mínimo orientativo.
+  static const List<CategoriaConvenio> _construccionObrasPublicasGuadalajara = [
+    CategoriaConvenio(codigo: 'CON-GU-I',    descripcion: 'Nivel I — Titulado Superior / Director (salario libre)',   salarioMinimoAnual: 35_441, grupoCotizacion: GrupoCotizacion.grupo1),
+    CategoriaConvenio(codigo: 'CON-GU-II',   descripcion: 'Nivel II — Titulado Superior / Jefe de Obra',              salarioMinimoAnual: 35_441, grupoCotizacion: GrupoCotizacion.grupo1),
+    CategoriaConvenio(codigo: 'CON-GU-III',  descripcion: 'Nivel III — Titulado Medio / Jefe de Sección',             salarioMinimoAnual: 30_348, grupoCotizacion: GrupoCotizacion.grupo2),
+    CategoriaConvenio(codigo: 'CON-GU-IV',   descripcion: 'Nivel IV — Jefe Administrativo / Encargado General',       salarioMinimoAnual: 29_789, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'CON-GU-V',    descripcion: 'Nivel V — Encargado / Delineante',                         salarioMinimoAnual: 27_854, grupoCotizacion: GrupoCotizacion.grupo4),
+    CategoriaConvenio(codigo: 'CON-GU-VI',   descripcion: 'Nivel VI — Capataz / Oficial Administrativo 1ª',           salarioMinimoAnual: 25_330, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'CON-GU-VII',  descripcion: 'Nivel VII — Oficial 1ª',                                   salarioMinimoAnual: 24_894, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'CON-GU-VIII', descripcion: 'Nivel VIII — Oficial 2ª',                                  salarioMinimoAnual: 24_095, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'CON-GU-IX',   descripcion: 'Nivel IX — Oficial 3ª / Ayudante',                         salarioMinimoAnual: 22_901, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'CON-GU-X',    descripcion: 'Nivel X — Especialista',                                   salarioMinimoAnual: 21_876, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'CON-GU-XI',   descripcion: 'Nivel XI — Peón Especializado',                            salarioMinimoAnual: 21_586, grupoCotizacion: GrupoCotizacion.grupo10),
+    CategoriaConvenio(codigo: 'CON-GU-XII',  descripcion: 'Nivel XII — Peón Ordinario',                               salarioMinimoAnual: 21_549, grupoCotizacion: GrupoCotizacion.grupo10),
+  ];
+
   // ════════════════════════════════════════════════════════════════════════
   // MÉTODOS PÚBLICOS
   // ════════════════════════════════════════════════════════════════════════
@@ -333,6 +355,7 @@ class ConvenioService {
       case SectorEmpresa.inmobiliaria:          return _inmobiliaria;
       case SectorEmpresa.logisticaAlmacen:      return _logistica;
       case SectorEmpresa.energiaYAgua:          return _energia;
+      case SectorEmpresa.construccionObrasPublicasGuadalajara: return _construccionObrasPublicasGuadalajara;
       case SectorEmpresa.otros:                 return [];
     }
   }

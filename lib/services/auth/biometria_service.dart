@@ -1,4 +1,4 @@
-  import 'package:local_auth/local_auth.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 
@@ -11,9 +11,15 @@ import 'package:flutter/services.dart';
 //   biometria_email:     email para pre-rellenar el campo
 //
 // Flujo:
-//   1. Primer login exitoso → ofrecerActivacion()
+//   1. Primer login exitoso → _ofrecerBiometria() en pantalla_login.dart
 //   2. Siguiente apertura → disponible() → mostrar PantallaLoginBiometrico
 //   3. Si biometría falla 3 veces → cerrarSesionBiometrica() → login normal
+//
+// FACE ID en iOS:
+//   - NSFaceIDUsageDescription ya configurado en ios/Runner/Info.plist
+//   - El permiso se solicita automáticamente al llamar a authenticate()
+//   - NO verificar canCheckBiometrics antes de authenticate(): devuelve false
+//     antes de que el usuario conceda el permiso y evitaría mostrar el diálogo
 // ─────────────────────────────────────────────────────────────────────────────
 
 class BiometriaService {
@@ -33,18 +39,20 @@ class BiometriaService {
 
   // ── DISPONIBILIDAD ───────────────────────────────────────────────────────
 
-  /// True si el dispositivo tiene biometría registrada Y el usuario la activó.
+  /// True si el usuario activó la biometría Y el dispositivo la soporta.
+  /// Usa isDeviceSupported() (no canCheckBiometrics) para permitir que
+  /// el diálogo de permiso de Face ID se muestre en el primer uso.
   Future<bool> disponible() async {
     final activa = await _storage.read(key: _keyActiva);
     if (activa != 'true') return false;
-    return _soportadoPorDispositivo();
+    return dispositivoSoportaBiometria();
   }
 
-  Future<bool> _soportadoPorDispositivo() async {
+  /// True si el dispositivo soporta biometría a nivel de hardware/software.
+  /// En iOS, devuelve true incluso antes de conceder el permiso de Face ID.
+  Future<bool> dispositivoSoportaBiometria() async {
     try {
-      final canCheck = await _auth.canCheckBiometrics;
-      final isEnrolled = await _auth.isDeviceSupported();
-      return canCheck && isEnrolled;
+      return await _auth.isDeviceSupported();
     } on PlatformException {
       return false;
     }
@@ -69,11 +77,17 @@ class BiometriaService {
   // ── AUTENTICAR ───────────────────────────────────────────────────────────
 
   /// Muestra el prompt biométrico del SO.
+  ///
+  /// En iOS, la primera llamada disparará el diálogo de permiso de Face ID
+  /// automáticamente (requiere NSFaceIDUsageDescription en Info.plist).
   /// Devuelve [ResultadoBiometrico].
   Future<ResultadoBiometrico> autenticar() async {
     try {
-      final soporte = await _soportadoPorDispositivo();
-      if (!soporte) {
+      // Verificar soporte a nivel de dispositivo (hardware/SO)
+      // No usar canCheckBiometrics aquí porque en iOS devuelve false
+      // hasta que el usuario conceda el permiso de Face ID
+      final soporta = await _auth.isDeviceSupported();
+      if (!soporta) {
         return ResultadoBiometrico(
           exito: false,
           razon: BiometriaRazon.noDisponible,
@@ -95,11 +109,14 @@ class BiometriaService {
       );
     } on PlatformException catch (e) {
       final razon = switch (e.code) {
-        'NotAvailable'  => BiometriaRazon.noDisponible,
-        'NotEnrolled'   => BiometriaRazon.noConfigurada,
-        'LockedOut'     => BiometriaRazon.bloqueada,
+        'NotAvailable'         => BiometriaRazon.noDisponible,
+        'NotEnrolled'          => BiometriaRazon.noConfigurada,
+        'PasscodeNotSet'       => BiometriaRazon.noConfigurada,
+        'LockedOut'            => BiometriaRazon.bloqueada,
         'PermanentlyLockedOut' => BiometriaRazon.bloqueada,
-        _ => BiometriaRazon.fallida,
+        'UserCancel'           => BiometriaRazon.cancelada,
+        'SystemCancel'         => BiometriaRazon.cancelada,
+        _                      => BiometriaRazon.fallida,
       };
       return ResultadoBiometrico(exito: false, razon: razon);
     }
@@ -116,6 +133,10 @@ class BiometriaService {
 
   Future<List<BiometricType>> tiposDisponibles() async {
     try {
+      // canCheckBiometrics solo devuelve true si el permiso está concedido
+      // y hay biometría registrada. Usar para UI pero no para bloquear flujo.
+      final canCheck = await _auth.canCheckBiometrics;
+      if (!canCheck) return [];
       return await _auth.getAvailableBiometrics();
     } catch (_) {
       return [];
@@ -126,6 +147,9 @@ class BiometriaService {
     final tipos = await tiposDisponibles();
     if (tipos.contains(BiometricType.face)) return 'Continuar con Face ID';
     if (tipos.contains(BiometricType.fingerprint)) return 'Continuar con huella dactilar';
+    // isDeviceSupported puede ser true aunque canCheckBiometrics sea false (pre-permiso)
+    final soporta = await _auth.isDeviceSupported();
+    if (soporta) return 'Continuar con biometría';
     return 'Acceso biométrico';
   }
 }
@@ -138,6 +162,7 @@ enum BiometriaRazon {
   noDisponible,
   noConfigurada,
   bloqueada,
+  cancelada,
   fallida,
 }
 
@@ -151,8 +176,9 @@ class ResultadoBiometrico {
     if (exito) return null;
     return switch (razon) {
       BiometriaRazon.noDisponible  => 'Biometría no disponible en este dispositivo.',
-      BiometriaRazon.noConfigurada => 'No hay biometría configurada en el sistema.',
-      BiometriaRazon.bloqueada     => 'Biometría bloqueada. Usa tu PIN para desbloquear.',
+      BiometriaRazon.noConfigurada => 'No hay biometría configurada. Activa Face ID o huella en Ajustes del dispositivo.',
+      BiometriaRazon.bloqueada     => 'Biometría bloqueada. Usa tu PIN o contraseña para desbloquear.',
+      BiometriaRazon.cancelada     => null, // el usuario canceló voluntariamente
       BiometriaRazon.fallida       => 'Autenticación biométrica fallida.',
       null                         => null,
     };

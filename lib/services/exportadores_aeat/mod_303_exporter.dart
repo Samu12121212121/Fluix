@@ -26,12 +26,58 @@ class DatosMod303 {
               .where((l) => l.porcentajeIva == 21)
               .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
 
-  // Cuota repercutida total (21% + 10% + 4%) desde emitidas.
-  // Las facturas rectificativas reducen la cuota cuando tienen importes negativos.
-  double get cuotaRepercutida => facturasEmitidas
+  // Cuota repercutida al 21% desde emitidas.
+  double get cuotaGeneral => facturasEmitidas
       .where((f) => f.estado != EstadoFactura.anulada)
       .fold<double>(0.0, (sum, f) =>
-          sum + f.lineas.fold<double>(0.0, (s, l) => s + l.importeIva));
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 21)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  // Base imponible al 10% (tipo reducido) desde emitidas.
+  double get baseReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 10)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
+  // Cuota repercutida al 10% desde emitidas.
+  double get cuotaReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 10)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  // Base imponible al 4% (superreducido) desde emitidas.
+  double get baseSuperReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 4)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
+  // Cuota repercutida al 4% desde emitidas.
+  double get cuotaSuperReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 4)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  // Base imponible exenta (0%). Se asume porcentajeIva == 0.
+  double get baseExenta => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 0)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
+  // Cuota repercutida total (21% + 10% + 4%) desde emitidas.
+  // Las facturas rectificativas reducen la cuota cuando tienen importes negativos.
+  double get cuotaRepercutida =>
+      cuotaGeneral + cuotaReducida + cuotaSuperReducida;
 
   // Base imponible soportada deducible desde recibidas.
   double get baseSoportadaDeducible => facturasRecibidas
@@ -214,25 +260,35 @@ class Mod303Exporter {
     // Pos 29-30 (len 2): Periodo (01..04)
     r.setNumeric(29, 30, int.tryParse(d.periodo) ?? 0);
 
-    // Pos 31-45 (len 15): Base imponible régimen general (casilla base)
-    r.setImporteCentimos(31, 45, d.baseGeneral);
+    // ── IVA DEVENGADO ────────────────────────────────────────────────────────
+    // Casillas 01-02: Base y cuota al 21% (régimen general)
+    r.setImporteCentimos(31, 45, d.baseGeneral);     // Casilla 01 — Base 21%
+    r.setImporteCentimos(46, 60, d.cuotaGeneral);    // Casilla 02 — Cuota 21%
 
-    // Pos 46-60 (len 15): Cuota repercutida
-    r.setImporteCentimos(46, 60, d.cuotaRepercutida);
+    // Casillas 03-04: Base y cuota al 10% (tipo reducido)
+    r.setImporteCentimos(61, 75, d.baseReducida);    // Casilla 03 — Base 10%
+    r.setImporteCentimos(76, 90, d.cuotaReducida);   // Casilla 04 — Cuota 10%
 
-    // Pos 61-75 (len 15): Base imponible IVA soportado deducible
-    r.setImporteCentimos(61, 75, d.baseSoportadaDeducible);
+    // Casillas 05-06: Base y cuota al 4% (superreducido / VPO)
+    r.setImporteCentimos(91, 105, d.baseSuperReducida);   // Casilla 05 — Base 4%
+    r.setImporteCentimos(106, 120, d.cuotaSuperReducida); // Casilla 06 — Cuota 4%
 
-    // Pos 76-90 (len 15): Cuota soportada deducible
-    r.setImporteCentimos(76, 90, d.cuotaSoportadaDeducible);
+    // Casillas 07-08: Base al 0% (exento) y cuota = 0
+    r.setImporteCentimos(121, 135, d.baseExenta);   // Casilla 07 — Base 0%
+    r.setImporteCentimos(136, 150, 0.0);            // Casilla 08 — Cuota 0% = 0
 
-    // Pos 91-91 (len 1): Signo resultado (+/-)
-    r.setAlpha(91, 91, d.resultado < 0 ? '-' : '+');
+    // ── IVA SOPORTADO ────────────────────────────────────────────────────────
+    // Base imponible soportada deducible
+    r.setImporteCentimos(151, 165, d.baseSoportadaDeducible);
+    // Cuota soportada deducible
+    r.setImporteCentimos(166, 180, d.cuotaSoportadaDeducible);
 
-    // Pos 92-106 (len 15): Resultado en céntimos (valor absoluto)
-    r.setImporteCentimos(92, 106, d.resultado.abs());
+    // ── RESULTADO ────────────────────────────────────────────────────────────
+    // Signo resultado (+/-)
+    r.setAlpha(181, 181, d.resultado < 0 ? '-' : '+');
+    // Resultado en céntimos (valor absoluto)
+    r.setImporteCentimos(182, 196, d.resultado.abs());
 
-    // Resto de posiciones: espacios
     return r.build();
   }
 

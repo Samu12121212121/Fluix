@@ -26,6 +26,10 @@ class _PantallaConfiguracionFiscalEmpresaState
   final _municipioCtrl = TextEditingController();
   final _provinciaCtrl = TextEditingController();
   final _epigrafCtrl = TextEditingController();
+  // Series de facturación configurables
+  final _serieFacCtrl  = TextEditingController(text: 'F');
+  final _serieRectCtrl = TextEditingController(text: 'R');
+  final _serieProCtrl  = TextEditingController(text: 'P');
   String _regimenIva = 'general';
   bool _estaEnSii = false;
   CriterioIVA _criterioIva = CriterioIVA.devengo;
@@ -39,6 +43,9 @@ class _PantallaConfiguracionFiscalEmpresaState
     _municipioCtrl.dispose();
     _provinciaCtrl.dispose();
     _epigrafCtrl.dispose();
+    _serieFacCtrl.dispose();
+    _serieRectCtrl.dispose();
+    _serieProCtrl.dispose();
     super.dispose();
   }
 
@@ -51,6 +58,9 @@ class _PantallaConfiguracionFiscalEmpresaState
     _municipioCtrl.text = config.municipio;
     _provinciaCtrl.text = config.provincia;
     _epigrafCtrl.text = config.epigrafIAE;
+    _serieFacCtrl.text  = config.serieFactura;
+    _serieRectCtrl.text = config.serieRectificativa;
+    _serieProCtrl.text  = config.serieProforma;
     _regimenIva = config.regimenIVA;
     _estaEnSii = config.estaEnSII;
     _criterioIva = config.criterioIva;
@@ -178,6 +188,9 @@ class _PantallaConfiguracionFiscalEmpresaState
                       minimumSize: const Size(double.infinity, 50),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  // ── Sección series de facturación ──────────────────────────────────────
+                  _buildCardSeries(),
                 ],
               ),
             ),
@@ -197,6 +210,12 @@ class _PantallaConfiguracionFiscalEmpresaState
       epigrafIAE: _epigrafCtrl.text,
       estaEnSII: _estaEnSii,
       criterioIva: _criterioIva,
+      serieFactura: _serieFacCtrl.text.trim().toUpperCase().isNotEmpty
+          ? _serieFacCtrl.text.trim().toUpperCase() : 'F',
+      serieRectificativa: _serieRectCtrl.text.trim().toUpperCase().isNotEmpty
+          ? _serieRectCtrl.text.trim().toUpperCase() : 'R',
+      serieProforma: _serieProCtrl.text.trim().toUpperCase().isNotEmpty
+          ? _serieProCtrl.text.trim().toUpperCase() : 'P',
     );
     try {
       await provider.guardar(nuevo);
@@ -261,6 +280,37 @@ class _PantallaConfiguracionFiscalEmpresaState
 
   String? _obligatorio(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null;
-}
 
+  // ── Sección series de facturación ──────────────────────────────────────
+  Widget _buildCardSeries() => _buildCard([
+    const Text(
+      '📋 Prefijos de serie (máx. 5 caracteres)',
+      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+    ),
+    const SizedBox(height: 4),
+    const Text(
+      'El número de factura se generará como: PREFIJO-AÑO-NNNN\n'
+      'Ej: F-2026-0001 · R-2026-0001 · P-2026-0001',
+      style: TextStyle(fontSize: 12, color: Colors.grey),
+    ),
+    const SizedBox(height: 12),
+    Row(children: [
+      Expanded(child: _campo(_serieFacCtrl, 'Facturas', hint: 'F',
+          validator: _validarSerie)),
+      const SizedBox(width: 10),
+      Expanded(child: _campo(_serieRectCtrl, 'Rectificativas', hint: 'R',
+          validator: _validarSerie)),
+      const SizedBox(width: 10),
+      Expanded(child: _campo(_serieProCtrl, 'Proformas', hint: 'P',
+          validator: _validarSerie)),
+    ]),
+  ]);
+
+  String? _validarSerie(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Obligatorio';
+    if (v.trim().length > 5) return 'Máx. 5 car.';
+    if (!RegExp(r'^[A-Za-z0-9\-]+$').hasMatch(v.trim())) return 'Solo letras/números';
+    return null;
+  }
+}
 
