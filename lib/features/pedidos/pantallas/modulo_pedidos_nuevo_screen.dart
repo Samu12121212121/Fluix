@@ -37,10 +37,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      behavior: HitTestBehavior.opaque,
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Pedidos', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -144,7 +141,6 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
 
   List<Pedido> _filtrar(List<Pedido> pedidos) {
     var resultado = pedidos;
-    if (_busqueda.isNotEmpty) {
       resultado = resultado.where((p) =>
         p.clienteNombre.toLowerCase().contains(_busqueda) ||
         (p.clienteTelefono?.contains(_busqueda) ?? false) ||

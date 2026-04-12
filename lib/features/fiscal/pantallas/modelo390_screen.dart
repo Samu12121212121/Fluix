@@ -8,6 +8,8 @@ import 'package:planeag_flutter/domain/modelos/empresa_config.dart';
 import 'package:planeag_flutter/services/fiscal/mod390_calculator.dart';
 import 'package:planeag_flutter/services/fiscal/mod390_exporter.dart';
 import 'package:planeag_flutter/services/fiscal/mod390_posicional_service.dart';
+import 'package:planeag_flutter/services/fiscal/sede_aeat_urls.dart';
+import 'package:planeag_flutter/widgets/presentar_aeat_widget.dart';
 import 'package:planeag_flutter/widgets/estado_certificado_widget.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -131,40 +133,8 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
     }
   }
 
-  Future<void> _generarPosicional(Modelo390 m) async {
-    setState(() => _procesando = true);
-    try {
-      final svcPos = Mod390PosicionalService();
-      final result = await svcPos.generar(
-        empresaId: widget.empresaId,
-        anio: m.ejercicio,
-      );
-      final dir = await getTemporaryDirectory();
-      final archivo = File('${dir.path}/${result.nombreFichero}');
-      await archivo.writeAsBytes(result.bytes);
-      await Share.shareXFiles(
-        [XFile(archivo.path)],
-        text: 'Modelo 390 ${m.ejercicio} — Fichero posicional AEAT',
-      );
-      if (mounted && result.alertas.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('⚠️ ${result.alertas.first}'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 5),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 6),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _procesando = false);
-    }
-  }
+  // _generarPosicional eliminado — Mod.390 se presenta online desde 2026.
+  // Se mantiene el import de Mod390PosicionalService por si se necesita en futuro.
 
   @override
   Widget build(BuildContext context) {
@@ -337,11 +307,11 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
           ],
         ),
         const SizedBox(height: 8),
-        // Botón fichero posicional AEAT
+        // Botón Sede AEAT
         ElevatedButton.icon(
-          onPressed: _procesando ? null : () => _generarPosicional(m),
-          icon: const Icon(Icons.download_outlined, size: 18),
-          label: const Text('Descargar fichero posicional (.390)'),
+          onPressed: () => SedeAeatUrls.abrir(SedeAeatUrls.mod390),
+          icon: const Icon(Icons.open_in_browser, size: 18),
+          label: const Text('Presentar en Sede AEAT'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1565C0),
             foregroundColor: Colors.white,
@@ -359,6 +329,14 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
             ),
           ),
         ],
+        const SizedBox(height: 16),
+        PresentarAeatWidget(
+          modelo: '390',
+          urlAeat: SedeAeatUrls.mod390,
+          onJustificanteGuardado: (justificante) {
+            _marcarPresentado(m.id);
+          },
+        ),
       ],
     );
   }

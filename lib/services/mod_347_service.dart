@@ -57,7 +57,7 @@ class Mod347Service {
       }
 
       final archivo = File('${dir.path}/MOD347_$anio.txt');
-      await archivo.writeAsString(contenido);
+      await archivo.writeAsBytes(contenido);
 
       await Share.shareXFiles(
         [XFile(archivo.path)],

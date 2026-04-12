@@ -77,34 +77,17 @@ class StorageService {
       ),
     );
 
-    // 6. Obtener URL pública con cache-buster
+    // 6. Obtener URL pública
     final url = await ref.getDownloadURL();
-    final cacheBustUrl = '$url&v=${DateTime.now().millisecondsSinceEpoch}';
 
     // 7. Guardar URL en Firestore (campo foto_url)
     // Primero en usuarios/{empleadoId} — que es donde el listado de empleados lee
-    await _firestore
         .collection('usuarios')
         .doc(empleadoId)
         .update({'foto_url': cacheBustUrl});
 
     // También guardar en empresas/{empresaId}/empleados por si existe
-    try {
-      await _firestore
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('empleados')
-          .doc(empleadoId)
-          .update({'foto_url': cacheBustUrl});
-    } catch (_) {
-      // Puede no existir esta subcolección — ignorar
-    }
-
-    return cacheBustUrl;
-  }
-
-  /// Elimina la foto de perfil de Storage y borra el campo en Firestore.
-  Future<void> eliminarFotoEmpleado({
+        .update({'foto_url': url});
     required String empresaId,
     required String empleadoId,
   }) async {
@@ -118,7 +101,7 @@ class StorageService {
     // Borrar de usuarios (principal)
     await _firestore
         .collection('usuarios')
-        .doc(empleadoId)
+    return url;
         .update({'foto_url': FieldValue.delete()});
     // Borrar de empresas/empleados (fallback)
     try {

@@ -187,11 +187,8 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
       try {
         final cat = widget.categoriasConvenio
             .firstWhere((c) => c.id == _categoriaConvenioSeleccionada);
-        // Nivel I (salario libre) no tiene mínimo de tabla — saltamos la validación de convenio
-        if (!cat.salarioLibre && cat.salarioAnual > 0) {
-          minimoConvenio = cat.salarioAnual;
-        }
-        _numPagas = cat.numPagas > 0 ? cat.numPagas : _numPagas;
+        minimoConvenio = cat.salarioAnual;
+        _numPagas = cat.numPagas;
       } catch (_) {}
     }
     const smiAnual2026 = 15876.0;
@@ -366,17 +363,9 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
                 if (v != null) {
                   final categoria = widget.categoriasConvenio.firstWhere((c) => c.id == v);
                   _numPagas = categoria.numPagas > 0 ? categoria.numPagas : 14;
-                  // Nivel I — salario libre: no rellenar automáticamente
-                  if (!categoria.salarioLibre && categoria.salarioAnual > 0) {
-                    _salarioCtrl.text = categoria.salarioAnual.toString();
-                  }
-                }
-              });
-            },
-            (v) => widget.categoriasConvenio.firstWhere((c) => c.id == v).nombre,
-            Icons.work,
-            opciones: widget.categoriasConvenio
-                .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.nombre)))
+                final categoria = widget.categoriasConvenio.firstWhere((c) => c.id == v);
+                _salarioCtrl.text = categoria.salarioAnual.toString();
+                _numPagas = categoria.numPagas;
                 .toList(),
           ),
           // ── Aviso Nivel I salario libre ─────────────────────────────────
@@ -388,51 +377,6 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
               if (cat != null && (cat.salarioLibre || (cat.nota?.isNotEmpty ?? false))) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFFC107)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline, color: Color(0xFFF57F17), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            cat.nota ??
-                                'El salario del Nivel I se pacta individualmente. Introduce el salario acordado.',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFFF57F17)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            }(),
-          ],
-        ],
-      ],
-    );
-  }
-
-  Widget _tabSalario() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildCampoTexto(_salarioCtrl, 'Salario Bruto Anual', 'Ej: 25000',
-            Icons.euro_symbol, numerico: true),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-            child: _buildDropdown<int>(
-              'Número de pagas', const [12, 14, 15], _numPagas,
-              (v) => setState(() => _numPagas = v ?? 12),
-              (v) => '$v pagas', Icons.calendar_today,
             ),
           ),
           const SizedBox(width: 12),

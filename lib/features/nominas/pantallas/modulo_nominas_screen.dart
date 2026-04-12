@@ -31,9 +31,9 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
   bool _generando = false;
   String _busquedaEmpleado = '';
 
-  bool get _esPropietario =>
-      widget.sesion?.esPropietario ??
-      (PermisosService().sesion?.esPropietario ?? false);
+  bool get _puedeGestionarNominas =>
+      widget.sesion?.puedeGestionarNominas ??
+      (PermisosService().sesion?.puedeGestionarNominas ?? false);
 
   @override
   void initState() {
@@ -135,7 +135,7 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
           ],
         ),
       ),
-      floatingActionButton: _esPropietario
+      floatingActionButton: _puedeGestionarNominas
           ? FloatingActionButton.extended(
               onPressed: _generando ? null : _generarNominasMes,
               backgroundColor: const Color(0xFF0D47A1),
@@ -197,122 +197,131 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
             : nominas.where((n) =>
                 n.empleadoNombre.toLowerCase().contains(_busquedaEmpleado.toLowerCase())).toList();
 
-        return Column(
-          children: [
+        return CustomScrollView(
+          slivers: [
             // Chips de resumen
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  _chipResumen('${nominas.length}', 'Nóminas',
-                      Icons.receipt_long, const Color(0xFF1976D2)),
-                  const SizedBox(width: 8),
-                  _chipResumen('€${totalNeto.toStringAsFixed(0)}', 'Neto total',
-                      Icons.account_balance_wallet, const Color(0xFF2E7D32)),
-                  const SizedBox(width: 8),
-                  _chipResumen('€${totalCoste.toStringAsFixed(0)}', 'Coste emp.',
-                      Icons.business, const Color(0xFFF57C00)),
-                ],
-              ),
-            ),
-            // Búsqueda + botones de exportar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Buscar empleado...',
-                          hintStyle: const TextStyle(fontSize: 13),
-                          prefixIcon: const Icon(Icons.search, size: 18),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: (v) => setState(() => _busquedaEmpleado = v),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Exportar CSV',
-                    icon: const Icon(Icons.table_chart, color: Color(0xFF0D47A1), size: 22),
-                    onPressed: () => _svc.exportarCsvMes(context, widget.empresaId, _anioActual, _mesActual),
-                  ),
-                  IconButton(
-                    tooltip: 'Compartir todos los PDFs',
-                    icon: const Icon(Icons.share, color: Color(0xFF0D47A1), size: 22),
-                    onPressed: () => _svc.compartirNominasMesPdf(context, widget.empresaId, _anioActual, _mesActual),
-                  ),
-                  if (_esPropietario)
-                    IconButton(
-                      tooltip: 'Eliminar borradores del mes',
-                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
-                      onPressed: _eliminarBorradoresMes,
-                    ),
-                ],
-              ),
-            ),
-            if (tienenIrpfAjustado)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Text('Nóminas del mes',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Info IRPF regularizado',
-                      onPressed: () => showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          title: const Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Color(0xFF1976D2)),
-                              SizedBox(width: 8),
-                              Expanded(child: Text('IRPF Regularizado', style: TextStyle(fontSize: 16))),
-                            ],
-                          ),
-                          content: const Text(
-                            'Algunas nóminas tienen IRPF recalculado por regularización anual (YTD).\n\n'
-                            'Esto significa que el tipo de retención se ha ajustado según los ingresos '
-                            'acumulados del trabajador durante el año fiscal, conforme a la normativa vigente.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Entendido'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    _chipResumen('${nominas.length}', 'Nóminas',
+                        Icons.receipt_long, const Color(0xFF1976D2)),
+                    const SizedBox(width: 8),
+                    _chipResumen('€${totalNeto.toStringAsFixed(0)}', 'Neto total',
+                        Icons.account_balance_wallet, const Color(0xFF2E7D32)),
+                    const SizedBox(width: 8),
+                    _chipResumen('€${totalCoste.toStringAsFixed(0)}', 'Coste emp.',
+                        Icons.business, const Color(0xFFF57C00)),
                   ],
                 ),
               ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: filtradas.length,
-                itemBuilder: (_, i) => _TarjetaNomina(
-                  nomina: filtradas[i],
-                  empresaId: widget.empresaId,
-                  esPropietario: _esPropietario,
-                  onTap: () => _abrirDetalle(filtradas[i]),
+            ),
+            // Búsqueda + botones de exportar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Buscar empleado...',
+                            hintStyle: const TextStyle(fontSize: 13),
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (v) => setState(() => _busquedaEmpleado = v),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Exportar CSV',
+                      icon: const Icon(Icons.table_chart, color: Color(0xFF0D47A1), size: 22),
+                      onPressed: () => _svc.exportarCsvMes(context, widget.empresaId, _anioActual, _mesActual),
+                    ),
+                    IconButton(
+                      tooltip: 'Compartir todos los PDFs',
+                      icon: const Icon(Icons.share, color: Color(0xFF0D47A1), size: 22),
+                      onPressed: () => _svc.compartirNominasMesPdf(context, widget.empresaId, _anioActual, _mesActual),
+                    ),
+                    if (_puedeGestionarNominas)
+                      IconButton(
+                        tooltip: 'Eliminar borradores del mes',
+                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                        onPressed: _eliminarBorradoresMes,
+                      ),
+                  ],
                 ),
               ),
             ),
+            if (tienenIrpfAjustado)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      const Text('Nóminas del mes',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Info IRPF regularizado',
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: const Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Color(0xFF1976D2)),
+                                SizedBox(width: 8),
+                                Expanded(child: Text('IRPF Regularizado', style: TextStyle(fontSize: 16))),
+                              ],
+                            ),
+                            content: const Text(
+                              'Algunas nóminas tienen IRPF recalculado por regularización anual (YTD).\n\n'
+                              'Esto significa que el tipo de retención se ha ajustado según los ingresos '
+                              'acumulados del trabajador durante el año fiscal, conforme a la normativa vigente.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Entendido'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) => _TarjetaNomina(
+                    nomina: filtradas[i],
+                    empresaId: widget.empresaId,
+                    esPropietario: _puedeGestionarNominas,
+                    onTap: () => _abrirDetalle(filtradas[i]),
+                  ),
+                  childCount: filtradas.length,
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         );
       },
@@ -349,66 +358,74 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTabHistorial() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => setState(() {
-                  _mesHist--;
-                  if (_mesHist < 1) { _mesHist = 12; _anioHist--; }
-                }),
-              ),
-              Expanded(
-                child: Text(
-                  '${Nomina.nombreMes(_mesHist)} $_anioHist',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+    return StreamBuilder<List<Nomina>>(
+      stream: _svc.obtenerNominasMes(widget.empresaId, _anioHist, _mesHist),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final nominas = snap.data ?? [];
+
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: () => setState(() {
+                        _mesHist--;
+                        if (_mesHist < 1) { _mesHist = 12; _anioHist--; }
+                      }),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${Nomina.nombreMes(_mesHist)} $_anioHist',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: () => setState(() {
+                        _mesHist++;
+                        if (_mesHist > 12) { _mesHist = 1; _anioHist++; }
+                      }),
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () => setState(() {
-                  _mesHist++;
-                  if (_mesHist > 12) { _mesHist = 1; _anioHist++; }
-                }),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<Nomina>>(
-            stream: _svc.obtenerNominasMes(widget.empresaId, _anioHist, _mesHist),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final nominas = snap.data ?? [];
-              if (nominas.isEmpty) {
-                return Center(
+            ),
+            if (nominas.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
                   child: Text(
                     'Sin nóminas en ${Nomina.nombreMes(_mesHist)} $_anioHist',
                     style: TextStyle(color: Colors.grey[500]),
                   ),
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: nominas.length,
-                itemBuilder: (_, i) => _TarjetaNomina(
-                  nomina: nominas[i],
-                  empresaId: widget.empresaId,
-                  esPropietario: _esPropietario,
-                  onTap: () => _abrirDetalle(nominas[i]),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) => _TarjetaNomina(
+                      nomina: nominas[i],
+                      empresaId: widget.empresaId,
+                      esPropietario: _puedeGestionarNominas,
+                      onTap: () => _abrirDetalle(nominas[i]),
+                    ),
+                    childCount: nominas.length,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -865,7 +882,7 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
       builder: (_) => DetalleNominaScreen(
         nomina: nomina,
         empresaId: widget.empresaId,
-        esPropietario: _esPropietario,
+        esPropietario: _puedeGestionarNominas,
       ),
     ));
   }

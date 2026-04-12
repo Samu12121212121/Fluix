@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/convenio_firestore_service.dart';
+import '../../../services/auth/invitaciones_service.dart';
 // Widgets extraídos por funcionalidad
 import '../widgets/tarjeta_empleado_widget.dart';
 import '../widgets/selector_foto_widget.dart';
@@ -40,13 +43,14 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
 
   Future<void> _seedConveniosSeguros() async {
     // Solo se hace el seed de los convenios activos para el sector
-    // El convenio de construcción solo se inicializa para empresas del sector
     final doc = await _firestore.collection('empresas').doc(widget.empresaId).get();
     final sector = (doc.data()?['sector'] as String? ?? '').toLowerCase();
     final tipo = (doc.data()?['tipo_negocio'] as String? ?? '').toLowerCase();
     final esConstruccion = sector.contains('construcci') || tipo.contains('construcci') || tipo.contains('obra');
+    final esCuenca = sector.contains('cuenca');
 
     final seeds = [
+      // Guadalajara (siempre se cargan los genéricos)
       _convenioService.seedConvenioHosteleriaGuadalajara,
       _convenioService.seedConvenioComercioGuadalajara,
       _convenioService.seedConvenioPeluqueriaEsteticaGimnasios,
@@ -54,6 +58,13 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
       _convenioService.seedConvenioVeterinariosGuadalajara2026,
       if (esConstruccion)
         _convenioService.seedConvenioConstruccionObrasPublicasGuadalajara,
+      // Cuenca — se cargan si el sector indica Cuenca o si es construcción en Cuenca
+      if (esCuenca || sector == 'hosteleria_cuenca')
+        _convenioService.seedConvenioHosteleriaCuenca,
+      if (esCuenca || sector == 'comercio_cuenca' || sector == 'comercio_general_cuenca')
+        _convenioService.seedConvenioComercioCuenca,
+      if (esConstruccion && esCuenca || sector == 'construccion_cuenca')
+        _convenioService.seedConvenioConstruccionCuenca,
     ];
     for (final seed in seeds) {
       try { await seed(); } catch (e) { debugPrint('⚠️ seed: $e'); }
@@ -81,39 +92,59 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
           }
           final empleados = snapshot.data?.docs ?? [];
           if (empleados.isEmpty) return _buildVacio();
-          return Column(children: [
-            _buildResumen(empleados),
-            Expanded(
-              child: ListView.builder(
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildResumen(empleados)),
+              SliverPadding(
                 padding: const EdgeInsets.all(16),
-                itemCount: empleados.length,
-                itemBuilder: (context, i) {
-                  final data = empleados[i].data() as Map<String, dynamic>;
-                  final id   = empleados[i].id;
-                  return TarjetaEmpleado(
-                    id: id,
-                    data: data,
-                    esPropietario: _esPropietario,
-                    empresaId: widget.empresaId,
-                    onEditar: () => _abrirFormulario(id: id, data: data),
-                    onToggleActivo: () => _toggleActivo(id, data['activo'] ?? true),
-                    onDatosNomina: () => _abrirFormularioNomina(id, data),
-                    onEmbargos: () => _abrirEmbargos(id, data['nombre'] ?? 'Empleado'),
-                    onFoto: () => _abrirFoto(id, data['nombre'] ?? 'Empleado'),
-                  );
-                },
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      final data = empleados[i].data() as Map<String, dynamic>;
+                      final id   = empleados[i].id;
+                      return TarjetaEmpleado(
+                        id: id,
+                        data: data,
+                        esPropietario: _esPropietario,
+                        empresaId: widget.empresaId,
+                        onEditar: () => _abrirFormulario(id: id, data: data),
+                        onToggleActivo: () => _toggleActivo(id, data['activo'] ?? true),
+                        onDatosNomina: () => _abrirFormularioNomina(id, data),
+                        onEmbargos: () => _abrirEmbargos(id, data['nombre'] ?? 'Empleado'),
+                        onFoto: () => _abrirFoto(id, data['nombre'] ?? 'Empleado'),
+                      );
+                    },
+                    childCount: empleados.length,
+                  ),
+                ),
               ),
-            ),
-          ]);
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          );
         },
       ),
       floatingActionButton: _esPropietario
-          ? FloatingActionButton.extended(
-              onPressed: () => _abrirFormulario(),
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Nuevo empleado'),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'invitar_empleado',
+                  onPressed: _invitarEmpleado,
+                  backgroundColor: const Color(0xFF1976D2),
+                  foregroundColor: Colors.white,
+                  tooltip: 'Invitar empleado',
+                  child: const Icon(Icons.mail_outline),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.extended(
+                  heroTag: 'crear_empleado',
+                  onPressed: () => _abrirFormulario(),
+                  backgroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Nuevo empleado'),
+                ),
+              ],
             )
           : null,
     ),
@@ -190,6 +221,120 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => FormularioEmpleado(empresaId: widget.empresaId, id: id, data: data),
     );
+  }
+
+  // ── INVITAR EMPLEADO POR EMAIL ──────────────────────────────────────────
+
+  Future<void> _invitarEmpleado() async {
+    final emailCtrl = TextEditingController();
+    String rolSeleccionado = 'staff';
+
+    final resultado = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.mail_outline, color: Color(0xFF0D47A1)),
+              SizedBox(width: 8),
+              Text('Invitar empleado', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Envía una invitación por email. El empleado recibirá un código para unirse a tu empresa.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email del empleado',
+                  hintText: 'ejemplo@correo.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: rolSeleccionado,
+                decoration: InputDecoration(
+                  labelText: 'Rol asignado',
+                  prefixIcon: const Icon(Icons.badge_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'admin', child: Text('🛡️ Administrador')),
+                  DropdownMenuItem(value: 'staff', child: Text('👤 Staff / Empleado')),
+                ],
+                onChanged: (v) => setDialogState(() => rolSeleccionado = v ?? 'staff'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                final email = emailCtrl.text.trim();
+                if (email.isEmpty || !email.contains('@')) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Introduce un email válido')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx, {'email': email, 'rol': rolSeleccionado});
+              },
+              icon: const Icon(Icons.send),
+              label: const Text('Enviar invitación'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (resultado == null || !mounted) return;
+
+    try {
+      // Obtener nombre de empresa
+      final empresaDoc = await _firestore.collection('empresas').doc(widget.empresaId).get();
+      final empresaNombre = (empresaDoc.data()?['perfil'] as Map<String, dynamic>?)?['nombre']
+          ?? empresaDoc.data()?['nombre']
+          ?? 'Mi Empresa';
+
+      await InvitacionesService().enviarInvitacion(
+        email: resultado['email']!,
+        rol: resultado['rol']!,
+        empresaId: widget.empresaId,
+        empresaNombre: empresaNombre.toString(),
+        creadoPorUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Invitación enviada a ${resultado['email']}'),
+            backgroundColor: const Color(0xFF2E7D32),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _abrirFoto(String empleadoId, String nombre) {

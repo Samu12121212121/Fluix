@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../services/notificaciones_service.dart';
-import '../../../core/utils/permisos_service.dart';
-import '../../dashboard/pantallas/pantalla_dashboard.dart';
 
 class FormularioRegistro extends StatefulWidget {
   const FormularioRegistro({super.key});
@@ -472,8 +469,6 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
       // 3. Crear documento de usuario
       // NOTA: El rol 'propietario' es exclusivo de la empresa FluixTech.
       // Los dueños de otras empresas se crean con rol 'admin'.
-      await db.collection('usuarios').doc(uid).set({
-        'nombre':            _nombrePropietarioController.text.trim(),
         'correo':            _correoPropietarioController.text.trim(),
         'telefono':          _telefonoPropietarioController.text.trim(),
         'rol':               'admin',
@@ -483,7 +478,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
         'fecha_creacion':    now.toIso8601String(),
         'token_dispositivo': null,
         'token_actualizado': null,
-        'plataforma':        null,
+        'rol':               'propietario',
       });
 
       // 4. configuracion/modulos — catálogo inicial (citas apagado por defecto)
@@ -528,12 +523,6 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('¡Empresa registrada exitosamente!'),
-            backgroundColor: Color(0xFF4CAF50),
-          ),
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const PantallaDashboard()),
           (_) => false,
         );
       }
@@ -549,11 +538,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
   String _mapearErrorAuth(FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':
-        return 'Este correo ya está en uso.';
-      case 'invalid-email':
-        return 'Correo electrónico inválido.';
-      case 'weak-password':
-        return 'La contraseña es muy débil.';
+        Navigator.of(context).pop();
       default:
         return 'Error al crear la cuenta: ${e.message}';
     }

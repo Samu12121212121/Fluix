@@ -305,8 +305,6 @@ class Factura {
   // Notas
   final String? notasInternas;
   final String? notasCliente;
-  // Fecha de operación (Art. 6.1.f RD 1619/2012): obligatoria si difiere de fechaEmision
-  final DateTime? fechaOperacion;
   // Verifactu (registro fiscal electrónico RD 1007/2023)
   final Map<String, dynamic>? verifactu;
   // Auditoría
@@ -351,7 +349,6 @@ class Factura {
     this.verifactu,
     required this.historial,
     required this.fechaEmision,
-    this.fechaVencimiento,
     this.fechaPago,
     this.fechaActualizacion,
   });
@@ -404,7 +401,6 @@ class Factura {
     List<EntradaHistorialFactura>? historial,
     DateTime? fechaEmision,
     DateTime? fechaVencimiento,
-    DateTime? fechaPago,
     DateTime? fechaActualizacion,
   }) => Factura(
     id: id ?? this.id,
@@ -440,7 +436,6 @@ class Factura {
     fechaOperacion: fechaOperacion ?? this.fechaOperacion,
     historial: historial ?? this.historial,
     fechaEmision: fechaEmision ?? this.fechaEmision,
-    fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
     fechaPago: fechaPago ?? this.fechaPago,
     fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
   );
@@ -530,9 +525,6 @@ class Factura {
           : null,
       verifactu: d['verifactu'],
       historial: (d['historial'] as List<dynamic>? ?? [])
-          .map((h) => EntradaHistorialFactura.fromMap(h as Map<String, dynamic>))
-          .toList(),
-      fechaEmision: _parseTs(d['fecha_emision']),
       fechaVencimiento: d['fecha_vencimiento'] != null
           ? _parseTs(d['fecha_vencimiento'])
           : null,
@@ -583,8 +575,6 @@ class Factura {
     'fecha_emision': Timestamp.fromDate(fechaEmision),
     'fecha_vencimiento':
         fechaVencimiento != null ? Timestamp.fromDate(fechaVencimiento!) : null,
-    'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,
-    'fecha_actualizacion': Timestamp.fromDate(fechaActualizacion ?? DateTime.now()),
   };
 
   /// Calcula los totales a partir de las líneas y configuración fiscal.

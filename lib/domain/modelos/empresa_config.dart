@@ -2,6 +2,74 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/validador_nif_cif.dart';
 import 'empresa.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// FORMA JURÍDICA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum FormaJuridica {
+  autonomo,
+  sl,
+  sa,
+  slp,
+  cooperativa,
+  comunidadBienes,
+  sociedadCivil,
+}
+
+extension FormaJuridicaExt on FormaJuridica {
+  String get etiqueta {
+    switch (this) {
+      case FormaJuridica.autonomo:        return 'Autónomo';
+      case FormaJuridica.sl:              return 'Sociedad Limitada (S.L.)';
+      case FormaJuridica.sa:              return 'Sociedad Anónima (S.A.)';
+      case FormaJuridica.slp:             return 'Sociedad Limitada Profesional (S.L.P.)';
+      case FormaJuridica.cooperativa:     return 'Cooperativa';
+      case FormaJuridica.comunidadBienes: return 'Comunidad de Bienes';
+      case FormaJuridica.sociedadCivil:   return 'Sociedad Civil';
+    }
+  }
+
+  String get valorFirestore {
+    switch (this) {
+      case FormaJuridica.autonomo:        return 'autonomo';
+      case FormaJuridica.sl:              return 'sl';
+      case FormaJuridica.sa:              return 'sa';
+      case FormaJuridica.slp:             return 'slp';
+      case FormaJuridica.cooperativa:     return 'cooperativa';
+      case FormaJuridica.comunidadBienes: return 'comunidad_bienes';
+      case FormaJuridica.sociedadCivil:   return 'sociedad_civil';
+    }
+  }
+
+  /// true si es una sociedad mercantil (obligada a Modelo 200/202)
+  bool get esSociedad =>
+      this == FormaJuridica.sl ||
+      this == FormaJuridica.sa ||
+      this == FormaJuridica.slp ||
+      this == FormaJuridica.cooperativa;
+
+  /// true si tributa por IRPF (autónomos y asimilados → Modelo 130)
+  bool get tributaIRPF =>
+      this == FormaJuridica.autonomo ||
+      this == FormaJuridica.comunidadBienes ||
+      this == FormaJuridica.sociedadCivil;
+
+  static FormaJuridica fromString(String? valor) {
+    switch (valor) {
+      case 'autonomo':        return FormaJuridica.autonomo;
+      case 'sl':              return FormaJuridica.sl;
+      case 'sa':              return FormaJuridica.sa;
+      case 'slp':             return FormaJuridica.slp;
+      case 'cooperativa':     return FormaJuridica.cooperativa;
+      case 'comunidad_bienes': return FormaJuridica.comunidadBienes;
+      case 'sociedad_civil':  return FormaJuridica.sociedadCivil;
+      default:                return FormaJuridica.autonomo;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const String _kNifPlaceholderLegacy = 'A12345678';
 
 String _stringOrEmpty(dynamic value) => (value ?? '').toString().trim();
@@ -42,6 +110,7 @@ class EmpresaConfig {
   final CriterioIVA criterioIva;
   final String ibanEmpresa;
   final String bicEmpresa;
+  final FormaJuridica formaJuridica;
   // Prefijos de serie (máx. 5 caracteres)
   final String serieFactura;       // default 'F'
   final String serieRectificativa; // default 'R'
@@ -60,6 +129,7 @@ class EmpresaConfig {
     this.criterioIva = CriterioIVA.devengo,
     this.ibanEmpresa = '',
     this.bicEmpresa = '',
+    this.formaJuridica = FormaJuridica.autonomo,
     this.serieFactura = 'F',
     this.serieRectificativa = 'R',
     this.serieProforma = 'P',
@@ -88,6 +158,9 @@ class EmpresaConfig {
       ),
       ibanEmpresa: (empresa['iban_empresa'] ?? fiscal['iban_empresa'] ?? '').toString(),
       bicEmpresa: (empresa['bic_empresa'] ?? fiscal['bic_empresa'] ?? '').toString(),
+      formaJuridica: FormaJuridicaExt.fromString(
+        (fiscal['forma_juridica'] ?? empresa['forma_juridica'])?.toString(),
+      ),
       serieFactura: _serieValida(empresa['serie_factura'] ?? 'F', 'F'),
       serieRectificativa: _serieValida(empresa['serie_rectificativa'] ?? 'R', 'R'),
       serieProforma: _serieValida(empresa['serie_proforma'] ?? 'P', 'P'),
@@ -104,6 +177,7 @@ class EmpresaConfig {
         'epigraf_iae': epigrafIAE.trim(),
         if (ibanEmpresa.trim().isNotEmpty) 'iban_empresa': ibanEmpresa.trim(),
         if (bicEmpresa.trim().isNotEmpty) 'bic_empresa': bicEmpresa.trim(),
+        'forma_juridica': formaJuridica.valorFirestore,
         'serie_factura': serieFactura.trim().toUpperCase(),
         'serie_rectificativa': serieRectificativa.trim().toUpperCase(),
         'serie_proforma': serieProforma.trim().toUpperCase(),
@@ -117,6 +191,7 @@ class EmpresaConfig {
         'epigraf_iae': epigrafIAE.trim(),
         'esta_en_sii': estaEnSII,
         'criterio_iva': criterioIva.name,
+        'forma_juridica': formaJuridica.valorFirestore,
       };
 
   EmpresaConfig copyWith({
@@ -132,6 +207,7 @@ class EmpresaConfig {
     CriterioIVA? criterioIva,
     String? ibanEmpresa,
     String? bicEmpresa,
+    FormaJuridica? formaJuridica,
     String? serieFactura,
     String? serieRectificativa,
     String? serieProforma,
@@ -145,9 +221,11 @@ class EmpresaConfig {
       provincia: provincia ?? this.provincia,
       regimenIVA: regimenIVA ?? this.regimenIVA,
       epigrafIAE: epigrafIAE ?? this.epigrafIAE,
+      estaEnSII: estaEnSII ?? this.estaEnSII,
       criterioIva: criterioIva ?? this.criterioIva,
       ibanEmpresa: ibanEmpresa ?? this.ibanEmpresa,
       bicEmpresa: bicEmpresa ?? this.bicEmpresa,
+      formaJuridica: formaJuridica ?? this.formaJuridica,
       serieFactura: serieFactura ?? this.serieFactura,
       serieRectificativa: serieRectificativa ?? this.serieRectificativa,
       serieProforma: serieProforma ?? this.serieProforma,
@@ -167,6 +245,10 @@ class EmpresaConfig {
     return validacion.valido ? null : validacion.razon;
   }
   bool get esRECC => regimenIVA.toLowerCase() == 'recc';
+
+  /// Helpers según forma jurídica
+  bool get esSociedad => formaJuridica.esSociedad;
+  bool get tributaIRPF => formaJuridica.tributaIRPF;
 
   List<String> validar() {
     final errores = <String>[];

@@ -9,7 +9,7 @@ class ConvenioFirestoreService {
   factory ConvenioFirestoreService() => _instance;
   ConvenioFirestoreService._();
 
-  FirebaseFirestore get _db => FirebaseFirestore.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _conveniosRef =>
       _db.collection('convenios');
@@ -1368,6 +1368,322 @@ class ConvenioFirestoreService {
     _log.i('✅ Datos del convenio de Construcción y O.P. (Guadalajara 2025-2026) creados en Firestore.');
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVENIO CONSTRUCCIÓN Y OBRAS PÚBLICAS — CUENCA
+  // Código: 16000075011981  |  Vigencia 2022–2026
+  // Jornada anual: 1.736 horas  |  2 pagas extras (junio y diciembre)
+  // Fórmula: RA = SB×335 + (PS+PE)×díasEfectivos + ExtraJun + ExtraDic + Vac
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> seedConvenioConstruccionCuenca({bool force = false}) async {
+    const convenioId = 'construccion-obras-publicas-cuenca';
+    final doc = await _conveniosRef.doc(convenioId).get();
+    if (doc.exists && !force) {
+      _log.i('El convenio de Construcción y O.P. de Cuenca ya existe en Firestore.');
+      return;
+    }
+
+    _log.i('Creando datos para el convenio de Construcción y Obras Públicas (Cuenca 2024-2026)...');
+
+    const int horasAnuales = 1736;
+
+    // ── Tablas 2024 ─────────────────────────────────────────────────────────
+    final List<Map<String, dynamic>> categorias2024 = [
+      {"id": "nivel-i-2024", "nombre": "Nivel I — Personal Directivo (salario libre)", "grupo_profesional": "Nivel I", "nivel": 1, "anio": 2024, "salario_libre": true, "sb_dia": 0.0, "plus_salarial_dia": 0.0, "plus_extrasalarial_dia": 0.0, "extra_junio": 0.0, "extra_dic": 0.0, "vacaciones": 0.0, "salario_base_mensual": 0.0, "salario_anual": 0.0, "num_pagas": 14, "nota": "Salario libre — introduce el salario acordado."},
+      {"id": "nivel-ii-2024", "nombre": "Nivel II — Titulado Superior", "grupo_profesional": "Nivel II", "nivel": 2, "anio": 2024, "sb_dia": 48.44, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 2130.99, "extra_dic": 2130.99, "vacaciones": 2130.99, "salario_base_mensual": 0.0, "salario_anual": 24100.64, "num_pagas": 14},
+      {"id": "nivel-iii-2024", "nombre": "Nivel III — Titulado Medio, Jefe de Sección", "grupo_profesional": "Nivel III", "nivel": 3, "anio": 2024, "sb_dia": 47.69, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 2098.04, "extra_dic": 2098.04, "vacaciones": 2098.04, "salario_base_mensual": 0.0, "salario_anual": 23756.98, "num_pagas": 14},
+      {"id": "nivel-iv-2024", "nombre": "Nivel IV — Jefe de Personal, Encargado General", "grupo_profesional": "Nivel IV", "nivel": 4, "anio": 2024, "sb_dia": 46.41, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 2040.55, "extra_dic": 2040.55, "vacaciones": 2040.55, "salario_base_mensual": 0.0, "salario_anual": 23149.83, "num_pagas": 14},
+      {"id": "nivel-v-2024", "nombre": "Nivel V — Jefe Adm. 2ª, Delineante Superior", "grupo_profesional": "Nivel V", "nivel": 5, "anio": 2024, "sb_dia": 45.17, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1986.53, "extra_dic": 1986.53, "vacaciones": 1986.53, "salario_base_mensual": 0.0, "salario_anual": 22572.87, "num_pagas": 14},
+      {"id": "nivel-vi-2024", "nombre": "Nivel VI — Oficial Adm. 1ª, Jefe de Taller", "grupo_profesional": "Nivel VI", "nivel": 6, "anio": 2024, "sb_dia": 43.91, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1931.70, "extra_dic": 1931.70, "vacaciones": 1931.70, "salario_base_mensual": 0.0, "salario_anual": 21983.52, "num_pagas": 14},
+      {"id": "nivel-vii-2024", "nombre": "Nivel VII — Delineante 2ª, Capataz", "grupo_profesional": "Nivel VII", "nivel": 7, "anio": 2024, "sb_dia": 42.26, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1858.45, "extra_dic": 1858.45, "vacaciones": 1858.45, "salario_base_mensual": 0.0, "salario_anual": 21191.41, "num_pagas": 14},
+      {"id": "nivel-viii-2024", "nombre": "Nivel VIII — Oficial Adm. 2ª, Oficial 1ª de Oficio", "grupo_profesional": "Nivel VIII", "nivel": 8, "anio": 2024, "sb_dia": 42.04, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1849.41, "extra_dic": 1849.41, "vacaciones": 1849.41, "salario_base_mensual": 0.0, "salario_anual": 21088.49, "num_pagas": 14},
+      {"id": "nivel-ix-2024", "nombre": "Nivel IX — Auxiliar Adm., Oficial 2ª de Oficio", "grupo_profesional": "Nivel IX", "nivel": 9, "anio": 2024, "sb_dia": 40.42, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1776.81, "extra_dic": 1776.81, "vacaciones": 1776.81, "salario_base_mensual": 0.0, "salario_anual": 20340.24, "num_pagas": 14},
+      {"id": "nivel-x-2024", "nombre": "Nivel X — Auxiliar Laboratorio, Ayudante de Oficio", "grupo_profesional": "Nivel X", "nivel": 10, "anio": 2024, "sb_dia": 38.92, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1710.49, "extra_dic": 1710.49, "vacaciones": 1710.49, "salario_base_mensual": 0.0, "salario_anual": 19635.22, "num_pagas": 14},
+      {"id": "nivel-xi-2024", "nombre": "Nivel XI — Especialista 2ª, Peón Especialista", "grupo_profesional": "Nivel XI", "nivel": 11, "anio": 2024, "sb_dia": 38.21, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1681.96, "extra_dic": 1681.96, "vacaciones": 1681.96, "salario_base_mensual": 0.0, "salario_anual": 19327.14, "num_pagas": 14},
+      {"id": "nivel-xii-2024", "nombre": "Nivel XII — Peón Ordinario, Limpiadora", "grupo_profesional": "Nivel XII", "nivel": 12, "anio": 2024, "sb_dia": 37.64, "plus_salarial_dia": 1.14, "plus_extrasalarial_dia": 5.69, "extra_junio": 1654.81, "extra_dic": 1654.81, "vacaciones": 1654.81, "salario_base_mensual": 0.0, "salario_anual": 19035.53, "num_pagas": 14},
+    ];
+
+    // ── Tablas 2025 ─────────────────────────────────────────────────────────
+    final List<Map<String, dynamic>> categorias2025 = [
+      {"id": "nivel-i-2025", "nombre": "Nivel I — Personal Directivo (salario libre)", "grupo_profesional": "Nivel I", "nivel": 1, "anio": 2025, "salario_libre": true, "sb_dia": 0.0, "plus_salarial_dia": 0.0, "plus_extrasalarial_dia": 0.0, "extra_junio": 0.0, "extra_dic": 0.0, "vacaciones": 0.0, "salario_base_mensual": 0.0, "salario_anual": 0.0, "num_pagas": 14, "nota": "Salario libre — introduce el salario acordado."},
+      {"id": "nivel-ii-2025", "nombre": "Nivel II — Titulado Superior", "grupo_profesional": "Nivel II", "nivel": 2, "anio": 2025, "sb_dia": 50.33, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 2214.10, "extra_dic": 2214.10, "vacaciones": 2214.10, "salario_base_mensual": 0.0, "salario_anual": 25040.57, "num_pagas": 14},
+      {"id": "nivel-iii-2025", "nombre": "Nivel III — Titulado Medio, Jefe de Sección", "grupo_profesional": "Nivel III", "nivel": 3, "anio": 2025, "sb_dia": 49.55, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 2179.86, "extra_dic": 2179.86, "vacaciones": 2179.86, "salario_base_mensual": 0.0, "salario_anual": 24690.50, "num_pagas": 14},
+      {"id": "nivel-iv-2025", "nombre": "Nivel IV — Jefe de Personal, Encargado General", "grupo_profesional": "Nivel IV", "nivel": 4, "anio": 2025, "sb_dia": 48.22, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 2120.13, "extra_dic": 2120.13, "vacaciones": 2120.13, "salario_base_mensual": 0.0, "salario_anual": 24032.47, "num_pagas": 14},
+      {"id": "nivel-v-2025", "nombre": "Nivel V — Jefe Adm. 2ª, Delineante Superior", "grupo_profesional": "Nivel V", "nivel": 5, "anio": 2025, "sb_dia": 46.93, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 2063.81, "extra_dic": 2063.81, "vacaciones": 2063.81, "salario_base_mensual": 0.0, "salario_anual": 23453.12, "num_pagas": 14},
+      {"id": "nivel-vi-2025", "nombre": "Nivel VI — Oficial Adm. 1ª, Jefe de Taller", "grupo_profesional": "Nivel VI", "nivel": 6, "anio": 2025, "sb_dia": 45.62, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 2006.94, "extra_dic": 2006.94, "vacaciones": 2006.94, "salario_base_mensual": 0.0, "salario_anual": 22820.88, "num_pagas": 14},
+      {"id": "nivel-vii-2025", "nombre": "Nivel VII — Delineante 2ª, Capataz", "grupo_profesional": "Nivel VII", "nivel": 7, "anio": 2025, "sb_dia": 43.91, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1930.92, "extra_dic": 1930.92, "vacaciones": 1930.92, "salario_base_mensual": 0.0, "salario_anual": 22017.87, "num_pagas": 14},
+      {"id": "nivel-viii-2025", "nombre": "Nivel VIII — Oficial Adm. 2ª, Oficial 1ª de Oficio", "grupo_profesional": "Nivel VIII", "nivel": 8, "anio": 2025, "sb_dia": 43.68, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1921.53, "extra_dic": 1921.53, "vacaciones": 1921.53, "salario_base_mensual": 0.0, "salario_anual": 21910.84, "num_pagas": 14},
+      {"id": "nivel-ix-2025", "nombre": "Nivel IX — Auxiliar Adm., Oficial 2ª de Oficio", "grupo_profesional": "Nivel IX", "nivel": 9, "anio": 2025, "sb_dia": 42.00, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1845.80, "extra_dic": 1845.80, "vacaciones": 1845.80, "salario_base_mensual": 0.0, "salario_anual": 21133.51, "num_pagas": 14},
+      {"id": "nivel-x-2025", "nombre": "Nivel X — Auxiliar Laboratorio, Ayudante de Oficio", "grupo_profesional": "Nivel X", "nivel": 10, "anio": 2025, "sb_dia": 40.44, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1776.28, "extra_dic": 1776.28, "vacaciones": 1776.28, "salario_base_mensual": 0.0, "salario_anual": 20401.99, "num_pagas": 14},
+      {"id": "nivel-xi-2025", "nombre": "Nivel XI — Especialista 2ª, Peón Especialista", "grupo_profesional": "Nivel XI", "nivel": 11, "anio": 2025, "sb_dia": 39.70, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1747.40, "extra_dic": 1747.40, "vacaciones": 1747.40, "salario_base_mensual": 0.0, "salario_anual": 20066.90, "num_pagas": 14},
+      {"id": "nivel-xii-2025", "nombre": "Nivel XII — Peón Ordinario, Limpiadora", "grupo_profesional": "Nivel XII", "nivel": 12, "anio": 2025, "sb_dia": 39.11, "plus_salarial_dia": 1.18, "plus_extrasalarial_dia": 5.91, "extra_junio": 1719.44, "extra_dic": 1719.44, "vacaciones": 1719.44, "salario_base_mensual": 0.0, "salario_anual": 19773.91, "num_pagas": 14},
+    ];
+
+    // ── Tablas 2026 ─────────────────────────────────────────────────────────
+    final List<Map<String, dynamic>> categorias2026 = [
+      {"id": "nivel-i-2026", "nombre": "Nivel I — Personal Directivo (salario libre)", "grupo_profesional": "Nivel I", "nivel": 1, "anio": 2026, "salario_libre": true, "sb_dia": 0.0, "plus_salarial_dia": 0.0, "plus_extrasalarial_dia": 0.0, "extra_junio": 0.0, "extra_dic": 0.0, "vacaciones": 0.0, "salario_base_mensual": 0.0, "salario_anual": 0.0, "num_pagas": 14, "nota": "Salario libre — introduce el salario acordado."},
+      {"id": "nivel-ii-2026", "nombre": "Nivel II — Titulado Superior", "grupo_profesional": "Nivel II", "nivel": 2, "anio": 2026, "sb_dia": 51.84, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 2280.52, "extra_dic": 2280.52, "vacaciones": 2280.52, "salario_base_mensual": 0.0, "salario_anual": 25791.79, "num_pagas": 14},
+      {"id": "nivel-iii-2026", "nombre": "Nivel III — Titulado Medio, Jefe de Sección", "grupo_profesional": "Nivel III", "nivel": 3, "anio": 2026, "sb_dia": 51.04, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 2245.25, "extra_dic": 2245.25, "vacaciones": 2245.25, "salario_base_mensual": 0.0, "salario_anual": 25430.22, "num_pagas": 14},
+      {"id": "nivel-iv-2026", "nombre": "Nivel IV — Jefe de Personal, Encargado General", "grupo_profesional": "Nivel IV", "nivel": 4, "anio": 2026, "sb_dia": 49.67, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 2183.73, "extra_dic": 2183.73, "vacaciones": 2183.73, "salario_base_mensual": 0.0, "salario_anual": 24753.44, "num_pagas": 14},
+      {"id": "nivel-v-2026", "nombre": "Nivel V — Jefe Adm. 2ª, Delineante Superior", "grupo_profesional": "Nivel V", "nivel": 5, "anio": 2026, "sb_dia": 48.34, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 2125.72, "extra_dic": 2125.72, "vacaciones": 2125.72, "salario_base_mensual": 0.0, "salario_anual": 24156.71, "num_pagas": 14},
+      {"id": "nivel-vi-2026", "nombre": "Nivel VI — Oficial Adm. 1ª, Jefe de Taller", "grupo_profesional": "Nivel VI", "nivel": 6, "anio": 2026, "sb_dia": 46.99, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 2067.15, "extra_dic": 2067.15, "vacaciones": 2067.15, "salario_base_mensual": 0.0, "salario_anual": 23505.51, "num_pagas": 14},
+      {"id": "nivel-vii-2026", "nombre": "Nivel VII — Delineante 2ª, Capataz", "grupo_profesional": "Nivel VII", "nivel": 7, "anio": 2026, "sb_dia": 45.23, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1988.85, "extra_dic": 1988.85, "vacaciones": 1988.85, "salario_base_mensual": 0.0, "salario_anual": 22678.41, "num_pagas": 14},
+      {"id": "nivel-viii-2026", "nombre": "Nivel VIII — Oficial Adm. 2ª, Oficial 1ª de Oficio", "grupo_profesional": "Nivel VIII", "nivel": 8, "anio": 2026, "sb_dia": 44.99, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1979.17, "extra_dic": 1979.17, "vacaciones": 1979.17, "salario_base_mensual": 0.0, "salario_anual": 22568.17, "num_pagas": 14},
+      {"id": "nivel-ix-2026", "nombre": "Nivel IX — Auxiliar Adm., Oficial 2ª de Oficio", "grupo_profesional": "Nivel IX", "nivel": 9, "anio": 2026, "sb_dia": 43.26, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1901.17, "extra_dic": 1901.17, "vacaciones": 1901.17, "salario_base_mensual": 0.0, "salario_anual": 21767.51, "num_pagas": 14},
+      {"id": "nivel-x-2026", "nombre": "Nivel X — Auxiliar Laboratorio, Ayudante de Oficio", "grupo_profesional": "Nivel X", "nivel": 10, "anio": 2026, "sb_dia": 41.65, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1829.57, "extra_dic": 1829.57, "vacaciones": 1829.57, "salario_base_mensual": 0.0, "salario_anual": 21014.05, "num_pagas": 14},
+      {"id": "nivel-xi-2026", "nombre": "Nivel XI — Especialista 2ª, Peón Especialista", "grupo_profesional": "Nivel XI", "nivel": 11, "anio": 2026, "sb_dia": 40.89, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1799.82, "extra_dic": 1799.82, "vacaciones": 1799.82, "salario_base_mensual": 0.0, "salario_anual": 20668.91, "num_pagas": 14},
+      {"id": "nivel-xii-2026", "nombre": "Nivel XII — Peón Ordinario, Limpiadora", "grupo_profesional": "Nivel XII", "nivel": 12, "anio": 2026, "sb_dia": 40.28, "plus_salarial_dia": 1.22, "plus_extrasalarial_dia": 6.09, "extra_junio": 1771.02, "extra_dic": 1771.02, "vacaciones": 1771.02, "salario_base_mensual": 0.0, "salario_anual": 20367.13, "num_pagas": 14},
+    ];
+
+    final Map<String, dynamic> convenioData = {
+      "nombre": "Convenio Colectivo de Construcción y Obras Públicas — Cuenca",
+      "codigo": "16000075011981",
+      "ambito": "provincial",
+      "sector": "construccion",
+      "tipo_convenio": "sectorial_provincial",
+      "provincia": "Cuenca",
+      "anio_vigente_defecto": 2026,
+      "vigencia": {"inicio": "2022-01-01", "fin": "2026-12-31", "estado_dato": "tablas_2024_2025_2026"},
+      "fuente": {"documento": "Tablas salariales Convenio Provincial Construcción Cuenca 2022-2026", "fecha_extraccion": "2026-04-12", "version": "v1"},
+      "nivel_i_salario_libre": true,
+      "nota_nivel_i": "El salario del Nivel I se pacta individualmente. Introduce el salario acordado.",
+      "horas_anuales": horasAnuales,
+      "formula_anual": "SB×335 + (PlusSalarial+PlusExtrasalarial)×díasEfectivos + ExtraJunio + ExtraDic + Vacaciones",
+    };
+
+    final List<Map<String, dynamic>> pluses = [
+      {"id": "plus_salarial", "nombre": "Plus Salarial (por día trabajado)", "tipo": "fijo", "importe": 1.22, "base_calculo": "dia_trabajado", "importe_2025": 1.18, "importe_2024": 1.14},
+      {"id": "plus_extrasalarial", "nombre": "Plus Extrasalarial (por día trabajado)", "tipo": "fijo", "importe": 6.09, "base_calculo": "dia_trabajado", "importe_2025": 5.91, "importe_2024": 5.69, "descripcion": "No cotiza a SS."},
+      {"id": "nocturnidad", "nombre": "Plus Nocturno (22h-6h)", "tipo": "porcentaje", "importe": 25.0, "base_calculo": "salario_base"},
+      {"id": "penosidad_completa", "nombre": "Plus Penosidad/Toxicidad (jornada completa)", "tipo": "porcentaje", "importe": 20.0, "base_calculo": "salario_base"},
+      {"id": "penosidad_media", "nombre": "Plus Penosidad/Toxicidad (media jornada)", "tipo": "porcentaje", "importe": 10.0, "base_calculo": "salario_base"},
+      {"id": "conservacion_carreteras", "nombre": "Plus Conservación Carreteras", "tipo": "fijo", "importe": 4.00, "base_calculo": "dia_trabajado", "descripcion": "Fijo, no se revisa anualmente."},
+      {"id": "horas_extra", "nombre": "Horas extraordinarias (+25%)", "tipo": "porcentaje", "importe": 125.0, "base_calculo": "hora_ordinaria", "descripcion": "Valor hora tabla × 1,25"},
+      {"id": "dieta_completa_2026", "nombre": "Dieta completa 2026", "tipo": "fijo", "importe": 32.63, "base_calculo": "dia_desplazamiento"},
+      {"id": "media_dieta_2026", "nombre": "Media dieta 2026", "tipo": "fijo", "importe": 13.81, "base_calculo": "dia_desplazamiento"},
+      {"id": "desgaste_herramienta_2026", "nombre": "Desgaste herramienta 2026", "tipo": "fijo", "importe": 0.86, "base_calculo": "dia_trabajado"},
+      {"id": "dieta_completa_2025", "nombre": "Dieta completa 2025", "tipo": "fijo", "importe": 31.68, "base_calculo": "dia_desplazamiento"},
+      {"id": "media_dieta_2025", "nombre": "Media dieta 2025", "tipo": "fijo", "importe": 13.41, "base_calculo": "dia_desplazamiento"},
+      {"id": "desgaste_herramienta_2025", "nombre": "Desgaste herramienta 2025", "tipo": "fijo", "importe": 0.83, "base_calculo": "dia_trabajado"},
+      {"id": "dieta_completa_2024", "nombre": "Dieta completa 2024", "tipo": "fijo", "importe": 30.49, "base_calculo": "dia_desplazamiento"},
+      {"id": "media_dieta_2024", "nombre": "Media dieta 2024", "tipo": "fijo", "importe": 12.92, "base_calculo": "dia_desplazamiento"},
+      {"id": "desgaste_herramienta_2024", "nombre": "Desgaste herramienta 2024", "tipo": "fijo", "importe": 0.80, "base_calculo": "dia_trabajado"},
+    ];
+
+    final WriteBatch batch = _db.batch();
+    final convenioDocRef = _conveniosRef.doc(convenioId);
+    batch.set(convenioDocRef, convenioData);
+
+    for (final catData in [...categorias2024, ...categorias2025, ...categorias2026]) {
+      final catId = catData['id'] as String;
+      batch.set(convenioDocRef.collection('categorias').doc(catId), catData);
+    }
+    for (final plusData in pluses) {
+      final plusId = plusData['id'] as String;
+      batch.set(convenioDocRef.collection('pluses').doc(plusId), plusData);
+    }
+
+    await batch.commit();
+    _log.i('✅ Datos del convenio de Construcción y O.P. (Cuenca 2024-2026) creados en Firestore.');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVENIO HOSTELERÍA — CUENCA
+  // Código: 16000125011981  |  Vigencia 2022-2024 (prorrogado)
+  // Jornada anual: 1.800 horas  |  15 pagas (12 + 3 extras)
+  // Estructura: SB + Plus Compensatorio + CLC (en 15 pagas) + complementos
+  // Grupo A (hoteles 4-5★, rest. 4-5 tenedores...) / Grupo B (1-3★, hostales...)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> seedConvenioHosteleriaCuenca({bool force = false}) async {
+    const convenioId = 'hosteleria-cuenca';
+    final doc = await _conveniosRef.doc(convenioId).get();
+    if (doc.exists && !force) {
+      _log.i('El convenio de Hostelería de Cuenca ya existe en Firestore.');
+      return;
+    }
+
+    _log.i('Creando datos para el convenio de Hostelería (Cuenca 2022-2025)...');
+
+    // ── Tablas 2022 (ene-sep, tablas 2021) ──────────────────────────────────
+    final List<Map<String, dynamic>> categorias2022a = [
+      {"id": "2022a-ga-i",  "nombre": "Nivel I (Grupo A)", "grupo_profesional": "Grupo A — Nivel I",  "nivel": 1, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "A", "sb_anual": 14812.65, "plus_comp_anual": 1296.15, "clc_anual": 887.16, "salario_base_mensual": 987.51, "salario_anual": 16995.96, "num_pagas": 15},
+      {"id": "2022a-ga-ii", "nombre": "Nivel II (Grupo A)", "grupo_profesional": "Grupo A — Nivel II", "nivel": 2, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "A", "sb_anual": 14480.25, "plus_comp_anual": 1267.05, "clc_anual": 887.16, "salario_base_mensual": 965.35, "salario_anual": 16634.46, "num_pagas": 15},
+      {"id": "2022a-ga-iii","nombre": "Nivel III (Grupo A)","grupo_profesional": "Grupo A — Nivel III","nivel": 3, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "A", "sb_anual": 14149.80, "plus_comp_anual": 1238.10, "clc_anual": 887.16, "salario_base_mensual": 943.32, "salario_anual": 16275.06, "num_pagas": 15},
+      {"id": "2022a-ga-iv", "nombre": "Nivel IV (Grupo A)", "grupo_profesional": "Grupo A — Nivel IV", "nivel": 4, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "A", "sb_anual": 13992.15, "plus_comp_anual": 1224.30, "clc_anual": 887.16, "salario_base_mensual": 932.81, "salario_anual": 16103.61, "num_pagas": 15},
+      {"id": "2022a-gb-i",  "nombre": "Nivel I (Grupo B)", "grupo_profesional": "Grupo B — Nivel I",  "nivel": 1, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "B", "sb_anual": 14778.30, "plus_comp_anual": 1293.15, "clc_anual": 887.16, "salario_base_mensual": 985.22, "salario_anual": 16958.61, "num_pagas": 15},
+      {"id": "2022a-gb-ii", "nombre": "Nivel II (Grupo B)", "grupo_profesional": "Grupo B — Nivel II", "nivel": 2, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "B", "sb_anual": 14409.75, "plus_comp_anual": 1260.90, "clc_anual": 887.16, "salario_base_mensual": 960.65, "salario_anual": 16557.81, "num_pagas": 15},
+      {"id": "2022a-gb-iii","nombre": "Nivel III (Grupo B)","grupo_profesional": "Grupo B — Nivel III","nivel": 3, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "B", "sb_anual": 14026.20, "plus_comp_anual": 1227.30, "clc_anual": 887.16, "salario_base_mensual": 935.08, "salario_anual": 16140.66, "num_pagas": 15},
+      {"id": "2022a-gb-iv", "nombre": "Nivel IV (Grupo B)", "grupo_profesional": "Grupo B — Nivel IV", "nivel": 4, "anio": 2022, "periodo": "ene-sep", "grupo_establecimiento": "B", "sb_anual": 13880.10, "plus_comp_anual": 1214.55, "clc_anual": 887.16, "salario_base_mensual": 925.34, "salario_anual": 15981.81, "num_pagas": 15},
+    ];
+
+    // ── Tablas 2025 (+1,9% sobre 2024, vigentes) ────────────────────────────
+    final List<Map<String, dynamic>> categorias2025 = [
+      {"id": "2025-ga-i",  "nombre": "Nivel I (Grupo A)", "grupo_profesional": "Grupo A — Nivel I",  "nivel": 1, "anio": 2025, "grupo_establecimiento": "A", "sb_anual": 16175.05, "plus_comp_anual": 1415.39, "clc_anual": 968.70, "salario_base_mensual": 1078.34, "salario_anual": 18559.14, "num_pagas": 15},
+      {"id": "2025-ga-ii", "nombre": "Nivel II (Grupo A)", "grupo_profesional": "Grupo A — Nivel II", "nivel": 2, "anio": 2025, "grupo_establecimiento": "A", "sb_anual": 15812.03, "plus_comp_anual": 1383.45, "clc_anual": 968.70, "salario_base_mensual": 1054.14, "salario_anual": 18164.18, "num_pagas": 15},
+      {"id": "2025-ga-iii","nombre": "Nivel III (Grupo A)","grupo_profesional": "Grupo A — Nivel III","nivel": 3, "anio": 2025, "grupo_establecimiento": "A", "sb_anual": 15451.15, "plus_comp_anual": 1351.96, "clc_anual": 968.70, "salario_base_mensual": 1030.08, "salario_anual": 17771.81, "num_pagas": 15},
+      {"id": "2025-ga-iv", "nombre": "Nivel IV (Grupo A)", "grupo_profesional": "Grupo A — Nivel IV", "nivel": 4, "anio": 2025, "grupo_establecimiento": "A", "sb_anual": 15279.04, "plus_comp_anual": 1336.98, "clc_anual": 968.70, "salario_base_mensual": 1018.60, "salario_anual": 17584.72, "num_pagas": 15},
+      {"id": "2025-gb-i",  "nombre": "Nivel I (Grupo B)", "grupo_profesional": "Grupo B — Nivel I",  "nivel": 1, "anio": 2025, "grupo_establecimiento": "B", "sb_anual": 16137.60, "plus_comp_anual": 1412.18, "clc_anual": 968.70, "salario_base_mensual": 1075.84, "salario_anual": 18518.48, "num_pagas": 15},
+      {"id": "2025-gb-ii", "nombre": "Nivel II (Grupo B)", "grupo_profesional": "Grupo B — Nivel II", "nivel": 2, "anio": 2025, "grupo_establecimiento": "B", "sb_anual": 15735.14, "plus_comp_anual": 1376.87, "clc_anual": 968.70, "salario_base_mensual": 1049.01, "salario_anual": 18080.71, "num_pagas": 15},
+      {"id": "2025-gb-iii","nombre": "Nivel III (Grupo B)","grupo_profesional": "Grupo B — Nivel III","nivel": 3, "anio": 2025, "grupo_establecimiento": "B", "sb_anual": 15316.18, "plus_comp_anual": 1340.19, "clc_anual": 968.70, "salario_base_mensual": 1021.08, "salario_anual": 17625.07, "num_pagas": 15},
+      {"id": "2025-gb-iv", "nombre": "Nivel IV (Grupo B)", "grupo_profesional": "Grupo B — Nivel IV", "nivel": 4, "anio": 2025, "grupo_establecimiento": "B", "sb_anual": 15156.61, "plus_comp_anual": 1326.28, "clc_anual": 968.70, "salario_base_mensual": 1010.44, "salario_anual": 17451.59, "num_pagas": 15},
+    ];
+
+    final Map<String, dynamic> convenioData = {
+      "nombre": "Convenio Colectivo de Hostelería — Cuenca",
+      "codigo": "16000125011981",
+      "ambito": "provincial",
+      "sector": "hosteleria",
+      "tipo_convenio": "sectorial_provincial",
+      "provincia": "Cuenca",
+      "anio_vigente_defecto": 2025,
+      "vigencia": {"inicio": "2022-01-01", "fin": "2024-12-31", "prorroga": true, "estado_dato": "tablas_2025_revision_1_9_pct"},
+      "fuente": {"documento": "Tablas salariales Hostelería Cuenca 2022-2025 (+1,9% sobre 2024)", "fecha_extraccion": "2026-04-12", "version": "v1"},
+      "horas_anuales": 1800,
+      "selector_grupo_establecimiento": true,
+      "grupos_establecimiento": {
+        "A": "Hoteles 4-5★, restaurantes 4-5 tenedores, cafeterías 3 tazas, catering público, bares categoría especial/1ª, casinos",
+        "B": "Hoteles 1-3★, hostales, pensiones, restaurantes 1-3 tenedores, cafeterías 1-2 tazas, bares 2ª/3ª/4ª, casas rurales"
+      },
+      "formula_salario_hora": "(SB + CLC + CPA + PCA) / 1.800",
+    };
+
+    final List<Map<String, dynamic>> pluses = [
+      {"id": "nocturnidad", "nombre": "Plus Nocturnidad (22h-8h)", "tipo": "compensacion_jornada", "importe": 1.25, "base_calculo": "hora", "descripcion": "1 hora nocturna = 1,25 horas de jornada"},
+      {"id": "festivos", "nombre": "Plus Festivos trabajados", "tipo": "compensacion_jornada", "importe": 1.75, "base_calculo": "hora", "descripcion": "1 hora festiva = 1,75 horas de jornada"},
+      {"id": "horas_extra", "nombre": "Horas extraordinarias monetizadas", "tipo": "porcentaje", "importe": 175.0, "base_calculo": "hora_ordinaria", "descripcion": "175% de la hora ordinaria"},
+      {"id": "complemento_formacion", "nombre": "Complemento de Formación (2025)", "tipo": "fijo", "importe": 274.64, "base_calculo": "anual_12_pagas"},
+      {"id": "limpieza_uniformes", "nombre": "Limpieza de Uniformes (2025)", "tipo": "fijo", "importe": 180.61, "base_calculo": "anual_12_pagas"},
+      {"id": "complemento_calzado", "nombre": "Complemento de Calzado (2025)", "tipo": "fijo", "importe": 45.61, "base_calculo": "anual_12_pagas"},
+      {"id": "manutencion", "nombre": "Manutención (2025)", "tipo": "fijo", "importe": 371.36, "base_calculo": "anual_12_pagas", "descripcion": "En especie o compensación económica"},
+      {"id": "alojamiento", "nombre": "Alojamiento (2025)", "tipo": "fijo", "importe": 636.10, "base_calculo": "anual_12_pagas", "descripcion": "En especie o compensación económica"},
+    ];
+
+    final WriteBatch batch = _db.batch();
+    final convenioDocRef = _conveniosRef.doc(convenioId);
+    batch.set(convenioDocRef, convenioData);
+
+    for (final catData in [...categorias2022a, ...categorias2025]) {
+      final catId = catData['id'] as String;
+      batch.set(convenioDocRef.collection('categorias').doc(catId), catData);
+    }
+    for (final plusData in pluses) {
+      final plusId = plusData['id'] as String;
+      batch.set(convenioDocRef.collection('pluses').doc(plusId), plusData);
+    }
+
+    await batch.commit();
+    _log.i('✅ Datos del convenio de Hostelería (Cuenca 2022-2025) creados en Firestore.');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVENIO COMERCIO EN GENERAL — CUENCA
+  // Código: 16000055011981  |  Vigencia 2025-2028
+  // Jornada anual: 1.800 horas  |  15,5 pagas (12 + Nav + Jul + Benef + ½ Prom.Cult.)
+  // RA = (SB + PlusComp + PlusConv) × 15,5
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> seedConvenioComercioCuenca({bool force = false}) async {
+    const convenioId = 'comercio-general-cuenca';
+    final doc = await _conveniosRef.doc(convenioId).get();
+    if (doc.exists && !force) {
+      _log.i('El convenio de Comercio en General de Cuenca ya existe en Firestore.');
+      return;
+    }
+
+    _log.i('Creando datos para el convenio de Comercio en General (Cuenca 2025-2026)...');
+
+    // ── Tablas 2025 (BOP 14/11/2025 + modificación BOP 24/11/2025) ──────────
+    final List<Map<String, dynamic>> categorias2025 = [
+      {"id": "nivel-1-2025",  "nombre": "Nivel 1 — Director/a Área Ventas/Almacén",               "grupo_profesional": "Nivel 1",  "nivel": 1,  "anio": 2025, "sb_mensual": 1212.17, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1305.40, "salario_anual": 20233.59, "num_pagas": 15},
+      {"id": "nivel-2-2025",  "nombre": "Nivel 2 — Titulado/a Univ. Grado Superior, Subdirector/a","grupo_profesional": "Nivel 2",  "nivel": 2,  "anio": 2025, "sb_mensual": 1181.26, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1274.49, "salario_anual": 19754.59, "num_pagas": 15},
+      {"id": "nivel-3-2025",  "nombre": "Nivel 3 — Jefe/a de Área, Supervisor/a",                 "grupo_profesional": "Nivel 3",  "nivel": 3,  "anio": 2025, "sb_mensual": 1162.75, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1255.98, "salario_anual": 19467.59, "num_pagas": 15},
+      {"id": "nivel-4-2025",  "nombre": "Nivel 4 — Jefe/a de Departamento",                       "grupo_profesional": "Nivel 4",  "nivel": 4,  "anio": 2025, "sb_mensual": 1150.43, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1243.66, "salario_anual": 19276.59, "num_pagas": 15},
+      {"id": "nivel-5-2025",  "nombre": "Nivel 5 — Dependiente/a Mayor, Titulado/a Medio",        "grupo_profesional": "Nivel 5",  "nivel": 5,  "anio": 2025, "sb_mensual": 1132.75, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1225.98, "salario_anual": 19002.59, "num_pagas": 15},
+      {"id": "nivel-6-2025",  "nombre": "Nivel 6 — Jefe/a Administrativo/a, Jefe/a Establecimiento","grupo_profesional": "Nivel 6","nivel": 6,  "anio": 2025, "sb_mensual": 1111.39, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1204.62, "salario_anual": 18671.59, "num_pagas": 15},
+      {"id": "nivel-7-2025",  "nombre": "Nivel 7 — Encargado/a Logística, Secretario/a",          "grupo_profesional": "Nivel 7",  "nivel": 7,  "anio": 2025, "sb_mensual": 1100.75, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1193.98, "salario_anual": 18506.59, "num_pagas": 15},
+      {"id": "nivel-8-2025",  "nombre": "Nivel 8 — Jefe/a Sección Adm./Comercial/Logística",      "grupo_profesional": "Nivel 8",  "nivel": 8,  "anio": 2025, "sb_mensual": 1083.20, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1176.43, "salario_anual": 18234.59, "num_pagas": 15},
+      {"id": "nivel-9-2025",  "nombre": "Nivel 9 — Técnico/a Servicio Auxiliar/Adm./Logística",   "grupo_profesional": "Nivel 9",  "nivel": 9,  "anio": 2025, "sb_mensual": 1071.46, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1164.69, "salario_anual": 18052.59, "num_pagas": 15},
+      {"id": "nivel-10-2025", "nombre": "Nivel 10 — Cajero/a, Oficial Adm., Dependiente/a Base",  "grupo_profesional": "Nivel 10", "nivel": 10, "anio": 2025, "sb_mensual": 1060.36, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1153.59, "salario_anual": 17880.59, "num_pagas": 15},
+      {"id": "nivel-11-2025", "nombre": "Nivel 11 — Viajante, Especialista A",                    "grupo_profesional": "Nivel 11", "nivel": 11, "anio": 2025, "sb_mensual": 1038.94, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1132.17, "salario_anual": 17548.59, "num_pagas": 15},
+      {"id": "nivel-12-2025", "nombre": "Nivel 12 — Especialista B (Oficial 2ª)",                 "grupo_profesional": "Nivel 12", "nivel": 12, "anio": 2025, "sb_mensual": 1013.26, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1106.49, "salario_anual": 17150.59, "num_pagas": 15},
+      {"id": "nivel-13-2025", "nombre": "Nivel 13 — Especialista C (Oficial 3ª)",                 "grupo_profesional": "Nivel 13", "nivel": 13, "anio": 2025, "sb_mensual": 1009.26, "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1102.49, "salario_anual": 17088.59, "num_pagas": 15},
+      {"id": "nivel-14-2025", "nombre": "Nivel 14 — Auxiliar Administrativo/a, Auxiliar A",        "grupo_profesional": "Nivel 14", "nivel": 14, "anio": 2025, "sb_mensual": 993.87,  "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1087.10, "salario_anual": 16850.00, "num_pagas": 15},
+      {"id": "nivel-15-2025", "nombre": "Nivel 15 — Auxiliar B, Auxiliar de Caja",                 "grupo_profesional": "Nivel 15", "nivel": 15, "anio": 2025, "sb_mensual": 982.65,  "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1075.88, "salario_anual": 16676.00, "num_pagas": 15},
+      {"id": "nivel-16-2025", "nombre": "Nivel 16 — Ayudante Dependiente/a, Auxiliar C",           "grupo_profesional": "Nivel 16", "nivel": 16, "anio": 2025, "sb_mensual": 976.19,  "plus_comp_mensual": 63.23, "plus_conv_mensual": 30.00, "salario_base_mensual": 1069.42, "salario_anual": 16576.00, "num_pagas": 15},
+    ];
+
+    // ── Tablas 2026 (BOP 18/02/2026, +2% sobre 2025) ───────────────────────
+    final List<Map<String, dynamic>> categorias2026 = [
+      {"id": "nivel-1-2026",  "nombre": "Nivel 1 — Director/a Área Ventas/Almacén",               "grupo_profesional": "Nivel 1",  "nivel": 1,  "anio": 2026, "sb_mensual": 1236.41, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1330.90, "salario_anual": 20629.07, "num_pagas": 15},
+      {"id": "nivel-2-2026",  "nombre": "Nivel 2 — Titulado/a Univ. Grado Superior, Subdirector/a","grupo_profesional": "Nivel 2",  "nivel": 2,  "anio": 2026, "sb_mensual": 1204.89, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1299.38, "salario_anual": 20140.39, "num_pagas": 15},
+      {"id": "nivel-3-2026",  "nombre": "Nivel 3 — Jefe/a de Área, Supervisor/a",                 "grupo_profesional": "Nivel 3",  "nivel": 3,  "anio": 2026, "sb_mensual": 1186.01, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1280.50, "salario_anual": 19847.74, "num_pagas": 15},
+      {"id": "nivel-4-2026",  "nombre": "Nivel 4 — Jefe/a de Departamento",                       "grupo_profesional": "Nivel 4",  "nivel": 4,  "anio": 2026, "sb_mensual": 1173.44, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1267.93, "salario_anual": 19652.96, "num_pagas": 15},
+      {"id": "nivel-5-2026",  "nombre": "Nivel 5 — Dependiente/a Mayor, Titulado/a Medio",        "grupo_profesional": "Nivel 5",  "nivel": 5,  "anio": 2026, "sb_mensual": 1155.41, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1249.90, "salario_anual": 19373.44, "num_pagas": 15},
+      {"id": "nivel-6-2026",  "nombre": "Nivel 6 — Jefe/a Administrativo/a, Jefe/a Establecimiento","grupo_profesional": "Nivel 6","nivel": 6,  "anio": 2026, "sb_mensual": 1133.62, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1228.11, "salario_anual": 19035.74, "num_pagas": 15},
+      {"id": "nivel-7-2026",  "nombre": "Nivel 7 — Encargado/a Logística, Secretario/a",          "grupo_profesional": "Nivel 7",  "nivel": 7,  "anio": 2026, "sb_mensual": 1122.77, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1217.26, "salario_anual": 18867.52, "num_pagas": 15},
+      {"id": "nivel-8-2026",  "nombre": "Nivel 8 — Jefe/a Sección Adm./Comercial/Logística",      "grupo_profesional": "Nivel 8",  "nivel": 8,  "anio": 2026, "sb_mensual": 1104.86, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1199.35, "salario_anual": 18590.06, "num_pagas": 15},
+      {"id": "nivel-9-2026",  "nombre": "Nivel 9 — Técnico/a Servicio Auxiliar/Adm./Logística",   "grupo_profesional": "Nivel 9",  "nivel": 9,  "anio": 2026, "sb_mensual": 1092.89, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1187.38, "salario_anual": 18404.45, "num_pagas": 15},
+      {"id": "nivel-10-2026", "nombre": "Nivel 10 — Cajero/a, Oficial Adm., Dependiente/a Base",  "grupo_profesional": "Nivel 10", "nivel": 10, "anio": 2026, "sb_mensual": 1081.57, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1176.06, "salario_anual": 18228.96, "num_pagas": 15},
+      {"id": "nivel-11-2026", "nombre": "Nivel 11 — Viajante, Especialista A",                    "grupo_profesional": "Nivel 11", "nivel": 11, "anio": 2026, "sb_mensual": 1059.72, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1154.21, "salario_anual": 17890.31, "num_pagas": 15},
+      {"id": "nivel-12-2026", "nombre": "Nivel 12 — Especialista B (Oficial 2ª)",                 "grupo_profesional": "Nivel 12", "nivel": 12, "anio": 2026, "sb_mensual": 1033.53, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1128.02, "salario_anual": 17484.31, "num_pagas": 15},
+      {"id": "nivel-13-2026", "nombre": "Nivel 13 — Especialista C (Oficial 3ª)",                 "grupo_profesional": "Nivel 13", "nivel": 13, "anio": 2026, "sb_mensual": 1029.45, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1123.94, "salario_anual": 17421.07, "num_pagas": 15},
+      {"id": "nivel-14-2026", "nombre": "Nivel 14 — Auxiliar Administrativo/a, Auxiliar A",        "grupo_profesional": "Nivel 14", "nivel": 14, "anio": 2026, "sb_mensual": 1013.75, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1108.24, "salario_anual": 17177.75, "num_pagas": 15},
+      {"id": "nivel-15-2026", "nombre": "Nivel 15 — Auxiliar B, Auxiliar de Caja",                 "grupo_profesional": "Nivel 15", "nivel": 15, "anio": 2026, "sb_mensual": 1002.30, "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1096.79, "salario_anual": 17000.36, "num_pagas": 15},
+      {"id": "nivel-16-2026", "nombre": "Nivel 16 — Ayudante Dependiente/a, Auxiliar C",           "grupo_profesional": "Nivel 16", "nivel": 16, "anio": 2026, "sb_mensual": 995.71,  "plus_comp_mensual": 64.49, "plus_conv_mensual": 30.00, "salario_base_mensual": 1090.20, "salario_anual": 16898.23, "num_pagas": 15},
+    ];
+
+    final Map<String, dynamic> convenioData = {
+      "nombre": "Convenio Colectivo de Comercio en General — Cuenca",
+      "codigo": "16000055011981",
+      "ambito": "provincial",
+      "sector": "comercio",
+      "tipo_convenio": "sectorial_provincial",
+      "provincia": "Cuenca",
+      "anio_vigente_defecto": 2026,
+      "vigencia": {"inicio": "2025-01-01", "fin": "2028-12-31", "estado_dato": "tablas_2025_2026_bop"},
+      "fuente": {"documento": "BOP Cuenca 14/11/2025 + 24/11/2025 (2025) y BOP 18/02/2026 (2026)", "fecha_extraccion": "2026-04-12", "version": "v1"},
+      "horas_anuales": 1800,
+      "num_pagas_total": 15.5,
+      "formula_anual": "(SB + PlusComp + PlusConv) × 15,5",
+      "pagas_descripcion": "12 mensualidades + Navidad + Julio + Beneficios + ½ Promoción Cultural",
+    };
+
+    final List<Map<String, dynamic>> pluses = [
+      {"id": "plus_compensatorio_2026", "nombre": "Plus Compensatorio (mensual)", "tipo": "fijo", "importe": 64.49, "base_calculo": "mes_15.5_pagas", "importe_2025": 63.23},
+      {"id": "plus_convenio", "nombre": "Plus Convenio (mensual, no revalorizable)", "tipo": "fijo", "importe": 30.00, "base_calculo": "mes_15.5_pagas", "descripcion": "No revalorizable"},
+      {"id": "horas_extra_laborables", "nombre": "Horas extras días laborables (+75%)", "tipo": "porcentaje", "importe": 175.0, "base_calculo": "hora_ordinaria"},
+      {"id": "horas_extra_festivos", "nombre": "Horas extras domingos/festivos (+150%)", "tipo": "porcentaje", "importe": 250.0, "base_calculo": "hora_ordinaria"},
+      {"id": "nocturnidad", "nombre": "Plus Nocturnidad (22h-6h)", "tipo": "porcentaje", "importe": 25.0, "base_calculo": "hora_ordinaria"},
+      {"id": "plus_domingos_festivos", "nombre": "Plus domingos y festivos (+50%)", "tipo": "porcentaje", "importe": 50.0, "base_calculo": "hora_ordinaria"},
+      {"id": "dieta_comida_2026", "nombre": "Dieta comida 2026", "tipo": "fijo", "importe": 12.17, "base_calculo": "dia_desplazamiento"},
+      {"id": "dieta_cena_2026", "nombre": "Dieta cena 2026", "tipo": "fijo", "importe": 12.17, "base_calculo": "dia_desplazamiento"},
+      {"id": "dieta_comida_2025", "nombre": "Dieta comida 2025", "tipo": "fijo", "importe": 11.93, "base_calculo": "dia_desplazamiento"},
+      {"id": "dieta_cena_2025", "nombre": "Dieta cena 2025", "tipo": "fijo", "importe": 11.93, "base_calculo": "dia_desplazamiento"},
+      {"id": "cap2_sin_hijos", "nombre": "Complemento ad personam 2 (sin hijos)", "tipo": "fijo", "importe": 49.93, "base_calculo": "mes", "descripcion": "Antiguo CPF, no revalorizable. Solo si aplica."},
+      {"id": "cap2_1_hijo", "nombre": "Complemento ad personam 2 (1 hijo menor)", "tipo": "fijo", "importe": 56.15, "base_calculo": "mes"},
+      {"id": "cap2_2_hijos", "nombre": "Complemento ad personam 2 (2 hijos menores)", "tipo": "fijo", "importe": 63.03, "base_calculo": "mes"},
+      {"id": "cap2_3_hijos", "nombre": "Complemento ad personam 2 (3+ hijos menores)", "tipo": "fijo", "importe": 69.59, "base_calculo": "mes"},
+      {"id": "seguro_accidentes", "nombre": "Seguro accidentes", "tipo": "fijo", "importe": 15000.0, "base_calculo": "anual", "descripcion": "Póliza anual obligatoria empresa"},
+    ];
+
+    final WriteBatch batch = _db.batch();
+    final convenioDocRef = _conveniosRef.doc(convenioId);
+    batch.set(convenioDocRef, convenioData);
+
+    for (final catData in [...categorias2025, ...categorias2026]) {
+      final catId = catData['id'] as String;
+      batch.set(convenioDocRef.collection('categorias').doc(catId), catData);
+    }
+    for (final plusData in pluses) {
+      final plusId = plusData['id'] as String;
+      batch.set(convenioDocRef.collection('pluses').doc(plusId), plusData);
+    }
+
+    await batch.commit();
+    _log.i('✅ Datos del convenio de Comercio en General (Cuenca 2025-2026) creados en Firestore.');
+  }
+
   /// Siembra todos los convenios Fluixtech.
   /// Usa [force] para reescribir valores en caso de tablas nuevas.
   Future<void> seedConveniosFluixtech({bool force = false}) async {
@@ -1377,6 +1693,9 @@ class ConvenioFirestoreService {
     await seedConvenioCarniceriasGuadalajara2025(force: force);
     await seedConvenioVeterinariosGuadalajara2026(force: force);
     await seedConvenioConstruccionObrasPublicasGuadalajara(force: force);
+    await seedConvenioConstruccionCuenca(force: force);
+    await seedConvenioHosteleriaCuenca(force: force);
+    await seedConvenioComercioCuenca(force: force);
   }
 
   Future<CategoriaConvenio?> obtenerCategoriaPorId(String convenioId, String categoriaId) async {

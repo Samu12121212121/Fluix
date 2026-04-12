@@ -75,11 +75,9 @@ class _ImportarCsvScreenState extends State<ImportarCsvScreen> {
   Widget _buildPasoSeleccion() {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
           Icon(Icons.upload_file, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 24),
           const Text(
@@ -135,7 +133,6 @@ class _ImportarCsvScreenState extends State<ImportarCsvScreen> {
     );
   }
 
-  // ── PASO 2: UI PREVIEW ──────────────────────────────────────────────────────
 
   Widget _buildPasoPreview() {
     if (_preview == null) return const SizedBox();

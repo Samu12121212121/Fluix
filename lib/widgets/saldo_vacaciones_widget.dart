@@ -128,9 +128,12 @@ class SaldoVacacionesWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${saldo.diasDisfrutados.toStringAsFixed(1)} / ${total.toStringAsFixed(1)} días disfrutados',
-                style: const TextStyle(fontSize: 12, color: Colors.black87),
+              Flexible(
+                child: Text(
+                  '${saldo.diasDisfrutados.toStringAsFixed(1)} / ${total.toStringAsFixed(1)} días disfrutados',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Container(
                 padding:

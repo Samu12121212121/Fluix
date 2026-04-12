@@ -96,6 +96,10 @@ class AntiguedadCalculator {
   static const String convPeluqueria = 'peluqueria_guadalajara';
   static const String convCarnicas = 'industrias_carnicas';
   static const String convVeterinarios = 'veterinarios';
+  // Cuenca
+  static const String convConstruccionCuenca = 'construccion_cuenca';
+  static const String convHosteleriaCuenca = 'hosteleria_cuenca';
+  static const String convComercioCuenca = 'comercio_cuenca';
 
   // Mapeo de sector → convenio normalizado
   static String normalizarConvenio(String? sector) {
@@ -113,6 +117,13 @@ class AntiguedadCalculator {
       case 'veterinaria':
       case 'clinica_veterinaria':
         return convVeterinarios;
+      // Cuenca
+      case 'construccion_cuenca':
+        return convConstruccionCuenca;
+      case 'hosteleria_cuenca':
+        return convHosteleriaCuenca;
+      case 'comercio_cuenca':
+        return convComercioCuenca;
       default:
         return '';
     }

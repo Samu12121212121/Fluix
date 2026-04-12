@@ -45,61 +45,65 @@ class ModuloReservas extends StatelessWidget {
         return Stack(
           children: [
             DefaultTabController(
-              length: 5, // Aumentado de 4 a 5
-              child: Column(
-                children: [
-                  // ── KPIs ──────────────────────────────────────────────
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
+              length: 5,
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                  // ── KPIs (scrollable) ───────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _miniKpi('Pendientes',  '${pendientes.length}',  const Color(0xFFF57C00)),
+                          _divider(),
+                          _miniKpi('Confirmadas', '${confirmadas.length}', const Color(0xFF4CAF50)),
+                          _divider(),
+                          _miniKpi('Canceladas',  '${canceladas.length}',  const Color(0xFFD32F2F)),
+                          _divider(),
+                          _miniKpi('Total',       '${docs.length}',        const Color(0xFF1976D2)),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _miniKpi('Pendientes',  '${pendientes.length}',  const Color(0xFFF57C00)),
-                        _divider(),
-                        _miniKpi('Confirmadas', '${confirmadas.length}', const Color(0xFF4CAF50)),
-                        _divider(),
-                        _miniKpi('Canceladas',  '${canceladas.length}',  const Color(0xFFD32F2F)),
-                        _divider(),
-                        _miniKpi('Total',       '${docs.length}',        const Color(0xFF1976D2)),
+                  ),
+
+                  // ── TABS (sticky) ───────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: TabBar(
+                      labelColor: const Color(0xFF1976D2),
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: const Color(0xFF1976D2),
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      tabs: [
+                        const Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.calendar_month, size: 20),
+                              SizedBox(width: 8),
+                              Text('Calendario'),
+                            ],
+                          ),
+                        ),
+                        _tab('Pendientes',  pendientes.length,  const Color(0xFFF57C00)),
+                        _tab('Confirmadas', confirmadas.length, const Color(0xFF4CAF50)),
+                        _tab('Canceladas',  canceladas.length,  const Color(0xFFD32F2F)),
+                        _tab('Todas',       docs.length,        const Color(0xFF1976D2)),
                       ],
                     ),
                   ),
+                ],
 
-                  // ── TABS ───────────────────────────────────────────────
-                  TabBar(
-                    labelColor: const Color(0xFF1976D2),
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: const Color(0xFF1976D2),
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    tabs: [
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.calendar_month, size: 20),
-                            SizedBox(width: 8),
-                            Text('Calendario'),
-                          ],
-                        ),
-                      ),
-                      _tab('Pendientes',  pendientes.length,  const Color(0xFFF57C00)),
-                      _tab('Confirmadas', confirmadas.length, const Color(0xFF4CAF50)),
-                      _tab('Canceladas',  canceladas.length,  const Color(0xFFD32F2F)),
-                      _tab('Todas',       docs.length,        const Color(0xFF1976D2)),
-                    ],
-                  ),
-
-                  // ── CONTENIDO ─────────────────────────────────────────
-                  Expanded(
-                    child: TabBarView(
+                // ── CONTENIDO ─────────────────────────────────────────
+                body: TabBarView(
                       children: [
                         // 1. Calendario Semanal (NUEVO)
                         _VistaCalendarioSemanal(
@@ -149,8 +153,6 @@ class ModuloReservas extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                ],
               ),
             ),
 

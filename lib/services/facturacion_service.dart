@@ -50,24 +50,6 @@ class FacturacionService {
     String empresaId,
     SerieFactura serie,
   ) async {
-    // Leer prefijo personalizado de la empresa (si existe)
-    String prefijo = serie.prefijo; // valor por defecto (F / R / P)
-    try {
-      final empresaSnap =
-          await _firestore.collection('empresas').doc(empresaId).get();
-      final eData = empresaSnap.data() ?? {};
-      final String? custom = switch (serie) {
-        SerieFactura.fac  => eData['serie_factura'] as String?,
-        SerieFactura.rect => eData['serie_rectificativa'] as String?,
-        SerieFactura.pro  => eData['serie_proforma'] as String?,
-      };
-      if (custom != null &&
-          custom.trim().isNotEmpty &&
-          custom.trim().length <= 5) {
-        prefijo = custom.trim().toUpperCase();
-      }
-    } catch (_) {} // si falla la lectura, usar prefijo por defecto
-
     final ref = _contadorFacturas(empresaId).doc('facturacion');
     String numero = '';
     final campoContador = 'ultimo_numero_${serie.name}';
@@ -83,11 +65,13 @@ class FacturacionService {
         final anioGuardado = data[campoAnio] as int? ?? 0;
 
         if (anioGuardado == anioActual) {
+          // Mismo año → incrementar
           contador = ((data[campoContador] as int?) ??
                   (data['ultimo_numero_factura'] as int?) ??
                   0) +
               1;
         }
+        // Si el año cambió → contador empieza en 1 (reset anual)
       }
 
       tx.set(ref, {
@@ -117,7 +101,7 @@ class FacturacionService {
     String? notasCliente,
     DateTime? fechaOperacion,
     String usuarioId = '',
-    String usuarioNombre = '',
+      numero = '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, '0')}';
     int diasVencimiento = 30,
     double descuentoGlobal = 0,
     double porcentajeIrpf = 0,
@@ -134,7 +118,6 @@ class FacturacionService {
 
     final entrada = EntradaHistorialFactura(
       usuarioId: usuarioId,
-      usuarioNombre: usuarioNombre,
       accion: 'creada',
       descripcion: tipo == TipoFactura.proforma
           ? 'Proforma creada'
@@ -184,7 +167,6 @@ class FacturacionService {
     final ahora = DateTime.now();
     final inicioTrimestre = DateTime(ahora.year, ((ahora.month - 1) ~/ 3) * 3 + 1, 1);
     final facturasTrimestreSnap = await _facturas(empresaId)
-        .where('fecha_emision',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicioTrimestre))
         .orderBy('fecha_emision')
         .get();
@@ -267,7 +249,6 @@ class FacturacionService {
     final nuevasLineas = lineas ?? factura.lineas;
     final nuevoDescGlobal = descuentoGlobal ?? factura.descuentoGlobal;
     final nuevoIrpf = porcentajeIrpf ?? factura.porcentajeIrpf;
-    final nuevoDias = diasVencimiento ?? factura.diasVencimiento;
 
     final totales = Factura.calcularTotales(
       lineas: nuevasLineas,
@@ -318,7 +299,6 @@ class FacturacionService {
   /// [metodo]: sustitucion → incluye importes correctos completos;
   ///           diferencias → solo la diferencia respecto a la original.
   /// [lineasCorregidas]: líneas con los importes finales correctos (sustitución)
-  ///                     o con las diferencias (positivas/negativas).
   ///                     Si es null en modo sustitución, se copian invertidas.
   Future<Factura> crearFacturaRectificativa({
     required String empresaId,

@@ -91,34 +91,21 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
           padding: const EdgeInsets.all(20),
           children: [
             // Título
-            // Handle / Botón cerrar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 40),
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
                 SizedBox(
                   width: 40,
                   child: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ],
-            ),
-            const Text(
-              'Nueva solicitud',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 16),
+              ),
 
             // Selector empleado
             if (widget.empleadoIdFijo == null) ...[
@@ -359,8 +346,6 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
               color: pct > 0.8 ? Colors.orange : const Color(0xFF00796B),
               minHeight: 8,
             ),
-          ),
-          const SizedBox(height: 4),
           Text(
             'Disponibles: ${s.totalDisponible.toStringAsFixed(1)} días'
             '${s.diasPendientesAnoAnterior > 0 ? ' (incl. ${s.diasPendientesAnoAnterior.toStringAsFixed(1)} del año anterior)' : ''}',
@@ -384,9 +369,6 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         );
         if (picked == null) return;
         setState(() {
-          if (esInicio) {
-            _fechaInicio = picked;
-            if (_fechaFin.isBefore(_fechaInicio)) {
               _fechaFin = _fechaInicio;
             }
           } else {

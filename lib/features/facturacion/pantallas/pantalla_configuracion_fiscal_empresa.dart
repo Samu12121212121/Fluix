@@ -33,6 +33,7 @@ class _PantallaConfiguracionFiscalEmpresaState
   String _regimenIva = 'general';
   bool _estaEnSii = false;
   CriterioIVA _criterioIva = CriterioIVA.devengo;
+  FormaJuridica _formaJuridica = FormaJuridica.autonomo;
 
   @override
   void dispose() {
@@ -64,6 +65,7 @@ class _PantallaConfiguracionFiscalEmpresaState
     _regimenIva = config.regimenIVA;
     _estaEnSii = config.estaEnSII;
     _criterioIva = config.criterioIva;
+    _formaJuridica = config.formaJuridica;
     _inicializado = true;
   }
 
@@ -109,6 +111,19 @@ class _PantallaConfiguracionFiscalEmpresaState
                     ]),
                     const SizedBox(height: 12),
                     _campo(_provinciaCtrl, 'Provincia *', validator: _obligatorio),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<FormaJuridica>(
+                      initialValue: _formaJuridica,
+                      decoration: _deco('Forma jurídica'),
+                      items: FormaJuridica.values
+                          .map((f) => DropdownMenuItem(
+                                value: f,
+                                child: Text(f.etiqueta),
+                              ))
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _formaJuridica = v ?? FormaJuridica.autonomo),
+                    ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: _regimenIva,
@@ -210,6 +225,7 @@ class _PantallaConfiguracionFiscalEmpresaState
       epigrafIAE: _epigrafCtrl.text,
       estaEnSII: _estaEnSii,
       criterioIva: _criterioIva,
+      formaJuridica: _formaJuridica,
       serieFactura: _serieFacCtrl.text.trim().toUpperCase().isNotEmpty
           ? _serieFacCtrl.text.trim().toUpperCase() : 'F',
       serieRectificativa: _serieRectCtrl.text.trim().toUpperCase().isNotEmpty

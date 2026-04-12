@@ -3,32 +3,33 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:planeag_flutter/domain/modelos/modelo130.dart';
+import 'package:planeag_flutter/domain/modelos/modelo202.dart';
 import 'package:planeag_flutter/domain/modelos/empresa_config.dart';
-import 'package:planeag_flutter/services/fiscal/mod130_calculator.dart';
-import 'package:planeag_flutter/services/fiscal/mod130_exporter.dart';
+import 'package:planeag_flutter/services/fiscal/mod202_calculator.dart';
+import 'package:planeag_flutter/services/fiscal/mod202_exporter.dart';
 import 'package:planeag_flutter/services/fiscal/sede_aeat_urls.dart';
+import 'package:planeag_flutter/widgets/presentar_aeat_widget.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// PANTALLA MODELO 130 — Pago fraccionado IRPF autónomos
+// PANTALLA MODELO 202 — Pago fraccionado IS (solo sociedades)
 // ═════════════════════════════════════════════════════════════════════════════
 
-class Modelo130Screen extends StatefulWidget {
+class Modelo202Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
 
-  const Modelo130Screen({
+  const Modelo202Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
   });
 
   @override
-  State<Modelo130Screen> createState() => _Modelo130ScreenState();
+  State<Modelo202Screen> createState() => _Modelo202ScreenState();
 }
 
-class _Modelo130ScreenState extends State<Modelo130Screen> {
-  final _svc = Mod130Calculator();
+class _Modelo202ScreenState extends State<Modelo202Screen> {
+  final _svc = Mod202Calculator();
   late int _anio;
   bool _procesando = false;
   EmpresaConfig? _empresaConfig;
@@ -43,8 +44,12 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
   Future<void> _cargarEmpresa() async {
     final db = FirebaseFirestore.instance;
     final empDoc = await db.collection('empresas').doc(widget.empresaId).get();
-    final fiscalDoc = await db.collection('empresas').doc(widget.empresaId)
-        .collection('configuracion').doc('fiscal').get();
+    final fiscalDoc = await db
+        .collection('empresas')
+        .doc(widget.empresaId)
+        .collection('configuracion')
+        .doc('fiscal')
+        .get();
     if (mounted) {
       setState(() {
         _empresaConfig = EmpresaConfig.fromSources(
@@ -55,18 +60,18 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
     }
   }
 
-  Future<void> _calcularTrimestre(String trimestre) async {
+  Future<void> _calcularPeriodo(PeriodoModelo202 periodo) async {
     setState(() => _procesando = true);
     try {
       final modelo = await _svc.calcular(
         empresaId: widget.empresaId,
         ejercicio: _anio,
-        trimestre: trimestre,
+        periodo: periodo,
       );
       await _svc.guardar(widget.empresaId, modelo);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ Mod.130 $trimestre $_anio calculado — '
+          content: Text('✅ Mod.202 ${periodo.codigo} $_anio — '
               '${modelo.resultadoTexto}'),
           backgroundColor: Colors.green,
         ));
@@ -83,31 +88,33 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
     }
   }
 
-  Future<void> _generarPdf(Modelo130 m) async {
+  Future<void> _generarPdf(Modelo202 m) async {
     if (_empresaConfig == null) return;
     try {
-      final bytes = await Mod130Exporter.generarPDF(
-        modelo: m, empresa: _empresaConfig!,
+      final bytes = await Mod202Exporter.generarPDF(
+        modelo: m,
+        empresa: _empresaConfig!,
       );
       final dir = await getTemporaryDirectory();
-      final nombre = 'Mod130_${m.ejercicio}_${m.trimestre}.pdf';
+      final nombre = 'Mod202_${m.ejercicio}_${m.periodo.codigo}.pdf';
       final archivo = File('${dir.path}/$nombre');
       await archivo.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(archivo.path)],
-          text: 'Modelo 130 — ${m.ejercicio} ${m.trimestre}');
+          text: 'Modelo 202 — ${m.ejercicio} ${m.periodo.nombre}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error PDF: $e'), backgroundColor: Colors.red));
+            content: Text('❌ Error PDF: $e'), backgroundColor: Colors.red));
       }
     }
   }
 
   Future<void> _marcarPresentado(String docId) async {
-    await _svc.marcarPresentado(widget.empresaId, docId);
+    await _svc.marcarPresentado(widget.empresaId, docId, null);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Marcado como presentado'),
+        const SnackBar(
+            content: Text('✅ Marcado como presentado'),
             backgroundColor: Colors.green),
       );
     }
@@ -118,7 +125,7 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Modelo 130 — IRPF Autónomos'),
+        title: const Text('Modelo 202 — IS Sociedades'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
@@ -127,8 +134,10 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(child: Text('$_anio',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Center(
+              child: Text('$_anio',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16))),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),
@@ -137,7 +146,7 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
       ),
       body: _procesando
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<Modelo130>>(
+          : StreamBuilder<List<Modelo202>>(
               stream: _svc.obtenerTodos(widget.empresaId, _anio),
               builder: (context, snap) {
                 final modelos = snap.data ?? [];
@@ -146,8 +155,16 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
                   children: [
                     _buildResumenAnual(modelos),
                     const SizedBox(height: 16),
-                    ...['1T', '2T', '3T', '4T'].map((t) =>
-                        _buildTarjetaTrimestre(t, modelos)),
+                    ...PeriodoModelo202.values
+                        .map((p) => _buildTarjetaPeriodo(p, modelos)),
+                    const SizedBox(height: 12),
+                    PresentarAeatWidget(
+                      modelo: '202',
+                      urlAeat: SedeAeatUrls.mod202,
+                      onJustificanteGuardado: (justificante) {
+                        // Guardar justificante en el modelo correspondiente
+                      },
+                    ),
                   ],
                 );
               },
@@ -155,23 +172,26 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
     );
   }
 
-  Widget _buildResumenAnual(List<Modelo130> modelos) {
-    final totalResultado = modelos.fold(0.0, (s, m) => s + m.c19);
-    final presentados = modelos.where((m) => m.estado == EstadoModelo130.presentado).length;
+  Widget _buildResumenAnual(List<Modelo202> modelos) {
+    final totalResultado =
+        modelos.fold(0.0, (s, m) => s + m.resultadoIngresar);
+    final presentados =
+        modelos.where((m) => m.estado == EstadoModelo202.presentado).length;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF283593), Color(0xFF3F51B5)],
+          colors: [Color(0xFF4A148C), Color(0xFF7B1FA2)],
         ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statAnual('Resultado acum.', '${totalResultado.toStringAsFixed(2)} €', Icons.euro),
-          _statAnual('Presentados', '$presentados / 4', Icons.check_circle),
+          _statAnual('Total a ingresar',
+              '${totalResultado.toStringAsFixed(2)} €', Icons.euro),
+          _statAnual('Presentados', '$presentados / 3', Icons.check_circle),
           _statAnual('Ejercicio', '$_anio', Icons.calendar_today),
         ],
       ),
@@ -183,27 +203,30 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
       children: [
         Icon(icono, color: Colors.white70, size: 20),
         const SizedBox(height: 4),
-        Text(valor, style: const TextStyle(color: Colors.white,
-            fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(valor,
+            style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16)),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
 
-  Widget _buildTarjetaTrimestre(String trimestre, List<Modelo130> modelos) {
-    final modelo = modelos.where((m) => m.trimestre == trimestre).firstOrNull;
-    final plazo = Modelo130.calcularPlazoLimite(_anio, trimestre);
+  Widget _buildTarjetaPeriodo(
+      PeriodoModelo202 periodo, List<Modelo202> modelos) {
+    final modelo =
+        modelos.where((m) => m.periodo == periodo).firstOrNull;
+    final plazo = Modelo202.calcularPlazoLimite(_anio, periodo);
     final diasRestantes = plazo.difference(DateTime.now()).inDays;
-    final rango = Modelo130.rangoMeses(trimestre);
-    final meses = _nombreMes(rango.mesInicio).substring(0, 3) + ' — ' +
-        _nombreMes(rango.mesFin).substring(0, 3);
 
     Color colorEstado;
     String estadoTexto;
     if (modelo == null) {
       colorEstado = Colors.grey;
       estadoTexto = 'Pendiente';
-    } else if (modelo.estado == EstadoModelo130.presentado) {
+    } else if (modelo.estado == EstadoModelo202.presentado) {
       colorEstado = Colors.green;
       estadoTexto = 'Presentado';
     } else {
@@ -232,42 +255,50 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF283593),
+                    color: const Color(0xFF4A148C),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(trimestre,
-                      style: const TextStyle(color: Colors.white,
-                          fontWeight: FontWeight.bold, fontSize: 14)),
+                  child: Text(periodo.codigo,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
                 ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(meses, style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(periodo.nombre,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
                     Text('Plazo: ${_fmtDate(plazo)}',
-                        style: TextStyle(fontSize: 11,
+                        style: TextStyle(
+                            fontSize: 11,
                             color: colorPlazo ?? Colors.grey.shade600,
                             fontWeight: colorPlazo != null
-                                ? FontWeight.w600 : FontWeight.normal)),
+                                ? FontWeight.w600
+                                : FontWeight.normal)),
                   ],
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: colorEstado.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(estadoTexto, style: TextStyle(
-                      color: colorEstado, fontWeight: FontWeight.w600,
-                      fontSize: 11)),
+                  child: Text(estadoTexto,
+                      style: TextStyle(
+                          color: colorEstado,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11)),
                 ),
               ],
             ),
-
             if (modelo != null) ...[
               const Divider(height: 16),
               _datosModelo(modelo),
@@ -277,14 +308,16 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
                 child: Row(
                   children: [
                     _botonAccion('Recalcular', Icons.refresh, Colors.indigo,
-                        () => _calcularTrimestre(trimestre)),
+                        () => _calcularPeriodo(periodo)),
                     const SizedBox(width: 8),
-                    _botonAccion('PDF', Icons.picture_as_pdf, Colors.deepOrange,
+                    _botonAccion(
+                        'PDF', Icons.picture_as_pdf, Colors.deepOrange,
                         () => _generarPdf(modelo)),
                     const SizedBox(width: 8),
-                    _botonAccion('Sede AEAT', Icons.open_in_browser, Colors.teal,
-                        () => SedeAeatUrls.abrir(SedeAeatUrls.mod130)),
-                    if (modelo.estado == EstadoModelo130.borrador) ...[
+                    _botonAccion(
+                        'Sede AEAT', Icons.open_in_browser, Colors.teal,
+                        () => SedeAeatUrls.abrir(SedeAeatUrls.mod202)),
+                    if (modelo.estado == EstadoModelo202.borrador) ...[
                       const SizedBox(width: 8),
                       _botonAccion('Presentado', Icons.check, Colors.green,
                           () => _marcarPresentado(modelo.id)),
@@ -296,11 +329,11 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
               const Divider(height: 16),
               Center(
                 child: ElevatedButton.icon(
-                  onPressed: () => _calcularTrimestre(trimestre),
+                  onPressed: () => _calcularPeriodo(periodo),
                   icon: const Icon(Icons.calculate, size: 18),
-                  label: Text('Calcular $trimestre $_anio'),
+                  label: Text('Calcular ${periodo.codigo} $_anio'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
+                    backgroundColor: const Color(0xFF4A148C),
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -312,29 +345,26 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
     );
   }
 
-  Widget _datosModelo(Modelo130 m) {
+  Widget _datosModelo(Modelo202 m) {
     return Column(
       children: [
-        _filaDato('Ingresos acumulados', '${m.c01.toStringAsFixed(2)} €', '[01]'),
-        _filaDato('Gastos acumulados', '${m.c02.toStringAsFixed(2)} €', '[02]'),
-        _filaDato('Rendimiento neto', '${m.c03.toStringAsFixed(2)} €', '[03]', bold: true),
+        _filaDato(
+            'Base pago fraccionado', '${m.c01.toStringAsFixed(2)} €', '[01]'),
+        _filaDato('18% de [01]', '${m.c03.toStringAsFixed(2)} €', '[03]',
+            bold: true),
+        if (m.c04 > 0)
+          _filaDato('Deducciones', '${m.c04.toStringAsFixed(2)} €', '[04]'),
+        if (m.c05 > 0)
+          _filaDato('Retenciones', '${m.c05.toStringAsFixed(2)} €', '[05]'),
+        if (m.c06 > 0)
+          _filaDato('Pagos anteriores', '${m.c06.toStringAsFixed(2)} €', '[06]'),
         const Divider(height: 8),
-        _filaDato('20% rendimiento', '${m.c04.toStringAsFixed(2)} €', '[04]'),
-        _filaDato('Pagos anteriores', '${m.c05.toStringAsFixed(2)} €', '[05]'),
-        _filaDato('Retenciones soportadas', '${m.c06.toStringAsFixed(2)} €', '[06]'),
-        _filaDato('Resultado previo', '${m.c07.toStringAsFixed(2)} €', '[07]', bold: true),
-        const Divider(height: 8),
-        _filaDato('RESULTADO FINAL', '${m.c19.toStringAsFixed(2)} €', '[19]',
+        _filaDato('RESULTADO',
+            '${m.resultadoIngresar.toStringAsFixed(2)} €', '[08]',
             bold: true,
-            color: m.c19 > 0 ? Colors.green.shade700
-                : m.c19 < 0 ? Colors.orange.shade700 : null),
-        if (m.esADeducir)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('A deducir: ${(-m.c19).toStringAsFixed(2)} €',
-                style: TextStyle(fontSize: 11, color: Colors.orange.shade700,
-                    fontWeight: FontWeight.w600)),
-          ),
+            color: m.resultadoIngresar > 0
+                ? Colors.green.shade700
+                : Colors.orange.shade700),
       ],
     );
   }
@@ -345,20 +375,27 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
       padding: const EdgeInsets.symmetric(vertical: 1.5),
       child: Row(
         children: [
-          Text(casilla, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          Text(casilla,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           const SizedBox(width: 6),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 12,
-              fontWeight: bold ? FontWeight.w600 : FontWeight.normal))),
-          Text(valor, style: TextStyle(fontSize: 12,
-              fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-              color: color)),
+          Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          bold ? FontWeight.w600 : FontWeight.normal))),
+          Text(valor,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+                  color: color)),
         ],
       ),
     );
   }
 
-  Widget _botonAccion(String label, IconData icono, Color color,
-      VoidCallback onPressed) {
+  Widget _botonAccion(
+      String label, IconData icono, Color color, VoidCallback onPressed) {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icono, size: 16, color: color),
@@ -373,11 +410,5 @@ class _Modelo130ScreenState extends State<Modelo130Screen> {
 
   static String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  static String _nombreMes(int mes) {
-    const meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    return meses[mes];
-  }
 }
 

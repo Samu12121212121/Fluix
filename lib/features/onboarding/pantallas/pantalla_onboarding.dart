@@ -57,6 +57,17 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
     }
   }
 
+  static String _inferirSector(String tipo) {
+    final t = tipo.toLowerCase();
+    if (t.contains('restaurante') || t.contains('bar') || t.contains('hostel')) return 'hosteleria';
+    if (t.contains('tienda') || t.contains('comercio')) return 'comercio';
+    if (t.contains('peluquer') || t.contains('estética') || t.contains('estetica') ||
+        t.contains('gimnasio') || t.contains('spa') || t.contains('fitness')) return 'peluqueria';
+    if (t.contains('construcci') || t.contains('obra') || t.contains('taller')) return 'construccion';
+    if (t.contains('clínica') || t.contains('clinica') || t.contains('salud')) return 'salud';
+    return 'otros';
+  }
+
   Future<void> _completarOnboarding() async {
     setState(() => _guardando = true);
     final db = FirebaseFirestore.instance;
@@ -64,12 +75,15 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
 
     try {
       // 1. Guardar perfil de empresa
+      final tipoNegocio = _datosPerfil['tipo_negocio'] ?? '';
+      final sector = _inferirSector(tipoNegocio);
       await empresaRef.set({
         'nombre': _datosPerfil['nombre'] ?? '',
         'telefono': _datosPerfil['telefono'] ?? '',
         'direccion': _datosPerfil['direccion'] ?? '',
         'descripcion': _datosPerfil['descripcion'] ?? '',
-        'tipo_negocio': _datosPerfil['tipo_negocio'] ?? '',
+        'tipo_negocio': tipoNegocio,
+        'sector': sector,
         'onboarding_completado': true,
         'fecha_creacion': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));

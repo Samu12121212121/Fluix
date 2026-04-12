@@ -29,6 +29,9 @@ enum SectorEmpresa {
   logisticaAlmacen,
   energiaYAgua,
   construccionObrasPublicasGuadalajara,
+  construccionObrasPublicasCuenca,
+  hosteleriaCuenca,
+  comercioGeneralCuenca,
   otros,
 }
 
@@ -56,6 +59,9 @@ extension SectorEmpresaExt on SectorEmpresa {
       case SectorEmpresa.logisticaAlmacen:     return 'Logística y Almacenaje';
       case SectorEmpresa.energiaYAgua:         return 'Energía, Agua y Medioambiente';
       case SectorEmpresa.construccionObrasPublicasGuadalajara: return 'Construcción y Obras Públicas — Guadalajara';
+      case SectorEmpresa.construccionObrasPublicasCuenca: return 'Construcción y Obras Públicas — Cuenca';
+      case SectorEmpresa.hosteleriaCuenca: return 'Hostelería — Cuenca';
+      case SectorEmpresa.comercioGeneralCuenca: return 'Comercio en General — Cuenca';
       case SectorEmpresa.otros:                return 'Otro sector';
     }
   }
@@ -83,6 +89,9 @@ extension SectorEmpresaExt on SectorEmpresa {
       case SectorEmpresa.logisticaAlmacen:     return '📦';
       case SectorEmpresa.energiaYAgua:         return '⚡';
       case SectorEmpresa.construccionObrasPublicasGuadalajara: return '🏗️';
+      case SectorEmpresa.construccionObrasPublicasCuenca: return '🏗️';
+      case SectorEmpresa.hosteleriaCuenca: return '🍽️';
+      case SectorEmpresa.comercioGeneralCuenca: return '🏪';
       case SectorEmpresa.otros:                return '📋';
     }
   }
@@ -328,6 +337,62 @@ class ConvenioService {
     CategoriaConvenio(codigo: 'CON-GU-XII',  descripcion: 'Nivel XII — Peón Ordinario',                               salarioMinimoAnual: 21_549, grupoCotizacion: GrupoCotizacion.grupo10),
   ];
 
+  // ── CONSTRUCCIÓN Y OBRAS PÚBLICAS — CUENCA (Provincial 2026) ──────────
+  // Código convenio: 16000075011981  |  Vigencia 2022-2026
+  // Tablas 2026 — RA = SB×335 + (PS+PE)×díasEfectivos + ExtraJunio + ExtraDic + Vacaciones
+  static const List<CategoriaConvenio> _construccionObrasPublicasCuenca = [
+    CategoriaConvenio(codigo: 'CON-CU-I',    descripcion: 'Nivel I — Personal Directivo (salario libre)',             salarioMinimoAnual: 0, grupoCotizacion: GrupoCotizacion.grupo1),
+    CategoriaConvenio(codigo: 'CON-CU-II',   descripcion: 'Nivel II — Titulado Superior',                            salarioMinimoAnual: 25791, grupoCotizacion: GrupoCotizacion.grupo1),
+    CategoriaConvenio(codigo: 'CON-CU-III',  descripcion: 'Nivel III — Titulado Medio / Jefe de Sección',            salarioMinimoAnual: 25430, grupoCotizacion: GrupoCotizacion.grupo2),
+    CategoriaConvenio(codigo: 'CON-CU-IV',   descripcion: 'Nivel IV — Jefe de Personal / Encargado General',         salarioMinimoAnual: 24753, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'CON-CU-V',    descripcion: 'Nivel V — Jefe Adm. 2ª / Delineante Superior',            salarioMinimoAnual: 24156, grupoCotizacion: GrupoCotizacion.grupo4),
+    CategoriaConvenio(codigo: 'CON-CU-VI',   descripcion: 'Nivel VI — Oficial Adm. 1ª / Jefe de Taller',            salarioMinimoAnual: 23505, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'CON-CU-VII',  descripcion: 'Nivel VII — Delineante 2ª / Capataz',                     salarioMinimoAnual: 22678, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'CON-CU-VIII', descripcion: 'Nivel VIII — Oficial Adm. 2ª / Oficial 1ª de Oficio',     salarioMinimoAnual: 22568, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'CON-CU-IX',   descripcion: 'Nivel IX — Auxiliar Adm. / Oficial 2ª de Oficio',         salarioMinimoAnual: 21767, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'CON-CU-X',    descripcion: 'Nivel X — Auxiliar Laboratorio / Ayudante de Oficio',     salarioMinimoAnual: 21014, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'CON-CU-XI',   descripcion: 'Nivel XI — Especialista 2ª / Peón Especialista',          salarioMinimoAnual: 20668, grupoCotizacion: GrupoCotizacion.grupo10),
+    CategoriaConvenio(codigo: 'CON-CU-XII',  descripcion: 'Nivel XII — Peón Ordinario / Limpiadora',                 salarioMinimoAnual: 20367, grupoCotizacion: GrupoCotizacion.grupo10),
+  ];
+
+  // ── HOSTELERÍA — CUENCA (Provincial 2025, vigente) ────────────────────
+  // Código convenio: 16000125011981  |  Vigencia 2022-2024 (prorrogado)
+  // 15 pagas (12 + 3 extras). Grupo A y B.
+  // Retrib. anual ≈ SB + PlusComp + CLC (en 15 pagas)
+  static const List<CategoriaConvenio> _hosteleriaCuenca = [
+    CategoriaConvenio(codigo: 'HOS-CU-IA',  descripcion: 'Nivel I — Director/a, Jefe/a Cocina (Grupo A)',   salarioMinimoAnual: 18559, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'HOS-CU-IIA', descripcion: 'Nivel II — Cocinero/a 1ª, Camarero/a 1ª (Grupo A)', salarioMinimoAnual: 18164, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'HOS-CU-IIIA',descripcion: 'Nivel III — Cocinero/a 2ª, Camarero/a 2ª (Grupo A)',salarioMinimoAnual: 17771, grupoCotizacion: GrupoCotizacion.grupo6),
+    CategoriaConvenio(codigo: 'HOS-CU-IVA', descripcion: 'Nivel IV — Auxiliar, Personal limpieza (Grupo A)',  salarioMinimoAnual: 17584, grupoCotizacion: GrupoCotizacion.grupo7),
+    CategoriaConvenio(codigo: 'HOS-CU-IB',  descripcion: 'Nivel I — Director/a, Jefe/a Cocina (Grupo B)',   salarioMinimoAnual: 18518, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'HOS-CU-IIB', descripcion: 'Nivel II — Cocinero/a 1ª, Camarero/a 1ª (Grupo B)', salarioMinimoAnual: 18080, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'HOS-CU-IIIB',descripcion: 'Nivel III — Cocinero/a 2ª, Camarero/a 2ª (Grupo B)',salarioMinimoAnual: 17625, grupoCotizacion: GrupoCotizacion.grupo6),
+    CategoriaConvenio(codigo: 'HOS-CU-IVB', descripcion: 'Nivel IV — Auxiliar, Personal limpieza (Grupo B)',  salarioMinimoAnual: 17451, grupoCotizacion: GrupoCotizacion.grupo7),
+  ];
+
+  // ── COMERCIO EN GENERAL — CUENCA (Provincial 2026) ────────────────────
+  // Código convenio: 16000055011981  |  Vigencia 2025-2028
+  // 15,5 pagas (12 + Navidad + Julio + Beneficios + 0,5 Promoción Cultural)
+  // RA = (SB + PlusComp + PlusConv) × 15,5
+  static const List<CategoriaConvenio> _comercioGeneralCuenca = [
+    CategoriaConvenio(codigo: 'COM-CU-1',  descripcion: 'Nivel 1 — Director/a Área Ventas/Almacén',                 salarioMinimoAnual: 20629, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'COM-CU-2',  descripcion: 'Nivel 2 — Titulado/a Univ. Grado Superior, Subdirector/a', salarioMinimoAnual: 20140, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'COM-CU-3',  descripcion: 'Nivel 3 — Jefe/a de Área, Supervisor/a',                   salarioMinimoAnual: 19847, grupoCotizacion: GrupoCotizacion.grupo3),
+    CategoriaConvenio(codigo: 'COM-CU-4',  descripcion: 'Nivel 4 — Jefe/a de Departamento',                         salarioMinimoAnual: 19652, grupoCotizacion: GrupoCotizacion.grupo4),
+    CategoriaConvenio(codigo: 'COM-CU-5',  descripcion: 'Nivel 5 — Dependiente/a Mayor, Titulado/a Medio',          salarioMinimoAnual: 19373, grupoCotizacion: GrupoCotizacion.grupo4),
+    CategoriaConvenio(codigo: 'COM-CU-6',  descripcion: 'Nivel 6 — Jefe/a Administrativo/a, Jefe/a Establecimiento',salarioMinimoAnual: 19035, grupoCotizacion: GrupoCotizacion.grupo4),
+    CategoriaConvenio(codigo: 'COM-CU-7',  descripcion: 'Nivel 7 — Encargado/a Logística, Secretario/a',            salarioMinimoAnual: 18867, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'COM-CU-8',  descripcion: 'Nivel 8 — Jefe/a Sección Adm./Comercial/Logística',        salarioMinimoAnual: 18590, grupoCotizacion: GrupoCotizacion.grupo5),
+    CategoriaConvenio(codigo: 'COM-CU-9',  descripcion: 'Nivel 9 — Técnico/a Servicio Auxiliar/Administrativo',      salarioMinimoAnual: 18404, grupoCotizacion: GrupoCotizacion.grupo6),
+    CategoriaConvenio(codigo: 'COM-CU-10', descripcion: 'Nivel 10 — Cajero/a, Oficial Adm., Dependiente/a Base',    salarioMinimoAnual: 18228, grupoCotizacion: GrupoCotizacion.grupo6),
+    CategoriaConvenio(codigo: 'COM-CU-11', descripcion: 'Nivel 11 — Viajante, Especialista A',                      salarioMinimoAnual: 17890, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'COM-CU-12', descripcion: 'Nivel 12 — Especialista B (Oficial 2ª)',                    salarioMinimoAnual: 17484, grupoCotizacion: GrupoCotizacion.grupo8),
+    CategoriaConvenio(codigo: 'COM-CU-13', descripcion: 'Nivel 13 — Especialista C (Oficial 3ª)',                    salarioMinimoAnual: 17421, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'COM-CU-14', descripcion: 'Nivel 14 — Auxiliar Administrativo/a, Auxiliar A',          salarioMinimoAnual: 17177, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'COM-CU-15', descripcion: 'Nivel 15 — Auxiliar B, Auxiliar de Caja',                   salarioMinimoAnual: 17000, grupoCotizacion: GrupoCotizacion.grupo9),
+    CategoriaConvenio(codigo: 'COM-CU-16', descripcion: 'Nivel 16 — Ayudante Dependiente/a, Auxiliar C',             salarioMinimoAnual: 16898, grupoCotizacion: GrupoCotizacion.grupo10),
+  ];
+
   // ════════════════════════════════════════════════════════════════════════
   // MÉTODOS PÚBLICOS
   // ════════════════════════════════════════════════════════════════════════
@@ -356,6 +421,9 @@ class ConvenioService {
       case SectorEmpresa.logisticaAlmacen:      return _logistica;
       case SectorEmpresa.energiaYAgua:          return _energia;
       case SectorEmpresa.construccionObrasPublicasGuadalajara: return _construccionObrasPublicasGuadalajara;
+      case SectorEmpresa.construccionObrasPublicasCuenca: return _construccionObrasPublicasCuenca;
+      case SectorEmpresa.hosteleriaCuenca: return _hosteleriaCuenca;
+      case SectorEmpresa.comercioGeneralCuenca: return _comercioGeneralCuenca;
       case SectorEmpresa.otros:                 return [];
     }
   }

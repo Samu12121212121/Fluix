@@ -31,6 +31,10 @@ class NominasService {
   static const String _convCarnicasId   = 'industrias-carnicas-guadalajara-2025';
   static const String _convVetId        = 'veterinarios-guadalajara-2026';
   static const String _convConstruccionId = 'construccion-obras-publicas-guadalajara';
+  // Cuenca
+  static const String _convConstruccionCuencaId = 'construccion-obras-publicas-cuenca';
+  static const String _convHosteleriaCuencaId   = 'hosteleria-cuenca';
+  static const String _convComercioCuencaId     = 'comercio-general-cuenca';
 
   // Referencia SMI 2026 (anual, 14 pagas). Se usa como umbral mínimo.
   static const double _smiAnual2026 = 15876.0;
@@ -43,6 +47,10 @@ class NominasService {
     _convCarnicasId: 1748,   // BOE-A-2025-13965, desde 01/01/2025
     _convVetId: 1780,        // BOE-A-2023-21910, art. 38
     _convConstruccionId: 1736, // Convenio provincial Construcción Guadalajara 2025-2026
+    // Cuenca
+    _convConstruccionCuencaId: 1736,  // Jornada anual convenio construcción Cuenca
+    _convHosteleriaCuencaId: 1800,    // Jornada anual convenio hostelería Cuenca
+    _convComercioCuencaId: 1800,      // Jornada anual convenio comercio Cuenca
   };
 
   String _resolverConvenioPorSector(String? sector) {
@@ -64,6 +72,15 @@ class NominasService {
       case 'obras_publicas':
       case 'construccion_obras_publicas':
         return _convConstruccionId;
+      // ── Cuenca ────────────────────────────────────────────────────────────
+      case 'construccion_cuenca':
+      case 'construccion_obras_publicas_cuenca':
+        return _convConstruccionCuencaId;
+      case 'hosteleria_cuenca':
+        return _convHosteleriaCuencaId;
+      case 'comercio_cuenca':
+      case 'comercio_general_cuenca':
+        return _convComercioCuencaId;
       default:
         return _convHosteleriaId;
     }
@@ -883,6 +900,10 @@ class NominasService {
           'Ya existen ${existentes.docs.length} nóminas para ${Nomina.nombreMes(mes)} $anio');
     }
 
+    // Obtener el sector de la empresa para usarlo como fallback
+    final empresaDoc = await _db.collection('empresas').doc(empresaId).get();
+    final sectorEmpresa = (empresaDoc.data()?['sector'] as String?)?.toLowerCase().trim();
+
     final empleados = await _db
         .collection('usuarios')
         .where('empresa_id', isEqualTo: empresaId)
@@ -897,7 +918,12 @@ class NominasService {
       final datosNomina = data['datos_nomina'] as Map<String, dynamic>?;
       if (datosNomina == null) continue;
 
-      final configBase = DatosNominaEmpleado.fromMap(datosNomina);
+      var configBase = DatosNominaEmpleado.fromMap(datosNomina);
+      // Si el empleado no tiene sector_empresa, usar el de la empresa
+      if ((configBase.sectorEmpresa == null || configBase.sectorEmpresa!.isEmpty) &&
+          sectorEmpresa != null && sectorEmpresa.isNotEmpty) {
+        configBase = configBase.copyWith(sectorEmpresa: sectorEmpresa);
+      }
       final config = await _aplicarConvenioSiCorresponde(configBase);
       if (config.salarioBrutoAnual <= 0) continue;
 
@@ -1322,8 +1348,15 @@ class NominasService {
     if (sector == 'hosteleria') posiblesConvenios.add(_convHosteleriaId);
     if (sector == 'comercio') posiblesConvenios.add(_convComercioId);
     if (sector == 'peluqueria') posiblesConvenios.add(_convPeluqueriaId);
+    if (sector == 'hosteleria_cuenca') posiblesConvenios.add(_convHosteleriaCuencaId);
+    if (sector == 'comercio_cuenca' || sector == 'comercio_general_cuenca') posiblesConvenios.add(_convComercioCuencaId);
+    if (sector == 'construccion_cuenca' || sector == 'construccion_obras_publicas_cuenca') posiblesConvenios.add(_convConstruccionCuencaId);
+    if (sector == 'construccion' || sector == 'obras_publicas' || sector == 'construccion_obras_publicas') posiblesConvenios.add(_convConstruccionId);
     if (posiblesConvenios.isEmpty) {
-      posiblesConvenios.addAll([_convHosteleriaId, _convComercioId, _convPeluqueriaId]);
+      posiblesConvenios.addAll([
+        _convHosteleriaId, _convComercioId, _convPeluqueriaId,
+        _convHosteleriaCuencaId, _convComercioCuencaId, _convConstruccionCuencaId,
+      ]);
     }
 
     CategoriaConvenio? cat;

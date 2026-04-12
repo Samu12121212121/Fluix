@@ -1,6 +1,8 @@
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVICIO — Autenticación biométrica (FaceID / Huella dactilar)
@@ -151,6 +153,33 @@ class BiometriaService {
     final soporta = await _auth.isDeviceSupported();
     if (soporta) return 'Continuar con biometría';
     return 'Acceso biométrico';
+  }
+
+  // ── ABRIR AJUSTES ────────────────────────────────────────────────────────
+
+  /// Abre los ajustes de la app en el dispositivo (iOS: Ajustes → Fluix,
+  /// Android: Ajustes → Apps → Fluix). Permite al usuario conceder el
+  /// permiso de Face ID si lo denegó previamente.
+  Future<void> abrirAjustesDispositivo() async {
+    try {
+      // En iOS 'app-settings:' abre Ajustes → Fluix directamente
+      // donde el usuario puede conceder el permiso de Face ID
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final uri = Uri.parse('app-settings:');
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+          return;
+        }
+      }
+      // Android: abre la pantalla de ajustes de la app
+      // (no existe un URL scheme directo, pero url_launcher maneja intent)
+      final uri = Uri.parse('package:com.fluixtech.crm');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      debugPrint('⚠️ No se pudieron abrir los ajustes: $e');
+    }
   }
 }
 

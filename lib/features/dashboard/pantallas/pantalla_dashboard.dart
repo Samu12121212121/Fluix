@@ -217,6 +217,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
         // Cargar sesión con permisos
         final sesion = await PermisosService().cargarSesion();
+        debugPrint('👤 ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
         setState(() {
           _empresaId = empresaId;
           _sesion = sesion;
@@ -372,8 +373,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           ? StreamBuilder<List<ModuloConfig>>(
               stream: _widgetService.obtenerModulosActivos(_empresaId!),
               builder: (context, snapshot) {
-                final esPropietario = _empresaId == ConstantesApp.empresaPropietariaId;
+                final esPropietario = _sesion?.esPropietario == true ||
+                    _empresaId == ConstantesApp.empresaPropietariaId;
 
+                debugPrint('🔍 Mostrando módulo propietario: $esPropietario | rol=${_sesion?.rol} | empresaId=$_empresaId');
                 final modulosActivos = snapshot.data ??
                     ModulosDisponibles.todos
                         .where((m) => ModulosDisponibles.activosPorDefecto.contains(m.id))
@@ -480,7 +483,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final id = _empresaId!;
     final sesionActiva = _sesionEfectiva;
     // Módulo exclusivo de la cuenta propietaria
-    final esPropietario = id == ConstantesApp.empresaPropietariaId;
+    final esPropietario = _sesion?.esPropietario == true ||
+        id == ConstantesApp.empresaPropietariaId;
     switch (moduloId) {
       case 'propietario':     return esPropietario ? const ModuloPropietario() : const Center(child: Text('Sin acceso'));
       case 'dashboard':       return _buildDashboardModular();

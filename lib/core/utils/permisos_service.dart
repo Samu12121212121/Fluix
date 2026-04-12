@@ -98,6 +98,9 @@ class SesionUsuario {
   /// Puede crear facturas
   bool get puedeCrearFacturas => esAdmin;
 
+  /// Puede gestionar nóminas (generar, recalcular, editar, eliminar, exportar)
+  bool get puedeGestionarNominas => esAdmin;
+
   /// Puede ver el resumen fiscal
   bool get puedeVerResumenFiscal => esAdmin;
 
@@ -322,15 +325,18 @@ class PermisosService {
           ?.map((e) => e.toString())
           .toList();
 
+      final rolParsed = _parsearRol(rolStr);
+
       _sesionActual = SesionUsuario(
         uid: uid,
         nombre: data['nombre'] ?? '',
         correo: data['correo'] ?? FirebaseAuth.instance.currentUser?.email ?? '',
         empresaId: empresaId,
-        rol: _parsearRol(rolStr),
+        rol: rolParsed,
         activo: data['activo'] ?? true,
         modulosPersonalizados: modulosPersonalizados,
-        esPropietarioPlatforma: data['es_plataforma_admin'] as bool? ?? false,
+        esPropietarioPlatforma: rolParsed == RolApp.propietario ||
+            (data['es_plataforma_admin'] as bool? ?? false),
       );
 
       // Cargar suscripción para que el guard de módulos funcione

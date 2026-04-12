@@ -36,6 +36,10 @@ class FiniquitoCalculator {
     'industrias-carnicas-guadalajara-2025':      31,
     'veterinarios-guadalajara-2026':            30,
     'construccion-obras-publicas-guadalajara':  30,
+    // Cuenca
+    'construccion-obras-publicas-cuenca':       30,
+    'hosteleria-cuenca':                        30,
+    'comercio-general-cuenca':                  30,
   };
 
   /// Meses de devengo de las pagas extra por convenio.
@@ -66,6 +70,24 @@ class FiniquitoCalculator {
     'construccion-obras-publicas-guadalajara': [
       ['Paga extra verano', 6],
       ['Paga extra navidad', 12],
+    ],
+    // ── Cuenca ──────────────────────────────────────────────────────────────
+    'construccion-obras-publicas-cuenca': [
+      ['Paga extra junio', 6],
+      ['Paga extra diciembre', 12],
+    ],
+    'hosteleria-cuenca': [
+      ['Paga extra verano', 6],          // 20 junio
+      ['Paga extra navidad', 12],        // 20 diciembre
+      ['Tercera Paga (marzo)', 3],       // 50% el 20 mar
+      // La otra 50% de la tercera paga se cobra en septiembre,
+      // pero para finiquito se devenga proporcional todo el año.
+    ],
+    'comercio-general-cuenca': [
+      ['Paga extra julio', 7],
+      ['Paga extra navidad', 12],
+      ['Paga extra beneficios', 3],       // se suele abonar en marzo
+      // Media paga de promoción cultural se prorratea en el cálculo anual.
     ],
   };
 

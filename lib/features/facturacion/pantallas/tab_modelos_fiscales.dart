@@ -14,8 +14,12 @@ import '../../fiscal/pantallas/modelo111_screen.dart';
 import '../../fiscal/pantallas/modelo190_screen.dart';
 import '../../fiscal/pantallas/modelo115_screen.dart';
 import '../../fiscal/pantallas/modelo130_screen.dart';
+import '../../fiscal/pantallas/modelo202_screen.dart';
 import '../../fiscal/pantallas/modelo390_screen.dart';
+import 'package:planeag_flutter/features/fiscal/pantallas/modelo303_screen.dart';
+import '../../../widgets/calendario_fiscal_widget.dart';
 import 'pantalla_configuracion_fiscal_empresa.dart';
+import 'tab_mod_347.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB MODELOS FISCALES — 303 (IVA) y 130 (IRPF)
@@ -149,6 +153,10 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
           _buildBotonModelo115(color),
         ] else if (_tabModelo == 5) ...[
           _buildBotonModelo390(color),
+        ] else if (_tabModelo == 6) ...[
+          _buildBotonModelo347(color),
+        ] else if (_tabModelo == 1 && empresaConfig.esSociedad) ...[
+          _buildBotonModelo202(color),
         ] else ...[
 
         // ── Configuración fiscal: criterio IVA ────────────────────────────
@@ -166,6 +174,52 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
               ? _buildCard303(m, color)
               : _buildCard130(m, color),
         )),
+
+        // ── Acceso a pantalla completa del Modelo 303 ─────────────────────
+        if (_tabModelo == 0) ...[
+          const SizedBox(height: 8),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: Icon(Icons.open_in_new, color: color),
+              title: const Text('Abrir Modelo 303 completo'),
+              subtitle: const Text('Exportación AEAT DR303e26v101, marcado como presentado, etc.'),
+              trailing: Icon(Icons.chevron_right, color: color),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Modelo303Screen(
+                    empresaId: widget.empresaId,
+                    anioInicial: widget.anio,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        // ── Acceso a pantalla completa del Modelo 130 ─────────────────────
+        if (_tabModelo == 1 && !empresaConfig.esSociedad) ...[
+          const SizedBox(height: 8),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: Icon(Icons.open_in_new, color: color),
+              title: const Text('Abrir Modelo 130 completo'),
+              subtitle: const Text('Cálculo completo, casillas oficiales, PDF borrador, presentar AEAT'),
+              trailing: Icon(Icons.chevron_right, color: color),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Modelo130Screen(
+                    empresaId: widget.empresaId,
+                    anioInicial: widget.anio,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
 
         // ── Calendario fiscal anual ───────────────────────────────────────
         const SizedBox(height: 4),
@@ -252,13 +306,20 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
   }
 
   Widget _buildSelectorModelo(Color color) {
+    final empresaConfig = context.watch<EmpresaConfigProvider>().config;
+    final esSociedad = empresaConfig.esSociedad;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           _tabChip('303\nIVA', 0, color),
           const SizedBox(width: 6),
-          _tabChip('130\nIRPF', 1, color),
+          // Mostrar 130 (IRPF autónomos) o 202 (IS sociedades) según forma jurídica
+          if (esSociedad)
+            _tabChip('202\nIS', 1, color)
+          else
+            _tabChip('130\nIRPF', 1, color),
           const SizedBox(width: 6),
           _tabChip('111\nRetenc.', 2, color),
           const SizedBox(width: 6),
@@ -267,6 +328,8 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
           _tabChip('115\nAlquiler', 4, color),
           const SizedBox(width: 6),
           _tabChip('390\nIVA anual', 5, color),
+          const SizedBox(width: 6),
+          _tabChip('347\nTerceros', 6, color),
         ],
       ),
     );
@@ -862,101 +925,11 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
   }
 
   Widget _buildCalendarioFiscal(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(children: [
-            Icon(Icons.event_note, size: 16, color: Colors.grey),
-            SizedBox(width: 6),
-            Text('Calendario fiscal ${_anioActual}',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14)),
-          ]),
-          const SizedBox(height: 12),
-          ..._eventosCalendario().map((e) => _eventoCalendario(e, color)),
-        ],
-      ),
-    );
-  }
-
-  static const int _anioActual = 2026; // se usa solo para label
-
-  List<_EventoFiscal> _eventosCalendario() {
-    return [
-      _EventoFiscal(
-          '1–20 Abril',
-          'Modelo 303 T1 / Modelo 130 T1',
-          Colors.deepOrange,
-          Icons.receipt),
-      _EventoFiscal(
-          '1–20 Julio',
-          'Modelo 303 T2 / Modelo 130 T2',
-          Colors.deepOrange,
-          Icons.receipt),
-      _EventoFiscal(
-          '1–20 Octubre',
-          'Modelo 303 T3 / Modelo 130 T3',
-          Colors.deepOrange,
-          Icons.receipt),
-      _EventoFiscal(
-          '1–20 Enero (año sig.)',
-          'Modelo 303 T4 / Modelo 130 T4',
-          Colors.deepOrange,
-          Icons.receipt),
-      _EventoFiscal(
-          '1–30 Enero (año sig.)',
-          'Modelo 390 (resumen anual IVA)',
-          Colors.purple,
-          Icons.summarize),
-      _EventoFiscal(
-          'Febrero',
-          'Modelo 347 (operaciones >3.000€)',
-          Colors.indigo,
-          Icons.business),
-    ];
-  }
-
-  Widget _eventoCalendario(_EventoFiscal e, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: e.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(e.icono, color: e.color, size: 16),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(e.modelo,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w500)),
-                Text(e.fecha,
-                    style: TextStyle(
-                        fontSize: 10, color: Colors.grey[600])),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final empresaConfig = context.watch<EmpresaConfigProvider>().config;
+    return CalendarioFiscalWidget(
+      empresaId: widget.empresaId,
+      formaJuridica: empresaConfig.formaJuridica,
+      ejercicio: widget.anio,
     );
   }
 
@@ -1133,6 +1106,120 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
       case EstadoAlertaFiscal.vencido:
         return 'Plazo vencido';
     }
+  }
+
+  Widget _buildBotonModelo202(Color color) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(Icons.account_balance, size: 48, color: color),
+            const SizedBox(height: 12),
+            const Text(
+              'Modelo 202 — Pago fraccionado IS (Sociedades)',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Art. 40.2 LIS · Pago a cuenta del Impuesto de Sociedades.\n'
+              'Períodos: abril (1P), octubre (2P), diciembre (3P)',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Modelo202Screen(
+                    empresaId: widget.empresaId,
+                    anioInicial: widget.anio,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir Modelo 202'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBotonModelo347(Color color) {
+    final plazo = DateTime(widget.anio + 1, 2, 28);
+    final dias = plazo.difference(DateTime.now()).inDays;
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(Icons.people_alt, size: 48, color: color),
+            const SizedBox(height: 12),
+            const Text(
+              'Modelo 347 — Operaciones con terceros',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Art. 33 RD 1065/2007 · Declaración anual de operaciones >3.005,06€.\n'
+              'Plazo: hasta el 28 de febrero de ${widget.anio + 1}'
+              '${dias >= 0 && dias <= 60 ? ' ($dias días)' : ''}',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                final appConfig = context.read<AppConfigProvider>();
+                final empresaConfigProvider = context.read<EmpresaConfigProvider>();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MultiProvider(
+                      providers: [
+                        ChangeNotifierProvider.value(value: appConfig),
+                        ChangeNotifierProvider.value(value: empresaConfigProvider),
+                      ],
+                      child: Scaffold(
+                        appBar: AppBar(
+                          title: const Text('Modelo 347 — Operaciones con terceros'),
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          elevation: 1,
+                        ),
+                        body: TabMod347(
+                          empresaId: widget.empresaId,
+                          anio: widget.anio,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir Modelo 347'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

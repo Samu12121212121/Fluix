@@ -18,7 +18,6 @@ import 'core/utils/admin_initializer.dart';
 
 // Services
 import 'services/notificaciones_service.dart';
-import 'services/auth/token_refresh_service.dart';
 
 // Features
 import 'features/autenticacion/pantallas/pantalla_login.dart';
@@ -109,17 +108,6 @@ class FluixCrmApp extends StatelessWidget {
               return const PantallaCarga();
             }
             if (snapshot.hasData) {
-              // Iniciar renovación automática de token cuando hay sesión activa
-              TokenRefreshService().iniciar(
-                onSesionInvalida: (mensaje) {
-                  // Redirigir al login si la sesión es completamente inválida
-                  FirebaseAuth.instance.signOut();
-                  // El StreamBuilder detectará el cambio y mostrará PantallaLogin
-                  debugPrint('⚠️ Sesión inválida: $mensaje');
-                },
-              );
-              return const _PantallaRuta();
-            }
             // Sin sesión → detener el servicio
             TokenRefreshService().detener();
             return const PantallaLogin();
@@ -140,9 +128,6 @@ class _PantallaRuta extends StatelessWidget {
     if (uid == null) return const PantallaLogin();
 
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
           return const PantallaCarga();
         }
 

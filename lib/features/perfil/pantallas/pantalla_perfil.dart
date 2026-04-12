@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/sugerencia_empresa.dart';
 import '../../../services/sugerencias_service.dart';
@@ -615,11 +616,14 @@ class _ToggleBiometriaState extends State<_ToggleBiometria> {
 
   Future<void> _cargar() async {
     final activa = await _bio.estaActiva;
-    final tipos = await _bio.tiposDisponibles();
+    // Usar isDeviceSupported() en vez de canCheckBiometrics.
+    // En iOS, canCheckBiometrics devuelve false ANTES de que el usuario
+    // conceda el permiso de Face ID, así que el widget nunca aparecería.
+    final soporta = await _bio.dispositivoSoportaBiometria();
     if (mounted) {
       setState(() {
         _activa = activa;
-        _soportada = tipos.isNotEmpty;
+        _soportada = soporta;
         _cargando = false;
       });
     }
@@ -627,7 +631,24 @@ class _ToggleBiometriaState extends State<_ToggleBiometria> {
 
   @override
   Widget build(BuildContext context) {
-    if (_cargando || !_soportada) return const SizedBox.shrink();
+    if (_cargando) return const SizedBox.shrink();
+    // Mostrar siempre si el dispositivo soporta biometría (aunque no esté activada)
+    // Si no soporta, mostrar mensaje informativo
+    if (!_soportada) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey[200]!),
+        ),
+        child: const ListTile(
+          leading: Icon(Icons.fingerprint, color: Colors.grey),
+          title: Text('Acceso biométrico'),
+          subtitle: Text('No disponible en este dispositivo',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ),
+      );
+    }
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -636,21 +657,113 @@ class _ToggleBiometriaState extends State<_ToggleBiometria> {
       ),
       child: SwitchListTile(
         value: _activa,
-        onChanged: (v) async {
-          if (v) {
-            final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-            final email = FirebaseAuth.instance.currentUser?.email ?? '';
-            await _bio.activar(uid: uid, email: email);
-          } else {
-            await _bio.desactivar();
-          }
-          setState(() => _activa = v);
-        },
+        onChanged: _onToggle,
         secondary: Icon(Icons.fingerprint, color: _activa ? Colors.green : Colors.grey),
         title: const Text('Acceso biométrico'),
-        subtitle: Text(_activa ? 'Activo — usa huella o Face ID al abrir la app' : 'Desactivado'),
+        subtitle: Text(_activa
+            ? 'Activo — usa huella o Face ID al abrir la app'
+            : 'Pulsa para activar Face ID / huella dactilar'),
       ),
     );
+  }
+
+  Future<void> _onToggle(bool activar) async {
+    if (!activar) {
+      // Desactivar
+      await _bio.desactivar();
+      if (mounted) setState(() => _activa = false);
+      return;
+    }
+
+    // ── ACTIVAR: pedir autenticación biométrica para que iOS muestre
+    //    el diálogo de permiso de Face ID ("¿Permitir que Fluix use Face ID?")
+    final resultado = await _bio.autenticar();
+
+    if (resultado.exito) {
+      // Biometría exitosa → guardar preferencia
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final email = FirebaseAuth.instance.currentUser?.email ?? '';
+      await _bio.activar(uid: uid, email: email);
+      if (mounted) {
+        setState(() => _activa = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Face ID / huella dactilar activado'),
+            backgroundColor: Color(0xFF2E7D32),
+          ),
+        );
+      }
+    } else {
+      // ── Manejar cada error con mensaje específico ──────────────────
+      if (!mounted) return;
+      final razon = resultado.razon;
+
+      if (razon == BiometriaRazon.cancelada) {
+        // El usuario simplemente canceló, no hacer nada
+        return;
+      }
+
+      String titulo;
+      String mensaje;
+      bool mostrarAjustes = false;
+
+      switch (razon) {
+        case BiometriaRazon.noDisponible:
+          titulo = 'Face ID no disponible';
+          mensaje = 'Este dispositivo no soporta autenticación biométrica.';
+          break;
+        case BiometriaRazon.noConfigurada:
+          titulo = 'Biometría no configurada';
+          mensaje = 'No hay Face ID ni huella dactilar configurados en tu dispositivo.\n\n'
+              'Ve a Ajustes del iPhone → Face ID y código (o Touch ID) y configúralo primero.';
+          mostrarAjustes = true;
+          break;
+        case BiometriaRazon.bloqueada:
+          titulo = 'Biometría bloqueada';
+          mensaje = 'Demasiados intentos fallidos. Desbloquea tu dispositivo con el PIN '
+              'e inténtalo de nuevo.';
+          break;
+        default:
+          titulo = 'No se pudo activar';
+          mensaje = 'La autenticación biométrica falló. Inténtalo de nuevo.\n\n'
+              'Si el problema persiste, ve a Ajustes → Fluix → Face ID y verifica que el permiso está concedido.';
+          mostrarAjustes = true;
+          break;
+      }
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber, color: Colors.orange[700]),
+              const SizedBox(width: 8),
+              Expanded(child: Text(titulo, style: const TextStyle(fontSize: 16))),
+            ],
+          ),
+          content: Text(mensaje),
+          actions: [
+            if (mostrarAjustes)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  // Abrir ajustes del dispositivo/app para conceder Face ID
+                  try {
+                    final uri = Uri.parse('app-settings:');
+                    await launchUrl(uri);
+                  } catch (_) {}
+                },
+                child: const Text('Ir a Ajustes'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
 
@@ -690,10 +803,13 @@ class _TabEmpresaState extends State<_TabEmpresa> {
   ];
 
   static const List<Map<String, String>> _sectoresEmpresa = [
-    {'id': 'hosteleria', 'label': 'Hostelería y Turismo'},
-    {'id': 'comercio', 'label': 'Comercio'},
+    {'id': 'hosteleria', 'label': 'Hostelería — Guadalajara'},
+    {'id': 'comercio', 'label': 'Comercio — Guadalajara'},
     {'id': 'peluqueria', 'label': 'Peluquería y Estética'},
-    {'id': 'construccion', 'label': 'Construcción y Obras Públicas'},
+    {'id': 'construccion', 'label': 'Construcción — Guadalajara'},
+    {'id': 'hosteleria_cuenca', 'label': 'Hostelería — Cuenca'},
+    {'id': 'comercio_cuenca', 'label': 'Comercio en General — Cuenca'},
+    {'id': 'construccion_cuenca', 'label': 'Construcción — Cuenca'},
     {'id': 'otros', 'label': 'Otro sector'},
   ];
 
@@ -705,6 +821,10 @@ class _TabEmpresaState extends State<_TabEmpresa> {
     if (t.contains('construcci') || t.contains('obra')) return 'construccion';
     return 'otros';
   }
+
+  /// Carga datos existentes y, si el sector almacenado en Firestore incluye
+  /// un sufijo de provincia (ej. 'hosteleria_cuenca'), lo mantiene tal cual.
+  /// De este modo la app "sabe" que la empresa usa el convenio de Cuenca.
 
   @override
   void initState() {

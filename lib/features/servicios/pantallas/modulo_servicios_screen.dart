@@ -55,68 +55,77 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
             return _buildVacio();
           }
 
-          return Column(
-            children: [
-              _buildResumen(snapshot.data?.docs ?? []),
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildResumen(snapshot.data?.docs ?? [])),
               // Filtro por categoría
               if (categorias.length > 1)
-                SizedBox(
-                  height: 44,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    itemCount: categorias.length,
-                    itemBuilder: (context, i) {
-                      final cat = categorias[i];
-                      final seleccionada = _categoriaFiltro == cat;
-                      return GestureDetector(
-                        onTap: () => setState(() => _categoriaFiltro = cat),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: seleccionada ? const Color(0xFF7B1FA2) : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: seleccionada ? const Color(0xFF7B1FA2) : Colors.grey[300]!,
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 44,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      itemCount: categorias.length,
+                      itemBuilder: (context, i) {
+                        final cat = categorias[i];
+                        final seleccionada = _categoriaFiltro == cat;
+                        return GestureDetector(
+                          onTap: () => setState(() => _categoriaFiltro = cat),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: seleccionada ? const Color(0xFF7B1FA2) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: seleccionada ? const Color(0xFF7B1FA2) : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Text(
+                              cat,
+                              style: TextStyle(
+                                color: seleccionada ? Colors.white : Colors.grey[700],
+                                fontWeight: seleccionada ? FontWeight.w600 : FontWeight.normal,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                          child: Text(
-                            cat,
-                            style: TextStyle(
-                              color: seleccionada ? Colors.white : Colors.grey[700],
-                              fontWeight: seleccionada ? FontWeight.w600 : FontWeight.normal,
-                              fontSize: 13,
-                            ),
-                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              if (servicios.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      'No hay servicios en "$_categoriaFiltro"',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) {
+                      final data = servicios[i].data() as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _TarjetaServicio(
+                          id: servicios[i].id,
+                          data: data,
+                          onEditar: () => _abrirFormulario(id: servicios[i].id, data: data),
+                          onToggle: () => _toggleActivo(servicios[i].id, data['activo'] ?? true),
                         ),
                       );
                     },
+                    childCount: servicios.length,
                   ),
                 ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: servicios.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No hay servicios en "$_categoriaFiltro"',
-                          style: TextStyle(color: Colors.grey[500]),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: servicios.length,
-                        itemBuilder: (context, i) {
-                          final data = servicios[i].data() as Map<String, dynamic>;
-                          return _TarjetaServicio(
-                            id: servicios[i].id,
-                            data: data,
-                            onEditar: () => _abrirFormulario(id: servicios[i].id, data: data),
-                            onToggle: () => _toggleActivo(servicios[i].id, data['activo'] ?? true),
-                          );
-                        },
-                      ),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           );
         },
