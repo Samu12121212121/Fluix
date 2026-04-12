@@ -100,12 +100,15 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
                   color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(2),
                 ),
-                SizedBox(
+                child: SizedBox(
                   width: 40,
                   child: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
+                  ),
+                ),
               ),
+            ),
 
             // Selector empleado
             if (widget.empleadoIdFijo == null) ...[
@@ -346,6 +349,7 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
               color: pct > 0.8 ? Colors.orange : const Color(0xFF00796B),
               minHeight: 8,
             ),
+          ),
           Text(
             'Disponibles: ${s.totalDisponible.toStringAsFixed(1)} días'
             '${s.diasPendientesAnoAnterior > 0 ? ' (incl. ${s.diasPendientesAnoAnterior.toStringAsFixed(1)} del año anterior)' : ''}',
@@ -369,6 +373,9 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         );
         if (picked == null) return;
         setState(() {
+          if (esInicio) {
+            _fechaInicio = picked;
+            if (_fechaFin.isBefore(_fechaInicio)) {
               _fechaFin = _fechaInicio;
             }
           } else {

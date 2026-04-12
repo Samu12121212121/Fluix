@@ -305,6 +305,7 @@ class Factura {
   // Notas
   final String? notasInternas;
   final String? notasCliente;
+  final DateTime? fechaOperacion;
   // Verifactu (registro fiscal electrónico RD 1007/2023)
   final Map<String, dynamic>? verifactu;
   // Auditoría
@@ -349,6 +350,7 @@ class Factura {
     this.verifactu,
     required this.historial,
     required this.fechaEmision,
+    this.fechaVencimiento,
     this.fechaPago,
     this.fechaActualizacion,
   });
@@ -436,6 +438,7 @@ class Factura {
     fechaOperacion: fechaOperacion ?? this.fechaOperacion,
     historial: historial ?? this.historial,
     fechaEmision: fechaEmision ?? this.fechaEmision,
+    fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
     fechaPago: fechaPago ?? this.fechaPago,
     fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
   );
@@ -525,6 +528,11 @@ class Factura {
           : null,
       verifactu: d['verifactu'],
       historial: (d['historial'] as List<dynamic>? ?? [])
+          .map((h) => EntradaHistorialFactura.fromMap(h as Map<String, dynamic>))
+          .toList(),
+      fechaEmision: d['fecha_emision'] != null
+          ? _parseTs(d['fecha_emision'])
+          : DateTime.now(),
       fechaVencimiento: d['fecha_vencimiento'] != null
           ? _parseTs(d['fecha_vencimiento'])
           : null,

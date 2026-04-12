@@ -82,12 +82,25 @@ class StorageService {
 
     // 7. Guardar URL en Firestore (campo foto_url)
     // Primero en usuarios/{empleadoId} — que es donde el listado de empleados lee
+    await _firestore
         .collection('usuarios')
         .doc(empleadoId)
-        .update({'foto_url': cacheBustUrl});
+        .update({'foto_url': url});
 
     // También guardar en empresas/{empresaId}/empleados por si existe
-        .update({'foto_url': url});
+    try {
+      await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('empleados')
+          .doc(empleadoId)
+          .update({'foto_url': url});
+    } catch (_) {}
+
+    return url;
+  }
+
+  Future<void> eliminarFotoEmpleado({
     required String empresaId,
     required String empleadoId,
   }) async {
@@ -101,7 +114,7 @@ class StorageService {
     // Borrar de usuarios (principal)
     await _firestore
         .collection('usuarios')
-    return url;
+        .doc(empleadoId)
         .update({'foto_url': FieldValue.delete()});
     // Borrar de empresas/empleados (fallback)
     try {

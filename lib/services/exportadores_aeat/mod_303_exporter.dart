@@ -17,8 +17,6 @@ class DatosMod303 {
     required this.periodo,
   });
 
-  // Base imponible régimen general (21%) desde emitidas (fecha de emisión).
-  // Las facturas rectificativas se incluyen (sus importes negativos reducen la base).
   double get baseGeneral => facturasEmitidas
       .where((f) => f.estado != EstadoFactura.anulada)
       .fold<double>(0.0, (sum, f) =>
@@ -26,22 +24,59 @@ class DatosMod303 {
               .where((l) => l.porcentajeIva == 21)
               .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
 
-  // Cuota repercutida total (21% + 10% + 4%) desde emitidas.
-  // Las facturas rectificativas reducen la cuota cuando tienen importes negativos.
+  double get cuotaGeneral => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 21)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  double get baseReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 10)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
+  double get cuotaReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 10)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  double get baseSuperReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 4)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
+  double get cuotaSuperReducida => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 4)
+              .fold<double>(0.0, (s, l) => s + l.importeIva));
+
+  double get baseExenta => facturasEmitidas
+      .where((f) => f.estado != EstadoFactura.anulada)
+      .fold<double>(0.0, (sum, f) =>
+          sum + f.lineas
+              .where((l) => l.porcentajeIva == 0)
+              .fold<double>(0.0, (s, l) => s + l.subtotalSinIva));
+
   double get cuotaRepercutida =>
       cuotaGeneral + cuotaReducida + cuotaSuperReducida;
 
-  // Base imponible soportada deducible desde recibidas.
   double get baseSoportadaDeducible => facturasRecibidas
       .where((f) => f.estado != EstadoFacturaRecibida.rechazada && f.ivaDeducible)
       .fold<double>(0.0, (sum, f) => sum + f.baseImponible);
 
-  // Cuota soportada deducible desde recibidas.
   double get cuotaSoportadaDeducible => facturasRecibidas
       .where((f) => f.estado != EstadoFacturaRecibida.rechazada && f.ivaDeducible)
       .fold<double>(0.0, (sum, f) => sum + f.importeIva);
 
-  // Resultado de liquidación (a ingresar/devolver).
   double get resultado => cuotaRepercutida - cuotaSoportadaDeducible;
 }
 
@@ -81,12 +116,10 @@ class Mod303Exporter {
     String? apellido2,
     String? nombre,
   }) async {
-    // Monta un DTO mínimo para mantener compatibilidad sin romper servicios.
     final datos = _fromLegacy(
-  double get cuotaRepercutida => facturasEmitidas
-      .where((f) => f.estado != EstadoFactura.anulada)
-      .fold<double>(0.0, (sum, f) =>
-          sum + f.lineas.fold<double>(0.0, (s, l) => s + l.importeIva));
+      nifEmpresa: nifEmpresa,
+      trimestre: trimestre,
+      anio: anio,
       baseGeneral: baseGeneral,
       cuotaGeneral: cuotaGeneral,
       baseReducida: baseReducida,
@@ -110,7 +143,6 @@ class Mod303Exporter {
     required double cuotaSuperReducida,
     required double ivaSoportado,
   }) {
-    // Construimos facturas sintéticas mínimas para reutilizar DTO.
     final emitida = Factura(
       id: 'legacy',
       empresaId: 'legacy',
@@ -258,28 +290,32 @@ class Mod303Exporter {
   /// Calcula trimestre a partir de mes.
   static int trimestresDelMes(int mes) {
     if (mes <= 3) return 1;
-    // Pos 31-45 (len 15): Base imponible régimen general (casilla base)
-    r.setImporteCentimos(31, 45, d.baseGeneral);
-      case 2:
-        return (mesInicio: 4, mesFin: 6);
-      case 3:
-        return (mesInicio: 7, mesFin: 9);
-      case 4:
-        return (mesInicio: 10, mesFin: 12);
-      default:
-    // Pos 46-60 (len 15): Cuota repercutida
-    r.setImporteCentimos(46, 60, d.cuotaRepercutida);
+    if (mes <= 6) return 2;
+    if (mes <= 9) return 3;
+    return 4;
+  }
+}
+
+class _RegistroPosicional {
+  final List<String> _chars;
+
+  _RegistroPosicional(int len) : _chars = List.filled(len, ' ');
 
   void setAlpha(int desde, int hasta, String valor) {
     final len = hasta - desde + 1;
-    final v = valor.length > len
-    // Pos 61-75 (len 15): Base imponible IVA soportado deducible
-    r.setImporteCentimos(61, 75, d.baseSoportadaDeducible);
+    final v = valor.length > len ? valor.substring(0, len) : valor.padRight(len);
+    _write(desde, v);
+  }
+
+  void setNumeric(int desde, int hasta, int valor) {
+    final len = hasta - desde + 1;
     final raw = valor.toString();
-    final v = raw.length > len
-        ? raw.substring(raw.length - len)
-    // Pos 76-90 (len 15): Cuota soportada deducible
-    r.setImporteCentimos(76, 90, d.cuotaSoportadaDeducible);
+    final v = raw.length > len ? raw.substring(raw.length - len) : raw.padLeft(len, '0');
+    _write(desde, v);
+  }
+
+  void setImporteCentimos(int desde, int hasta, double importe) {
+    final centimos = (importe * 100).round().abs();
     setNumeric(desde, hasta, centimos);
   }
 

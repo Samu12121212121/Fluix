@@ -79,7 +79,7 @@ class FacturacionService {
         campoAnio: anioActual,
       }, SetOptions(merge: true));
 
-      numero = '$prefijo-$anioActual-${contador.toString().padLeft(4, '0')}';
+      numero = '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
     });
 
     return numero;
@@ -101,7 +101,7 @@ class FacturacionService {
     String? notasCliente,
     DateTime? fechaOperacion,
     String usuarioId = '',
-      numero = '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, '0')}';
+    String usuarioNombre = '',
     int diasVencimiento = 30,
     double descuentoGlobal = 0,
     double porcentajeIrpf = 0,
@@ -118,6 +118,7 @@ class FacturacionService {
 
     final entrada = EntradaHistorialFactura(
       usuarioId: usuarioId,
+      usuarioNombre: usuarioNombre,
       accion: 'creada',
       descripcion: tipo == TipoFactura.proforma
           ? 'Proforma creada'
@@ -167,6 +168,7 @@ class FacturacionService {
     final ahora = DateTime.now();
     final inicioTrimestre = DateTime(ahora.year, ((ahora.month - 1) ~/ 3) * 3 + 1, 1);
     final facturasTrimestreSnap = await _facturas(empresaId)
+        .where('fecha_emision',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicioTrimestre))
         .orderBy('fecha_emision')
         .get();
@@ -249,6 +251,7 @@ class FacturacionService {
     final nuevasLineas = lineas ?? factura.lineas;
     final nuevoDescGlobal = descuentoGlobal ?? factura.descuentoGlobal;
     final nuevoIrpf = porcentajeIrpf ?? factura.porcentajeIrpf;
+    final nuevoDias = diasVencimiento ?? factura.diasVencimiento;
 
     final totales = Factura.calcularTotales(
       lineas: nuevasLineas,

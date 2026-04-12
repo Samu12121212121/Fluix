@@ -18,6 +18,7 @@ import 'core/utils/admin_initializer.dart';
 
 // Services
 import 'services/notificaciones_service.dart';
+import 'services/auth/token_refresh_service.dart';
 
 // Features
 import 'features/autenticacion/pantallas/pantalla_login.dart';
@@ -108,6 +109,8 @@ class FluixCrmApp extends StatelessWidget {
               return const PantallaCarga();
             }
             if (snapshot.hasData) {
+              return const _PantallaRuta();
+            }
             // Sin sesión → detener el servicio
             TokenRefreshService().detener();
             return const PantallaLogin();
@@ -128,6 +131,9 @@ class _PantallaRuta extends StatelessWidget {
     if (uid == null) return const PantallaLogin();
 
     return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
           return const PantallaCarga();
         }
 

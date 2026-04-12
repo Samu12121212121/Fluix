@@ -135,12 +135,12 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
         backgroundColor: const Color(0xFF1976D2),
         foregroundColor: Colors.white,
       ),
-    ),
     );
   }
 
   List<Pedido> _filtrar(List<Pedido> pedidos) {
     var resultado = pedidos;
+    if (_busqueda.isNotEmpty) {
       resultado = resultado.where((p) =>
         p.clienteNombre.toLowerCase().contains(_busqueda) ||
         (p.clienteTelefono?.contains(_busqueda) ?? false) ||
