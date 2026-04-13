@@ -82,7 +82,10 @@ class TokenRefreshService {
       debugPrint('⚠️ Error renovando token: ${e.code}');
       _evaluarErrorSesion(e);
     } catch (e) {
-      debugPrint('⚠️ Error inesperado renovando token: $e');
+      debugPrint('⚠️ Error inesperado renovando token: $e — forzando signOut');
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {}
     }
   }
 
@@ -131,9 +134,13 @@ class TokenRefreshService {
       'id-token-expired',
     };
     if (codigosInvalidez.contains(e.code)) {
+      debugPrint('🔒 TokenRefreshService: sesión inválida (${e.code}) — cerrando sesión');
       onSesionInvalida?.call(
         'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.',
       );
+      // Forzar signOut para que authStateChanges() emita null
+      // y el StreamBuilder de main.dart redirija a PantallaLogin.
+      FirebaseAuth.instance.signOut().catchError((_) {});
     }
   }
 

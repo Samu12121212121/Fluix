@@ -508,6 +508,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     OrigenPedido.app        => 'App',
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
+    OrigenPedido.tpvExterno => 'TPV Externo',
   };
 
   IconData _iconoOrigen(OrigenPedido o) => switch (o) {
@@ -515,6 +516,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     OrigenPedido.app        => Icons.phone_android,
     OrigenPedido.whatsapp   => Icons.chat_bubble,
     OrigenPedido.presencial => Icons.store,
+    OrigenPedido.tpvExterno => Icons.import_export,
   };
 
   String _nombrePago(MetodoPago m) => switch (m) {
@@ -522,6 +524,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     MetodoPago.paypal   => 'PayPal',
     MetodoPago.bizum    => 'Bizum',
     MetodoPago.efectivo => 'Efectivo',
+    MetodoPago.mixto    => 'Mixto',
   };
 
   IconData _iconoPago(MetodoPago m) => switch (m) {
@@ -529,6 +532,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     MetodoPago.paypal   => Icons.account_balance_wallet,
     MetodoPago.bizum    => Icons.smartphone,
     MetodoPago.efectivo => Icons.money,
+    MetodoPago.mixto    => Icons.compare_arrows,
   };
 }
 

@@ -163,6 +163,30 @@ class PdfService {
     final bool _hayDescuentoLinea = factura.lineas.any((l) => l.descuento > 0);
 
     final pdf = pw.Document();
+
+    // ── Sello diagonal "PAGADA" — solo cuando estado == pagada ──────────────
+    final bool _mostrarSelloPagada = factura.estado == EstadoFactura.pagada;
+
+    pw.Widget _buildSelloPagada() => pw.Transform.rotate(
+      angle: -0.52, // ~-30 grados en radianes
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColor.fromHex('#2E7D32'), width: 3),
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
+        child: pw.Text(
+          'PAGADA',
+          style: pw.TextStyle(
+            color: PdfColor.fromHex('#2E7D32'),
+            fontSize: 28,
+            fontWeight: pw.FontWeight.bold,
+            letterSpacing: 4,
+          ),
+        ),
+      ),
+    );
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -716,6 +740,12 @@ class PdfService {
               factura.notasCliente!,
               style: pw.TextStyle(fontSize: 9, color: colorGris),
             ),
+          ],
+
+          // ── SELLO "PAGADA" ────────────────────────────────────────────
+          if (_mostrarSelloPagada) ...[
+            pw.SizedBox(height: 8),
+            pw.Center(child: _buildSelloPagada()),
           ],
 
           // ── SELLO PROFORMA (solo si es proforma) ─────────────────────

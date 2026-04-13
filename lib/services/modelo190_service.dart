@@ -81,6 +81,7 @@ class Modelo190Service {
     }
     // Solo A-Z, 0-9, espacios, guiones, puntos
     return sb.toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9 .\-]'), '');
+    return sb.toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9 \-]'), '');
   }
 
   static String normalizarNif(String nif) {

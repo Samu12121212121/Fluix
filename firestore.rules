@@ -44,6 +44,13 @@ rules_version = '2';
             && (getRol() == 'staff' || getRol() == 'admin' || getRol() == 'propietario');
         }
 
+        // Admin de la plataforma (FluxTech) — puede leer datos globales
+        function esPlataformaAdmin() {
+          return isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && getUserData().es_plataforma_admin == true;
+        }
+
         // ── USUARIOS ───────────────────────────────────────────────────────────────
 
         match /usuarios/{userId} {
@@ -110,6 +117,9 @@ rules_version = '2';
         match /empresas/{empresaId} {
           // [FIX-1] Lectura SOLO para miembros de la empresa (antes: allow read: if true)
           allow read: if perteneceAEmpresa(empresaId);
+          // [PLAT-ADMIN] El admin de la plataforma puede leer cualquier empresa
+          // (necesario para el módulo de estadísticas globales)
+          allow read: if esPlataformaAdmin();
           // [DEMO-FIX] Permite buscar empresa por correo aunque el usuario aún no tenga
           // documento en usuarios/{uid}. Necesario para la cuenta demo y usuarios recién
           // creados cuyo documento en Firestore se está creando en ese momento.
@@ -249,17 +259,17 @@ rules_version = '2';
 
           // SUSCRIPCIÓN — [FIX-2] Solo miembros de la empresa (antes: allow read: if true)
           match /suscripcion/{docId} {
-            allow read: if perteneceAEmpresa(empresaId);
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
             allow write: if false; // Solo Admin SDK (Cloud Functions)
           }
 
           // ESTADÍSTICAS — [FIX-3] Solo miembros de la empresa (antes: allow read: if true)
           match /estadisticas/{docId} {
-            allow read: if perteneceAEmpresa(empresaId);
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
             allow write: if perteneceAEmpresa(empresaId);
           }
           match /estadisticas/{docId}/{subcol}/{subId} {
-            allow read: if perteneceAEmpresa(empresaId);
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
             allow write: if perteneceAEmpresa(empresaId);
           }
 
@@ -282,7 +292,7 @@ rules_version = '2';
 
           // FALLBACK para cualquier otra subcolección de empresas
           match /{subcollection}/{documentId} {
-            allow read: if perteneceAEmpresa(empresaId);
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
             allow write: if esAdminOPropietario(empresaId);
           }
         }

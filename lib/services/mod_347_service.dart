@@ -37,27 +37,37 @@ class Mod347Service {
     required Function() onSuccess,
   }) async {
     try {
+      debugPrint('📋 347: iniciando generación — ejercicio $anio');
       final resumen = await calcular(empresaId, anio);
+      debugPrint(
+          '📋 347: operaciones declarables — ventas: ${resumen.operacionesVenta.length}, '
+          'compras: ${resumen.operacionesCompra.length}');
+
+      if (resumen.numDeclaraciones == 0) {
+        debugPrint('📋 347: sin operaciones que superen el umbral 3.005,06€');
+        onSuccess();
+        return;
+      }
 
       final contenido = Mod347Exporter.generarFichero(
         nifDeclarante: nifDeclarante,
         nombreDeclarante: nombreDeclarante,
         resumen: resumen,
       );
+      debugPrint('📋 347: fichero generado — ${contenido.length} bytes');
 
       if (kIsWeb) {
         onError('Descarga de ficheros no disponible en web.');
         return;
       }
 
-      final dir = await getDownloadsDirectory();
-      if (dir == null) {
-        onError('No se puede acceder a descargas');
-        return;
-      }
+      // getDownloadsDirectory() devuelve null en iOS → usar getTemporaryDirectory()
+      Directory? dir = await getDownloadsDirectory();
+      dir ??= await getTemporaryDirectory();
 
       final archivo = File('${dir.path}/MOD347_$anio.txt');
       await archivo.writeAsBytes(contenido);
+      debugPrint('📋 347: compartiendo fichero — ${archivo.path}');
 
       await Share.shareXFiles(
         [XFile(archivo.path)],
@@ -67,6 +77,7 @@ class Mod347Service {
 
       onSuccess();
     } catch (e) {
+      debugPrint('📋 347: ERROR — $e');
       onError(e.toString());
     }
   }

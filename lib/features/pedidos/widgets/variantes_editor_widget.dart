@@ -329,6 +329,7 @@ class _DialogVarianteState extends State<_DialogVariante> {
               decoration: _deco('Precio propio (€) *', Icons.euro),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.next,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Precio obligatorio';
                 if (double.tryParse(v.replaceAll(',', '.')) == null) {
@@ -343,6 +344,8 @@ class _DialogVarianteState extends State<_DialogVariante> {
                 controller: _duracionCtrl,
                 decoration: _deco('Duración (minutos)', Icons.timer),
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onEditingComplete: () => FocusScope.of(context).unfocus(),
               ),
             ],
             const SizedBox(height: 10),

@@ -127,7 +127,89 @@ class DemoCuentaService {
       'permisos':       [],
       'fecha_creacion': now.toIso8601String(),
       'es_demo':        true,
+      // datos_nomina del administrador demo (necesario para generarNominasMasivas)
+      'datos_nomina': {
+        'salario_bruto_anual':  24000.0,
+        'tipo_contrato':        'indefinido',
+        'num_pagas':            14,
+        'horas_semanales':      40.0,
+        'complemento_fijo':     0.0,
+        'nif':                  '00000000T',
+        'nss':                  '280000000000',
+        'situacion_familiar':   'soltero',
+        'num_hijos':            0,
+        'num_hijos_menores_3':  0,
+        'discapacidad':         false,
+        'sector_empresa':       'demo',
+        'pags_prorrateadas':    false,
+      },
     }, SetOptions(merge: true));
+
+    // ── Empleados demo en la colección usuarios (para generarNominasMasivas) ──
+    // generarNominasMasivas lee de usuarios/{uid} donde empresa_id == demoEmpresaId
+    // Solo los creamos si no existen para no duplicar
+    const empleado1Id = 'demo_empleado_001';
+    const empleado2Id = 'demo_empleado_002';
+    final emp1Doc = await _db.collection('usuarios').doc(empleado1Id).get();
+    if (!emp1Doc.exists) {
+      await _db.collection('usuarios').doc(empleado1Id).set({
+        'nombre':         'Elena Martín Sanz',
+        'correo':         'elena.demo@fluixcrm.test',
+        'telefono':       '+34 611 111 111',
+        'rol':            'staff',
+        'empresa_id':     demoEmpresaId,
+        'activo':         true,
+        'permisos':       [],
+        'fecha_creacion': now.toIso8601String(),
+        'es_demo':        true,
+        'datos_nomina': {
+          'salario_bruto_anual':  19950.0,   // Grupo II convenio peluquería 2026 (14 pagas × 1325€ × 1,07 bruto aprox)
+          'tipo_contrato':        'indefinido',
+          'num_pagas':            14,
+          'horas_semanales':      40.0,
+          'complemento_fijo':     0.0,
+          'nif':                  '11111111H',
+          'nss':                  '280000000001',
+          'situacion_familiar':   'casado',
+          'num_hijos':            2,
+          'num_hijos_menores_3':  0,
+          'discapacidad':         false,
+          'sector_empresa':       'peluqueria',
+          'pags_prorrateadas':    false,
+        },
+      });
+      debugPrint('✅ Demo: empleado1 ($empleado1Id) creado en usuarios');
+    }
+    final emp2Doc = await _db.collection('usuarios').doc(empleado2Id).get();
+    if (!emp2Doc.exists) {
+      await _db.collection('usuarios').doc(empleado2Id).set({
+        'nombre':         'Roberto López Vega',
+        'correo':         'roberto.demo@fluixcrm.test',
+        'telefono':       '+34 622 222 222',
+        'rol':            'staff',
+        'empresa_id':     demoEmpresaId,
+        'activo':         true,
+        'permisos':       [],
+        'fecha_creacion': now.toIso8601String(),
+        'es_demo':        true,
+        'datos_nomina': {
+          'salario_bruto_anual':  17500.0,   // Grupo I convenio peluquería 2026 (14 pagas × 1250€)
+          'tipo_contrato':        'indefinido',
+          'num_pagas':            14,
+          'horas_semanales':      40.0,
+          'complemento_fijo':     0.0,
+          'nif':                  '22222222J',
+          'nss':                  '280000000002',
+          'situacion_familiar':   'soltero',
+          'num_hijos':            0,
+          'num_hijos_menores_3':  0,
+          'discapacidad':         false,
+          'sector_empresa':       'peluqueria',
+          'pags_prorrateadas':    false,
+        },
+      });
+      debugPrint('✅ Demo: empleado2 ($empleado2Id) creado en usuarios');
+    }
 
     debugPrint('✅ Demo: Firestore configurado para $uid / $demoEmpresaId');
   }

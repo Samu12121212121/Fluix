@@ -4,45 +4,39 @@ import 'package:url_launcher/url_launcher.dart';
 class SedeAeatUrls {
   SedeAeatUrls._();
 
+  static const _base =
+      'https://sede.agenciatributaria.gob.es/Sede/procedimientos-servicios/modelos-formularios/declaraciones';
+
   // ── Modelos trimestrales ──────────────────────────────────────────────────
 
-  /// Modelo 303 — Autoliquidación IVA (Pre303 online, NO admite fichero desde 2023)
-  static const mod303 =
-      'https://www1.agenciatributaria.gob.es/wlpl/BUGC-JDIT/VentanaCensalIva?forigen=pre303';
+  /// Modelo 303 — Autoliquidación IVA
+  static const mod303 = '$_base/modelo-303.html';
 
-  /// Modelo 130 — Pago fraccionado IRPF autónomos (Pre130 online)
-  static const mod130 =
-      'https://www1.agenciatributaria.gob.es/wlpl/BUGC-JDIT/VentanaCensalIrpf?forigen=pre130';
+  /// Modelo 130 — Pago fraccionado IRPF autónomos
+  static const mod130 = '$_base/modelo-130.html';
 
   /// Modelo 111 — Retenciones IRPF (admite fichero TXT DR111e16v18)
-  static const mod111 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/GI00.shtml';
+  static const mod111 = '$_base/modelo-111.html';
 
   /// Modelo 115 — Retenciones arrendamientos (admite fichero TXT DR115e15v13)
-  static const mod115 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/GI05.shtml';
+  static const mod115 = '$_base/modelo-115.html';
 
-  /// Modelo 202 — Pago fraccionado IS sociedades (presentación online)
-  static const mod202 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/G621.shtml';
+  /// Modelo 202 — Pago fraccionado IS sociedades
+  static const mod202 = '$_base/modelo-202.html';
 
   // ── Modelos anuales ───────────────────────────────────────────────────────
 
-  /// Modelo 390 — Resumen anual IVA (presentación online)
-  static const mod390 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/G414.shtml';
+  /// Modelo 390 — Resumen anual IVA
+  static const mod390 = '$_base/modelo-390.html';
 
   /// Modelo 347 — Operaciones con terceros >3.005,06€ (admite fichero TXT)
-  static const mod347 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/G401.shtml';
+  static const mod347 = '$_base/modelo-347.html';
 
   /// Modelo 190 — Resumen anual retenciones IRPF (admite fichero TXT)
-  static const mod190 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/GI01.shtml';
+  static const mod190 = '$_base/modelo-190.html';
 
   /// Modelo 349 — Operaciones intracomunitarias (admite fichero TXT)
-  static const mod349 =
-      'https://sede.agenciatributaria.gob.es/Sede/tramitacion/G403.shtml';
+  static const mod349 = '$_base/modelo-349.html';
 
   // ── Helper ────────────────────────────────────────────────────────────────
 
@@ -55,4 +49,3 @@ class SedeAeatUrls {
     return false;
   }
 }
-

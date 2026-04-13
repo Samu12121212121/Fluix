@@ -84,11 +84,18 @@ class _PantallaVerificacion2FAState extends State<PantallaVerificacion2FA> {
 
     setState(() { _verificando = true; _error = null; });
 
+    // ── LOGS DE DIAGNÓSTICO 2FA ──────────────────────────────────────────────
+    debugPrint('🔐 2FA: código introducido = $codigo');
+    debugPrint('🔐 2FA: verificationId = ${_verificationId.substring(0, 8)}...');
+    debugPrint('🔐 2FA: timestamp = ${DateTime.now().toIso8601String()}');
+
     try {
       final ok = await _svc.verificarCodigo(
         verificationId: _verificationId,
         codigo: codigo,
       );
+
+      debugPrint('🔐 2FA: resultado validación = $ok | intentos=${_svc.intentosFallidos}');
 
       if (!mounted) return;
 
@@ -130,12 +137,17 @@ class _PantallaVerificacion2FAState extends State<PantallaVerificacion2FA> {
     if (!_puedeReenviar) return;
     setState(() { _error = null; _verificando = true; });
     try {
-      await _svc.enviarCodigo(
+      // FIX: capturar el NUEVO verificationId (el anterior ya expiró).
+      // Sin esto, el código del SMS nuevo siempre falla porque se valida
+      // contra un verificationId caducado.
+      final nuevoVerificationId = await _svc.enviarCodigo(
         telefono: widget.telefono,
         onError: (msg) {
           if (mounted) setState(() => _error = msg);
         },
       );
+      // Actualizar verificationId en el estado local
+      setState(() { _verificationId = nuevoVerificationId; });
       _iniciarContador();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -143,6 +155,8 @@ class _PantallaVerificacion2FAState extends State<PantallaVerificacion2FA> {
           backgroundColor: Colors.green,
         ));
       }
+    } catch (e) {
+      debugPrint('❌ 2FA reenvío falló: $e');
     } finally {
       if (mounted) setState(() => _verificando = false);
     }

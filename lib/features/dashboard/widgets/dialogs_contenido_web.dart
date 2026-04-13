@@ -219,6 +219,8 @@ class _DialogAgregarElementoState extends State<DialogAgregarElemento> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  onEditingComplete: () => FocusScope.of(context).unfocus(),
                   validator: (value) {
                     if (value?.isNotEmpty ?? false) {
                       final precio = double.tryParse(value!);
@@ -374,7 +376,7 @@ class _EditorSeccionPageState extends State<EditorSeccionPage> {
                       children: [
                         if (elemento.precio != null)
                           Text(
-                            '€${elemento.precio!.toStringAsFixed(2)}',
+                            '\u20ac${elemento.precio!.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF4CAF50),
@@ -417,10 +419,7 @@ class _EditorSeccionPageState extends State<EditorSeccionPage> {
         contenidoService: widget.contenidoService,
       ),
     ).then((_) {
-      // Refrescar la lista
-      setState(() {
-        // La lista se actualizará automáticamente via Stream en el widget padre
-      });
+      setState(() {});
     });
   }
 
@@ -453,7 +452,6 @@ class _EditorSeccionPageState extends State<EditorSeccionPage> {
   }
 
   void _guardarCambios() {
-    // Los cambios se guardan automáticamente en tiempo real
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -463,6 +461,3 @@ class _EditorSeccionPageState extends State<EditorSeccionPage> {
     );
   }
 }
-
-
-

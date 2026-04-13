@@ -184,6 +184,8 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
                   prefixIcon: Icon(Icons.hourglass_empty),
                 ),
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onEditingComplete: () => FocusScope.of(context).unfocus(),
                 onChanged: (v) => _tiempoEstimado = int.tryParse(v),
               ),
             ]),

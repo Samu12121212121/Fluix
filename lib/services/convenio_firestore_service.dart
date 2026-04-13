@@ -293,12 +293,13 @@ class ConvenioFirestoreService {
   Future<void> seedConvenioPeluqueriaEsteticaGimnasios({bool force = false}) async {
     const convenioId = 'peluqueria-estetica-gimnasios';
     final doc = await _conveniosRef.doc(convenioId).get();
+    // Si ya existe y no forzamos, solo actualizamos los datos 2026 que puedan
+    // haber cambiado (merge: true en cada batch.set)
     if (doc.exists && !force) {
-      _log.i('El convenio de Peluquerías/Estética/Gimnasios ya existe en Firestore.');
-      return;
+      _log.i('El convenio de Peluquerías/Estética/Gimnasios ya existe — actualizando tablas 2026.');
+    } else {
+      _log.i('Creando datos para el convenio de Peluquerías/Estética/Gimnasios...');
     }
-
-    _log.i('Creando datos para el convenio de Peluquerías/Estética/Gimnasios...');
 
     final data = {
       "convenio": {
@@ -307,35 +308,107 @@ class ConvenioFirestoreService {
         "ambito": "estatal",
         "sector": "peluqueria",
         "tipo_convenio": "sectorial_estatal",
+        "fuente_legal": "BOE-A-2024-21671 (publicado 22/10/2024)",
         "vigencia": {
           "inicio": "2024-01-01",
           "fin": "2026-12-31",
-          "estado_dato": "tablas_boe_2026"
+          "estado_dato": "tablas_boe_2026_definitivas"
         },
         "fuente": {
-          "documento": "Tablas salariales oficiales 2026 (BOE)",
-          "fecha_extraccion": "2026-03-16",
-          "version": "v1"
-        }
+          "documento": "Tablas salariales 2026 — BOE-A-2024-21671 (Ámbito estatal)",
+          "fecha_extraccion": "2026-04-13",
+          "version": "v2"
+        },
+        // Año de la última tabla disponible (permite filtrar selector de año)
+        "anio_tabla_vigente": 2026,
+        "anios_disponibles": [2024, 2025, 2026],
+        "jornada_horas_anuales": 1750,
+        "horas_extra_prohibidas": true,
+        "horas_extra_nota": "Art. 28 — horas extraordinarias PROHIBIDAS por convenio",
+        "pagas": 14,
+        "plus_transporte_suprimido_desde": "2025-01-01",
       },
       "categorias": [
-        {"id": "grupo-i",   "nombre": "Grupo I",   "grupo_profesional": "I",   "salario_base_mensual": 1250.00, "salario_anual": 17500.00, "num_pagas": 14},
-        {"id": "grupo-ii",  "nombre": "Grupo II",  "grupo_profesional": "II",  "salario_base_mensual": 1325.00, "salario_anual": 18550.00, "num_pagas": 14},
-        {"id": "grupo-iii", "nombre": "Grupo III", "grupo_profesional": "III", "salario_base_mensual": 1350.00, "salario_anual": 18900.00, "num_pagas": 14},
-        {"id": "grupo-iv",  "nombre": "Grupo IV",  "grupo_profesional": "IV",  "salario_base_mensual": 1375.00, "salario_anual": 19250.00, "num_pagas": 14}
+        {
+          "id": "grupo-i",
+          "nombre": "Grupo I",
+          "grupo_profesional": "I",
+          "descripcion": "Auxiliares — tareas básicas bajo supervisión: lavado, limpieza, recepción, higiene útiles",
+          "salario_base_mensual": 1250.00,
+          "salario_anual": 17500.00,
+          "num_pagas": 14,
+          "año_tabla": 2026,
+          "jornada_horas_anuales": 1750,
+        },
+        {
+          "id": "grupo-ii",
+          "nombre": "Grupo II",
+          "grupo_profesional": "II",
+          "descripcion": "Oficiales — moldeados, cambios de color, recepción clientes, operaciones auxiliares",
+          "salario_base_mensual": 1325.00,
+          "salario_anual": 18550.00,
+          "num_pagas": 14,
+          "año_tabla": 2026,
+          "jornada_horas_anuales": 1750,
+        },
+        {
+          "id": "grupo-iii",
+          "nombre": "Grupo III",
+          "grupo_profesional": "III",
+          "descripcion": "Técnicos grado medio — corte, color avanzado, estética, manicura, depilación, maquillaje social",
+          "salario_base_mensual": 1350.00,
+          "salario_anual": 18900.00,
+          "num_pagas": 14,
+          "año_tabla": 2026,
+          "jornada_horas_anuales": 1750,
+        },
+        {
+          "id": "grupo-iv",
+          "nombre": "Grupo IV",
+          "grupo_profesional": "IV",
+          "descripcion": "Técnicos grado superior — diagnóstico capilar, micropigmentación, láser, fotodepilación, tratamientos faciales/corporales avanzados, gestión y mando",
+          "salario_base_mensual": 1375.00,
+          "salario_anual": 19250.00,
+          "num_pagas": 14,
+          "año_tabla": 2026,
+          "jornada_horas_anuales": 1750,
+        },
       ],
       "pluses": [
-        {"id": "plus_transporte", "nombre": "Plus transporte suprimido 2026", "tipo": "fijo", "importe": 0.0, "base_calculo": "mes", "vigente": false}
+        // Plus transporte SUPRIMIDO desde 01/01/2025 — se mantiene con vigente:false
+        // para que el cálculo no lo aplique en 2025/2026
+        {
+          "id": "plus_transporte",
+          "nombre": "Plus transporte (suprimido desde 2025)",
+          "tipo": "fijo",
+          "importe": 0.0,
+          "base_calculo": "mes",
+          "vigente": false,
+          "vigente_hasta": "2024-12-31",
+          "nota": "Suprimido por acuerdo de mesa negociadora desde 01/01/2025"
+        },
       ],
       "pagas_extra": [
-        {"nombre": "Paga de Verano", "mes_pago": 6, "devengo": "semestral"},
-        {"nombre": "Paga de Navidad", "mes_pago": 12, "devengo": "semestral"}
-      ]
+        {
+          "nombre": "Paga de Verano",
+          "mes_pago": 6,
+          "devengo": "semestral",
+          "calculo": "30 días de salario base, abono máximo el 30 de junio"
+        },
+        {
+          "nombre": "Paga de Navidad",
+          "mes_pago": 12,
+          "devengo": "semestral",
+          "calculo": "30 días de salario base, abono máximo el 22 de diciembre"
+        },
+      ],
     };
 
     final WriteBatch batch = _db.batch();
     final convenioDocRef = _conveniosRef.doc(convenioId);
-    batch.set(convenioDocRef, data['convenio'] as Map<String, dynamic>);
+    // Usar merge:true para no borrar campos existentes que no estén en este seed
+    batch.set(convenioDocRef, data['convenio'] as Map<String, dynamic>,
+        SetOptions(merge: true));
 
     for (final catData in data['categorias'] as List<Map<String, dynamic>>) {
       final catId = catData['id'] as String;
@@ -345,17 +418,18 @@ class ConvenioFirestoreService {
         final numPagas = (catData['num_pagas'] as num).toInt();
         catData['salario_base_mensual'] = salarioAnual / numPagas;
       }
-      batch.set(catDocRef, catData);
+      // merge:true para preservar campos personalizados existentes
+      batch.set(catDocRef, catData, SetOptions(merge: true));
     }
 
     for (final plusData in data['pluses'] as List<Map<String, dynamic>>) {
       final plusId = plusData['id'] as String;
       final plusDocRef = convenioDocRef.collection('pluses').doc(plusId);
-      batch.set(plusDocRef, plusData);
+      batch.set(plusDocRef, plusData, SetOptions(merge: true));
     }
 
     await batch.commit();
-    _log.i('✅ Datos del convenio de Peluquerías/Estética/Gimnasios creados en Firestore.');
+    _log.i('✅ Convenio Peluquerías/Estética/Gimnasios — tablas 2026 actualizadas en Firestore.');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

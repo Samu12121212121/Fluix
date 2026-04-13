@@ -102,14 +102,57 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
     }
   }
 
-  Future<void> _generarBorradorPdf(int trimestre, Map<String, dynamic> data) async {
-    // TODO: Generar PDF con datos del borrador (reutilizar dr303e26v101 para casillas)
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('📋 Borrador Mod.303 ${trimestre}T $_anio — '
-          'Usa estos datos para rellenar Pre303 en Sede AEAT'),
-      backgroundColor: Colors.deepOrange,
-      duration: const Duration(seconds: 4),
-    ));
+  Future<void> _descargarFichero303(int trimestre, Map<String, dynamic> data) async {
+    if (_nifEmpresa.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Configura el NIF de la empresa antes de generar el fichero'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+    setState(() => _procesando = true);
+    try {
+      debugPrint('📄 303: iniciando generación — ${trimestre}T $_anio');
+
+      final contenido = await _svc.generarMod303Dr303e26v101(
+        empresaId: widget.empresaId,
+        nifEmpresa: _nifEmpresa,
+        nombreEmpresa: _nombreEmpresa,
+        anio: _anio,
+        trimestre: trimestre,
+      );
+
+      final baseImponible = (data['base_general'] as num?)?.toDouble() ?? 0;
+      final cuota = (data['iva_303'] as num?)?.toDouble() ?? 0;
+      debugPrint(
+          '📄 303: datos calculados OK — base: ${baseImponible.toStringAsFixed(2)}, cuota: ${cuota.toStringAsFixed(2)}');
+
+      final bytes = contenido.codeUnits;
+      debugPrint('📄 303: fichero generado — ${bytes.length} bytes');
+
+      final dir = await getTemporaryDirectory();
+      final nombre = 'MOD303_${_anio}_${trimestre}T.txt';
+      final archivo = File('${dir.path}/$nombre');
+      await archivo.writeAsBytes(bytes);
+
+      debugPrint('📄 303: compartiendo fichero — ${archivo.path}');
+      await Share.shareXFiles(
+        [XFile(archivo.path)],
+        subject: 'Modelo 303 — ${trimestre}T $_anio',
+        text: 'Fichero posicional AEAT Mod.303 — ${trimestre}T $_anio. '
+            'Importa en la Sede Electrónica (Pre303).',
+      );
+    } catch (e) {
+      debugPrint('📄 303: ERROR — $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al generar el Modelo 303: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _procesando = false);
+    }
   }
 
   Future<void> _marcarPresentado(int trimestre) async {
@@ -148,7 +191,10 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
           ),
         ],
       ),
-      body: _procesando
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: _procesando
           ? const Center(child: CircularProgressIndicator())
           : StreamBuilder<QuerySnapshot>(
               stream: _db
@@ -178,6 +224,7 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
                 );
               },
             ),
+      ),  // GestureDetector
     );
   }
 
@@ -310,8 +357,8 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
                     _botonAccion('Recalcular', Icons.refresh, Colors.indigo,
                         () => _calcularTrimestre(trimestre)),
                     const SizedBox(width: 8),
-                    _botonAccion('Borrador PDF', Icons.picture_as_pdf, Colors.deepOrange,
-                        () => _generarBorradorPdf(trimestre, data)),
+                    _botonAccion('Descargar AEAT', Icons.file_download, Colors.deepOrange,
+                        () => _descargarFichero303(trimestre, data)),
                     const SizedBox(width: 8),
                     _botonAccion('Sede AEAT', Icons.open_in_browser, Colors.teal,
                         () => SedeAeatUrls.abrir(SedeAeatUrls.mod303)),

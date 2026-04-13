@@ -315,6 +315,7 @@ class PedidosService {
     MetodoPago.paypal   => MetodoPagoFactura.paypal,
     MetodoPago.bizum    => MetodoPagoFactura.bizum,
     MetodoPago.efectivo => MetodoPagoFactura.efectivo,
+    MetodoPago.mixto    => null, // El mixto no mapea directo a un único método de factura
   };
 
   // ── ESTADÍSTICAS ──────────────────────────────────────────────────────────────
@@ -419,10 +420,11 @@ class PedidosService {
   // ── HELPERS ───────────────────────────────────────────────────────────────────
 
   String _nombreOrigen(OrigenPedido o) => switch (o) {
-    OrigenPedido.web       => 'Web',
-    OrigenPedido.app       => 'App',
-    OrigenPedido.whatsapp  => 'WhatsApp',
+    OrigenPedido.web        => 'Web',
+    OrigenPedido.app        => 'App',
+    OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
+    OrigenPedido.tpvExterno => 'TPV Externo',
   };
 
   String _nombreEstado(EstadoPedido e) => switch (e) {

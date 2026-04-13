@@ -1348,6 +1348,7 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
                       controller: precioCtrl,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
                           labelText: 'Precio (€)',
                           border: OutlineInputBorder()))),
@@ -1440,12 +1441,14 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
           Row(children: [
             Expanded(child: TextField(controller: precOrigCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                     labelText: 'Precio original (€)',
                     border: OutlineInputBorder()))),
             const SizedBox(width: 10),
             Expanded(child: TextField(controller: precOfCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                     labelText: 'Precio oferta (€)',
                     border: OutlineInputBorder()))),

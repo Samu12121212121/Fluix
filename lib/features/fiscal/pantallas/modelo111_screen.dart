@@ -328,8 +328,29 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
   }
 
   Widget _datosModelo(Modelo111 m) {
+    // ── Resumen diagnóstico ─────────────────────────────────────────────────
+    final numNominas = m.nominasIncluidas.length;
+    final retencionTotal = m.c03 + m.c06; // dineraria + especie
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Banner resumen
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF283593).withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Nóminas incluidas: $numNominas  ·  '
+            'Retención nóminas: ${retencionTotal.toStringAsFixed(2)} €',
+            style: TextStyle(fontSize: 11, color: Colors.indigo.shade700,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
         _filaDato('Perceptores RT dinerarios', '${m.c01}', '[01]'),
         _filaDato('Percepciones dinerarias', '${m.c02.toStringAsFixed(2)} €', '[02]'),
         _filaDato('Retenciones dinerarias', '${m.c03.toStringAsFixed(2)} €', '[03]'),

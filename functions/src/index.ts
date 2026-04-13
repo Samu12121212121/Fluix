@@ -15,18 +15,160 @@ import {
   scheduledTareasVencenHoy,
   onNuevaSugerencia,
 } from "./tareasFunciones";
-import {
-  generarThumbnailCatalogo,
-  scheduledAlertaPreciosAntiguos,
-} from "./catalogoFunciones";
 import { scheduledAlertaCertificado } from "./alertaCertificado";
 import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } from "./utils/authGuard";
 import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import fetch from "node-fetch";
 
-export { generarThumbnailCatalogo, scheduledAlertaPreciosAntiguos };
+// NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
+// "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
+// export { generarThumbnailCatalogo } from "./catalogoFunciones";
+export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
 export { verificarLoginIntento };
+
+
+if (!admin.apps.length) admin.initializeApp();
+const db = admin.firestore();
+const messaging = admin.messaging();
+
+const REGION = "europe-west1";
+
+// ── Resumen diario TPV automático ─────────────────────────────────────────────
+// Ejecuta cada día a las 23:30 hora de Madrid
+// Genera facturas resumen para empresas con generarAutomaticamente = true
+export const generarFacturasResumenTpv = onSchedule(
+  { schedule: "30 23 * * *", timeZone: "Europe/Madrid", region: REGION },
+  async (_event) => {
+    const hoy = new Date();
+    const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+    const finHoy    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+
+    // Buscar empresas con resumen diario automático activado
+    const configSnap = await db
+      .collectionGroup("configuracion")
+      .where("modo", "==", "resumenDiario")
+      .where("generar_automaticamente", "==", true)
+      .get();
+
+    let procesadas = 0;
+    for (const configDoc of configSnap.docs) {
+      const empresaId = configDoc.ref.parent.parent?.id;
+      if (!empresaId) continue;
+
+      try {
+        // Pedidos TPV del día sin facturar
+        const pedidosSnap = await db
+          .collection(`empresas/${empresaId}/pedidos`)
+          .where("origen", "in", ["presencial", "tpvExterno"])
+          .where("estado_pago", "==", "pagado")
+          .where("factura_id", "==", null)
+          .where("fecha_creacion", ">=", admin.firestore.Timestamp.fromDate(inicioHoy))
+          .where("fecha_creacion", "<=", admin.firestore.Timestamp.fromDate(finHoy))
+          .get();
+
+        if (pedidosSnap.empty) {
+          console.log(`ℹ️ Sin pedidos TPV pendientes para empresa ${empresaId}`);
+          continue;
+        }
+
+        const totalVentas = pedidosSnap.docs.reduce((sum, doc) => {
+          return sum + ((doc.data()["total"] as number) ?? 0);
+        }, 0);
+
+        const fechaStr = `${String(hoy.getDate()).padStart(2,"0")}/${String(hoy.getMonth()+1).padStart(2,"0")}/${hoy.getFullYear()}`;
+
+        // Obtener configuración de facturación (serie, vencimiento, etc.)
+        const config = configDoc.data();
+        const diasVencimiento = (config["dias_vencimiento"] as number) ?? 0;
+
+        // Crear contador de facturas (serie tpv)
+        const contadorRef = db.doc(`empresas/${empresaId}/configuracion/facturacion`);
+        const anioActual = hoy.getFullYear();
+        let numeroFactura = "";
+
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(contadorRef);
+          const data = snap.exists ? (snap.data() ?? {}) : {};
+          const anioGuardado = (data["anio_ultimo_tpv"] as number) ?? 0;
+          let contador = anioGuardado === anioActual
+            ? ((data["ultimo_numero_tpv"] as number) ?? 0) + 1
+            : 1;
+          tx.set(contadorRef, {
+            ultimo_numero_tpv: contador,
+            anio_ultimo_tpv: anioActual,
+          }, { merge: true });
+          numeroFactura = `TPV-${anioActual}-${String(contador).padStart(4,"0")}`;
+        });
+
+        // Crear documento de factura
+        const facturaRef = db.collection(`empresas/${empresaId}/facturas`).doc();
+        const lineas = pedidosSnap.docs.flatMap((pedidoDoc) => {
+          const lineasPedido = (pedidoDoc.data()["lineas"] as any[]) ?? [];
+          return lineasPedido.map((l: any) => ({
+            descripcion: l.producto_nombre ?? "Venta TPV",
+            precio_unitario: l.precio_unitario ?? 0,
+            cantidad: l.cantidad ?? 1,
+            porcentaje_iva: 10,
+            descuento: 0,
+            recargo_equivalencia: 0,
+          }));
+        });
+
+        const subtotal = lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0);
+        const totalIva  = lineas.reduce((s, l) => s + (l.precio_unitario * l.cantidad * l.porcentaje_iva / 100), 0);
+
+        await facturaRef.set({
+          empresa_id: empresaId,
+          numero_factura: numeroFactura,
+          serie: "tpv",
+          tipo: "venta_directa",
+          estado: "pagada",
+          cliente_nombre: `Ventas TPV — ${fechaStr}`,
+          lineas,
+          subtotal,
+          total_iva: totalIva,
+          total: subtotal + totalIva,
+          descuento_global: 0,
+          importe_descuento_global: 0,
+          porcentaje_irpf: 0,
+          retencion_irpf: 0,
+          total_recargo_equivalencia: 0,
+          dias_vencimiento: diasVencimiento,
+          notas_internas: `Resumen diario TPV autom.: ${pedidosSnap.docs.length} ventas · ${totalVentas.toFixed(2)}€`,
+          historial: [{
+            usuario_id: "",
+            usuario_nombre: "TPV Auto",
+            accion: "creada",
+            descripcion: "Factura resumen diario TPV generada automáticamente",
+            fecha: admin.firestore.FieldValue.serverTimestamp(),
+          }],
+          fecha_emision: admin.firestore.FieldValue.serverTimestamp(),
+          fecha_vencimiento: admin.firestore.Timestamp.fromDate(
+            new Date(hoy.getTime() + diasVencimiento * 86400000)
+          ),
+          pedidos_incluidos: pedidosSnap.docs.map(d => d.id),
+        });
+
+        // Marcar pedidos como facturados
+        const batch = db.batch();
+        pedidosSnap.docs.forEach(doc => {
+          batch.update(doc.ref, {
+            factura_id: facturaRef.id,
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+        await batch.commit();
+
+        procesadas++;
+        console.log(`✅ Factura resumen TPV ${numeroFactura} generada para empresa ${empresaId} (${pedidosSnap.docs.length} ventas)`);
+      } catch (error) {
+        console.error(`❌ Error generando factura resumen TPV para empresa ${empresaId}:`, error);
+      }
+    }
+    console.log(`✅ generarFacturasResumenTpv finalizado: ${procesadas} empresas procesadas`);
+  }
+);
 
 // ── Planes V2: migración, actualización y recálculo de módulos ────────────────
 export {
@@ -58,13 +200,6 @@ const smtpHost          = { value: () => process.env.SMTP_HOST            ?? "" 
 const smtpPort          = { value: () => process.env.SMTP_PORT            ?? "587" };
 const smtpUser          = { value: () => process.env.SMTP_USER            ?? "" };
 const smtpPass          = { value: () => process.env.SMTP_PASS            ?? "" };
-
-admin.initializeApp();
-
-const db = admin.firestore();
-const messaging = admin.messaging();
-
-const REGION = "europe-west1";
 
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 
@@ -1954,7 +2089,6 @@ export const scheduledAlertaCobertura = onSchedule(
         dia.setDate(hoy.getDate() + i);
         if (dia.getDay() === 0 || dia.getDay() === 6) continue; // Skip weekends
 
-        const diaStr = dia.toISOString().split("T")[0];
         const ausentes = new Set<string>();
 
         for (const doc of solSnap.docs) {
@@ -2094,19 +2228,6 @@ export const enviarDocumentacionFiniquito = onCall(
         "No se pudo preparar ningún documento. Genera los PDFs primero.");
     }
 
-    // Crear descripción de documentos
-    const descDocumentos = adjuntos.map((a) => {
-      if (a.filename.includes("finiquito")) {
-        return "📄 <strong>Finiquito y liquidación</strong>: Documento con el detalle completo de su liquidación económica.";
-      }
-      if (a.filename.includes("carta_cese")) {
-        return "📝 <strong>Carta de cese</strong>: Comunicación formal de la extinción de su contrato.";
-      }
-      if (a.filename.includes("certificado")) {
-        return "🏛️ <strong>Certificado de empresa (SEPE)</strong>: Documento necesario para solicitar la prestación por desempleo en el SEPE.";
-      }
-      return `📎 ${a.filename}`;
-    }).join("\n");
 
     // Template HTML del email
     const htmlEmail = `

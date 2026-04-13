@@ -2,7 +2,7 @@
 class ConstantesApp {
   // ── CUENTA PROPIETARIA ─────────────────────────────────────────────────────
   /// ID fijo de la empresa propietaria de la plataforma (FluxTech)
-  static const String empresaPropietariaId = 'ztZblwm1w71wNQtzHV7S';
+  static const String empresaPropietariaId = '37KyODVYpXYD04VwG3Vf';
   /// Dominio web del propietario
   static const String webPropietaria = 'fluixtech.com';
   /// Nombre comercial del propietario

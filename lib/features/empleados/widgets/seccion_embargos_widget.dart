@@ -426,6 +426,8 @@ class _FormularioEmbargoState extends State<FormularioEmbargo> {
                     TextFormField(
                       controller: _topeCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
+                      onEditingComplete: () => FocusScope.of(context).unfocus(),
                       decoration: _inputDecor('Tope mensual fijado por el juzgado (€)',
                           hint: 'Dejar vacío = sin tope (tabla LEC completa)', icon: Icons.euro),
                     ),

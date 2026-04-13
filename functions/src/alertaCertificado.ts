@@ -1,6 +1,9 @@
 import * as admin from "firebase-admin";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
+// Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
+if (!admin.apps.length) admin.initializeApp();
+
 const db = admin.firestore();
 const messaging = admin.messaging();
 

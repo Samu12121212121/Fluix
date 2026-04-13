@@ -678,6 +678,7 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
     OrigenPedido.app        => '📱 App',
     OrigenPedido.whatsapp   => '💬 WhatsApp',
     OrigenPedido.presencial => '🏪 Presencial',
+    OrigenPedido.tpvExterno => '🖥️ TPV Externo',
   };
 
   String _nombrePago(MetodoPago m) => switch (m) {
@@ -685,6 +686,7 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
     MetodoPago.paypal   => 'PayPal',
     MetodoPago.bizum    => 'Bizum',
     MetodoPago.efectivo => 'Efectivo en recogida',
+    MetodoPago.mixto    => 'Mixto (Efectivo + Tarjeta)',
   };
 
   IconData _iconoPago(MetodoPago m) => switch (m) {
@@ -692,6 +694,7 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
     MetodoPago.paypal   => Icons.account_balance_wallet,
     MetodoPago.bizum    => Icons.smartphone,
     MetodoPago.efectivo => Icons.money,
+    MetodoPago.mixto    => Icons.compare_arrows,
   };
 }
 

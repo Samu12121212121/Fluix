@@ -758,11 +758,16 @@ Widget _campo(
   TextInputType tipo = TextInputType.text,
   int maxLines = 1,
   String? Function(String?)? validator,
+  TextInputAction? inputAction,
 }) {
+  final isNumeric = tipo == TextInputType.number ||
+      tipo == const TextInputType.numberWithOptions(decimal: true) ||
+      tipo == const TextInputType.numberWithOptions(signed: true);
   return TextFormField(
     controller: ctrl,
     keyboardType: tipo,
     maxLines: maxLines,
+    textInputAction: inputAction ?? (isNumeric ? TextInputAction.done : null),
     decoration: _deco(label, icono),
     validator: validator,
   );

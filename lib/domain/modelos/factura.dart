@@ -8,7 +8,7 @@ enum MetodoPagoFactura { tarjeta, paypal, bizum, efectivo, transferencia }
 
 enum TipoFactura { pedido, venta_directa, servicio, rectificativa, proforma }
 
-enum SerieFactura { fac, rect, pro }
+enum SerieFactura { fac, rect, pro, tpv }
 
 /// Art. 15 RD 1619/2012 — Motivos de rectificación normalizados
 enum MotivoRectificacion {
@@ -76,9 +76,10 @@ extension TipoFacturaExt on TipoFactura {
 extension SerieFacturaExt on SerieFactura {
   String get prefijo {
     switch (this) {
-      case SerieFactura.fac: return 'F';
+      case SerieFactura.fac:  return 'F';
       case SerieFactura.rect: return 'R';
-      case SerieFactura.pro: return 'P';
+      case SerieFactura.pro:  return 'P';
+      case SerieFactura.tpv:  return 'TPV';
     }
   }
 }

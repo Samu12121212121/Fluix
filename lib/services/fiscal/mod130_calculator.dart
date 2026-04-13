@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/modelos/modelo130.dart';
 import '../../domain/modelos/factura.dart';
 import '../../domain/modelos/factura_recibida.dart';
@@ -60,6 +61,13 @@ class Mod130Calculator {
     // [06] Retenciones soportadas acumuladas YTD
     // (retenciones que los clientes aplicaron sobre las facturas del autónomo)
     final c06 = emitidas.fold(0.0, (sum, f) => sum + f.retencionIrpf);
+
+    debugPrint('📊 130: facturas encontradas en Q$trimestre/$ejercicio: '
+        '${emitidas.length} emitidas / ${recibidas.length} recibidas');
+    debugPrint('📊 130: ingresos totales (YTD): ${c01.toStringAsFixed(2)} €');
+    debugPrint('📊 130: gastos totales (YTD): ${c02.toStringAsFixed(2)} €');
+    debugPrint('📊 130: retenciones soportadas: ${c06.toStringAsFixed(2)} €');
+    debugPrint('📊 130: pagos anteriores: ${c05.toStringAsFixed(2)} €');
 
     // Validar c16 máximo 660.14€
     final c16Validado = c16Manual.clamp(0.0, 660.14);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../domain/modelos/nomina.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
@@ -6,8 +7,36 @@ import '../../../services/nominas_service.dart';
 import '../../../services/sepa_xml_generator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FORMULARIO DATOS NÓMINA
+// IBAN TEXT INPUT FORMATTER
+// Auto-convierte a mayúsculas e inserta espacio cada 4 caracteres.
+// Guarda sin espacios en Firestore (SepaXmlGenerator.limpiarIBAN).
 // ─────────────────────────────────────────────────────────────────────────────
+class _IBANFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    // Quitar todo lo que no sea letra o dígito, pasar a mayúsculas
+    final clean = newValue.text
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
+
+    // Limitar a 24 chars (IBAN español sin espacios)
+    final limited = clean.length > 24 ? clean.substring(0, 24) : clean;
+
+    // Insertar espacio cada 4 caracteres
+    final buffer = StringBuffer();
+    for (var i = 0; i < limited.length; i++) {
+      if (i > 0 && i % 4 == 0) buffer.write(' ');
+      buffer.write(limited[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class FormularioDatosNomina extends StatefulWidget {
   final String empleadoId;
@@ -629,10 +658,16 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
         return TextFormField(
           controller: _ibanCtrl,
           textCapitalization: TextCapitalization.characters,
+          inputFormatters: [_IBANFormatter()], // auto-espaciado + mayúsculas
           decoration: InputDecoration(
             labelText: 'Cuenta Bancaria (IBAN)',
             hintText: 'ES12 1234 1234 1234 1234 1234',
-            prefixIcon: Icon(Icons.account_balance,
+            helperText: texto.isEmpty
+                ? 'Ejemplo: ES12 1234 5678 9012 3456 7890'
+                : (valido
+                    ? '✅ IBAN válido — ${SepaXmlGenerator.formatearIBAN(texto)}'
+                    : null),
+            helperStyle: TextStyle(
                 color: texto.isEmpty ? const Color(0xFF1976D2) : (valido ? Colors.green : Colors.red)),
             suffixIcon: texto.isEmpty
                 ? null
@@ -641,8 +676,6 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: texto.isEmpty ? Colors.grey[50] : (valido ? Colors.green.withValues(alpha: 0.04) : Colors.red.withValues(alpha: 0.04)),
-            helperText: valido ? '✅ IBAN válido — ${SepaXmlGenerator.formatearIBAN(texto)}' : null,
-            helperStyle: const TextStyle(color: Colors.green, fontSize: 11),
             errorText: (texto.isNotEmpty && !valido) ? error : null,
           ),
           onChanged: (_) => setLocalState(() {}),
@@ -668,7 +701,7 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
       void Function(T?) onChanged, String Function(T) itemLabel, IconData icon,
       {List<DropdownMenuItem<T>>? opciones}) {
     return DropdownButtonFormField<T>(
-      value: valor,
+      initialValue: valor,
       items: opciones ??
           items.map((i) => DropdownMenuItem(value: i, child: Text(itemLabel(i)))).toList(),
       onChanged: onChanged,

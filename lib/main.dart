@@ -40,14 +40,14 @@ void main() async {
 
   // ── Firebase App Check ──────────────────────────────────────────────────
   // Protege Firestore, Functions y Storage contra accesos no autorizados.
-  // En debug usa DebugProvider (no llega a producción gracias a kDebugMode).
+  // En debug usa DebugProvider; en producción usa PlayIntegrity / DeviceCheck.
+  // IMPORTANTE: Las apps deben estar registradas en Firebase Console > App Check.
+
   await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode
-        ? AndroidProvider.debug
-        : AndroidProvider.playIntegrity,
-    appleProvider: kDebugMode
-        ? AppleProvider.debug
-        : AppleProvider.deviceCheck,
+    androidProvider:
+       kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+    appleProvider:
+        kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
   );
 
   // Activar persistencia offline de Firestore
@@ -297,9 +297,3 @@ void _intentarInicializarAdmin() {
     }
   });
 }
-
-
-
-
-
-

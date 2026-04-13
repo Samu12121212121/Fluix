@@ -549,6 +549,7 @@ class _SeccionSeguridad2FAState extends State<_SeccionSeguridad2FA> {
         content: TextField(
           controller: codigoCtrl,
           keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
           maxLength: 6,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 24, letterSpacing: 8),

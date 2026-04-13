@@ -179,6 +179,14 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.tienda,
     ),
+    ModuloConfig(
+      id: 'tpv',
+      nombre: 'TPV',
+      descripcion: 'Caja rápida, importación CSV y facturación TPV',
+      icono: Icons.point_of_sale,
+      activo: false,
+      plan: PlanModulo.gestion,
+    ),
     // ── ADD-ON: TAREAS ────────────────────────────────────────────────────
     ModuloConfig(
       id: 'tareas',
@@ -243,9 +251,13 @@ class ModulosDisponibles {
     'citas',
   ];
 
-  /// Módulos activos por defecto al inicializar (solo dashboard)
-  /// El resto el usuario los activa explícitamente desde Ajustes
-  static List<String> get activosPorDefecto => ['dashboard'];
+  /// Módulos activos por defecto al inicializar
+  /// El usuario puede desactivarlos desde Ajustes
+  static List<String> get activosPorDefecto => [
+    'dashboard',
+    'pedidos',
+    'tpv',
+  ];
 }
 
 

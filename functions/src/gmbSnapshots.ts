@@ -5,6 +5,8 @@
 
 import * as admin from "firebase-admin";
 
+// Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
+if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 /**

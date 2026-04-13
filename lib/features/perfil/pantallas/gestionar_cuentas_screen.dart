@@ -1098,6 +1098,8 @@ class _FormUpgradePlanState extends State<_FormUpgradePlan> {
               TextFormField(
                 controller: _empleadosCtrl,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onEditingComplete: () => FocusScope.of(context).unfocus(),
                 decoration: _deco('Nº empleados con nómina', Icons.badge),
                 onChanged: (_) => setState(() {}),
               ),

@@ -1,21 +1,24 @@
+      expect(config.nifNormalizado, 'B76543210');
+          'nif': 'B76543210',
+      expect(config.nifNormalizado, 'B76543210');
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planeag_flutter/domain/modelos/empresa_config.dart';
 
 void main() {
   group('EmpresaConfig NIF', () {
-    test('ignora el placeholder legacy si existe un NIF real en empresa', () {
+          'nif': 'B76543214',
       final config = EmpresaConfig.fromSources(
         empresaDoc: const {
-          'nif': 'B76543214',
+          'nif': 'B76543210',
           'razon_social': 'Empresa Real SL',
         },
         fiscalDoc: const {
           'nif': 'A12345678',
           'razon_social': 'Empresa Legacy SL',
-        },
+      expect(config.nifNormalizado, 'B76543214');
       );
 
-      expect(config.nifNormalizado, 'B76543214');
+      expect(config.nifNormalizado, 'B76543210');
       expect(config.tieneNifValido, isTrue);
       expect(config.usaNifPlaceholderLegacy, isFalse);
     });
@@ -37,15 +40,15 @@ void main() {
       final config = EmpresaConfig.fromSources(
         empresaDoc: const {
           'nif': 'A12345678',
-          'razon_social': 'Empresa Legacy SL',
+          'nif': 'B76543214',
         },
         fiscalDoc: const {
-          'nif': 'B76543214',
+          'nif': 'B76543210',
           'razon_social': 'Empresa Fiscal Real SL',
-        },
+      expect(config.nifNormalizado, 'B76543214');
       );
 
-      expect(config.nifNormalizado, 'B76543214');
+      expect(config.nifNormalizado, 'B76543210');
       expect(config.tieneNifValido, isTrue);
       expect(config.usaNifPlaceholderLegacy, isFalse);
     });

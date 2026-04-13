@@ -916,7 +916,10 @@ class NominasService {
     for (final emp in empleados.docs) {
       final data = emp.data();
       final datosNomina = data['datos_nomina'] as Map<String, dynamic>?;
-      if (datosNomina == null) continue;
+      if (datosNomina == null) {
+        debugPrint('⚠️ Nóminas: empleado ${data['nombre'] ?? emp.id} sin campo datos_nomina — omitido');
+        continue;
+      }
 
       var configBase = DatosNominaEmpleado.fromMap(datosNomina);
       // Si el empleado no tiene sector_empresa, usar el de la empresa
@@ -925,7 +928,11 @@ class NominasService {
         configBase = configBase.copyWith(sectorEmpresa: sectorEmpresa);
       }
       final config = await _aplicarConvenioSiCorresponde(configBase);
-      if (config.salarioBrutoAnual <= 0) continue;
+      if (config.salarioBrutoAnual <= 0) {
+        debugPrint('⚠️ 💰 Nómina omitida — salario_bruto_anual=0 para ${data['nombre'] ?? emp.id}. '
+            'Ve a Datos Nómina y configura el salario.');
+        continue;
+      }
 
       // Validación mínima (SMI / convenio). Si no cumple, se omite la nómina.
       CategoriaConvenio? cat;
@@ -972,6 +979,9 @@ class NominasService {
       );
 
       await guardarNomina(empresaId, nomina);
+      debugPrint('💰 Calculando nómina para ${data['nombre'] ?? emp.id}');
+      debugPrint('💰 Salario bruto anual: ${config.salarioBrutoAnual}€');
+      debugPrint('💰 Salario base mes: ${nomina.salarioBrutoMensual.toStringAsFixed(2)}€  |  Neto: ${nomina.salarioNeto.toStringAsFixed(2)}€');
       generadas++;
     }
 

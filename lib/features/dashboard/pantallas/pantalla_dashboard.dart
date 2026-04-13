@@ -34,6 +34,7 @@ import '../../clientes/pantallas/modulo_clientes_screen.dart';
 import '../../servicios/pantallas/modulo_servicios_screen.dart';
 import '../../nominas/pantallas/modulo_nominas_screen.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
+import '../../tpv/pantallas/modulo_tpv_screen.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
@@ -195,23 +196,34 @@ class _PantallaDashboardState extends State<PantallaDashboard>
            debugPrint('👑 Rol forzado a propietario en _cargarDatosUsuario');
         }
 
-        // Si no hay propietario en la empresa, promover al usuario actual
-        if (data['rol'] != 'propietario' && empresaId != null) {
+        // Si no hay admin/propietario en la empresa, promover al usuario actual.
+        // IMPORTANTE: 'propietario' es EXCLUSIVO de la empresa FluixTech.
+        // Para cualquier otra empresa el rol de fallback es 'admin'.
+        // Las cuentas demo NUNCA se promueven.
+        final esDemoAccount = (data['correo'] as String? ?? '')
+            .toLowerCase()
+            .contains('demo');
+        if (data['rol'] != 'propietario' && data['rol'] != 'admin' &&
+            empresaId != null && !esDemoAccount) {
           try {
-            final propSnap = await FirebaseFirestore.instance
+            final adminSnap = await FirebaseFirestore.instance
                 .collection('usuarios')
                 .where('empresa_id', isEqualTo: empresaId)
-                .where('rol', isEqualTo: 'propietario')
+                .where('rol', whereIn: ['propietario', 'admin'])
                 .limit(1)
                 .get();
-            if (propSnap.docs.isEmpty) {
+            if (adminSnap.docs.isEmpty) {
+              // Solo FluixTech puede tener rol 'propietario'
+              final rolFallback = empresaId == ConstantesApp.empresaPropietariaId
+                  ? 'propietario'
+                  : 'admin';
               await FirebaseFirestore.instance
                   .collection('usuarios').doc(uid)
-                  .update({'rol': 'propietario'});
-              debugPrint('👑 Promovido a propietario (empresa sin dueño)');
+                  .update({'rol': rolFallback});
+              debugPrint('👑 Promovido a $rolFallback (empresa sin dueño) uid=$uid');
             }
           } catch (e) {
-            debugPrint('ℹ️ Check propietario omitido (permisos): $e');
+            debugPrint('ℹ️ Check admin/propietario omitido (permisos): $e');
           }
         }
 
@@ -494,6 +506,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'estadisticas':    return ModuloEstadisticas(empresaId: id);
       case 'tareas':          return ModuloTareasScreen(empresaId: id);
       case 'pedidos':         return ModuloPedidosNuevoScreen(empresaId: id);
+      case 'tpv':             return ModuloTpvScreen(empresaId: id, esAdmin: sesionActiva?.esAdmin ?? false);
       case 'whatsapp':        return ModuloWhatsAppScreen(empresaId: id);
       case 'facturacion':     return ModuloFacturacionScreen(empresaId: id);
       case 'empleados':       return ModuloEmpleadosScreen(empresaId: id, sesion: sesionActiva);

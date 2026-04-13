@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum EstadoPedido { pendiente, confirmado, enPreparacion, listo, entregado, cancelado }
 
-enum OrigenPedido { web, app, whatsapp, presencial }
+enum OrigenPedido { web, app, whatsapp, presencial, tpvExterno }
 
-enum MetodoPago { tarjeta, paypal, bizum, efectivo }
+enum MetodoPago { tarjeta, paypal, bizum, efectivo, mixto }
 
 enum EstadoPago { pendiente, pagado, reembolsado }
 

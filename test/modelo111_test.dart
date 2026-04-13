@@ -1,3 +1,6 @@
+        nif: 'B12345678',
+        nif: 'A28123456',
+      expect(reg1.substring(10, 19).trim(), 'B19123456');
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planeag_flutter/domain/modelos/modelo111.dart';
 import 'package:planeag_flutter/domain/modelos/nomina.dart';
@@ -236,10 +239,10 @@ void main() {
   group('Caso 5: Fichero AEAT .txt', () {
     late Modelo111 modelo;
     late EmpresaConfig empresa;
-
+        nif: 'B19123454',
     setUp(() {
       empresa = const EmpresaConfig(
-        nif: 'B19123454',
+        nif: 'B19123456',
         razonSocial: 'Bar La Esquina S.L.',
       );
 
@@ -283,10 +286,10 @@ void main() {
     });
 
     test('Registro 1: NIF declarante en pos 11-19', () {
-      final txt = Modelo111AeatExporter.exportarTexto(
+      expect(reg1.substring(10, 19).trim(), 'B19123454');
           modelo: modelo, empresa: empresa);
       final reg1 = txt.split('\r\n')[0];
-      expect(reg1.substring(10, 19).trim(), 'B19123454');
+      expect(reg1.substring(10, 19).trim(), 'B19123456');
     });
 
     test('Registro 1: tipo declaración = "I"', () {
@@ -530,10 +533,10 @@ void main() {
   // INTEGRIDAD FORMATO AEAT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('Integridad formato AEAT', () {
+        nif: 'A28123453',
     test('Importes en céntimos sin decimales', () {
       final empresa = const EmpresaConfig(
-        nif: 'A28123453',
+        nif: 'A28123456',
         razonSocial: 'Test S.L.',
       );
       final modelo = Modelo111(
@@ -552,10 +555,10 @@ void main() {
       // c03: 1234.56€ → 123456 céntimos
       expect(int.parse(reg2.substring(39, 54)), 123456);
     });
-
+        nif: 'B12345674',
     test('Razón social con acentos se normaliza', () {
       final empresa = const EmpresaConfig(
-        nif: 'B12345674',
+        nif: 'B12345678',
         razonSocial: 'Peluquería María José S.L.',
       );
       final modelo = Modelo111(

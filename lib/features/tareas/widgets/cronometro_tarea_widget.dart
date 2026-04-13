@@ -316,6 +316,7 @@ class _DialogTiempoManualState extends State<_DialogTiempoManual> {
                   decoration: const InputDecoration(
                       labelText: 'Horas', isDense: true),
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
                   onChanged: (v) =>
                       setState(() => _horas = int.tryParse(v) ?? 0),
                 ),
@@ -327,6 +328,8 @@ class _DialogTiempoManualState extends State<_DialogTiempoManual> {
                   decoration: const InputDecoration(
                       labelText: 'Minutos', isDense: true),
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  onEditingComplete: () => FocusScope.of(context).unfocus(),
                   onChanged: (v) =>
                       setState(() => _minutos = int.tryParse(v) ?? 0),
                 ),

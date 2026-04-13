@@ -9,6 +9,8 @@ import fetch from "node-fetch";
 import { verificarAuth, verificarAuthYEmpresa } from "./utils/authGuard";
 
 const REGION = "europe-west1";
+// Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
+if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 // ── Secret Manager helpers ────────────────────────────────────────────────────

@@ -139,6 +139,7 @@ class SesionUsuario {
           'estadisticas',
           'servicios',
           'pedidos',
+          'tpv',
           'whatsapp',
           'tareas',
           'empleados',
@@ -158,6 +159,7 @@ class SesionUsuario {
           'estadisticas',
           'servicios',
           'pedidos',
+          'tpv',
           'whatsapp',
           'tareas',
           'empleados',
@@ -192,7 +194,7 @@ class SesionUsuario {
   /// Lista de TODOS los módulos posibles (para la pantalla de configuración)
   static const todosLosModulos = [
     'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
-    'estadisticas', 'servicios', 'pedidos', 'whatsapp', 'tareas',
+    'estadisticas', 'servicios', 'pedidos', 'tpv', 'whatsapp', 'tareas',
     'empleados', 'facturacion', 'nominas', 'web',
   ];
 
@@ -244,6 +246,13 @@ class PermisosService {
       final empresaId = data['empresa_id'] as String? ?? '';
       var rolStr = data['rol'] as String? ?? 'staff';
 
+      // ── GUARD DEMO: las cuentas de demo nunca obtienen rol propietario ──
+      final correoUsuario = (data['correo'] as String? ?? '').toLowerCase();
+      if (correoUsuario.contains('demo') && rolStr == 'propietario') {
+        rolStr = 'admin';
+        debugPrint('🔒 PermisosService: cuenta demo forzada a admin (nunca propietario)');
+      }
+
       // ── PROTECCIÓN 1: empresa propietaria de la plataforma ────────
       final esDocDePrueba = uid.startsWith('emp_fluix_');
       if (empresaId == ConstantesApp.empresaPropietariaId &&
@@ -253,8 +262,19 @@ class PermisosService {
         await FirebaseFirestore.instance
             .collection('usuarios')
             .doc(uid)
-            .update({'rol': 'propietario'});
+            .update({'rol': 'propietario', 'es_plataforma_admin': true});
         debugPrint('👑 Rol corregido a propietario (empresa propietaria) para $uid');
+      }
+
+      // Garantizar que el campo es_plataforma_admin exista para el propietario
+      if (empresaId == ConstantesApp.empresaPropietariaId &&
+          rolStr == 'propietario' &&
+          data['es_plataforma_admin'] != true) {
+        await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(uid)
+            .update({'es_plataforma_admin': true});
+        debugPrint('🔑 Campo es_plataforma_admin activado para $uid');
       }
 
       // ── PROTECCIÓN 2: si no hay ningún propietario/admin en esta empresa,
