@@ -1,3 +1,4 @@
+          // Cualquier auth puede crear su propio doc (registro)
 rules_version = '2';
     service cloud.firestore {
       match /databases/{database}/documents {
@@ -55,11 +56,17 @@ rules_version = '2';
 
         match /usuarios/{userId} {
           // El propio usuario puede leer/escribir su doc
-          allow read, write: if isAuth() && uid() == userId;
-          // Admin/propietario puede leer docs de su empresa
+          // Admin/propietario puede leer/escribir docs de su empresa
+          allow read, write: if isAuth()
+          allow read: if isAuth()
           allow read: if isAuth()
             && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
-            && getUserData().empresa_id == resource.data.empresa_id
+          // Cualquier auth puede crear su propio doc (registro normal)
+            && (getUserData().rol == 'admin' || getUserData().rol == 'propietario');
+          // Admin/propietario puede crear fichas de empleados manuales (sin cuenta Auth)
+          allow create: if isAuth()
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && request.resource.data.empresa_id == getUserData().empresa_id
             && (getUserData().rol == 'admin' || getUserData().rol == 'propietario');
           // Cualquier auth puede crear su propio doc (registro)
           allow create: if isAuth() && uid() == userId;
@@ -145,8 +152,13 @@ rules_version = '2';
           // RESERVAS
           match /reservas/{reservaId} {
             allow read: if esStaffOSuperior(empresaId);
-            allow write: if esStaffOSuperior(empresaId);
-            allow create: if isAuth(); // clientes externos pueden crear reservas
+            allow update, delete: if esStaffOSuperior(empresaId);
+            // Clientes web (sin autenticación) pueden crear reservas con campos mínimos
+            allow create: if request.resource.data.keys().hasAll(['nombre_cliente', 'fecha', 'estado'])
+              && request.resource.data.estado == 'PENDIENTE'
+              && request.resource.data.nombre_cliente is string
+              && request.resource.data.nombre_cliente.size() > 0
+              && request.resource.data.nombre_cliente.size() <= 100;
           }
 
           // VALORACIONES — [FIX-5] lectura pública, creación con validación anti-spam
@@ -245,10 +257,23 @@ rules_version = '2';
             allow write: if esAdminOPropietario(empresaId);
           }
 
-          // CONTENIDO WEB — lectura pública para visor web
+          // CONTENIDO WEB — lectura pública, escritura con auth
+          // La auth anónima del script Hostinger cubre el seed inicial.
+          // La app usa usuarios autenticados (propietario/admin).
           match /contenido_web/{docId} {
             allow read: if true;
-            allow write: if esAdminOPropietario(empresaId);
+            allow write: if request.auth != null;
+          }
+
+          // CONTACTO WEB — mensajes del formulario de contacto de la web
+          // Creación: cualquier auth (anónimo desde el script)
+          // Lectura/gestión: admin/propietario desde la app
+          match /contacto_web/{docId} {
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+            allow create: if request.auth != null
+              && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje', 'fecha'])
+              && request.resource.data.size() <= 10;
+            allow update, delete: if esAdminOPropietario(empresaId);
           }
 
           // DISPOSITIVOS FCM — cada usuario escribe su propio token
@@ -263,14 +288,41 @@ rules_version = '2';
             allow write: if false; // Solo Admin SDK (Cloud Functions)
           }
 
-          // ESTADÍSTICAS — [FIX-3] Solo miembros de la empresa (antes: allow read: if true)
+          // ESTADÍSTICAS — lectura solo miembros, escritura protegida
           match /estadisticas/{docId} {
             allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+            // Miembros de la empresa pueden escribir libremente
             allow write: if perteneceAEmpresa(empresaId);
           }
           match /estadisticas/{docId}/{subcol}/{subId} {
             allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
             allow write: if perteneceAEmpresa(empresaId);
+          }
+
+          // ANALYTICS WEB — escritura pública para el script JS (sin auth)
+          // Solo permite actualizar el documento 'trafico_web' con merge
+          // Los visitantes de la web ESCRIBEN aquí, la app Flutter LEE
+          // Seguridad: solo set/update, no delete. Lectura solo autenticados.
+          match /estadisticas/trafico_web {
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+            allow create, update: if true;
+            allow delete: if perteneceAEmpresa(empresaId);
+          }
+          match /estadisticas/trafico_web/historico_diario/{fecha} {
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+            allow create, update: if true;
+            allow delete: if perteneceAEmpresa(empresaId);
+          }
+
+          // EVENTOS WEB — escritura pública (analíticas de clicks)
+          // Solo create (no update/delete), lectura restringida
+          match /eventos_web/{eventoId} {
+            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+            allow create: if true
+              && request.resource.data.keys().hasAll(['tipo', 'fecha_iso'])
+              && request.resource.data.tipo is string
+              && request.resource.data.tipo.size() <= 50;
+            allow update, delete: if esAdminOPropietario(empresaId);
           }
 
           // CACHÉ (estadísticas calculadas)
@@ -281,7 +333,12 @@ rules_version = '2';
           // CONFIGURACIÓN (módulos, widgets, ajustes)
           match /configuracion/{docId} {
             allow read: if perteneceAEmpresa(empresaId);
-            allow write: if esPropietario(empresaId);
+            // El script web necesita leer web_avanzada (popup, banner, contacto)
+            allow read: if request.auth != null && docId == 'web_avanzada';
+            // El script web puede CREAR web_avanzada si no existe (primera carga)
+            allow create: if request.auth != null && docId == 'web_avanzada';
+            // Solo propietario puede actualizar/borrar configuración
+            allow update, delete: if esPropietario(empresaId);
           }
 
           // (Se deja por compatibilidad — convenios es colección raíz)

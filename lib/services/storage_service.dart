@@ -81,11 +81,12 @@ class StorageService {
     final url = await ref.getDownloadURL();
 
     // 7. Guardar URL en Firestore (campo foto_url)
+    // Usamos set+merge para no fallar si el doc no existe aún (empleados manuales)
     // Primero en usuarios/{empleadoId} — que es donde el listado de empleados lee
     await _firestore
         .collection('usuarios')
         .doc(empleadoId)
-        .update({'foto_url': url});
+        .set({'foto_url': url}, SetOptions(merge: true));
 
     // También guardar en empresas/{empresaId}/empleados por si existe
     try {

@@ -350,15 +350,15 @@ export const crearCuentaConPlan = onCall(
         fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      // 6d. Documento de usuario (propietario del negocio)
+      // 6d. Documento de usuario (admin del negocio — no es propietario de la plataforma)
       const usuarioRef = db.collection("usuarios").doc(uid);
       batch.set(usuarioRef, {
         uid,
         nombre: nombrePropietario || nombreEmpresa,
         correo: email,
         empresa_id: empresaId,
+        rol: "admin",
         rol: "propietario",
-        activo: true,
         es_plataforma_admin: false,
         fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
         modulos_personalizados: null,
@@ -776,7 +776,7 @@ export const webhookPagoWeb = onRequest(
             nombre: nombreEmpresa ?? email,
             correo: email,
             empresa_id: empresaId,
-            rol: "propietario",
+            rol: "admin",
             activo: true,
             es_plataforma_admin: false,
             fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),

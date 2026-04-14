@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
+import 'package:planeag_flutter/services/contenido_web_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO LOCAL
@@ -105,7 +107,7 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
           .call<Map<String, dynamic>>();
 
       final data = result.data;
-      final raw = (data['cuentas'] as List<dynamic>? ?? []);
+      final raw = data['cuentas'] as List<dynamic>? ?? [];
       setState(() {
         _cuentas =
             raw.map((e) => _CuentaCliente.fromMap(Map<String, dynamic>.from(e as Map))).toList();
@@ -208,44 +210,30 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _cargarCuentas, child: const Text('Reintentar')),
+            ElevatedButton(
+              onPressed: _cargarCuentas,
+              child: const Text('Reintentar'),
+            ),
           ],
         ),
       );
     }
     if (_cuentas.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.business_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text(
-              'Aún no hay cuentas de clientes',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Pulsa + para crear la primera',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+      return const Center(
+        child: Text('No hay cuentas de clientes aún',
+            style: TextStyle(color: Colors.grey)),
       );
     }
-
-    return RefreshIndicator(
-      onRefresh: _cargarCuentas,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-        itemCount: _cuentas.length,
-        itemBuilder: (ctx, i) => _TarjetaCuenta(
-          cuenta: _cuentas[i],
-          onUpgrade: () => _abrirUpgrade(_cuentas[i]),
-        ),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _cuentas.length,
+      itemBuilder: (_, i) => _TarjetaCuenta(
+        cuenta: _cuentas[i],
+        onUpgrade: () => _abrirUpgrade(_cuentas[i]),
       ),
     );
   }
@@ -417,6 +405,44 @@ class _TarjetaCuenta extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            // Botón Google Reviews
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _abrirGoogleReviews(context),
+                icon: const Icon(Icons.star_rate_rounded, size: 16, color: Color(0xFFF57F17)),
+                label: const Text('Google Reseñas'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFF57F17),
+                  side: const BorderSide(color: Color(0xFFF57F17)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Botón Script Web (Hostinger Integrations)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _copiarScriptHostinger(context),
+                icon: const Icon(Icons.integration_instructions, size: 16, color: Color(0xFF455A64)),
+                label: const Text('Script Hostinger'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF455A64),
+                  side: const BorderSide(color: Color(0xFF455A64)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 10),
@@ -478,6 +504,29 @@ class _TarjetaCuenta extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  void _abrirGoogleReviews(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => _DialogGoogleReviews(
+          empresaId: cuenta.empresaId, nombreEmpresa: cuenta.nombre),
+    );
+  }
+
+  void _copiarScriptHostinger(BuildContext context) {
+    final svc = ContenidoWebService();
+    final script = svc.generarScriptHostinger();
+    Clipboard.setData(ClipboardData(text: script));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Row(children: [
+        Icon(Icons.check_circle, color: Colors.white, size: 18),
+        SizedBox(width: 8),
+        Expanded(child: Text('Script Hostinger copiado — pegar en Integrations')),
+      ]),
+      backgroundColor: Color(0xFF455A64),
+      duration: Duration(seconds: 3),
+    ));
   }
 }
 
@@ -1384,6 +1433,232 @@ class _DialogCredenciales extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DIÁLOGO: Configurar Google Reseñas
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DialogGoogleReviews extends StatefulWidget {
+  final String empresaId;
+  final String nombreEmpresa;
+
+  const _DialogGoogleReviews({
+    required this.empresaId,
+    required this.nombreEmpresa,
+  });
+
+  @override
+  State<_DialogGoogleReviews> createState() => _DialogGoogleReviewsState();
+}
+
+class _DialogGoogleReviewsState extends State<_DialogGoogleReviews> {
+  final _apiKeyCtrl = TextEditingController();
+  final _placeIdCtrl = TextEditingController();
+  bool _cargando = true;
+  bool _guardando = false;
+  bool _configurado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarConfig();
+  }
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    _placeIdCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarConfig() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('configuracion')
+          .doc('google_reviews')
+          .get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        _apiKeyCtrl.text = data['api_key'] as String? ?? '';
+        _placeIdCtrl.text = data['place_id'] as String? ?? '';
+        _configurado = _apiKeyCtrl.text.isNotEmpty && _placeIdCtrl.text.isNotEmpty;
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _cargando = false);
+  }
+
+  Future<void> _guardar() async {
+    final apiKey = _apiKeyCtrl.text.trim();
+    final placeId = _placeIdCtrl.text.trim();
+
+    if (apiKey.isEmpty || placeId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rellena todos los campos'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _guardando = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('configuracion')
+          .doc('google_reviews')
+          .set({
+        'api_key': apiKey,
+        'place_id': placeId,
+        'actualizado': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Google Reseñas vinculado a ${widget.nombreEmpresa}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          const Icon(Icons.star_rate_rounded, color: Color(0xFFF57F17)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Google Reseñas\n${widget.nombreEmpresa}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+      content: _cargando
+          ? const SizedBox(
+              height: 80,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_configurado)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green[200]!),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green, size: 18),
+                          SizedBox(width: 8),
+                          Text('Ya vinculado', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  // API KEY
+                  TextField(
+                    controller: _apiKeyCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Google API Key',
+                      hintText: 'AIzaSy...',
+                      prefixIcon: const Icon(Icons.vpn_key_rounded),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F7FA),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFF57F17), width: 2),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  // PLACE ID
+                  TextField(
+                    controller: _placeIdCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Place ID de Google',
+                      hintText: 'ChIJ...',
+                      prefixIcon: const Icon(Icons.place_rounded),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F7FA),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFF57F17), width: 2),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  // Ayuda
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('¿Cómo obtener el Place ID?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                        SizedBox(height: 4),
+                        Text('1. Busca el negocio en Google Maps\n2. Clic derecho → "¿Qué hay aquí?"\n3. Aparece el Place ID al fondo\nO busca en: maps.google.com → comparte → enlace', style: TextStyle(fontSize: 11, color: Colors.black87)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _guardando ? null : _guardar,
+          icon: _guardando
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.save_rounded, size: 16),
+          label: const Text('Guardar'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF57F17),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1406,8 +1681,4 @@ InputDecoration _deco(String label, IconData icono) {
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   );
 }
-
-
-
-
 

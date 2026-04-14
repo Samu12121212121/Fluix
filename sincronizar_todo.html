@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>🔄 Sincronizar TODO → App Fluix</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+        /* ── HEADER ─────────────────────────────────────────────── */
+        .header { background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%); padding: 30px 20px 20px; text-align: center; }
+        .header h1 { font-size: 28px; margin-bottom: 6px; }
+        .header p  { opacity: .8; font-size: 14px; }
+
+        /* ── EMPRESA SELECTOR ───────────────────────────────────── */
+        .empresa-bar { background: #1e293b; padding: 16px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #334155; }
+        .empresa-bar input { flex: 1; min-width: 200px; padding: 10px 14px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 15px; }
+        .empresa-bar button { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; }
+        .btn-detectar { background: #475569; color: white; }
+        .btn-detectar:hover { background: #64748b; }
+        .btn-leer { background: #0d9488; color: white; }
+        .btn-leer:hover { background: #14b8a6; }
+
+        /* ── TABS ───────────────────────────────────────────────── */
+        .tabs { display: flex; background: #1e293b; border-bottom: 2px solid #334155; overflow-x: auto; }
+        .tab { padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #94a3b8; border-bottom: 3px solid transparent; white-space: nowrap; transition: all .2s; }
+        .tab:hover { color: #e2e8f0; background: #334155; }
+        .tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+
+        /* ── CONTENIDO ──────────────────────────────────────────── */
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .section-title { font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .section-title span { font-size: 28px; }
+
+        /* ── FORMULARIOS ────────────────────────────────────────── */
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; font-weight: 500; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569;
+            background: #1e293b; color: #e2e8f0; font-size: 14px; font-family: inherit;
+        }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+
+        .items-list { border: 1px solid #334155; border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+        .item-row { display: grid; grid-template-columns: 1fr 2fr 100px 90px 60px; gap: 8px; padding: 10px 14px; align-items: center; border-bottom: 1px solid #1e293b; background: #0f172a; font-size: 13px; }
+        .item-row:nth-child(even) { background: #111827; }
+        .item-row.header-row { background: #334155; font-weight: 600; color: #94a3b8; font-size: 12px; text-transform: uppercase; }
+        .item-row input { padding: 6px 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 13px; width: 100%; }
+        .item-row input[type="number"] { width: 80px; }
+        .item-row select { padding: 6px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 12px; }
+
+        .btn-add { background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .btn-add:hover { background: #2563eb; }
+        .btn-remove { background: #dc2626; color: white; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        .btn-remove:hover { background: #ef4444; }
+
+        .btn-sync { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; border: none; padding: 14px 32px; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 16px; transition: transform .1s; }
+        .btn-sync:hover { transform: scale(1.01); }
+        .btn-sync:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        .btn-sync-all { background: linear-gradient(135deg, #dc2626 0%, #f59e0b 100%); color: white; border: none; padding: 16px 32px; border-radius: 10px; font-size: 18px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 20px; }
+        .btn-sync-all:hover { transform: scale(1.01); }
+
+        /* ── LOG ─────────────────────────────────────────────────── */
+        #log { margin-top: 20px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 16px; max-height: 300px; overflow-y: auto; font-size: 13px; font-family: 'Cascadia Code', 'Fira Code', monospace; display: none; }
+        .ok  { color: #4ade80; }
+        .err { color: #f87171; }
+        .info { color: #60a5fa; }
+        .warn { color: #fbbf24; }
+
+        /* ── EXISTING DATA CARDS ────────────────────────────────── */
+        .existing-data { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .existing-data h4 { color: #94a3b8; font-size: 13px; margin-bottom: 10px; text-transform: uppercase; }
+        .existing-badge { display: inline-block; background: #334155; padding: 4px 10px; border-radius: 6px; font-size: 12px; margin: 2px; color: #e2e8f0; }
+        .existing-badge.active { background: #166534; }
+        .existing-badge.inactive { background: #991b1b; }
+
+        /* ── HORARIOS GRID ──────────────────────────────────────── */
+        .horarios-grid { display: grid; gap: 8px; }
+        .horario-row { display: grid; grid-template-columns: 120px 1fr 1fr 80px; gap: 10px; align-items: center; padding: 10px 14px; background: #111827; border-radius: 8px; }
+        .horario-row label { font-weight: 600; }
+        .horario-row input[type="time"] { padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; }
+        .horario-row .cerrado-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .horario-row .cerrado-toggle input { width: 18px; height: 18px; }
+
+        /* ── PRODUCTOS GRID ─────────────────────────────────────── */
+        .prod-row { display: grid; grid-template-columns: 2fr 120px 100px 80px 100px 50px; gap: 8px; padding: 10px 14px; align-items: center; border-bottom: 1px solid #1e293b; background: #0f172a; font-size: 13px; }
+        .prod-row:nth-child(even) { background: #111827; }
+        .prod-row.header-row { background: #334155; font-weight: 600; color: #94a3b8; font-size: 12px; text-transform: uppercase; }
+        .prod-row input, .prod-row select { padding: 6px 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 13px; width: 100%; }
+
+        /* ── RESPONSIVE ─────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .item-row { grid-template-columns: 1fr 1fr 70px 70px 40px; font-size: 12px; }
+            .prod-row { grid-template-columns: 1fr 80px 70px 60px 40px; }
+            .prod-row .col-iva { display: none; }
+            .horario-row { grid-template-columns: 90px 1fr 1fr 60px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══════════════════════════════════════════════════════════ -->
+<div class="header">
+    <h1>🔄 Sincronizar TODO con Fluix</h1>
+    <p>Carta · Ofertas · Horarios · Galería · Textos · Productos — todo en un solo lugar</p>
+</div>
+
+<!-- ═══ EMPRESA BAR ═════════════════════════════════════════════════════ -->
+<div class="empresa-bar">
+    <input id="empresaInput" type="text" value="7Uz8GOnQ6OX8ejiov7c5M9LFPI2" placeholder="ID de empresa...">
+    <button class="btn-detectar" onclick="detectarEmpresas()">🔍 Detectar</button>
+    <button class="btn-leer" onclick="leerTodo()">📥 Leer datos actuales</button>
+    <!-- LOGIN GLOBAL — necesario si las reglas de Firestore no están desplegadas -->
+    <input id="auth-email" type="email" placeholder="Email admin" style="min-width:160px;padding:9px 12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:13px;">
+    <input id="auth-pass" type="password" placeholder="Contraseña" style="min-width:120px;padding:9px 12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:13px;">
+    <button onclick="loginAuth()" style="padding:9px 16px;border-radius:8px;border:none;background:#f59e0b;color:#000;font-weight:700;cursor:pointer;font-size:13px;">🔑 Login</button>
+    <button onclick="resetPassword()" style="padding:9px 14px;border-radius:8px;border:none;background:#475569;color:white;font-size:12px;cursor:pointer;">¿Olvidé la contraseña?</button>
+    <span id="auth-status" style="font-size:12px;color:#64748b;white-space:nowrap;">⚠️ Sin login</span>
+</div>
+
+<!-- ═══ TABS ═════════════════════════════════════════════════════════════ -->
+<div class="tabs" id="tabs">
+    <div class="tab active" data-tab="carta">🍽️ Carta</div>
+    <div class="tab" data-tab="ofertas">🏷️ Ofertas</div>
+    <div class="tab" data-tab="horarios">🕐 Horarios</div>
+    <div class="tab" data-tab="galeria">🖼️ Galería</div>
+    <div class="tab" data-tab="texto">📝 Texto</div>
+    <div class="tab" data-tab="productos">📦 Productos</div>
+    <div class="tab" data-tab="todo">🚀 TODO</div>
+</div>
+
+<!-- ═══ PANELES ══════════════════════════════════════════════════════════ -->
+<div class="container">
+
+    <div id="existing-info"></div>
+
+    <!-- ── CARTA ─────────────────────────────────────────────────────── -->
+    <div class="panel active" id="panel-carta">
+        <div class="section-title"><span>🍽️</span> Carta / Menú</div>
+        <div class="form-group">
+            <label>Título de la carta</label>
+            <input id="carta-titulo" value="Carta del Restaurante" placeholder="Ej: Carta Dama Juana">
+        </div>
+        <div class="items-list" id="carta-items">
+            <div class="item-row header-row">
+                <div>Nombre</div><div>Descripción</div><div>Precio €</div><div>Categoría</div><div></div>
+            </div>
+        </div>
+        <button class="btn-add" onclick="addCartaItem()">+ Añadir plato</button>
+        <button class="btn-sync" onclick="sincronizarSeccion('carta')">🚀 Sincronizar Carta</button>
+    </div>
+
+    <!-- ── OFERTAS ───────────────────────────────────────────────────── -->
+    <div class="panel" id="panel-ofertas">
+        <div class="section-title"><span>🏷️</span> Ofertas</div>
+        <div class="form-group">
+            <label>Título de la sección</label>
+            <input id="ofertas-titulo" value="Ofertas del Mes" placeholder="Ej: Ofertas especiales">
+        </div>
+        <div class="items-list" id="ofertas-items">
+            <div class="item-row header-row" style="grid-template-columns: 1fr 1.5fr 90px 90px 60px;">
+                <div>Título</div><div>Descripción</div><div>P. Original</div><div>P. Oferta</div><div></div>
+            </div>
+        </div>
+        <button class="btn-add" onclick="addOfertaItem()">+ Añadir oferta</button>
+        <button class="btn-sync" onclick="sincronizarSeccion('ofertas')">🚀 Sincronizar Ofertas</button>
+    </div>
+
+    <!-- ── HORARIOS ──────────────────────────────────────────────────── -->
+    <div class="panel" id="panel-horarios">
+        <div class="section-title"><span>🕐</span> Horarios</div>
+        <div class="form-group">
+            <label>Título de la sección</label>
+            <input id="horarios-titulo" value="Horario de Apertura" placeholder="Ej: Nuestros horarios">
+        </div>
+        <div class="horarios-grid" id="horarios-grid"></div>
+        <button class="btn-sync" onclick="sincronizarSeccion('horarios')">🚀 Sincronizar Horarios</button>
+    </div>
+
+    <!-- ── GALERÍA ───────────────────────────────────────────────────── -->
+    <div class="panel" id="panel-galeria">
+        <div class="section-title"><span>🖼️</span> Galería de Fotos</div>
+        <div class="form-group">
+            <label>Título de la galería</label>
+            <input id="galeria-titulo" value="Nuestra Galería" placeholder="Ej: Galería de fotos">
+        </div>
+        <div class="items-list" id="galeria-items">
+            <div class="item-row header-row" style="grid-template-columns: 2fr 1.5fr 60px;">
+                <div>URL de imagen</div><div>Descripción</div><div></div>
+            </div>
+        </div>
+        <button class="btn-add" onclick="addGaleriaItem()">+ Añadir imagen</button>
+        <button class="btn-sync" onclick="sincronizarSeccion('galeria')">🚀 Sincronizar Galería</button>
+    </div>
+
+    <!-- ── TEXTO ─────────────────────────────────────────────────────── -->
+    <div class="panel" id="panel-texto">
+        <div class="section-title"><span>📝</span> Texto / Anuncio</div>
+        <div class="form-group">
+            <label>Título</label>
+            <input id="texto-titulo" value="" placeholder="Ej: Aviso importante">
+        </div>
+        <div class="form-group">
+            <label>Contenido</label>
+            <textarea id="texto-contenido" placeholder="Escribe aquí el texto o anuncio..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>URL de imagen (opcional)</label>
+            <input id="texto-imagen" value="" placeholder="https://...">
+        </div>
+        <button class="btn-sync" onclick="sincronizarSeccion('texto')">🚀 Sincronizar Texto</button>
+    </div>
+
+    <!-- ── PRODUCTOS ─────────────────────────────────────────────────── -->
+    <div class="panel" id="panel-productos">
+        <div class="section-title"><span>📦</span> Productos / Servicios</div>
+        <p style="color:#94a3b8;margin-bottom:16px;font-size:13px;">Estos se guardan en la colección <code>productos</code> (catálogo), no en <code>contenido_web</code>.</p>
+        <div class="items-list" id="productos-items">
+            <div class="prod-row header-row">
+                <div>Nombre</div><div>Categoría</div><div>Precio €</div><div>IVA %</div><div>Stock</div><div></div>
+            </div>
+        </div>
+        <button class="btn-add" onclick="addProductoItem()">+ Añadir producto</button>
+        <button class="btn-sync" onclick="sincronizarProductos()">🚀 Sincronizar Productos</button>
+    </div>
+
+    <!-- ── SINCRONIZAR TODO ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-todo">
+        <div class="section-title"><span>🚀</span> Sincronizar TODO de una vez</div>
+        <p style="color:#94a3b8;margin-bottom:20px;">Pulsa el botón para enviar a Firestore <b>todas las secciones</b> que hayas rellenado (carta, ofertas, horarios, galería, texto y productos).</p>
+
+        <div style="background:#1e293b;border-radius:10px;padding:20px;margin-bottom:16px;">
+            <h3 style="margin-bottom:12px;">📋 Resumen</h3>
+            <div id="resumen-todo"></div>
+        </div>
+
+        <button class="btn-sync-all" onclick="sincronizarTodo()">🔥 SINCRONIZAR TODO AHORA 🔥</button>
+    </div>
+
+    <!-- ── LOG ────────────────────────────────────────────────────────── -->
+    <div id="log"></div>
+</div>
+
+<!-- ═══ FIREBASE ═════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+    apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain:        "planeaapp-4bea4.firebaseapp.com",
+    projectId:         "planeaapp-4bea4",
+    storageBucket:     "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
+};
+
+function _initFirebase() {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+}
+function getDB()   { _initFirebase(); return firebase.firestore(); }
+function getAuth() { _initFirebase(); return firebase.auth(); }
+function getEmpresaId() { return document.getElementById('empresaInput').value.trim(); }
+
+// Escuchar estado de sesión automáticamente
+window.addEventListener('load', () => {
+    _initFirebase();
+    firebase.auth().onAuthStateChanged(user => {
+        const el = document.getElementById('auth-status');
+        if (!el) return;
+        if (user) {
+            el.innerHTML = `<span style="color:#4ade80">✅ ${user.email}</span>`;
+        } else {
+            el.innerHTML = `<span style="color:#f59e0b">⚠️ Sin login (solo lectura)</span>`;
+        }
+    });
+});
+
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+async function loginAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const pass  = document.getElementById('auth-pass').value;
+    if (!email || !pass) { alert('Introduce email y contraseña.'); return; }
+    try {
+        const cred = await getAuth().signInWithEmailAndPassword(email, pass);
+        document.getElementById('auth-status').innerHTML =
+            `<span style="color:#4ade80">✅ ${cred.user.email}</span>`;
+        escribir(`✅ Autenticado como ${cred.user.email} — ya puedes sincronizar todo`, 'ok');
+    } catch(e) {
+        document.getElementById('auth-status').innerHTML =
+            `<span style="color:#f87171">❌ ${e.message}</span>`;
+        escribir('Error login: ' + e.message, 'err');
+    }
+}
+
+async function resetPassword() {
+    const email = document.getElementById('auth-email').value.trim();
+    if (!email) {
+        alert('Escribe primero tu email en el campo de arriba.');
+        return;
+    }
+    try {
+        await getAuth().sendPasswordResetEmail(email);
+        escribir(`📧 Email de reset enviado a ${email} — revisa tu bandeja de entrada`, 'ok');
+        alert(`✅ Email enviado a ${email}\nRevisa tu bandeja de entrada (y spam).`);
+    } catch(e) {
+        escribir('Error enviando reset: ' + e.message, 'err');
+    }
+}
+</script>
+
+<!-- ═══ CONTENIDO ═══════════════════════════════════════════════════════════ -->
+<script>
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+document.getElementById('tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'todo') actualizarResumen();
+});
+
+// ─── LOG ──────────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function escribir(msg, tipo = 'info') {
+    logEl.style.display = 'block';
+    logEl.innerHTML += `<div class="${tipo}">▸ ${msg}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+function limpiarLog() { logEl.innerHTML = ''; }
+
+// ─── DETECTAR EMPRESAS ───────────────────────────────────────────────────────
+async function detectarEmpresas() {
+    limpiarLog();
+    escribir('Buscando empresas...', 'info');
+    try {
+        const snap = await getDB().collection('empresas').get();
+        escribir(`Encontradas ${snap.docs.length} empresa(s):`, 'ok');
+        snap.docs.forEach(doc => {
+            const nombre = doc.data().perfil?.nombre || doc.data().nombre || doc.id;
+            logEl.innerHTML += `<div onclick="document.getElementById('empresaInput').value='${doc.id}'"
+                style="background:#1e293b;padding:10px;margin:6px 0;border-radius:8px;cursor:pointer">
+                <b style="color:#60a5fa">ID: ${doc.id}</b> — ${nombre}
+                <span style="color:#94a3b8;font-size:12px;display:block">👆 Clic para usar este ID</span></div>`;
+        });
+    } catch(e) { escribir('Error: ' + e.message, 'err'); }
+}
+
+// ─── LEER DATOS ACTUALES ─────────────────────────────────────────────────────
+async function leerTodo() {
+    const empresaId = getEmpresaId();
+    if (!empresaId) { alert('Pon el ID de empresa primero.'); return; }
+    limpiarLog();
+    escribir('Leyendo datos de la empresa...', 'info');
+    const db = getDB();
+
+    try {
+        // Leer contenido_web
+        const webSnap = await db.collection('empresas').doc(empresaId).collection('contenido_web').get();
+        escribir(`Secciones web encontradas: ${webSnap.docs.length}`, 'ok');
+
+        let infoHtml = '<div class="existing-data"><h4>📂 Contenido Web actual en Firestore</h4>';
+        if (webSnap.empty) {
+            infoHtml += '<p style="color:#94a3b8;font-size:13px;">No hay secciones todavía.</p>';
+        }
+
+        for (const doc of webSnap.docs) {
+            const d = doc.data();
+            const activa = d.activa !== false;
+            infoHtml += `<span class="existing-badge ${activa ? 'active' : 'inactive'}">${activa ? '🟢' : '🔴'} ${d.tipo || doc.id} — "${d.nombre || doc.id}"</span> `;
+
+            // Cargar datos en los formularios
+            if (d.tipo === 'carta' && d.contenido) cargarCarta(d);
+            if (d.tipo === 'ofertas' && d.contenido) cargarOfertas(d);
+            if (d.tipo === 'horarios' && d.contenido) cargarHorarios(d);
+            if (d.tipo === 'galeria' && d.contenido) cargarGaleria(d);
+            if (d.tipo === 'texto' && d.contenido) cargarTexto(d);
+        }
+
+        // Leer productos
+        const prodSnap = await db.collection('empresas').doc(empresaId).collection('productos').get();
+        escribir(`Productos encontrados: ${prodSnap.docs.length}`, 'ok');
+        infoHtml += '</div>';
+
+        if (!prodSnap.empty) {
+            infoHtml += '<div class="existing-data"><h4>📦 Productos actuales</h4>';
+            prodSnap.docs.forEach(doc => {
+                const p = doc.data();
+                const activo = p.activo !== false;
+                infoHtml += `<span class="existing-badge ${activo ? 'active' : 'inactive'}">${activo ? '🟢' : '🔴'} ${p.nombre} — ${(p.precio||0).toFixed(2)}€</span> `;
+            });
+            infoHtml += '</div>';
+            cargarProductos(prodSnap.docs);
+        }
+
+        document.getElementById('existing-info').innerHTML = infoHtml;
+        escribir('✅ Datos cargados en los formularios. Edita y sincroniza.', 'ok');
+    } catch(e) {
+        escribir('Error leyendo datos: ' + e.message, 'err');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CARTA
+// ═══════════════════════════════════════════════════════════════════════════════
+let cartaCounter = 0;
+
+function addCartaItem(data = {}) {
+    cartaCounter++;
+    const id = data.id || `plato_${cartaCounter}_${Date.now()}`;
+    const container = document.getElementById('carta-items');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.dataset.id = id;
+    row.innerHTML = `
+        <input type="text" placeholder="Nombre del plato" value="${data.nombre || ''}">
+        <input type="text" placeholder="Descripción" value="${data.descripcion || ''}">
+        <input type="number" step="0.01" placeholder="0.00" value="${data.precio || ''}">
+        <select>
+            ${['Entrantes','Principales','Carnes','Pescados','Arroces','Ensaladas','Postres','Bebidas','Otros']
+                .map(c => `<option ${data.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+        <button class="btn-remove" onclick="this.closest('.item-row').remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function getCartaData() {
+    const rows = document.querySelectorAll('#carta-items .item-row:not(.header-row)');
+    const items = [];
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const select = row.querySelector('select');
+        const nombre = inputs[0].value.trim();
+        if (!nombre) return;
+        items.push({
+            id: row.dataset.id,
+            nombre,
+            descripcion: inputs[1].value.trim(),
+            precio: parseFloat(inputs[2].value) || 0,
+            categoria: select.value,
+            disponible: true
+        });
+    });
+    return {
+        titulo: document.getElementById('carta-titulo').value.trim() || 'Carta',
+        items_carta: items
+    };
+}
+
+function cargarCarta(d) {
+    document.getElementById('carta-titulo').value = d.contenido?.titulo || d.nombre || '';
+    // Limpiar items actuales
+    document.querySelectorAll('#carta-items .item-row:not(.header-row)').forEach(r => r.remove());
+    (d.contenido?.items_carta || []).forEach(item => addCartaItem(item));
+    escribir(`  ↳ Carta cargada: ${d.contenido?.items_carta?.length || 0} platos`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OFERTAS
+// ═══════════════════════════════════════════════════════════════════════════════
+let ofertaCounter = 0;
+
+function addOfertaItem(data = {}) {
+    ofertaCounter++;
+    const id = data.id || `oferta_${ofertaCounter}_${Date.now()}`;
+    const container = document.getElementById('ofertas-items');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.style.gridTemplateColumns = '1fr 1.5fr 90px 90px 60px';
+    row.dataset.id = id;
+    row.innerHTML = `
+        <input type="text" placeholder="Título oferta" value="${data.titulo || ''}">
+        <input type="text" placeholder="Descripción" value="${data.descripcion || ''}">
+        <input type="number" step="0.01" placeholder="P.Original" value="${data.precio_original || data.precioOriginal || ''}">
+        <input type="number" step="0.01" placeholder="P.Oferta" value="${data.precio_oferta || data.precioOferta || ''}">
+        <button class="btn-remove" onclick="this.closest('.item-row').remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function getOfertasData() {
+    const rows = document.querySelectorAll('#ofertas-items .item-row:not(.header-row)');
+    const items = [];
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const titulo = inputs[0].value.trim();
+        if (!titulo) return;
+        items.push({
+            id: row.dataset.id,
+            titulo,
+            descripcion: inputs[1].value.trim(),
+            precio_original: parseFloat(inputs[2].value) || null,
+            precio_oferta: parseFloat(inputs[3].value) || null,
+            activa: true
+        });
+    });
+    return {
+        titulo: document.getElementById('ofertas-titulo').value.trim() || 'Ofertas',
+        ofertas: items
+    };
+}
+
+function cargarOfertas(d) {
+    document.getElementById('ofertas-titulo').value = d.contenido?.titulo || d.nombre || '';
+    document.querySelectorAll('#ofertas-items .item-row:not(.header-row)').forEach(r => r.remove());
+    (d.contenido?.ofertas || []).forEach(item => addOfertaItem(item));
+    escribir(`  ↳ Ofertas cargadas: ${d.contenido?.ofertas?.length || 0}`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HORARIOS
+// ═══════════════════════════════════════════════════════════════════════════════
+const DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+
+function initHorarios(data = []) {
+    const grid = document.getElementById('horarios-grid');
+    grid.innerHTML = '';
+    DIAS.forEach(dia => {
+        const existing = data.find(h => h.dia === dia);
+        const apertura = existing?.apertura || '09:00';
+        const cierre   = existing?.cierre   || '21:00';
+        const cerrado  = existing?.cerrado  || (dia === 'Domingo');
+        const row = document.createElement('div');
+        row.className = 'horario-row';
+        row.dataset.dia = dia;
+        row.innerHTML = `
+            <label>${dia}</label>
+            <input type="time" value="${apertura}" ${cerrado ? 'disabled' : ''}>
+            <input type="time" value="${cierre}" ${cerrado ? 'disabled' : ''}>
+            <div class="cerrado-toggle">
+                <input type="checkbox" ${cerrado ? 'checked' : ''} onchange="toggleCerrado(this)">
+                <span>Cerrado</span>
+            </div>
+        `;
+        grid.appendChild(row);
+    });
+}
+
+function toggleCerrado(cb) {
+    const row = cb.closest('.horario-row');
+    const timeInputs = row.querySelectorAll('input[type="time"]');
+    timeInputs.forEach(i => i.disabled = cb.checked);
+}
+
+function getHorariosData() {
+    const rows = document.querySelectorAll('.horario-row');
+    const horarios = [];
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input[type="time"]');
+        const cerrado = row.querySelector('input[type="checkbox"]').checked;
+        horarios.push({
+            dia: row.dataset.dia,
+            apertura: inputs[0].value,
+            cierre: inputs[1].value,
+            cerrado
+        });
+    });
+    return {
+        titulo: document.getElementById('horarios-titulo').value.trim() || 'Horarios',
+        horarios
+    };
+}
+
+function cargarHorarios(d) {
+    document.getElementById('horarios-titulo').value = d.contenido?.titulo || d.nombre || '';
+    initHorarios(d.contenido?.horarios || []);
+    escribir(`  ↳ Horarios cargados`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GALERÍA
+// ═══════════════════════════════════════════════════════════════════════════════
+let galeriaCounter = 0;
+
+function addGaleriaItem(data = {}) {
+    galeriaCounter++;
+    const id = data.id || `img_${galeriaCounter}_${Date.now()}`;
+    const container = document.getElementById('galeria-items');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.style.gridTemplateColumns = '2fr 1.5fr 60px';
+    row.dataset.id = id;
+    row.innerHTML = `
+        <input type="url" placeholder="https://..." value="${data.url || ''}">
+        <input type="text" placeholder="Descripción" value="${data.descripcion || ''}">
+        <button class="btn-remove" onclick="this.closest('.item-row').remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function getGaleriaData() {
+    const rows = document.querySelectorAll('#galeria-items .item-row:not(.header-row)');
+    const items = [];
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const url = inputs[0].value.trim();
+        if (!url) return;
+        items.push({
+            id: row.dataset.id,
+            url,
+            descripcion: inputs[1].value.trim()
+        });
+    });
+    return {
+        titulo: document.getElementById('galeria-titulo').value.trim() || 'Galería',
+        imagenes_galeria: items
+    };
+}
+
+function cargarGaleria(d) {
+    document.getElementById('galeria-titulo').value = d.contenido?.titulo || d.nombre || '';
+    document.querySelectorAll('#galeria-items .item-row:not(.header-row)').forEach(r => r.remove());
+    (d.contenido?.imagenes_galeria || []).forEach(item => addGaleriaItem(item));
+    escribir(`  ↳ Galería cargada: ${d.contenido?.imagenes_galeria?.length || 0} imágenes`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEXTO
+// ═══════════════════════════════════════════════════════════════════════════════
+function getTextoData() {
+    return {
+        titulo: document.getElementById('texto-titulo').value.trim() || 'Anuncio',
+        texto: document.getElementById('texto-contenido').value.trim(),
+        imagen_url: document.getElementById('texto-imagen').value.trim() || null
+    };
+}
+
+function cargarTexto(d) {
+    document.getElementById('texto-titulo').value = d.contenido?.titulo || d.nombre || '';
+    document.getElementById('texto-contenido').value = d.contenido?.texto || '';
+    document.getElementById('texto-imagen').value = d.contenido?.imagen_url || '';
+    escribir(`  ↳ Texto cargado`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PRODUCTOS (colección separada)
+// ═══════════════════════════════════════════════════════════════════════════════
+let prodCounter = 0;
+
+function addProductoItem(data = {}) {
+    prodCounter++;
+    const id = data.id || `prod_${prodCounter}_${Date.now()}`;
+    const container = document.getElementById('productos-items');
+    const row = document.createElement('div');
+    row.className = 'prod-row';
+    row.dataset.id = id;
+    row.innerHTML = `
+        <input type="text" placeholder="Nombre" value="${data.nombre || ''}">
+        <input type="text" placeholder="Categoría" value="${data.categoria || 'General'}">
+        <input type="number" step="0.01" placeholder="0.00" value="${data.precio || ''}">
+        <select class="col-iva">
+            ${[21, 10, 4, 0].map(v => `<option value="${v}" ${(data.ivaPorcentaje || data.iva_porcentaje) == v ? 'selected' : ''}>${v}%</option>`).join('')}
+        </select>
+        <input type="number" placeholder="∞" value="${data.stock != null ? data.stock : ''}">
+        <button class="btn-remove" onclick="this.closest('.prod-row').remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+function getProductosData() {
+    const rows = document.querySelectorAll('#productos-items .prod-row:not(.header-row)');
+    const items = [];
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const select = row.querySelector('select');
+        const nombre = inputs[0].value.trim();
+        if (!nombre) return;
+        const stockVal = inputs[3].value.trim();
+        items.push({
+            id: row.dataset.id,
+            nombre,
+            categoria: inputs[1].value.trim() || 'General',
+            precio: parseFloat(inputs[2].value) || 0,
+            iva_porcentaje: parseInt(select.value) || 21,
+            stock: stockVal ? parseInt(stockVal) : null,
+            activo: true,
+        });
+    });
+    return items;
+}
+
+function cargarProductos(docs) {
+    document.querySelectorAll('#productos-items .prod-row:not(.header-row)').forEach(r => r.remove());
+    docs.forEach(doc => {
+        const d = doc.data();
+        addProductoItem({ id: doc.id, ...d, iva_porcentaje: d.iva_porcentaje || d.ivaPorcentaje });
+    });
+    escribir(`  ↳ Productos cargados: ${docs.length}`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SINCRONIZAR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function sincronizarSeccion(tipo) {
+    const empresaId = getEmpresaId();
+    if (!empresaId) { alert('Pon el ID de empresa primero.'); return; }
+
+    limpiarLog();
+    escribir(`Sincronizando sección: ${tipo}...`, 'info');
+
+    let contenido, nombre;
+    switch (tipo) {
+        case 'carta':
+            const cartaData = getCartaData();
+            nombre = cartaData.titulo;
+            contenido = cartaData;
+            escribir(`Platos a guardar: ${cartaData.items_carta.length}`, 'info');
+            break;
+        case 'ofertas':
+            const ofData = getOfertasData();
+            nombre = ofData.titulo;
+            contenido = ofData;
+            escribir(`Ofertas a guardar: ${ofData.ofertas.length}`, 'info');
+            break;
+        case 'horarios':
+            const horData = getHorariosData();
+            nombre = horData.titulo;
+            contenido = horData;
+            escribir(`Días configurados: ${horData.horarios.length}`, 'info');
+            break;
+        case 'galeria':
+            const galData = getGaleriaData();
+            nombre = galData.titulo;
+            contenido = galData;
+            escribir(`Imágenes a guardar: ${galData.imagenes_galeria.length}`, 'info');
+            break;
+        case 'texto':
+            const txtData = getTextoData();
+            nombre = txtData.titulo;
+            contenido = txtData;
+            break;
+        default:
+            escribir('Tipo desconocido: ' + tipo, 'err');
+            return;
+    }
+
+    try {
+        const db = getDB();
+        await db.collection('empresas').doc(empresaId)
+            .collection('contenido_web').doc(tipo)
+            .set({
+                id: tipo,
+                tipo,
+                nombre,
+                descripcion: `Sección de ${tipo}`,
+                activa: true,
+                orden: ['carta','ofertas','horarios','galeria','texto'].indexOf(tipo),
+                fecha_creacion: firebase.firestore.FieldValue.serverTimestamp(),
+                fecha_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+                contenido
+            });
+
+        escribir(`✅ Sección "${tipo}" guardada correctamente`, 'ok');
+
+        // Verificar
+        const doc = await db.collection('empresas').doc(empresaId)
+            .collection('contenido_web').doc(tipo).get();
+        if (doc.exists) {
+            escribir(`Verificado: "${doc.data().nombre}" en Firestore ✅`, 'ok');
+        }
+    } catch(e) {
+        escribir(`Error: ${e.message}`, 'err');
+        if (e.message.includes('permission')) {
+            escribir('⚠️ Puede que necesites desplegar reglas: desplegar_reglas.bat', 'warn');
+        }
+    }
+}
+
+async function sincronizarProductos() {
+    const empresaId = getEmpresaId();
+    if (!empresaId) { alert('Pon el ID de empresa primero.'); return; }
+
+    const productos = getProductosData();
+    if (productos.length === 0) { escribir('No hay productos para sincronizar.', 'warn'); return; }
+
+    limpiarLog();
+    escribir(`Sincronizando ${productos.length} productos...`, 'info');
+
+    const db = getDB();
+    const batch = db.batch();
+    const col = db.collection('empresas').doc(empresaId).collection('productos');
+
+    for (const prod of productos) {
+        const ref = col.doc(prod.id);
+        batch.set(ref, {
+            nombre:           prod.nombre,
+            empresaId:        empresaId,
+            categoria:        prod.categoria,
+            precio:           prod.precio,
+            iva_porcentaje:   prod.iva_porcentaje,
+            stock:            prod.stock,
+            activo:           true,
+            destacado:        false,
+            tiene_variantes:  false,
+            variantes:        [],
+            etiquetas:        [],
+            fecha_creacion:   firebase.firestore.FieldValue.serverTimestamp(),
+            fecha_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
+
+    try {
+        await batch.commit();
+        escribir(`✅ ${productos.length} productos sincronizados`, 'ok');
+    } catch(e) {
+        escribir(`Error: ${e.message}`, 'err');
+    }
+}
+
+async function sincronizarTodo() {
+    const empresaId = getEmpresaId();
+    if (!empresaId) { alert('Pon el ID de empresa primero.'); return; }
+
+    limpiarLog();
+    escribir('🔥 SINCRONIZACIÓN TOTAL INICIADA', 'warn');
+    escribir(`Empresa: ${empresaId}`, 'info');
+    escribir('─'.repeat(50), 'info');
+
+    let errores = 0;
+    let exitos  = 0;
+
+    // ── Carta ──
+    const cartaData = getCartaData();
+    if (cartaData.items_carta.length > 0) {
+        try {
+            await guardarSeccionDirecto(empresaId, 'carta', cartaData.titulo, cartaData);
+            escribir(`✅ Carta: ${cartaData.items_carta.length} platos`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Carta: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Carta: sin datos, omitida', 'info');
+    }
+
+    // ── Ofertas ──
+    const ofData = getOfertasData();
+    if (ofData.ofertas.length > 0) {
+        try {
+            await guardarSeccionDirecto(empresaId, 'ofertas', ofData.titulo, ofData);
+            escribir(`✅ Ofertas: ${ofData.ofertas.length} ofertas`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Ofertas: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Ofertas: sin datos, omitida', 'info');
+    }
+
+    // ── Horarios ──
+    const horData = getHorariosData();
+    if (horData.horarios.length > 0) {
+        try {
+            await guardarSeccionDirecto(empresaId, 'horarios', horData.titulo, horData);
+            escribir(`✅ Horarios: ${horData.horarios.length} días`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Horarios: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Horarios: sin datos, omitida', 'info');
+    }
+
+    // ── Galería ──
+    const galData = getGaleriaData();
+    if (galData.imagenes_galeria.length > 0) {
+        try {
+            await guardarSeccionDirecto(empresaId, 'galeria', galData.titulo, galData);
+            escribir(`✅ Galería: ${galData.imagenes_galeria.length} imágenes`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Galería: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Galería: sin datos, omitida', 'info');
+    }
+
+    // ── Texto ──
+    const txtData = getTextoData();
+    if (txtData.texto || txtData.titulo) {
+        try {
+            await guardarSeccionDirecto(empresaId, 'texto', txtData.titulo, txtData);
+            escribir(`✅ Texto: "${txtData.titulo}"`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Texto: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Texto: sin datos, omitido', 'info');
+    }
+
+    // ── Productos ──
+    const productos = getProductosData();
+    if (productos.length > 0) {
+        try {
+            await sincronizarProductosDirecto(empresaId, productos);
+            escribir(`✅ Productos: ${productos.length}`, 'ok');
+            exitos++;
+        } catch(e) { escribir(`❌ Productos: ${e.message}`, 'err'); errores++; }
+    } else {
+        escribir('⏭️ Productos: sin datos, omitidos', 'info');
+    }
+
+    escribir('─'.repeat(50), 'info');
+    if (errores === 0) {
+        escribir(`🎉 ¡SINCRONIZACIÓN COMPLETA! ${exitos} secciones actualizadas`, 'ok');
+        escribir('Abre la app → Dashboard → Contenido Web para verlo todo.', 'ok');
+    } else {
+        escribir(`⚠️ Terminado con ${errores} error(es) y ${exitos} éxito(s)`, 'warn');
+    }
+}
+
+async function guardarSeccionDirecto(empresaId, tipo, nombre, contenido) {
+    const db = getDB();
+    await db.collection('empresas').doc(empresaId)
+        .collection('contenido_web').doc(tipo)
+        .set({
+            id: tipo,
+            tipo,
+            nombre,
+            descripcion: `Sección de ${tipo}`,
+            activa: true,
+            orden: ['carta','ofertas','horarios','galeria','texto'].indexOf(tipo),
+            fecha_creacion: firebase.firestore.FieldValue.serverTimestamp(),
+            fecha_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+            contenido
+        });
+}
+
+async function sincronizarProductosDirecto(empresaId, productos) {
+    const db = getDB();
+    const batch = db.batch();
+    const col = db.collection('empresas').doc(empresaId).collection('productos');
+    for (const prod of productos) {
+        batch.set(col.doc(prod.id), {
+            nombre: prod.nombre, empresaId, categoria: prod.categoria,
+            precio: prod.precio, iva_porcentaje: prod.iva_porcentaje,
+            stock: prod.stock, activo: true, destacado: false,
+            tiene_variantes: false, variantes: [], etiquetas: [],
+            fecha_creacion: firebase.firestore.FieldValue.serverTimestamp(),
+            fecha_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
+    await batch.commit();
+}
+
+// ─── RESUMEN (para tab "TODO") ────────────────────────────────────────────────
+function actualizarResumen() {
+    const carta     = getCartaData();
+    const ofertas   = getOfertasData();
+    const horarios  = getHorariosData();
+    const galeria   = getGaleriaData();
+    const texto     = getTextoData();
+    const productos = getProductosData();
+
+    let html = '<table style="width:100%;font-size:14px;">';
+    html += row('🍽️ Carta',     `${carta.items_carta.length} platos`,     carta.items_carta.length > 0);
+    html += row('🏷️ Ofertas',   `${ofertas.ofertas.length} ofertas`,      ofertas.ofertas.length > 0);
+    html += row('🕐 Horarios',  `${horarios.horarios.filter(h=>!h.cerrado).length} días abiertos`, horarios.horarios.length > 0);
+    html += row('🖼️ Galería',   `${galeria.imagenes_galeria.length} imágenes`, galeria.imagenes_galeria.length > 0);
+    html += row('📝 Texto',     texto.titulo || '(vacío)',                  !!texto.texto || !!texto.titulo);
+    html += row('📦 Productos', `${productos.length} productos`,           productos.length > 0);
+    html += '</table>';
+
+    document.getElementById('resumen-todo').innerHTML = html;
+
+    function row(label, info, hasData) {
+        const color = hasData ? '#4ade80' : '#64748b';
+        const icon  = hasData ? '✅' : '⏭️';
+        return `<tr style="border-bottom:1px solid #334155">
+            <td style="padding:8px;font-weight:600">${label}</td>
+            <td style="padding:8px;color:${color}">${icon} ${info}</td>
+        </tr>`;
+    }
+}
+
+// ─── INICIALIZACIÓN ───────────────────────────────────────────────────────────
+initHorarios();
+// Añadir unos platos de ejemplo
+addCartaItem({ id: 'ejemplo_1', nombre: '', descripcion: '', precio: '', categoria: 'Entrantes' });
+</script>
+</body>
+</html>
+
+
+
+
+

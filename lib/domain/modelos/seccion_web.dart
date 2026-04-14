@@ -8,6 +8,7 @@ enum TipoSeccion {
   galeria,  // Colección de imágenes
   ofertas,  // Ofertas con precio original y precio rebajado
   horarios, // Días/horas de apertura
+  generico, // Sistema data-fluix — items con campos libres
 }
 
 extension TipoSeccionExt on TipoSeccion {
@@ -18,6 +19,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.galeria:  return 'Galería de fotos';
       case TipoSeccion.ofertas:  return 'Ofertas';
       case TipoSeccion.horarios: return 'Horarios';
+      case TipoSeccion.generico: return 'Sección genérica';
     }
   }
 
@@ -28,6 +30,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.galeria:  return 'galeria';
       case TipoSeccion.ofertas:  return 'ofertas';
       case TipoSeccion.horarios: return 'horarios';
+      case TipoSeccion.generico: return 'generico';
     }
   }
 
@@ -38,6 +41,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.galeria:  return Icons.photo_library;
       case TipoSeccion.ofertas:  return Icons.local_offer;
       case TipoSeccion.horarios: return Icons.schedule;
+      case TipoSeccion.generico: return Icons.edit_note;
     }
   }
 
@@ -48,6 +52,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.galeria:  return const Color(0xFF7B1FA2);
       case TipoSeccion.ofertas:  return const Color(0xFF2E7D32);
       case TipoSeccion.horarios: return const Color(0xFF00796B);
+      case TipoSeccion.generico: return const Color(0xFF455A64);
     }
   }
 
@@ -57,6 +62,7 @@ extension TipoSeccionExt on TipoSeccion {
       case 'galeria':  return TipoSeccion.galeria;
       case 'ofertas':  return TipoSeccion.ofertas;
       case 'horarios': return TipoSeccion.horarios;
+      case 'generico': return TipoSeccion.generico;
       default:         return TipoSeccion.texto;
     }
   }
@@ -159,6 +165,9 @@ class ContenidoSeccion {
   // Tipo HORARIOS
   final List<ItemHorario> horarios;
 
+  // Tipo GENERICO — lista de items con campos libres (data-fluix)
+  final List<Map<String, dynamic>> items;
+
   const ContenidoSeccion({
     this.titulo = '',
     this.texto = '',
@@ -167,6 +176,7 @@ class ContenidoSeccion {
     this.imagenesGaleria = const [],
     this.ofertas = const [],
     this.horarios = const [],
+    this.items = const [],
   });
 
   factory ContenidoSeccion.fromMap(Map<String, dynamic> map, TipoSeccion tipo) {
@@ -186,6 +196,9 @@ class ContenidoSeccion {
       horarios: (map['horarios'] as List<dynamic>? ?? [])
           .map((e) => ItemHorario.fromMap(e as Map<String, dynamic>))
           .toList(),
+      items: (map['items'] as List<dynamic>? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
     );
   }
 
@@ -197,6 +210,7 @@ class ContenidoSeccion {
     'imagenes_galeria': imagenesGaleria.map((e) => e.toMap()).toList(),
     'ofertas': ofertas.map((e) => e.toMap()).toList(),
     'horarios': horarios.map((e) => e.toMap()).toList(),
+    'items': items,
   };
 
   ContenidoSeccion copyWith({
@@ -207,6 +221,7 @@ class ContenidoSeccion {
     List<ItemGaleria>? imagenesGaleria,
     List<ItemOferta>? ofertas,
     List<ItemHorario>? horarios,
+    List<Map<String, dynamic>>? items,
   }) => ContenidoSeccion(
     titulo: titulo ?? this.titulo,
     texto: texto ?? this.texto,
@@ -215,6 +230,7 @@ class ContenidoSeccion {
     imagenesGaleria: imagenesGaleria ?? this.imagenesGaleria,
     ofertas: ofertas ?? this.ofertas,
     horarios: horarios ?? this.horarios,
+    items: items ?? this.items,
   );
 }
 

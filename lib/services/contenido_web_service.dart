@@ -16,21 +16,42 @@ class ContenidoWebService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Stream<List<SeccionWeb>> obtenerSecciones(String empresaId) {
+    print('📂 obtenerSecciones: escuchando empresas/$empresaId/contenido_web');
     return _firestore
         .collection('empresas')
         .doc(empresaId)
         .collection('contenido_web')
         .snapshots()
         .map((snap) {
-          final lista = snap.docs
-              .map((d) => SeccionWeb.fromMap({...d.data(), 'id': d.id}))
-              .toList();
+          print('📂 contenido_web: recibidos ${snap.docs.length} documentos');
+          final lista = <SeccionWeb>[];
+          for (final d in snap.docs) {
+            try {
+              final seccion = SeccionWeb.fromMap({...d.data(), 'id': d.id});
+              lista.add(seccion);
+              print('  ✅ ${d.id}: tipo=${seccion.tipo.id} nombre="${seccion.nombre}"');
+            } catch (e, stack) {
+              print('  ⚠️ Error parseando ${d.id}: $e');
+              print('     Stack: ${stack.toString().split('\n').take(3).join(' | ')}');
+            }
+          }
           lista.sort((a, b) {
-            final oa = (snap.docs.firstWhere((d) => d.id == a.id).data()['orden'] ?? 0) as int;
-            final ob = (snap.docs.firstWhere((d) => d.id == b.id).data()['orden'] ?? 0) as int;
-            return oa.compareTo(ob);
+            try {
+              final docA = snap.docs.firstWhere((d) => d.id == a.id);
+              final docB = snap.docs.firstWhere((d) => d.id == b.id);
+              final oa = (docA.data()['orden'] as num?)?.toInt() ?? 0;
+              final ob = (docB.data()['orden'] as num?)?.toInt() ?? 0;
+              return oa.compareTo(ob);
+            } catch (_) {
+              return 0;
+            }
           });
+          print('📂 contenido_web: devolviendo ${lista.length} secciones válidas');
           return lista;
+        })
+        .handleError((e) {
+          print('❌ obtenerSecciones ERROR: $e');
+          return <SeccionWeb>[];
         });
   }
 
@@ -430,6 +451,453 @@ class ContenidoWebService {
     buf.writeln('})();');
     buf.writeln('</script>');
     buf.writeln('<!-- ────────────────────────────────────────────────────── -->');
+
+    return buf.toString();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ITEMS GENÉRICOS (data-fluix)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Guarda la lista de items genéricos de una sección de tipo `generico`
+  Future<void> guardarItemsGenericos(
+      String empresaId, String seccionId, List<Map<String, dynamic>> items) async {
+    await _firestore
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('contenido_web')
+        .doc(seccionId)
+        .update({
+      'contenido.items': items,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Actualiza el nombre de una sección
+  Future<void> actualizarNombreSeccion(
+      String empresaId, String seccionId, String nombre) async {
+    await _firestore
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('contenido_web')
+        .doc(seccionId)
+        .update({
+      'nombre': nombre,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCRIPT UNIVERSAL HOSTINGER (iframes same-origin)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Script universal para Hostinger Integrations.
+  /// El mismo script vale para todas las webs del cliente.
+  /// El empresaId se lee del atributo data-fluix-empresa en el embed HTML.
+  /// No necesita parámetros — el HTML lleva toda la configuración.
+  String generarScriptHostinger() {
+    // Usamos raw triple-quoted string para evitar conflictos de comillas.
+    // El $ no existe en este JS así que no hay riesgo de interpolación.
+    return r'''<!-- FLUIX CRM v4 — Un solo bloque, carga Firebase dinámicamente -->
+<script>
+(function () {
+  var scripts = [
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
+  ];
+  var loaded = 0;
+  function loadNext() {
+    if (loaded >= scripts.length) { init(); return; }
+    var s = document.createElement('script');
+    s.src = scripts[loaded];
+    s.onload = function () { loaded++; loadNext(); };
+    s.onerror = function () { console.error('Fluix: no se pudo cargar ' + scripts[loaded]); };
+    document.head.appendChild(s);
+  }
+  loadNext();
+
+  var CFG = {
+    apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+
+  var EMPRESA_ID = "";
+
+  function _getIframes() {
+    var docs = [];
+    document.querySelectorAll('iframe').forEach(function (iframe) {
+      try {
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (doc && doc.body) docs.push(doc);
+      } catch (e) {}
+    });
+    return docs;
+  }
+
+  function _getEmpresaId() {
+    var emp = null;
+    _getIframes().forEach(function (doc) {
+      if (!emp) {
+        var el = doc.querySelector('[data-fluix-empresa]');
+        if (el) emp = el.getAttribute('data-fluix-empresa');
+      }
+    });
+    return emp || EMPRESA_ID || null;
+  }
+
+  function _escribirCampo(cEl, campo, item) {
+    var valor = item[campo];
+    if (valor === undefined || valor === null) return;
+    var tag = cEl.tagName.toLowerCase();
+    if (tag === 'img') cEl.src = valor;
+    else if (tag === 'a') cEl.href = valor;
+    else if (campo === 'precio' && typeof valor === 'number') cEl.textContent = valor + '€';
+    else cEl.textContent = valor;
+  }
+
+  function _escuchar(db, secEl, emp, sec) {
+    db.collection('empresas').doc(emp).collection('contenido_web').doc(sec)
+      .onSnapshot(function (doc) {
+        if (!doc.exists) return;
+        var d = doc.data();
+        secEl.style.display = (d.activa === false) ? 'none' : '';
+        if (d.activa === false) return;
+        var tituloEl = secEl.querySelector('[data-fluix-titulo]');
+        if (tituloEl && d.nombre) tituloEl.textContent = d.nombre;
+        var idx = {};
+        ((d.contenido || {}).items || []).forEach(function (i) { if (i.id) idx[i.id] = i; });
+        secEl.querySelectorAll('[data-fluix-item]').forEach(function (itemEl) {
+          var item = idx[itemEl.getAttribute('data-fluix-item')];
+          if (!item) return;
+          itemEl.style.opacity = (item.disponible === false) ? '0.45' : '';
+          if (item.disponible === false) itemEl.classList.add('fluix-no-disponible');
+          else itemEl.classList.remove('fluix-no-disponible');
+          itemEl.querySelectorAll('[data-fluix-campo]').forEach(function (cEl) {
+            _escribirCampo(cEl, cEl.getAttribute('data-fluix-campo'), item);
+          });
+        });
+      });
+  }
+
+  // ── Seed: leer HTML del iframe → subir a Firestore ─────────────────────────
+  function _subirSeccion(db, secEl, emp, sec, forzar) {
+    var tituloEl = secEl.querySelector('[data-fluix-titulo]');
+    var nombre = tituloEl ? tituloEl.textContent.trim() : sec;
+    var dic = {};
+
+    secEl.querySelectorAll('[data-fluix-item]').forEach(function (itemEl) {
+      var id = itemEl.getAttribute('data-fluix-item');
+      if (!dic[id]) dic[id] = { id: id, disponible: true };
+      itemEl.querySelectorAll('[data-fluix-campo]').forEach(function (cEl) {
+        var campo = cEl.getAttribute('data-fluix-campo');
+        var tag = cEl.tagName.toLowerCase();
+        if (tag === 'img') {
+          var src = cEl.getAttribute('src');
+          if (src) dic[id].imagen = src;
+        } else if (campo === 'precio') {
+          var n = parseFloat(cEl.textContent.replace(/[^0-9.,]/g, '').replace(',', '.'));
+          dic[id].precio = isNaN(n) ? cEl.textContent.trim() : n;
+        } else {
+          var txt = cEl.textContent.trim();
+          if (txt) dic[id][campo] = txt;
+        }
+      });
+    });
+
+    var items = Object.values(dic);
+    var ref = db.collection('empresas').doc(emp).collection('contenido_web').doc(sec);
+
+    ref.get().then(function (doc) {
+      if (doc.exists && !forzar) {
+        console.log('Fluix [' + sec + ']: ya existe. Usa Fluix.seedForce("' + sec + '") para forzar');
+        return;
+      }
+      return ref.set({
+        tipo: 'generico', nombre: nombre, activa: true,
+        fecha_creacion: new Date(), fecha_actualizacion: new Date(),
+        contenido: { items: items }
+      });
+    }).then(function (r) {
+      if (r !== undefined) console.log('✅ Fluix seed [' + sec + ']: ' + items.length + ' items subidos');
+    }).catch(function (e) {
+      console.error('❌ Fluix seed [' + sec + ']:', e.message);
+    });
+  }
+
+  // ── Seed por ID desde consola ──────────────────────────────────────────────
+  function _seedById(seccionId, forzar) {
+    if (!window._fluixDB) { console.error('Fluix: esperando auth...'); return; }
+    var emp = _getEmpresaId();
+    if (!emp) { console.error('Fluix: no se encontró data-fluix-empresa'); return; }
+    var encontrado = false;
+    _getIframes().forEach(function (iDoc) {
+      iDoc.querySelectorAll('[data-fluix-seccion]').forEach(function (el) {
+        if (el.getAttribute('data-fluix-seccion') === seccionId) {
+          encontrado = true;
+          _subirSeccion(window._fluixDB, el, emp, seccionId, forzar);
+        }
+      });
+    });
+    if (!encontrado) console.error('Fluix: sección "' + seccionId + '" no encontrada en el HTML');
+  }
+
+  // ── Tracking directo a Firestore (sin CORS, sin Cloud Function) ──────────
+  function _tracking() {
+    var emp = _getEmpresaId();
+    if (!emp || !window._fluixDB) return;
+    var db = window._fluixDB;
+
+    var pagina = window.location.pathname || '/';
+    var referrer = document.referrer || '';
+    var fuente = 'directo';
+    if (referrer) {
+      try {
+        var rHost = new URL(referrer).hostname.replace('www.', '');
+        if (rHost.indexOf('google') !== -1) fuente = 'google';
+        else if (rHost.indexOf('facebook') !== -1 || rHost.indexOf('fb.com') !== -1) fuente = 'facebook';
+        else if (rHost.indexOf('instagram') !== -1) fuente = 'instagram';
+        else if (rHost.indexOf('twitter') !== -1 || rHost.indexOf('t.co') !== -1) fuente = 'twitter';
+        else if (rHost.indexOf('whatsapp') !== -1) fuente = 'whatsapp';
+        else fuente = rHost;
+      } catch (e) {}
+    }
+
+    var ua = (navigator.userAgent || '').toLowerCase();
+    var dispositivo = 'desktop';
+    if (/tablet|ipad/i.test(ua)) dispositivo = 'tablet';
+    else if (/mobile|android|iphone/i.test(ua)) dispositivo = 'movil';
+
+    var hoy = new Date().toISOString().split('T')[0];
+    var inc = firebase.firestore.FieldValue.increment(1);
+    var pageKey = (pagina === '/' || pagina === '') ? 'inicio'
+      : pagina.replace(/^\//, '').replace(/\//g, '_').split('?')[0] || 'inicio';
+    var fuenteKey = fuente.replace(/\./g, '_');
+
+    var updates = {
+      visitas_total: inc, visitas_hoy: inc,
+      visitas_semana: inc, visitas_mes: inc,
+      ultima_actualizacion: new Date()
+    };
+    updates['paginas_mas_vistas.' + pageKey] = inc;
+    updates['referrers.' + fuenteKey] = inc;
+    updates['visitas_' + dispositivo] = inc;
+
+    var ref = db.collection('empresas').doc(emp).collection('estadisticas').doc('trafico_web');
+    ref.set(updates, { merge: true }).catch(function (e) {
+      console.warn('Fluix tracking:', e.message);
+    });
+    ref.collection('historico_diario').doc(hoy).set({
+      fecha: hoy, visitas: inc
+    }, { merge: true }).catch(function () {});
+  }
+
+  // ── Buscar secciones en iframes con retry (Hostinger carga tarde) ──────────
+  function _buscarEnIframes(db, intentos) {
+    var encontradas = 0;
+    var empGlobal = null;
+    _getIframes().forEach(function (iDoc) {
+      iDoc.querySelectorAll('[data-fluix-seccion]').forEach(function (secEl) {
+        var emp = secEl.getAttribute('data-fluix-empresa');
+        var sec = secEl.getAttribute('data-fluix-seccion');
+        if (!emp || !sec) return;
+        if (!empGlobal) empGlobal = emp;
+        encontradas++;
+        _subirSeccion(db, secEl, emp, sec, false);
+        _escuchar(db, secEl, emp, sec);
+      });
+    });
+
+    if (encontradas > 0) {
+      console.log('🚀 Fluix Ready — ' + encontradas + ' sección(es) conectadas');
+      _tracking();
+      // Popup/banner/contacto AQUÍ — los iframes ya están cargados
+      if (empGlobal) {
+        _mostrarBanner(db, empGlobal);
+        _mostrarPopup(db, empGlobal);
+        _mostrarContacto(db, empGlobal);
+      }
+      return;
+    }
+
+    if (intentos < 30) {
+      setTimeout(function () { _buscarEnIframes(db, intentos + 1); }, 500);
+    } else {
+      console.warn('Fluix: no se encontraron secciones [data-fluix-seccion] en ningún iframe');
+      _tracking();
+      // Página sin secciones: usar EMPRESA_ID para popup/banner/contacto
+      var empFallback = EMPRESA_ID;
+      if (empFallback) {
+        _mostrarBanner(db, empFallback);
+        _mostrarPopup(db, empFallback);
+        _mostrarContacto(db, empFallback);
+      }
+    }
+  }
+
+  // ── Herramientas de consola window.Fluix ──────────────────────────────────
+  window.Fluix = {
+    debug: function () {
+      console.log('--- Fluix Debug ---');
+      console.log('EMPRESA_ID: ' + EMPRESA_ID);
+      console.log('empresaId resuelto: ' + _getEmpresaId());
+      console.log('Firebase cargado: ' + (typeof firebase !== 'undefined'));
+      console.log('DB lista: ' + !!window._fluixDB);
+      var frames = _getIframes();
+      console.log('Iframes: ' + frames.length);
+      frames.forEach(function (doc, i) {
+        var secs = doc.querySelectorAll('[data-fluix-seccion]');
+        console.log('  iframe ' + i + ': ' + secs.length + ' seccion(es)');
+      });
+    },
+    seed: function (s) { _seedById(s, false); },
+    seedForce: function (s) { _seedById(s, true); }
+  };
+  console.log('Fluix: script cargado, esperando Firebase...');
+
+  function init() {
+    console.log('Fluix: Firebase cargado OK');
+    var existing = (firebase.apps || []).filter(function (a) { return a && a.name === 'FluixApp'; })[0];
+    var app = existing || firebase.initializeApp(CFG, 'FluixApp');
+    var db = app.firestore();
+    window._fluixDB = db;
+    firebase.auth(app).signInAnonymously().then(function () {
+      console.log('Fluix: auth OK');
+      _buscarEnIframes(db, 0);
+    }).catch(function (e) {
+      console.error('Fluix auth error: ' + e.message);
+    });
+  }
+})();
+</script>''';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCRIPT DATA-FLUIX (genérico para webs de clientes)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Genera el script JS que se pega en la web del cliente.
+  /// Incluye:
+  ///  - Auth anónima (para poder escribir en Firestore de forma segura)
+  ///  - Seed automático (lee el HTML y crea los datos en Firestore si no existen)
+  ///  - Listener en tiempo real (onSnapshot) para actualizar el HTML
+  String generarScriptDataFluix(String empresaId) {
+    final buf = StringBuffer();
+
+    buf.writeln('<!-- FLUIX CRM — Script Data-Fluix (pegar antes de </body>) -->');
+    buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>');
+    buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>');
+    buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>');
+    buf.writeln('<script>');
+    buf.writeln('(function(){');
+    buf.writeln('  var cfg={apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",authDomain:"planeaapp-4bea4.firebaseapp.com",projectId:"planeaapp-4bea4"};');
+    buf.writeln('  if(!firebase.apps||!firebase.apps.length) firebase.initializeApp(cfg);');
+    buf.writeln('  var db=firebase.firestore();');
+    buf.writeln('  var auth=firebase.auth();');
+    buf.writeln('  var EMPRESA="$empresaId";');
+    buf.writeln('');
+    // ── Función para leer un campo del HTML según el tag ──
+    buf.writeln('  function leerCampo(el){');
+    buf.writeln('    var tag=el.tagName.toLowerCase();');
+    buf.writeln('    if(tag==="img") return el.getAttribute("src")||"";');
+    buf.writeln('    if(tag==="a") return el.getAttribute("href")||"";');
+    buf.writeln('    return el.textContent.trim();');
+    buf.writeln('  }');
+    buf.writeln('');
+    // ── Función para escribir un campo en el HTML según el tag ──
+    buf.writeln('  function escribirCampo(el,campo,valor){');
+    buf.writeln('    if(valor===undefined||valor===null) return;');
+    buf.writeln('    var tag=el.tagName.toLowerCase();');
+    buf.writeln('    if(tag==="img"){ el.src=valor; return; }');
+    buf.writeln('    if(tag==="a"){ el.href=valor; return; }');
+    buf.writeln('    if(campo==="precio"&&typeof valor==="number"){ el.textContent=valor+"€"; return; }');
+    buf.writeln('    el.textContent=valor;');
+    buf.writeln('  }');
+    buf.writeln('');
+    // ── Seed: lee HTML → crea doc en Firestore si no existe ──
+    buf.writeln('  function seedSeccion(seccionEl,seccionId){');
+    buf.writeln('    var ref=db.collection("empresas").doc(EMPRESA).collection("contenido_web").doc(seccionId);');
+    buf.writeln('    ref.get().then(function(doc){');
+    buf.writeln('      if(doc.exists){ console.log("⏭️ Fluix seed: "+seccionId+" ya existe"); return; }');
+    buf.writeln('      var tituloEl=seccionEl.querySelector("[data-fluix-titulo]");');
+    buf.writeln('      var items=[];');
+    buf.writeln('      seccionEl.querySelectorAll("[data-fluix-item]").forEach(function(itemEl){');
+    buf.writeln('        var itemId=itemEl.getAttribute("data-fluix-item");');
+    buf.writeln('        var item={id:itemId,disponible:true};');
+    buf.writeln('        itemEl.querySelectorAll("[data-fluix-campo]").forEach(function(campoEl){');
+    buf.writeln('          var campo=campoEl.getAttribute("data-fluix-campo");');
+    buf.writeln('          var val=leerCampo(campoEl);');
+    buf.writeln('          if(!val) return;');
+    // Intentar parsear precio como número
+    buf.writeln('          if(campo==="precio"){');
+    buf.writeln('            var limpio=val.replace(/[^0-9.,]/g,"").replace(",",".");');
+    buf.writeln('            var num=parseFloat(limpio);');
+    buf.writeln('            item[campo]=isNaN(num)?val:num;');
+    buf.writeln('          }else{');
+    buf.writeln('            item[campo]=val;');
+    buf.writeln('          }');
+    buf.writeln('        });');
+    buf.writeln('        items.push(item);');
+    buf.writeln('      });');
+    buf.writeln('      ref.set({');
+    buf.writeln('        tipo:"generico",');
+    buf.writeln('        activa:true,');
+    buf.writeln('        nombre:tituloEl?tituloEl.textContent.trim():seccionId,');
+    buf.writeln('        contenido:{items:items}');
+    buf.writeln('      }).then(function(){');
+    buf.writeln('        console.log("✅ Fluix seed: "+seccionId+" creada con "+items.length+" items");');
+    buf.writeln('      }).catch(function(e){');
+    buf.writeln('        console.error("❌ Fluix seed error ("+seccionId+"): "+e.message);');
+    buf.writeln('      });');
+    buf.writeln('    });');
+    buf.writeln('  }');
+    buf.writeln('');
+    // ── Listener tiempo real: actualiza HTML cuando cambia Firestore ──
+    buf.writeln('  function escucharSeccion(seccionEl,seccionId){');
+    buf.writeln('    db.collection("empresas").doc(EMPRESA)');
+    buf.writeln('      .collection("contenido_web").doc(seccionId)');
+    buf.writeln('      .onSnapshot(function(doc){');
+    buf.writeln('        if(!doc.exists) return;');
+    buf.writeln('        var data=doc.data();');
+    buf.writeln('        seccionEl.style.display=(data.activa===false)?"none":"";');
+    buf.writeln('        var tituloEl=seccionEl.querySelector("[data-fluix-titulo]");');
+    buf.writeln('        if(tituloEl&&data.nombre) tituloEl.textContent=data.nombre;');
+    buf.writeln('        var items=(data.contenido&&data.contenido.items)||[];');
+    buf.writeln('        seccionEl.querySelectorAll("[data-fluix-item]").forEach(function(itemEl){');
+    buf.writeln('          var itemId=itemEl.getAttribute("data-fluix-item");');
+    buf.writeln('          var item=items.find(function(i){return i.id===itemId;});');
+    buf.writeln('          if(!item) return;');
+    buf.writeln('          itemEl.style.opacity=(item.disponible===false)?"0.5":"";');
+    buf.writeln('          if(item.disponible===false) itemEl.classList.add("fluix-no-disponible");');
+    buf.writeln('          else itemEl.classList.remove("fluix-no-disponible");');
+    buf.writeln('          itemEl.querySelectorAll("[data-fluix-campo]").forEach(function(campoEl){');
+    buf.writeln('            var campo=campoEl.getAttribute("data-fluix-campo");');
+    buf.writeln('            escribirCampo(campoEl,campo,item[campo]);');
+    buf.writeln('          });');
+    buf.writeln('        });');
+    buf.writeln('      });');
+    buf.writeln('  }');
+    buf.writeln('');
+    // ── Arranque: auth anónima → seed → escuchar ──
+    buf.writeln('  auth.signInAnonymously().then(function(){');
+    buf.writeln('    console.log("🔐 Fluix: autenticación anónima OK");');
+    buf.writeln('    var secciones=document.querySelectorAll("[data-fluix-seccion]");');
+    buf.writeln('    secciones.forEach(function(seccionEl){');
+    buf.writeln('      var seccionId=seccionEl.getAttribute("data-fluix-seccion");');
+    buf.writeln('      seedSeccion(seccionEl,seccionId);');
+    buf.writeln('      escucharSeccion(seccionEl,seccionId);');
+    buf.writeln('    });');
+    buf.writeln('    console.log("🚀 Fluix: "+secciones.length+" sección(es) conectadas");');
+    buf.writeln('  }).catch(function(e){');
+    buf.writeln('    console.error("❌ Fluix auth error: "+e.message);');
+    buf.writeln('    console.error("   → Activa \'Anonymous\' en Firebase Console > Authentication > Sign-in method");');
+    buf.writeln('  });');
+    buf.writeln('})();');
+    buf.writeln('</script>');
 
     return buf.toString();
   }

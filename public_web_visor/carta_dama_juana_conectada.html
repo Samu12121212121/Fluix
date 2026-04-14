@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carta Dama Juana</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #f7f7f7;
+      color: #fff;
+    }
+    .menu-section {
+      background-color: #2b2b2b;
+      padding: 3rem 0;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 2rem;
+      color: #FFD700;
+      margin-bottom: 2rem;
+    }
+    .menu-container {
+      width: 90%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      justify-items: center;
+    }
+    .menu-card {
+      perspective: 1000px;
+      width: 100%;
+      height: 250px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .card-front, .card-back {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      backface-visibility: hidden;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    .card-front {
+      background-color: #FFD700;
+      color: #000;
+      font-size: 1.3rem;
+      font-weight: bold;
+    }
+    .card-back {
+      background-color: #333;
+      color: #FFD700;
+      transform: rotateY(180deg);
+      font-size: 1rem;
+      overflow-y: auto;
+    }
+    .menu-card .card-inner.flipped {
+      transform: rotateY(180deg);
+    }
+    .card-back ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .card-back li {
+      margin-bottom: 0.5rem;
+    }
+    /* Plato agotado — lo pone la app automáticamente */
+    .fluix-inactivo {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+    @media (max-width: 1024px) {
+      .menu-container { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .menu-container { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  FLUIX CRM — Carta conectada con la app                      ║
+  ║                                                              ║
+  ║  Empresa:  7Uz8GOnQ6OX8ejiov7c5M9LFPI2                      ║
+  ║  Sección:  carta                                             ║
+  ║                                                              ║
+  ║  PRIMERA VEZ:                                                ║
+  ║    1. Ejecuta desplegar_reglas.bat                           ║
+  ║    2. Abre la web con ?fluix_sync=true al final de la URL    ║
+  ║       → sube automáticamente todos los platos a Firestore    ║
+  ║    3. A partir de ahí, edita desde la app y se actualiza     ║
+  ║       en tiempo real sin tocar el HTML                       ║
+  ║                                                              ║
+  ║  PARA HOSTINGER:                                             ║
+  ║    Copia solo el <section> y el <script> del final          ║
+  ║    (no el <html>, <head> ni <body> — Hostinger ya los tiene) ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+
+<!-- ══ CARTA (fluix-widget = contenedor que Fluix observa) ══════════════ -->
+<section class="menu-section fluix-widget"
+         data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+         data-seccion="carta"
+         data-tipo="carta"
+         data-titulo="Carta Dama Juana">
+
+  <h2 class="section-title">Carta</h2>
+
+  <div class="menu-container">
+
+    <!-- ── ENTRANTES ───────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Entrantes 🍴</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="entrante_croquetas" data-fluix-campo="nombre">Croquetas de jamón ibérico D.O Guijuelo (8 unidades)</span>
+              — <span data-fluix-item="entrante_croquetas" data-fluix-campo="precio">12€</span>
+            </li>
+            <li>
+              <span data-fluix-item="entrante_anchoas" data-fluix-campo="nombre">Anchoas D.O Cantábrico con pan Tumaca (6 unidades)</span>
+              — <span data-fluix-item="entrante_anchoas" data-fluix-campo="precio">15€</span>
+            </li>
+            <li>
+              <span data-fluix-item="entrante_tortilla" data-fluix-campo="nombre">Tortilla estilo Betanzos con queso idiazabal y jamón ibérico</span>
+              — <span data-fluix-item="entrante_tortilla" data-fluix-campo="precio">12€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── UN POCO DE DIVERSIÓN ─────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Un Poco de Diversión 🎉</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="diversion_pan_bao" data-fluix-campo="nombre">Pan Bao de Gamo del Alto Tajo, mayonesa de soja y sriracha</span>
+              — <span data-fluix-item="diversion_pan_bao" data-fluix-campo="precio">15€</span>
+            </li>
+            <li>
+              <span data-fluix-item="diversion_taco_atun" data-fluix-campo="nombre">Taco mexicano de atún rojo con guacamole y gambas de cristal</span>
+              — <span data-fluix-item="diversion_taco_atun" data-fluix-campo="precio">16.90€</span>
+            </li>
+            <li>
+              <span data-fluix-item="diversion_wok" data-fluix-campo="nombre">Wok de contramuslo de corral crujiente con fideos yakisoba y setas</span>
+              — <span data-fluix-item="diversion_wok" data-fluix-campo="precio">15.90€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ENSALADAS ────────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Ensaladas 🥗</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="ensalada_poke" data-fluix-campo="nombre">Poke hawaiano de atún rojo, alga wakame, aguacate y mango fresco</span>
+              — <span data-fluix-item="ensalada_poke" data-fluix-campo="precio">17.50€</span>
+            </li>
+            <li>
+              <span data-fluix-item="ensalada_pullarda" data-fluix-campo="nombre">Ensalada de lechuga viva y pullarda con tomate cherry</span>
+              — <span data-fluix-item="ensalada_pullarda" data-fluix-campo="precio">17.90€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CARNE ────────────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Carne 🥩</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="carne_presa" data-fluix-campo="nombre">Presa ibérica a la parrilla con puré de boniato</span>
+              — <span data-fluix-item="carne_presa" data-fluix-campo="precio">25€</span>
+            </li>
+            <li>
+              <span data-fluix-item="carne_steak" data-fluix-campo="nombre">Steak tartar de solomillo en pan de hojaldre</span>
+              — <span data-fluix-item="carne_steak" data-fluix-campo="precio">24€</span>
+            </li>
+            <li>
+              <span data-fluix-item="carne_tbone" data-fluix-campo="nombre">T-Bone de rubia gallega con patatas baby y mojo picón</span>
+              — <span data-fluix-item="carne_tbone" data-fluix-campo="precio">69€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PESCADO ──────────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Pescado 🐟</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="pescado_pulpo" data-fluix-campo="nombre">Pulpo a la parrilla con patata al pimentón y alioli</span>
+              — <span data-fluix-item="pescado_pulpo" data-fluix-campo="precio">25€</span>
+            </li>
+            <li>
+              <span data-fluix-item="pescado_tartar" data-fluix-campo="nombre">Tartar de atún rojo con alga wakame y guacamole</span>
+              — <span data-fluix-item="pescado_tartar" data-fluix-campo="precio">24.50€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ARROZ ────────────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Arroz 🍚</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="arroz_banda" data-fluix-campo="nombre">Arroz a banda de rape y langostinos (mín 2 personas)</span>
+              — <span data-fluix-item="arroz_banda" data-fluix-campo="precio">19€</span>/ración
+            </li>
+            <li>
+              <span data-fluix-item="arroz_bogavante" data-fluix-campo="nombre">Arroz meloso de bogavante (mín 2 personas)</span>
+              — <span data-fluix-item="arroz_bogavante" data-fluix-campo="precio">22€</span>/ración
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── POSTRES ──────────────────────────────────────────────────── -->
+    <div class="menu-card">
+      <div class="card-inner">
+        <div class="card-front">Postres 🍰</div>
+        <div class="card-back">
+          <ul>
+            <li>
+              <span data-fluix-item="postre_tarta_queso" data-fluix-campo="nombre">Tarta de queso deconstruida estilo Juanita</span>
+              — <span data-fluix-item="postre_tarta_queso" data-fluix-campo="precio">7.50€</span>
+            </li>
+            <li>
+              <span data-fluix-item="postre_chocolate" data-fluix-campo="nombre">Chocolate, naranja y curry</span>
+              — <span data-fluix-item="postre_chocolate" data-fluix-campo="precio">7.50€</span>
+            </li>
+            <li>
+              <span data-fluix-item="postre_lemon_pie" data-fluix-campo="nombre">Lemon Pie versión DamaJuana</span>
+              — <span data-fluix-item="postre_lemon_pie" data-fluix-campo="precio">7.50€</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Flip interactivo (igual que antes, sin cambios) ──────────────── -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.menu-card').forEach(card => {
+      card.addEventListener('click', () => {
+        card.querySelector('.card-inner').classList.toggle('flipped');
+      });
+    });
+  });
+</script>
+
+<!-- ── FLUIX CRM — Script de conexión con la app ────────────────────── -->
+<script data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+        src="https://planeaapp-4bea4.web.app/fluix-embed.js"></script>
+
+</body>
+</html>
+

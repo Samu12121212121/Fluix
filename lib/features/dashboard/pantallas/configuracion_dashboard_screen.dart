@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../services/contenido_web_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/widget_manager_service.dart';
+import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_widgets_screen.dart';
 import 'pantallas_configuracion_extras.dart';
@@ -17,10 +18,82 @@ class ConfiguracionDashboardScreen extends StatefulWidget {
 
 class _ConfiguracionDashboardScreenState
     extends State<ConfiguracionDashboardScreen> {
-  // ignore: unused_field
-  final ContenidoWebService _contenidoWebService = ContenidoWebService();
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _cargando = false;
+
+  // Packs contratados por la empresa (leídos de suscripcion/actual)
+  List<String> _packsContratados = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarPacks();
+  }
+
+  Future<void> _cargarPacks() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('suscripcion')
+          .doc('actual')
+          .get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        final packs = (data['packs_activos'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ?? [];
+        if (mounted) setState(() => _packsContratados = packs);
+      }
+    } catch (_) {}
+  }
+
+  /// Devuelve true si el plan del módulo está contratado
+  bool _planContratado(PlanModulo plan) {
+    switch (plan) {
+      case PlanModulo.basico:  return true; // siempre incluido
+      case PlanModulo.gestion: return _packsContratados.contains('gestion');
+      case PlanModulo.tienda:  return _packsContratados.contains('tienda');
+    }
+  }
+
+  Widget _buildFilaModulo(ModuloConfig modulo, PlanModulo plan) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: modulo.activo
+              ? plan.color.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListTile(
+          leading: Icon(
+            modulo.icono,
+            color: modulo.activo ? plan.color : Colors.grey,
+          ),
+          title: Text(modulo.nombre),
+          subtitle: Text(
+            modulo.descripcion,
+            style: TextStyle(
+              color: plan.color,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          trailing: Checkbox(
+            value: modulo.activo,
+            onChanged: (bool? value) async {
+              if (value != null) {
+                // Usar copyWith para actualizar modulo inmutable
+                // TODO: Save to database
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,9 +115,7 @@ class _ConfiguracionDashboardScreenState
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final modulos = snapshot.data ?? ModulosDisponibles.todos.map((m) => m.copyWith(
-            activo: ModulosDisponibles.activosPorDefecto.contains(m.id),
-          )).toList();
+          final modulos = snapshot.data ?? [];
           // Ocultar módulo propietario de la lista configurable
           final modulosVisibles = modulos.where((m) => m.id != 'propietario').toList();
           return ListView(
@@ -236,8 +307,7 @@ class _ConfiguracionDashboardScreenState
                     children: [
                       Text(
                         plan.nombre,
-                        style: TextStyle(
-                          color: plan.color,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
@@ -253,8 +323,7 @@ class _ConfiguracionDashboardScreenState
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: plan.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -334,7 +403,9 @@ class _ConfiguracionDashboardScreenState
                       Text(
                         'Módulos adicionales contratables por separado',
                         style: TextStyle(
-                            color: Color(0xFF00897B), fontSize: 12),
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -342,94 +413,7 @@ class _ConfiguracionDashboardScreenState
               ],
             ),
           ),
-          ...modulos.map((m) => _buildFilaModuloAddOn(m)),
           const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  // ── FILA DE MÓDULO ────────────────────────────────────────────────────────
-
-  static final _modulosFijos = ModulosDisponibles.siempreActivos;
-
-  Widget _buildFilaModulo(ModuloConfig modulo, PlanModulo plan) {
-    final esFijo = _modulosFijos.contains(modulo.id);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: modulo.activo
-                  ? plan.color.withValues(alpha: 0.1)
-                  : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              modulo.icono,
-              color: modulo.activo ? plan.color : Colors.grey,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      modulo.nombre,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: modulo.activo ? Colors.black87 : Colors.grey,
-                      ),
-                    ),
-                    if (esFijo) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: plan.color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Siempre activo',
-                          style: TextStyle(
-                              color: plan.color,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                Text(
-                  modulo.descripcion,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          esFijo
-              ? Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(Icons.lock_outline,
-                      size: 18,
-                      color: plan.color.withValues(alpha: 0.5)),
-                )
-              : Switch(
-                  value: modulo.activo,
-                  onChanged: (v) =>
-                      _toggleModulo(modulo.id, v, modulo.nombre),
-                  activeThumbColor: plan.color,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
         ],
       ),
     );

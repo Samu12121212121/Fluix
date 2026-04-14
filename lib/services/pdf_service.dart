@@ -596,7 +596,7 @@ class PdfService {
                   pw.SizedBox(
                     width: 30,
                     child: pw.Text(
-                      '${l.porcentajeIva.toStringAsFixed(0)}%',
+                      '${l.subtotalSinIva.toStringAsFixed(2)} EUR',
                       style: pw.TextStyle(fontSize: 10, color: colorGris),
                       textAlign: pw.TextAlign.center,
                     ),
@@ -642,7 +642,7 @@ class PdfService {
                   // Desglose IVA por tipo
                   if (sortedRates.length <= 1)
                     _rowTotal(
-                      'IVA',
+                      'IVA ${sortedRates.isNotEmpty ? sortedRates.first.toStringAsFixed(0) : '0'}%',
                       '${factura.totalIva.toStringAsFixed(2)} €',
                       colorGris,
                       fontSize: 11,
@@ -663,7 +663,7 @@ class PdfService {
                     ),
                   if (factura.porcentajeIrpf > 0)
                     _rowTotal(
-                      'IRPF (-${factura.porcentajeIrpf.toStringAsFixed(0)}%)',
+                      'IRPF ${factura.porcentajeIrpf.toStringAsFixed(0)}%',
                       '-${factura.retencionIrpf.toStringAsFixed(2)} €',
                       colorGris,
                       fontSize: 11,

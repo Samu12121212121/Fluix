@@ -19,7 +19,6 @@ class _IBANFormatter extends TextInputFormatter {
     final clean = newValue.text
         .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
         .toUpperCase();
-
     // Limitar a 24 chars (IBAN español sin espacios)
     final limited = clean.length > 24 ? clean.substring(0, 24) : clean;
 
@@ -83,12 +82,19 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
   String? _categoriaConvenioSeleccionada;
   DateTime? _fechaNacimiento;
   int _numHijos = 0;
-  int _numHijosMenores3 = 0;
+  bool _guardando = false;
   double _pctDiscapacidad = 33.0;
   bool _discapacidad = false;
-  bool _guardando = false;
+  int _numHijosMenores3 = 0;
   bool _prorrateoPagas = true;
   bool _antiguedadManual = false;
+  bool get _esSectorCarnicas {
+    return widget.categoriasConvenio.any((c) => 
+        c.nombre.toLowerCase().contains('cárnic') || 
+        c.nombre.toLowerCase().contains('carnic') || 
+        c.id.toLowerCase().contains('carnic'));
+  }
+
   int _numPagas = 12;
   GrupoCotizacion _grupoCotizacion = GrupoCotizacion.grupo7;
 
@@ -491,11 +497,13 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
                 value: _antiguedadManual,
                 onChanged: (v) => setState(() => _antiguedadManual = v),
               ),
-              if (_antiguedadManual)
-                _buildCampoTexto(_antiguedadManualImporteCtrl, 'Importe manual (€/mes)', 'Ej: 120',
-                    Icons.edit, numerico: true),
-              const SizedBox(height: 8),
-              _buildCampoTexto(_nivelCarnicasCtrl, 'Nivel cárnicas (1-6)', '5', Icons.factory, numerico: true),
+              if (_antiguedadManual) ...[
+                _buildCampoTexto(_antiguedadManualImporteCtrl, 'Antigüedad manual (€/mes)', 'Ej: 50', Icons.edit, numerico: true),
+                if (_esSectorCarnicas) ...[
+                  const SizedBox(height: 8),
+                  _buildCampoTexto(_nivelCarnicasCtrl, 'Nivel cárnicas (1-6)', '5', Icons.factory, numerico: true),
+                ],
+              ],
             ],
           ),
         ),
@@ -744,5 +752,4 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
         Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
       ]);
 }
-
 

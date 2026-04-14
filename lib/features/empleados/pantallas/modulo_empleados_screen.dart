@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,19 +26,46 @@ class ModuloEmpleadosScreen extends StatefulWidget {
   @override
   State<ModuloEmpleadosScreen> createState() => _ModuloEmpleadosScreenState();
 }
-
-class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen> {
+class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
+    with WidgetsBindingObserver {
   final _firestore = FirebaseFirestore.instance;
+  Timer? _tokenRefreshTimer;
   final _convenioService = ConvenioFirestoreService();
 
   // Admin y propietario pueden gestionar empleados
   bool get _esPropietario =>
       widget.sesion?.esAdmin ??
       (PermisosService().sesion?.esAdmin ?? false);
+  Future<void> _refreshToken() async {
+    try {
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    } catch (_) {}
+  }
+
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
     super.initState();
+    // Refrescar token cada 4 minutos para evitar expiración silenciosa
+    _tokenRefreshTimer = Timer.periodic(const Duration(minutes: 4), (_) {
+      _refreshToken();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Forzar refresh cuando la app vuelve al primer plano
+    if (state == AppLifecycleState.resumed) {
+      _refreshToken();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tokenRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
     _seedConveniosSeguros();
   }
 

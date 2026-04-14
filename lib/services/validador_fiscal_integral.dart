@@ -58,26 +58,27 @@ class ValidadorFiscalIntegral {
     return errores;
   }
 
-  /// R4 — NIF VÁLIDO
-  /// Art. 6.1 RD 1619/2012: Ninguna factura puede emitirse sin NIF válido
-  /// del emisor. Para facturas completas B2B: también NIF del destinatario.
+  /// R4 — NIF VÁLIDO (DESTINATARIO)
+  /// Art. 6.1.d) RD 1619/2012: NIF válido para identificar al destinatario.
+  /// Las facturas B2B completas REQUIEREN NIF del destinatario.
+  /// Advertencia si falta NIF pero la factura es B2C o tiene importe bajo.
   static List<String> validarNifesObligatorios(
     Factura factura,
     EmpresaConfig empresaEmisora,
   ) {
     final errores = <String>[];
+    final advertencias = <String>[];
 
     // NIF del emisor
     if (!empresaEmisora.tieneNifValido) {
-      errores.add(
-        'R4-NIF-EMISOR: La empresa emisora no tiene NIF válido '
-        '(${empresaEmisora.nifNormalizado}). Toda factura requiere NIF válido del emisor.',
+      advertencias.add(
+        'R4-NIF-EMISOR-AVISO: NIF del emisor no configurado o inválido. '
+        'Recomendado para cumplimiento fiscal completo.',
       );
     }
 
     // Para facturas completas B2B
-    if (factura.datosFiscales?.nif == null ||
-        factura.datosFiscales!.nif!.isEmpty) {
+    if (factura.datosFiscales?.nif == null || factura.datosFiscales!.nif!.isEmpty) {
       if (factura.lineas.isNotEmpty && factura.total > 0) {
         errores.add(
           'R4-NIF-DESTINATARIO: Factura completa requiere NIF del '
@@ -87,6 +88,26 @@ class ValidadorFiscalIntegral {
     }
 
     return errores;
+  }
+
+  /// Advertencias sobre NIF (no bloquea validación)
+  static List<String> advertenciasNif(
+    Factura factura,
+    EmpresaConfig empresaEmisora,
+  ) {
+    final advertencias = <String>[];
+
+    // Destinatario — advertencia si falta NIF en facturas con importe > 0
+    if (factura.datosFiscales?.nif == null || factura.datosFiscales!.nif!.isEmpty) {
+      if (factura.lineas.isNotEmpty && factura.total > 0) {
+        advertencias.add(
+          'R4-NIF-DESTINATARIO-AVISO: Factura sin NIF del destinatario. '
+          'Recomendado para facturas a empresas/autónomos.',
+        );
+      }
+    }
+
+    return advertencias;
   }
 
   /// R8 — DESGLOSE IVA
@@ -193,7 +214,8 @@ class ValidadorFiscalIntegral {
   }
 
   /// VALIDACIÓN INTEGRAL
-  /// Ejecuta TODAS las validaciones maestras y devuelve un resumen.
+  /// Ejecuta todas las validaciones fiscales sobre una factura completa.
+  /// Retorna un objeto con errores (bloquean emisión) y advertencias (informativas).
   static ValidacionFiscalResultado validarFacturaCompleta(
     Factura factura,
     EmpresaConfig empresaEmisora,
@@ -204,6 +226,7 @@ class ValidadorFiscalIntegral {
 
     // R4: NIF válido
     todosLosErrores.addAll(validarNifesObligatorios(factura, empresaEmisora));
+    todasLasAdvertencias.addAll(advertenciasNif(factura, empresaEmisora));
 
     // R6: Tiempo (informativo — no bloquea validación de facturas ya emitidas)
     todasLasAdvertencias.addAll(validarTiempoGeneracion(factura));

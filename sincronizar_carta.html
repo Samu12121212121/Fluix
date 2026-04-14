@@ -5,10 +5,10 @@
     <title>Sincronizar Carta → App Fluix</title>
     <style>
         body { font-family: system-ui; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f0f4f8; }
-        .card { background: white; border-radius: 16px; padding: 40px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; }
+        .card { background: white; border-radius: 16px; padding: 40px; max-width: 520px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; }
         h1 { color: #1976D2; margin-bottom: 8px; font-size: 24px; }
         p  { color: #666; margin-bottom: 30px; }
-        button { background: #1976D2; color: white; border: none; padding: 16px 40px; border-radius: 12px; font-size: 18px; cursor: pointer; width: 100%; font-weight: 600; }
+        button { background: #1976D2; color: white; border: none; padding: 16px 40px; border-radius: 12px; font-size: 18px; cursor: pointer; width: 100%; font-weight: 600; margin-bottom: 10px; }
         button:hover { background: #1565C0; }
         button:disabled { background: #90CAF9; cursor: not-allowed; }
         #log { margin-top: 24px; text-align: left; font-size: 13px; color: #333; background: #f9f9f9; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto; display: none; }
@@ -16,68 +16,90 @@
         .err { color: #c62828; }
         .info{ color: #0277bd; }
         .big { font-size: 48px; margin: 20px 0; }
+        input { width:100%; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:16px; margin-bottom:12px; box-sizing:border-box; }
     </style>
 </head>
 <body>
 <div class="card">
-    <div class="big">🔗</div>
+    <div class="big">🍽️</div>
     <h1>Sincronizar Carta con la App</h1>
     <p>Pulsa primero <b>"🔍 Detectar ID"</b> para saber qué ID usar, luego sincroniza.</p>
 
-    <input id="empresaInput" type="text" value="fluixtech"
-        style="width:100%;padding:12px;border-radius:8px;border:1px solid #ccc;font-size:16px;margin-bottom:12px;box-sizing:border-box;">
+    <input id="empresaInput" type="text" value="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+           placeholder="ID de empresa...">
 
-    <button onclick="detectarEmpresas()" style="background:#666;margin-bottom:10px;">🔍 Detectar ID de Empresa</button>
+    <button onclick="detectarEmpresas()" style="background:#555;">🔍 Detectar ID de Empresa</button>
     <button id="btn" onclick="sincronizar()">🚀 Sincronizar Ahora</button>
     <div id="log"></div>
 </div>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
-const EMPRESA_ID = "fluixtech";          // ← Tu ID de empresa
-const SECCION_ID = "carta_restaurante";  // ← ID de la sección en Firestore
+const SECCION_ID = "carta";   // ID de la sección en Firestore (coincide con data-seccion del HTML)
 
-// ─── DATOS DE LA CARTA ────────────────────────────────────────────────────────
-// Estos son los platos que hemos visto en tu web.
-// Puedes editarlos aquí directamente si quieres cambiar algo.
+// ─── CARTA DAMA JUANA — platos reales (IDs = data-fluix-item del HTML) ────────
 const CARTA = {
-    titulo: "Carta",
+    titulo: "Carta Dama Juana",
     items_carta: [
-        { id: "paella_mixta",      nombre: "Paella Mixta",          descripcion: "Arroz con mariscos, pollo y verduras frescas.",                  precio: 15.00, disponible: true, categoria: "Arroces" },
-        { id: "tortilla_espanola", nombre: "Tortilla Española",     descripcion: "Huevos, patatas y cebolla caramelizada.",                         precio: 8.00,  disponible: true, categoria: "Entrantes" },
-        { id: "gazpacho",          nombre: "Gazpacho",              descripcion: "Sopa fría de tomate con pepino y pimiento.",                       precio: 6.00,  disponible: true, categoria: "Entrantes" },
-        { id: "pulpo_gallega",     nombre: "Pulpo a la Gallega",    descripcion: "Pulpo tierno con pimentón y aceite de oliva virgen extra.",        precio: 18.00, disponible: true, categoria: "Pescados" },
-        { id: "croquetas_caseras", nombre: "Croquetas Caseras",     descripcion: "Crujientes por fuera, cremosas por dentro con jamón.",             precio: 7.00,  disponible: true, categoria: "Entrantes" },
+        // ENTRANTES
+        { id: "entrante_croquetas",   nombre: "Croquetas de jamón ibérico D.O Guijuelo (8 unidades)",              descripcion: "",  precio: 12,    disponible: true, categoria: "Entrantes" },
+        { id: "entrante_anchoas",     nombre: "Anchoas D.O Cantábrico con pan Tumaca (6 unidades)",                 descripcion: "",  precio: 15,    disponible: true, categoria: "Entrantes" },
+        { id: "entrante_tortilla",    nombre: "Tortilla estilo Betanzos con queso idiazabal y jamón ibérico",       descripcion: "",  precio: 12,    disponible: true, categoria: "Entrantes" },
+        // UN POCO DE DIVERSIÓN
+        { id: "diversion_pan_bao",    nombre: "Pan Bao de Gamo del Alto Tajo, mayonesa de soja y sriracha",        descripcion: "",  precio: 15,    disponible: true, categoria: "Un Poco de Diversión" },
+        { id: "diversion_taco_atun",  nombre: "Taco mexicano de atún rojo con guacamole y gambas de cristal",      descripcion: "",  precio: 16.90, disponible: true, categoria: "Un Poco de Diversión" },
+        { id: "diversion_wok",        nombre: "Wok de contramuslo de corral crujiente con fideos yakisoba y setas", descripcion: "", precio: 15.90, disponible: true, categoria: "Un Poco de Diversión" },
+        // ENSALADAS
+        { id: "ensalada_poke",        nombre: "Poke hawaiano de atún rojo, alga wakame, aguacate y mango fresco",  descripcion: "",  precio: 17.50, disponible: true, categoria: "Ensaladas" },
+        { id: "ensalada_pullarda",    nombre: "Ensalada de lechuga viva y pullarda con tomate cherry",             descripcion: "",  precio: 17.90, disponible: true, categoria: "Ensaladas" },
+        // CARNE
+        { id: "carne_presa",          nombre: "Presa ibérica a la parrilla con puré de boniato",                   descripcion: "",  precio: 25,    disponible: true, categoria: "Carne" },
+        { id: "carne_steak",          nombre: "Steak tartar de solomillo en pan de hojaldre",                      descripcion: "",  precio: 24,    disponible: true, categoria: "Carne" },
+        { id: "carne_tbone",          nombre: "T-Bone de rubia gallega con patatas baby y mojo picón",             descripcion: "",  precio: 69,    disponible: true, categoria: "Carne" },
+        // PESCADO
+        { id: "pescado_pulpo",        nombre: "Pulpo a la parrilla con patata al pimentón y alioli",               descripcion: "",  precio: 25,    disponible: true, categoria: "Pescado" },
+        { id: "pescado_tartar",       nombre: "Tartar de atún rojo con alga wakame y guacamole",                   descripcion: "",  precio: 24.50, disponible: true, categoria: "Pescado" },
+        // ARROZ
+        { id: "arroz_banda",          nombre: "Arroz a banda de rape y langostinos (mín 2 personas)",              descripcion: "",  precio: 19,    disponible: true, categoria: "Arroz" },
+        { id: "arroz_bogavante",      nombre: "Arroz meloso de bogavante (mín 2 personas)",                        descripcion: "",  precio: 22,    disponible: true, categoria: "Arroz" },
+        // POSTRES
+        { id: "postre_tarta_queso",   nombre: "Tarta de queso deconstruida estilo Juanita",                       descripcion: "",  precio: 7.50,  disponible: true, categoria: "Postres" },
+        { id: "postre_chocolate",     nombre: "Chocolate, naranja y curry",                                        descripcion: "",  precio: 7.50,  disponible: true, categoria: "Postres" },
+        { id: "postre_lemon_pie",     nombre: "Lemon Pie versión DamaJuana",                                       descripcion: "",  precio: 7.50,  disponible: true, categoria: "Postres" },
     ]
 };
 
 // ─── FIREBASE ─────────────────────────────────────────────────────────────────
 const firebaseConfig = {
-    apiKey:        "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
-    authDomain:    "planeaapp-4bea4.firebaseapp.com",
-    projectId:     "planeaapp-4bea4",
-    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain:        "planeaapp-4bea4.firebaseapp.com",
+    projectId:         "planeaapp-4bea4",
+    storageBucket:     "planeaapp-4bea4.firebasestorage.app",
     messagingSenderId: "1085482191658",
-    appId:         "1:1085482191658:web:c5461353b123ab92d62c53"
+    appId:             "1:1085482191658:web:c5461353b123ab92d62c53"
 };
 
-// ─── FUNCIÓN DETECTAR EMPRESAS ────────────────────────────────────────────────
+function getDB() {
+    const app = firebase.apps.length === 0
+        ? firebase.initializeApp(firebaseConfig)
+        : firebase.apps[0];
+    return firebase.firestore();
+}
+
+// ─── DETECTAR EMPRESAS ────────────────────────────────────────────────────────
 async function detectarEmpresas() {
     const log = document.getElementById('log');
     log.style.display = 'block'; log.innerHTML = '';
-    function escribir(msg, tipo='info') { log.innerHTML += `<div class="${tipo}">▸ ${msg}</div>`; }
+    const escribir = (msg, tipo='info') => { log.innerHTML += `<div class="${tipo}">▸ ${msg}</div>`; };
 
-    let app = firebase.apps.length === 0 ? firebase.initializeApp(firebaseConfig) : firebase.apps[0];
-    const db = firebase.firestore();
+    const db = getDB();
     escribir('Buscando empresas en Firestore...', 'info');
     try {
         const snap = await db.collection('empresas').get();
-        escribir(`Encontradas ${snap.docs.length} empresa(s). Haz clic en la tuya:`, 'ok');
+        escribir(`Encontradas ${snap.docs.length} empresa(s):`, 'ok');
         snap.docs.forEach(doc => {
             const nombre = doc.data().nombre || doc.id;
             log.innerHTML += `<div onclick="document.getElementById('empresaInput').value='${doc.id}'"
@@ -88,82 +110,72 @@ async function detectarEmpresas() {
     } catch(e) { escribir('Error: ' + e.message, 'err'); }
 }
 
-// ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
+// ─── SINCRONIZAR ──────────────────────────────────────────────────────────────
 async function sincronizar() {
     const EMPRESA_ID = document.getElementById('empresaInput').value.trim();
-    if (!EMPRESA_ID) { alert('Pon el ID de empresa o usa el botón Detectar primero.'); return; }
+    if (!EMPRESA_ID) { alert('Pon el ID de empresa primero.'); return; }
+
     const btn = document.getElementById('btn');
     const log = document.getElementById('log');
-
     btn.disabled = true;
     btn.textContent = '⏳ Sincronizando...';
     log.style.display = 'block';
     log.innerHTML = '';
 
-    function escribir(msg, tipo = 'info') {
+    const escribir = (msg, tipo='info') => {
         log.innerHTML += `<div class="${tipo}">▸ ${msg}</div>`;
         log.scrollTop = log.scrollHeight;
-    }
+    };
 
     try {
         escribir('Iniciando conexión con Firebase...', 'info');
-
-        // Inicializar Firebase
-        let app;
-        if (firebase.apps.length === 0) {
-            app = firebase.initializeApp(firebaseConfig);
-        } else {
-            app = firebase.apps[0];
-        }
-        const db = firebase.firestore();
-
+        const db = getDB();
         escribir('Conexión establecida ✅', 'ok');
-        escribir(`Empresa: <strong>${EMPRESA_ID}</strong>`, 'info');
-        escribir(`Platos encontrados: <strong>${CARTA.items_carta.length}</strong>`, 'info');
+        escribir(`Empresa: <b>${EMPRESA_ID}</b>`, 'info');
+        escribir(`Sección destino: <b>${SECCION_ID}</b>`, 'info');
+        escribir(`Platos a guardar: <b>${CARTA.items_carta.length}</b>`, 'info');
         escribir('Guardando en Firestore...', 'info');
 
-        // Guardar el documento
         await db
-            .collection('empresas')
-            .doc(EMPRESA_ID)
-            .collection('contenido_web')
-            .doc(SECCION_ID)
+            .collection('empresas').doc(EMPRESA_ID)
+            .collection('contenido_web').doc(SECCION_ID)
             .set({
-                tipo:              'carta',
-                nombre:            CARTA.titulo,
-                descripcion:       'Carta del restaurante importada desde la web',
-                activa:            true,
-                orden:             0,
-                fecha_creacion:    firebase.firestore.FieldValue.serverTimestamp(),
+                id:                  SECCION_ID,
+                tipo:                'carta',
+                nombre:              CARTA.titulo,
+                descripcion:         'Carta del restaurante',
+                activa:              true,
+                orden:               0,
+                fecha_creacion:      firebase.firestore.FieldValue.serverTimestamp(),
                 fecha_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
-                contenido:         CARTA
+                contenido:           CARTA
             });
 
-        escribir('¡Guardado correctamente en Firebase! ✅', 'ok');
-        escribir('', 'info');
+        escribir(`¡Guardado! ${CARTA.items_carta.length} platos en Firestore ✅`, 'ok');
 
-        // Verificar que se guardó
+        // Verificar
         const doc = await db
-            .collection('empresas')
-            .doc(EMPRESA_ID)
-            .collection('contenido_web')
-            .doc(SECCION_ID)
+            .collection('empresas').doc(EMPRESA_ID)
+            .collection('contenido_web').doc(SECCION_ID)
             .get();
 
         if (doc.exists) {
-            const data = doc.data();
-            escribir(`Verificado: "${data.nombre}" con ${data.contenido.items_carta.length} platos ✅`, 'ok');
+            const n = doc.data().contenido?.items_carta?.length || 0;
+            escribir(`Verificado: sección "${doc.data().nombre}" con ${n} platos ✅`, 'ok');
         }
 
         btn.textContent = '✅ ¡Sincronizado!';
         btn.style.background = '#2e7d32';
-
         escribir('', 'info');
-        escribir('🎉 Abre tu App ahora → Módulo "Contenido Web" y deberías ver la carta.', 'ok');
+        escribir('🎉 Abre la app → Dashboard → Contenido Web → verás la sección "carta".', 'ok');
+        escribir('Desde ahí puedes editar precios y nombres. La web se actualiza al instante.', 'ok');
 
     } catch (error) {
         escribir(`Error: ${error.message}`, 'err');
-        escribir('Puede ser un problema de permisos en Firestore. Revisa las reglas.', 'err');
+        if (error.message.includes('permissions')) {
+            escribir('⚠️ Falta desplegar las reglas de Firestore.', 'err');
+            escribir('Cierra esta ventana y ejecuta <b>desplegar_reglas.bat</b>', 'err');
+        }
         btn.disabled = false;
         btn.textContent = '🔄 Reintentar';
     }
@@ -171,10 +183,3 @@ async function sincronizar() {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-

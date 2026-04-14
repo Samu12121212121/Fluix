@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
 import 'tab_seo_web.dart';
 import 'tab_config_web.dart';
+import 'pantalla_items_seccion.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL — Gestión de Contenido Web
@@ -91,42 +93,46 @@ class _TabSecciones extends StatelessWidget {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final secciones = snap.data ?? [];
-        return Stack(children: [
-          CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                  child: _buildHeader(secciones, color)),
-              if (secciones.isEmpty)
-                SliverToBoxAdapter(child: _buildVacio(context, color))
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _TarjetaSeccion(
-                      seccion: secciones[i],
-                      empresaId: empresaId,
-                      svc: svc,
-                      color: color,
-                    ),
-                    childCount: secciones.length,
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
-            ],
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-              heroTag: 'fab_nueva_seccion',
-              onPressed: () => _abrirEditor(context, null),
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nueva sección'),
+        if (snap.hasError) {
+          debugPrint('❌ StreamBuilder error: ${snap.error}');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text('Error cargando secciones:\n${snap.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red)),
+                ],
+              ),
             ),
-          ),
-        ]);
+          );
+        }
+        final secciones = snap.data ?? [];
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+                child: _buildHeader(secciones, color)),
+            if (secciones.isEmpty)
+              SliverToBoxAdapter(child: _buildVacio())
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => _TarjetaSeccion(
+                    seccion: secciones[i],
+                    empresaId: empresaId,
+                    svc: svc,
+                    color: color,
+                  ),
+                  childCount: secciones.length,
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          ],
+        );
       },
     );
   }
@@ -167,7 +173,7 @@ class _TabSecciones extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               secciones.isEmpty
-                  ? 'Sin secciones — añade la primera'
+                  ? 'Sin secciones — se crean desde la web'
                   : '$activas de ${secciones.length} secciones activas',
               style:
                   const TextStyle(color: Colors.white70, fontSize: 12),
@@ -178,7 +184,7 @@ class _TabSecciones extends StatelessWidget {
     );
   }
 
-  Widget _buildVacio(BuildContext context, Color color) {
+  Widget _buildVacio() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -192,38 +198,12 @@ class _TabSecciones extends StatelessWidget {
                   color: Colors.grey[600])),
           const SizedBox(height: 8),
           Text(
-            'Añade secciones para que se muestren en tu web',
+            'Las secciones se crean automáticamente cuando\n'
+            'el script Fluix detecta data-fluix-seccion en tu web.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[500], fontSize: 13),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _abrirEditor(context, null),
-            icon: const Icon(Icons.add),
-            label: const Text('Crear primera sección'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
         ]),
-      ),
-    );
-  }
-
-  void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PantallaEditorSeccion(
-          empresaId: empresaId,
-          seccion: seccion,
-          svc: svc,
-        ),
       ),
     );
   }
@@ -331,16 +311,31 @@ class _TarjetaSeccion extends StatelessWidget {
           Row(children: [
             Expanded(
               child: TextButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PantallaEditorSeccion(
-                      empresaId: empresaId,
-                      seccion: seccion,
-                      svc: svc,
-                    ),
-                  ),
-                ),
+                onPressed: () {
+                  if (seccion.tipo == TipoSeccion.generico) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PantallaItemsSeccion(
+                          empresaId: empresaId,
+                          seccion: seccion,
+                          svc: svc,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PantallaEditorSeccion(
+                          empresaId: empresaId,
+                          seccion: seccion,
+                          svc: svc,
+                        ),
+                      ),
+                    );
+                  }
+                },
                 icon: Icon(Icons.edit, size: 16, color: tipoColor),
                 label: Text('Editar', style: TextStyle(color: tipoColor, fontSize: 13)),
               ),
@@ -487,6 +482,35 @@ class _TarjetaSeccion extends StatelessWidget {
           Text('${c.horarios.length} días configurados',
               style: TextStyle(color: Colors.grey[500], fontSize: 11)),
         ]);
+
+      case TipoSeccion.generico:
+        final items = c.items;
+        content = items.isEmpty
+            ? Text('Sin items — pulsa Editar para añadir',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12))
+            : Wrap(
+                spacing: 6, runSpacing: 4,
+                children: items.take(3).map((it) {
+                  final nombre = it['nombre']?.toString() ?? '—';
+                  final precio = it['precio'];
+                  final label = precio != null ? '$nombre ${precio}€' : nombre;
+                  return Chip(
+                    label: Text(label, style: const TextStyle(fontSize: 11)),
+                    backgroundColor: tipoColor.withValues(alpha: 0.08),
+                    padding: EdgeInsets.zero,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  );
+                }).toList()
+                  ..addAll(items.length > 3
+                      ? [Chip(
+                          label: Text('+${items.length - 3} más',
+                              style: const TextStyle(fontSize: 11)),
+                          backgroundColor: Colors.grey[100],
+                          padding: EdgeInsets.zero,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        )]
+                      : []),
+              );
     }
 
     return Padding(
@@ -594,6 +618,7 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
   late TipoSeccion _tipo;
   final _formKey = GlobalKey<FormState>();
   final _nombreCtrl = TextEditingController();
+  final _idCtrl = TextEditingController(); // ID personalizado para genérico
 
   // ── Tipo TEXTO ────────────────────────────────────────────────────────────
   final _tituloCtrl = TextEditingController();
@@ -642,7 +667,7 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
 
   @override
   void dispose() {
-    _nombreCtrl.dispose(); _tituloCtrl.dispose(); _textoCtrl.dispose();
+    _nombreCtrl.dispose(); _tituloCtrl.dispose(); _textoCtrl.dispose(); _idCtrl.dispose();
     super.dispose();
   }
 
@@ -795,7 +820,59 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
       case TipoSeccion.galeria:  return _buildEditorGaleria(context, tipoColor);
       case TipoSeccion.ofertas:  return _buildEditorOfertas(context, tipoColor);
       case TipoSeccion.horarios: return _buildEditorHorarios(tipoColor);
+      case TipoSeccion.generico: return _buildEditorGenericoInfo(tipoColor);
     }
+  }
+
+  // ── INFO GENÉRICO (solo informativo — la edición real es en PantallaItemsSeccion)
+  Widget _buildEditorGenericoInfo(Color c) {
+    return Column(children: [
+      _buildCard(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.info_outline, color: c, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(child: Text(
+              'Sección genérica (Data-Fluix)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            )),
+          ]),
+          const SizedBox(height: 10),
+          if (_esNueva) ...[
+            TextFormField(
+              controller: _idCtrl,
+              decoration: InputDecoration(
+                labelText: 'ID de la sección (slug)',
+                hintText: 'ej: carta_entrantes, nuestros_vinos',
+                border: const OutlineInputBorder(),
+                prefixIcon: Icon(Icons.tag, color: c),
+                helperText: 'Este ID se usará en data-fluix-seccion="..."',
+                helperMaxLines: 2,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_]')),
+              ],
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Escribe un ID (solo minúsculas y _)' : null,
+            ),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            _esNueva
+                ? 'Guarda esta sección y después pulsa "Editar" en la tarjeta para gestionar los items.'
+                : 'Pulsa "Editar" en la tarjeta para gestionar los items.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Los items se sincronizan en tiempo real con la web del cliente '
+            'mediante los atributos data-fluix-*.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          ),
+        ],
+      )),
+    ]);
   }
 
   // ── EDITOR TEXTO ──────────────────────────────────────────────────────────
@@ -1502,10 +1579,17 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
       imagenesGaleria: _galeria,
       ofertas: _ofertas,
       horarios: _horarios,
+      items: widget.seccion?.contenido.items ?? [],
     );
 
+    // Para genéricos nuevos, usar el ID personalizado
+    String seccionId = widget.seccion?.id ?? '';
+    if (_esNueva && _tipo == TipoSeccion.generico && _idCtrl.text.trim().isNotEmpty) {
+      seccionId = _idCtrl.text.trim();
+    }
+
     final seccion = SeccionWeb(
-      id: widget.seccion?.id ?? '',
+      id: seccionId,
       nombre: _nombreCtrl.text.trim(),
       descripcion: '',
       activa: widget.seccion?.activa ?? true,

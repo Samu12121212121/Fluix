@@ -58,6 +58,17 @@ class TabAnalyticsWeb extends StatelessWidget {
               _buildUbicaciones(m, color),
 
             const SizedBox(height: 14),
+
+            // ── 📈 Origen del tráfico (Referrers) ────────────────────────
+            if (m.referrers.isNotEmpty)
+              _buildReferrers(m, color),
+            if (m.referrers.isNotEmpty) const SizedBox(height: 14),
+
+            // ── 🎯 Eventos clave (intención de compra) ──────────────────
+            if (m.eventos.isNotEmpty)
+              _buildEventos(m, color),
+            if (m.eventos.isNotEmpty) const SizedBox(height: 14),
+
             _buildInfoScript(color),
             const SizedBox(height: 24),
           ],
@@ -455,6 +466,194 @@ class TabAnalyticsWeb extends StatelessWidget {
                           fontSize: 13)),
                 ]),
               )),
+        ],
+      ),
+    );
+  }
+
+  // ── 📈 Origen del tráfico ────────────────────────────────────────────
+  Widget _buildReferrers(MetricasTraficoWeb m, Color color) {
+    final sorted = m.referrers.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = m.totalReferrers;
+
+    const iconMap = {
+      'google': '🔍',
+      'directo': '🔗',
+      'facebook': '📘',
+      'instagram': '📸',
+      'twitter': '🐦',
+      'tiktok': '🎵',
+      'whatsapp': '💬',
+      'youtube': '🎬',
+      'linkedin': '💼',
+      'bing': '🔎',
+      'yahoo': '🔎',
+      'otro': '🌐',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.trending_up, color: color, size: 16),
+            const SizedBox(width: 6),
+            const Text('Origen del tráfico',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          ]),
+          const SizedBox(height: 12),
+          ...sorted.take(8).map((e) {
+            final pct = total > 0 ? (e.value / total * 100) : 0.0;
+            final icon = iconMap[e.key] ?? '🌐';
+            final label = e.key[0].toUpperCase() + e.key.substring(1);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                Text(icon, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 80,
+                  child: Text(label,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: pct / 100,
+                    backgroundColor: Colors.grey[100],
+                    color: color,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 65,
+                  child: Text(
+                    '${e.value} (${pct.toStringAsFixed(0)}%)',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ]),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ── 🎯 Eventos clave (intención de compra) ─────────────────────────
+  Widget _buildEventos(MetricasTraficoWeb m, Color color) {
+    // Filtrar 'total' del mapa
+    final eventos = Map<String, int>.from(m.eventos)..remove('total');
+    if (eventos.isEmpty) return const SizedBox.shrink();
+
+    final sorted = eventos.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    const iconMap = {
+      'click_telefono': '📞',
+      'click_whatsapp': '💬',
+      'click_email': '📧',
+      'click_mapa': '📍',
+      'click_cta': '🛒',
+      'formulario_enviado': '📝',
+    };
+
+    const labelMap = {
+      'click_telefono': 'Llamadas',
+      'click_whatsapp': 'WhatsApp',
+      'click_email': 'Emails',
+      'click_mapa': 'Ver mapa',
+      'click_cta': 'Botones CTA',
+      'formulario_enviado': 'Formularios',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.ads_click, color: Colors.green[700], size: 16),
+            const SizedBox(width: 6),
+            Text('Intención de compra',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.green[800])),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${m.totalEventos} total',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[700]),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            'Clicks que indican que el visitante quiere contactar o comprar',
+            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: sorted.map((e) {
+              final icon = iconMap[e.key] ?? '🎯';
+              final label = labelMap[e.key] ?? e.key.replaceAll('_', ' ');
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.15)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(icon, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label,
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w500)),
+                        Text('${e.value}',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700])),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );

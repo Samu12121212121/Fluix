@@ -62,16 +62,16 @@ class FacturacionService {
 
       if (snap.exists) {
         final data = snap.data() ?? {};
-        final anioGuardado = data[campoAnio] as int? ?? 0;
-
-        if (anioGuardado == anioActual) {
-          // Mismo año → incrementar
-          contador = ((data[campoContador] as int?) ??
-                  (data['ultimo_numero_factura'] as int?) ??
-                  0) +
-              1;
-        }
+        final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
+        
         // Si el año cambió → contador empieza en 1 (reset anual)
+        if (anioGuardado == anioActual) {
+          final valorActual = (data[campoContador] as num?)?.toInt() ?? 
+              (serie.name == 'fac' ? (data['ultimo_numero_factura'] as num?)?.toInt() : null) ?? 0;
+          contador = valorActual + 1;
+        } else {
+          contador = 1;
+        }
       }
 
       tx.set(ref, {
@@ -81,6 +81,12 @@ class FacturacionService {
 
       numero = '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
     });
+
+    // Fallback de seguridad: si la transacción no asignó número, generar uno temporal
+    if (numero.isEmpty) {
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      numero = '${serie.prefijo}-${DateTime.now().year}-TEMP-$ts';
+    }
 
     return numero;
   }
@@ -1135,5 +1141,8 @@ class FacturacionService {
     );
   }
 }
+
+
+
 
 

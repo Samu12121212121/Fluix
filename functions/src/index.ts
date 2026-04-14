@@ -1150,7 +1150,6 @@ function generarScriptHTML(
 ✅ Módulo Reservas (reservas web)
 ✅ Módulo Estadísticas (tráfico web)
 -->`;
-}
 
 // ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
 
@@ -1643,6 +1642,68 @@ async function _procesarPaymentIntentExitoso(
     console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros}`);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGISTRAR VISITA WEB — endpoint HTTP llamado desde el script embebido
+// ═══════════════════════════════════════════════════════════════════════════════
+export const registrarVisita = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "Método no permitido" });
+        return;
+      }
+
+      const { empresaId, dominio, pagina, referrer, tipo } = req.body;
+
+      if (!empresaId || typeof empresaId !== "string") {
+        res.status(400).json({ error: "empresaId es requerido" });
+        return;
+      }
+
+      const ahora = new Date();
+      const fechaHoy = ahora.toISOString().substring(0, 10);
+      const hora = ahora.getHours();
+      const paginaActual = pagina || "/";
+      const referrerActual = referrer || "directo";
+      const dominioActual = dominio || "desconocido";
+
+      // 1. Actualizar resumen general
+      await db
+        .collection("empresas").doc(empresaId)
+        .collection("estadisticas").doc("web_resumen")
+        .set({
+          visitas_totales: admin.firestore.FieldValue.increment(1),
+          visitas_mes: admin.firestore.FieldValue.increment(1),
+          ultima_visita: admin.firestore.FieldValue.serverTimestamp(),
+          sitio_web: dominioActual,
+          pagina_actual: paginaActual,
+          referrer_actual: referrerActual,
+        }, { merge: true });
+
+      // 2. Actualizar estadísticas del día
+      await db
+        .collection("empresas").doc(empresaId)
+        .collection("estadisticas").doc(`visitas_${fechaHoy}`)
+        .set({
+          fecha: fechaHoy,
+          sitio: dominioActual,
+          visitas: admin.firestore.FieldValue.increment(1),
+          paginas_vistas: admin.firestore.FieldValue.arrayUnion(paginaActual),
+          referrers: admin.firestore.FieldValue.arrayUnion(referrerActual),
+          [`visitas_hora_${hora}`]: admin.firestore.FieldValue.increment(1),
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+      console.log(`✅ Visita registrada: ${empresaId} — ${dominioActual} — ${fechaHoy}`);
+      res.status(200).json({ ok: true });
+    } catch (error: any) {
+      console.error("❌ Error registrando visita:", error);
+      res.status(500).json({ error: "Error registrando visita" });
+    }
+  }
+);
 
 export { enviarRecordatoriosCitas };
 
@@ -2325,6 +2386,120 @@ export const enviarDocumentacionFiniquito = onCall(
       archivosEnviados: adjuntos.length,
       errores: erroresDescarga,
     };
+  }
+);
+
+// ── Notificación push cuando llega una reserva nueva desde la web ─────────────
+// Trigger: onCreate en empresas/{empresaId}/reservas/{reservaId}
+// Solo notifica cuando origen == 'web' (no spamea al admin con sus propias reservas manuales)
+export const onReservaNueva = onDocumentCreated(
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    const empresaId = event.params.empresaId;
+    const reservaId = event.params.reservaId;
+
+    // Solo notificar reservas que vienen de la web
+    const origen = data.origen ?? data.creado_por ?? '';
+    if (origen !== 'web' && origen !== 'web_widget') {
+      console.log(`ℹ️ Reserva ${reservaId} con origen '${origen}' — sin notificación`);
+      return;
+    }
+
+    // Obtener tokens FCM de admins y propietarios de la empresa
+    // Los usuarios están en la colección raíz con campo empresa_id
+    const usuariosSnap = await db
+      .collection('usuarios')
+      .where('empresa_id', '==', empresaId)
+      .where('rol', 'in', ['propietario', 'admin'])
+      .where('activo', '==', true)
+      .get();
+
+    if (usuariosSnap.empty) {
+      console.log(`⚠️ No hay admins/propietarios para empresa ${empresaId}`);
+      return;
+    }
+
+    // Recoger todos los tokens válidos (token_dispositivo en el doc usuario)
+    const tokens: string[] = [];
+    for (const userDoc of usuariosSnap.docs) {
+      const uData = userDoc.data();
+      // Intentar primero en empresas/{id}/dispositivos (como hace notificacionesTareas)
+      try {
+        const dispositivoSnap = await db
+          .collection('empresas').doc(empresaId)
+          .collection('dispositivos').doc(userDoc.id)
+          .get();
+        const tokenDispositivo = dispositivoSnap.data()?.token;
+        if (tokenDispositivo) { tokens.push(tokenDispositivo); continue; }
+      } catch (_) { /* fallback */ }
+      // Fallback: token_dispositivo en el doc usuario
+      const tokenUsuario = uData.token_dispositivo as string | undefined;
+      if (tokenUsuario) tokens.push(tokenUsuario);
+    }
+
+    if (tokens.length === 0) {
+      console.log(`⚠️ Ningún admin de empresa ${empresaId} tiene token FCM registrado`);
+      return;
+    }
+
+    // Construir el texto de la notificación
+    const nombre = (data.nombre_cliente || data.nombre_cliente_web || 'Cliente desconocido') as string;
+    const servicio = (data.servicio || data.servicio_nombre || '') as string;
+    const fechaHoraRaw = data.fecha_hora as string | undefined;
+    let fechaFormateada = 'Fecha pendiente';
+    if (fechaHoraRaw) {
+      try {
+        fechaFormateada = new Date(fechaHoraRaw).toLocaleString('es-ES', {
+          timeZone: 'Europe/Madrid',
+          weekday: 'short',
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch (_) { fechaFormateada = fechaHoraRaw; }
+    }
+
+    const bodyParts = [nombre];
+    if (servicio) bodyParts.push(servicio);
+    bodyParts.push(fechaFormateada);
+
+    const mensaje: admin.messaging.MulticastMessage = {
+      notification: {
+        title: '📅 Nueva reserva desde la web',
+        body: bodyParts.join(' · '),
+      },
+      data: {
+        tipo: 'reserva_nueva',
+        empresa_id: empresaId,
+        reserva_id: reservaId,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'fluixcrm_canal_principal',
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+      },
+      tokens,
+    };
+
+    try {
+      const result = await messaging.sendEachForMulticast(mensaje);
+      console.log(`✅ Notificación reserva web enviada: ${result.successCount}/${tokens.length} tokens OK (empresa ${empresaId})`);
+      if (result.failureCount > 0) {
+        result.responses.forEach((r, i) => {
+          if (!r.success) console.warn(`  ⚠️ Token[${i}] falló: ${r.error?.message}`);
+        });
+      }
+    } catch (e: any) {
+      console.error(`❌ Error enviando notificación reserva web:`, e.message);
+    }
   }
 );
 

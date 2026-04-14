@@ -504,14 +504,29 @@ class _TarjetaReserva extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cliente   = data['nombre_cliente'] ?? 'Sin nombre';
-    final telefono  = data['telefono_cliente'] ?? '';
-    final servicio  = data['servicio'] ?? 'Sin servicio';
+    // ── Fallbacks: soporta campos de la app y del widget web ──────────────
+    final cliente = (() {
+      final v = data['nombre_cliente']?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+      return (data['nombre_cliente_web']?.toString().trim().isNotEmpty == true)
+          ? data['nombre_cliente_web'].toString().trim()
+          : 'Sin nombre';
+    })();
+
+    final telefono = (() {
+      final v = data['telefono_cliente']?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+      return data['telefono_cliente_web']?.toString().trim() ?? '';
+    })();
+
+    final servicio  = data['servicio'] ?? data['servicio_nombre'] ?? 'Sin servicio';
     final precio    = data['precio'];
     final notas     = data['notas'] ?? '';
     final profesional = data['nombre_profesional'] as String?;
     final cancelada  = _estado == 'CANCELADA';
     final completada = _estado == 'COMPLETADA';
+    final esWeb      = (data['origen']?.toString() == 'web') ||
+                       (data['creado_por']?.toString() == 'web_widget');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -541,8 +556,34 @@ class _TarjetaReserva extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(cliente,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(cliente,
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (esWeb) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.4)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.language, size: 10, color: Color(0xFF1565C0)),
+                                  SizedBox(width: 3),
+                                  Text('Web', style: TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                       if (telefono.isNotEmpty)
                         Text(telefono,
                             style: TextStyle(color: Colors.grey[500], fontSize: 12)),

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 /// Servicio para leer métricas de tráfico web guardadas por el script JS del footer.
 ///
@@ -85,6 +86,15 @@ class MetricasTraficoWeb {
   // Ubicaciones geográficas
   final Map<String, int> ubicaciones; // ciudad/país → visitas
 
+  // 📊 NUEVO: Origen del tráfico (referrers)
+  final Map<String, int> referrers;  // google, directo, facebook, instagram...
+
+  // 🎯 NUEVO: Eventos clave (intención de compra)
+  final Map<String, int> eventos;    // click_telefono, click_whatsapp, formulario_enviado...
+
+  // 🌍 NUEVO: Países (agregación rápida)
+  final Map<String, int> paises;     // Spain, Mexico...
+
   // Meta
   final DateTime? ultimaActualizacion;
   final bool tieneDatos;
@@ -101,24 +111,34 @@ class MetricasTraficoWeb {
     required this.visitasDesktop,
     required this.visitasTablet,
     required this.ubicaciones,
+    required this.referrers,
+    required this.eventos,
+    required this.paises,
     required this.ultimaActualizacion,
     required this.tieneDatos,
   });
 
   factory MetricasTraficoWeb.vacio() => const MetricasTraficoWeb(
-    visitasHoy: 0,
-    visitasSemana: 0,
-    visitasMes: 0,
-    visitasTotal: 0,
-    paginasMasVistas: {},
-    duracionMediaSegundos: 0,
-    tasaRebote: 0,
-    visitasMovil: 0,
-    visitasDesktop: 0,
-    visitasTablet: 0,
-    ubicaciones: {},
-    ultimaActualizacion: null,
-    tieneDatos: false,
+    visitasHoy: 0, visitasSemana: 0, visitasMes: 0, visitasTotal: 0,
+    paginasMasVistas: {}, duracionMediaSegundos: 0, tasaRebote: 0,
+    visitasMovil: 0, visitasDesktop: 0, visitasTablet: 0,
+    ubicaciones: {}, referrers: {}, eventos: {}, paises: {},
+    ultimaActualizacion: null, tieneDatos: false,
+  );
+
+  factory MetricasTraficoWeb.demo() => MetricasTraficoWeb(
+    visitasHoy: 12, visitasSemana: 87, visitasMes: 341, visitasTotal: 1240,
+    paginasMasVistas: {'/inicio': 420, '/carta': 310, '/nuestros-vinos': 198,
+      '/reservas': 145, '/contacto': 89},
+    duracionMediaSegundos: 142, tasaRebote: 38,
+    visitasMovil: 710, visitasDesktop: 420, visitasTablet: 110,
+    ubicaciones: {'Guadalajara': 580, 'Madrid': 210, 'Toledo': 95},
+    referrers: {'directo': 490, 'google': 380, 'instagram': 210,
+      'facebook': 98, 'whatsapp': 62},
+    eventos: {'click_telefono': 34, 'click_whatsapp': 28, 'formulario_enviado': 12},
+    paises: {'España': 1100, 'México': 80, 'Argentina': 60},
+    ultimaActualizacion: DateTime.now(),
+    tieneDatos: true,
   );
 
   factory MetricasTraficoWeb.fromMap(Map<String, dynamic> m) {
@@ -155,6 +175,9 @@ class MetricasTraficoWeb {
       visitasDesktop: (m['visitas_desktop'] as num?)?.toInt() ?? 0,
       visitasTablet: (m['visitas_tablet'] as num?)?.toInt() ?? 0,
       ubicaciones: _toIntMap(m['ubicaciones']),
+      referrers: _toIntMap(m['referrers']),
+      eventos: _toIntMap(m['eventos']),
+      paises: _toIntMap(m['paises']),
       ultimaActualizacion: ultimaAct,
       tieneDatos: true,
     );
@@ -182,6 +205,12 @@ class MetricasTraficoWeb {
     final s = (duracionMediaSegundos % 60).toInt();
     return '${m}m ${s}s';
   }
+
+  /// Total de eventos registrados
+  int get totalEventos => eventos['total'] ?? 0;
+
+  /// Total de referrers (sesiones con origen identificado)
+  int get totalReferrers => referrers.values.fold(0, (a, b) => a + b);
 }
 
 

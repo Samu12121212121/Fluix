@@ -6,12 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/sugerencia_empresa.dart';
 import '../../../services/sugerencias_service.dart';
+import '../../facturacion/pantallas/pantalla_configuracion_fiscal_empresa.dart';
 import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
-import 'gestionar_cuentas_screen.dart';
 import 'pantalla_configuracion_pagos.dart';
 import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
+import 'gestionar_cuentas_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA PRINCIPAL
@@ -65,7 +66,7 @@ class _PantallaPerfilState extends State<PantallaPerfil>
     final views = <Widget>[
       _TabPerfil(sesion: widget.sesion),
       if (esAdminOProp) _TabEmpresa(sesion: widget.sesion),
-      if (esPlatAdmin) const GestionarCuentasScreen(),
+      if (esPlatAdmin) GestionarCuentasScreen(),
     ];
 
     return Scaffold(
@@ -931,7 +932,7 @@ class _TabEmpresaState extends State<_TabEmpresa> {
               validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField(
               value: _tiposNegocio.contains(_tipoNegocio) ? _tipoNegocio : 'Otro',
               decoration: _deco('Tipo de negocio', Icons.category),
               items: _tiposNegocio.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
@@ -946,7 +947,7 @@ class _TabEmpresaState extends State<_TabEmpresa> {
               },
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField(
               value: _sectoresEmpresa.any((s) => s['id'] == _sectorEmpresa) ? _sectorEmpresa : 'otros',
               decoration: _deco('Sector (para nóminas)', Icons.badge),
               items: _sectoresEmpresa.map((s) => DropdownMenuItem(value: s['id'], child: Text(s['label']!))).toList(),
@@ -1006,16 +1007,9 @@ class _TabEmpresaState extends State<_TabEmpresa> {
                     builder: (_) => PantallaConfiguracionPagos(empresaId: widget.sesion!.empresaId),
                   )),
                   icon: const Icon(Icons.account_balance_wallet, size: 22),
-                  label: const Text('Configurar pagos (Stripe, Banco, TPV…)',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0D47A1),
-                    side: const BorderSide(color: Color(0xFF0D47A1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
+                  label: const Text('Configurar pagos (Stripe, Banco, TPV…)'),
                 ),
               ),
-              const SizedBox(height: 32),
             ],
 
             // ── Sugerencias de mejora ──────────────────────────────────────
@@ -1025,6 +1019,26 @@ class _TabEmpresaState extends State<_TabEmpresa> {
                 nombreEmpresa: _nombreCtrl.text,
                 autorUid: widget.sesion!.uid,
               ),
+
+              _seccion('Configuración Fiscal y Facturación'),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const PantallaConfiguracionFiscalEmpresa(),
+                  )),
+                  icon: const Icon(Icons.receipt_long_outlined, size: 22),
+                  label: const Text('Configuración Fiscal (NIF, Series, etc.)',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0D47A1),
+                    side: const BorderSide(color: Color(0xFF0D47A1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
             const SizedBox(height: 32),
 
             SizedBox(

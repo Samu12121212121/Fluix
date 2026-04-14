@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carta + Vinos — Dama Juana</title>
+<style>
+body { margin:0; font-family:'Roboto',sans-serif; background:#f7f7f7; color:#fff; }
+
+.menu-section { background:#2b2b2b; padding:3rem 0; }
+.section-title { text-align:center; font-size:2rem; color:#FFD700; margin-bottom:2rem; }
+.menu-container {
+  width:90%; margin:0 auto;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:20px;
+}
+
+.menu-card { perspective:1000px; width:100%; height:250px; cursor:pointer; }
+.card-inner { position:relative; width:100%; height:100%; transition:transform .6s; transform-style:preserve-3d; }
+.card-front, .card-back {
+  position:absolute; inset:0; border-radius:12px;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  backface-visibility:hidden; padding:1rem; box-sizing:border-box; text-align:center;
+}
+.card-front { background:#FFD700; color:#000; font-size:1.3rem; font-weight:bold; }
+.card-back  { background:#333; color:#FFD700; transform:rotateY(180deg); font-size:.95rem; overflow-y:auto; justify-content:flex-start; padding-top:1.2rem; }
+.card-inner.flipped { transform:rotateY(180deg); }
+.card-back ul { list-style:none; padding:0; margin:0; width:100%; }
+.card-back li { margin-bottom:.5rem; line-height:1.3; }
+.card-back li.agotado { opacity:.4; text-decoration:line-through; }
+
+/* Separador visual entre secciones */
+.seccion-sep { height:2px; background:linear-gradient(90deg,transparent,#FFD700,transparent); margin:0; }
+
+@media(max-width:1024px){ .menu-container{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:768px) { .menu-container{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<!--
+══════════════════════════════════════════════════════════════════════
+  FLUIX WIDGET — SECCIÓN 1: CARTA
+  ▸ data-seccion = ID del documento en contenido_web (puede ser lo que quieras)
+  ▸ data-tipo    = carta | ofertas | horarios | texto | galeria
+  ▸ data-titulo  = nombre que aparecerá en la app
+  ▸ Primera carga: si no existe en Firestore → se crea automáticamente
+  ▸ Siguientes cargas: onSnapshot actualiza nombres/precios en tiempo real
+══════════════════════════════════════════════════════════════════════
+-->
+<div class="fluix-widget"
+     data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+     data-seccion="carta"
+     data-tipo="carta"
+     data-titulo="Carta Dama Juana">
+
+  <section class="menu-section">
+    <h2 class="section-title">Carta</h2>
+    <div class="menu-container">
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Entrantes 🍴</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="entrante_croquetas" data-fluix-campo="nombre">Croquetas de jamón ibérico (8 uds)</span> — <span data-fluix-item="entrante_croquetas" data-fluix-campo="precio">12€</span></li>
+          <li><span data-fluix-item="entrante_anchoas"   data-fluix-campo="nombre">Anchoas D.O Cantábrico (6 uds)</span> — <span data-fluix-item="entrante_anchoas"   data-fluix-campo="precio">15€</span></li>
+          <li><span data-fluix-item="entrante_tortilla"  data-fluix-campo="nombre">Tortilla estilo Betanzos con idiazabal</span> — <span data-fluix-item="entrante_tortilla"  data-fluix-campo="precio">12€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Un Poco de Diversión 🎉</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="diversion_pan_bao"    data-fluix-campo="nombre">Pan Bao de Gamo, mayo soja y sriracha</span> — <span data-fluix-item="diversion_pan_bao"    data-fluix-campo="precio">15€</span></li>
+          <li><span data-fluix-item="diversion_taco_atun"  data-fluix-campo="nombre">Taco mexicano de atún rojo</span> — <span data-fluix-item="diversion_taco_atun"  data-fluix-campo="precio">16.90€</span></li>
+          <li><span data-fluix-item="diversion_wok"        data-fluix-campo="nombre">Wok contramuslo con yakisoba y setas</span> — <span data-fluix-item="diversion_wok"        data-fluix-campo="precio">15.90€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Ensaladas 🥗</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="ensalada_poke"     data-fluix-campo="nombre">Poke hawaiano de atún, wakame, aguacate</span> — <span data-fluix-item="ensalada_poke"     data-fluix-campo="precio">17.50€</span></li>
+          <li><span data-fluix-item="ensalada_pullarda" data-fluix-campo="nombre">Ensalada de lechuga viva y pullarda</span> — <span data-fluix-item="ensalada_pullarda" data-fluix-campo="precio">17.90€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Carne 🥩</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="carne_presa" data-fluix-campo="nombre">Presa ibérica con puré de boniato</span> — <span data-fluix-item="carne_presa" data-fluix-campo="precio">25€</span></li>
+          <li><span data-fluix-item="carne_steak" data-fluix-campo="nombre">Steak tartar en pan de hojaldre</span> — <span data-fluix-item="carne_steak" data-fluix-campo="precio">24€</span></li>
+          <li><span data-fluix-item="carne_tbone" data-fluix-campo="nombre">T-Bone rubia gallega, patatas baby</span> — <span data-fluix-item="carne_tbone" data-fluix-campo="precio">69€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Pescado 🐟</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="pescado_pulpo"  data-fluix-campo="nombre">Pulpo a la parrilla con pimentón</span> — <span data-fluix-item="pescado_pulpo"  data-fluix-campo="precio">25€</span></li>
+          <li><span data-fluix-item="pescado_tartar" data-fluix-campo="nombre">Tartar de atún rojo con wakame</span> — <span data-fluix-item="pescado_tartar" data-fluix-campo="precio">24.50€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front">Postres 🍰</div>
+        <div class="card-back"><ul>
+          <li><span data-fluix-item="postre_tarta_queso" data-fluix-campo="nombre">Tarta de queso estilo Juanita</span> — <span data-fluix-item="postre_tarta_queso" data-fluix-campo="precio">7.50€</span></li>
+          <li><span data-fluix-item="postre_chocolate"   data-fluix-campo="nombre">Chocolate, naranja y curry</span> — <span data-fluix-item="postre_chocolate"   data-fluix-campo="precio">7.50€</span></li>
+          <li><span data-fluix-item="postre_lemon_pie"   data-fluix-campo="nombre">Lemon Pie versión DamaJuana</span> — <span data-fluix-item="postre_lemon_pie"   data-fluix-campo="precio">7.50€</span></li>
+        </ul></div>
+      </div></div>
+
+    </div>
+  </section>
+</div><!-- /fluix-widget carta -->
+
+<div class="seccion-sep"></div>
+
+<!--
+══════════════════════════════════════════════════════════════════════
+  FLUIX WIDGET — SECCIÓN 2: VINOS
+  Mismo script, distinto data-seccion y data-titulo.
+  Primera carga → crea "vinos" en Firestore automáticamente.
+  Desde la app puedes editar precios, añadir vinos nuevos, etc.
+══════════════════════════════════════════════════════════════════════
+-->
+<div class="fluix-widget"
+     data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+     data-seccion="vinos"
+     data-tipo="carta"
+     data-titulo="Nuestros Vinos">
+
+  <section class="menu-section" style="background:#1e1e1e;">
+    <h2 class="section-title">🍷 Nuestros Vinos</h2>
+    <div class="menu-container">
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front" style="background:#8B0000;color:#fff;">Tintos 🍷</div>
+        <div class="card-back" style="background:#1a1a1a;"><ul>
+          <li><span data-fluix-item="vino_rioja_res"   data-fluix-campo="nombre">Rioja Reserva 2019</span> — <span data-fluix-item="vino_rioja_res"   data-fluix-campo="precio">28€</span></li>
+          <li><span data-fluix-item="vino_ribera"      data-fluix-campo="nombre">Ribera del Duero Crianza</span> — <span data-fluix-item="vino_ribera"      data-fluix-campo="precio">32€</span></li>
+          <li><span data-fluix-item="vino_priorat"     data-fluix-campo="nombre">Priorat Clos Mogador</span> — <span data-fluix-item="vino_priorat"     data-fluix-campo="precio">65€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front" style="background:#d4a017;color:#000;">Blancos 🥂</div>
+        <div class="card-back" style="background:#1a1a1a;"><ul>
+          <li><span data-fluix-item="vino_albarino"    data-fluix-campo="nombre">Albariño Rías Baixas</span> — <span data-fluix-item="vino_albarino"    data-fluix-campo="precio">26€</span></li>
+          <li><span data-fluix-item="vino_verdejo"     data-fluix-campo="nombre">Verdejo Rueda Joven</span> — <span data-fluix-item="vino_verdejo"     data-fluix-campo="precio">18€</span></li>
+          <li><span data-fluix-item="vino_godello"     data-fluix-campo="nombre">Godello Valdeorras</span> — <span data-fluix-item="vino_godello"     data-fluix-campo="precio">30€</span></li>
+        </ul></div>
+      </div></div>
+
+      <div class="menu-card"><div class="card-inner">
+        <div class="card-front" style="background:#c44569;color:#fff;">Espumosos 🍾</div>
+        <div class="card-back" style="background:#1a1a1a;"><ul>
+          <li><span data-fluix-item="vino_cava_brut"   data-fluix-campo="nombre">Cava Brut Reserva</span> — <span data-fluix-item="vino_cava_brut"   data-fluix-campo="precio">22€</span></li>
+          <li><span data-fluix-item="vino_champagne"   data-fluix-campo="nombre">Champagne Moët & Chandon</span> — <span data-fluix-item="vino_champagne"   data-fluix-campo="precio">85€</span></li>
+        </ul></div>
+      </div></div>
+
+    </div>
+  </section>
+</div><!-- /fluix-widget vinos -->
+
+
+<!-- Flip cards — delegación: funciona para cualquier número de secciones -->
+<script>
+document.addEventListener('click', function(e) {
+  var card = e.target.closest('.menu-card');
+  if (card) card.querySelector('.card-inner').classList.toggle('flipped');
+});
+</script>
+
+<!--
+  UN SOLO SCRIPT para TODAS las secciones.
+  Detecta automáticamente todos los .fluix-widget de la página.
+  Si una sección no existe en Firestore → la crea sola.
+  Si ya existe → la actualiza en tiempo real.
+  Para añadir más secciones: copia un bloque .fluix-widget con nuevo data-seccion.
+-->
+<script data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+        src="https://planeaapp-4bea4.web.app/fluix-embed.js"></script>
+
+</body>
+</html>
+

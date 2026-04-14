@@ -23,10 +23,7 @@ class _TabSeoWebState extends State<TabSeoWeb> {
   final _tituloCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _kwCtrl = TextEditingController();
-  final _gaCtrl = TextEditingController();
-  final _fbCtrl = TextEditingController();
 
-  SeoConfig _config = const SeoConfig();
   String? _imagenOg;
   String _robots = 'index,follow';
   bool _guardando = false;
@@ -43,12 +40,9 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     widget.svc.obtenerSeoConfig(widget.empresaId).first.then((cfg) {
       if (!mounted) return;
       setState(() {
-        _config = cfg;
         _tituloCtrl.text = cfg.tituloSeo;
         _descCtrl.text = cfg.descripcionSeo;
         _kwCtrl.text = cfg.palabrasClave;
-        _gaCtrl.text = cfg.googleAnalyticsId ?? '';
-        _fbCtrl.text = cfg.pixelFacebook ?? '';
         _imagenOg = cfg.imagenOg;
         _robots = cfg.robotsContent;
         _cargado = true;
@@ -61,8 +55,6 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     _tituloCtrl.dispose();
     _descCtrl.dispose();
     _kwCtrl.dispose();
-    _gaCtrl.dispose();
-    _fbCtrl.dispose();
     super.dispose();
   }
 
@@ -235,53 +227,6 @@ class _TabSeoWebState extends State<TabSeoWeb> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // ── Analytics ───────────────────────────────────────────────────
-          _buildCard(
-            titulo: 'Herramientas de analítica',
-            icono: Icons.analytics_outlined,
-            color: color,
-            child: Column(children: [
-              TextFormField(
-                controller: _gaCtrl,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  labelText: 'Google Analytics ID',
-                  hintText: 'G-XXXXXXXXXX o UA-XXXXXXXX',
-                  prefixIcon: Icon(Icons.bar_chart_outlined),
-                ),
-              ),
-              const Divider(height: 1),
-              TextFormField(
-                controller: _fbCtrl,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  labelText: 'Facebook Pixel ID',
-                  hintText: '123456789012345',
-                  prefixIcon: Icon(Icons.facebook),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(children: [
-                  Icon(Icons.info_outline, color: Colors.blue, size: 14),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Estos códigos se añaden automáticamente al script generado.',
-                      style: TextStyle(fontSize: 11, color: Colors.blue),
-                    ),
-                  ),
-                ]),
-              ),
-            ]),
-          ),
           const SizedBox(height: 20),
 
           // Botón guardar
@@ -441,10 +386,6 @@ class _TabSeoWebState extends State<TabSeoWeb> {
       descripcionSeo: _descCtrl.text.trim(),
       palabrasClave: _kwCtrl.text.trim(),
       imagenOg: _imagenOg,
-      googleAnalyticsId:
-          _gaCtrl.text.trim().isEmpty ? null : _gaCtrl.text.trim(),
-      pixelFacebook:
-          _fbCtrl.text.trim().isEmpty ? null : _fbCtrl.text.trim(),
       robotsContent: _robots,
     );
     try {
