@@ -216,28 +216,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
                       onPressed: _cargando ? null : _mostrarRecuperacionPassword,
                       child: const Text('¿Olvidaste tu contraseña?'),
                     ),
-                    const SizedBox(height: 16),
-
-                    // ── Botón Demo ──────────────────────────────────────
-                    OutlinedButton.icon(
-                      onPressed: _cargando ? null : _entrarComoDemo,
-                      icon: const Icon(Icons.play_circle_outline, size: 20),
-                      label: const Text(
-                        'Probar Demo gratis',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        foregroundColor: const Color(0xFF43A047),
-                        side: const BorderSide(color: Color(0xFF43A047)),
-                      ),
-                    ),
                   ],
                 ),
               ),
