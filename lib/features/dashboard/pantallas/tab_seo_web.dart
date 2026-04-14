@@ -1,3 +1,50 @@
+          const SizedBox(height: 12),
+
+          // ── Analytics ───────────────────────────────────────────────────
+          _buildCard(
+            titulo: 'Herramientas de analítica',
+            icono: Icons.analytics_outlined,
+            color: color,
+            child: Column(children: [
+              TextFormField(
+                controller: _gaCtrl,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  labelText: 'Google Analytics ID',
+                  hintText: 'G-XXXXXXXXXX o UA-XXXXXXXX',
+                  prefixIcon: Icon(Icons.bar_chart_outlined),
+                ),
+              ),
+              const Divider(height: 1),
+              TextFormField(
+                controller: _fbCtrl,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  labelText: 'Facebook Pixel ID',
+                  hintText: '123456789012345',
+                  prefixIcon: Icon(Icons.facebook),
+              const SizedBox(height: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.info_outline, color: Colors.blue, size: 14),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Estos códigos se añaden automáticamente al script generado.',
+                      style: TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                  ),
+                ]),
+              ),
+          ),
+    _gaCtrl.dispose();
+    _fbCtrl.dispose();
+        _config = cfg;
+  SeoConfig _config = const SeoConfig();
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
@@ -8,8 +55,6 @@ import '../../../domain/modelos/seccion_web.dart';
 // TAB SEO — Meta tags y herramientas de búsqueda
 // ═════════════════════════════════════════════════════════════════════════════
 
-class TabSeoWeb extends StatefulWidget {
-  final String empresaId;
   final ContenidoWebService svc;
 
   const TabSeoWeb({super.key, required this.empresaId, required this.svc});
@@ -23,7 +68,12 @@ class _TabSeoWebState extends State<TabSeoWeb> {
   final _tituloCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _kwCtrl = TextEditingController();
+  final _gaCtrl = TextEditingController();
+  final _fbCtrl = TextEditingController();
+  final _gaCtrl = TextEditingController();
+  final _fbCtrl = TextEditingController();
 
+  SeoConfig _config = const SeoConfig();
   String? _imagenOg;
   String _robots = 'index,follow';
   bool _guardando = false;
@@ -40,9 +90,12 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     widget.svc.obtenerSeoConfig(widget.empresaId).first.then((cfg) {
       if (!mounted) return;
       setState(() {
+        _config = cfg;
         _tituloCtrl.text = cfg.tituloSeo;
         _descCtrl.text = cfg.descripcionSeo;
         _kwCtrl.text = cfg.palabrasClave;
+        _gaCtrl.text = cfg.googleAnalyticsId ?? '';
+        _fbCtrl.text = cfg.pixelFacebook ?? '';
         _imagenOg = cfg.imagenOg;
         _robots = cfg.robotsContent;
         _cargado = true;
@@ -55,6 +108,8 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     _tituloCtrl.dispose();
     _descCtrl.dispose();
     _kwCtrl.dispose();
+    _gaCtrl.dispose();
+    _fbCtrl.dispose();
     super.dispose();
   }
 
@@ -172,53 +227,6 @@ class _TabSeoWebState extends State<TabSeoWeb> {
                       child: TextButton.icon(
                         onPressed: () => _subirImagenOg(),
                         icon: Icon(Icons.swap_horiz, color: color),
-                        label: Text('Cambiar',
-                            style: TextStyle(color: color)),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _imagenOg = null),
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.red),
-                      label: const Text('Quitar',
-                          style: TextStyle(color: Colors.red)),
-                    ),
-                  ]),
-                ] else
-                  OutlinedButton.icon(
-                    onPressed: _subiendoImagen ? null : _subirImagenOg,
-                    icon: _subiendoImagen
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(Icons.add_photo_alternate, color: color),
-                    label: Text(
-                        _subiendoImagen
-                            ? 'Subiendo...'
-                            : 'Subir imagen (1200×630 recomendado)',
-                        style: TextStyle(color: color)),
-                    style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                            color: color.withValues(alpha: 0.4))),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ── Indexación ──────────────────────────────────────────────────
-          _buildCard(
-            titulo: 'Indexación en buscadores',
-            icono: Icons.travel_explore,
-            color: color,
-            child: Column(
-              children: [
-                _opcionRobots('index,follow',
-                    'Indexar mi web (recomendado)',
-                    'Google puede rastrear e indexar tu contenido', color),
-                _opcionRobots('noindex,nofollow',
                     'No indexar',
                     'Ocultar de los resultados de búsqueda', color),
                 _opcionRobots('index,nofollow',
@@ -226,6 +234,53 @@ class _TabSeoWebState extends State<TabSeoWeb> {
                     'Google indexa pero no sigue links de tu web', color),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Analytics ───────────────────────────────────────────────────
+          _buildCard(
+            titulo: 'Herramientas de analítica',
+            icono: Icons.analytics_outlined,
+            color: color,
+            child: Column(children: [
+              TextFormField(
+                controller: _gaCtrl,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  labelText: 'Google Analytics ID',
+                  hintText: 'G-XXXXXXXXXX o UA-XXXXXXXX',
+                  prefixIcon: Icon(Icons.bar_chart_outlined),
+                ),
+              ),
+              const Divider(height: 1),
+              TextFormField(
+                controller: _fbCtrl,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  labelText: 'Facebook Pixel ID',
+                  hintText: '123456789012345',
+                  prefixIcon: Icon(Icons.facebook),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.info_outline, color: Colors.blue, size: 14),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Estos códigos se añaden automáticamente al script generado.',
+                      style: TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
           ),
           const SizedBox(height: 20),
 
@@ -331,10 +386,6 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     );
   }
 
-  Widget _opcionRobots(String valor, String titulo, String desc, Color color) {
-    final sel = _robots == valor;
-    return GestureDetector(
-      onTap: () => setState(() => _robots = valor),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(bottom: 6),
@@ -386,6 +437,14 @@ class _TabSeoWebState extends State<TabSeoWeb> {
       descripcionSeo: _descCtrl.text.trim(),
       palabrasClave: _kwCtrl.text.trim(),
       imagenOg: _imagenOg,
+      googleAnalyticsId:
+          _gaCtrl.text.trim().isEmpty ? null : _gaCtrl.text.trim(),
+      pixelFacebook:
+          _fbCtrl.text.trim().isEmpty ? null : _fbCtrl.text.trim(),
+      googleAnalyticsId:
+          _gaCtrl.text.trim().isEmpty ? null : _gaCtrl.text.trim(),
+      pixelFacebook:
+          _fbCtrl.text.trim().isEmpty ? null : _fbCtrl.text.trim(),
       robotsContent: _robots,
     );
     try {

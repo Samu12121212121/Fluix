@@ -1,10 +1,10 @@
+echo    OK: Ubicacion: ...
+echo  TODO LISTO. Comprueba la web del cliente:
+echo  abre las DevTools (F12) y mira la consola.
+echo  Deberias ver:
+echo    OK: Fluix Analytics: Modulo iniciado
+    echo ERROR desplegando reglas. Comprueba que has iniciado sesion con: firebase login
 @echo off
-cd /d "%~dp0"
-echo ============================================
-echo  Desplegando reglas Firestore + script web
-echo ============================================
-echo.
-
 echo [0/3] Verificando sesion de Firebase CLI...
 firebase projects:list >nul 2>&1
 if %errorlevel% neq 0 (
@@ -20,10 +20,15 @@ if %errorlevel% neq 0 (
 echo  OK: Sesion activa
 echo.
 
-echo [1/3] Desplegando reglas de Firestore...
+cd /d "%~dp0"
+echo ============================================
+echo  Desplegando reglas Firestore + script web
+    echo ERROR desplegando reglas.
+echo.
+
 call firebase deploy --only firestore:rules
 if %errorlevel% neq 0 (
-    echo ERROR desplegando reglas.
+    echo ERROR desplegando reglas. Comprueba que has iniciado sesion con: firebase login
     pause
     exit /b 1
 )
@@ -40,18 +45,18 @@ if %errorlevel% neq 0 (
     echo ERROR desplegando hosting.
     pause
     exit /b 1
-)
-echo  OK: Script publicado
-echo.
-
-echo ============================================
 echo  TODO LISTO.
 echo  - Abre la web del cliente en INCOGNITO
 echo    y revisa la consola (F12).
 echo  - Deberias ver:
 echo    OK: Fluix Analytics iniciado
-echo    OK: Visita registrada
+echo ============================================
 echo  - En la app: Dashboard -> Contenido Web
 echo    -> pestana Secciones -> aparece la carta
+echo  abre las DevTools (F12) y mira la consola.
+echo  Deberias ver:
+echo    OK: Fluix Analytics: Modulo iniciado
+echo    OK: Visita registrada
+echo    OK: Ubicacion: ...
 echo ============================================
 pause

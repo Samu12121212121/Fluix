@@ -1,9 +1,35 @@
+                try {
+                  final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
+                  var acc = await gs.signInSilently() ?? await gs.signIn();
+                  if (acc != null) {
+                    final auth = await acc.authentication;
+                    if (auth.accessToken != null) {
+                      publicadoEnGoogle = true;
+                    }
+                  }
+                } on PlatformException catch (_) {
+                } catch (_) { msgExtra = ' (Conecta Google Business para publicar en Maps)'; }
+              }  // closes else
+              data['google_review_name'] != null
+                ? 'Tu respuesta se publicará directamente en Google Maps.'
+                : '1. Escribe tu respuesta y pulsa Guardar.\n2. Se guarda en la app.\n'
+                  '3. Conéctate a Google Business para publicar en Google Maps.',
+          Expanded(child: EstadoConexionGoogleWidget(
+            empresaId: empresaId, onEstadoCambiado: onGmbConectado)),
+        // Fila estado GMB + acciones
+    required this.onToggleAnaliticas, required this.onGmbConectado,
+  final VoidCallback onGmbConectado;
+        onGmbConectado: () => _sincronizarEnBackground(),
+import 'estado_conexion_google_widget.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
+import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
 import 'kpis_rating_widget.dart';
@@ -101,7 +127,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
       _errorSync = resultado.error;
       _sincronizando = false;
     });
-
     // Recargar reseñas por si llegaron nuevas
     if (resultado.error == null) await _cargarPagina(reset: true);
   }
@@ -127,6 +152,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
         onSincronizar: _sincronizarEnBackground,
         onAnadir: () => _mostrarFormAnadir(context),
         onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
+        onGmbConectado: () => _sincronizarEnBackground(),
       ),
       if (_cargando)
         const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -207,13 +233,12 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                     if (cli.isEmpty || com.isEmpty) return;
                     await _svc.anadirValoracionManual(empresaId: widget.empresaId,
                       cliente: cli, calificacion: calificacion, comentario: com);
-                    if (ctx.mounted) { Navigator.pop(ctx); _cargarPagina(reset: true); }
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Guardar valoración'),
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
                     foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+    required this.onToggleAnaliticas,
             ]),
         ))));
   }
@@ -232,15 +257,15 @@ class _CabeceraCompleta extends StatelessWidget {
   final bool mostrarAnaliticas;
   final VoidCallback onSincronizar;
   final VoidCallback onAnadir;
-  final VoidCallback onToggleAnaliticas;
-
-  const _CabeceraCompleta({
+        // Fila acciones
+  final VoidCallback onGmbConectado;
     required this.empresaId, required this.resenas, required this.ratingGoogle,
     required this.totalGoogle, required this.sincronizando, required this.errorSync,
     required this.mostrarAnaliticas, required this.onSincronizar, required this.onAnadir,
-    required this.onToggleAnaliticas,
+    required this.onToggleAnaliticas, required this.onGmbConectado,
   });
 
+          const Spacer(),
   @override
   Widget build(BuildContext context) {
     final rating = ratingGoogle > 0 ? ratingGoogle : _promedioLocal();
@@ -257,15 +282,16 @@ class _CabeceraCompleta extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
-        // Fila acciones
+        // Fila estado GMB + acciones
         Row(children: [
+          Expanded(child: EstadoConexionGoogleWidget(
+            empresaId: empresaId, onEstadoCambiado: onGmbConectado)),
           if (sincronizando) ...[
             const SizedBox(width: 8),
             const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 4),
             Text('Sync...', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
           ],
-          const Spacer(),
           IconButton(onPressed: sincronizando ? null : onSincronizar,
             icon: const Icon(Icons.sync, size: 20), color: const Color(0xFF4285F4),
             tooltip: 'Sincronizar con Google'),
@@ -502,10 +528,7 @@ class _TarjetaResena extends StatelessWidget {
                   style: const TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(foregroundColor: const Color(0xFF1976D2),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
-              ),
-            ]),
-          ])),
-      ),
+              'Tu respuesta se guardará y se publicará en Google Maps.',
       // Badge rojo parpadeante para reseñas negativas sin responder
       if (esNegativa && sinResponder && !eliminadaPorGoogle)
         const Positioned(top: 8, left: 8, child: _BadgeNegativa()),
@@ -528,26 +551,16 @@ class _TarjetaResena extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.2))),
             child: Text(
-              'Tu respuesta se guardará y se publicará en Google Maps.',
+              data['google_review_name'] != null
+                ? 'Tu respuesta se publicará directamente en Google Maps.'
+                : '1. Escribe tu respuesta y pulsa Guardar.\n2. Se guarda en la app.\n'
+                  '3. Conéctate a Google Business para publicar en Google Maps.',
               style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5))),
           const SizedBox(height: 12),
         ],
         TextField(controller: ctrl, maxLines: 5, autofocus: true,
           decoration: InputDecoration(hintText: 'Escribe tu respuesta...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true, fillColor: Colors.grey[50])),
-      ]),
-      actions: [
-        if (data['origen'] == 'google')
-          TextButton.icon(onPressed: () => _abrirEnGoogle(ctx),
-            icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF4285F4)),
-            label: const Text('Abrir Google', style: TextStyle(color: Color(0xFF4285F4), fontSize: 13))),
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2), foregroundColor: Colors.white),
-          onPressed: () async {
-            final texto = ctrl.text.trim();
-            if (texto.isEmpty) return;
+              }
             // 1. Guardar en Firestore
             await svc.guardarRespuesta(empresaId: empresaId, valoracionId: docId, respuesta: texto);
             bool publicadoEnGoogle = false;
@@ -560,7 +573,20 @@ class _TarjetaResena extends StatelessWidget {
                 publicadoEnGoogle = res.publicadoEnGoogle;
                 if (res.enCola) msgExtra = ' (en cola, reintentando...)';
                 else if (!publicadoEnGoogle && res.error != null) msgExtra = ' (${res.error})';
-              }
+              } else {
+                try {
+                  final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
+                  var acc = await gs.signInSilently() ?? await gs.signIn();
+                  if (acc != null) {
+                    final auth = await acc.authentication;
+                    if (auth.accessToken != null) {
+                      await svc.responderResena('accounts/me/locations/me/reviews/$docId', texto, auth.accessToken!);
+                      publicadoEnGoogle = true;
+                    }
+                  }
+                } on PlatformException catch (_) {
+                } catch (_) { msgExtra = ' (Conecta Google Business para publicar en Maps)'; }
+              }  // closes else
             }  // closes if (data['origen'] == 'google')
             Navigator.pop(ctx);
             ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(

@@ -169,6 +169,41 @@ class _FormularioLoginState extends State<FormularioLogin> {
                     ),
             ),
           ),
+          const SizedBox(height: 24),
+
+          // Separador
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.grey[300])),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'o',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+              Expanded(child: Divider(color: Colors.grey[300])),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Botón de registro
+          OutlinedButton(
+            onPressed: _cargando ? null : _navegarARegistro,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Registrar Nueva Empresa',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );

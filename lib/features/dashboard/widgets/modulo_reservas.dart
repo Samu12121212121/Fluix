@@ -520,13 +520,15 @@ class _TarjetaReserva extends StatelessWidget {
     })();
 
     final servicio  = data['servicio'] ?? data['servicio_nombre'] ?? 'Sin servicio';
+    final telefono  = data['telefono_cliente'] ?? '';
+    final servicio  = data['servicio'] ?? 'Sin servicio';
     final precio    = data['precio'];
     final notas     = data['notas'] ?? '';
     final profesional = data['nombre_profesional'] as String?;
-    final cancelada  = _estado == 'CANCELADA';
-    final completada = _estado == 'COMPLETADA';
     final esWeb      = (data['origen']?.toString() == 'web') ||
                        (data['creado_por']?.toString() == 'web_widget');
+    final cancelada  = _estado == 'CANCELADA';
+    final completada = _estado == 'COMPLETADA';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -554,8 +556,6 @@ class _TarjetaReserva extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
                       Row(
                         children: [
                           Flexible(
@@ -584,6 +584,9 @@ class _TarjetaReserva extends StatelessWidget {
                           ],
                         ],
                       ),
+                      Text(cliente,
+                      Text(cliente,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       if (telefono.isNotEmpty)
                         Text(telefono,
                             style: TextStyle(color: Colors.grey[500], fontSize: 12)),

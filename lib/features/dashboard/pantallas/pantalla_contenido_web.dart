@@ -1,3 +1,20 @@
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _abrirEditor(context, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Crear primera sección'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+            'Añade secciones para que se muestren en tu web',
+  Widget _buildVacio(BuildContext context, Color color) {
+                  ? 'Sin secciones — añade la primera'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -95,23 +112,6 @@ class _TabSecciones extends StatelessWidget {
         }
         if (snap.hasError) {
           debugPrint('❌ StreamBuilder error: ${snap.error}');
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 12),
-                  Text('Error cargando secciones:\n${snap.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          );
-        }
-        final secciones = snap.data ?? [];
         return CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -133,7 +133,58 @@ class _TabSecciones extends StatelessWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         );
-      },
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              heroTag: 'fab_nueva_seccion',
+              onPressed: () => _abrirEditor(context, null),
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva sección'),
+            ),
+          ),
+        ]);
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                  child: _buildHeader(secciones, color)),
+              if (secciones.isEmpty)
+                SliverToBoxAdapter(child: _buildVacio(context, color))
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _TarjetaSeccion(
+                      seccion: secciones[i],
+                      empresaId: empresaId,
+                      svc: svc,
+                      color: color,
+                    ),
+                    childCount: secciones.length,
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+          Positioned(
+            right: 16,
+                  ? 'Sin secciones — se crean desde la web'
+            child: FloatingActionButton.extended(
+              heroTag: 'fab_nueva_seccion',
+              onPressed: () => _abrirEditor(context, null),
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva sección'),
+            ),
+          ),
+        ]);
+  Widget _buildVacio() {
     );
   }
 
@@ -147,44 +198,18 @@ class _TabSecciones extends StatelessWidget {
           colors: [color, color.withValues(alpha: 0.75)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-        ),
+            'Las secciones se crean automáticamente cuando\n'
+            'el script Fluix detecta data-fluix-seccion en tu web.',
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child:
-              const Icon(Icons.language, color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
             const Text('Tu web en tiempo real',
                 style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16)),
-            const SizedBox(height: 3),
-            Text(
-              secciones.isEmpty
-                  ? 'Sin secciones — se crean desde la web'
-                  : '$activas de ${secciones.length} secciones activas',
-              style:
-                  const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-        )),
-      ]),
-    );
   }
 
-  Widget _buildVacio() {
+  Widget _buildVacio(BuildContext context, Color color) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -198,12 +223,51 @@ class _TabSecciones extends StatelessWidget {
                   color: Colors.grey[600])),
           const SizedBox(height: 8),
           Text(
-            'Las secciones se crean automáticamente cuando\n'
-            'el script Fluix detecta data-fluix-seccion en tu web.',
+            'Añade secciones para que se muestren en tu web',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[500], fontSize: 13),
           ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _abrirEditor(context, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Crear primera sección'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ]),
+      ),
+    );
+  }
+
+  void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PantallaEditorSeccion(
+          empresaId: empresaId,
+          seccion: seccion,
+          svc: svc,
+        ),
+      ),
+    );
+  }
+
+  void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PantallaEditorSeccion(
+          empresaId: empresaId,
+          seccion: seccion,
+          svc: svc,
+        ),
       ),
     );
   }

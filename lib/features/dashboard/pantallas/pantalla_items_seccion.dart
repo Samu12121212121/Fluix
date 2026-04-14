@@ -411,6 +411,124 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
         .join(' ');
   }
 
+  // ── Mostrar HTML de ejemplo ────────────────────────────────────────────────
+
+  void _mostrarHtmlEjemplo(BuildContext context) {
+    final secId = widget.seccion.id;
+    final buf = StringBuffer();
+    buf.writeln('<section data-fluix-seccion="$secId">');
+    buf.writeln('  <h2 data-fluix-titulo></h2>');
+    buf.writeln();
+    for (final item in _items) {
+      final id = item['id'] ?? '???';
+      buf.writeln('  <div data-fluix-item="$id">');
+      for (final key in item.keys) {
+        if (key == 'id' || key == 'disponible') continue;
+        final valor = item[key];
+        if (valor is String && valor.startsWith('http')) {
+          buf.writeln('    <img data-fluix-campo="$key">');
+        } else {
+          buf.writeln('    <span data-fluix-campo="$key"></span>');
+        }
+      }
+      buf.writeln('  </div>');
+      buf.writeln();
+    }
+    buf.writeln('</section>');
+
+    final html = buf.toString();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                SizedBox(width: 8),
+                Text('HTML de ejemplo',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18)),
+              ]),
+              const SizedBox(height: 8),
+              Text(
+                'Copia este HTML y pégalo en la web del cliente. '
+                'El script rellenará los valores automáticamente.',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    html,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: Color(0xFF9CDCFE),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: html));
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text('HTML copiado al portapapeles'),
+                        ]),
+                        backgroundColor: Color(0xFF455A64),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copiar HTML'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF455A64),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // ── UI ─────────────────────────────────────────────────────────────────────
 
   @override
@@ -459,6 +577,18 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
               onPressed: _guardarNombre,
             )
           else ...[
+            // Botón Ver HTML
+            IconButton(
+              icon: const Icon(Icons.code, size: 22),
+              tooltip: 'Ver HTML de ejemplo',
+              onPressed: () => _mostrarHtmlEjemplo(context),
+            ),
+            // Botón Ver HTML
+            IconButton(
+              icon: const Icon(Icons.code, size: 22),
+              tooltip: 'Ver HTML de ejemplo',
+              onPressed: () => _mostrarHtmlEjemplo(context),
+            ),
             if (_guardando)
               const Padding(
                 padding: EdgeInsets.all(16),

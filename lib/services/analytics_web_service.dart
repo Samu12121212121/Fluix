@@ -1,6 +1,21 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+    visitasHoy: 0,
 import 'package:flutter/foundation.dart';
-
+    visitasSemana: 0,
+    visitasMes: 0,
+    visitasTotal: 0,
+    paginasMasVistas: {},
+    duracionMediaSegundos: 0,
+    tasaRebote: 0,
+    visitasMovil: 0,
+    visitasDesktop: 0,
+    visitasTablet: 0,
+    ubicaciones: {},
+    referrers: {},
+    eventos: {},
+    paises: {},
+    ultimaActualizacion: null,
+    tieneDatos: false,
+import 'package:cloud_firestore/cloud_firestore.dart';
 /// Servicio para leer métricas de tráfico web guardadas por el script JS del footer.
 ///
 /// El script JavaScript en fluixtech.com escribe en:
@@ -104,21 +119,6 @@ class MetricasTraficoWeb {
     required this.visitasSemana,
     required this.visitasMes,
     required this.visitasTotal,
-    required this.paginasMasVistas,
-    required this.duracionMediaSegundos,
-    required this.tasaRebote,
-    required this.visitasMovil,
-    required this.visitasDesktop,
-    required this.visitasTablet,
-    required this.ubicaciones,
-    required this.referrers,
-    required this.eventos,
-    required this.paises,
-    required this.ultimaActualizacion,
-    required this.tieneDatos,
-  });
-
-  factory MetricasTraficoWeb.vacio() => const MetricasTraficoWeb(
     visitasHoy: 0, visitasSemana: 0, visitasMes: 0, visitasTotal: 0,
     paginasMasVistas: {}, duracionMediaSegundos: 0, tasaRebote: 0,
     visitasMovil: 0, visitasDesktop: 0, visitasTablet: 0,
@@ -139,6 +139,21 @@ class MetricasTraficoWeb {
     paises: {'España': 1100, 'México': 80, 'Argentina': 60},
     ultimaActualizacion: DateTime.now(),
     tieneDatos: true,
+    visitasSemana: 0,
+    visitasMes: 0,
+    visitasTotal: 0,
+    paginasMasVistas: {},
+    duracionMediaSegundos: 0,
+    tasaRebote: 0,
+    visitasMovil: 0,
+    visitasDesktop: 0,
+    visitasTablet: 0,
+    ubicaciones: {},
+    referrers: {},
+    eventos: {},
+    paises: {},
+    ultimaActualizacion: null,
+    tieneDatos: false,
   );
 
   factory MetricasTraficoWeb.fromMap(Map<String, dynamic> m) {

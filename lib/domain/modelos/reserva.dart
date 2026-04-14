@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+       ];
 import '../../core/enums/enums.dart';
 
 // ignore_for_file: avoid_print
@@ -74,7 +74,7 @@ class Reserva {
       data['correo_cliente'],
       data['correo_cliente_web'],
     ], null);
-
+import 'package:equatable/equatable.dart';
     // Nombre del servicio: puede venir como 'servicio' o 'servicio_nombre'
     final servicioNombre = _strFallback([
       data['servicio_nombre'],
@@ -187,3 +187,13 @@ class Reserva {
     return fallback ?? '';
   }
 }
+      fechaHora: DateTime.parse(datos['fecha_hora']),
+      fechaHora: _parseDate(datos['fecha_hora']),
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+      ];
+      ];
+          ? DateTime.parse(datos['fecha_modificacion'])
+      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
+      fechaHora: DateTime.parse(datos['fecha_hora']),
+

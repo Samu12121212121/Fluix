@@ -1,3 +1,4 @@
+            allow write: if esPropietario(empresaId);
           // Cualquier auth puede crear su propio doc (registro)
 rules_version = '2';
     service cloud.firestore {
@@ -151,7 +152,6 @@ rules_version = '2';
 
           // RESERVAS
           match /reservas/{reservaId} {
-            allow read: if esStaffOSuperior(empresaId);
             allow update, delete: if esStaffOSuperior(empresaId);
             // Clientes web (sin autenticación) pueden crear reservas con campos mínimos
             allow create: if request.resource.data.keys().hasAll(['nombre_cliente', 'fecha', 'estado'])
@@ -159,6 +159,8 @@ rules_version = '2';
               && request.resource.data.nombre_cliente is string
               && request.resource.data.nombre_cliente.size() > 0
               && request.resource.data.nombre_cliente.size() <= 100;
+            allow create: if isAuth(); // clientes externos pueden crear reservas
+            allow create: if isAuth(); // clientes externos pueden crear reservas
           }
 
           // VALORACIONES — [FIX-5] lectura pública, creación con validación anti-spam
@@ -263,8 +265,6 @@ rules_version = '2';
           match /contenido_web/{docId} {
             allow read: if true;
             allow write: if request.auth != null;
-          }
-
           // CONTACTO WEB — mensajes del formulario de contacto de la web
           // Creación: cualquier auth (anónimo desde el script)
           // Lectura/gestión: admin/propietario desde la app
@@ -274,6 +274,8 @@ rules_version = '2';
               && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje', 'fecha'])
               && request.resource.data.size() <= 10;
             allow update, delete: if esAdminOPropietario(empresaId);
+          }
+
           }
 
           // DISPOSITIVOS FCM — cada usuario escribe su propio token
@@ -341,8 +343,6 @@ rules_version = '2';
             allow update, delete: if esPropietario(empresaId);
           }
 
-          // (Se deja por compatibilidad — convenios es colección raíz)
-          match /convenios/{convenioId} {
             allow read: if true;
             allow write: if false;
           }
@@ -355,6 +355,8 @@ rules_version = '2';
         }
 
         // ── CONVENIOS COLECTIVOS (colección raíz) ───────────────────────────────
+          match /convenios/{convenioId} {
+            allow write: if esPropietario(empresaId);
         match /convenios/{convenioId} {
           allow read: if isAuth();
           allow create, update: if isAuth()
