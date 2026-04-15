@@ -1,20 +1,3 @@
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _abrirEditor(context, null),
-            icon: const Icon(Icons.add),
-            label: const Text('Crear primera sección'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-            'Añade secciones para que se muestren en tu web',
-  Widget _buildVacio(BuildContext context, Color color) {
-                  ? 'Sin secciones — añade la primera'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -164,40 +147,6 @@ class _TabSecciones extends StatelessWidget {
             ),
           ),
         ]);
-          CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                  child: _buildHeader(secciones, color)),
-              if (secciones.isEmpty)
-                SliverToBoxAdapter(child: _buildVacio(context, color))
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _TarjetaSeccion(
-                      seccion: secciones[i],
-                      empresaId: empresaId,
-                      svc: svc,
-                      color: color,
-                    ),
-                    childCount: secciones.length,
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
-            ],
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-              heroTag: 'fab_nueva_seccion',
-              onPressed: () => _abrirEditor(context, null),
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nueva sección'),
-            ),
-          ),
-        ]);
       },
     );
   }
@@ -286,18 +235,6 @@ class _TabSecciones extends StatelessWidget {
     );
   }
 
-  void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PantallaEditorSeccion(
-          empresaId: empresaId,
-          seccion: seccion,
-          svc: svc,
-        ),
-      ),
-    );
-  }
 
   void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
     Navigator.push(

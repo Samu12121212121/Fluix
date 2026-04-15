@@ -507,8 +507,6 @@ class _TarjetaReserva extends StatelessWidget {
     final cliente   = data['nombre_cliente'] ?? 'Sin nombre';
     final telefono  = data['telefono_cliente'] ?? '';
     final servicio  = data['servicio'] ?? 'Sin servicio';
-    final telefono  = data['telefono_cliente'] ?? '';
-    final servicio  = data['servicio'] ?? 'Sin servicio';
     final precio    = data['precio'];
     final notas     = data['notas'] ?? '';
     final profesional = data['nombre_profesional'] as String?;
@@ -542,8 +540,6 @@ class _TarjetaReserva extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      Text(cliente,
-                      Text(cliente,
                       Text(cliente,
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       if (telefono.isNotEmpty)

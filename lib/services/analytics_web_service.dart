@@ -1,19 +1,3 @@
-    visitasHoy: 0,
-    visitasSemana: 0,
-    visitasMes: 0,
-    visitasTotal: 0,
-    paginasMasVistas: {},
-    duracionMediaSegundos: 0,
-    tasaRebote: 0,
-    visitasMovil: 0,
-    visitasDesktop: 0,
-    visitasTablet: 0,
-    ubicaciones: {},
-    referrers: {},
-    eventos: {},
-    paises: {},
-    ultimaActualizacion: null,
-    tieneDatos: false,
 import 'package:cloud_firestore/cloud_firestore.dart';
 /// Servicio para leer métricas de tráfico web guardadas por el script JS del footer.
 ///

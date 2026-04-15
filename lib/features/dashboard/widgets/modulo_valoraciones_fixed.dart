@@ -1,35 +1,9 @@
-              } else {
-                try {
-                  final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
-                  var acc = await gs.signInSilently() ?? await gs.signIn();
-                  if (acc != null) {
-                    final auth = await acc.authentication;
-                    if (auth.accessToken != null) {
-                      await svc.responderResena('accounts/me/locations/me/reviews/$docId', texto, auth.accessToken!);
-                      publicadoEnGoogle = true;
-                    }
-                  }
-                } on PlatformException catch (_) {
-                } catch (_) { msgExtra = ' (Conecta Google Business para publicar en Maps)'; }
-              }  // closes else
-              data['google_review_name'] != null
-                ? 'Tu respuesta se publicará directamente en Google Maps.'
-                : '1. Escribe tu respuesta y pulsa Guardar.\n2. Se guarda en la app.\n'
-                  '3. Conéctate a Google Business para publicar en Google Maps.',
-          Expanded(child: EstadoConexionGoogleWidget(
-            empresaId: empresaId, onEstadoCambiado: onGmbConectado)),
-        // Fila estado GMB + acciones
-    required this.onToggleAnaliticas, required this.onGmbConectado,
-  final VoidCallback onGmbConectado;
-        onGmbConectado: () => _sincronizarEnBackground(),
-import 'estado_conexion_google_widget.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../services/google_reviews_service.dart';
 import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
