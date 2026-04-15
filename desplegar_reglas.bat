@@ -5,25 +5,10 @@ echo  Deberias ver:
 echo    OK: Fluix Analytics: Modulo iniciado
     echo ERROR desplegando reglas. Comprueba que has iniciado sesion con: firebase login
 @echo off
-echo [0/3] Verificando sesion de Firebase CLI...
-firebase projects:list >nul 2>&1
-if %errorlevel% neq 0 (
-    echo  SESION EXPIRADA o no iniciada. Abriendo navegador para hacer login...
-    echo  Cuando termines el login en el navegador, vuelve aqui y pulsa cualquier tecla.
-    firebase login
-    if %errorlevel% neq 0 (
-        echo ERROR: No se pudo iniciar sesion en Firebase.
-        pause
-        exit /b 1
-    )
-)
-echo  OK: Sesion activa
-echo.
-
 cd /d "%~dp0"
 echo ============================================
 echo  Desplegando reglas Firestore + script web
-    echo ERROR desplegando reglas.
+echo ============================================
 echo.
 
 call firebase deploy --only firestore:rules
@@ -45,14 +30,12 @@ if %errorlevel% neq 0 (
     echo ERROR desplegando hosting.
     pause
     exit /b 1
-echo  TODO LISTO.
-echo  - Abre la web del cliente en INCOGNITO
-echo    y revisa la consola (F12).
-echo  - Deberias ver:
-echo    OK: Fluix Analytics iniciado
+)
+echo  OK: Script publicado
+echo.
+
 echo ============================================
-echo  - En la app: Dashboard -> Contenido Web
-echo    -> pestana Secciones -> aparece la carta
+echo  TODO LISTO. Comprueba la web del cliente:
 echo  abre las DevTools (F12) y mira la consola.
 echo  Deberias ver:
 echo    OK: Fluix Analytics: Modulo iniciado

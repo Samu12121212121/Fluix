@@ -1,9 +1,11 @@
+              } else {
                 try {
                   final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
                   var acc = await gs.signInSilently() ?? await gs.signIn();
                   if (acc != null) {
                     final auth = await acc.authentication;
                     if (auth.accessToken != null) {
+                      await svc.responderResena('accounts/me/locations/me/reviews/$docId', texto, auth.accessToken!);
                       publicadoEnGoogle = true;
                     }
                   }
@@ -127,6 +129,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
       _errorSync = resultado.error;
       _sincronizando = false;
     });
+
     // Recargar reseñas por si llegaron nuevas
     if (resultado.error == null) await _cargarPagina(reset: true);
   }
@@ -233,12 +236,13 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                     if (cli.isEmpty || com.isEmpty) return;
                     await _svc.anadirValoracionManual(empresaId: widget.empresaId,
                       cliente: cli, calificacion: calificacion, comentario: com);
+                    if (ctx.mounted) { Navigator.pop(ctx); _cargarPagina(reset: true); }
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Guardar valoración'),
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
                     foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14),
-    required this.onToggleAnaliticas,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
             ]),
         ))));
   }
@@ -257,15 +261,16 @@ class _CabeceraCompleta extends StatelessWidget {
   final bool mostrarAnaliticas;
   final VoidCallback onSincronizar;
   final VoidCallback onAnadir;
-        // Fila acciones
+  final VoidCallback onToggleAnaliticas;
   final VoidCallback onGmbConectado;
+
+  const _CabeceraCompleta({
     required this.empresaId, required this.resenas, required this.ratingGoogle,
     required this.totalGoogle, required this.sincronizando, required this.errorSync,
     required this.mostrarAnaliticas, required this.onSincronizar, required this.onAnadir,
     required this.onToggleAnaliticas, required this.onGmbConectado,
   });
 
-          const Spacer(),
   @override
   Widget build(BuildContext context) {
     final rating = ratingGoogle > 0 ? ratingGoogle : _promedioLocal();
@@ -528,7 +533,10 @@ class _TarjetaResena extends StatelessWidget {
                   style: const TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(foregroundColor: const Color(0xFF1976D2),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
-              'Tu respuesta se guardará y se publicará en Google Maps.',
+              ),
+            ]),
+          ])),
+      ),
       // Badge rojo parpadeante para reseñas negativas sin responder
       if (esNegativa && sinResponder && !eliminadaPorGoogle)
         const Positioned(top: 8, left: 8, child: _BadgeNegativa()),
@@ -560,7 +568,20 @@ class _TarjetaResena extends StatelessWidget {
         ],
         TextField(controller: ctrl, maxLines: 5, autofocus: true,
           decoration: InputDecoration(hintText: 'Escribe tu respuesta...',
-              }
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            filled: true, fillColor: Colors.grey[50])),
+      ]),
+      actions: [
+        if (data['origen'] == 'google')
+          TextButton.icon(onPressed: () => _abrirEnGoogle(ctx),
+            icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF4285F4)),
+            label: const Text('Abrir Google', style: TextStyle(color: Color(0xFF4285F4), fontSize: 13))),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2), foregroundColor: Colors.white),
+          onPressed: () async {
+            final texto = ctrl.text.trim();
+            if (texto.isEmpty) return;
             // 1. Guardar en Firestore
             await svc.guardarRespuesta(empresaId: empresaId, valoracionId: docId, respuesta: texto);
             bool publicadoEnGoogle = false;

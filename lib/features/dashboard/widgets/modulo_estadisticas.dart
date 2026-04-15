@@ -1,407 +1,3 @@
-}
-  Widget _infoItemWeb(IconData icono, String label, String valor, Color color) {
-    return Row(children: [
-      Icon(icono, size: 16, color: color),
-      const SizedBox(width: 6),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-        Text(valor, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-      ]),
-    ]);
-      SizedBox(width: 44, child: Text('${pct.toStringAsFixed(1)}%',
-          style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600))),
-      SizedBox(width: 60, child: Text(label, style: const TextStyle(fontSize: 12))),
-  Widget _barraDispositivo(IconData icono, String label, int count, double pct, Color color) {
-  Widget _kpiVisita(String label, String valor, IconData icono, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(children: [
-          Icon(icono, size: 16, color: color),
-          const SizedBox(height: 4),
-          Text(valor, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: TextStyle(fontSize: 10, color: color)),
-        ]),
-      ),
-    );
-              // ── Páginas más vistas ────────────────────────────────────────
-              if (m.paginasMasVistas.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Páginas más visitadas', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      ...(() {
-                        final sorted = m.paginasMasVistas.entries.toList()
-                          ..sort((a, b) => b.value.compareTo(a.value));
-                        final max = sorted.first.value;
-                        return sorted.take(5).map((e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(children: [
-                            const Icon(Icons.web, size: 14, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(e.key, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 3),
-                              LinearProgressIndicator(
-                                value: e.value / max,
-                                backgroundColor: Colors.grey[200],
-                                valueColor: const AlwaysStoppedAnimation(Color(0xFF1976D2)),
-                                minHeight: 5,
-                              ),
-                            ])),
-                            const SizedBox(width: 8),
-                            Text('${e.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                          ]),
-                        ));
-                      })(),
-                    ]),
-                  ),
-                ),
-              ],
-
-              // ── Ubicaciones geográficas ────────────────────────────────────
-              if (m.ubicaciones.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        const Icon(Icons.location_on, size: 18, color: Color(0xFF1976D2)),
-                        const SizedBox(width: 8),
-                        const Text('Ubicación de visitantes', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      ]),
-                      const SizedBox(height: 12),
-                      ...(() {
-                        final sorted = m.ubicaciones.entries.toList()
-                          ..sort((a, b) => b.value.compareTo(a.value));
-                        final total = sorted.fold(0, (s, e) => s + e.value);
-                        return sorted.take(6).map((e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(children: [
-                            const Icon(Icons.place_outlined, size: 13, color: Colors.grey),
-                            const SizedBox(width: 6),
-                            Expanded(child: Text(e.key, style: const TextStyle(fontSize: 12))),
-                            Text('${e.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${(e.value / total * 100).toStringAsFixed(1)}%',
-                              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                            ),
-                          ]),
-                        ));
-                      })(),
-                    ]),
-                  ),
-                ),
-              ],
-            ],
-          ],
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-      },
-              children: [
-                const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: 32),
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Calculando estadísticas reales...'),
-                      SizedBox(height: 8),
-                      Text('Esto solo ocurre la primera vez',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-                _SeccionTraficoWeb(empresaId: widget.empresaId),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Dispositivos', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      _barraDispositivo(
-                        Icons.smartphone, 'Móvil',
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildEstadoSinDatos(),
-                const SizedBox(height: 20),
-                _SeccionTraficoWeb(empresaId: widget.empresaId),
-              ],
-            ),
-          );
-                      ),
-                      const SizedBox(height: 8),
-                      _barraDispositivo(
-                        Icons.computer, 'Desktop',
-                        m.visitasDesktop, m.pctDesktop, const Color(0xFF7B1FA2),
-                      ),
-                      const SizedBox(height: 8),
-                      _barraDispositivo(
-                        Icons.tablet_mac, 'Tablet',
-                        m.visitasTablet, m.pctTablet, const Color(0xFF2E7D32),
-                      ),
-                    ]),
-                  ),
-                ),
-              // ── Gráfica tendencia 30 días ─────────────────────────────────
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: AnalyticsWebService().obtenerHistorialDiario(empresaId),
-                builder: (ctx, hSnap) {
-                  if (!hSnap.hasData || hSnap.data!.isEmpty) return const SizedBox.shrink();
-                  final hist = hSnap.data!.reversed.toList(); // cronológico
-                  final maxV = hist.map((h) => (h['visitas'] as num?)?.toDouble() ?? 0).fold(0.0, (a, b) => a > b ? a : b);
-                  return Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Visitas — últimos 30 días',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 120,
-                          child: BarChart(
-                            BarChartData(
-                              maxY: maxV <= 0 ? 10 : maxV * 1.2,
-                              gridData: FlGridData(
-                                show: true,
-                                drawVerticalLine: false,
-                                getDrawingHorizontalLine: (_) => const FlLine(
-                                  color: Color(0xFFE0E0E0), strokeWidth: 0.8,
-                                ),
-                              ),
-                              borderData: FlBorderData(show: false),
-                              titlesData: FlTitlesData(
-                                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    getTitlesWidget: (v, _) {
-                                      final i = v.toInt();
-                                      if (i % 5 != 0 || i >= hist.length) return const SizedBox.shrink();
-                                      final fecha = hist[i]['fecha']?.toString() ?? '';
-                                      final parts = fecha.split('-');
-                                      if (parts.length < 3) return const SizedBox.shrink();
-                                      return Text('${parts[2]}/${parts[1]}',
-                                          style: const TextStyle(fontSize: 8, color: Colors.grey));
-                                    },
-                                    reservedSize: 20,
-                                  ),
-                                ),
-                              ),
-                              barGroups: hist.asMap().entries.map((e) {
-                                final v = (e.value['visitas'] as num?)?.toDouble() ?? 0;
-                                return BarChartGroupData(
-                                  x: e.key,
-                                  barRods: [BarChartRodData(
-                                    toY: v,
-                                    width: 5,
-                                    color: const Color(0xFF1976D2),
-                                    borderRadius: BorderRadius.circular(2),
-                                  )],
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  );
-                },
-              ),
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Cabecera sección ───────────────────────────────────────────
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.language, color: Color(0xFF1565C0), size: 20),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tráfico Web', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  Text('fluixtech.com', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ]),
-              ),
-              if (m.ultimaActualizacion != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.circle, size: 6, color: Color(0xFF4CAF50)),
-                    const SizedBox(width: 4),
-                    const Text('En vivo', style: TextStyle(fontSize: 10, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-            ]),
-            const SizedBox(height: 12),
-
-            if (!m.tieneDatos) ...[
-              // ── Sin datos: instrucciones ──────────────────────────────────
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    Icon(Icons.code, size: 40, color: Colors.grey[300]),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Esperando datos del script web',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'El script JavaScript del footer de fluixtech.com '
-                      'enviará los datos automáticamente. Cada visita se registra en tiempo real.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                  ]),
-                ),
-              ),
-            ] else ...[
-              // ── Visitantes ────────────────────────────────────────────────
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Visitantes', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      _kpiVisita('Hoy', '${m.visitasHoy}', Icons.today, const Color(0xFF1976D2)),
-                      const SizedBox(width: 8),
-                      _kpiVisita('Semana', '${m.visitasSemana}', Icons.date_range, const Color(0xFF7B1FA2)),
-                      const SizedBox(width: 8),
-                      _kpiVisita('Mes', '${m.visitasMes}', Icons.calendar_month, const Color(0xFF2E7D32)),
-                      const SizedBox(width: 8),
-                      _kpiVisita('Total', '${m.visitasTotal}', Icons.all_inclusive, const Color(0xFFF57C00)),
-                    ]),
-                    if (m.duracionMediaSegundos > 0 || m.tasaRebote > 0) ...[
-                      const SizedBox(height: 12),
-                      const Divider(height: 1),
-                      const SizedBox(height: 12),
-                      Row(children: [
-                        Expanded(child: _infoItemWeb(
-                          Icons.timer_outlined, 'Duración media',
-                          m.duracionFormateada, const Color(0xFF0288D1),
-                        )),
-                        Expanded(child: Builder(
-                          builder: (ctx) => GestureDetector(
-                            onTap: () => showDialog(
-                              context: ctx,
-                              builder: (_) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                title: const Row(children: [
-                                  Icon(Icons.exit_to_app, color: Color(0xFF1976D2), size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Tasa de Rebote', style: TextStyle(fontSize: 16)),
-                                ]),
-                                content: const Text(
-                                  '🔴 ¿Qué es la Tasa de Rebote?\n\n'
-                                  'Es el porcentaje de visitas en las que el usuario entra a tu web '
-                                  'y se va sin hacer nada más (sin navegar a otra página, sin hacer clic, sin rellenar formularios).\n\n'
-                                  '📊 Cómo se interpreta:\n'
-                                  '• < 40% → Excelente: los usuarios se quedan y exploran\n'
-                                  '• 40–60% → Normal para webs de servicios\n'
-                                  '• > 60% → Alta: puede indicar que el contenido no engancha o la web carga lenta\n\n'
-                                  '💡 Origen: registrada por el script JS en el footer de tu web cuando un usuario visita una sola página y abandona.',
-                                  style: TextStyle(fontSize: 13, height: 1.6),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Entendido'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            child: Row(children: [
-                              _infoItemWeb(
-                                Icons.exit_to_app, 'Tasa de rebote',
-                                '${m.tasaRebote.toStringAsFixed(1)}%',
-                                m.tasaRebote > 60 ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
-                              ),
-                              const Icon(Icons.info_outline, size: 13, color: Colors.grey),
-                            ]),
-                          ),
-                        )),
-                      ]),
-                    ],
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 12),
-      stream: AnalyticsWebService().streamMetricas(empresaId),
-class _SeccionTraficoWeb extends StatelessWidget {
-// Sección de Tráfico Web — lee métricas guardadas por el script JS del footer
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.analytics, size: 64, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Calculando estadísticas',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Por favor espera mientras procesamos los datos de tu negocio',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(),
-          ],
-        ),
-          return _buildEstadoSinDatos();
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Calculando estadísticas reales...'),
-                SizedBox(height: 8),
-                Text('Esto solo ocurre la primera vez',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -894,33 +490,35 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     return GestureDetector(
       onTap: () => _mostrarInfoDialog(context, titulo, texto),
       child: const Icon(Icons.info_outline, size: 16, color: Colors.grey),
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.analytics, size: 64, color: Colors.grey[400]),
+    );
+  }
+
+  /// Muestra un dialog con la explicación de un indicador
+  void _mostrarInfoDialog(BuildContext context, String titulo, String texto) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(titulo, style: const TextStyle(fontSize: 16))),
+        ]),
+        content: Text(texto, style: const TextStyle(fontSize: 13, height: 1.6)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Calculando estadísticas',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Por favor espera mientras procesamos los datos de tu negocio',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          const CircularProgressIndicator(),
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildGraficoRendimiento(BuildContext context, Map<String, dynamic> data) {
+    return Card(
+      elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1094,419 +692,362 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
   Widget _buildEstadisticasEmpleados(BuildContext context, Map<String, dynamic> data) {
     final rendimientoEmpleados = data['rendimiento_empleados'] as Map<String, dynamic>? ?? {};
 
-// Sección de Tráfico Web — lee métricas + dominio real de config
-      elevation: 1,
-class _SeccionTraficoWeb extends StatefulWidget {
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-  @override
-  State<_SeccionTraficoWeb> createState() => _SeccionTraficoWebState();
-}
-
-class _SeccionTraficoWebState extends State<_SeccionTraficoWeb> {
-  String _dominio = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _cargarDominio();
-  }
-
-  Future<void> _cargarDominio() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('empresas').doc(widget.empresaId)
-          .collection('configuracion').doc('web_avanzada').get();
-      if (!mounted) return;
-      final raw = doc.data()?['dominio_propio_url'] as String? ?? '';
-      if (raw.isNotEmpty) {
-        setState(() => _dominio = raw
-            .replaceAll('https://', '').replaceAll('http://', '')
-            .replaceAll('www.', '').split('/').first);
-      }
-    } catch (_) {}
-  }
-
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-      stream: AnalyticsWebService().streamMetricas(widget.empresaId),
-                const Icon(Icons.badge, color: Color(0xFF388E3C), size: 20),
-        // ── Cabecera siempre visible ──────────────────────────────────
-        final header = Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.language, color: Color(0xFF1565C0), size: 20),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Tráfico Web',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            Text(
-              _dominio.isEmpty ? 'Configura el dominio en Web > Config' : _dominio,
-              style: TextStyle(fontSize: 11,
-                  color: _dominio.isEmpty ? Colors.orange : Colors.grey),
-            ),
-          ])),
-          if (snap.hasData && snap.data!.tieneDatos)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.circle, size: 6, color: Color(0xFF4CAF50)),
-                SizedBox(width: 4),
-                Text('En vivo', style: TextStyle(fontSize: 10,
-                    color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-              ]),
-            ),
-        ]);
-
-        // ── Estado: cargando ──────────────────────────────────────────
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          );
-        }
-
-        // ── Estado: error de red / permisos ───────────────────────────
-        if (snap.hasError) {
-          return _buildSinDatos('Sin conexión con Firebase.\nRevisa la red.');
-        }
-
-                const SizedBox(width: 8),
-                const Text('Rendimiento del Equipo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-        // ── Sin datos todavía: el script aún no ha registrado visitas ─
-        if (!m.tieneDatos) {
-          return _buildSinDatos(
-            'Aún no hay visitas registradas.\n'
-            'Asegúrate de que el script de Fluix está activo en ${ _dominio.isEmpty ? "tu web" : _dominio }.',
-          );
-        }
-
-        return _buildContenido(m, esDemo: false);
-      },
-    );
-  }
-
-  Widget _buildContenido(MetricasTraficoWeb m,
-      {required bool esDemo, String mensajeDemo = ''}) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Cabecera
-      Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.language, color: Color(0xFF1565C0), size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Tráfico Web',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          Text(
-            _dominio.isEmpty ? 'Configura el dominio en Web > Config' : _dominio,
-            style: TextStyle(fontSize: 11,
-                color: _dominio.isEmpty ? Colors.orange : Colors.grey),
-          ),
-        ])),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: esDemo
-                ? Colors.orange.withValues(alpha: 0.12)
-                : const Color(0xFF4CAF50).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.circle, size: 6,
-                color: esDemo ? Colors.orange : const Color(0xFF4CAF50)),
-            const SizedBox(width: 4),
-            Text(
-              esDemo ? 'Vista previa' : 'En vivo',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                  color: esDemo ? Colors.orange : const Color(0xFF4CAF50)),
-            ),
-          ]),
-        ),
-      ]),
-
-      // Banner demo
-      if (esDemo) ...[
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-          ),
-          child: Row(children: [
-            const Icon(Icons.info_outline, color: Colors.orange, size: 14),
-            const SizedBox(width: 6),
-            Expanded(child: Text(
-              mensajeDemo.isEmpty ? 'Vista previa con datos de ejemplo' : mensajeDemo,
-              style: const TextStyle(fontSize: 11, color: Colors.orange),
-            )),
-          ]),
-        ),
-      ],
-      const SizedBox(height: 12),
-
-      // 1. KPIs visitantes
-      _cardSec('Visitantes', Icons.people_outline, const Color(0xFF1976D2),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            _kpi('Hoy', m.visitasHoy, Icons.today, const Color(0xFF1976D2)),
-            const SizedBox(width: 8),
-            _kpi('Semana', m.visitasSemana, Icons.date_range, const Color(0xFF7B1FA2)),
-            const SizedBox(width: 8),
-            _kpi('Mes', m.visitasMes, Icons.calendar_month, const Color(0xFF2E7D32)),
-            const SizedBox(width: 8),
-            _kpi('Total', m.visitasTotal, Icons.all_inclusive, const Color(0xFFF57C00)),
-          ]),
-        ]),
-      ),
-      const SizedBox(height: 8),
-                children: [
-      // 2. Gráfica 30 días
-      FutureBuilder<List<Map<String, dynamic>>>(
-        future: AnalyticsWebService().obtenerHistorialDiario(widget.empresaId),
-        builder: (ctx, hSnap) {
-          if (!hSnap.hasData || hSnap.data!.isEmpty) return const SizedBox.shrink();
-          final hist = hSnap.data!.reversed.toList();
-          final maxV = hist.map((h) => (h['visitas'] as num?)?.toDouble() ?? 0)
-              .fold(0.0, (a, b) => a > b ? a : b);
-          return Column(children: [
-            _cardSec('Últimos 30 días', Icons.bar_chart, const Color(0xFF1565C0),
-              SizedBox(
-                height: 110,
-                child: BarChart(BarChartData(
-                  maxY: maxV <= 0 ? 5 : maxV * 1.3,
-                  gridData: FlGridData(show: true, drawVerticalLine: false,
-                      getDrawingHorizontalLine: (_) =>
-                          const FlLine(color: Color(0xFFEEEEEE), strokeWidth: 0.8)),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(sideTitles: SideTitles(
-                      showTitles: true, reservedSize: 18,
-                      getTitlesWidget: (v, _) {
-                        final i = v.toInt();
-                        if (i % 7 != 0 || i >= hist.length) return const SizedBox.shrink();
-                        final parts = (hist[i]['fecha']?.toString() ?? '').split('-');
-                        if (parts.length < 3) return const SizedBox.shrink();
-                        return Text('${parts[2]}/${parts[1]}',
-                            style: const TextStyle(fontSize: 8, color: Colors.grey));
-                      },
-                    )),
-                  ),
-                  barGroups: hist.asMap().entries.map((e) {
-                    final v = (e.value['visitas'] as num?)?.toDouble() ?? 0;
-                    return BarChartGroupData(x: e.key, barRods: [
-                      BarChartRodData(toY: v, width: 5,
-                          color: const Color(0xFF1976D2),
-                          borderRadius: BorderRadius.circular(2)),
-                    ]);
-                  }).toList(),
-                )),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ]);
-        },
-      ),
-  Widget _buildIndicadorCache(Map<String, dynamic> data) {
-      // 3. Dispositivos
-      if (m.visitasMovil + m.visitasDesktop + m.visitasTablet > 0) ...[
-        _cardSec('Dispositivos', Icons.devices, const Color(0xFF7B1FA2),
-          Column(children: [
-            _barra(Icons.smartphone, 'Móvil', m.visitasMovil, m.pctMovil,
-                const Color(0xFF1976D2)),
-            const SizedBox(height: 8),
-            _barra(Icons.computer, 'Desktop', m.visitasDesktop, m.pctDesktop,
-                const Color(0xFF7B1FA2)),
-            const SizedBox(height: 8),
-            _barra(Icons.tablet_mac, 'Tablet', m.visitasTablet, m.pctTablet,
-                const Color(0xFF2E7D32)),
-          ]),
-        ),
-        const SizedBox(height: 8),
-      ],
-
-      // 4. Origen del tráfico
-      if (m.referrers.isNotEmpty) ...[
-        _cardSec('Origen del tráfico', Icons.alt_route, const Color(0xFF00796B),
-          _listaBarras(m.referrers, const Color(0xFF00796B), {
-            'google': Icons.search, 'directo': Icons.home_outlined,
-            'facebook': Icons.facebook, 'instagram': Icons.camera_alt_outlined,
-            'twitter': Icons.tag, 'whatsapp': Icons.chat_outlined,
-          }),
-        ),
-        const SizedBox(height: 8),
-      ],
-        borderRadius: BorderRadius.circular(20),
-      // 5. Páginas más visitadas
-      if (m.paginasMasVistas.isNotEmpty) ...[
-        _cardSec('Páginas más visitadas', Icons.web_asset, const Color(0xFF0288D1),
-          _listaBarras(m.paginasMasVistas, const Color(0xFF0288D1), {}),
-        ),
-        const SizedBox(height: 8),
-      ],
-
-      // 6. Acciones / eventos
-      if (m.eventos.isNotEmpty) ...[
-        _cardSec('Acciones de visitantes', Icons.touch_app, const Color(0xFFE65100),
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: m.eventos.entries.map((e) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE65100).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: const Color(0xFFE65100).withValues(alpha: 0.2)),
-              ),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(e.key.replaceAll('_', ' '),
-                    style: const TextStyle(fontSize: 10, color: Colors.black54)),
-                Text('${e.value}', style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold,
-                    color: Color(0xFFE65100))),
-              ]),
-            )).toList(),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-
-      if (!esDemo && m.ultimaActualizacion != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            'Última visita: ${_formatFecha(m.ultimaActualizacion!)}',
-            style: TextStyle(fontSize: 10, color: Colors.grey[400]),
-            textAlign: TextAlign.right,
-          ),
-        ),
-    ]);
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  Widget _buildSinDatos(String mensaje) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.language, color: Color(0xFF1565C0), size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Tráfico Web',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          Text(
-            _dominio.isEmpty ? 'Configura el dominio en Web > Config' : _dominio,
-            style: TextStyle(fontSize: 11,
-                color: _dominio.isEmpty ? Colors.orange : Colors.grey),
-          ),
-        ])),
-      ]),
-      const SizedBox(height: 16),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Column(children: [
-          Icon(Icons.bar_chart_outlined, size: 48, color: Colors.grey[300]),
-          const SizedBox(height: 12),
-          Text(
-            mensaje,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey[500], height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Las estadísticas aparecerán aquí automáticamente cuando haya visitas.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-          ),
-        ]),
-      ),
-    ]);
-  }
-
-  Widget _cardSec(String titulo, IconData icono, Color color, Widget cuerpo) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          leading: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.badge, color: Color(0xFF388E3C), size: 20),
+                const SizedBox(width: 8),
+                const Text('Rendimiento del Equipo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                const Spacer(),
+                Text('Total: ${data['total_empleados_activos'] ?? 0}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
             ),
-            child: Icon(icono, color: color, size: 18),
-          ),
-          title: Text(titulo,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          children: [cuerpo],
+            const SizedBox(height: 16),
+            _infoRow(Icons.star, 'Más Activo', data['empleado_mas_activo'] ?? 'N/A'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _rolEmpleadoChip('PROP', data['empleados_propietarios'] ?? 0, const Color(0xFFF44336)),
+                const SizedBox(width: 8),
+                _rolEmpleadoChip('ADMIN', data['empleados_admin'] ?? 0, const Color(0xFF1976D2)),
+                const SizedBox(width: 8),
+                _rolEmpleadoChip('STAFF', data['empleados_staff'] ?? 0, const Color(0xFF388E3C)),
+              ],
+            ),
+            if (rendimientoEmpleados.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Reservas por Empleado:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+              const SizedBox(height: 8),
+              ...rendimientoEmpleados.entries.take(3).map((entry) {
+                final empleadoData = entry.value as Map<String, dynamic>;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF388E3C),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 12))),
+                      Text('${empleadoData['reservas'] ?? 0}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildValoracionesFeedback(BuildContext context, Map<String, dynamic> data) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.star, color: Color(0xFFF57C00), size: 20),
+                const SizedBox(width: 8),
+                const Text('Valoraciones de Clientes', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF57C00).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${(data['valoracion_promedio'] ?? 0.0).toStringAsFixed(1)} ⭐',
+                    style: const TextStyle(color: Color(0xFFF57C00), fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _valoracionDistribucion('5⭐', data['valoraciones_5_estrellas'] ?? 0, const Color(0xFF4CAF50))),
+                const SizedBox(width: 8),
+                Expanded(child: _valoracionDistribucion('4⭐', data['valoraciones_4_estrellas'] ?? 0, const Color(0xFF8BC34A))),
+                const SizedBox(width: 8),
+                Expanded(child: _valoracionDistribucion('3⭐', data['valoraciones_3_estrellas'] ?? 0, const Color(0xFFFFC107))),
+                const SizedBox(width: 8),
+                Expanded(child: _valoracionDistribucion('2⭐', data['valoraciones_2_estrellas'] ?? 0, const Color(0xFFFF9800))),
+                const SizedBox(width: 8),
+                Expanded(child: _valoracionDistribucion('1⭐', data['valoraciones_1_estrella'] ?? 0, const Color(0xFFF44336))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _infoRow(Icons.reviews, 'Total reseñas', '${data['total_valoraciones'] ?? 0}'),
+            _infoRow(Icons.new_releases, 'Este mes', '${data['valoraciones_mes'] ?? 0}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoAdicionalCompleta(BuildContext context, Map<String, dynamic> data) {
+    final horasPico = (data['horas_pico'] as List<dynamic>?)?.cast<String>() ?? [];
+    final diaMasActivo = data['dia_mas_activo'] ?? 'N/A';
+    final distribucionDias = data['distribucion_dias'] as Map<String, dynamic>? ?? {};
+
+    return Column(
+      children: [
+        Card(
+          elevation: 1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Información Adicional', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                const SizedBox(height: 14),
+                _infoRow(Icons.schedule, 'Horas pico', horasPico.join(', ')),
+                _infoRow(Icons.today, 'Día más activo', diaMasActivo),
+                _infoRow(Icons.payment, 'Método preferido', data['metodo_pago_preferido'] ?? 'Efectivo'),
+                _infoRow(Icons.people, 'Cliente más valioso', data['cliente_mas_valioso'] ?? 'N/A'),
+                _infoRow(Icons.euro, 'Valor promedio cliente', '€${(data['valor_promedio_cliente'] ?? 0).toStringAsFixed(0)}'),
+              ],
+            ),
+          ),
+        ),
+        if (distribucionDias.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Actividad por Días', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  const SizedBox(height: 12),
+                  ...distribucionDias.entries.map((entry) =>
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            child: Text(entry.key.capitalize(), style: const TextStyle(fontSize: 12)),
+                          ),
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: (entry.value as int) / (distribucionDias.values.fold<int>(0, (sum, v) => sum + (v as int))),
+                              backgroundColor: Colors.grey[200],
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('${entry.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Widget para mostrar estado sin datos
+  Widget _buildEstadoSinDatos() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.analytics, size: 64, color: Colors.grey[400]),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Calculando estadísticas',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Por favor espera mientras procesamos los datos de tu negocio',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Widget para mostrar indicador de cache
+  Widget _buildIndicadorCache(Map<String, dynamic> data) {
+    final fechaCalculo = data['fecha_calculo'] as String?;
+    if (fechaCalculo == null) return const SizedBox.shrink();
+
+    final ultimaActualizacion = DateTime.parse(fechaCalculo);
+    final diferencia = DateTime.now().difference(ultimaActualizacion);
+
+    Color color;
+    IconData icono;
+    String mensaje;
+
+    if (diferencia.inMinutes < 5) {
+      color = const Color(0xFF4CAF50);
+      icono = Icons.check_circle;
+      mensaje = 'Datos actualizados hace ${diferencia.inMinutes} min';
+    } else if (diferencia.inMinutes < 30) {
+      color = Colors.orange;
+      icono = Icons.schedule;
+      mensaje = 'Datos de hace ${diferencia.inMinutes} min';
+    } else {
+      color = Colors.red;
+      icono = Icons.warning;
+      mensaje = 'Datos de hace ${diferencia.inHours}h ${diferencia.inMinutes % 60}min';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icono, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            mensaje,
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+          ),
+          if (diferencia.inMinutes > 30) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _cacheService.recalcularEstadisticas(widget.empresaId),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Actualizar',
+                  style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Widgets auxiliares
+  Widget _metricaCardConInfo(BuildContext context, String titulo, String valor, IconData icono, Color color, String infoTexto) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icono, color: color, size: 16),
+              GestureDetector(
+                onTap: () => _mostrarInfoDialog(context, titulo, infoTexto),
+                child: const Icon(Icons.info_outline, size: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(valor, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(titulo, style: TextStyle(fontSize: 10, color: color), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricaCompactaCard(String titulo, String valor, IconData icono, Color color) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: color.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Icon(icono, color: color, size: 18),
+            const SizedBox(height: 6),
+            Text(valor, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 2),
+            Text(titulo, style: TextStyle(fontSize: 10, color: color), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _rolEmpleadoChip(String rol, int cantidad, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  Widget _kpi(String label, int valor, IconData icono, Color color) {
-    return Expanded(child: Container(
-      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(children: [
-        Icon(icono, size: 16, color: color),
+      child: Text(
+        '$rol: $cantidad',
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _valoracionDistribucion(String estrella, int cantidad, Color color) {
+    return Column(
+      children: [
+        Text(estrella, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('$valor', style: TextStyle(fontSize: 18,
-            fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: TextStyle(fontSize: 10, color: color)),
-      ]),
-    ));
         Text('$cantidad', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
       ],
-  Widget _barra(IconData icono, String label, int count, double pct, Color color) {
+    );
   }
 
   Widget _infoRow(IconData icono, String label, String valor) {
-      SizedBox(width: 60, child: Text(label,
-          style: const TextStyle(fontSize: 12))),
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -1517,55 +1058,21 @@ class _SeccionTraficoWebState extends State<_SeccionTraficoWeb> {
           Text(valor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ],
       ),
-      SizedBox(width: 50, child: Text(
-        '$count (${pct.toStringAsFixed(0)}%)',
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
-        textAlign: TextAlign.right,
-      )),
+    );
+  }
 
   double _calcPct(dynamic actual, dynamic anterior) {
     final a = (actual as num?)?.toDouble() ?? 0;
-  Widget _listaBarras(Map<String, int> mapa, Color color,
-      Map<String, IconData> iconos) {
-    final sorted = mapa.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final total = sorted.fold(0, (s, e) => s + e.value);
-    return Column(
-      children: sorted.take(8).map((e) {
-        final pct = total == 0 ? 0.0 : e.value / total;
-        final icono = iconos[e.key.toLowerCase()] ?? Icons.link;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(children: [
-            Icon(icono, size: 14, color: color),
-            const SizedBox(width: 8),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(e.key, style: const TextStyle(fontSize: 12)),
-                const SizedBox(height: 2),
-                LinearProgressIndicator(
-                  value: pct,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation(color),
-                  minHeight: 5,
-                ),
-              ],
-            )),
-            const SizedBox(width: 8),
-            Text('${e.value}', style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 4),
-            Text('${(pct * 100).toStringAsFixed(0)}%',
-                style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-          ]),
-        );
-      }).toList(),
-    );
-    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
+    final b = (anterior as num?)?.toDouble() ?? 0;
+    if (b == 0) return 0;
+    return ((a - b) / b * 100);
+  }
 }
-  String _formatFecha(DateTime dt) {
-    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+// Extension para capitalizar texto
+extension StringCapitalize on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }
 
@@ -1952,4 +1459,6 @@ class _SeccionTraficoWeb extends StatelessWidget {
     ]);
   }
 }
+
+
 

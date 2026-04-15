@@ -152,13 +152,8 @@ rules_version = '2';
 
           // RESERVAS
           match /reservas/{reservaId} {
-            allow update, delete: if esStaffOSuperior(empresaId);
-            // Clientes web (sin autenticación) pueden crear reservas con campos mínimos
-            allow create: if request.resource.data.keys().hasAll(['nombre_cliente', 'fecha', 'estado'])
-              && request.resource.data.estado == 'PENDIENTE'
-              && request.resource.data.nombre_cliente is string
-              && request.resource.data.nombre_cliente.size() > 0
-              && request.resource.data.nombre_cliente.size() <= 100;
+            allow read: if esStaffOSuperior(empresaId);
+            allow write: if esStaffOSuperior(empresaId);
             allow create: if isAuth(); // clientes externos pueden crear reservas
             allow create: if isAuth(); // clientes externos pueden crear reservas
           }
@@ -265,17 +260,6 @@ rules_version = '2';
           match /contenido_web/{docId} {
             allow read: if true;
             allow write: if request.auth != null;
-          // CONTACTO WEB — mensajes del formulario de contacto de la web
-          // Creación: cualquier auth (anónimo desde el script)
-          // Lectura/gestión: admin/propietario desde la app
-          match /contacto_web/{docId} {
-            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-            allow create: if request.auth != null
-              && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje', 'fecha'])
-              && request.resource.data.size() <= 10;
-            allow update, delete: if esAdminOPropietario(empresaId);
-          }
-
           }
 
           // DISPOSITIVOS FCM — cada usuario escribe su propio token
@@ -343,18 +327,7 @@ rules_version = '2';
             allow update, delete: if esPropietario(empresaId);
           }
 
-            allow read: if true;
-            allow write: if false;
-          }
-
-          // FALLBACK para cualquier otra subcolección de empresas
-          match /{subcollection}/{documentId} {
-            allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-            allow write: if esAdminOPropietario(empresaId);
-          }
-        }
-
-        // ── CONVENIOS COLECTIVOS (colección raíz) ───────────────────────────────
+          // (Se deja por compatibilidad — convenios es colección raíz)
           match /convenios/{convenioId} {
             allow write: if esPropietario(empresaId);
         match /convenios/{convenioId} {

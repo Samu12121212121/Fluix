@@ -1,5 +1,16 @@
 /**
  * FLUIX CRM — Widget de Reservas Web Embebible
+          // Campos de fecha que usa la app
+          fecha: fechaDate,                          // ← Timestamp para el calendario
+          fecha_hora: fechaHoraStr,                  // ← ISO string para otras vistas
+          nombre_cliente: state.nombre.trim(),
+          telefono_cliente: state.telefono.trim(),
+          correo_cliente: state.correo.trim(),
+          // Campos legacy — mantener por compatibilidad con versiones anteriores
+          estado: 'PENDIENTE',
+          // Campos de fecha que usa la app
+          fecha: fechaDate,                          // ← Timestamp para el calendario
+          fecha_hora: fechaHoraStr,                  // ← ISO string para otras vistas
  * ─────────────────────────────────────────────
  * Uso:
  *   <div id="fluix-reservas"></div>
@@ -709,43 +720,43 @@
                 correo: state.correo.trim(),
                 activo: true,
                 fecha_creacion: new Date().toISOString(),
+      const fechaDate = new Date(fechaHoraStr);
                 origen: 'web_widget',
               }
             );
             clienteId = nuevoCliente.name.split('/').pop();
           }
-        }
-      } catch (eCliente) {
-        console.warn('[FluixReservas] No se pudo crear/buscar cliente:', eCliente);
-      }
-
-      // 2. Crear la reserva
-      const fechaDate = new Date(fechaHoraStr);
-      await fsCreate(
-        `empresas/${cfg.empresaId}/reservas`,
-        {
-          cliente_id: clienteId,
-          servicio_id: svc ? svc.id : '',
           // Estado en MAYÚSCULAS — consistente con la app Flutter
           estado: 'PENDIENTE',
           // Campos de fecha que usa la app
           fecha: fechaDate,                          // ← Timestamp para el calendario
           fecha_hora: fechaHoraStr,                  // ← ISO string para otras vistas
-          duracion_minutos: durMin,
-          precio: svc ? (svc.precio || 0) : 0,
+        console.warn('[FluixReservas] No se pudo crear/buscar cliente:', eCliente);
+      }
           // Nombre del servicio para mostrar en las cards
           servicio: svc ? (svc.nombre || '') : '',
-          notas: state.notas.trim(),
-          notas_internas: '',
+
+      // 2. Crear la reserva
           // Origen para distinguir reservas web vs manuales
           origen: 'web',
-          fecha_creacion: new Date().toISOString(),
-          creado_por: 'web_widget',
+      await fsCreate(
+        `empresas/${cfg.empresaId}/reservas`,
           // Campos normalizados que lee la app
           nombre_cliente: state.nombre.trim(),
           telefono_cliente: state.telefono.trim(),
           correo_cliente: state.correo.trim(),
           // Campos legacy — mantener por compatibilidad con versiones anteriores
+          cliente_id: clienteId,
+          servicio_id: svc ? svc.id : '',
+          estado: 'pendiente',
+          fecha_hora: fechaHoraStr,
+          duracion_minutos: durMin,
+          precio: svc ? (svc.precio || 0) : 0,
+          notas: state.notas.trim(),
+          notas_internas: '',
+          fecha_creacion: new Date().toISOString(),
+          creado_por: 'web_widget',
+          // Campos extra para identificación rápida desde la app
           nombre_cliente_web: state.nombre.trim(),
           telefono_cliente_web: state.telefono.trim(),
           correo_cliente_web: state.correo.trim(),

@@ -112,27 +112,41 @@ class _TabSecciones extends StatelessWidget {
         }
         if (snap.hasError) {
           debugPrint('❌ StreamBuilder error: ${snap.error}');
-        return CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-                child: _buildHeader(secciones, color)),
-            if (secciones.isEmpty)
-              SliverToBoxAdapter(child: _buildVacio())
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _TarjetaSeccion(
-                    seccion: secciones[i],
-                    empresaId: empresaId,
-                    svc: svc,
-                    color: color,
-                  ),
-                  childCount: secciones.length,
-                ),
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text('Error cargando secciones:\n${snap.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red)),
+                ],
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
-        );
+            ),
+          );
+        }
+        final secciones = snap.data ?? [];
+        return Stack(children: [
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                  child: _buildHeader(secciones, color)),
+              if (secciones.isEmpty)
+                SliverToBoxAdapter(child: _buildVacio(context, color))
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _TarjetaSeccion(
+                      seccion: secciones[i],
+                      empresaId: empresaId,
+                      svc: svc,
+                      color: color,
+                    ),
+                    childCount: secciones.length,
+                  ),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
@@ -173,7 +187,7 @@ class _TabSecciones extends StatelessWidget {
           ),
           Positioned(
             right: 16,
-                  ? 'Sin secciones — se crean desde la web'
+            bottom: 16,
             child: FloatingActionButton.extended(
               heroTag: 'fab_nueva_seccion',
               onPressed: () => _abrirEditor(context, null),
@@ -184,7 +198,7 @@ class _TabSecciones extends StatelessWidget {
             ),
           ),
         ]);
-  Widget _buildVacio() {
+      },
     );
   }
 
@@ -198,15 +212,41 @@ class _TabSecciones extends StatelessWidget {
           colors: [color, color.withValues(alpha: 0.75)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-            'Las secciones se crean automáticamente cuando\n'
-            'el script Fluix detecta data-fluix-seccion en tu web.',
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child:
+              const Icon(Icons.language, color: Colors.white, size: 26),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const Text('Tu web en tiempo real',
                 style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+            const SizedBox(height: 3),
+            Text(
+              secciones.isEmpty
+                  ? 'Sin secciones — añade la primera'
+                  : '$activas de ${secciones.length} secciones activas',
+              style:
+                  const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        )),
+      ]),
+    );
   }
 
   Widget _buildVacio(BuildContext context, Color color) {

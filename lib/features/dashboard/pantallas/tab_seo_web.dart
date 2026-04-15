@@ -23,7 +23,10 @@
                   labelText: 'Facebook Pixel ID',
                   hintText: '123456789012345',
                   prefixIcon: Icon(Icons.facebook),
+                ),
+              ),
               const SizedBox(height: 6),
+              Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.blue.withValues(alpha: 0.05),
@@ -40,9 +43,12 @@
                   ),
                 ]),
               ),
+            ]),
           ),
     _gaCtrl.dispose();
     _fbCtrl.dispose();
+        _gaCtrl.text = cfg.googleAnalyticsId ?? '';
+        _fbCtrl.text = cfg.pixelFacebook ?? '';
         _config = cfg;
   SeoConfig _config = const SeoConfig();
 import 'package:flutter/material.dart';
@@ -55,6 +61,8 @@ import '../../../domain/modelos/seccion_web.dart';
 // TAB SEO — Meta tags y herramientas de búsqueda
 // ═════════════════════════════════════════════════════════════════════════════
 
+class TabSeoWeb extends StatefulWidget {
+  final String empresaId;
   final ContenidoWebService svc;
 
   const TabSeoWeb({super.key, required this.empresaId, required this.svc});
@@ -227,6 +235,53 @@ class _TabSeoWebState extends State<TabSeoWeb> {
                       child: TextButton.icon(
                         onPressed: () => _subirImagenOg(),
                         icon: Icon(Icons.swap_horiz, color: color),
+                        label: Text('Cambiar',
+                            style: TextStyle(color: color)),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _imagenOg = null),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.red),
+                      label: const Text('Quitar',
+                          style: TextStyle(color: Colors.red)),
+                    ),
+                  ]),
+                ] else
+                  OutlinedButton.icon(
+                    onPressed: _subiendoImagen ? null : _subirImagenOg,
+                    icon: _subiendoImagen
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.add_photo_alternate, color: color),
+                    label: Text(
+                        _subiendoImagen
+                            ? 'Subiendo...'
+                            : 'Subir imagen (1200×630 recomendado)',
+                        style: TextStyle(color: color)),
+                    style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: color.withValues(alpha: 0.4))),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Indexación ──────────────────────────────────────────────────
+          _buildCard(
+            titulo: 'Indexación en buscadores',
+            icono: Icons.travel_explore,
+            color: color,
+            child: Column(
+              children: [
+                _opcionRobots('index,follow',
+                    'Indexar mi web (recomendado)',
+                    'Google puede rastrear e indexar tu contenido', color),
+                _opcionRobots('noindex,nofollow',
                     'No indexar',
                     'Ocultar de los resultados de búsqueda', color),
                 _opcionRobots('index,nofollow',
@@ -386,6 +441,10 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     );
   }
 
+  Widget _opcionRobots(String valor, String titulo, String desc, Color color) {
+    final sel = _robots == valor;
+    return GestureDetector(
+      onTap: () => setState(() => _robots = valor),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(bottom: 6),

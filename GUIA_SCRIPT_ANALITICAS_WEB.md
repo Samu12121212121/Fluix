@@ -21,7 +21,7 @@ El script `fluix-embed.js` ahora incluye un **módulo de analíticas completo** 
 Pegar **antes de `</body>`** en el HTML del cliente:
 
 ```html
-<script data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+<script data-empresa="TUz8GOnQ6OX8ejiov7c5GM9LFPl2"
         src="https://planeaapp-4bea4.web.app/fluix-embed.js"></script>
 ```
 
@@ -34,7 +34,7 @@ Si ya tienes widgets `.fluix-widget` para sincronizar contenido, **no necesitas 
 ```html
 <!-- Tu widget existente — las analíticas se activan solas -->
 <div class="fluix-widget"
-     data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+     data-empresa="TUz8GOnQ6OX8ejiov7c5GM9LFPl2"
      data-seccion="carta">
 </div>
 
@@ -46,7 +46,7 @@ Si ya tienes widgets `.fluix-widget` para sincronizar contenido, **no necesitas 
 
 ```html
 <!-- Pegar antes de </body> — UNA sola línea -->
-<script data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+<script data-empresa="TUz8GOnQ6OX8ejiov7c5GM9LFPl2"
         src="https://planeaapp-4bea4.web.app/fluix-embed.js"></script>
 ```
 
@@ -55,7 +55,7 @@ Si ya tienes widgets `.fluix-widget` para sincronizar contenido, **no necesitas 
 Pega esto en **Ajustes → Código personalizado → Código del footer** (o en el `footer.php` de tu tema):
 
 ```html
-<script data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+<script data-empresa="TUz8GOnQ6OX8ejiov7c5GM9LFPl2"
         src="https://planeaapp-4bea4.web.app/fluix-embed.js"></script>
 ```
 
@@ -68,7 +68,7 @@ Pega esto en **Ajustes → Código personalizado → Código del footer** (o en 
 ### ¿Qué ve alguien que mira el código fuente de la web?
 
 ```
-empresaId: 7Uz8GOnQ6OX8ejiov7c5M9LFPI2
+empresaId: TUz8GOnQ6OX8ejiov7c5GM9LFPl2
 apiKey:    AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU
 projectId: planeaapp-4bea4
 ```
@@ -416,7 +416,7 @@ Crea un archivo `test_analytics.html`:
 
     <!-- Widget de contenido (opcional) -->
     <div class="fluix-widget"
-         data-empresa="7Uz8GOnQ6OX8ejiov7c5M9LFPI2"
+         data-empresa="TUz8GOnQ6OX8ejiov7c5GM9LFPl2"
          data-seccion="carta">
     </div>
 
@@ -429,7 +429,7 @@ Crea un archivo `test_analytics.html`:
 ### 2. Verificar en consola del navegador (F12)
 
 ```
-📊 Fluix Analytics: Módulo iniciado para 7Uz8GOnQ6OX8ejiov7c5M9LFPI2
+📊 Fluix Analytics: Módulo iniciado para TUz8GOnQ6OX8ejiov7c5GM9LFPl2
 📊 Visita registrada
 📍 Ubicación: Guadalajara, Spain
 ```
@@ -459,7 +459,7 @@ Fluix.evento('boton_especial_clickado', { seccion: 'hero', variante: 'A' })
 ### 6. Ver estado del módulo
 ```javascript
 Fluix.analytics()
-// → Empresa: 7Uz8GOnQ6OX8ejiov7c5M9LFPI2
+// → Empresa: TUz8GOnQ6OX8ejiov7c5GM9LFPl2
 // → Sesión: S1744550400000
 // → Páginas esta sesión: 3
 // → Sesión nueva: true

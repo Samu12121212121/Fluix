@@ -1,6 +1,6 @@
 /**
  * SCRIPT PARA CREAR DATOS REALES EN FIRESTORE
- * Empresa: 7Uz8GOnQ6OX8ejiov7c5M9LFPI2
+ * Empresa: TUz8GOnQ6OX8ejiov7c5GM9LFPl2
  *
  * Ejecutar: node seed_contenido_web.js
  */
@@ -14,7 +14,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const EMPRESA_ID = 'TUz8GOnQ6OX8ejiov7c5GM9LFPl2';
+const EMPRESA_ID = 'TUz8GOnQ6OX8ejiov7c5GM9LFPl2'; // Empresa destino correcta
 
 async function crearDatosIniciales() {
   console.log('🚀 Creando datos para empresa:', EMPRESA_ID);

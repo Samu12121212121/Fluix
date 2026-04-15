@@ -516,7 +516,7 @@ class _TarjetaCuenta extends StatelessWidget {
 
   void _copiarScriptHostinger(BuildContext context) {
     final svc = ContenidoWebService();
-    final script = svc.generarScriptHostinger();
+    final script = svc.generarScriptHostinger(cuenta.empresaId);
     Clipboard.setData(ClipboardData(text: script));
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Row(children: [
