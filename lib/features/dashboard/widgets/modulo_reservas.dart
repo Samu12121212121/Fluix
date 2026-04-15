@@ -541,8 +541,8 @@ class _TarjetaReserva extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(cliente,
                       Text(cliente,
                       Text(cliente,
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
