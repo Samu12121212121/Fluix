@@ -55,6 +55,18 @@ class NotificacionesService {
     enableVibration: true,
   );
 
+  /// Canal para alertas fiscales (certificados, vencimientos, AEAT)
+  static const AndroidNotificationChannel _canalFiscal =
+      AndroidNotificationChannel(
+    'fluixcrm_fiscal',
+    'Alertas Fiscales',
+    description:
+        'Alertas de certificados digitales, vencimientos y avisos de la AEAT',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
+
   /// Inicializar el servicio completo de notificaciones
   Future<void> inicializar() async {
     if (_inicializado) return;
@@ -77,6 +89,9 @@ class NotificacionesService {
 
     // Crear canal de reseñas negativas (alta prioridad)
     await androidPlugin?.createNotificationChannel(_canalResenasNegativas);
+
+    // Crear canal fiscal (certificados, AEAT)
+    await androidPlugin?.createNotificationChannel(_canalFiscal);
 
     // Escuchar mensajes en primer plano
     FirebaseMessaging.onMessage.listen(_manejarMensajePrimerPlano);

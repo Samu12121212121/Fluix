@@ -6,6 +6,7 @@ import 'importar_ventas_csv_screen.dart';
 import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
+import 'pantalla_cierre_caja.dart';
 
 class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;

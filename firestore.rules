@@ -122,7 +122,8 @@ rules_version = '2';
         // Escritura: solo Cloud Functions (Admin SDK) — el cliente solo lee y marca leídas
         match /notificaciones/{empresaId}/items/{itemId} {
           allow read: if perteneceAEmpresa(empresaId);
-          allow update: if esAdminOPropietario(empresaId)
+          // Cualquier miembro puede marcar como leída (solo ese campo)
+          allow update: if perteneceAEmpresa(empresaId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
           allow create, delete: if false; // Solo Admin SDK
         }
@@ -178,8 +179,14 @@ rules_version = '2';
               || puedeVerModulo(empresaId, 'citas');
             allow write: if puedeVerModulo(empresaId, 'reservas')
               || puedeVerModulo(empresaId, 'citas');
-            // Visitantes web pueden crear reservas sin autenticación
-            allow create: if request.resource.data.estado == 'PENDIENTE';
+            // Visitantes web pueden crear reservas sin autenticación (validación anti-spam)
+            allow create: if request.resource.data.estado == 'PENDIENTE'
+              && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente', 'fecha_hora'])
+              && request.resource.data.nombre_cliente is string
+              && request.resource.data.nombre_cliente.size() > 0
+              && request.resource.data.nombre_cliente.size() <= 100
+              && request.resource.data.telefono_cliente is string
+              && request.resource.data.telefono_cliente.size() > 0;
           }
 
           // VALORACIONES — lectura pública; admin gestiona todo; staff responde si tiene módulo

@@ -271,7 +271,9 @@ exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresa
     if (!reserva)
         return;
     const cliente = reserva.nombre_cliente || reserva.cliente || "Cliente";
-    const telefono = reserva.telefono_cliente ? ` · ${reserva.telefono_cliente}` : "";
+    const telefonoVal = reserva.telefono_cliente;
+    const emailVal = reserva.email_cliente || reserva.email || null;
+    const telefono = telefonoVal ? ` · ${telefonoVal}` : "";
     const personas = reserva.personas ? ` · ${reserva.personas} pers.` : "";
     const servicio = reserva.servicio || reserva.notas || "";
     const fechaHora = reserva.fecha_hora
@@ -281,8 +283,8 @@ exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresa
             : "Fecha pendiente";
     const titulo = "📅 Nueva Reserva";
     const cuerpo = `${cliente}${telefono}${personas} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
-    // 1. Guardar en bandeja in-app (Firestore) — para que aparezca en la pantalla
-    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+    // 1. Guardar en bandeja in-app con campos de remitente separados
+    const bandejaData = {
         titulo,
         cuerpo,
         tipo: "reservaNueva",
@@ -290,7 +292,11 @@ exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresa
         leida: false,
         modulo_destino: "reservas",
         entidad_id: reservaId,
-    });
+        remitente_nombre: cliente !== "Cliente" ? cliente : null,
+        remitente_telefono: telefonoVal || null,
+        remitente_email: emailVal,
+    };
+    await db.collection("notificaciones").doc(empresaId).collection("items").add(bandejaData);
     // 2. Enviar push FCM
     await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: reservaId });
     console.log(`✅ Reserva guardada en bandeja y push enviado — empresa ${empresaId}`);
@@ -310,7 +316,21 @@ exports.onReservaCancelada = (0, firestore_1.onDocumentUpdated)({ document: "emp
     }
     const cliente = despues.nombre_cliente || despues.cliente || "Cliente";
     const servicio = despues.servicio || despues.fecha_hora || "la reserva";
-    await enviarNotificacionEmpresa(empresaId, "❌ Reserva Cancelada", `${cliente} canceló la reserva de ${servicio}`, { tipo: "reserva_cancelada", reserva_id: event.params.reservaId });
+    const cuerpo = `${cliente} canceló la reserva de ${servicio}`;
+    // Guardar en bandeja in-app
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+        titulo: "❌ Reserva Cancelada",
+        cuerpo,
+        tipo: "reservaNueva",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        modulo_destino: "reservas",
+        entidad_id: event.params.reservaId,
+        remitente_nombre: cliente !== "Cliente" ? cliente : null,
+        remitente_telefono: despues.telefono_cliente || null,
+        remitente_email: despues.email_cliente || null,
+    });
+    await enviarNotificacionEmpresa(empresaId, "❌ Reserva Cancelada", cuerpo, { tipo: "reserva_cancelada", reserva_id: event.params.reservaId });
 });
 /**
  * 3. NUEVA VALORACIÓN — con alertas diferenciadas por rating
@@ -383,10 +403,27 @@ exports.onNuevoPedido = (0, firestore_1.onDocumentCreated)({ document: "empresas
     const pedido = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!pedido)
         return;
-    const cliente = pedido.cliente || "Cliente";
-    const total = pedido.precio_total || 0;
+    // El widget web guarda 'cliente_nombre'; la app guarda 'cliente'
+    const cliente = pedido.cliente_nombre || pedido.cliente || pedido.nombre_cliente || "Cliente";
+    const telefono = pedido.cliente_telefono || pedido.telefono || null;
+    const email = pedido.cliente_correo || pedido.email || null;
+    const total = pedido.precio_total || pedido.total || 0;
     const origen = pedido.origen || "app";
-    await enviarNotificacionEmpresa(empresaId, "🛒 Nuevo Pedido", `${cliente} — €${total.toFixed(2)} (vía ${origen})`, { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId });
+    const cuerpo = `${cliente} — €${total.toFixed(2)} (vía ${origen})`;
+    // Guardar en bandeja in-app
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+        titulo: "🛒 Nuevo Pedido",
+        cuerpo,
+        tipo: "reservaNueva", // usamos reservaNueva como tipo genérico hasta añadir tipo pedido
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        modulo_destino: "pedidos",
+        entidad_id: event.params.pedidoId,
+        remitente_nombre: cliente !== "Cliente" ? cliente : null,
+        remitente_telefono: telefono,
+        remitente_email: email,
+    });
+    await enviarNotificacionEmpresa(empresaId, "🛒 Nuevo Pedido", cuerpo, { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId });
 });
 /**
  * 5. NUEVO PEDIDO → GENERAR FACTURA AUTOMÁTICAMENTE
@@ -813,13 +850,15 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
     el.innerHTML = '<div style="max-width:480px;border:1px solid #eee;padding:24px;border-radius:12px">'
       + '<h3>📅 Reservar Mesa / Cita</h3>'
       + '<form id="fluixcrm_form_reservas" style="display:flex;flex-direction:column;gap:14px">'
-      + '<input name="nombre" placeholder="Tu nombre" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
-      + '<input name="telefono" type="tel" placeholder="Tu teléfono" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
+      + '<input name="nombre" placeholder="Tu nombre *" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
+      + '<input name="telefono" type="tel" placeholder="Tu teléfono *" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
+      + '<input name="email" type="email" placeholder="Tu email (para confirmación)" style="padding:12px;border:1px solid #ddd;border-radius:8px">'
       + '<div style="display:flex;gap:10px">'
       + '<input name="fecha" type="date" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1">'
       + '<input name="hora" type="time" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1">'
       + '</div>'
       + '<input name="personas" type="number" min="1" placeholder="Nº Personas" style="padding:12px;border:1px solid #ddd;border-radius:8px">'
+      + '<input name="servicio" placeholder="Tipo de servicio / cita (opcional)" style="padding:12px;border:1px solid #ddd;border-radius:8px">'
       + '<button type="submit" style="background:#1976D2;color:#fff;padding:14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px">Solicitar Reserva</button>'
       + '</form></div>';
 
@@ -829,14 +868,16 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
       var fechaStr = fd.get("fecha") + "T" + fd.get("hora") + ":00";
       var fecha = new Date(fechaStr);
       db.collection("empresas").doc(EMPRESA_ID).collection("reservas").add({
-        nombre_cliente: fd.get("nombre"),
+        nombre_cliente:   fd.get("nombre"),
         telefono_cliente: fd.get("telefono"),
-        personas: fd.get("personas") ? parseInt(fd.get("personas")) : 1,
-        fecha: firebase.firestore.Timestamp.fromDate(fecha),
-        fecha_hora: fecha.toISOString(),
-        estado: "PENDIENTE",
-        origen: "web",
-        fecha_creacion: firebase.firestore.FieldValue.serverTimestamp()
+        email_cliente:    fd.get("email") || null,
+        servicio:         fd.get("servicio") || null,
+        personas:         fd.get("personas") ? parseInt(fd.get("personas")) : 1,
+        fecha:            firebase.firestore.Timestamp.fromDate(fecha),
+        fecha_hora:       fecha.toISOString(),
+        estado:           "PENDIENTE",
+        origen:           "web",
+        fecha_creacion:   firebase.firestore.FieldValue.serverTimestamp()
       }).then(function() {
         e.target.innerHTML = '<div style="text-align:center;padding:20px"><h3 style="color:green">✅ ¡Solicitud enviada!</h3><p>Te confirmaremos pronto.</p></div>';
       }).catch(function(err) {
