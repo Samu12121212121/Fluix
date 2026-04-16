@@ -199,19 +199,15 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         ),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: [
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
           EmpleadosStatChip(label: 'Total',       valor: '${empleados.length}', icono: Icons.group),
-          const SizedBox(width: 20),
           EmpleadosStatChip(label: 'Activos',     valor: '$activos',    icono: Icons.check_circle),
-          const SizedBox(width: 20),
           EmpleadosStatChip(label: 'Propietario', valor: '$propietarios', icono: Icons.star),
-          const SizedBox(width: 20),
           EmpleadosStatChip(label: 'Admin',       valor: '$admins',     icono: Icons.admin_panel_settings),
-          const SizedBox(width: 20),
           EmpleadosStatChip(label: 'Staff',       valor: '$staff',      icono: Icons.badge),
-        ]),
+        ],
       ),
     );
   }

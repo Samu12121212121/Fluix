@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
+import '../pantallas/configurar_google_reviews_screen.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
 import 'kpis_rating_widget.dart';
@@ -127,6 +128,15 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
         onAnadir: () => _mostrarFormAnadir(context),
         onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
         onGmbConectado: () => _sincronizarEnBackground(),
+        // Solo admin/propietario ven el botón de configuración
+        onConfigurar: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConfigurarGoogleReviewsScreen(
+              empresaId: widget.empresaId,
+            ),
+          ),
+        ).then((_) => _sincronizarEnBackground()),
       ),
       if (_cargando)
         const Expanded(child: Center(child: CircularProgressIndicator()))
@@ -234,12 +244,13 @@ class _CabeceraCompleta extends StatelessWidget {
   final VoidCallback onAnadir;
   final VoidCallback onToggleAnaliticas;
   final VoidCallback onGmbConectado;
+  final VoidCallback? onConfigurar;
 
   const _CabeceraCompleta({
     required this.empresaId, required this.resenas, required this.ratingGoogle,
     required this.totalGoogle, required this.sincronizando, required this.errorSync,
     required this.mostrarAnaliticas, required this.onSincronizar, required this.onAnadir,
-    required this.onToggleAnaliticas, required this.onGmbConectado,
+    required this.onToggleAnaliticas, required this.onGmbConectado, this.onConfigurar,
   });
 
   @override
@@ -329,6 +340,24 @@ class _CabeceraCompleta extends StatelessWidget {
               Expanded(child: Text(
                 'Se muestran las 5 más recientes de las $totalGoogle reales de Google.',
                 style: TextStyle(fontSize: 10, color: Colors.grey[700]))),
+            ])),
+        ],
+
+        // Error de sincronización
+        if (errorSync != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red[200]!),
+            ),
+            child: Row(children: [
+              Icon(Icons.error_outline, size: 13, color: Colors.red[700]),
+              const SizedBox(width: 6),
+              Expanded(child: Text(
+                errorSync!,
+                style: TextStyle(fontSize: 10, color: Colors.red[700]))),
             ])),
         ],
 
@@ -656,9 +685,33 @@ class _EstadoVacio extends StatelessWidget {
               fontWeight: FontWeight.bold, color: Color(0xFFF57C00))),
             Text('$totalGoogle reseñas reales en Google',
               style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12), textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                border: Border.all(color: Colors.orange[200]!),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(children: [
+                const Row(children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                  SizedBox(width: 6),
+                  Text('Conexión OK pero sin reseñas descargadas',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                ]),
+                const SizedBox(height: 6),
+                Text(
+                  'La API de Google Places devuelve máximo 5 reseñas por petición. '
+                  'Esto puede deberse a:\n'
+                  '• La API Key no tiene activado el campo "reviews" (requiere plan Places Details)\n'
+                  '• La Key tiene restricción de dominio o IP\n'
+                  '• El negocio tiene menos de 1 reseña pública\n\n'
+                  'Pulsa el botón ↻ en la parte superior para sincronizar de nuevo y ver el error exacto.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
+              ]),
+            ),
           ] else ...[
             Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),

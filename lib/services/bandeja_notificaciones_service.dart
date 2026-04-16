@@ -55,6 +55,10 @@ class NotificacionInApp {
   final bool leida;
   final String moduloDestino;
   final String? entidadId;
+  // Datos del remitente (cuando aplica)
+  final String? remitenteNombre;
+  final String? remitenteTelefono;
+  final String? remitenteEmail;
 
   const NotificacionInApp({
     required this.id,
@@ -65,6 +69,9 @@ class NotificacionInApp {
     required this.leida,
     required this.moduloDestino,
     this.entidadId,
+    this.remitenteNombre,
+    this.remitenteTelefono,
+    this.remitenteEmail,
   });
 
   factory NotificacionInApp.fromFirestore(DocumentSnapshot doc) {
@@ -81,6 +88,9 @@ class NotificacionInApp {
       leida: data['leida'] as bool? ?? false,
       moduloDestino: data['modulo_destino'] as String? ?? '',
       entidadId: data['entidad_id'] as String?,
+      remitenteNombre: data['remitente_nombre'] as String?,
+      remitenteTelefono: data['remitente_telefono'] as String?,
+      remitenteEmail: data['remitente_email'] as String?,
     );
   }
 }
@@ -148,6 +158,9 @@ class BandejaNotificacionesService {
     required String cuerpo,
     required TipoNotificacion tipo,
     String? entidadId,
+    String? remitenteNombre,
+    String? remitenteTelefono,
+    String? remitenteEmail,
   }) async {
     await _col(empresaId).add({
       'titulo':          titulo,
@@ -157,6 +170,9 @@ class BandejaNotificacionesService {
       'leida':           false,
       'modulo_destino':  tipo.modulo,
       'entidad_id':      entidadId,
+      if (remitenteNombre != null) 'remitente_nombre': remitenteNombre,
+      if (remitenteTelefono != null) 'remitente_telefono': remitenteTelefono,
+      if (remitenteEmail != null) 'remitente_email': remitenteEmail,
     });
   }
 }

@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/empresa_config_provider.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/sugerencia_empresa.dart';
 import '../../../services/sugerencias_service.dart';
@@ -383,6 +385,12 @@ class _TabPerfilState extends State<_TabPerfil> {
                 ),
               ),
             ],
+            const SizedBox(height: 32),
+
+            // ── Zona de peligro: Eliminar cuenta ────────────────────────
+            _seccion('Zona de peligro'),
+            const SizedBox(height: 8),
+            _BorrarCuentaWidget(sesion: widget.sesion),
             const SizedBox(height: 20),
           ],
         ),
@@ -1009,9 +1017,16 @@ class _TabEmpresaState extends State<_TabEmpresa> {
               SizedBox(
                 width: double.infinity, height: 52,
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => const PantallaConfiguracionFiscalEmpresa(),
-                  )),
+                  onPressed: () {
+                    final empresaId = widget.sesion?.empresaId;
+                    if (empresaId == null) return;
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ChangeNotifierProvider(
+                        create: (_) => EmpresaConfigProvider(empresaId)..cargar(),
+                        child: const PantallaConfiguracionFiscalEmpresa(),
+                      ),
+                    ));
+                  },
                   icon: const Icon(Icons.receipt_long_outlined, size: 22),
                   label: const Text('Configuración Fiscal (NIF, Series, etc.)',
                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -1430,3 +1445,263 @@ InputDecoration _deco(String label, IconData icono) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGET: ELIMINAR CUENTA (requisito Apple App Store)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BorrarCuentaWidget extends StatefulWidget {
+  final SesionUsuario? sesion;
+  const _BorrarCuentaWidget({this.sesion});
+
+  @override
+  State<_BorrarCuentaWidget> createState() => _BorrarCuentaWidgetState();
+}
+
+class _BorrarCuentaWidgetState extends State<_BorrarCuentaWidget> {
+  bool _borrando = false;
+
+  Future<void> _solicitarBorrado() async {
+    // Primera confirmación
+    final primera = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.red),
+          SizedBox(width: 8),
+          Text('¿Eliminar cuenta?', style: TextStyle(fontSize: 17)),
+        ]),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Esta acción eliminará permanentemente tu cuenta y todos tus datos asociados.',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            _InfoChip(
+              icono: Icons.schedule,
+              color: Colors.orange,
+              texto: 'Los datos se borrarán en un plazo máximo de 30 días.',
+            ),
+            SizedBox(height: 8),
+            _InfoChip(
+              icono: Icons.email_outlined,
+              color: Color(0xFF0D47A1),
+              texto: 'Recibirás un correo de confirmación cuando se complete el borrado.',
+            ),
+            SizedBox(height: 8),
+            _InfoChip(
+              icono: Icons.delete_forever,
+              color: Colors.red,
+              texto: 'Se eliminarán: perfil, historial, documentos y acceso a la empresa.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            ),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+
+    if (primera != true || !mounted) return;
+
+    // Segunda confirmación (escribir texto)
+    final confirmCtrl = TextEditingController();
+    final segunda = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Confirmación final', style: TextStyle(fontSize: 17, color: Colors.red)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Para confirmar la eliminación, escribe BORRAR en el campo siguiente:',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: 'BORRAR',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                ),
+                onChanged: (_) => setS(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: confirmCtrl.text.trim().toUpperCase() == 'BORRAR'
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey[300],
+              ),
+              child: const Text('Eliminar cuenta definitivamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (segunda != true || !mounted) return;
+
+    setState(() => _borrando = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final user = FirebaseAuth.instance.currentUser;
+      final email = user?.email ?? '';
+
+      if (uid != null) {
+        // Marcar la cuenta como "pendiente de borrado" en Firestore
+        await FirebaseFirestore.instance.collection('usuarios').doc(uid).update({
+          'estado_cuenta': 'pendiente_borrado',
+          'solicitud_borrado': FieldValue.serverTimestamp(),
+          'fecha_borrado_estimada': Timestamp.fromDate(
+            DateTime.now().add(const Duration(days: 30)),
+          ),
+          'email_borrado': email,
+        });
+
+        // Registrar en colección de solicitudes de borrado
+        await FirebaseFirestore.instance.collection('solicitudes_borrado').add({
+          'uid': uid,
+          'email': email,
+          'nombre': widget.sesion?.nombre ?? '',
+          'empresa_id': widget.sesion?.empresaId ?? '',
+          'fecha_solicitud': FieldValue.serverTimestamp(),
+          'fecha_borrado_max': Timestamp.fromDate(
+            DateTime.now().add(const Duration(days: 30)),
+          ),
+          'estado': 'pendiente',
+          'notificado_email': false,
+        });
+      }
+
+      if (mounted) {
+        // Cerrar sesión
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '✅ Solicitud registrada. Recibirás un correo cuando se complete el borrado (máx. 30 días).',
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _borrando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.red[200]!),
+      ),
+      color: Colors.red[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.delete_forever, color: Colors.red, size: 20),
+              SizedBox(width: 8),
+              Text('Eliminar mi cuenta y datos',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red, fontSize: 14)),
+            ]),
+            const SizedBox(height: 6),
+            Text(
+              'Puedes solicitar la eliminación completa de tu cuenta. '
+              'En un plazo máximo de 30 días se borrarán todos tus datos '
+              'y serás notificado por correo electrónico cuando se complete.',
+              style: TextStyle(fontSize: 12, color: Colors.red[700]),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _borrando ? null : _solicitarBorrado,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: _borrando
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                label: Text(_borrando ? 'Procesando...' : 'Solicitar eliminación de cuenta'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Chip informativo para el diálogo de borrado
+class _InfoChip extends StatelessWidget {
+  final IconData icono;
+  final Color color;
+  final String texto;
+
+  const _InfoChip({required this.icono, required this.color, required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icono, size: 16, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(texto, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+        ),
+      ],
+    );
+  }
+}

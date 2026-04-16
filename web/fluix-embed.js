@@ -1,7 +1,7 @@
 (function() {
     // 1. Configuración de Firebase (Tu proyecto)
     const firebaseConfig = {
-        apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+        apiKey: "AIzaSyB6lg_F_2BrtLZZX9acEvzAQOWrJDYmMxI",
         appId: "1:1085482191658:web:c5461353b123ab92d62c53",
         messagingSenderId: "1085482191658",
         projectId: "planeaapp-4bea4",

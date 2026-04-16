@@ -37,8 +37,10 @@ class NotificacionesService {
     'fluixcrm_canal_principal',
     'Fluix CRM',
     description: 'Notificaciones de reservas, pedidos y alertas del negocio',
-    importance: Importance.high,
+    importance: Importance.max,
     playSound: true,
+    enableVibration: true,
+    showBadge: true,
   );
 
   /// Canal de alta prioridad para reseñas negativas
@@ -146,17 +148,28 @@ class NotificacionesService {
           _canal.id,
           _canal.name,
           channelDescription: _canal.description,
-          importance: Importance.high,
-          priority: Priority.high,
+          importance: Importance.max,
+          priority: Priority.max,
           icon: '@mipmap/ic_launcher',
           color: const Color(0xFF0D47A1),
-          // Sonido del sistema como base; el custom se reproduce encima
           playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          // fullScreenIntent muestra como banner incluso con pantalla bloqueada
+          fullScreenIntent: true,
+          visibility: NotificationVisibility.public,
+          // Cabecera (heads-up) siempre visible
+          styleInformation: BigTextStyleInformation(
+            notif.body ?? '',
+            htmlFormatBigText: false,
+            contentTitle: notif.title,
+          ),
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
+          interruptionLevel: InterruptionLevel.active,
         ),
       ),
       payload: jsonEncode(message.data),

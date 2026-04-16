@@ -292,7 +292,6 @@ exports.crearCuentaConPlan = (0, https_1.onCall)({ region: REGION }, async (requ
             nombre: nombrePropietario || nombreEmpresa,
             correo: email,
             empresa_id: empresaId,
-            rol: "admin",
             rol: "propietario",
             es_plataforma_admin: false,
             fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),

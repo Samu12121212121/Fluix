@@ -1,40 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// Servicio de autenticación con Google Business Profile API.
-/// Reutiliza la sesión de Google existente en la app y solicita
-/// el scope adicional `business.manage`.
+/// Usa accessToken directamente (no serverAuthCode).
+/// No requiere Cloud Functions — escribe en Firestore desde el cliente.
 class GmbAuthService extends ChangeNotifier {
   static final GmbAuthService _i = GmbAuthService._();
   factory GmbAuthService() => _i;
   GmbAuthService._();
 
-  static const _keyConectado = 'gmb_conectado';
-  static const _keyNombreFicha = 'gmb_nombre_ficha';
-  static const _keyDireccionFicha = 'gmb_direccion_ficha';
-  static const _keyUltimaSync = 'gmb_ultima_sync';
+  static const _keyConectado        = 'gmb_conectado';
+  static const _keyNombreFicha      = 'gmb_nombre_ficha';
+  static const _keyDireccionFicha   = 'gmb_direccion_ficha';
+  static const _keyUltimaSync       = 'gmb_ultima_sync';
+  static const _keyAccessToken      = 'gmb_access_token';
 
-  final _storage = const FlutterSecureStorage();
-  final _db = FirebaseFirestore.instance;
-  final _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
+  final _storage   = const FlutterSecureStorage();
+  final _db        = FirebaseFirestore.instance;
+  final _dio       = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+  ));
 
-  // Scope específico de Google Business Profile
-  static const _gmbScope =
-      'https://www.googleapis.com/auth/business.manage';
+  static const _gmbScope = 'https://www.googleapis.com/auth/business.manage';
 
   late final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'profile',
-      _gmbScope,
-    ],
+    scopes: ['email', 'profile', _gmbScope],
   );
 
   // ── Estado observable ─────────────────────────────────────────────────────
-
   bool _conectado = false;
   String? _nombreFicha;
   String? _direccionFicha;
@@ -42,73 +39,63 @@ class GmbAuthService extends ChangeNotifier {
   bool _cargando = false;
   String? _error;
 
-  bool get conectado => _conectado;
-  String? get nombreFicha => _nombreFicha;
+  bool get conectado       => _conectado;
+  String? get nombreFicha  => _nombreFicha;
   String? get direccionFicha => _direccionFicha;
   DateTime? get ultimaSync => _ultimaSync;
-  bool get cargando => _cargando;
-  String? get error => _error;
+  bool get cargando        => _cargando;
+  String? get error        => _error;
 
   // ── Inicialización ────────────────────────────────────────────────────────
-
-  /// Carga el estado de conexión guardado localmente.
   Future<void> inicializar(String empresaId) async {
     try {
-      // Primero, comprobar Firestore (fuente de verdad)
       final snap = await _db
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('configuracion')
-          .doc('gmb_config')
-          .get();
+          .collection('empresas').doc(empresaId)
+          .collection('configuracion').doc('gmb_config').get();
 
       if (snap.exists && snap.data()?['conectado'] == true) {
-        _conectado = true;
-        _nombreFicha = snap.data()?['nombre_ficha'] as String? ?? '';
-        _direccionFicha = snap.data()?['direccion_ficha'] as String? ?? '';
-        final tsSync = snap.data()?['ultima_sync'] as Timestamp?;
-        _ultimaSync = tsSync?.toDate();
-
-        // Persistir localmente para acceso sin red
-        await _storage.write(key: _keyConectado, value: 'true');
-        await _storage.write(
-            key: _keyNombreFicha, value: _nombreFicha ?? '');
-        await _storage.write(
-            key: _keyDireccionFicha, value: _direccionFicha ?? '');
+        _conectado     = true;
+        _nombreFicha   = snap.data()?['nombre_ficha']    as String? ?? '';
+        _direccionFicha= snap.data()?['direccion_ficha'] as String? ?? '';
+        final ts       = snap.data()?['ultima_sync'] as Timestamp?;
+        _ultimaSync    = ts?.toDate();
+        await _storage.write(key: _keyConectado,     value: 'true');
+        await _storage.write(key: _keyNombreFicha,   value: _nombreFicha ?? '');
+        await _storage.write(key: _keyDireccionFicha,value: _direccionFicha ?? '');
         if (_ultimaSync != null) {
-          await _storage.write(
-              key: _keyUltimaSync, value: _ultimaSync!.toIso8601String());
+          await _storage.write(key: _keyUltimaSync,
+              value: _ultimaSync!.toIso8601String());
         }
-      } else {
-        // Fallback a storage local
-        final localConectado = await _storage.read(key: _keyConectado);
-        _conectado = localConectado == 'true';
-        if (_conectado) {
-          _nombreFicha = await _storage.read(key: _keyNombreFicha);
-          _direccionFicha = await _storage.read(key: _keyDireccionFicha);
-          final syncStr = await _storage.read(key: _keyUltimaSync);
-          if (syncStr != null) _ultimaSync = DateTime.tryParse(syncStr);
-        }
+        notifyListeners();
+        return;
       }
     } catch (_) {}
+
+    // Fallback: leer del storage local
+    final local = await _storage.read(key: _keyConectado);
+    _conectado = local == 'true';
+    if (_conectado) {
+      _nombreFicha    = await _storage.read(key: _keyNombreFicha);
+      _direccionFicha = await _storage.read(key: _keyDireccionFicha);
+      final syncStr   = await _storage.read(key: _keyUltimaSync);
+      if (syncStr != null) _ultimaSync = DateTime.tryParse(syncStr);
+    }
     notifyListeners();
   }
 
   // ── Flujo de conexión ─────────────────────────────────────────────────────
-
-  /// Inicia el flujo OAuth2 simplificado:
-  /// 1. Intenta login silencioso (si ya tiene sesión)
-  /// 2. Si no, muestra pantalla de Google
-  /// 3. Obtiene serverAuthCode
-  /// 4. Llama a Cloud Function para guardar tokens en Secret Manager
-  /// Devuelve `null` si va bien, o un mensaje de error.
+  /// Inicia el flujo OAuth2:
+  ///   1. Sign-in con Google (pide permiso business.manage)
+  ///   2. Obtiene accessToken
+  ///   3. Escribe estado en Firestore
+  ///   4. Devuelve null si va bien, o mensaje de error.
   Future<String?> conectar(String empresaId) async {
     _cargando = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Intentar login silencioso primero
+      // 1. Login silencioso primero, luego interactivo
       GoogleSignInAccount? account = await _googleSignIn.signInSilently();
       account ??= await _googleSignIn.signIn();
 
@@ -118,134 +105,226 @@ class GmbAuthService extends ChangeNotifier {
         return 'Inicio de sesión cancelado';
       }
 
-      final serverAuthCode = account.serverAuthCode;
-      if (serverAuthCode == null) {
+      // 2. Obtener accessToken
+      final auth        = await account.authentication;
+      final accessToken = auth.accessToken;
+
+      if (accessToken == null) {
         _cargando = false;
         notifyListeners();
-        return 'No se pudo obtener el código de autorización. '
-            'Asegúrate de que el Client ID está configurado correctamente.';
+        return 'No se pudo obtener el token de acceso de Google.\n'
+            'Asegúrate de aceptar todos los permisos solicitados.';
       }
 
-      // Enviar a Cloud Function para intercambiar y guardar en Secret Manager
-      final callable =
-          _functions.httpsCallable('storeGmbToken');
-      await callable.call({
-        'empresaId': empresaId,
-        'serverAuthCode': serverAuthCode,
-      });
+      // 3. Guardar token en secure storage
+      await _storage.write(key: _keyAccessToken, value: accessToken);
+
+      // 4. Marcar como conectado en Firestore (sin Cloud Function)
+      await _db
+          .collection('empresas').doc(empresaId)
+          .collection('configuracion').doc('gmb_config')
+          .set({
+        'conectado':    true,
+        'email_google': account.email,
+        'nombre_google': account.displayName ?? '',
+        'conectado_en': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       _cargando = false;
       notifyListeners();
       return null; // éxito
-    } on FirebaseFunctionsException catch (e) {
-      _cargando = false;
-      _error = e.message;
-      notifyListeners();
-      return _mapearErrorGmb(e.message ?? e.code);
+
     } catch (e) {
       _cargando = false;
       _error = e.toString();
       notifyListeners();
-      return 'Error inesperado: $e';
+      return _mapearError(e.toString());
     }
   }
 
-  /// Obtiene la lista de fichas de negocio del usuario.
+  // ── Obtener fichas de negocio ─────────────────────────────────────────────
+  /// Llama a la Business Account Management API para listar cuentas y fichas.
   Future<({List<FichaNegocio> fichas, String? error})> obtenerFichas(
       String empresaId) async {
+    final token = await _obtenerToken();
+    if (token == null) {
+      return (fichas: <FichaNegocio>[],
+          error: 'Sesión expirada. Vuelve a conectar tu cuenta de Google.');
+    }
+
     try {
-      final callable =
-          _functions.httpsCallable('obtenerFichasNegocio');
-      final result = await callable.call({'empresaId': empresaId});
-      final fichasRaw =
-          (result.data['fichas'] as List<dynamic>?) ?? [];
-      final fichas = fichasRaw
-          .map((f) => FichaNegocio.fromMap(f as Map<String, dynamic>))
-          .toList();
-      return (fichas: fichas, error: null);
-    } on FirebaseFunctionsException catch (e) {
-      return (
-        fichas: <FichaNegocio>[],
-        error: _mapearErrorGmb(e.message ?? e.code)
+      // 1. Obtener cuentas de Business Profile
+      final rAccounts = await _dio.get(
+        'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
+
+      final accounts = (rAccounts.data['accounts'] as List<dynamic>? ?? []);
+      if (accounts.isEmpty) {
+        return (fichas: <FichaNegocio>[],
+            error: 'No encontramos ninguna ficha de Google Business en tu cuenta.\n'
+                'Asegúrate de tener un perfil creado en business.google.com');
+      }
+
+      final fichas = <FichaNegocio>[];
+
+      // 2. Para cada cuenta, obtener sus ubicaciones
+      for (final account in accounts.take(5)) {
+        final accountName = account['name'] as String? ?? '';
+        if (accountName.isEmpty) continue;
+
+        try {
+          final rLoc = await _dio.get(
+            'https://mybusinessbusinessinformation.googleapis.com/v1/'
+                '$accountName/locations?readMask=name,title,storefrontAddress',
+            options: Options(headers: {'Authorization': 'Bearer $token'}),
+          );
+
+          final locations = rLoc.data['locations'] as List<dynamic>? ?? [];
+          for (final loc in locations) {
+            final locName  = loc['name']  as String? ?? '';
+            final titulo   = loc['title'] as String? ?? 'Sin nombre';
+            final addr     = (loc['storefrontAddress'] as Map<String, dynamic>?);
+            final direccion = addr != null
+                ? [
+                    addr['addressLines']?.first,
+                    addr['locality'],
+                    addr['administrativeArea'],
+                  ].whereType<String>().join(', ')
+                : '';
+
+            // accountName: "accounts/123"  → accountId: "123"
+            // locName:     "accounts/123/locations/456" → locationId: "456"
+            fichas.add(FichaNegocio(
+              accountId:  accountName.replaceFirst('accounts/', ''),
+              locationId: locName.split('/').last,
+              nombre:     titulo,
+              direccion:  direccion,
+            ));
+          }
+        } catch (_) {
+          // Si falla una cuenta, continúa con las demás
+        }
+      }
+
+      if (fichas.isEmpty) {
+        return (fichas: <FichaNegocio>[],
+            error: 'No encontramos ninguna ubicación en tu cuenta de Google Business.');
+      }
+
+      return (fichas: fichas, error: null);
+
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        return (fichas: <FichaNegocio>[],
+            error: 'Token expirado o sin permisos.\n'
+                'Cierra sesión y vuelve a conectar tu cuenta de Google.');
+      }
+      return (fichas: <FichaNegocio>[],
+          error: 'Error de red: ${e.message}');
     } catch (e) {
       return (fichas: <FichaNegocio>[], error: e.toString());
     }
   }
 
-  /// Guarda la ficha seleccionada y marca la empresa como conectada.
-  Future<String?> guardarFicha(
-      String empresaId, FichaNegocio ficha) async {
+  // ── Guardar ficha seleccionada ────────────────────────────────────────────
+  Future<String?> guardarFicha(String empresaId, FichaNegocio ficha) async {
     try {
-      final callable =
-          _functions.httpsCallable('guardarFichaSeleccionada');
-      await callable.call({
-        'empresaId': empresaId,
-        'accountId': ficha.accountId,
-        'locationId': ficha.locationId,
-        'nombreFicha': ficha.nombre,
-        'direccionFicha': ficha.direccion,
-      });
+      // Escribir directamente en Firestore (sin Cloud Function)
+      await _db
+          .collection('empresas').doc(empresaId)
+          .collection('configuracion').doc('gmb_config')
+          .set({
+        'conectado':      true,
+        'account_id':     ficha.accountId,
+        'location_id':    ficha.locationId,
+        'nombre_ficha':   ficha.nombre,
+        'direccion_ficha':ficha.direccion,
+        'ultima_sync':    FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      _conectado = true;
-      _nombreFicha = ficha.nombre;
+      _conectado      = true;
+      _nombreFicha    = ficha.nombre;
       _direccionFicha = ficha.direccion;
-      _ultimaSync = null;
+      _ultimaSync     = DateTime.now();
 
-      await _storage.write(key: _keyConectado, value: 'true');
-      await _storage.write(key: _keyNombreFicha, value: ficha.nombre);
-      await _storage.write(
-          key: _keyDireccionFicha, value: ficha.direccion);
+      await _storage.write(key: _keyConectado,      value: 'true');
+      await _storage.write(key: _keyNombreFicha,    value: ficha.nombre);
+      await _storage.write(key: _keyDireccionFicha, value: ficha.direccion);
 
       notifyListeners();
       return null;
-    } on FirebaseFunctionsException catch (e) {
-      return _mapearErrorGmb(e.message ?? e.code);
     } catch (e) {
-      return e.toString();
+      return 'Error al guardar la ficha: $e';
     }
   }
 
-  /// Desconecta la cuenta de Google Business Profile.
+  // ── Desconectar ───────────────────────────────────────────────────────────
   Future<void> desconectar(String empresaId) async {
     try {
-      final callable =
-          _functions.httpsCallable('desconectarGoogleBusiness');
-      await callable.call({'empresaId': empresaId});
+      await _db
+          .collection('empresas').doc(empresaId)
+          .collection('configuracion').doc('gmb_config')
+          .set({'conectado': false}, SetOptions(merge: true));
     } catch (_) {}
 
-    _conectado = false;
-    _nombreFicha = null;
-    _direccionFicha = null;
-    _ultimaSync = null;
+    try { await _googleSignIn.signOut(); } catch (_) {}
 
+    _conectado      = false;
+    _nombreFicha    = null;
+    _direccionFicha = null;
+    _ultimaSync     = null;
     await _storage.deleteAll();
     notifyListeners();
   }
 
-  // ── Mapeo de errores ──────────────────────────────────────────────────────
+  // ── Token helper ──────────────────────────────────────────────────────────
+  /// Obtiene el accessToken: primero del storage local; si ha expirado,
+  /// intenta un login silencioso para renovarlo.
+  Future<String?> _obtenerToken() async {
+    final stored = await _storage.read(key: _keyAccessToken);
+    if (stored != null) return stored;
 
-  String _mapearErrorGmb(String error) {
-    if (error.contains('business.manage') || error.contains('scope')) {
-      return 'Necesitas tener una ficha de Google Business para usar esta función.';
+    // Intentar renovar silenciosamente
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account == null) return null;
+      final auth  = await account.authentication;
+      final token = auth.accessToken;
+      if (token != null) {
+        await _storage.write(key: _keyAccessToken, value: token);
+      }
+      return token;
+    } catch (_) {
+      return null;
     }
-    if (error.contains('access_denied') || error.contains('denied')) {
-      return 'Has denegado el permiso. Vuelve a intentarlo y acepta los permisos de Google Business.';
+  }
+
+  // ── Mapeo de errores ──────────────────────────────────────────────────────
+  String _mapearError(String error) {
+    final e = error.toLowerCase();
+    if (e.contains('access_denied') || e.contains('denied')) {
+      return 'Acceso denegado por Google.\n'
+          'Asegúrate de aceptar TODOS los permisos que solicita la app, '
+          'incluyendo Google Business.';
     }
-    if (error.contains('SUSPENDED') || error.contains('suspended')) {
-      return 'Tu ficha de Google Business está suspendida. Contáctate con Google para resolverlo.';
+    if (e.contains('network') || e.contains('socket') || e.contains('connection')) {
+      return 'Sin conexión a internet. Comprueba tu red e inténtalo de nuevo.';
     }
-    if (error.contains('not-found') || error.contains('404')) {
-      return 'No se encontró ninguna ficha de Google Business en tu cuenta.';
+    if (e.contains('sign_in_failed') || e.contains('sign_in_cancelled')) {
+      return 'Inicio de sesión cancelado o fallido.\nInténtalo de nuevo.';
     }
-    if (error.contains('OAuth') || error.contains('credentials')) {
-      return 'Error de configuración OAuth. Contacta con soporte.';
+    if (e.contains('business.manage') || e.contains('scope')) {
+      return 'Necesitas tener una ficha de Google Business activa\n'
+          'para usar esta función.';
     }
-    return 'Error al conectar con Google Business: $error';
+    debugPrint('❌ GmbAuthService error: $error');
+    return 'Error al conectar con Google: $error';
   }
 }
 
-// ── Modelo de ficha de negocio ────────────────────────────────────────────────
+// ── Modelo ────────────────────────────────────────────────────────────────────
 
 class FichaNegocio {
   final String accountId;
@@ -261,10 +340,9 @@ class FichaNegocio {
   });
 
   factory FichaNegocio.fromMap(Map<String, dynamic> map) => FichaNegocio(
-        accountId: map['accountId'] as String? ?? '',
+        accountId:  map['accountId']  as String? ?? '',
         locationId: map['locationId'] as String? ?? '',
-        nombre: map['nombre'] as String? ?? 'Sin nombre',
-        direccion: map['direccion'] as String? ?? '',
+        nombre:     map['nombre']     as String? ?? 'Sin nombre',
+        direccion:  map['direccion']  as String? ?? '',
       );
 }
-

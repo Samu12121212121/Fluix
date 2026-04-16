@@ -24,6 +24,10 @@ class GoogleReviewsService {
 
   // ── Configuración de Google por empresa ───────────────────────────────────
 
+  /// Versión pública de _obtenerConfig para la pantalla de configuración
+  Future<Map<String, String>> obtenerConfigPublica(String empresaId) =>
+      _obtenerConfig(empresaId);
+
   /// Lee la configuración de Google Reviews de Firestore para esta empresa.
   /// Si no existe, usa los valores hardcodeados de Fluix CRM como demo.
   Future<Map<String, String>> _obtenerConfig(String empresaId) async {

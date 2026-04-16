@@ -79,6 +79,18 @@ class ModuloTpvScreen extends StatelessWidget {
             context: context,
           ),
 
+          // ── Cierre de caja ───────────────────────────────────────────────
+          _TarjetaAccionTpv(
+            icono: Icons.point_of_sale_rounded,
+            titulo: 'Cierre de Caja',
+            descripcion: 'Resumen diario de ventas por método de pago e impresión de informe',
+            color: Colors.indigo[700]!,
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PantallaCierreCaja(empresaId: empresaId),
+            )),
+          ),
+          const SizedBox(height: 12),
+
           // ── Configuración (solo admin) ───────────────────────────────────
           if (esAdmin) ...[
             const SizedBox(height: 12),

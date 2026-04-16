@@ -41,6 +41,14 @@
       ]
     },
     {
+      "collectionGroup": "clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "servicios",
       "queryScope": "COLLECTION",
       "fields": [
@@ -49,10 +57,28 @@
       ]
     },
     {
+      "collectionGroup": "nominas",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "ejercicio", "order": "ASCENDING" },
         { "fieldPath": "trimestre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "anio", "order": "ASCENDING" },
+        { "fieldPath": "mes", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empleado_id", "order": "ASCENDING" },
+        { "fieldPath": "anio", "order": "DESCENDING" },
+        { "fieldPath": "mes", "order": "DESCENDING" }
       ]
     },
     {
@@ -61,6 +87,30 @@
       "fields": [
         { "fieldPath": "es_arrendamiento", "order": "ASCENDING" },
         { "fieldPath": "fecha_recepcion", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fecha_emision", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_emision", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cliente_nombre", "order": "ASCENDING" },
+        { "fieldPath": "fecha_emision", "order": "DESCENDING" }
       ]
     },
     {
@@ -96,34 +146,51 @@
       ]
     },
     {
-      "collectionGroup": "actividad",
+      "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "clientes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "nominas",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+        { "fieldPath": "fecha_limite", "order": "ASCENDING" },
+        { "fieldPath": "completada", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tareas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "completada", "order": "ASCENDING" },
+        { "fieldPath": "fecha_limite", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha_fin_contrato", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "finiquitos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empleado_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha_baja", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "modelos111",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ejercicio", "order": "ASCENDING" },
+        { "fieldPath": "trimestre", "order": "ASCENDING" }
       ]
     }
   ],

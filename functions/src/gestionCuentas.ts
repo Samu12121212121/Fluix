@@ -357,7 +357,6 @@ export const crearCuentaConPlan = onCall(
         nombre: nombrePropietario || nombreEmpresa,
         correo: email,
         empresa_id: empresaId,
-        rol: "admin",
         rol: "propietario",
         es_plataforma_admin: false,
         fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),

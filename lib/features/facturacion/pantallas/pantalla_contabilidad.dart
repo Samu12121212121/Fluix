@@ -264,6 +264,7 @@ class _TabResumenState extends State<_TabResumen> {
   ResumenContable? _resumenAnual;
   List<ResumenContable> _trimestres = [];
   bool _cargando = true;
+  String? _error;
   int _trimestreSeleccionado = 0; // 0 = anual
 
   @override
@@ -279,7 +280,7 @@ class _TabResumenState extends State<_TabResumen> {
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    setState(() { _cargando = true; _error = null; });
     try {
       final anual = await widget.svc.calcularResumen(
           empresaId: widget.empresaId, anio: widget.anio);
@@ -293,7 +294,7 @@ class _TabResumenState extends State<_TabResumen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) setState(() { _cargando = false; _error = e.toString(); });
     }
   }
 
@@ -306,6 +307,20 @@ class _TabResumenState extends State<_TabResumen> {
   @override
   Widget build(BuildContext context) {
     if (_cargando) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 12),
+          Text('Error al cargar resumen:\n$_error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red)),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _cargar, child: const Text('Reintentar')),
+        ]),
+      ));
+    }
     final r = _resumenActual;
     if (r == null) return const Center(child: Text('Sin datos'));
 

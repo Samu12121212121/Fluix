@@ -162,16 +162,18 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             Locale('en', 'US'),
           ],
           home: StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges(),
+            // distinct() por UID: si el stream emite el mismo usuario
+            // (ej.: tras getIdToken(true) en resumed) NO reconstruye el árbol.
+            // Esto evita que FutureBuilder recree los futures y destruya
+            // el Navigator/Overlay (causa del PopupMenuButton muerto).
+            stream: FirebaseAuth.instance.authStateChanges().distinct(
+              (a, b) => a?.uid == b?.uid,
+            ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const PantallaCarga();
               }
               if (snapshot.hasData) {
-                // Iniciar / reconfirmar el servicio de sesión cada vez que
-                // el stream confirma que hay usuario autenticado.
-                // iniciar() es idempotente: si ya está activo, sólo
-                // sobreescribe el callback.
                 SesionService().iniciar(
                   onSesionExpirada: _onSesionExpirada,
                 );
@@ -191,10 +193,10 @@ class _FluixCrmAppState extends State<FluixCrmApp>
 
 /// Decide si mostrar onboarding o dashboard según el estado de Firestore.
 ///
-/// Es StatefulWidget + AutomaticKeepAliveClientMixin para que el árbol
-/// NO se destruya cuando authStateChanges reemite el usuario (ej.: tras
-/// refrescar el token al volver de background). Esto evita que el
-/// Navigator/Overlay se recree y deje PopupMenuButton sin respuesta.
+/// Los futures se crean UNA SOLA VEZ en initState() y se cachean.
+/// Si build() los recreara en cada llamada, cualquier rebuild externo
+/// (incluso sin cambio de usuario) destruiría el árbol completo y mataría
+/// el Navigator/Overlay, dejando el PopupMenuButton sin respuesta.
 class _PantallaRuta extends StatefulWidget {
   const _PantallaRuta();
 
@@ -202,19 +204,35 @@ class _PantallaRuta extends StatefulWidget {
   State<_PantallaRuta> createState() => _PantallaRutaState();
 }
 
-class _PantallaRutaState extends State<_PantallaRuta>
-    with AutomaticKeepAliveClientMixin {
+class _PantallaRutaState extends State<_PantallaRuta> {
+  // ── Futures cacheados ─────────────────────────────────────────────────────
+  // Se asignan en initState y NUNCA se recrean en build().
+  // Así cualquier rebuild del padre no re-ejecuta las consultas.
+  late Future<DocumentSnapshot> _futureUsuario;
+  Future<DocumentSnapshot>? _futureEmpresa;
+  Future<DocumentSnapshot>? _futureSuscripcion;
+
+  String? _uid;
+  String? _empresaId;
+
   @override
-  bool get wantKeepAlive => true;
+  void initState() {
+    super.initState();
+    _uid = FirebaseAuth.instance.currentUser?.uid;
+    if (_uid != null) {
+      _futureUsuario = FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_uid)
+          .get();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // requerido por AutomaticKeepAliveClientMixin
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const PantallaLogin();
+    if (_uid == null) return const PantallaLogin();
 
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
+      future: _futureUsuario,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const PantallaCarga();
@@ -223,61 +241,68 @@ class _PantallaRutaState extends State<_PantallaRuta>
         final userData = snap.data?.data() as Map<String, dynamic>?;
         final empresaId = userData?['empresa_id'] as String?;
 
-        // Sin empresa → ir al dashboard (lo crea automáticamente)
         if (empresaId == null) return const PantallaDashboard();
 
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
+        // Cachear los futures de empresa la primera vez que se resuelve el UID
+        if (_empresaId != empresaId || _futureEmpresa == null) {
+          _empresaId = empresaId;
+          _futureEmpresa = FirebaseFirestore.instance
               .collection('empresas')
               .doc(empresaId)
-              .get(),
+              .get();
+          _futureSuscripcion = FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(empresaId)
+              .collection('suscripcion')
+              .doc('actual')
+              .get();
+        }
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: _futureEmpresa,
           builder: (context, snapEmpresa) {
             if (snapEmpresa.connectionState == ConnectionState.waiting) {
               return const PantallaCarga();
             }
 
-            final empresaData = snapEmpresa.data?.data() as Map<String, dynamic>?;
-            final onboardingCompletado = empresaData?['onboarding_completado'] as bool? ?? false;
+            final empresaData =
+                snapEmpresa.data?.data() as Map<String, dynamic>?;
+            final onboardingCompletado =
+                empresaData?['onboarding_completado'] as bool? ?? false;
 
             if (!onboardingCompletado) {
               return PantallaOnboarding(empresaId: empresaId);
             }
 
-            // Comprobar suscripción
             return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('empresas')
-                  .doc(empresaId)
-                  .collection('suscripcion')
-                  .doc('actual')
-                  .get(),
+              future: _futureSuscripcion,
               builder: (context, snapSuscripcion) {
-                if (snapSuscripcion.connectionState == ConnectionState.waiting) {
+                if (snapSuscripcion.connectionState ==
+                    ConnectionState.waiting) {
                   return const PantallaCarga();
                 }
 
-                // Si no existe doc de suscripción → dejar pasar (nueva empresa)
-                if (!snapSuscripcion.hasData || !snapSuscripcion.data!.exists) {
+                if (!snapSuscripcion.hasData ||
+                    !snapSuscripcion.data!.exists) {
                   return const PantallaDashboard();
                 }
 
-                final suscData = snapSuscripcion.data!.data() as Map<String, dynamic>;
+                final suscData =
+                    snapSuscripcion.data!.data() as Map<String, dynamic>;
                 final estado = suscData['estado'] as String? ?? 'ACTIVA';
 
                 DateTime? fechaFin;
                 final raw = suscData['fecha_fin'];
                 if (raw is Timestamp) fechaFin = raw.toDate();
 
-                // Determinar si la suscripción está efectivamente vencida
-                bool estaVencida = estado == 'VENCIDA' || estado == 'SUSPENDIDA';
-
-                // Fallback: si la CF aún no marcó VENCIDA pero pasaron 7+ días
-                // de gracia, bloquear desde el cliente también
-                if (!estaVencida && fechaFin != null && estado == 'ACTIVA') {
-                  final diasDespues = DateTime.now().difference(fechaFin).inDays;
-                  if (diasDespues > 7) {
-                    estaVencida = true;
-                  }
+                bool estaVencida =
+                    estado == 'VENCIDA' || estado == 'SUSPENDIDA';
+                if (!estaVencida &&
+                    fechaFin != null &&
+                    estado == 'ACTIVA') {
+                  final diasDespues =
+                      DateTime.now().difference(fechaFin).inDays;
+                  if (diasDespues > 7) estaVencida = true;
                 }
 
                 if (estaVencida) {

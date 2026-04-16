@@ -23,7 +23,7 @@
     // ── CONFIGURACIÓN INTERNA ─────────────────────────────────────
     var CFG = {
         firebase: {
-            apiKey:            "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+            apiKey:            "AIzaSyB6lg_F_2BrtLZZX9acEvzAQOWrJDYmMxI",
             authDomain:        "planeaapp-4bea4.firebaseapp.com",
             projectId:         "planeaapp-4bea4",
             storageBucket:     "planeaapp-4bea4.firebasestorage.app",

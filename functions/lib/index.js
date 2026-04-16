@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = void 0;
+exports.onReservaNueva = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.obtenerScriptJSON = exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = void 0;
 const admin = require("firebase-admin");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
 const stripe_1 = require("stripe");
 const nodemailer = require("nodemailer");
+const recordatoriosCitas_1 = require("./recordatoriosCitas");
+Object.defineProperty(exports, "enviarRecordatoriosCitas", { enumerable: true, get: function () { return recordatoriosCitas_1.enviarRecordatoriosCitas; } });
 const notificacionesTareas_1 = require("./notificacionesTareas");
 Object.defineProperty(exports, "onTareaAsignada", { enumerable: true, get: function () { return notificacionesTareas_1.onTareaAsignada; } });
 const tareasFunciones_1 = require("./tareasFunciones");
@@ -182,16 +184,17 @@ const smtpUser = { value: () => { var _a; return (_a = process.env.SMTP_USER) !=
 const smtpPass = { value: () => { var _a; return (_a = process.env.SMTP_PASS) !== null && _a !== void 0 ? _a : ""; } };
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 async function obtenerTokensEmpresa(empresaId) {
-    const snapshot = await db
-        .collection("empresas")
-        .doc(empresaId)
-        .collection("dispositivos")
-        .where("activo", "==", true)
-        .get();
+    const col = db.collection("empresas").doc(empresaId).collection("dispositivos");
+    // Primero intenta con filtro activo == true
+    let snapshot = await col.where("activo", "==", true).get();
+    // Si no hay resultados, coge todos (puede que el campo se llame diferente)
+    if (snapshot.empty) {
+        snapshot = await col.get();
+    }
     const tokens = [];
     snapshot.forEach((doc) => {
         const token = doc.data().token;
-        if (token)
+        if (token && token.length > 10)
             tokens.push(token);
     });
     return tokens;
@@ -263,16 +266,34 @@ async function enviarNotificacionEmpresa(empresaId, titulo, cuerpo, data = {}) {
 exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
     var _a, _b;
     const empresaId = event.params.empresaId;
+    const reservaId = event.params.reservaId;
     const reserva = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!reserva)
         return;
-    const cliente = reserva.cliente || "Cliente";
-    const servicio = reserva.servicio || "Servicio";
-    const fecha = ((_b = reserva.fecha) === null || _b === void 0 ? void 0 : _b.toDate)
-        ? reserva.fecha.toDate().toLocaleDateString("es-ES")
-        : "Fecha pendiente";
-    await enviarNotificacionEmpresa(empresaId, "📅 Nueva Reserva", `${cliente} — ${servicio} el ${fecha}`, { tipo: "nueva_reserva", reserva_id: event.params.reservaId });
-    console.log(`✅ Notificación nueva reserva enviada para empresa ${empresaId}`);
+    const cliente = reserva.nombre_cliente || reserva.cliente || "Cliente";
+    const telefono = reserva.telefono_cliente ? ` · ${reserva.telefono_cliente}` : "";
+    const personas = reserva.personas ? ` · ${reserva.personas} pers.` : "";
+    const servicio = reserva.servicio || reserva.notas || "";
+    const fechaHora = reserva.fecha_hora
+        ? reserva.fecha_hora.replace("T", " a las ").substring(0, 16)
+        : ((_b = reserva.fecha) === null || _b === void 0 ? void 0 : _b.toDate)
+            ? reserva.fecha.toDate().toLocaleString("es-ES")
+            : "Fecha pendiente";
+    const titulo = "📅 Nueva Reserva";
+    const cuerpo = `${cliente}${telefono}${personas} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
+    // 1. Guardar en bandeja in-app (Firestore) — para que aparezca en la pantalla
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+        titulo,
+        cuerpo,
+        tipo: "reservaNueva",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        modulo_destino: "reservas",
+        entidad_id: reservaId,
+    });
+    // 2. Enviar push FCM
+    await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: reservaId });
+    console.log(`✅ Reserva guardada en bandeja y push enviado — empresa ${empresaId}`);
 });
 /**
  * 2. RESERVA CANCELADA
@@ -287,8 +308,8 @@ exports.onReservaCancelada = (0, firestore_1.onDocumentUpdated)({ document: "emp
     if (antes.estado === despues.estado || despues.estado !== "CANCELADA") {
         return;
     }
-    const cliente = despues.cliente || "Cliente";
-    const servicio = despues.servicio || "Servicio";
+    const cliente = despues.nombre_cliente || despues.cliente || "Cliente";
+    const servicio = despues.servicio || despues.fecha_hora || "la reserva";
     await enviarNotificacionEmpresa(empresaId, "❌ Reserva Cancelada", `${cliente} canceló la reserva de ${servicio}`, { tipo: "reserva_cancelada", reserva_id: event.params.reservaId });
 });
 /**
@@ -977,946 +998,952 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
 ✅ Módulo Reservas (reservas web)
 ✅ Módulo Estadísticas (tráfico web)
 -->`;
-    // ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
-    export const obtenerScriptJSON = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
-        try {
-            const { empresaId } = req.query;
-            if (!empresaId || typeof empresaId !== "string") {
-                res.status(400).json({ error: "empresaId es requerido" });
-                return;
-            }
-            const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-            if (!empresaDoc.exists) {
-                res.status(404).json({ error: "Empresa no encontrada" });
-                return;
-            }
-            const empresa = empresaDoc.data();
-            const script = generarScriptHTML(empresaId, empresa.nombre || "Mi Negocio", empresa.sitio_web || "midominio.com");
-            res.status(200).json({
-                exito: true,
-                empresaId,
-                nombre: empresa.nombre,
-                dominio: empresa.sitio_web,
-                script: script,
-                instrucciones: "Pega este script en el footer de tu WordPress (antes del </body>)"
-            });
+}
+// ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
+exports.obtenerScriptJSON = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    try {
+        const { empresaId } = req.query;
+        if (!empresaId || typeof empresaId !== "string") {
+            res.status(400).json({ error: "empresaId es requerido" });
+            return;
         }
-        catch (error) {
-            console.error("❌ Error:", error);
-            res.status(500).json({ error: "Error generando script" });
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        if (!empresaDoc.exists) {
+            res.status(404).json({ error: "Empresa no encontrada" });
+            return;
         }
-    });
-    /**
-     * 10. INICIALIZAR EMPRESA (v2 onCall)
-     */
-    export const inicializarEmpresa = (0, https_1.onCall)({ region: REGION }, async (request) => {
-        try {
-            // ── AUTH GUARD ──
-            (0, authGuard_1.verificarAuth)(request);
-            const { empresaId, nombre, dominio, telefono, direccion } = request.data;
-            if (!empresaId) {
-                throw new https_1.HttpsError("invalid-argument", "empresaId es requerido");
-            }
-            const empresaRef = db.collection("empresas").doc(empresaId);
-            const empresaData = {
-                nombre: nombre || "Mi Negocio",
-                dominio: dominio || "midominio.com",
-                sitio_web: dominio || "midominio.com",
-                telefono: telefono || "",
-                direccion: direccion || "",
-                fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
-            };
-            await empresaRef.set(empresaData, { merge: true });
-            await empresaRef.collection("estadisticas").doc("web_resumen").set({
-                visitas_totales: 0,
-                visitas_mes: 0,
-                ultima_visita: null,
-                sitio_web: dominio || "midominio.com",
-                nombre_empresa: nombre || "Mi Negocio",
-            });
-            await empresaRef.collection("configuracion").doc("general").set({
-                fecha_instalacion_script: null,
-                script_activo: false,
-                dominio: dominio || "midominio.com",
-            });
-            console.log(`✅ Empresa ${empresaId} inicializada correctamente`);
-            return {
-                exito: true,
-                mensaje: `Empresa "${nombre}" creada exitosamente`,
-                empresaId,
-            };
-        }
-        catch (error) {
-            console.error("❌ Error inicializando empresa:", error);
-            throw new https_1.HttpsError("internal", `Error: ${error instanceof Error ? error.message : "Desconocido"}`);
-        }
-    });
-    /**
-     * 11. CREAR EMPRESA HTTP — ⛔ DESHABILITADA POR SEGURIDAD
-     * Esta función HTTP no tiene autenticación. Usar inicializarEmpresa (callable) en su lugar.
-     */
-    export const crearEmpresaHTTP = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
-        res.status(410).json({
-            error: "Esta función ha sido deshabilitada por seguridad. Usa inicializarEmpresa (callable).",
+        const empresa = empresaDoc.data();
+        const script = generarScriptHTML(empresaId, empresa.nombre || "Mi Negocio", empresa.sitio_web || "midominio.com");
+        res.status(200).json({
+            exito: true,
+            empresaId,
+            nombre: empresa.nombre,
+            dominio: empresa.sitio_web,
+            script: script,
+            instrucciones: "Pega este script en el footer de tu WordPress (antes del </body>)"
         });
+    }
+    catch (error) {
+        console.error("❌ Error:", error);
+        res.status(500).json({ error: "Error generando script" });
+    }
+});
+/**
+ * 10. INICIALIZAR EMPRESA (v2 onCall)
+ */
+exports.inicializarEmpresa = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    try {
+        // ── AUTH GUARD ──
+        (0, authGuard_1.verificarAuth)(request);
+        const { empresaId, nombre, dominio, telefono, direccion } = request.data;
+        if (!empresaId) {
+            throw new https_1.HttpsError("invalid-argument", "empresaId es requerido");
+        }
+        const empresaRef = db.collection("empresas").doc(empresaId);
+        const empresaData = {
+            nombre: nombre || "Mi Negocio",
+            dominio: dominio || "midominio.com",
+            sitio_web: dominio || "midominio.com",
+            telefono: telefono || "",
+            direccion: direccion || "",
+            fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        await empresaRef.set(empresaData, { merge: true });
+        await empresaRef.collection("estadisticas").doc("web_resumen").set({
+            visitas_totales: 0,
+            visitas_mes: 0,
+            ultima_visita: null,
+            sitio_web: dominio || "midominio.com",
+            nombre_empresa: nombre || "Mi Negocio",
+        });
+        await empresaRef.collection("configuracion").doc("general").set({
+            fecha_instalacion_script: null,
+            script_activo: false,
+            dominio: dominio || "midominio.com",
+        });
+        console.log(`✅ Empresa ${empresaId} inicializada correctamente`);
+        return {
+            exito: true,
+            mensaje: `Empresa "${nombre}" creada exitosamente`,
+            empresaId,
+        };
+    }
+    catch (error) {
+        console.error("❌ Error inicializando empresa:", error);
+        throw new https_1.HttpsError("internal", `Error: ${error instanceof Error ? error.message : "Desconocido"}`);
+    }
+});
+/**
+ * 11. CREAR EMPRESA HTTP — ⛔ DESHABILITADA POR SEGURIDAD
+ * Esta función HTTP no tiene autenticación. Usar inicializarEmpresa (callable) en su lugar.
+ */
+exports.crearEmpresaHTTP = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    res.status(410).json({
+        error: "Esta función ha sido deshabilitada por seguridad. Usa inicializarEmpresa (callable).",
     });
-    // ── STRIPE WEBHOOK (v2 onRequest) ─────────────────────────────────────────────
-    export const stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
-        var _a, _b;
-        if (req.method !== "POST") {
-            res.status(405).send("Method Not Allowed");
+});
+// ── STRIPE WEBHOOK (v2 onRequest) ─────────────────────────────────────────────
+exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
+    var _a, _b;
+    if (req.method !== "POST") {
+        res.status(405).send("Method Not Allowed");
+        return;
+    }
+    const secretKey = stripeSecretKey.value() || "";
+    const webhookSec = stripeWebhookSecret.value() || "";
+    if (!secretKey) {
+        console.error("❌ STRIPE_SECRET_KEY no configurada. Ejecuta: firebase functions:secrets:set STRIPE_SECRET_KEY");
+        res.status(500).json({ error: "Stripe no configurado en el servidor" });
+        return;
+    }
+    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
+    let event;
+    try {
+        const sig = req.headers["stripe-signature"];
+        const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
+        if (!webhookSec) {
+            console.error("❌ STRIPE_WEBHOOK_SECRET no configurada");
+            res.status(500).json({ error: "Webhook no configurado" });
             return;
         }
-        const secretKey = stripeSecretKey.value() || "";
-        const webhookSec = stripeWebhookSecret.value() || "";
-        if (!secretKey) {
-            console.error("❌ STRIPE_SECRET_KEY no configurada. Ejecuta: firebase functions:secrets:set STRIPE_SECRET_KEY");
-            res.status(500).json({ error: "Stripe no configurado en el servidor" });
+        if (!sig) {
+            res.status(400).json({ error: "Firma de Stripe ausente" });
             return;
         }
-        const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
-        let event;
         try {
-            const sig = req.headers["stripe-signature"];
-            const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
-            if (!webhookSec) {
-                console.error("❌ STRIPE_WEBHOOK_SECRET no configurada");
-                res.status(500).json({ error: "Webhook no configurado" });
-                return;
-            }
-            if (!sig) {
-                res.status(400).json({ error: "Firma de Stripe ausente" });
-                return;
-            }
-            try {
-                event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
-            }
-            catch (err) {
-                console.error("❌ Firma Stripe inválida:", err);
-                res.status(400).json({ error: "Firma inválida" });
-                return;
-            }
+            event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
         }
         catch (err) {
-            console.error("❌ Error verificando firma Stripe:", err);
-            res.status(400).json({ error: `Webhook signature verification failed: ${err}` });
+            console.error("❌ Firma Stripe inválida:", err);
+            res.status(400).json({ error: "Firma inválida" });
             return;
         }
-        console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
-        try {
-            switch (event.type) {
-                case "checkout.session.completed": {
-                    const session = event.data.object;
-                    await _procesarCheckoutCompletado(session, db);
-                    break;
-                }
-                case "payment_intent.succeeded": {
-                    const pi = event.data.object;
-                    if ((_b = pi.metadata) === null || _b === void 0 ? void 0 : _b.empresa_id) {
-                        await _procesarPaymentIntentExitoso(pi, db);
-                    }
-                    break;
-                }
-                default:
-                    console.log(`ℹ️ Evento Stripe ignorado: ${event.type}`);
+    }
+    catch (err) {
+        console.error("❌ Error verificando firma Stripe:", err);
+        res.status(400).json({ error: `Webhook signature verification failed: ${err}` });
+        return;
+    }
+    console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
+    try {
+        switch (event.type) {
+            case "checkout.session.completed": {
+                const session = event.data.object;
+                await _procesarCheckoutCompletado(session, db);
+                break;
             }
-            res.status(200).json({ received: true, tipo: event.type });
+            case "payment_intent.succeeded": {
+                const pi = event.data.object;
+                if ((_b = pi.metadata) === null || _b === void 0 ? void 0 : _b.empresa_id) {
+                    await _procesarPaymentIntentExitoso(pi, db);
+                }
+                break;
+            }
+            default:
+                console.log(`ℹ️ Evento Stripe ignorado: ${event.type}`);
         }
-        catch (error) {
-            console.error(`❌ Error procesando evento Stripe ${event.type}:`, error);
-            res.status(500).json({ error: "Error interno procesando evento" });
-        }
+        res.status(200).json({ received: true, tipo: event.type });
+    }
+    catch (error) {
+        console.error(`❌ Error procesando evento Stripe ${event.type}:`, error);
+        res.status(500).json({ error: "Error interno procesando evento" });
+    }
+});
+// ── ENVÍO DE EMAIL CON PDF ADJUNTO (v2 onCall) ───────────────────────────────
+/**
+ * 12. ENVIAR EMAIL — Envía factura/nómina en PDF por email
+ *
+ * CONFIGURACIÓN REQUERIDA:
+ *   firebase functions:secrets:set SMTP_HOST     (ej: smtp.gmail.com)
+ *   firebase functions:secrets:set SMTP_PORT     (ej: 587)
+ *   firebase functions:secrets:set SMTP_USER     (ej: noreply@fluixtech.com)
+ *   firebase functions:secrets:set SMTP_PASS     (ej: app-password)
+ */
+exports.enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a;
+    const { destinatario, asunto, cuerpoHtml, pdfBase64, nombreArchivo, empresaId } = request.data;
+    // ── AUTH GUARD ──
+    if (empresaId) {
+        await (0, authGuard_1.verificarAuthYEmpresa)(request, empresaId);
+    }
+    else {
+        (0, authGuard_1.verificarAuth)(request);
+    }
+    if (!destinatario || !asunto || !pdfBase64) {
+        throw new https_1.HttpsError("invalid-argument", "destinatario, asunto y pdfBase64 son requeridos");
+    }
+    const host = smtpHost.value();
+    const port = parseInt(smtpPort.value() || "587", 10);
+    const user = smtpUser.value();
+    const pass = smtpPass.value();
+    if (!host || !user || !pass) {
+        throw new https_1.HttpsError("failed-precondition", "SMTP no configurado. Ejecuta: firebase functions:secrets:set SMTP_HOST / SMTP_USER / SMTP_PASS");
+    }
+    const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
     });
-    // ── ENVÍO DE EMAIL CON PDF ADJUNTO (v2 onCall) ───────────────────────────────
-    /**
-     * 12. ENVIAR EMAIL — Envía factura/nómina en PDF por email
-     *
-     * CONFIGURACIÓN REQUERIDA:
-     *   firebase functions:secrets:set SMTP_HOST     (ej: smtp.gmail.com)
-     *   firebase functions:secrets:set SMTP_PORT     (ej: 587)
-     *   firebase functions:secrets:set SMTP_USER     (ej: noreply@fluixtech.com)
-     *   firebase functions:secrets:set SMTP_PASS     (ej: app-password)
-     */
-    export const enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (request) => {
-        var _a;
-        const { destinatario, asunto, cuerpoHtml, pdfBase64, nombreArchivo, empresaId } = request.data;
-        // ── AUTH GUARD ──
-        if (empresaId) {
-            await (0, authGuard_1.verificarAuthYEmpresa)(request, empresaId);
+    // Obtener datos de la empresa para el remitente
+    let nombreEmpresa = "Fluix CRM";
+    if (empresaId) {
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        if (empresaDoc.exists) {
+            nombreEmpresa = ((_a = empresaDoc.data()) === null || _a === void 0 ? void 0 : _a.nombre) || "Fluix CRM";
         }
-        else {
-            (0, authGuard_1.verificarAuth)(request);
-        }
-        if (!destinatario || !asunto || !pdfBase64) {
-            throw new https_1.HttpsError("invalid-argument", "destinatario, asunto y pdfBase64 son requeridos");
-        }
-        const host = smtpHost.value();
-        const port = parseInt(smtpPort.value() || "587", 10);
-        const user = smtpUser.value();
-        const pass = smtpPass.value();
-        if (!host || !user || !pass) {
-            throw new https_1.HttpsError("failed-precondition", "SMTP no configurado. Ejecuta: firebase functions:secrets:set SMTP_HOST / SMTP_USER / SMTP_PASS");
-        }
-        const transporter = nodemailer.createTransport({
-            host,
-            port,
-            secure: port === 465,
-            auth: { user, pass },
+    }
+    try {
+        await transporter.sendMail({
+            from: `"${nombreEmpresa}" <${user}>`,
+            to: destinatario,
+            subject: asunto,
+            html: cuerpoHtml || `<p>Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
+            attachments: [
+                {
+                    filename: nombreArchivo || "documento.pdf",
+                    content: Buffer.from(pdfBase64, "base64"),
+                    contentType: "application/pdf",
+                },
+            ],
         });
-        // Obtener datos de la empresa para el remitente
-        let nombreEmpresa = "Fluix CRM";
-        if (empresaId) {
-            const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-            if (empresaDoc.exists) {
-                nombreEmpresa = ((_a = empresaDoc.data()) === null || _a === void 0 ? void 0 : _a.nombre) || "Fluix CRM";
-            }
-        }
-        try {
-            await transporter.sendMail({
-                from: `"${nombreEmpresa}" <${user}>`,
-                to: destinatario,
-                subject: asunto,
-                html: cuerpoHtml || `<p>Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
-                attachments: [
-                    {
-                        filename: nombreArchivo || "documento.pdf",
-                        content: Buffer.from(pdfBase64, "base64"),
-                        contentType: "application/pdf",
-                    },
-                ],
-            });
-            console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
-            return { exito: true, mensaje: `Email enviado a ${destinatario}` };
-        }
-        catch (error) {
-            console.error("❌ Error enviando email:", error);
-            throw new https_1.HttpsError("internal", `Error enviando email: ${error instanceof Error ? error.message : "Desconocido"}`);
-        }
-    });
-    // ── FUNCIONES HELPER STRIPE ───────────────────────────────────────────────────
-    async function _procesarCheckoutCompletado(session, db) {
-        var _a, _b, _c, _d, _e, _f;
-        const empresaClienteId = ((_a = session.metadata) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
-        const paquete = ((_b = session.metadata) === null || _b === void 0 ? void 0 : _b.paquete) || "Paquete Fluix";
-        const FLUIXTECH_ID = "fluixtech";
-        const clienteNombre = ((_c = session.customer_details) === null || _c === void 0 ? void 0 : _c.name) || "Cliente Web";
-        const clienteEmail = ((_d = session.customer_details) === null || _d === void 0 ? void 0 : _d.email) || null;
-        const clienteTelefono = ((_e = session.customer_details) === null || _e === void 0 ? void 0 : _e.phone) || null;
-        const totalEuros = ((_f = session.amount_total) !== null && _f !== void 0 ? _f : 0) / 100;
-        const baseImponible = parseFloat((totalEuros / 1.21).toFixed(2));
-        const importeIva = parseFloat((totalEuros - baseImponible).toFixed(2));
-        const lineasIngreso = [
+        console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
+        return { exito: true, mensaje: `Email enviado a ${destinatario}` };
+    }
+    catch (error) {
+        console.error("❌ Error enviando email:", error);
+        throw new https_1.HttpsError("internal", `Error enviando email: ${error instanceof Error ? error.message : "Desconocido"}`);
+    }
+});
+// ── FUNCIONES HELPER STRIPE ───────────────────────────────────────────────────
+async function _procesarCheckoutCompletado(session, db) {
+    var _a, _b, _c, _d, _e, _f;
+    const empresaClienteId = ((_a = session.metadata) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
+    const paquete = ((_b = session.metadata) === null || _b === void 0 ? void 0 : _b.paquete) || "Paquete Fluix";
+    const FLUIXTECH_ID = "fluixtech";
+    const clienteNombre = ((_c = session.customer_details) === null || _c === void 0 ? void 0 : _c.name) || "Cliente Web";
+    const clienteEmail = ((_d = session.customer_details) === null || _d === void 0 ? void 0 : _d.email) || null;
+    const clienteTelefono = ((_e = session.customer_details) === null || _e === void 0 ? void 0 : _e.phone) || null;
+    const totalEuros = ((_f = session.amount_total) !== null && _f !== void 0 ? _f : 0) / 100;
+    const baseImponible = parseFloat((totalEuros / 1.21).toFixed(2));
+    const importeIva = parseFloat((totalEuros - baseImponible).toFixed(2));
+    const lineasIngreso = [
+        {
+            producto_nombre: paquete,
+            descripcion: `${paquete} — Pago online vía Stripe`,
+            cantidad: 1,
+            precio_unitario: baseImponible,
+            porcentaje_iva: 21,
+            referencia: session.id,
+        },
+    ];
+    const pedidoFluixtech = {
+        empresa_id: FLUIXTECH_ID,
+        cliente_nombre: clienteNombre,
+        cliente_correo: clienteEmail,
+        cliente_telefono: clienteTelefono,
+        empresa_cliente_id: empresaClienteId || null,
+        origen: "web",
+        estado: "confirmado",
+        estado_pago: "pagado",
+        metodo_pago: "tarjeta",
+        lineas: lineasIngreso,
+        subtotal: baseImponible,
+        total: totalEuros,
+        notas_cliente: `Venta de "${paquete}" a ${clienteNombre}. Stripe Session: ${session.id}`,
+        stripe_session_id: session.id,
+        stripe_payment_intent: session.payment_intent,
+        fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const pedidoRef = await db
+        .collection("empresas")
+        .doc(FLUIXTECH_ID)
+        .collection("pedidos")
+        .add(pedidoFluixtech);
+    console.log(`✅ [INGRESO] Pedido ${pedidoRef.id} creado en fluixtech — ${clienteNombre} — €${totalEuros}`);
+    console.log(`   ➡️  Factura de ingreso se generará automáticamente via onNuevoPedidoGenerarFactura`);
+    if (empresaClienteId && empresaClienteId !== FLUIXTECH_ID) {
+        const configRef = db
+            .collection("empresas")
+            .doc(FLUIXTECH_ID)
+            .collection("configuracion")
+            .doc("facturacion");
+        let numeroFactura = "";
+        await db.runTransaction(async (tx) => {
+            var _a, _b;
+            const snap = await tx.get(configRef);
+            const contador = (_b = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.ultimo_numero_factura) !== null && _b !== void 0 ? _b : 0;
+            const anio = new Date().getFullYear();
+            numeroFactura = `FAC-${anio}-${String(contador).padStart(4, "0")}`;
+        });
+        const gastoData = {
+            empresa_id: empresaClienteId,
+            concepto: `Suscripción Fluix CRM — ${paquete}`,
+            categoria: "software",
+            proveedor_nombre: "FluxTech",
+            proveedor_id: null,
+            numero_factura_proveedor: numeroFactura || `STRIPE-${session.id.substring(3, 11).toUpperCase()}`,
+            stripe_session_id: session.id,
+            base_imponible: baseImponible,
+            porcentaje_iva: 21,
+            importe_iva: importeIva,
+            total: totalEuros,
+            iva_deducible: true,
+            estado: "pagado",
+            fecha_gasto: admin.firestore.FieldValue.serverTimestamp(),
+            fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
+            metodo_pago: "tarjeta",
+            notas: `Pago automático vía Stripe. Paquete: "${paquete}". Proveedor: FluxTech (fluixtech.com)`,
+            creado_por: "sistema_stripe",
+            fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        const gastoRef = await db
+            .collection("empresas")
+            .doc(empresaClienteId)
+            .collection("gastos")
+            .add(gastoData);
+        const ahora = new Date();
+        const cacheId = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
+        await db
+            .collection("empresas")
+            .doc(empresaClienteId)
+            .collection("cache_contable")
+            .doc(cacheId)
+            .set({
+            gastos_base: admin.firestore.FieldValue.increment(baseImponible),
+            gastos_iva_soportado: admin.firestore.FieldValue.increment(importeIva),
+            gastos_total: admin.firestore.FieldValue.increment(totalEuros),
+            num_gastos: admin.firestore.FieldValue.increment(1),
+            ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros} — "${paquete}"`);
+    }
+    else if (!empresaClienteId) {
+        console.log(`ℹ️  Sin empresa_id en metadata de Stripe → no se crea gasto en empresa cliente`);
+    }
+}
+async function _procesarPaymentIntentExitoso(pi, db) {
+    var _a, _b, _c;
+    const empresaClienteId = ((_a = pi.metadata) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
+    const paquete = ((_b = pi.metadata) === null || _b === void 0 ? void 0 : _b.paquete) || "Pago directo Stripe";
+    const FLUIXTECH_ID = "fluixtech";
+    const totalEuros = pi.amount / 100;
+    const baseImponible = parseFloat((totalEuros / 1.21).toFixed(2));
+    const importeIva = parseFloat((totalEuros - baseImponible).toFixed(2));
+    const pedidoData = {
+        empresa_id: FLUIXTECH_ID,
+        cliente_nombre: ((_c = pi.metadata) === null || _c === void 0 ? void 0 : _c.cliente_nombre) || "Cliente",
+        cliente_correo: pi.receipt_email || null,
+        empresa_cliente_id: empresaClienteId || null,
+        origen: "web",
+        estado: "confirmado",
+        estado_pago: "pagado",
+        metodo_pago: "tarjeta",
+        lineas: [
             {
                 producto_nombre: paquete,
-                descripcion: `${paquete} — Pago online vía Stripe`,
                 cantidad: 1,
                 precio_unitario: baseImponible,
                 porcentaje_iva: 21,
-                referencia: session.id,
+                referencia: pi.id,
             },
-        ];
-        const pedidoFluixtech = {
-            empresa_id: FLUIXTECH_ID,
-            cliente_nombre: clienteNombre,
-            cliente_correo: clienteEmail,
-            cliente_telefono: clienteTelefono,
-            empresa_cliente_id: empresaClienteId || null,
-            origen: "web",
-            estado: "confirmado",
-            estado_pago: "pagado",
-            metodo_pago: "tarjeta",
-            lineas: lineasIngreso,
-            subtotal: baseImponible,
-            total: totalEuros,
-            notas_cliente: `Venta de "${paquete}" a ${clienteNombre}. Stripe Session: ${session.id}`,
-            stripe_session_id: session.id,
-            stripe_payment_intent: session.payment_intent,
-            fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
-            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-        };
-        const pedidoRef = await db
-            .collection("empresas")
-            .doc(FLUIXTECH_ID)
-            .collection("pedidos")
-            .add(pedidoFluixtech);
-        console.log(`✅ [INGRESO] Pedido ${pedidoRef.id} creado en fluixtech — ${clienteNombre} — €${totalEuros}`);
-        console.log(`   ➡️  Factura de ingreso se generará automáticamente via onNuevoPedidoGenerarFactura`);
-        if (empresaClienteId && empresaClienteId !== FLUIXTECH_ID) {
-            const configRef = db
-                .collection("empresas")
-                .doc(FLUIXTECH_ID)
-                .collection("configuracion")
-                .doc("facturacion");
-            let numeroFactura = "";
-            await db.runTransaction(async (tx) => {
-                var _a, _b;
-                const snap = await tx.get(configRef);
-                const contador = (_b = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.ultimo_numero_factura) !== null && _b !== void 0 ? _b : 0;
-                const anio = new Date().getFullYear();
-                numeroFactura = `FAC-${anio}-${String(contador).padStart(4, "0")}`;
-            });
-            const gastoData = {
-                empresa_id: empresaClienteId,
-                concepto: `Suscripción Fluix CRM — ${paquete}`,
-                categoria: "software",
-                proveedor_nombre: "FluxTech",
-                proveedor_id: null,
-                numero_factura_proveedor: numeroFactura || `STRIPE-${session.id.substring(3, 11).toUpperCase()}`,
-                stripe_session_id: session.id,
-                base_imponible: baseImponible,
-                porcentaje_iva: 21,
-                importe_iva: importeIva,
-                total: totalEuros,
-                iva_deducible: true,
-                estado: "pagado",
-                fecha_gasto: admin.firestore.FieldValue.serverTimestamp(),
-                fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
-                metodo_pago: "tarjeta",
-                notas: `Pago automático vía Stripe. Paquete: "${paquete}". Proveedor: FluxTech (fluixtech.com)`,
-                creado_por: "sistema_stripe",
-                fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
-            };
-            const gastoRef = await db
-                .collection("empresas")
-                .doc(empresaClienteId)
-                .collection("gastos")
-                .add(gastoData);
-            const ahora = new Date();
-            const cacheId = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
-            await db
-                .collection("empresas")
-                .doc(empresaClienteId)
-                .collection("cache_contable")
-                .doc(cacheId)
-                .set({
-                gastos_base: admin.firestore.FieldValue.increment(baseImponible),
-                gastos_iva_soportado: admin.firestore.FieldValue.increment(importeIva),
-                gastos_total: admin.firestore.FieldValue.increment(totalEuros),
-                num_gastos: admin.firestore.FieldValue.increment(1),
-                ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros} — "${paquete}"`);
-        }
-        else if (!empresaClienteId) {
-            console.log(`ℹ️  Sin empresa_id en metadata de Stripe → no se crea gasto en empresa cliente`);
-        }
-    }
-    async function _procesarPaymentIntentExitoso(pi, db) {
-        var _a, _b, _c;
-        const empresaClienteId = ((_a = pi.metadata) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
-        const paquete = ((_b = pi.metadata) === null || _b === void 0 ? void 0 : _b.paquete) || "Pago directo Stripe";
-        const FLUIXTECH_ID = "fluixtech";
-        const totalEuros = pi.amount / 100;
-        const baseImponible = parseFloat((totalEuros / 1.21).toFixed(2));
-        const importeIva = parseFloat((totalEuros - baseImponible).toFixed(2));
-        const pedidoData = {
-            empresa_id: FLUIXTECH_ID,
-            cliente_nombre: ((_c = pi.metadata) === null || _c === void 0 ? void 0 : _c.cliente_nombre) || "Cliente",
-            cliente_correo: pi.receipt_email || null,
-            empresa_cliente_id: empresaClienteId || null,
-            origen: "web",
-            estado: "confirmado",
-            estado_pago: "pagado",
-            metodo_pago: "tarjeta",
-            lineas: [
-                {
-                    producto_nombre: paquete,
-                    cantidad: 1,
-                    precio_unitario: baseImponible,
-                    porcentaje_iva: 21,
-                    referencia: pi.id,
-                },
-            ],
-            subtotal: baseImponible,
-            total: totalEuros,
-            notas_cliente: `Pago directo Stripe. PaymentIntent: ${pi.id}`,
+        ],
+        subtotal: baseImponible,
+        total: totalEuros,
+        notas_cliente: `Pago directo Stripe. PaymentIntent: ${pi.id}`,
+        stripe_payment_intent: pi.id,
+        fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const pedidoRef = await db
+        .collection("empresas")
+        .doc(FLUIXTECH_ID)
+        .collection("pedidos")
+        .add(pedidoData);
+    console.log(`✅ [INGRESO] Pedido ${pedidoRef.id} creado en fluixtech via PaymentIntent — €${totalEuros}`);
+    if (empresaClienteId && empresaClienteId !== FLUIXTECH_ID) {
+        const gastoData = {
+            empresa_id: empresaClienteId,
+            concepto: `Suscripción Fluix CRM — ${paquete}`,
+            categoria: "software",
+            proveedor_nombre: "FluxTech",
+            proveedor_id: null,
+            numero_factura_proveedor: `STRIPE-${pi.id.substring(3, 11).toUpperCase()}`,
             stripe_payment_intent: pi.id,
-            fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
-            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+            base_imponible: baseImponible,
+            porcentaje_iva: 21,
+            importe_iva: importeIva,
+            total: totalEuros,
+            iva_deducible: true,
+            estado: "pagado",
+            fecha_gasto: admin.firestore.FieldValue.serverTimestamp(),
+            fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
+            metodo_pago: "tarjeta",
+            notas: `Pago automático vía Stripe. Paquete: "${paquete}". PaymentIntent: ${pi.id}`,
+            creado_por: "sistema_stripe",
+            fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
         };
-        const pedidoRef = await db
+        const gastoRef = await db
             .collection("empresas")
-            .doc(FLUIXTECH_ID)
-            .collection("pedidos")
-            .add(pedidoData);
-        console.log(`✅ [INGRESO] Pedido ${pedidoRef.id} creado en fluixtech via PaymentIntent — €${totalEuros}`);
-        if (empresaClienteId && empresaClienteId !== FLUIXTECH_ID) {
-            const gastoData = {
-                empresa_id: empresaClienteId,
-                concepto: `Suscripción Fluix CRM — ${paquete}`,
-                categoria: "software",
-                proveedor_nombre: "FluxTech",
-                proveedor_id: null,
-                numero_factura_proveedor: `STRIPE-${pi.id.substring(3, 11).toUpperCase()}`,
-                stripe_payment_intent: pi.id,
-                base_imponible: baseImponible,
-                porcentaje_iva: 21,
-                importe_iva: importeIva,
-                total: totalEuros,
-                iva_deducible: true,
-                estado: "pagado",
-                fecha_gasto: admin.firestore.FieldValue.serverTimestamp(),
-                fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
-                metodo_pago: "tarjeta",
-                notas: `Pago automático vía Stripe. Paquete: "${paquete}". PaymentIntent: ${pi.id}`,
-                creado_por: "sistema_stripe",
-                fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
-            };
-            const gastoRef = await db
-                .collection("empresas")
-                .doc(empresaClienteId)
-                .collection("gastos")
-                .add(gastoData);
-            const ahora = new Date();
-            const cacheId = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
-            await db
-                .collection("empresas")
-                .doc(empresaClienteId)
-                .collection("cache_contable")
-                .doc(cacheId)
-                .set({
-                gastos_base: admin.firestore.FieldValue.increment(baseImponible),
-                gastos_iva_soportado: admin.firestore.FieldValue.increment(importeIva),
-                gastos_total: admin.firestore.FieldValue.increment(totalEuros),
-                num_gastos: admin.firestore.FieldValue.increment(1),
-                ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros}`);
-        }
-    }
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // REGISTRAR VISITA WEB — endpoint HTTP llamado desde el script embebido
-    // ═══════════════════════════════════════════════════════════════════════════════
-    export const registrarVisita = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
-        try {
-            if (req.method !== "POST") {
-                res.status(405).json({ error: "Método no permitido" });
-                return;
-            }
-            const { empresaId, dominio, pagina, referrer, tipo } = req.body;
-            if (!empresaId || typeof empresaId !== "string") {
-                res.status(400).json({ error: "empresaId es requerido" });
-                return;
-            }
-            const ahora = new Date();
-            const fechaHoy = ahora.toISOString().substring(0, 10);
-            const hora = ahora.getHours();
-            const paginaActual = pagina || "/";
-            const referrerActual = referrer || "directo";
-            const dominioActual = dominio || "desconocido";
-            // 1. Actualizar resumen general
-            await db
-                .collection("empresas").doc(empresaId)
-                .collection("estadisticas").doc("web_resumen")
-                .set({
-                visitas_totales: admin.firestore.FieldValue.increment(1),
-                visitas_mes: admin.firestore.FieldValue.increment(1),
-                ultima_visita: admin.firestore.FieldValue.serverTimestamp(),
-                sitio_web: dominioActual,
-                pagina_actual: paginaActual,
-                referrer_actual: referrerActual,
-            }, { merge: true });
-            // 2. Actualizar estadísticas del día
-            await db
-                .collection("empresas").doc(empresaId)
-                .collection("estadisticas").doc(`visitas_${fechaHoy}`)
-                .set({
-                fecha: fechaHoy,
-                sitio: dominioActual,
-                visitas: admin.firestore.FieldValue.increment(1),
-                paginas_vistas: admin.firestore.FieldValue.arrayUnion(paginaActual),
-                referrers: admin.firestore.FieldValue.arrayUnion(referrerActual),
-                [`visitas_hora_${hora}`]: admin.firestore.FieldValue.increment(1),
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            console.log(`✅ Visita registrada: ${empresaId} — ${dominioActual} — ${fechaHoy}`);
-            res.status(200).json({ ok: true });
-        }
-        catch (error) {
-            console.error("❌ Error registrando visita:", error);
-            res.status(500).json({ error: "Error registrando visita" });
-        }
-    });
-    export { enviarRecordatoriosCitas };
-    // ── VERIFACTU: Firma XAdES + Remisión AEAT ──────────────────────────────────
-    export { firmarXMLVerifactu } from "./firmarXMLVerifactu";
-    export { remitirVerifactu } from "./remitirVerifactu";
-    // ── GESTIÓN DE CUENTAS Y SUSCRIPCIONES (sin pasar por Apple/Google) ──────────
-    export { crearCuentaConPlan, actualizarPlanEmpresa, listarCuentasClientes, webhookPagoWeb, } from "./gestionCuentas";
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // MÓDULO DE VACACIONES — Cloud Functions
-    // ═══════════════════════════════════════════════════════════════════════════════
-    /**
-     * Importar festivos de España desde la API Nager.Date.
-     * onCall: { anio: number, empresaId: string, codigoComunidad?: string }
-     */
-    export const importarFestivosEspana = (0, https_1.onCall)({ region: REGION }, async (request) => {
-        // ── AUTH GUARD — Solo admin de la plataforma Fluix ──
-        await (0, authGuard_1.verificarPropietarioPlataforma)(request);
-        const { anio, empresaId, codigoComunidad } = request.data;
-        if (!anio || !empresaId) {
-            throw new https_1.HttpsError("invalid-argument", "Se requiere anio y empresaId");
-        }
-        const url = `https://date.nager.at/api/v3/PublicHolidays/${anio}/ES`;
-        console.log(`📅 Importando festivos de ${url} para empresa ${empresaId}`);
-        try {
-            const response = await (0, node_fetch_1.default)(url);
-            if (!response.ok) {
-                throw new https_1.HttpsError("unavailable", `API retornó ${response.status}`);
-            }
-            const holidays = await response.json();
-            const batch = db.batch();
-            let count = 0;
-            for (const h of holidays) {
-                const isGlobal = h.global === true || !h.counties || h.counties.length === 0;
-                const matchesComunidad = codigoComunidad && h.counties && h.counties.includes(codigoComunidad);
-                if (isGlobal || matchesComunidad) {
-                    const date = h.date; // "2026-01-01"
-                    const ref = db
-                        .collection("empresas")
-                        .doc(empresaId)
-                        .collection("festivos")
-                        .doc(`${anio}`)
-                        .collection("dias")
-                        .doc(date);
-                    batch.set(ref, {
-                        fecha: admin.firestore.Timestamp.fromDate(new Date(date + "T00:00:00")),
-                        nombre: h.localName || h.name || "",
-                        tipo: isGlobal ? "nacional" : "autonomico",
-                        codigo_comunidad: isGlobal ? null : codigoComunidad,
-                        es_local: false,
-                    });
-                    count++;
-                }
-            }
-            // Metadata
-            batch.set(db.collection("empresas").doc(empresaId).collection("festivos").doc(`${anio}`), {
-                anio,
-                comunidad_autonoma: codigoComunidad || null,
-                total_festivos: count,
-                importado_desde: "nager.date",
-                fecha_importacion: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            await batch.commit();
-            console.log(`✅ ${count} festivos importados para ${anio}`);
-            return { count, anio };
-        }
-        catch (error) {
-            console.error("❌ Error importando festivos:", error);
-            throw new https_1.HttpsError("internal", `Error: ${error}`);
-        }
-    });
-    /**
-     * Trigger: cuando cambia el estado de una solicitud de vacaciones.
-     * Envía notificación push al empleado afectado.
-     */
-    export const onVacacionEstadoCambiado = (0, firestore_1.onDocumentUpdated)({ document: "vacaciones/{empresaId}/solicitudes/{solicitudId}", region: REGION }, async (event) => {
-        var _a, _b, _c, _d, _e;
-        const empresaId = event.params.empresaId;
-        const solicitudId = event.params.solicitudId;
-        const antes = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
-        const despues = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
-        if (!antes || !despues)
-            return;
-        // Solo nos interesa cuando cambia el estado
-        if (antes.estado === despues.estado)
-            return;
-        const nuevoEstado = despues.estado;
-        if (nuevoEstado !== "aprobado" && nuevoEstado !== "rechazado")
-            return;
-        const empleadoId = despues.empleado_id;
-        if (!empleadoId)
-            return;
-        // Formatear fechas
-        const fechaInicio = ((_c = despues.fecha_inicio) === null || _c === void 0 ? void 0 : _c.toDate)
-            ? despues.fecha_inicio.toDate().toLocaleDateString("es-ES")
-            : "—";
-        const fechaFin = ((_d = despues.fecha_fin) === null || _d === void 0 ? void 0 : _d.toDate)
-            ? despues.fecha_fin.toDate().toLocaleDateString("es-ES")
-            : "—";
-        let titulo;
-        let cuerpo;
-        if (nuevoEstado === "aprobado") {
-            titulo = "✅ Vacaciones aprobadas";
-            cuerpo = `Tus vacaciones del ${fechaInicio} al ${fechaFin} han sido aprobadas`;
-        }
-        else {
-            titulo = "❌ Vacaciones rechazadas";
-            cuerpo = `Tu solicitud de vacaciones del ${fechaInicio} al ${fechaFin} ha sido rechazada`;
-            const motivo = despues.motivo_rechazo;
-            if (motivo) {
-                cuerpo += `\nMotivo: ${motivo}`;
-            }
-        }
-        // Obtener token del empleado
-        const empleadoDoc = await db.collection("usuarios").doc(empleadoId).get();
-        const tokenFCM = (_e = empleadoDoc.data()) === null || _e === void 0 ? void 0 : _e.token_dispositivo;
-        // Guardar en bandeja de notificaciones in-app
+            .doc(empresaClienteId)
+            .collection("gastos")
+            .add(gastoData);
+        const ahora = new Date();
+        const cacheId = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
         await db
-            .collection("notificaciones")
-            .doc(empresaId)
-            .collection("items")
-            .add({
-            titulo,
-            cuerpo,
-            tipo: "vacacion_estado",
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            leida: false,
-            modulo_destino: "vacaciones",
-            entidad_id: solicitudId,
-            empleado_id: empleadoId,
-        });
-        // Enviar push si tiene token
-        if (tokenFCM) {
-            try {
-                await messaging.send({
-                    token: tokenFCM,
-                    notification: { title: titulo, body: cuerpo },
-                    data: {
-                        tipo: "vacacion_estado",
-                        empresa_id: empresaId,
-                        solicitud_id: solicitudId,
-                        estado: nuevoEstado,
-                    },
-                    android: {
-                        priority: "high",
-                        notification: {
-                            channelId: "fluixcrm_canal_principal",
-                            sound: "default",
-                        },
-                    },
-                    apns: {
-                        payload: { aps: { sound: "default", badge: 1 } },
-                    },
-                });
-                console.log(`✅ Push enviado a empleado ${empleadoId} — ${nuevoEstado}`);
-            }
-            catch (pushError) {
-                console.warn(`⚠️ No se pudo enviar push a ${empleadoId}:`, pushError.message);
-                // Si el token es inválido, marcarlo
-                if (pushError.code === "messaging/registration-token-not-registered" ||
-                    pushError.code === "messaging/invalid-registration-token") {
-                    await db.collection("usuarios").doc(empleadoId).update({
-                        token_dispositivo: admin.firestore.FieldValue.delete(),
-                    });
-                }
-            }
-        }
-        else {
-            console.log(`ℹ️ Empleado ${empleadoId} sin token FCM, notificación guardada solo in-app`);
-        }
-    });
-    /**
-     * Cierre anual de vacaciones: 31 de diciembre a las 23:59 UTC.
-     * Calcula días sobrantes y crea arrastre para el año nuevo.
-     */
-    export const scheduledCierreAnualVacaciones = (0, scheduler_1.onSchedule)({ schedule: "59 23 31 12 *", timeZone: "Europe/Madrid", region: REGION }, async () => {
-        var _a, _b, _c, _d;
-        const anio = new Date().getFullYear();
-        console.log(`📅 Cierre anual de vacaciones ${anio}`);
-        // Obtener todas las empresas
-        const empresasSnap = await db.collection("empresas").get();
-        for (const empresaDoc of empresasSnap.docs) {
-            const empresaId = empresaDoc.id;
-            // Leer configuración de carryover
-            const configDoc = await db
-                .collection("empresas")
-                .doc(empresaId)
-                .collection("configuracion")
-                .doc("vacaciones")
-                .get();
-            const carryover = ((_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.carryover) || {};
-            const diasMaximos = (_b = carryover.dias_maximos_traspasar) !== null && _b !== void 0 ? _b : 5;
-            const mesExp = (_c = carryover.mes_expiracion) !== null && _c !== void 0 ? _c : 3;
-            const diaExp = (_d = carryover.dia_expiracion) !== null && _d !== void 0 ? _d : 31;
-            // Obtener saldos del año actual
-            const saldosSnap = await db
-                .collection("vacaciones")
-                .doc(empresaId)
-                .collection("saldos")
-                .where("anio", "==", anio)
-                .get();
-            const batch = db.batch();
-            for (const saldoDoc of saldosSnap.docs) {
-                const saldo = saldoDoc.data();
-                const empleadoId = saldo.empleado_id;
-                const pendientes = (saldo.dias_devengados || 0) - (saldo.dias_disfrutados || 0);
-                const diasATraspasar = Math.min(Math.max(pendientes, 0), diasMaximos);
-                if (diasATraspasar > 0) {
-                    // Crear/actualizar saldo del año siguiente con arrastre
-                    const nuevoAnio = anio + 1;
-                    const docId = `${empleadoId}_${nuevoAnio}`;
-                    const ref = db
-                        .collection("vacaciones")
-                        .doc(empresaId)
-                        .collection("saldos")
-                        .doc(docId);
-                    batch.set(ref, {
-                        empleado_id: empleadoId,
-                        anio: nuevoAnio,
-                        dias_arrastre: diasATraspasar,
-                        dias_arrastre_consumidos: 0,
-                        dias_pendientes_ano_anterior: diasATraspasar,
-                        fecha_expiracion_arrastre: admin.firestore.Timestamp.fromDate(new Date(nuevoAnio, mesExp - 1, diaExp)),
-                        ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-                    }, { merge: true });
-                    console.log(`  → ${empleadoId}: ${diasATraspasar} días traspasados a ${nuevoAnio}`);
-                }
-            }
-            await batch.commit();
-        }
-        console.log(`✅ Cierre anual completado para ${anio}`);
-    });
-    /**
-     * Expiración de arrastre: por defecto 31 de marzo.
-     * Elimina los días traspasados no disfrutados y notifica.
-     * Se ejecuta diariamente y comprueba si hoy es la fecha de expiración.
-     */
-    export const scheduledExpiracionCarryover = (0, scheduler_1.onSchedule)({ schedule: "0 8 * * *", timeZone: "Europe/Madrid", region: REGION }, async () => {
-        var _a, _b, _c, _d;
-        const hoy = new Date();
-        console.log(`📅 Verificando expiración de carryover: ${hoy.toISOString()}`);
-        const empresasSnap = await db.collection("empresas").get();
-        for (const empresaDoc of empresasSnap.docs) {
-            const empresaId = empresaDoc.id;
-            const anio = hoy.getFullYear();
-            // Leer configuración
-            const configDoc = await db
-                .collection("empresas")
-                .doc(empresaId)
-                .collection("configuracion")
-                .doc("vacaciones")
-                .get();
-            const carryover = ((_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.carryover) || {};
-            const mesExp = (_b = carryover.mes_expiracion) !== null && _b !== void 0 ? _b : 3;
-            const diaExp = (_c = carryover.dia_expiracion) !== null && _c !== void 0 ? _c : 31;
-            const notificar7dias = carryover.notificar_antes_expirar !== false;
-            const fechaExpiracion = new Date(anio, mesExp - 1, diaExp);
-            const diasHastaExpiracion = Math.ceil((fechaExpiracion.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-            // Obtener saldos con arrastre vigente
-            const saldosSnap = await db
-                .collection("vacaciones")
-                .doc(empresaId)
-                .collection("saldos")
-                .where("anio", "==", anio)
-                .where("dias_arrastre", ">", 0)
-                .get();
-            for (const saldoDoc of saldosSnap.docs) {
-                const saldo = saldoDoc.data();
-                const empleadoId = saldo.empleado_id;
-                const arrastre = saldo.dias_arrastre || 0;
-                const consumidos = saldo.dias_arrastre_consumidos || 0;
-                const restantes = arrastre - consumidos;
-                if (restantes <= 0)
-                    continue;
-                // Notificación 7 días antes
-                if (notificar7dias && diasHastaExpiracion === 7) {
-                    const tokenDoc = await db.collection("usuarios").doc(empleadoId).get();
-                    const token = (_d = tokenDoc.data()) === null || _d === void 0 ? void 0 : _d.token_dispositivo;
-                    // In-app notification
-                    await db.collection("notificaciones").doc(empresaId).collection("items").add({
-                        titulo: "⏰ Días traspasados por expirar",
-                        cuerpo: `Tienes ${restantes.toFixed(1)} días de vacaciones traspasados que expiran el ${diaExp}/${mesExp}/${anio}`,
-                        tipo: "vacacion_carryover_expira",
-                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                        leida: false,
-                        modulo_destino: "vacaciones",
-                        empleado_id: empleadoId,
-                    });
-                    if (token) {
-                        try {
-                            await messaging.send({
-                                token,
-                                notification: {
-                                    title: "⏰ Días traspasados por expirar",
-                                    body: `Tienes ${restantes.toFixed(1)} días de vacaciones que expiran en 7 días`,
-                                },
-                                data: {
-                                    tipo: "vacacion_carryover_expira",
-                                    empresa_id: empresaId,
-                                },
-                            });
-                        }
-                        catch (_) { /* silenciar */ }
-                    }
-                }
-                // Expiración el día exacto
-                if (diasHastaExpiracion <= 0) {
-                    await saldoDoc.ref.update({
-                        dias_arrastre: 0,
-                        dias_arrastre_consumidos: 0,
-                        dias_pendientes_ano_anterior: 0,
-                        ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-                    // Notificar al empleado
-                    await db.collection("notificaciones").doc(empresaId).collection("items").add({
-                        titulo: "📅 Días traspasados expirados",
-                        cuerpo: `Se han eliminado ${restantes.toFixed(1)} días de vacaciones traspasados no disfrutados`,
-                        tipo: "vacacion_carryover_expirado",
-                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                        leida: false,
-                        modulo_destino: "vacaciones",
-                        empleado_id: empleadoId,
-                    });
-                    console.log(`  → ${empleadoId}: ${restantes} días expirados en empresa ${empresaId}`);
-                }
-            }
-        }
-        console.log("✅ Verificación de expiración completada");
-    });
-    /**
-     * Alerta de cobertura: se ejecuta diariamente y revisa los próximos 7 días.
-     * Envía push al propietario si hay días con cobertura crítica (<mínimo).
-     */
-    export const scheduledAlertaCobertura = (0, scheduler_1.onSchedule)({ schedule: "0 7 * * *", timeZone: "Europe/Madrid", region: REGION }, async () => {
-        var _a, _b, _c, _d, _e, _f;
-        console.log("📅 Verificando cobertura de equipos");
-        const empresasSnap = await db.collection("empresas").get();
-        for (const empresaDoc of empresasSnap.docs) {
-            const empresaId = empresaDoc.id;
-            // Leer mínimo
-            const configDoc = await db
-                .collection("empresas")
-                .doc(empresaId)
-                .collection("configuracion")
-                .doc("vacaciones")
-                .get();
-            const minimoPorcentaje = (_b = (_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.minimo_cobertura_porcentaje) !== null && _b !== void 0 ? _b : 50;
-            // Total empleados
-            const empSnap = await db
-                .collection("usuarios")
-                .where("empresa_id", "==", empresaId)
-                .where("activo", "==", true)
-                .get();
-            const totalEmpleados = empSnap.docs.length;
-            if (totalEmpleados === 0)
-                continue;
-            // Solicitudes aprobadas
-            const solSnap = await db
-                .collection("vacaciones")
-                .doc(empresaId)
-                .collection("solicitudes")
-                .where("estado", "==", "aprobado")
-                .get();
-            const hoy = new Date();
-            const diasCriticos = [];
-            for (let i = 0; i < 7; i++) {
-                const dia = new Date(hoy);
-                dia.setDate(hoy.getDate() + i);
-                if (dia.getDay() === 0 || dia.getDay() === 6)
-                    continue; // Skip weekends
-                const ausentes = new Set();
-                for (const doc of solSnap.docs) {
-                    const data = doc.data();
-                    const ini = ((_d = (_c = data.fecha_inicio) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c)) || new Date(0);
-                    const fin = ((_f = (_e = data.fecha_fin) === null || _e === void 0 ? void 0 : _e.toDate) === null || _f === void 0 ? void 0 : _f.call(_e)) || new Date(0);
-                    if (dia >= ini && dia <= fin) {
-                        ausentes.add(data.empleado_id);
-                    }
-                }
-                const presentes = totalEmpleados - ausentes.size;
-                const porcentaje = (presentes / totalEmpleados) * 100;
-                if (porcentaje < minimoPorcentaje) {
-                    diasCriticos.push(`${dia.getDate()}/${dia.getMonth() + 1} (${presentes}/${totalEmpleados})`);
-                }
-            }
-            if (diasCriticos.length > 0) {
-                const mensaje = `⚠️ Cobertura crítica en los próximos 7 días:\n${diasCriticos.join(", ")}`;
-                // Enviar a todos los dispositivos de la empresa (propietarios)
-                await enviarNotificacionEmpresa(empresaId, "⚠️ Alerta de cobertura", mensaje, { tipo: "alerta_cobertura" });
-                console.log(`⚠️ Empresa ${empresaId}: ${diasCriticos.length} días críticos`);
-            }
-        }
-        console.log("✅ Verificación de cobertura completada");
-    });
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // MÓDULO DE FINIQUITOS — Cloud Functions
-    // ═══════════════════════════════════════════════════════════════════════════════
-    import * as https from "https";
-    import * as http from "http";
-    /**
-     * Descarga un archivo desde una URL (Firebase Storage URL firmada).
-     */
-    async function descargarArchivo(url) {
-        return new Promise((resolve, reject) => {
-            const lib = url.startsWith("https") ? https : http;
-            lib.get(url, (res) => {
-                const chunks = [];
-                res.on("data", (chunk) => chunks.push(chunk));
-                res.on("end", () => resolve(Buffer.concat(chunks)));
-                res.on("error", reject);
-            }).on("error", reject);
-        });
+            .collection("empresas")
+            .doc(empresaClienteId)
+            .collection("cache_contable")
+            .doc(cacheId)
+            .set({
+            gastos_base: admin.firestore.FieldValue.increment(baseImponible),
+            gastos_iva_soportado: admin.firestore.FieldValue.increment(importeIva),
+            gastos_total: admin.firestore.FieldValue.increment(totalEuros),
+            num_gastos: admin.firestore.FieldValue.increment(1),
+            ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros}`);
     }
-    /**
-     * Cloud Function: enviar documentación del finiquito al empleado por email.
-     * onCall: { finiquitoId, empresaId, emailDestino, documentos: string[] }
-     * documentos puede incluir: 'finiquito', 'carta_cese', 'certificado_sepe', 'ultima_nomina'
-     */
-    export const enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, async (request) => {
-        var _a, _b, _c;
-        const { finiquitoId, empresaId, emailDestino, documentos } = request.data;
-        // ── AUTH GUARD ──
-        await (0, authGuard_1.verificarAuthYEmpresa)(request, empresaId);
-        if (!finiquitoId || !empresaId || !emailDestino) {
-            throw new https_1.HttpsError("invalid-argument", "Se requiere finiquitoId, empresaId y emailDestino");
+}
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGISTRAR VISITA WEB — endpoint HTTP llamado desde el script embebido
+// ═══════════════════════════════════════════════════════════════════════════════
+exports.registrarVisita = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    try {
+        if (req.method !== "POST") {
+            res.status(405).json({ error: "Método no permitido" });
+            return;
         }
-        // Validar email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(emailDestino)) {
-            throw new https_1.HttpsError("invalid-argument", "Email inválido");
+        const { empresaId, dominio, pagina, referrer } = req.body;
+        if (!empresaId || typeof empresaId !== "string") {
+            res.status(400).json({ error: "empresaId es requerido" });
+            return;
         }
-        // Obtener finiquito
-        const finiqDoc = await db
+        const ahora = new Date();
+        const fechaHoy = ahora.toISOString().substring(0, 10);
+        const hora = ahora.getHours();
+        const paginaActual = pagina || "/";
+        const referrerActual = referrer || "directo";
+        const dominioActual = dominio || "desconocido";
+        // 1. Actualizar resumen general
+        await db
             .collection("empresas").doc(empresaId)
-            .collection("finiquitos").doc(finiquitoId).get();
-        if (!finiqDoc.exists) {
-            throw new https_1.HttpsError("not-found", "Finiquito no encontrado");
+            .collection("estadisticas").doc("web_resumen")
+            .set({
+            visitas_totales: admin.firestore.FieldValue.increment(1),
+            visitas_mes: admin.firestore.FieldValue.increment(1),
+            ultima_visita: admin.firestore.FieldValue.serverTimestamp(),
+            sitio_web: dominioActual,
+            pagina_actual: paginaActual,
+            referrer_actual: referrerActual,
+        }, { merge: true });
+        // 2. Actualizar estadísticas del día
+        await db
+            .collection("empresas").doc(empresaId)
+            .collection("estadisticas").doc(`visitas_${fechaHoy}`)
+            .set({
+            fecha: fechaHoy,
+            sitio: dominioActual,
+            visitas: admin.firestore.FieldValue.increment(1),
+            paginas_vistas: admin.firestore.FieldValue.arrayUnion(paginaActual),
+            referrers: admin.firestore.FieldValue.arrayUnion(referrerActual),
+            [`visitas_hora_${hora}`]: admin.firestore.FieldValue.increment(1),
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        console.log(`✅ Visita registrada: ${empresaId} — ${dominioActual} — ${fechaHoy}`);
+        res.status(200).json({ ok: true });
+    }
+    catch (error) {
+        console.error("❌ Error registrando visita:", error);
+        res.status(500).json({ error: "Error registrando visita" });
+    }
+});
+// ── VERIFACTU: Firma XAdES + Remisión AEAT ──────────────────────────────────
+var firmarXMLVerifactu_1 = require("./firmarXMLVerifactu");
+Object.defineProperty(exports, "firmarXMLVerifactu", { enumerable: true, get: function () { return firmarXMLVerifactu_1.firmarXMLVerifactu; } });
+var remitirVerifactu_1 = require("./remitirVerifactu");
+Object.defineProperty(exports, "remitirVerifactu", { enumerable: true, get: function () { return remitirVerifactu_1.remitirVerifactu; } });
+// ── GESTIÓN DE CUENTAS Y SUSCRIPCIONES (sin pasar por Apple/Google) ──────────
+var gestionCuentas_1 = require("./gestionCuentas");
+Object.defineProperty(exports, "crearCuentaConPlan", { enumerable: true, get: function () { return gestionCuentas_1.crearCuentaConPlan; } });
+Object.defineProperty(exports, "actualizarPlanEmpresa", { enumerable: true, get: function () { return gestionCuentas_1.actualizarPlanEmpresa; } });
+Object.defineProperty(exports, "listarCuentasClientes", { enumerable: true, get: function () { return gestionCuentas_1.listarCuentasClientes; } });
+Object.defineProperty(exports, "webhookPagoWeb", { enumerable: true, get: function () { return gestionCuentas_1.webhookPagoWeb; } });
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DE VACACIONES — Cloud Functions
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Importar festivos de España desde la API Nager.Date.
+ * onCall: { anio: number, empresaId: string, codigoComunidad?: string }
+ */
+exports.importarFestivosEspana = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    // ── AUTH GUARD — Solo admin de la plataforma Fluix ──
+    await (0, authGuard_1.verificarPropietarioPlataforma)(request);
+    const { anio, empresaId, codigoComunidad } = request.data;
+    if (!anio || !empresaId) {
+        throw new https_1.HttpsError("invalid-argument", "Se requiere anio y empresaId");
+    }
+    const url = `https://date.nager.at/api/v3/PublicHolidays/${anio}/ES`;
+    console.log(`📅 Importando festivos de ${url} para empresa ${empresaId}`);
+    try {
+        const response = await (0, node_fetch_1.default)(url);
+        if (!response.ok) {
+            throw new https_1.HttpsError("unavailable", `API retornó ${response.status}`);
         }
-        const finiq = finiqDoc.data();
-        const nombreEmpleado = (_a = finiq.empleado_nombre) !== null && _a !== void 0 ? _a : "Empleado";
-        // Obtener nombre de empresa
-        const empDoc = await db.collection("empresas").doc(empresaId).get();
-        const nombreEmpresa = (_c = (_b = empDoc.data()) === null || _b === void 0 ? void 0 : _b.nombre) !== null && _c !== void 0 ? _c : "La empresa";
-        // Construir adjuntos
-        const adjuntos = [];
-        const documentosSeleccionados = Array.isArray(documentos)
-            ? documentos
-            : ["finiquito", "carta_cese", "certificado_sepe"];
-        const urlMap = {
-            finiquito: { field: "pdf_firmado_url", nombre: `finiquito_${nombreEmpleado}.pdf` },
-            carta_cese: { field: "carta_cese_url", nombre: `carta_cese_${nombreEmpleado}.pdf` },
-            certificado_sepe: { field: "certificado_sepe_url", nombre: `certificado_empresa_SEPE_${nombreEmpleado}.pdf` },
-        };
-        const erroresDescarga = [];
-        for (const doc of documentosSeleccionados) {
-            const info = urlMap[doc];
-            if (!info)
-                continue;
-            const url = finiq[info.field];
-            if (!url) {
-                console.warn(`⚠️ ${doc} no disponible`);
-                erroresDescarga.push(doc);
-                continue;
+        const holidays = await response.json();
+        const batch = db.batch();
+        let count = 0;
+        for (const h of holidays) {
+            const isGlobal = h.global === true || !h.counties || h.counties.length === 0;
+            const matchesComunidad = codigoComunidad && h.counties && h.counties.includes(codigoComunidad);
+            if (isGlobal || matchesComunidad) {
+                const date = h.date; // "2026-01-01"
+                const ref = db
+                    .collection("empresas")
+                    .doc(empresaId)
+                    .collection("festivos")
+                    .doc(`${anio}`)
+                    .collection("dias")
+                    .doc(date);
+                batch.set(ref, {
+                    fecha: admin.firestore.Timestamp.fromDate(new Date(date + "T00:00:00")),
+                    nombre: h.localName || h.name || "",
+                    tipo: isGlobal ? "nacional" : "autonomico",
+                    codigo_comunidad: isGlobal ? null : codigoComunidad,
+                    es_local: false,
+                });
+                count++;
             }
-            try {
-                const buffer = await descargarArchivo(url);
-                adjuntos.push({
-                    filename: info.nombre,
-                    content: buffer,
-                    contentType: "application/pdf",
+        }
+        // Metadata
+        batch.set(db.collection("empresas").doc(empresaId).collection("festivos").doc(`${anio}`), {
+            anio,
+            comunidad_autonoma: codigoComunidad || null,
+            total_festivos: count,
+            importado_desde: "nager.date",
+            fecha_importacion: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        await batch.commit();
+        console.log(`✅ ${count} festivos importados para ${anio}`);
+        return { count, anio };
+    }
+    catch (error) {
+        console.error("❌ Error importando festivos:", error);
+        throw new https_1.HttpsError("internal", `Error: ${error}`);
+    }
+});
+/**
+ * Trigger: cuando cambia el estado de una solicitud de vacaciones.
+ * Envía notificación push al empleado afectado.
+ */
+exports.onVacacionEstadoCambiado = (0, firestore_1.onDocumentUpdated)({ document: "vacaciones/{empresaId}/solicitudes/{solicitudId}", region: REGION }, async (event) => {
+    var _a, _b, _c, _d, _e;
+    const empresaId = event.params.empresaId;
+    const solicitudId = event.params.solicitudId;
+    const antes = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const despues = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!antes || !despues)
+        return;
+    // Solo nos interesa cuando cambia el estado
+    if (antes.estado === despues.estado)
+        return;
+    const nuevoEstado = despues.estado;
+    if (nuevoEstado !== "aprobado" && nuevoEstado !== "rechazado")
+        return;
+    const empleadoId = despues.empleado_id;
+    if (!empleadoId)
+        return;
+    // Formatear fechas
+    const fechaInicio = ((_c = despues.fecha_inicio) === null || _c === void 0 ? void 0 : _c.toDate)
+        ? despues.fecha_inicio.toDate().toLocaleDateString("es-ES")
+        : "—";
+    const fechaFin = ((_d = despues.fecha_fin) === null || _d === void 0 ? void 0 : _d.toDate)
+        ? despues.fecha_fin.toDate().toLocaleDateString("es-ES")
+        : "—";
+    let titulo;
+    let cuerpo;
+    if (nuevoEstado === "aprobado") {
+        titulo = "✅ Vacaciones aprobadas";
+        cuerpo = `Tus vacaciones del ${fechaInicio} al ${fechaFin} han sido aprobadas`;
+    }
+    else {
+        titulo = "❌ Vacaciones rechazadas";
+        cuerpo = `Tu solicitud de vacaciones del ${fechaInicio} al ${fechaFin} ha sido rechazada`;
+        const motivo = despues.motivo_rechazo;
+        if (motivo) {
+            cuerpo += `\nMotivo: ${motivo}`;
+        }
+    }
+    // Obtener token del empleado
+    const empleadoDoc = await db.collection("usuarios").doc(empleadoId).get();
+    const tokenFCM = (_e = empleadoDoc.data()) === null || _e === void 0 ? void 0 : _e.token_dispositivo;
+    // Guardar en bandeja de notificaciones in-app
+    await db
+        .collection("notificaciones")
+        .doc(empresaId)
+        .collection("items")
+        .add({
+        titulo,
+        cuerpo,
+        tipo: "vacacion_estado",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        modulo_destino: "vacaciones",
+        entidad_id: solicitudId,
+        empleado_id: empleadoId,
+    });
+    // Enviar push si tiene token
+    if (tokenFCM) {
+        try {
+            await messaging.send({
+                token: tokenFCM,
+                notification: { title: titulo, body: cuerpo },
+                data: {
+                    tipo: "vacacion_estado",
+                    empresa_id: empresaId,
+                    solicitud_id: solicitudId,
+                    estado: nuevoEstado,
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "fluixcrm_canal_principal",
+                        sound: "default",
+                    },
+                },
+                apns: {
+                    payload: { aps: { sound: "default", badge: 1 } },
+                },
+            });
+            console.log(`✅ Push enviado a empleado ${empleadoId} — ${nuevoEstado}`);
+        }
+        catch (pushError) {
+            console.warn(`⚠️ No se pudo enviar push a ${empleadoId}:`, pushError.message);
+            // Si el token es inválido, marcarlo
+            if (pushError.code === "messaging/registration-token-not-registered" ||
+                pushError.code === "messaging/invalid-registration-token") {
+                await db.collection("usuarios").doc(empleadoId).update({
+                    token_dispositivo: admin.firestore.FieldValue.delete(),
                 });
             }
-            catch (e) {
-                console.error(`❌ Error descargando ${doc}:`, e);
-                erroresDescarga.push(doc);
+        }
+    }
+    else {
+        console.log(`ℹ️ Empleado ${empleadoId} sin token FCM, notificación guardada solo in-app`);
+    }
+});
+/**
+ * Cierre anual de vacaciones: 31 de diciembre a las 23:59 UTC.
+ * Calcula días sobrantes y crea arrastre para el año nuevo.
+ */
+exports.scheduledCierreAnualVacaciones = (0, scheduler_1.onSchedule)({ schedule: "59 23 31 12 *", timeZone: "Europe/Madrid", region: REGION }, async () => {
+    var _a, _b, _c, _d;
+    const anio = new Date().getFullYear();
+    console.log(`📅 Cierre anual de vacaciones ${anio}`);
+    // Obtener todas las empresas
+    const empresasSnap = await db.collection("empresas").get();
+    for (const empresaDoc of empresasSnap.docs) {
+        const empresaId = empresaDoc.id;
+        // Leer configuración de carryover
+        const configDoc = await db
+            .collection("empresas")
+            .doc(empresaId)
+            .collection("configuracion")
+            .doc("vacaciones")
+            .get();
+        const carryover = ((_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.carryover) || {};
+        const diasMaximos = (_b = carryover.dias_maximos_traspasar) !== null && _b !== void 0 ? _b : 5;
+        const mesExp = (_c = carryover.mes_expiracion) !== null && _c !== void 0 ? _c : 3;
+        const diaExp = (_d = carryover.dia_expiracion) !== null && _d !== void 0 ? _d : 31;
+        // Obtener saldos del año actual
+        const saldosSnap = await db
+            .collection("vacaciones")
+            .doc(empresaId)
+            .collection("saldos")
+            .where("anio", "==", anio)
+            .get();
+        const batch = db.batch();
+        for (const saldoDoc of saldosSnap.docs) {
+            const saldo = saldoDoc.data();
+            const empleadoId = saldo.empleado_id;
+            const pendientes = (saldo.dias_devengados || 0) - (saldo.dias_disfrutados || 0);
+            const diasATraspasar = Math.min(Math.max(pendientes, 0), diasMaximos);
+            if (diasATraspasar > 0) {
+                // Crear/actualizar saldo del año siguiente con arrastre
+                const nuevoAnio = anio + 1;
+                const docId = `${empleadoId}_${nuevoAnio}`;
+                const ref = db
+                    .collection("vacaciones")
+                    .doc(empresaId)
+                    .collection("saldos")
+                    .doc(docId);
+                batch.set(ref, {
+                    empleado_id: empleadoId,
+                    anio: nuevoAnio,
+                    dias_arrastre: diasATraspasar,
+                    dias_arrastre_consumidos: 0,
+                    dias_pendientes_ano_anterior: diasATraspasar,
+                    fecha_expiracion_arrastre: admin.firestore.Timestamp.fromDate(new Date(nuevoAnio, mesExp - 1, diaExp)),
+                    ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                console.log(`  → ${empleadoId}: ${diasATraspasar} días traspasados a ${nuevoAnio}`);
             }
         }
-        if (adjuntos.length === 0) {
-            throw new https_1.HttpsError("internal", "No se pudo preparar ningún documento. Genera los PDFs primero.");
+        await batch.commit();
+    }
+    console.log(`✅ Cierre anual completado para ${anio}`);
+});
+/**
+ * Expiración de arrastre: por defecto 31 de marzo.
+ * Elimina los días traspasados no disfrutados y notifica.
+ * Se ejecuta diariamente y comprueba si hoy es la fecha de expiración.
+ */
+exports.scheduledExpiracionCarryover = (0, scheduler_1.onSchedule)({ schedule: "0 8 * * *", timeZone: "Europe/Madrid", region: REGION }, async () => {
+    var _a, _b, _c, _d;
+    const hoy = new Date();
+    console.log(`📅 Verificando expiración de carryover: ${hoy.toISOString()}`);
+    const empresasSnap = await db.collection("empresas").get();
+    for (const empresaDoc of empresasSnap.docs) {
+        const empresaId = empresaDoc.id;
+        const anio = hoy.getFullYear();
+        // Leer configuración
+        const configDoc = await db
+            .collection("empresas")
+            .doc(empresaId)
+            .collection("configuracion")
+            .doc("vacaciones")
+            .get();
+        const carryover = ((_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.carryover) || {};
+        const mesExp = (_b = carryover.mes_expiracion) !== null && _b !== void 0 ? _b : 3;
+        const diaExp = (_c = carryover.dia_expiracion) !== null && _c !== void 0 ? _c : 31;
+        const notificar7dias = carryover.notificar_antes_expirar !== false;
+        const fechaExpiracion = new Date(anio, mesExp - 1, diaExp);
+        const diasHastaExpiracion = Math.ceil((fechaExpiracion.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+        // Obtener saldos con arrastre vigente
+        const saldosSnap = await db
+            .collection("vacaciones")
+            .doc(empresaId)
+            .collection("saldos")
+            .where("anio", "==", anio)
+            .where("dias_arrastre", ">", 0)
+            .get();
+        for (const saldoDoc of saldosSnap.docs) {
+            const saldo = saldoDoc.data();
+            const empleadoId = saldo.empleado_id;
+            const arrastre = saldo.dias_arrastre || 0;
+            const consumidos = saldo.dias_arrastre_consumidos || 0;
+            const restantes = arrastre - consumidos;
+            if (restantes <= 0)
+                continue;
+            // Notificación 7 días antes
+            if (notificar7dias && diasHastaExpiracion === 7) {
+                const tokenDoc = await db.collection("usuarios").doc(empleadoId).get();
+                const token = (_d = tokenDoc.data()) === null || _d === void 0 ? void 0 : _d.token_dispositivo;
+                // In-app notification
+                await db.collection("notificaciones").doc(empresaId).collection("items").add({
+                    titulo: "⏰ Días traspasados por expirar",
+                    cuerpo: `Tienes ${restantes.toFixed(1)} días de vacaciones traspasados que expiran el ${diaExp}/${mesExp}/${anio}`,
+                    tipo: "vacacion_carryover_expira",
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    leida: false,
+                    modulo_destino: "vacaciones",
+                    empleado_id: empleadoId,
+                });
+                if (token) {
+                    try {
+                        await messaging.send({
+                            token,
+                            notification: {
+                                title: "⏰ Días traspasados por expirar",
+                                body: `Tienes ${restantes.toFixed(1)} días de vacaciones que expiran en 7 días`,
+                            },
+                            data: {
+                                tipo: "vacacion_carryover_expira",
+                                empresa_id: empresaId,
+                            },
+                        });
+                    }
+                    catch (_) { /* silenciar */ }
+                }
+            }
+            // Expiración el día exacto
+            if (diasHastaExpiracion <= 0) {
+                await saldoDoc.ref.update({
+                    dias_arrastre: 0,
+                    dias_arrastre_consumidos: 0,
+                    dias_pendientes_ano_anterior: 0,
+                    ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                // Notificar al empleado
+                await db.collection("notificaciones").doc(empresaId).collection("items").add({
+                    titulo: "📅 Días traspasados expirados",
+                    cuerpo: `Se han eliminado ${restantes.toFixed(1)} días de vacaciones traspasados no disfrutados`,
+                    tipo: "vacacion_carryover_expirado",
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    leida: false,
+                    modulo_destino: "vacaciones",
+                    empleado_id: empleadoId,
+                });
+                console.log(`  → ${empleadoId}: ${restantes} días expirados en empresa ${empresaId}`);
+            }
         }
-        // Template HTML del email
-        const htmlEmail = `
+    }
+    console.log("✅ Verificación de expiración completada");
+});
+/**
+ * Alerta de cobertura: se ejecuta diariamente y revisa los próximos 7 días.
+ * Envía push al propietario si hay días con cobertura crítica (<mínimo).
+ */
+exports.scheduledAlertaCobertura = (0, scheduler_1.onSchedule)({ schedule: "0 7 * * *", timeZone: "Europe/Madrid", region: REGION }, async () => {
+    var _a, _b, _c, _d, _e, _f;
+    console.log("📅 Verificando cobertura de equipos");
+    const empresasSnap = await db.collection("empresas").get();
+    for (const empresaDoc of empresasSnap.docs) {
+        const empresaId = empresaDoc.id;
+        // Leer mínimo
+        const configDoc = await db
+            .collection("empresas")
+            .doc(empresaId)
+            .collection("configuracion")
+            .doc("vacaciones")
+            .get();
+        const minimoPorcentaje = (_b = (_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.minimo_cobertura_porcentaje) !== null && _b !== void 0 ? _b : 50;
+        // Total empleados
+        const empSnap = await db
+            .collection("usuarios")
+            .where("empresa_id", "==", empresaId)
+            .where("activo", "==", true)
+            .get();
+        const totalEmpleados = empSnap.docs.length;
+        if (totalEmpleados === 0)
+            continue;
+        // Solicitudes aprobadas
+        const solSnap = await db
+            .collection("vacaciones")
+            .doc(empresaId)
+            .collection("solicitudes")
+            .where("estado", "==", "aprobado")
+            .get();
+        const hoy = new Date();
+        const diasCriticos = [];
+        for (let i = 0; i < 7; i++) {
+            const dia = new Date(hoy);
+            dia.setDate(hoy.getDate() + i);
+            if (dia.getDay() === 0 || dia.getDay() === 6)
+                continue; // Skip weekends
+            const ausentes = new Set();
+            for (const doc of solSnap.docs) {
+                const data = doc.data();
+                const ini = ((_d = (_c = data.fecha_inicio) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c)) || new Date(0);
+                const fin = ((_f = (_e = data.fecha_fin) === null || _e === void 0 ? void 0 : _e.toDate) === null || _f === void 0 ? void 0 : _f.call(_e)) || new Date(0);
+                if (dia >= ini && dia <= fin) {
+                    ausentes.add(data.empleado_id);
+                }
+            }
+            const presentes = totalEmpleados - ausentes.size;
+            const porcentaje = (presentes / totalEmpleados) * 100;
+            if (porcentaje < minimoPorcentaje) {
+                diasCriticos.push(`${dia.getDate()}/${dia.getMonth() + 1} (${presentes}/${totalEmpleados})`);
+            }
+        }
+        if (diasCriticos.length > 0) {
+            const mensaje = `⚠️ Cobertura crítica en los próximos 7 días:\n${diasCriticos.join(", ")}`;
+            // Enviar a todos los dispositivos de la empresa (propietarios)
+            await enviarNotificacionEmpresa(empresaId, "⚠️ Alerta de cobertura", mensaje, { tipo: "alerta_cobertura" });
+            console.log(`⚠️ Empresa ${empresaId}: ${diasCriticos.length} días críticos`);
+        }
+    }
+    console.log("✅ Verificación de cobertura completada");
+});
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DE FINIQUITOS — Cloud Functions
+// ═══════════════════════════════════════════════════════════════════════════════
+const https = require("https");
+const http = require("http");
+/**
+ * Descarga un archivo desde una URL (Firebase Storage URL firmada).
+ */
+async function descargarArchivo(url) {
+    return new Promise((resolve, reject) => {
+        const lib = url.startsWith("https") ? https : http;
+        lib.get(url, (res) => {
+            const chunks = [];
+            res.on("data", (chunk) => chunks.push(chunk));
+            res.on("end", () => resolve(Buffer.concat(chunks)));
+            res.on("error", reject);
+        }).on("error", reject);
+    });
+}
+/**
+ * Cloud Function: enviar documentación del finiquito al empleado por email.
+ * onCall: { finiquitoId, empresaId, emailDestino, documentos: string[] }
+ * documentos puede incluir: 'finiquito', 'carta_cese', 'certificado_sepe', 'ultima_nomina'
+ */
+exports.enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a, _b, _c;
+    const { finiquitoId, empresaId, emailDestino, documentos } = request.data;
+    // ── AUTH GUARD ──
+    await (0, authGuard_1.verificarAuthYEmpresa)(request, empresaId);
+    if (!finiquitoId || !empresaId || !emailDestino) {
+        throw new https_1.HttpsError("invalid-argument", "Se requiere finiquitoId, empresaId y emailDestino");
+    }
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailDestino)) {
+        throw new https_1.HttpsError("invalid-argument", "Email inválido");
+    }
+    // Obtener finiquito
+    const finiqDoc = await db
+        .collection("empresas").doc(empresaId)
+        .collection("finiquitos").doc(finiquitoId).get();
+    if (!finiqDoc.exists) {
+        throw new https_1.HttpsError("not-found", "Finiquito no encontrado");
+    }
+    const finiq = finiqDoc.data();
+    const nombreEmpleado = (_a = finiq.empleado_nombre) !== null && _a !== void 0 ? _a : "Empleado";
+    // Obtener nombre de empresa
+    const empDoc = await db.collection("empresas").doc(empresaId).get();
+    const nombreEmpresa = (_c = (_b = empDoc.data()) === null || _b === void 0 ? void 0 : _b.nombre) !== null && _c !== void 0 ? _c : "La empresa";
+    // Construir adjuntos
+    const adjuntos = [];
+    const documentosSeleccionados = Array.isArray(documentos)
+        ? documentos
+        : ["finiquito", "carta_cese", "certificado_sepe"];
+    const urlMap = {
+        finiquito: { field: "pdf_firmado_url", nombre: `finiquito_${nombreEmpleado}.pdf` },
+        carta_cese: { field: "carta_cese_url", nombre: `carta_cese_${nombreEmpleado}.pdf` },
+        certificado_sepe: { field: "certificado_sepe_url", nombre: `certificado_empresa_SEPE_${nombreEmpleado}.pdf` },
+    };
+    const erroresDescarga = [];
+    for (const doc of documentosSeleccionados) {
+        const info = urlMap[doc];
+        if (!info)
+            continue;
+        const url = finiq[info.field];
+        if (!url) {
+            console.warn(`⚠️ ${doc} no disponible`);
+            erroresDescarga.push(doc);
+            continue;
+        }
+        try {
+            const buffer = await descargarArchivo(url);
+            adjuntos.push({
+                filename: info.nombre,
+                content: buffer,
+                contentType: "application/pdf",
+            });
+        }
+        catch (e) {
+            console.error(`❌ Error descargando ${doc}:`, e);
+            erroresDescarga.push(doc);
+        }
+    }
+    if (adjuntos.length === 0) {
+        throw new https_1.HttpsError("internal", "No se pudo preparar ningún documento. Genera los PDFs primero.");
+    }
+    // Template HTML del email
+    const htmlEmail = `
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -1936,15 +1963,15 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
       <div style="background:#f8f9ff; border-left:4px solid #3949ab; padding:16px; margin:20px 0; border-radius:0 8px 8px 0;">
         <p style="margin:0 0 12px; font-weight:bold; color:#1a237e;">Documentos adjuntos:</p>
         ${adjuntos.map(a => {
-            const icon = a.filename.includes("finiquito") ? "📄" :
-                a.filename.includes("carta") ? "📝" : "🏛️";
-            const desc = a.filename.includes("finiquito")
-                ? "Finiquito y liquidación — detalle de la liquidación económica."
-                : a.filename.includes("carta")
-                    ? "Carta de cese — comunicación formal de extinción del contrato."
-                    : "Certificado de empresa (SEPE) — necesario para solicitar el paro.";
-            return `<p style="margin:4px 0; color:#333;">${icon} <strong>${a.filename}</strong><br><span style="font-size:12px;color:#666;">${desc}</span></p>`;
-        }).join('')}
+        const icon = a.filename.includes("finiquito") ? "📄" :
+            a.filename.includes("carta") ? "📝" : "🏛️";
+        const desc = a.filename.includes("finiquito")
+            ? "Finiquito y liquidación — detalle de la liquidación económica."
+            : a.filename.includes("carta")
+                ? "Carta de cese — comunicación formal de extinción del contrato."
+                : "Certificado de empresa (SEPE) — necesario para solicitar el paro.";
+        return `<p style="margin:4px 0; color:#333;">${icon} <strong>${a.filename}</strong><br><span style="font-size:12px;color:#666;">${desc}</span></p>`;
+    }).join('')}
       </div>
       <div style="background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:16px; margin:20px 0;">
         <p style="margin:0 0 8px; font-weight:bold; color:#f57f17;">💡 Información importante</p>
@@ -1969,157 +1996,156 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
   </div>
 </body>
 </html>`;
-        // Enviar email
-        const transporter = nodemailer.createTransport({
-            host: smtpHost.value(),
-            port: parseInt(smtpPort.value()),
-            secure: smtpPort.value() === "465",
-            auth: { user: smtpUser.value(), pass: smtpPass.value() },
+    // Enviar email
+    const transporter = nodemailer.createTransport({
+        host: smtpHost.value(),
+        port: parseInt(smtpPort.value()),
+        secure: smtpPort.value() === "465",
+        auth: { user: smtpUser.value(), pass: smtpPass.value() },
+    });
+    try {
+        await transporter.sendMail({
+            from: `"${nombreEmpresa}" <${smtpUser.value()}>`,
+            to: emailDestino,
+            subject: `Documentación de tu cese en ${nombreEmpresa}`,
+            html: htmlEmail,
+            attachments: adjuntos.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType,
+            })),
         });
+    }
+    catch (e) {
+        console.error("❌ Error enviando email:", e.message);
+        throw new https_1.HttpsError("internal", `Error enviando email: ${e.message}. Verifica la configuración SMTP.`);
+    }
+    // Registrar en Firestore
+    await db.collection("empresas").doc(empresaId)
+        .collection("finiquitos").doc(finiquitoId).update({
+        email_enviado: emailDestino,
+        fecha_envio_email: admin.firestore.FieldValue.serverTimestamp(),
+        documentos_enviados: documentosSeleccionados.filter(d => !erroresDescarga.includes(d)),
+    });
+    console.log(`✅ Documentación enviada a ${emailDestino} (${adjuntos.length} archivos)`);
+    return {
+        ok: true,
+        archivosEnviados: adjuntos.length,
+        errores: erroresDescarga,
+    };
+});
+// ── Notificación push cuando llega una reserva nueva desde la web ─────────────
+// Trigger: onCreate en empresas/{empresaId}/reservas/{reservaId}
+// Solo notifica cuando origen == 'web' (no spamea al admin con sus propias reservas manuales)
+exports.onReservaNueva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
+    var _a, _b, _c;
+    const snap = event.data;
+    if (!snap)
+        return;
+    const data = snap.data();
+    const empresaId = event.params.empresaId;
+    const reservaId = event.params.reservaId;
+    // Solo notificar reservas que vienen de la web
+    const origen = (_b = (_a = data.origen) !== null && _a !== void 0 ? _a : data.creado_por) !== null && _b !== void 0 ? _b : '';
+    if (origen !== 'web' && origen !== 'web_widget') {
+        console.log(`ℹ️ Reserva ${reservaId} con origen '${origen}' — sin notificación`);
+        return;
+    }
+    // Obtener tokens FCM de admins y propietarios de la empresa
+    // Los usuarios están en la colección raíz con campo empresa_id
+    const usuariosSnap = await db
+        .collection('usuarios')
+        .where('empresa_id', '==', empresaId)
+        .where('rol', 'in', ['propietario', 'admin'])
+        .where('activo', '==', true)
+        .get();
+    if (usuariosSnap.empty) {
+        console.log(`⚠️ No hay admins/propietarios para empresa ${empresaId}`);
+        return;
+    }
+    // Recoger todos los tokens válidos (token_dispositivo en el doc usuario)
+    const tokens = [];
+    for (const userDoc of usuariosSnap.docs) {
+        const uData = userDoc.data();
+        // Intentar primero en empresas/{id}/dispositivos (como hace notificacionesTareas)
         try {
-            await transporter.sendMail({
-                from: `"${nombreEmpresa}" <${smtpUser.value()}>`,
-                to: emailDestino,
-                subject: `Documentación de tu cese en ${nombreEmpresa}`,
-                html: htmlEmail,
-                attachments: adjuntos.map((a) => ({
-                    filename: a.filename,
-                    content: a.content,
-                    contentType: a.contentType,
-                })),
+            const dispositivoSnap = await db
+                .collection('empresas').doc(empresaId)
+                .collection('dispositivos').doc(userDoc.id)
+                .get();
+            const tokenDispositivo = (_c = dispositivoSnap.data()) === null || _c === void 0 ? void 0 : _c.token;
+            if (tokenDispositivo) {
+                tokens.push(tokenDispositivo);
+                continue;
+            }
+        }
+        catch (_) { /* fallback */ }
+        // Fallback: token_dispositivo en el doc usuario
+        const tokenUsuario = uData.token_dispositivo;
+        if (tokenUsuario)
+            tokens.push(tokenUsuario);
+    }
+    if (tokens.length === 0) {
+        console.log(`⚠️ Ningún admin de empresa ${empresaId} tiene token FCM registrado`);
+        return;
+    }
+    // Construir el texto de la notificación
+    const nombre = (data.nombre_cliente || data.nombre_cliente_web || 'Cliente desconocido');
+    const servicio = (data.servicio || data.servicio_nombre || '');
+    const fechaHoraRaw = data.fecha_hora;
+    let fechaFormateada = 'Fecha pendiente';
+    if (fechaHoraRaw) {
+        try {
+            fechaFormateada = new Date(fechaHoraRaw).toLocaleString('es-ES', {
+                timeZone: 'Europe/Madrid',
+                weekday: 'short',
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
             });
         }
-        catch (e) {
-            console.error("❌ Error enviando email:", e.message);
-            throw new https_1.HttpsError("internal", `Error enviando email: ${e.message}. Verifica la configuración SMTP.`);
+        catch (_) {
+            fechaFormateada = fechaHoraRaw;
         }
-        // Registrar en Firestore
-        await db.collection("empresas").doc(empresaId)
-            .collection("finiquitos").doc(finiquitoId).update({
-            email_enviado: emailDestino,
-            fecha_envio_email: admin.firestore.FieldValue.serverTimestamp(),
-            documentos_enviados: documentosSeleccionados.filter(d => !erroresDescarga.includes(d)),
-        });
-        console.log(`✅ Documentación enviada a ${emailDestino} (${adjuntos.length} archivos)`);
-        return {
-            ok: true,
-            archivosEnviados: adjuntos.length,
-            errores: erroresDescarga,
-        };
-    });
-    // ── Notificación push cuando llega una reserva nueva desde la web ─────────────
-    // Trigger: onCreate en empresas/{empresaId}/reservas/{reservaId}
-    // Solo notifica cuando origen == 'web' (no spamea al admin con sus propias reservas manuales)
-    export const onReservaNueva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
-        var _a, _b, _c;
-        const snap = event.data;
-        if (!snap)
-            return;
-        const data = snap.data();
-        const empresaId = event.params.empresaId;
-        const reservaId = event.params.reservaId;
-        // Solo notificar reservas que vienen de la web
-        const origen = (_b = (_a = data.origen) !== null && _a !== void 0 ? _a : data.creado_por) !== null && _b !== void 0 ? _b : '';
-        if (origen !== 'web' && origen !== 'web_widget') {
-            console.log(`ℹ️ Reserva ${reservaId} con origen '${origen}' — sin notificación`);
-            return;
-        }
-        // Obtener tokens FCM de admins y propietarios de la empresa
-        // Los usuarios están en la colección raíz con campo empresa_id
-        const usuariosSnap = await db
-            .collection('usuarios')
-            .where('empresa_id', '==', empresaId)
-            .where('rol', 'in', ['propietario', 'admin'])
-            .where('activo', '==', true)
-            .get();
-        if (usuariosSnap.empty) {
-            console.log(`⚠️ No hay admins/propietarios para empresa ${empresaId}`);
-            return;
-        }
-        // Recoger todos los tokens válidos (token_dispositivo en el doc usuario)
-        const tokens = [];
-        for (const userDoc of usuariosSnap.docs) {
-            const uData = userDoc.data();
-            // Intentar primero en empresas/{id}/dispositivos (como hace notificacionesTareas)
-            try {
-                const dispositivoSnap = await db
-                    .collection('empresas').doc(empresaId)
-                    .collection('dispositivos').doc(userDoc.id)
-                    .get();
-                const tokenDispositivo = (_c = dispositivoSnap.data()) === null || _c === void 0 ? void 0 : _c.token;
-                if (tokenDispositivo) {
-                    tokens.push(tokenDispositivo);
-                    continue;
-                }
-            }
-            catch (_) { /* fallback */ }
-            // Fallback: token_dispositivo en el doc usuario
-            const tokenUsuario = uData.token_dispositivo;
-            if (tokenUsuario)
-                tokens.push(tokenUsuario);
-        }
-        if (tokens.length === 0) {
-            console.log(`⚠️ Ningún admin de empresa ${empresaId} tiene token FCM registrado`);
-            return;
-        }
-        // Construir el texto de la notificación
-        const nombre = (data.nombre_cliente || data.nombre_cliente_web || 'Cliente desconocido');
-        const servicio = (data.servicio || data.servicio_nombre || '');
-        const fechaHoraRaw = data.fecha_hora;
-        let fechaFormateada = 'Fecha pendiente';
-        if (fechaHoraRaw) {
-            try {
-                fechaFormateada = new Date(fechaHoraRaw).toLocaleString('es-ES', {
-                    timeZone: 'Europe/Madrid',
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                });
-            }
-            catch (_) {
-                fechaFormateada = fechaHoraRaw;
-            }
-        }
-        const bodyParts = [nombre];
-        if (servicio)
-            bodyParts.push(servicio);
-        bodyParts.push(fechaFormateada);
-        const mensaje = {
+    }
+    const bodyParts = [nombre];
+    if (servicio)
+        bodyParts.push(servicio);
+    bodyParts.push(fechaFormateada);
+    const mensaje = {
+        notification: {
+            title: '📅 Nueva reserva desde la web',
+            body: bodyParts.join(' · '),
+        },
+        data: {
+            tipo: 'reserva_nueva',
+            empresa_id: empresaId,
+            reserva_id: reservaId,
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        android: {
+            priority: 'high',
             notification: {
-                title: '📅 Nueva reserva desde la web',
-                body: bodyParts.join(' · '),
+                channelId: 'fluixcrm_canal_principal',
+                clickAction: 'FLUTTER_NOTIFICATION_CLICK',
             },
-            data: {
-                tipo: 'reserva_nueva',
-                empresa_id: empresaId,
-                reserva_id: reservaId,
-                click_action: 'FLUTTER_NOTIFICATION_CLICK',
-            },
-            android: {
-                priority: 'high',
-                notification: {
-                    channelId: 'fluixcrm_canal_principal',
-                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-                },
-            },
-            tokens,
-        };
-        try {
-            const result = await messaging.sendEachForMulticast(mensaje);
-            console.log(`✅ Notificación reserva web enviada: ${result.successCount}/${tokens.length} tokens OK (empresa ${empresaId})`);
-            if (result.failureCount > 0) {
-                result.responses.forEach((r, i) => {
-                    var _a;
-                    if (!r.success)
-                        console.warn(`  ⚠️ Token[${i}] falló: ${(_a = r.error) === null || _a === void 0 ? void 0 : _a.message}`);
-                });
-            }
+        },
+        tokens,
+    };
+    try {
+        const result = await messaging.sendEachForMulticast(mensaje);
+        console.log(`✅ Notificación reserva web enviada: ${result.successCount}/${tokens.length} tokens OK (empresa ${empresaId})`);
+        if (result.failureCount > 0) {
+            result.responses.forEach((r, i) => {
+                var _a;
+                if (!r.success)
+                    console.warn(`  ⚠️ Token[${i}] falló: ${(_a = r.error) === null || _a === void 0 ? void 0 : _a.message}`);
+            });
         }
-        catch (e) {
-            console.error(`❌ Error enviando notificación reserva web:`, e.message);
-        }
-    });
-}
+    }
+    catch (e) {
+        console.error(`❌ Error enviando notificación reserva web:`, e.message);
+    }
+});
 //# sourceMappingURL=index.js.map

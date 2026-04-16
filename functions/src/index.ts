@@ -204,17 +204,20 @@ const smtpPass          = { value: () => process.env.SMTP_PASS            ?? "" 
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 
 async function obtenerTokensEmpresa(empresaId: string): Promise<string[]> {
-  const snapshot = await db
-    .collection("empresas")
-    .doc(empresaId)
-    .collection("dispositivos")
-    .where("activo", "==", true)
-    .get();
+  const col = db.collection("empresas").doc(empresaId).collection("dispositivos");
+
+  // Primero intenta con filtro activo == true
+  let snapshot = await col.where("activo", "==", true).get();
+
+  // Si no hay resultados, coge todos (puede que el campo se llame diferente)
+  if (snapshot.empty) {
+    snapshot = await col.get();
+  }
 
   const tokens: string[] = [];
   snapshot.forEach((doc) => {
     const token = doc.data().token as string | undefined;
-    if (token) tokens.push(token);
+    if (token && token.length > 10) tokens.push(token);
   });
   return tokens;
 }
@@ -310,23 +313,43 @@ export const onNuevaReserva = onDocumentCreated(
   { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
   async (event) => {
     const empresaId = event.params.empresaId;
+    const reservaId = event.params.reservaId;
     const reserva = event.data?.data();
     if (!reserva) return;
 
-    const cliente = reserva.cliente || "Cliente";
-    const servicio = reserva.servicio || "Servicio";
-    const fecha = reserva.fecha?.toDate
-      ? reserva.fecha.toDate().toLocaleDateString("es-ES")
-      : "Fecha pendiente";
+    const cliente = reserva.nombre_cliente || reserva.cliente || "Cliente";
+    const telefono = reserva.telefono_cliente ? ` · ${reserva.telefono_cliente}` : "";
+    const personas = reserva.personas ? ` · ${reserva.personas} pers.` : "";
+    const servicio = reserva.servicio || reserva.notas || "";
+    const fechaHora = reserva.fecha_hora
+      ? reserva.fecha_hora.replace("T", " a las ").substring(0, 16)
+      : reserva.fecha?.toDate
+        ? reserva.fecha.toDate().toLocaleString("es-ES")
+        : "Fecha pendiente";
 
+    const titulo = "📅 Nueva Reserva";
+    const cuerpo = `${cliente}${telefono}${personas} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
+
+    // 1. Guardar en bandeja in-app (Firestore) — para que aparezca en la pantalla
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+      titulo,
+      cuerpo,
+      tipo: "reservaNueva",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      leida: false,
+      modulo_destino: "reservas",
+      entidad_id: reservaId,
+    });
+
+    // 2. Enviar push FCM
     await enviarNotificacionEmpresa(
       empresaId,
-      "📅 Nueva Reserva",
-      `${cliente} — ${servicio} el ${fecha}`,
-      { tipo: "nueva_reserva", reserva_id: event.params.reservaId }
+      titulo,
+      cuerpo,
+      { tipo: "nueva_reserva", reserva_id: reservaId }
     );
 
-    console.log(`✅ Notificación nueva reserva enviada para empresa ${empresaId}`);
+    console.log(`✅ Reserva guardada en bandeja y push enviado — empresa ${empresaId}`);
   }
 );
 
@@ -345,8 +368,8 @@ export const onReservaCancelada = onDocumentUpdated(
       return;
     }
 
-    const cliente = despues.cliente || "Cliente";
-    const servicio = despues.servicio || "Servicio";
+    const cliente = despues.nombre_cliente || despues.cliente || "Cliente";
+    const servicio = despues.servicio || despues.fecha_hora || "la reserva";
 
     await enviarNotificacionEmpresa(
       empresaId,
@@ -1150,6 +1173,7 @@ function generarScriptHTML(
 ✅ Módulo Reservas (reservas web)
 ✅ Módulo Estadísticas (tráfico web)
 -->`;
+}
 
 // ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
 
@@ -1655,7 +1679,7 @@ export const registrarVisita = onRequest(
         return;
       }
 
-      const { empresaId, dominio, pagina, referrer, tipo } = req.body;
+      const { empresaId, dominio, pagina, referrer } = req.body;
 
       if (!empresaId || typeof empresaId !== "string") {
         res.status(400).json({ error: "empresaId es requerido" });

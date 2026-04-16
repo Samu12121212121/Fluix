@@ -142,6 +142,43 @@ class _NotificacionItem extends StatelessWidget {
                     maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
+              // Datos del remitente
+              if (notif.remitenteNombre != null || notif.remitenteTelefono != null || notif.remitenteEmail != null) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (notif.remitenteNombre != null)
+                        Row(children: [
+                          const Icon(Icons.person_outline, size: 11, color: Colors.grey),
+                          const SizedBox(width: 3),
+                          Text(notif.remitenteNombre!,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        ]),
+                      if (notif.remitenteTelefono != null)
+                        Row(children: [
+                          const Icon(Icons.phone_outlined, size: 11, color: Colors.grey),
+                          const SizedBox(width: 3),
+                          Text(notif.remitenteTelefono!,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        ]),
+                      if (notif.remitenteEmail != null)
+                        Row(children: [
+                          const Icon(Icons.email_outlined, size: 11, color: Colors.grey),
+                          const SizedBox(width: 3),
+                          Text(notif.remitenteEmail!,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        ]),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
                 timeago.format(notif.timestamp, locale: 'es'),

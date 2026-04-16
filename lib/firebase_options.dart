@@ -41,13 +41,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU',
-    appId: '1:1085482191658:web:c5461353b123ab92d62c53',
+    apiKey: 'AIzaSyB6lg_F_2BrtLZZX9acEvzAQOWrJDYmMxI',
+    appId: '1:1085482191658:web:00209c643c77226bd62c53',
     messagingSenderId: '1085482191658',
     projectId: 'planeaapp-4bea4',
     authDomain: 'planeaapp-4bea4.firebaseapp.com',
     storageBucket: 'planeaapp-4bea4.firebasestorage.app',
-    measurementId: 'G-D71JMGGGZM',
+    measurementId: 'G-X9D074WLRF',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -60,11 +60,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBG-et3c61Wq-zKlUD-mI_Kaor9dBw7ORg',
-    appId: '1:1085482191658:ios:580c2ff49b326bb1d62c53',
+    appId: '1:1085482191658:ios:2c2c15efeb1d0c04d62c53',
     messagingSenderId: '1085482191658',
     projectId: 'planeaapp-4bea4',
     storageBucket: 'planeaapp-4bea4.firebasestorage.app',
-    iosBundleId: 'com.example.planeagFlutter',
+    iosBundleId: 'com.fluixtech.crm',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'planeaapp-4bea4.firebasestorage.app',
     measurementId: 'G-X9D074WLRF',
   );
+
 }
