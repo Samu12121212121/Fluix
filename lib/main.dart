@@ -19,6 +19,7 @@ import 'core/utils/admin_initializer.dart';
 // Services
 import 'services/notificaciones_service.dart';
 import 'services/auth/token_refresh_service.dart';
+import 'services/auth/sesion_service.dart';
 
 // Features
 import 'features/autenticacion/pantallas/pantalla_login.dart';
@@ -79,54 +80,136 @@ void main() async {
 }
 
 
-class FluixCrmApp extends StatelessWidget {
+class FluixCrmApp extends StatefulWidget {
   const FluixCrmApp({super.key});
 
   @override
+  State<FluixCrmApp> createState() => _FluixCrmAppState();
+}
+
+class _FluixCrmAppState extends State<FluixCrmApp>
+    with WidgetsBindingObserver {
+  // Clave global para acceder al NavigatorState sin depender de un
+  // BuildContext almacenado en caché (soluciona el bug del PopupMenuButton).
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    SesionService().detener();
+    super.dispose();
+  }
+
+  // ── Lifecycle de la app ────────────────────────────────────────────────
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // Guardar momento de salida a background
+        SesionService().registrarPausa();
+        break;
+      case AppLifecycleState.resumed:
+        // Al volver: verificar tiempo en background, refrescar token
+        SesionService().manejarResumen();
+        break;
+      default:
+        break;
+    }
+  }
+
+  // ── Callback de sesión expirada ────────────────────────────────────────
+  void _onSesionExpirada() {
+    // Usar el NavigatorState global para evitar contextos obsoletos
+    final nav = _navigatorKey.currentState;
+    if (nav == null) return;
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const PantallaLogin()),
+      (_) => false,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Consumer proporciona un context descendiente del ChangeNotifierProvider
     return Consumer<AppConfigProvider>(
-      builder: (context, config, _) => MaterialApp(
-        title: 'Fluix CRM',
-        debugShowCheckedModeBanner: false,
-        theme: config.temaClaro,
-        darkTheme: config.temaOscuro,
-        themeMode: config.themeMode,
-        locale: const Locale('es', 'ES'),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('es', 'ES'),
-          Locale('en', 'US'),
-        ],
-        home: StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const PantallaCarga();
-            }
-            if (snapshot.hasData) {
-              return const _PantallaRuta();
-            }
-            // Sin sesión → detener el servicio
-            TokenRefreshService().detener();
-            return const PantallaLogin();
-          },
+      builder: (context, config, _) => GestureDetector(
+        // HitTestBehavior.translucent garantiza que el GestureDetector
+        // no bloquea los eventos a los widgets hijo (PopupMenuButton, etc.)
+        behavior: HitTestBehavior.translucent,
+        onTap: () => SesionService().registrarActividad(),
+        onPanDown: (_) => SesionService().registrarActividad(),
+        child: MaterialApp(
+          title: 'Fluix CRM',
+          debugShowCheckedModeBanner: false,
+          navigatorKey: _navigatorKey,
+          theme: config.temaClaro,
+          darkTheme: config.temaOscuro,
+          themeMode: config.themeMode,
+          locale: const Locale('es', 'ES'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('es', 'ES'),
+            Locale('en', 'US'),
+          ],
+          home: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const PantallaCarga();
+              }
+              if (snapshot.hasData) {
+                // Iniciar / reconfirmar el servicio de sesión cada vez que
+                // el stream confirma que hay usuario autenticado.
+                // iniciar() es idempotente: si ya está activo, sólo
+                // sobreescribe el callback.
+                SesionService().iniciar(
+                  onSesionExpirada: _onSesionExpirada,
+                );
+                return const _PantallaRuta();
+              }
+              // Sin sesión → detener ambos servicios
+              TokenRefreshService().detener();
+              SesionService().detener();
+              return const PantallaLogin();
+            },
+          ),
         ),
       ),
     );
   }
 }
 
-/// Decide si mostrar onboarding o dashboard según el estado de Firestore
-class _PantallaRuta extends StatelessWidget {
+/// Decide si mostrar onboarding o dashboard según el estado de Firestore.
+///
+/// Es StatefulWidget + AutomaticKeepAliveClientMixin para que el árbol
+/// NO se destruya cuando authStateChanges reemite el usuario (ej.: tras
+/// refrescar el token al volver de background). Esto evita que el
+/// Navigator/Overlay se recree y deje PopupMenuButton sin respuesta.
+class _PantallaRuta extends StatefulWidget {
   const _PantallaRuta();
 
   @override
+  State<_PantallaRuta> createState() => _PantallaRutaState();
+}
+
+class _PantallaRutaState extends State<_PantallaRuta>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // requerido por AutomaticKeepAliveClientMixin
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const PantallaLogin();
 

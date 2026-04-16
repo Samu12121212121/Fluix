@@ -45,14 +45,14 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "headers": [
-      {
+    "rewrites": [
       {
         "source": "**",
         "destination": "/index.html"
       }
     ]
   },
+
   "flutter": {
     "platforms": {
       "android": {

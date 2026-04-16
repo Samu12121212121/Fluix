@@ -1,20 +1,11 @@
-import 'estado_conexion_google_widget.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
-import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
 import 'kpis_rating_widget.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'estado_conexion_google_widget.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-
 
 class ModuloValoraciones extends StatefulWidget {
   final String empresaId;
@@ -267,23 +258,24 @@ class _CabeceraCompleta extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(children: [
-        // Fila estado GMB + acciones
-        Row(children: [
-          Expanded(child: EstadoConexionGoogleWidget(
-            empresaId: empresaId, onEstadoCambiado: onGmbConectado)),
-          if (sincronizando) ...[
-            const SizedBox(width: 8),
-            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 4),
-            Text('Sync...', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-          ],
-          IconButton(onPressed: sincronizando ? null : onSincronizar,
-            icon: const Icon(Icons.sync, size: 20), color: const Color(0xFF4285F4),
-            tooltip: 'Sincronizar con Google'),
-          IconButton(onPressed: onAnadir,
-            icon: const Icon(Icons.add_comment_outlined, size: 20), color: const Color(0xFF43A047),
-            tooltip: 'Añadir valoración manual'),
-        ]),
+        // Fila acciones — solo botón de sincronizar queda como icono discreto
+        Align(
+          alignment: Alignment.centerRight,
+          child: sincronizando
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 6),
+                  Text('Sincronizando...', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ])
+              : IconButton(
+                  onPressed: onSincronizar,
+                  icon: const Icon(Icons.sync, size: 18),
+                  color: Colors.grey[500],
+                  tooltip: 'Sincronizar con Google',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+        ),
         const SizedBox(height: 10),
 
         // Rating + barras distribución
@@ -337,20 +329,6 @@ class _CabeceraCompleta extends StatelessWidget {
               Expanded(child: Text(
                 'Se muestran las 5 más recientes de las $totalGoogle reales de Google.',
                 style: TextStyle(fontSize: 10, color: Colors.grey[700]))),
-            ])),
-        ],
-
-        // Error sync
-        if (errorSync != null && !errorSync!.contains('último')) ...[
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8)),
-            child: Row(children: [
-              const Icon(Icons.warning_amber_outlined, size: 13, color: Colors.orange),
-              const SizedBox(width: 6),
-              Expanded(child: Text('Sync: $errorSync',
-                style: const TextStyle(fontSize: 10, color: Colors.orange))),
             ])),
         ],
 
@@ -542,7 +520,7 @@ class _TarjetaResena extends StatelessWidget {
               data['google_review_name'] != null
                 ? 'Tu respuesta se publicará directamente en Google Maps.'
                 : '1. Escribe tu respuesta y pulsa Guardar.\n2. Se guarda en la app.\n'
-                  '3. Conéctate a Google Business para publicar en Google Maps.',
+                  '3. Cuando se sincronice con Google, se publicará.',
               style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5))),
           const SizedBox(height: 12),
         ],
@@ -575,18 +553,7 @@ class _TarjetaResena extends StatelessWidget {
                 if (res.enCola) msgExtra = ' (en cola, reintentando...)';
                 else if (!publicadoEnGoogle && res.error != null) msgExtra = ' (${res.error})';
               } else {
-                try {
-                  final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
-                  var acc = await gs.signInSilently() ?? await gs.signIn();
-                  if (acc != null) {
-                    final auth = await acc.authentication;
-                    if (auth.accessToken != null) {
-                      await svc.responderResena('accounts/me/locations/me/reviews/$docId', texto, auth.accessToken!);
-                      publicadoEnGoogle = true;
-                    }
-                  }
-                } on PlatformException catch (_) {
-                } catch (_) { msgExtra = ' (Conecta Google Business para publicar en Maps)'; }
+                msgExtra = ' (Se publicará en Maps más tarde)';
               }  // closes else
             }  // closes if (data['origen'] == 'google')
             Navigator.pop(ctx);

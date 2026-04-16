@@ -9,7 +9,6 @@ import '../../../services/sugerencias_service.dart';
 import '../../facturacion/pantallas/pantalla_configuracion_fiscal_empresa.dart';
 import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
-import 'pantalla_configuracion_pagos.dart';
 import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
 import 'gestionar_cuentas_screen.dart';
@@ -996,21 +995,6 @@ class _TabEmpresaState extends State<_TabEmpresa> {
             ),
             const SizedBox(height: 32),
 
-            // ── Configuración de pagos ─────────────────────────────────────
-            if (widget.sesion?.empresaId != null) ...[
-              _seccion('Pasarelas de pago y cobros'),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity, height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => PantallaConfiguracionPagos(empresaId: widget.sesion!.empresaId),
-                  )),
-                  icon: const Icon(Icons.account_balance_wallet, size: 22),
-                  label: const Text('Configurar pagos (Stripe, Banco, TPV…)'),
-                ),
-              ),
-            ],
 
             // ── Sugerencias de mejora ──────────────────────────────────────
             if (!_cargando && widget.sesion?.empresaId != null)

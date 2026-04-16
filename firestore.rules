@@ -1,5 +1,3 @@
-            allow write: if esPropietario(empresaId);
-          // Cualquier auth puede crear su propio doc (registro)
 rules_version = '2';
     service cloud.firestore {
       match /databases/{database}/documents {
@@ -154,8 +152,14 @@ rules_version = '2';
           match /reservas/{reservaId} {
             allow read: if esStaffOSuperior(empresaId);
             allow write: if esStaffOSuperior(empresaId);
-            allow create: if isAuth(); // clientes externos pueden crear reservas
-            allow create: if isAuth(); // clientes externos pueden crear reservas
+            // Visitantes web pueden crear reservas sin auth (Hostinger, WordPress, etc.)
+            // Validación mínima para evitar spam: campos obligatorios + estado forzado
+            allow create: if request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente', 'estado'])
+              && request.resource.data.nombre_cliente is string
+              && request.resource.data.nombre_cliente.size() > 0
+              && request.resource.data.nombre_cliente.size() <= 100
+              && request.resource.data.telefono_cliente is string
+              && request.resource.data.estado == 'PENDIENTE';
           }
 
           // VALORACIONES — [FIX-5] lectura pública, creación con validación anti-spam
@@ -262,6 +266,20 @@ rules_version = '2';
             allow write: if request.auth != null;
           }
 
+          // CONTACTO WEB — formulario de contacto desde la web
+          // Sin requisito de auth (mismo motivo que reservas: about:srcdoc / Hostinger)
+          match /contacto_web/{mensajeId} {
+            allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
+              && request.resource.data.nombre is string
+              && request.resource.data.nombre.size() > 0
+              && request.resource.data.email is string
+              && request.resource.data.email.size() > 0
+              && request.resource.data.mensaje is string
+              && request.resource.data.mensaje.size() > 0
+              && request.resource.data.mensaje.size() <= 2000;
+            allow read, update, delete: if esAdminOPropietario(empresaId);
+          }
+
           // DISPOSITIVOS FCM — cada usuario escribe su propio token
           match /dispositivos/{dispositivoId} {
             allow read: if esAdminOPropietario(empresaId);
@@ -327,9 +345,9 @@ rules_version = '2';
             allow update, delete: if esPropietario(empresaId);
           }
 
-          // (Se deja por compatibilidad — convenios es colección raíz)
-          match /convenios/{convenioId} {
-            allow write: if esPropietario(empresaId);
+        } // ── FIN match /empresas/{empresaId} ─────────────────────────────────
+
+        // ── CONVENIOS (colección raíz) ─────────────────────────────────────────
         match /convenios/{convenioId} {
           allow read: if isAuth();
           allow create, update: if isAuth()
@@ -358,5 +376,6 @@ rules_version = '2';
         match /{document=**} {
           allow read, write: if false;
         }
-      }
-    }
+
+      } // match /databases/{database}/documents
+    } // service cloud.firestore
