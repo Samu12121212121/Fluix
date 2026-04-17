@@ -7,6 +7,7 @@ import 'package:planeag_flutter/features/facturacion/pantallas/detalle_factura_s
 import 'package:planeag_flutter/features/facturacion/pantallas/formulario_factura_screen.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/resumen_fiscal_screen.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/pantalla_contabilidad.dart';
+import 'upload_invoice_screen.dart';
 
 class ModuloFacturacionScreen extends StatefulWidget {
   final String empresaId;
@@ -88,6 +89,15 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
             backgroundColor: const Color(0xFF1565C0),
             tooltip: 'Resumen Fiscal',
             child: const Icon(Icons.summarize, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.extended(
+            heroTag: 'subir_documento',
+            onPressed: _subirDocumento,
+            backgroundColor: const Color(0xFF2E7D32),
+            icon: const Icon(Icons.document_scanner, color: Colors.white),
+            label: const Text('Subir documento',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
           const SizedBox(height: 8),
           FloatingActionButton.extended(
@@ -515,6 +525,15 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
   }
 
   // ── ACCIONES ───────────────────────────────────────────────────────────────
+
+  void _subirDocumento() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UploadInvoiceScreen(empresaId: widget.empresaId),
+      ),
+    );
+  }
 
   void _nuevaFactura() async {
     await Navigator.push(

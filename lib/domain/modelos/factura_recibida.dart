@@ -72,6 +72,9 @@ class FacturaRecibida {
   // Notas
   final String? notas;
 
+  // IA — enlace con la transacción fiscal procesada
+  final String? aiTransactionId;  // ID en fiscal_transactions (si fue procesada por IA)
+
   // Auditoría
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
@@ -106,6 +109,7 @@ class FacturaRecibida {
     this.nifArrendador,
     this.conceptoArrendamiento,
     this.notas,
+    this.aiTransactionId,
     required this.fechaCreacion,
     this.fechaActualizacion,
   });
@@ -213,6 +217,7 @@ class FacturaRecibida {
       nifArrendador: d['nif_arrendador'],
       conceptoArrendamiento: d['concepto_arrendamiento'],
       notas: d['notas'],
+      aiTransactionId: d['_ai_transaction_id'] as String?,
       fechaCreacion: _parseTs(d['fecha_creacion']),
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? _parseTs(d['fecha_actualizacion'])

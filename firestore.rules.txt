@@ -1,48 +1,588 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // PERFIL DE USUARIO
-    // Cualquiera puede leer su propio perfil.
-    // Solo el propio usuario puede actualizar su perfil.
+    // ════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ════════════════════════════════════════════════════════════════════
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function esAnonimo() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function esUsuarioReal() {
+      return isAuth() && !esAnonimo();
+    }
+
+    function existeUsuarioDoc() {
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function perteneceAEmpresa(empresaId) {
+      return esUsuarioReal()
+        && existeUsuarioDoc()
+        && getUserData().empresa_id == empresaId;
+    }
+
+    function getRol() {
+      return existeUsuarioDoc() ? getUserData().rol : '';
+    }
+
+    function esPropietario(empresaId) {
+      return perteneceAEmpresa(empresaId) && getRol() == 'propietario';
+    }
+
+    function esAdminOPropietario(empresaId) {
+      return perteneceAEmpresa(empresaId)
+        && (getRol() == 'admin' || getRol() == 'propietario');
+    }
+
+    function esStaffOSuperior(empresaId) {
+      return perteneceAEmpresa(empresaId)
+        && (getRol() == 'staff' || getRol() == 'admin' || getRol() == 'propietario');
+    }
+
+    function esPlataformaAdmin() {
+      return isAuth()
+        && !esAnonimo()
+        && (
+          request.auth.token.plataforma_admin == true
+          || (existeUsuarioDoc() && getUserData().es_plataforma_admin == true)
+        );
+    }
+
+    function modulosStaff() {
+      return getUserData().get('modulos_permitidos',
+        ['reservas', 'citas', 'clientes', 'valoraciones']);
+    }
+
+    function staffTieneModulo(empresaId, moduloId) {
+      return perteneceAEmpresa(empresaId)
+        && getRol() == 'staff'
+        && modulosStaff().hasAny([moduloId]);
+    }
+
+    function puedeVerModulo(empresaId, moduloId) {
+      return esAdminOPropietario(empresaId)
+        || staffTieneModulo(empresaId, moduloId);
+    }
+
+    function empresaTienePack(empresaId, packId) {
+      return packId in get(/databases/$(database)/documents/empresas/$(empresaId)).data.get('active_packs', []);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // USUARIOS
+    // ════════════════════════════════════════════════════════════════════
+
     match /usuarios/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
-      // La creación de usuarios se gestiona desde la app al registrarse.
-      allow create: if request.auth != null;
-    }
 
-    // CONVENIOS COLECTIVOS
-    // Cualquiera puede leer los datos de los convenios. Son datos públicos.
-    // Nadie puede escribir, solo se gestionan desde la consola de Firebase.
-    match /convenios/{convenioId} {
-      allow read: if true;
-      allow write: if false; // Bloquea la escritura desde la app para seguridad
-    }
+      allow read: if esUsuarioReal() && uid() == userId;
 
-    // DATOS DE EMPRESA
-    // Reglas para proteger los datos de cada empresa.
-    match /empresas/{empresaId} {
-      // El propietario y los empleados de la empresa pueden leer los datos.
-      allow read: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+      allow read: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && exists(/databases/$(database)/documents/usuarios/$(userId))
+        && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario');
 
-      // Solo el propietario puede escribir en la configuración general de la empresa.
-      allow write: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'propietario'
-                   && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+      allow read: if esPlataformaAdmin();
 
-      // REGLAS PARA SUBCOLECCIONES (CLIENTES, EMPLEADOS, FACTURAS, etc.)
-      // Cualquiera de la empresa puede leer.
-      // La escritura/borrado puede tener lógicas más específicas.
-      match /{subcollection}/{docId} {
-        allow read: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
+      allow create: if esUsuarioReal()
+        && uid() == userId
+        && request.resource.data.keys().hasAll(['empresa_id', 'rol'])
+        && request.resource.data.rol in ['cliente', 'empleado', 'staff']
+        && request.resource.data.get('es_plataforma_admin', false) == false;
 
-        // Permite crear, actualizar y borrar a admins y propietarios.
-        allow write: if get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
-                     && (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'propietario'
-                         || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin');
+      allow create: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && request.resource.data.empresa_id == getUserData().empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario')
+        && request.resource.data.get('es_plataforma_admin', false) == false
+        && request.resource.data.rol != 'propietario';
+
+      allow update: if esUsuarioReal()
+        && uid() == userId
+        && request.resource.data.rol == resource.data.rol
+        && request.resource.data.empresa_id == resource.data.empresa_id
+        && request.resource.data.get('es_plataforma_admin', false) == resource.data.get('es_plataforma_admin', false);
+
+      allow update: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && resource.data.empresa_id == getUserData().empresa_id
+        && request.resource.data.empresa_id == resource.data.empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario')
+        && request.resource.data.rol != 'propietario'
+        && request.resource.data.get('es_plataforma_admin', false) == resource.data.get('es_plataforma_admin', false);
+
+      allow delete: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && resource.data.empresa_id == getUserData().empresa_id
+        && getRol() == 'propietario'
+        && uid() != userId;
+
+      match /embargos/{embargoId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
       }
+
+      match /bajas_laborales/{bajaId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
+      }
+
+      match /historial_salarial/{histId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
+      }
+
+      match /ausencias/{ausenciaId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
+      }
+
+      match /documentos/{docId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
+      }
+
+      match /renovaciones/{renovacionId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+        allow read, write: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && exists(/databases/$(database)/documents/usuarios/$(userId))
+          && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario');
+      }
+
+      match /datos_bancarios/{docId} {
+        allow read, write: if esUsuarioReal() && uid() == userId;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // AUDITORÍA
+    // ════════════════════════════════════════════════════════════════════
+
+    match /auditoria/{empresaId}/accesos/{eventoId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow create: if perteneceAEmpresa(empresaId)
+        && request.resource.data.size() <= 20
+        && request.resource.data.keys().hasAll(['tipo', 'timestamp', 'user_id'])
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.tipo is string
+        && request.resource.data.tipo.size() <= 50;
+      allow update, delete: if false;
+    }
+
+    match /auditoria/{empresaId}/intentos_fallidos/{intentoId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // NOTIFICACIONES
+    // ════════════════════════════════════════════════════════════════════
+
+    match /notificaciones/{empresaId}/items/{itemId} {
+      allow read: if perteneceAEmpresa(empresaId);
+      allow update: if perteneceAEmpresa(empresaId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
+      allow create, delete: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // VACACIONES
+    // ════════════════════════════════════════════════════════════════════
+
+    match /vacaciones/{empresaId}/{document=**} {
+      allow read, write: if esAdminOPropietario(empresaId);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // LOGIN INTENTOS / INVITACIONES
+    // ════════════════════════════════════════════════════════════════════
+
+    match /login_intentos/{email} {
+      allow read, write: if false;
+    }
+
+    match /invitaciones/{token} {
+      allow read, write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // EMPRESAS
+    // ════════════════════════════════════════════════════════════════════
+
+    match /empresas/{empresaId} {
+
+      allow read: if perteneceAEmpresa(empresaId);
+      allow read: if esPlataformaAdmin();
+
+      allow read: if isAuth()
+        && !esAnonimo()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email != null
+        && resource.data.get('perfil', {}).get('correo', '') == request.auth.token.email;
+
+      allow create: if esUsuarioReal();
+      allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow delete: if esPlataformaAdmin();
+
+      match /clientes/{clienteId} {
+        allow read: if puedeVerModulo(empresaId, 'clientes');
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      // ═══ RESERVAS: aquí es donde va tu web de Damajuana ═══
+      match /reservas/{reservaId} {
+        allow read: if puedeVerModulo(empresaId, 'reservas')
+          || puedeVerModulo(empresaId, 'citas');
+        allow update, delete: if puedeVerModulo(empresaId, 'reservas')
+          || puedeVerModulo(empresaId, 'citas');
+
+        // Reservas desde web pública (visitantes anónimos permitidos)
+        allow create: if isAuth()
+          && request.resource.data.estado == 'PENDIENTE'
+          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente', 'fecha_hora'])
+          && request.resource.data.size() <= 15
+          && request.resource.data.nombre_cliente is string
+          && request.resource.data.nombre_cliente.size() > 0
+          && request.resource.data.nombre_cliente.size() <= 100
+          && request.resource.data.telefono_cliente is string
+          && request.resource.data.telefono_cliente.size() > 0
+          && request.resource.data.telefono_cliente.size() <= 20
+          && request.resource.data.fecha_hora is timestamp
+          && request.resource.data.fecha_hora > request.time
+          && request.resource.data.fecha_hora < request.time + duration.value(365, 'd');
+
+        allow create: if puedeVerModulo(empresaId, 'reservas')
+          || puedeVerModulo(empresaId, 'citas');
+      }
+
+      match /valoraciones/{valoracionId} {
+        allow read: if true;
+        allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow update: if staffTieneModulo(empresaId, 'valoraciones');
+        allow create: if isAuth()
+          && request.resource.data.keys().hasAll(['cliente', 'calificacion'])
+          && request.resource.data.size() <= 10
+          && request.resource.data.calificacion is int
+          && request.resource.data.calificacion >= 1
+          && request.resource.data.calificacion <= 5
+          && request.resource.data.cliente is string
+          && request.resource.data.cliente.size() <= 100;
+      }
+
+      match /resenas/{resenaId} {
+        allow read: if true;
+        allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow create: if isAuth()
+          && request.resource.data.keys().hasAll(['calificacion'])
+          && request.resource.data.size() <= 15
+          && request.resource.data.calificacion is int
+          && request.resource.data.calificacion >= 1
+          && request.resource.data.calificacion <= 5;
+      }
+
+      match /pedidos/{pedidoId} {
+        allow read: if puedeVerModulo(empresaId, 'pedidos');
+        allow create: if puedeVerModulo(empresaId, 'pedidos')
+          && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
+          && request.resource.data.empresaId == empresaId;
+        allow update: if puedeVerModulo(empresaId, 'pedidos');
+        allow delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /pedidos_whatsapp/{pedidoId} {
+        allow read: if puedeVerModulo(empresaId, 'pedidos')
+          || puedeVerModulo(empresaId, 'whatsapp');
+        allow create: if (puedeVerModulo(empresaId, 'pedidos') || puedeVerModulo(empresaId, 'whatsapp'))
+          && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
+          && request.resource.data.empresaId == empresaId;
+        allow update, delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /productos/{productoId} {
+        allow read: if true;
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /servicios/{servicioId} {
+        allow read: if true;
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /cuentas_google/{cuentaId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /facturas/{facturaId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /facturas_recibidas/{facturaId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /finiquitos/{finiquitoId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /transacciones/{transaccionId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /tareas/{tareaId} {
+        allow read, write: if puedeVerModulo(empresaId, 'tareas');
+        match /mensajes/{mensajeId} {
+          allow read, write: if puedeVerModulo(empresaId, 'tareas');
+        }
+        match /adjuntos/{adjuntoId} {
+          allow read, write: if puedeVerModulo(empresaId, 'tareas');
+        }
+      }
+
+      match /nominas/{nominaId} {
+        allow read: if esAdminOPropietario(empresaId)
+          || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /fichajes/{fichajeId} {
+        allow read: if esAdminOPropietario(empresaId)
+          || (perteneceAEmpresa(empresaId)
+              && resource.data.empleado_id == request.auth.uid);
+        allow create: if perteneceAEmpresa(empresaId)
+          && request.resource.data.empleado_id == request.auth.uid
+          && request.resource.data.keys().hasAll(['empleado_id', 'tipo', 'timestamp'])
+          && request.resource.data.tipo in ['entrada', 'salida', 'pausa_inicio', 'pausa_fin']
+          && request.resource.data.size() <= 15;
+        allow update: if esAdminOPropietario(empresaId);
+        allow delete: if false;
+      }
+
+      match /equipos/{equipoId} {
+        allow read: if esStaffOSuperior(empresaId);
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /secciones_web/{seccionId} {
+        allow read: if true;
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /contenido_web/{docId} {
+        allow read: if true;
+        allow write: if esAdminOPropietario(empresaId);
+      }
+
+      match /contacto_web/{mensajeId} {
+        allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
+          && request.resource.data.size() <= 10
+          && request.resource.data.nombre is string
+          && request.resource.data.nombre.size() > 0
+          && request.resource.data.nombre.size() <= 100
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.email.size() <= 150
+          && request.resource.data.email.matches('.+@.+[.].+')
+          && request.resource.data.mensaje is string
+          && request.resource.data.mensaje.size() > 0
+          && request.resource.data.mensaje.size() <= 2000;
+        allow read, update, delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /dispositivos/{dispositivoId} {
+        allow read: if esAdminOPropietario(empresaId);
+        allow write: if esUsuarioReal();
+      }
+
+      match /suscripcion/{docId} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow create: if esAdminOPropietario(empresaId)
+          && request.resource.data.size() <= 30;
+        allow update: if esAdminOPropietario(empresaId)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['stripe_customer_id', 'stripe_subscription_id',
+                       'amount_paid', 'next_charge_date', 'payment_status',
+                       'plataforma_verified']);
+        allow write: if esPlataformaAdmin();
+        allow delete: if false;
+      }
+
+      match /estadisticas/{docId} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow create: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && getUserData().empresa_id == empresaId
+          && (getRol() == 'admin' || getRol() == 'propietario')
+          && request.resource.data.size() <= 30;
+      }
+
+      match /estadisticas/{docId}/{subcol}/{subId} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      }
+
+      match /estadisticas/trafico_web {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow create, update: if request.resource.data.size() <= 20;
+        allow delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /estadisticas/trafico_web/historico_diario/{fecha} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow create, update: if request.resource.data.size() <= 30;
+        allow delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /eventos_web/{eventoId} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow create: if request.resource.data.keys().hasAll(['tipo', 'fecha_iso'])
+          && request.resource.data.size() <= 15
+          && request.resource.data.tipo is string
+          && request.resource.data.tipo.size() <= 50;
+        allow update, delete: if esAdminOPropietario(empresaId);
+      }
+
+      match /cache/{docId} {
+        allow read, write: if perteneceAEmpresa(empresaId);
+      }
+
+      match /configuracion/{docId} {
+        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+        allow read: if docId == 'web_avanzada';
+        allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      match /cierres_caja/{cierreId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create: if esAdminOPropietario(empresaId);
+        allow update, delete: if false;
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // PACK FISCAL
+      // ════════════════════════════════════════════════════════════════
+
+      match /fiscal_documents/{docId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create: if perteneceAEmpresa(empresaId)
+          && empresaTienePack(empresaId, 'fiscal_ai')
+          && request.resource.data.keys().hasAll(['filename', 'storage_path', 'sha256_hash'])
+          && request.resource.data.size() <= 20;
+        allow update, delete: if false;
+      }
+
+      match /fiscal_extractions/{extractionId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create, update, delete: if false;
+      }
+
+      match /fiscal_transactions/{txId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create: if false;
+        allow update: if esAdminOPropietario(empresaId)
+          && empresaTienePack(empresaId, 'fiscal_ai')
+          && resource.data.status in ['draft', 'needs_review']
+          && request.resource.data.status in ['draft', 'needs_review', 'posted', 'voided']
+          && request.resource.data.document_id == resource.data.document_id
+          && request.resource.data.extraction_id == resource.data.extraction_id
+          && request.resource.data.period == resource.data.period;
+        allow update: if esAdminOPropietario(empresaId)
+          && empresaTienePack(empresaId, 'fiscal_ai')
+          && resource.data.status == 'posted'
+          && request.resource.data.status == 'voided';
+        allow delete: if false;
+      }
+
+      match /fiscal_transaction_history/{historyId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow write: if false;
+      }
+
+      match /fiscal_models/{modelId} {
+        allow read: if esAdminOPropietario(empresaId);
+        allow create, update, delete: if false;
+      }
+
+      match /fiscal_counterparties/{tax_id} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create, update: if esAdminOPropietario(empresaId)
+          && empresaTienePack(empresaId, 'fiscal_ai');
+        allow delete: if false;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CONVENIOS
+    // ════════════════════════════════════════════════════════════════════
+
+    match /convenios/{convenioId} {
+      allow read: if esUsuarioReal();
+      allow create, update: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && getUserData().rol == 'propietario';
+      allow delete: if false;
+
+      match /{subcollection}/{docId} {
+        allow read: if esUsuarioReal();
+        allow create, update: if esUsuarioReal()
+          && existeUsuarioDoc()
+          && getUserData().rol == 'propietario';
+        allow delete: if false;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // PAGOS DE PLATAFORMA
+    // ════════════════════════════════════════════════════════════════════
+
+    match /plataforma_pagos/{pagoId} {
+      allow read: if esPlataformaAdmin();
+      allow write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CATCH-ALL
+    // ════════════════════════════════════════════════════════════════════
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
-

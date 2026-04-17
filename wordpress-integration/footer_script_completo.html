@@ -15,6 +15,7 @@
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
@@ -46,6 +47,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  // 🔐 Autenticación anónima para cumplir las reglas de Firestore
+  async function asegurarAuth() {
+    if (!auth.currentUser) {
+      await auth.signInAnonymously();
+    }
+    return auth.currentUser;
+  }
 
   // ============================================================
   // GOOGLE OAUTH2 — Subir respuestas a Google My Business
@@ -470,6 +480,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ============================================================
   async function iniciar() {
     try {
+      await asegurarAuth();
       await registrarVisita();
       await actualizarTasaRebote();
       detectarFormularios();

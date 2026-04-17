@@ -5,7 +5,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:planeag_flutter/domain/modelos/factura_recibida.dart';
 import 'package:planeag_flutter/services/contabilidad_service.dart';
+import 'package:planeag_flutter/features/fiscal/pantallas/invoice_result_screen.dart';
 import 'formulario_factura_recibida_screen.dart';
+import 'upload_invoice_screen.dart';
 
 class TabFacturasRecibidas extends StatefulWidget {
   final String empresaId;
@@ -92,11 +94,20 @@ class _TabFacturasRecibidasState extends State<TabFacturasRecibidas> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirFormulario,
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva compra'),
+        onPressed: _subirFactura,
+        icon: const Icon(Icons.document_scanner),
+        label: const Text('Subir factura'),
         backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  void _subirFactura() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UploadInvoiceScreen(empresaId: widget.empresaId),
       ),
     );
   }
@@ -543,6 +554,37 @@ class _TabFacturasRecibidasState extends State<TabFacturasRecibidas> {
                   ),
                 ),
               ],
+              // Badge IA
+              if (factura.aiTransactionId != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.indigo.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.psychology,
+                              size: 11, color: Colors.indigo),
+                          SizedBox(width: 4),
+                          Text('Procesada por IA',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.indigo,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -597,6 +639,25 @@ class _TabFacturasRecibidasState extends State<TabFacturasRecibidas> {
           ),
         ),
         actions: [
+          // Botón "Ver análisis IA" — solo si fue procesada por IA
+          if (factura.aiTransactionId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.psychology, size: 16, color: Colors.indigo),
+              label: const Text('Ver IA',
+                  style: TextStyle(color: Colors.indigo)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => InvoiceResultScreen(
+                      empresaId: widget.empresaId,
+                      transactionId: factura.aiTransactionId!,
+                    ),
+                  ),
+                );
+              },
+            ),
           TextButton.icon(
               icon: const Icon(Icons.edit, size: 16),
               label: const Text('Editar'),

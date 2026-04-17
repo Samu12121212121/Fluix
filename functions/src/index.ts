@@ -19,6 +19,8 @@ import { scheduledAlertaCertificado } from "./alertaCertificado";
 import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } from "./utils/authGuard";
 import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import fetch from "node-fetch";
+export { processInvoice } from "./fiscal/processInvoice";
+export { calculateFiscalModel } from "./fiscal/models/calculateModel";
 
 // NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
 // "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
