@@ -11,94 +11,7 @@ import {
 
 if (!admin.apps.length) admin.initializeApp();
 
-// Re-export alias
 const SYSTEM_PROMPT = SYSTEM_PROMPT_INVOICE_ES;
-
-/* LEGACY BLOCK START — replaced by invoiceExtractionV1.ts
-const _LEGACY_PROMPT = `Eres un extractor experto de facturas fiscales españolas.
-Los usuarios son pymes españolas: hostelería, peluquería, tatuaje,
-carnicería, belleza, tiendas. Procesas facturas y tickets de sus proveedores.
-
-REGLAS ABSOLUTAS:
-1. Devuelve SOLO JSON válido, sin markdown ni texto adicional.
-2. Si un campo no se ve claro en el texto, usa null. NUNCA inventes.
-3. Importes como string con 2 decimales: "277.99".
-4. Fechas en ISO: YYYY-MM-DD.
-5. Países en ISO 3166-1 alfa-2 (ES, NL, DE, FR, PT).
-6. Moneda en ISO 4217 (EUR por defecto).
-
-TIPOS DE IVA ESPAÑA:
-- 21% (general)
-- 10% (reducido): hostelería, alimentación preparada, transporte
-- 4% (superreducido): alimentos básicos, libros, medicamentos
-- 0% o exento: sanitarios, educativos, financieros, alquiler vivienda
-
-RÉGIMEN DE IVA (vat_scheme):
-- "standard": caso general (21%/10%/4%)
-- "exempt": exenta (art. 20 LIVA)
-- "not_subject": no sujeta (art. 7 LIVA)
-- "reverse_charge_domestic": inversión del sujeto pasivo nacional
-- "margin_scheme": régimen de margen (bienes usados, REBU)
-- "reverse_charge_eu": proveedor UE distinto de ES, sin margen
-- "export": proveedor ES, cliente fuera UE
-- "import": proveedor fuera UE, cliente ES
-
-TAX_TAGS (añade TODOS los que apliquen):
-- MARGIN_SCHEME, SECOND_HAND_GOODS, VAT_NOT_DEDUCTIBLE
-- CROSS_BORDER_EU, EXCLUDED_FROM_349
-- RECARGO_EQUIVALENCIA (si menciona "recargo de equivalencia" o "RE")
-- FIXED_ASSET_CANDIDATE (>300€ y es hardware/equipo duradero)
-- HOSTELERIA_INSUMOS, PRODUCTOS_BELLEZA, MATERIAL_TATUAJE,
-  SUMINISTROS_CARNICERIA, ALQUILER_LOCAL, SUMINISTROS_BASICOS,
-  SERVICIOS_PROFESIONALES, PUBLICIDAD, EQUIPAMIENTO, ALIMENTACION, OTROS, TICKET
-
-VALIDACIÓN MATEMÁTICA INTERNA:
-Antes de responder, verifica: base + IVA ≈ total (tolerancia ±0.02€).
-Si no cuadra Y vat_scheme no es margin_scheme, añade a extraction_warnings
-"math_check_failed: {detalles}".
-
-SI ES UN TICKET: marca en tax_tags: "TICKET".
-
-SI HAY VARIAS LÍNEAS CON TIPOS DE IVA DISTINTOS:
-- Desglosa en "lines" con su vat_rate.
-- Añade warning "multiple_vat_rates".
-
-NUNCA inventes NIFs, números, fechas o importes.
-
-SCHEMA DE SALIDA:
-{
-  "invoice_number": string | null,
-  "external_reference": string | null,
-  "invoice_date": "YYYY-MM-DD",
-  "supplier_name": string,
-  "supplier_legal_name": string | null,
-  "supplier_tax_id": string | null,
-  "supplier_country": "XX",
-  "supplier_address": string | null,
-  "customer_name": string | null,
-  "customer_tax_id": string | null,
-  "base_amount": "0.00",
-  "vat_rate": "0",
-  "vat_amount": "0.00",
-  "recargo_rate": "0" | null,
-  "recargo_amount": "0.00" | null,
-  "total_amount": "0.00",
-  "currency": "EUR",
-  "vat_scheme": "standard" | ...,
-  "tax_tags": ["..."],
-  "lines": [
-    {
-      "description": string,
-      "sku": string | null,
-      "quantity": "1",
-      "unit_price": "0.00",
-      "line_total": "0.00",
-      "vat_rate": "21" | null
-    }
-  ],
-  "extraction_warnings": ["..."]
-}`;
-LEGACY BLOCK END */
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS: LLAMADA A CLAUDE CON RETRY
@@ -183,309 +96,354 @@ export const processInvoice = onCall(
     cors: true,
   },
   async (request) => {
-    // 1. AUTH + PERMISOS
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Debe estar autenticado");
-    }
-
-    const uid = request.auth.uid;
-    const { empresaId, documentId, tipoDocumento = "gasto" } = request.data;
-
-    if (!empresaId || !documentId) {
-      throw new HttpsError("invalid-argument", "Faltan empresaId o documentId");
-    }
-
-    // Verificar pertenencia
-    const userDoc = await admin.firestore().doc(`usuarios/${uid}`).get();
-    if (!userDoc.exists || userDoc.data()?.empresa_id !== empresaId) {
-      throw new HttpsError("permission-denied", "No pertenece a esta empresa");
-    }
-
-    // Verificar Pack Fiscal activo
-    const empresaDoc = await admin
-      .firestore()
-      .doc(`empresas/${empresaId}`)
-      .get();
-    const activePacks = empresaDoc.data()?.active_packs || [];
-    if (!activePacks.includes("fiscal_ai")) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Pack Fiscal IA no activo en esta empresa"
-      );
-    }
-
-    // 2. CARGAR ARCHIVO
-    const docRef = admin
-      .firestore()
-      .doc(`empresas/${empresaId}/fiscal_documents/${documentId}`);
-    const docSnap = await docRef.get();
-
-    if (!docSnap.exists) {
-      throw new HttpsError("not-found", "Documento no existe");
-    }
-
-    const doc = docSnap.data()!;
-    const bucket = admin.storage().bucket();
-    const [fileBuffer] = await bucket.file(doc.storage_path).download();
-
-    // 3. EXTRAER TEXTO
-    let rawText = "";
-    let ocrEngine = "";
-
-    if (doc.mime_type === "application/pdf") {
-      try {
-        const parsed = await pdfParse(fileBuffer);
-        if (parsed.text && parsed.text.trim().length >= 50) {
-          rawText = parsed.text;
-          ocrEngine = "pdf-parse";
-        }
-      } catch (e) {
-        console.warn("pdf-parse falló:", e);
-      }
-
-      if (!rawText) {
-        rawText = await callDocumentAI(fileBuffer, "application/pdf");
-        ocrEngine = "document_ai_pdf";
-      }
-    } else if (doc.mime_type.startsWith("image/")) {
-      const optimized = await sharp(fileBuffer)
-        .rotate()
-        .resize({
-          width: 2400,
-          height: 2400,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .jpeg({ quality: 90 })
-        .toBuffer();
-
-      rawText = await callDocumentAI(optimized, "image/jpeg");
-      ocrEngine = "document_ai_image";
-    } else {
-      throw new HttpsError(
-        "invalid-argument",
-        `Tipo de archivo no soportado: ${doc.mime_type}`
-      );
-    }
-
-    if (!rawText || rawText.trim().length < 10) {
-      await docRef.update({
-        processing_status: "failed",
-        processing_error: "No se pudo extraer texto del archivo",
-      });
-      throw new HttpsError(
-        "internal",
-        "No se pudo extraer texto del documento. Asegúrate de que la factura es legible."
-      );
-    }
-
-    // 4. CREAR REGISTRO DE EXTRACCIÓN
-    const extractionRef = await admin
-      .firestore()
-      .collection(`empresas/${empresaId}/fiscal_extractions`)
-      .add({
-        document_id: documentId,
-        ocr_engine: ocrEngine,
-        ocr_version: "1.0",
-        llm_model: "claude-sonnet-4-5",
-        prompt_version: PROMPT_VERSION,
-        raw_text: rawText,
-        status: "processing",
-        extracted_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-    // 5. LLAMAR A CLAUDE CON RETRY
-    let invoiceData: any;
-
     try {
-      // DocAI entities: si existen en Firestore del paso OCR, las pasamos
-      const docaiEntities: Record<string, any> =
-        (doc.docai_entities as Record<string, any>) || {};
 
-      const result = await extractWithRetry(rawText, docaiEntities);
-      invoiceData = result.data;
-    } catch (e: any) {
-      await extractionRef.update({
-        status: "failed",
-        error: e.message || "Error en LLM",
-      });
-      throw new HttpsError("internal", "La IA no pudo procesar la factura");
-    }
+      console.log("=== processInvoice INICIADO ===");
 
-    // 6. VALIDAR
-    const validation = validateInvoice(invoiceData);
+      // 1. AUTH
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debe estar autenticado");
+      }
 
-    // 7. DETECTAR DUPLICADOS
-    if (invoiceData.supplier_tax_id && invoiceData.invoice_number) {
-      const dupQuery = await admin
+      const uid = request.auth.uid;
+      const { empresaId, documentId, tipoDocumento = "gasto" } = request.data;
+
+      console.log(`uid: ${uid}, empresaId: ${empresaId}, documentId: ${documentId}`);
+
+      if (!empresaId || !documentId) {
+        throw new HttpsError("invalid-argument", "Faltan empresaId o documentId");
+      }
+
+      // 2. VERIFICAR PERTENENCIA
+      const userDoc = await admin
         .firestore()
-        .collection(`empresas/${empresaId}/fiscal_transactions`)
-        .where("counterparty.tax_id", "==", invoiceData.supplier_tax_id)
-        .where("invoice_number", "==", invoiceData.invoice_number)
-        .where("status", "!=", "voided")
-        .limit(1)
+        .collection("usuarios")
+        .doc(uid)
         .get();
 
-      if (!dupQuery.empty) {
-        validation.warnings.push(
-          "Posible duplicado de una factura ya registrada"
+      console.log(`userDoc exists: ${userDoc.exists}, empresa_id en doc: ${userDoc.data()?.empresa_id}`);
+
+      if (!userDoc.exists || userDoc.data()?.empresa_id !== empresaId) {
+        throw new HttpsError("permission-denied", "No pertenece a esta empresa");
+      }
+
+      // 3. VERIFICAR PACK FISCAL
+      const empresaDoc = await admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .get();
+
+      const activePacks = empresaDoc.data()?.active_packs || [];
+      console.log(`active_packs: ${JSON.stringify(activePacks)}`);
+
+      if (!activePacks.includes("fiscal_ai")) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Pack Fiscal IA no activo en esta empresa"
         );
       }
-    }
 
-    // 8. PERÍODO FISCAL
-    const invoiceDate = new Date(invoiceData.invoice_date);
-    const year = invoiceDate.getFullYear();
-    const quarter = Math.ceil((invoiceDate.getMonth() + 1) / 3);
-    const period = `${year}-Q${quarter}`;
+      // 4. CARGAR METADATA DEL DOCUMENTO
+      console.log("Cargando documento de Firestore...");
+      const docRef = admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("fiscal_documents")
+        .doc(documentId);
 
-    // 9. DECIDIR ESTADO
-    const status = decideStatus(invoiceData, validation);
+      const docSnap = await docRef.get();
 
-    // 10. GUARDAR EN fiscal_transactions (auditoría/pipeline IA)
-    const txRef = await admin
-      .firestore()
-      .collection(`empresas/${empresaId}/fiscal_transactions`)
-      .add({
-        type: tipoDocumento === "ingreso" ? "invoice_issued" : "invoice_received",
-        status,
-        document_id: documentId,
-        extraction_id: extractionRef.id,
-        invoice_number: invoiceData.invoice_number,
-        external_reference: invoiceData.external_reference || null,
-        invoice_date: admin.firestore.Timestamp.fromDate(invoiceDate),
-        period,
-        counterparty: {
-          name: invoiceData.supplier_name,
-          legal_name: invoiceData.supplier_legal_name || null,
-          tax_id: invoiceData.supplier_tax_id || null,
-          country: invoiceData.supplier_country,
-          address: invoiceData.supplier_address || null,
-        },
-        base_amount_cents: toCents(invoiceData.base_amount),
-        vat_amount_cents: toCents(invoiceData.vat_amount),
-        total_amount_cents: toCents(invoiceData.total_amount),
-        vat_rate: parseFloat(invoiceData.vat_rate || "0"),
-        recargo_amount_cents: invoiceData.recargo_amount
-          ? toCents(invoiceData.recargo_amount)
-          : 0,
-        recargo_rate: invoiceData.recargo_rate
-          ? parseFloat(invoiceData.recargo_rate)
-          : 0,
-        withholding_amount_cents: invoiceData.withholding_amount
-          ? toCents(invoiceData.withholding_amount)
-          : 0,
-        withholding_rate: invoiceData.withholding_rate
-          ? parseFloat(invoiceData.withholding_rate)
-          : 0,
-        due_date: invoiceData.due_date || null,
-        supplier_iban: invoiceData.supplier_iban || null,
-        currency: invoiceData.currency || "EUR",
-        vat_scheme: invoiceData.vat_scheme,
-        tax_tags: invoiceData.tax_tags || [],
-        lines: invoiceData.lines || [],
-        validation_errors: validation.errors,
-        validation_warnings: validation.warnings,
-        extraction_warnings: invoiceData.extraction_warnings || [],
-        // Metadatos IA — para InvoiceResultScreen
-        _ai_ocr_engine: ocrEngine,
-        _ai_llm_model: "claude-sonnet-4-5",
-        _ai_prompt_version: PROMPT_VERSION,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-        created_by: uid,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      if (!docSnap.exists) {
+        throw new HttpsError("not-found", "Documento no existe en Firestore");
+      }
+
+      const doc = docSnap.data()!;
+      console.log(`storage_path: ${doc.storage_path}, mime_type: ${doc.mime_type}`);
+
+      // 5. DESCARGAR ARCHIVO DE STORAGE
+      // BUCKET CORRECTO para proyectos Firebase creados después de 2024
+      console.log("Descargando archivo de Storage...");
+      const bucket = admin.storage().bucket("planeaapp-4bea4.firebasestorage.app");
+      const [fileBuffer] = await bucket.file(doc.storage_path).download();
+      console.log(`Archivo descargado: ${fileBuffer.length} bytes`);
+
+      // 6. EXTRAER TEXTO
+      let rawText = "";
+      let ocrEngine = "";
+
+      if (doc.mime_type === "application/pdf") {
+        console.log("Procesando PDF...");
+        try {
+          const parsed = await pdfParse(fileBuffer);
+          if (parsed.text && parsed.text.trim().length >= 50) {
+            rawText = parsed.text;
+            ocrEngine = "pdf-parse";
+            console.log(`PDF con texto nativo: ${rawText.length} chars`);
+          }
+        } catch (e) {
+          console.warn("pdf-parse falló:", e);
+        }
+
+        if (!rawText) {
+          console.log("PDF escaneado, usando Document AI...");
+          rawText = await callDocumentAI(fileBuffer, "application/pdf");
+          ocrEngine = "document_ai_pdf";
+        }
+      } else if (doc.mime_type.startsWith("image/")) {
+        console.log("Procesando imagen con Document AI...");
+        const optimized = await sharp(fileBuffer)
+          .rotate()
+          .resize({
+            width: 2400,
+            height: 2400,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: 90 })
+          .toBuffer();
+
+        rawText = await callDocumentAI(optimized, "image/jpeg");
+        ocrEngine = "document_ai_image";
+      } else {
+        throw new HttpsError(
+          "invalid-argument",
+          `Tipo de archivo no soportado: ${doc.mime_type}`
+        );
+      }
+
+      console.log(`OCR completado. Motor: ${ocrEngine}, Chars: ${rawText.length}`);
+
+      if (!rawText || rawText.trim().length < 10) {
+        await docRef.update({
+          processing_status: "failed",
+          processing_error: "No se pudo extraer texto del archivo",
+        });
+        throw new HttpsError(
+          "internal",
+          "No se pudo extraer texto. Asegúrate de que la factura es legible."
+        );
+      }
+
+      // 7. CREAR REGISTRO DE EXTRACCIÓN
+      console.log("Creando extracción en Firestore...");
+      const extractionRef = await admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("fiscal_extractions")
+        .add({
+          document_id: documentId,
+          ocr_engine: ocrEngine,
+          ocr_version: "1.0",
+          llm_model: "claude-sonnet-4-5",
+          prompt_version: PROMPT_VERSION,
+          raw_text: rawText,
+          status: "processing",
+          extracted_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      // 8. LLAMAR A CLAUDE CON RETRY
+      console.log("Llamando a Claude...");
+      let invoiceData: any;
+
+      try {
+        const docaiEntities: Record<string, any> =
+          (doc.docai_entities as Record<string, any>) || {};
+        const result = await extractWithRetry(rawText, docaiEntities);
+        invoiceData = result.data;
+        console.log("Claude respondió OK");
+      } catch (e: any) {
+        console.error("Error en Claude:", e.message);
+        await extractionRef.update({
+          status: "failed",
+          error: e.message || "Error en LLM",
+        });
+        throw new HttpsError("internal", "La IA no pudo procesar la factura");
+      }
+
+      // 9. VALIDAR
+      const validation = validateInvoice(invoiceData);
+      console.log(`Validación: ${validation.errors.length} errores, ${validation.warnings.length} warnings`);
+
+      // 10. DETECTAR DUPLICADOS
+      if (invoiceData.supplier_tax_id && invoiceData.invoice_number) {
+        const dupQuery = await admin
+          .firestore()
+          .collection("empresas")
+          .doc(empresaId)
+          .collection("fiscal_transactions")
+          .where("counterparty.tax_id", "==", invoiceData.supplier_tax_id)
+          .where("invoice_number", "==", invoiceData.invoice_number)
+          .where("status", "!=", "voided")
+          .limit(1)
+          .get();
+
+        if (!dupQuery.empty) {
+          validation.warnings.push("Posible duplicado de una factura ya registrada");
+        }
+      }
+
+      // 11. PERÍODO FISCAL
+      const invoiceDate = new Date(invoiceData.invoice_date);
+      const year = invoiceDate.getFullYear();
+      const quarter = Math.ceil((invoiceDate.getMonth() + 1) / 3);
+      const period = `${year}-Q${quarter}`;
+
+      // 12. DECIDIR ESTADO
+      const status = decideStatus(invoiceData, validation);
+      console.log(`Estado: ${status}`);
+
+      // 13. GUARDAR EN fiscal_transactions
+      console.log("Guardando fiscal_transaction...");
+      const txRef = await admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("fiscal_transactions")
+        .add({
+          type: tipoDocumento === "ingreso" ? "invoice_issued" : "invoice_received",
+          status,
+          document_id: documentId,
+          extraction_id: extractionRef.id,
+          invoice_number: invoiceData.invoice_number,
+          external_reference: invoiceData.external_reference || null,
+          invoice_date: admin.firestore.Timestamp.fromDate(invoiceDate),
+          period,
+          counterparty: {
+            name: invoiceData.supplier_name,
+            legal_name: invoiceData.supplier_legal_name || null,
+            tax_id: invoiceData.supplier_tax_id || null,
+            country: invoiceData.supplier_country,
+            address: invoiceData.supplier_address || null,
+          },
+          base_amount_cents: toCents(invoiceData.base_amount),
+          vat_amount_cents: toCents(invoiceData.vat_amount),
+          total_amount_cents: toCents(invoiceData.total_amount),
+          vat_rate: parseFloat(invoiceData.vat_rate || "0"),
+          recargo_amount_cents: invoiceData.recargo_amount ? toCents(invoiceData.recargo_amount) : 0,
+          recargo_rate: invoiceData.recargo_rate ? parseFloat(invoiceData.recargo_rate) : 0,
+          withholding_amount_cents: invoiceData.withholding_amount ? toCents(invoiceData.withholding_amount) : 0,
+          withholding_rate: invoiceData.withholding_rate ? parseFloat(invoiceData.withholding_rate) : 0,
+          due_date: invoiceData.due_date || null,
+          supplier_iban: invoiceData.supplier_iban || null,
+          currency: invoiceData.currency || "EUR",
+          vat_scheme: invoiceData.vat_scheme,
+          tax_tags: invoiceData.tax_tags || [],
+          lines: invoiceData.lines || [],
+          validation_errors: validation.errors,
+          validation_warnings: validation.warnings,
+          extraction_warnings: invoiceData.extraction_warnings || [],
+          _ai_ocr_engine: ocrEngine,
+          _ai_llm_model: "claude-sonnet-4-5",
+          _ai_prompt_version: PROMPT_VERSION,
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_by: uid,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      // 14. GUARDAR EN facturas_recibidas (modelo contable existente)
+      console.log("Guardando factura_recibida...");
+      const baseAmount = parseFloat(invoiceData.base_amount || "0");
+      const vatRate = parseFloat(invoiceData.vat_rate || "0");
+      const vatAmount = parseFloat(invoiceData.vat_amount || "0");
+      const totalAmount = parseFloat(invoiceData.total_amount || "0");
+      const recargoRate = invoiceData.recargo_rate ? parseFloat(invoiceData.recargo_rate) : 0;
+
+      const EU_COUNTRIES = [
+        "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR",
+        "HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","SE"
+      ];
+
+      const esIntracomunitario =
+        invoiceData.vat_scheme === "reverse_charge_eu" ||
+        (invoiceData.supplier_country &&
+          invoiceData.supplier_country !== "ES" &&
+          EU_COUNTRIES.includes(invoiceData.supplier_country));
+
+      const esArrendamiento = (invoiceData.tax_tags || []).includes("ALQUILER_LOCAL");
+
+      const facturaRecibidaRef = admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("facturas_recibidas")
+        .doc();
+
+      const ahora = admin.firestore.Timestamp.now();
+
+      await facturaRecibidaRef.set({
+        empresa_id: empresaId,
+        numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
+        serie: null,
+        fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
+        fecha_recepcion: ahora,
+        nif_proveedor: invoiceData.supplier_tax_id || "",
+        nif_iva_comunitario: esIntracomunitario ? invoiceData.supplier_tax_id : null,
+        es_intracomunitario: esIntracomunitario,
+        nombre_proveedor: invoiceData.supplier_name || "",
+        direccion_proveedor: invoiceData.supplier_address || null,
+        telefono_proveedor: null,
+        base_imponible: baseAmount,
+        porcentaje_iva: vatRate,
+        importe_iva: vatAmount,
+        iva_deducible: !(invoiceData.tax_tags || []).includes("VAT_NOT_DEDUCTIBLE"),
+        descuento_global: 0,
+        recargo_equivalencia: recargoRate,
+        total_con_impuestos: totalAmount,
+        porcentaje_retencion: null,
+        importe_retencion: null,
+        estado: status === "posted" ? "recibida" : "pendiente",
+        fecha_pago: null,
+        metodo_pago: null,
+        referencia_bancaria: null,
+        es_arrendamiento: esArrendamiento,
+        nif_arrendador: esArrendamiento ? invoiceData.supplier_tax_id : null,
+        concepto_arrendamiento: esArrendamiento ? "Alquiler local" : null,
+        notas: [
+          `Procesada por IA (${ocrEngine})`,
+          ...(validation.warnings.length > 0 ? [`⚠️ ${validation.warnings.join(", ")}`] : []),
+          ...(invoiceData.vat_scheme !== "standard" ? [`Régimen IVA: ${invoiceData.vat_scheme}`] : []),
+        ].join("\n"),
+        fecha_creacion: ahora,
+        fecha_actualizacion: ahora,
+        _ai_transaction_id: txRef.id,
+        _ai_document_id: documentId,
+        _ai_confidence: calculateConfidence(invoiceData, validation),
+        _ai_tax_tags: invoiceData.tax_tags || [],
+        _ai_vat_scheme: invoiceData.vat_scheme,
+        _ai_lines: invoiceData.lines || [],
       });
 
-    // 11. GUARDAR EN facturas_recibidas (modelo contable existente)
-    const baseAmount = parseFloat(invoiceData.base_amount || "0");
-    const vatRate = parseFloat(invoiceData.vat_rate || "0");
-    const vatAmount = parseFloat(invoiceData.vat_amount || "0");
-    const totalAmount = parseFloat(invoiceData.total_amount || "0");
-    const recargoRate = invoiceData.recargo_rate
-      ? parseFloat(invoiceData.recargo_rate)
-      : 0;
+      // 15. COMPLETAR EXTRACCIÓN
+      await extractionRef.update({
+        raw_json: invoiceData,
+        status: "success",
+        confidence_score: calculateConfidence(invoiceData, validation),
+        transaction_id: txRef.id,
+        factura_recibida_id: facturaRecibidaRef.id,
+      });
 
-    const esIntracomunitario =
-      invoiceData.vat_scheme === "reverse_charge_eu" ||
-      (invoiceData.supplier_country &&
-        invoiceData.supplier_country !== "ES" &&
-        ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU",
-         "IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","SE"]
-          .includes(invoiceData.supplier_country));
+      console.log("=== processInvoice COMPLETADO OK ===");
 
-    const esArrendamiento = (invoiceData.tax_tags || []).includes("ALQUILER_LOCAL");
+      return {
+        transaction_id: txRef.id,
+        factura_recibida_id: facturaRecibidaRef.id,
+        status,
+        warnings: validation.warnings,
+        errors: validation.errors,
+      };
 
-    const facturaRecibidaRef = admin
-      .firestore()
-      .collection(`empresas/${empresaId}/facturas_recibidas`)
-      .doc();
-
-    const ahora = admin.firestore.Timestamp.now();
-
-    await facturaRecibidaRef.set({
-      empresa_id: empresaId,
-      numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
-      serie: null,
-      fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
-      fecha_recepcion: ahora,
-      nif_proveedor: invoiceData.supplier_tax_id || "",
-      nif_iva_comunitario: esIntracomunitario ? invoiceData.supplier_tax_id : null,
-      es_intracomunitario: esIntracomunitario,
-      nombre_proveedor: invoiceData.supplier_name || "",
-      direccion_proveedor: invoiceData.supplier_address || null,
-      telefono_proveedor: null,
-      base_imponible: baseAmount,
-      porcentaje_iva: vatRate,
-      importe_iva: vatAmount,
-      iva_deducible: !(invoiceData.tax_tags || []).includes("VAT_NOT_DEDUCTIBLE"),
-      descuento_global: 0,
-      recargo_equivalencia: recargoRate,
-      total_con_impuestos: totalAmount,
-      porcentaje_retencion: null,
-      importe_retencion: null,
-      estado: status === "posted" ? "recibida" : "pendiente",
-      fecha_pago: null,
-      metodo_pago: null,
-      referencia_bancaria: null,
-      es_arrendamiento: esArrendamiento,
-      nif_arrendador: esArrendamiento ? invoiceData.supplier_tax_id : null,
-      concepto_arrendamiento: esArrendamiento ? "Alquiler local" : null,
-      notas: [
-        `Procesada por IA (${ocrEngine})`,
-        ...(validation.warnings.length > 0
-          ? [`⚠️ ${validation.warnings.join(", ")}`]
-          : []),
-        ...(invoiceData.vat_scheme !== "standard"
-          ? [`Régimen IVA: ${invoiceData.vat_scheme}`]
-          : []),
-      ].join("\n"),
-      fecha_creacion: ahora,
-      fecha_actualizacion: ahora,
-      // Campos extra IA (no rompen modelo existente)
-      _ai_transaction_id: txRef.id,
-      _ai_document_id: documentId,
-      _ai_confidence: calculateConfidence(invoiceData, validation),
-      _ai_tax_tags: invoiceData.tax_tags || [],
-      _ai_vat_scheme: invoiceData.vat_scheme,
-      _ai_lines: invoiceData.lines || [],
-    });
-
-    // 12. COMPLETAR EXTRACCIÓN
-    await extractionRef.update({
-      raw_json: invoiceData,
-      status: "success",
-      confidence_score: calculateConfidence(invoiceData, validation),
-      transaction_id: txRef.id,
-      factura_recibida_id: facturaRecibidaRef.id,
-    });
-
-    return {
-      transaction_id: txRef.id,
-      factura_recibida_id: facturaRecibidaRef.id,
-      status,
-      warnings: validation.warnings,
-      errors: validation.errors,
-    };
+    } catch (error: any) {
+      console.error("=== ERROR EN processInvoice ===");
+      console.error("Tipo:", error?.constructor?.name);
+      console.error("Mensaje:", error?.message);
+      console.error("Código:", error?.code);
+      console.error("Stack:", error?.stack);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("internal", error?.message || "Error interno desconocido");
+    }
   }
 );
 
@@ -493,10 +451,7 @@ export const processInvoice = onCall(
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-async function callDocumentAI(
-  buffer: Buffer,
-  mimeType: string
-): Promise<string> {
+async function callDocumentAI(buffer: Buffer, mimeType: string): Promise<string> {
   const client = new DocumentProcessorServiceClient({
     apiEndpoint: "eu-documentai.googleapis.com",
   });
@@ -504,6 +459,8 @@ async function callDocumentAI(
   const projectId = process.env.GCLOUD_PROJECT;
   const processorId = process.env.DOCAI_PROCESSOR_ID;
   const name = `projects/${projectId}/locations/eu/processors/${processorId}`;
+
+  console.log(`Document AI llamada: project=${projectId}, processor=${processorId}`);
 
   const [result] = await client.processDocument({
     name,
@@ -521,50 +478,33 @@ function toCents(amountStr: string | null | undefined): number {
   return Math.round(parseFloat(amountStr) * 100);
 }
 
-function validateInvoice(data: any): {
-  errors: string[];
-  warnings: string[];
-} {
+function validateInvoice(data: any): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Matemática
-  if (
-    data.vat_scheme !== "margin_scheme" &&
-    data.vat_scheme !== "reverse_charge_eu"
-  ) {
+  if (data.vat_scheme !== "margin_scheme" && data.vat_scheme !== "reverse_charge_eu") {
     const base = parseFloat(data.base_amount || "0");
     const vat = parseFloat(data.vat_amount || "0");
     const recargo = parseFloat(data.recargo_amount || "0");
     const total = parseFloat(data.total_amount || "0");
     if (Math.abs(base + vat + recargo - total) > 0.02) {
-      errors.push(
-        `Total no cuadra: ${base} + ${vat} + ${recargo} ≠ ${total}`
-      );
+      errors.push(`Total no cuadra: ${base} + ${vat} + ${recargo} ≠ ${total}`);
     }
   }
 
-  // NIF español
   if (data.supplier_country === "ES" && data.supplier_tax_id) {
     if (!validateSpanishNif(data.supplier_tax_id)) {
-      warnings.push(
-        `NIF con formato no estándar: ${data.supplier_tax_id}`
-      );
+      warnings.push(`NIF con formato no estándar: ${data.supplier_tax_id}`);
     }
   }
 
-  // Fecha
   if (data.invoice_date) {
     const invDate = new Date(data.invoice_date);
     const now = new Date();
-    if (invDate > now) {
-      warnings.push("Fecha de factura en el futuro");
-    }
+    if (invDate > now) warnings.push("Fecha de factura en el futuro");
     const fourYearsAgo = new Date();
     fourYearsAgo.setFullYear(now.getFullYear() - 4);
-    if (invDate < fourYearsAgo) {
-      warnings.push("Fecha muy antigua (>4 años, prescripción fiscal)");
-    }
+    if (invDate < fourYearsAgo) warnings.push("Fecha muy antigua (>4 años)");
   }
 
   if (data.extraction_warnings?.length) {
@@ -577,23 +517,14 @@ function validateInvoice(data: any): {
 function validateSpanishNif(nif: string): boolean {
   const clean = nif.toUpperCase().replace(/[-\s]/g, "");
   const letters = "TRWAGMYFPDXBNJZSQVHLCKE";
-
   if (/^\d{8}[A-Z]$/.test(clean)) {
     return clean[8] === letters[parseInt(clean.slice(0, 8)) % 23];
   }
-
   if (/^[XYZ]\d{7}[A-Z]$/.test(clean)) {
     const prefix: Record<string, string> = { X: "0", Y: "1", Z: "2" };
-    return (
-      clean[8] ===
-      letters[parseInt(prefix[clean[0]] + clean.slice(1, 8)) % 23]
-    );
+    return clean[8] === letters[parseInt(prefix[clean[0]] + clean.slice(1, 8)) % 23];
   }
-
-  if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(clean)) {
-    return true;
-  }
-
+  if (/^[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]$/.test(clean)) return true;
   return false;
 }
 
@@ -602,12 +533,7 @@ function decideStatus(data: any, validation: any): string {
   if (parseFloat(data.total_amount || "0") > 3000) return "needs_review";
   if (!data.supplier_tax_id) return "needs_review";
   if (!data.invoice_number) return "needs_review";
-  if (
-    validation.warnings.some((w: string) =>
-      w.toLowerCase().includes("duplicado")
-    )
-  )
-    return "needs_review";
+  if (validation.warnings.some((w: string) => w.toLowerCase().includes("duplicado"))) return "needs_review";
   return "posted";
 }
 
@@ -620,12 +546,3 @@ function calculateConfidence(data: any, validation: any): number {
   if (!data.invoice_date) score -= 0.2;
   return Math.max(0, Math.min(1, score));
 }
-
-
-
-
-
-
-
-
-

@@ -146,6 +146,8 @@ class GoogleReviewsService {
       if (status != 'OK') {
         final errorMsg = response.data['error_message'] as String? ?? status;
         print('❌ Google Places status: $status — $errorMsg');
+        print('💡 Si status=REQUEST_DENIED: verifica que Places API esté habilitada en Google Cloud Console');
+        print('💡 y que la API Key no tenga restricciones de app Android (usa restricción por IP o sin restricción)');
         // Intentar devolver el cache guardado
         final cache = await _leerRatingCache(empresaId);
         return (rating: cache.$1, total: cache.$2, error: 'Google: $status');

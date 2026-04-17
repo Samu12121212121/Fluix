@@ -8,37 +8,38 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "migrate:fase1": "ts-node --project scripts/tsconfig.scripts.json scripts/migrate_fase1.ts"
   },
   "engines": {
     "node": "20"
   },
   "main": "lib/index.js",
   "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "firebase-functions": "^6.0.0",
-    "stripe": "^16.0.0",
-    "nodemailer": "^6.9.0",
-    "node-forge": "^1.3.1",
-    "node-fetch": "^2.7.0",
-    "sharp": "^0.33.0",
-    "@google-cloud/secret-manager": "^5.6.0",
     "@anthropic-ai/sdk": "^0.30.0",
     "@google-cloud/documentai": "^8.0.0",
-    "pdf-parse": "^1.1.1"
+    "@google-cloud/secret-manager": "^5.6.0",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^6.0.0",
+    "node-fetch": "^2.7.0",
+    "node-forge": "^1.3.1",
+    "nodemailer": "^6.9.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "sharp": "^0.33.0",
+    "stripe": "^16.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.4",
+    "@types/node-fetch": "^2.6.0",
+    "@types/node-forge": "^1.3.0",
     "@types/nodemailer": "^6.4.14",
     "@types/pdf-parse": "^1.1.4",
-    "@types/node-forge": "^1.3.0",
-    "@types/node-fetch": "^2.6.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
-    "eslint-config-google": "^0.14.0"
+    "eslint-config-google": "^0.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.4"
   },
   "private": true
 }
-
-

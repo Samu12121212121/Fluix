@@ -19,6 +19,14 @@ service firebase.storage {
 
     // ── RUTAS PÚBLICAS (catálogo web, logo, web content) ────────────────────
 
+    // Zona pública de la empresa (logo, galería, productos, servicios)
+    match /empresas/{empresaId}/public/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Logo de la empresa — visible públicamente (para la web)
     match /empresas/{empresaId}/logo.jpg {
       allow read: if true;
@@ -96,6 +104,48 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.resource.size < 50 * 1024 * 1024; // max 50MB
+    }
+
+    // Contratos de empleados
+    match /empresas/{empresaId}/private/contratos/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Documentos personales de usuarios (DNI, titulaciones...)
+    match /empresas/{empresaId}/private/documentos_usuarios/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('image/.*'));
+    }
+
+    // Exports fiscales (PDFs y TXT generados por la app)
+    match /empresas/{empresaId}/private/fiscal/exports/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // Templates fiscales AEAT (PDFs oficiales rellenables)
+    // Solo Cloud Functions (Admin SDK) puede escribir; usuarios pueden leer
+    match /templates/fiscal/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Convenios (lectura para usuarios autenticados, solo Admin SDK escribe)
+    match /convenios/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Plataforma (solo Admin SDK)
+    match /plataforma/{allPaths=**} {
+      allow read, write: if false;
     }
 
     // ── CERTIFICADOS DIGITALES — NUNCA accesibles desde el cliente ──────────

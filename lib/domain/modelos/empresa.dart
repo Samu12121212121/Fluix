@@ -15,6 +15,13 @@ class PerfilEmpresa {
   final String? logoUrl;
   final DateTime fechaCreacion;
 
+  // Campos nuevos del mapa Firestore
+  final String? ciudad;
+  final String? codigoPostal;
+  final String? provincia;
+  final String? pais;
+  final String? web;
+
   const PerfilEmpresa({
     required this.nombre,
     required this.correo,
@@ -23,6 +30,11 @@ class PerfilEmpresa {
     this.descripcion = '',
     this.logoUrl,
     required this.fechaCreacion,
+    this.ciudad,
+    this.codigoPostal,
+    this.provincia,
+    this.pais,
+    this.web,
   });
 
   factory PerfilEmpresa.fromFirestore(Map<String, dynamic> datos) {
@@ -34,6 +46,11 @@ class PerfilEmpresa {
       descripcion: datos['descripcion'] ?? '',
       logoUrl: datos['logo_url'],
       fechaCreacion: _parseDate(datos['fecha_creacion']),
+      ciudad: datos['ciudad'],
+      codigoPostal: datos['codigo_postal'],
+      provincia: datos['provincia'],
+      pais: datos['pais'] ?? 'ES',
+      web: datos['web'],
     );
   }
 
@@ -46,6 +63,11 @@ class PerfilEmpresa {
       'descripcion': descripcion,
       'logo_url': logoUrl,
       'fecha_creacion': fechaCreacion.toIso8601String(),
+      'ciudad': ciudad,
+      'codigo_postal': codigoPostal,
+      'provincia': provincia,
+      'pais': pais ?? 'ES',
+      'web': web,
     };
   }
 
@@ -56,6 +78,11 @@ class PerfilEmpresa {
     String? direccion,
     String? descripcion,
     String? logoUrl,
+    String? ciudad,
+    String? codigoPostal,
+    String? provincia,
+    String? pais,
+    String? web,
   }) {
     return PerfilEmpresa(
       nombre: nombre ?? this.nombre,
@@ -65,6 +92,11 @@ class PerfilEmpresa {
       descripcion: descripcion ?? this.descripcion,
       logoUrl: logoUrl ?? this.logoUrl,
       fechaCreacion: fechaCreacion,
+      ciudad: ciudad ?? this.ciudad,
+      codigoPostal: codigoPostal ?? this.codigoPostal,
+      provincia: provincia ?? this.provincia,
+      pais: pais ?? this.pais,
+      web: web ?? this.web,
     );
   }
 }
@@ -289,6 +321,66 @@ class EstadisticasEmpresa {
   }
 }
 
+// ── RÉGIMEN FISCAL ────────────────────────────────────────────────────────────
+
+class RegimenFiscal {
+  final String tipo;              // 'general', 'recargo_equivalencia', 'modulo', 'simplificado'
+  final String periodicidadIva;   // 'trimestral', 'mensual'
+  final bool obligadoSii;
+  final bool obligadoVerifactu;
+  final bool esNuevaCreacion;     // tipo reducido 15% IS
+  final List<String> codigosCnae;
+
+  const RegimenFiscal({
+    this.tipo = 'general',
+    this.periodicidadIva = 'trimestral',
+    this.obligadoSii = false,
+    this.obligadoVerifactu = false,
+    this.esNuevaCreacion = false,
+    this.codigosCnae = const [],
+  });
+
+  factory RegimenFiscal.fromFirestore(Map<String, dynamic> datos) {
+    return RegimenFiscal(
+      tipo: datos['tipo'] as String? ?? 'general',
+      periodicidadIva: datos['periodicidad_iva'] as String? ?? 'trimestral',
+      obligadoSii: datos['obligado_sii'] as bool? ?? false,
+      obligadoVerifactu: datos['obligado_verifactu'] as bool? ?? false,
+      esNuevaCreacion: datos['es_nueva_creacion'] as bool? ?? false,
+      codigosCnae: List<String>.from(datos['codigos_cnae'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+    'tipo': tipo,
+    'periodicidad_iva': periodicidadIva,
+    'obligado_sii': obligadoSii,
+    'obligado_verifactu': obligadoVerifactu,
+    'es_nueva_creacion': esNuevaCreacion,
+    'codigos_cnae': codigosCnae,
+  };
+
+  RegimenFiscal copyWith({
+    String? tipo,
+    String? periodicidadIva,
+    bool? obligadoSii,
+    bool? obligadoVerifactu,
+    bool? esNuevaCreacion,
+    List<String>? codigosCnae,
+  }) {
+    return RegimenFiscal(
+      tipo: tipo ?? this.tipo,
+      periodicidadIva: periodicidadIva ?? this.periodicidadIva,
+      obligadoSii: obligadoSii ?? this.obligadoSii,
+      obligadoVerifactu: obligadoVerifactu ?? this.obligadoVerifactu,
+      esNuevaCreacion: esNuevaCreacion ?? this.esNuevaCreacion,
+      codigosCnae: codigosCnae ?? this.codigosCnae,
+    );
+  }
+}
+
+// ── EMPRESA ───────────────────────────────────────────────────────────────────
+
 class Empresa {
   final String id;
   final PerfilEmpresa perfil;
@@ -296,12 +388,32 @@ class Empresa {
   final ConfiguracionEmpresa configuracion;
   final EstadisticasEmpresa estadisticas;
 
+  // ⭐ Campos nuevos del mapa Firestore
+  final String? legalName;        // razón social
+  final String? taxId;            // CIF / NIF
+  final String? sector;           // 'hosteleria', 'peluqueria', etc.
+  final String? cnae;             // código CNAE oficial
+  final String? actividad;        // descripción libre
+  final List<String> activePacks; // ['base', 'fiscal_ai', ...]
+  final RegimenFiscal regimenFiscal;
+  final String estado;            // 'activa', 'suspendida', 'baja'
+  final String? createdBy;
+
   const Empresa({
     required this.id,
     required this.perfil,
     required this.suscripcion,
     required this.configuracion,
     required this.estadisticas,
+    this.legalName,
+    this.taxId,
+    this.sector,
+    this.cnae,
+    this.actividad,
+    this.activePacks = const [],
+    this.regimenFiscal = const RegimenFiscal(),
+    this.estado = 'activa',
+    this.createdBy,
   });
 
   factory Empresa.fromFirestore(String id, Map<String, dynamic> datos) {
@@ -311,6 +423,17 @@ class Empresa {
       suscripcion: SuscripcionEmpresa.fromFirestore(datos['suscripcion'] ?? {}),
       configuracion: ConfiguracionEmpresa.fromFirestore(datos['configuracion'] ?? {}),
       estadisticas: EstadisticasEmpresa.fromFirestore(datos['estadisticas'] ?? {}),
+      legalName: datos['legal_name'] as String?,
+      taxId: datos['tax_id'] as String?,
+      sector: datos['sector'] as String?,
+      cnae: datos['cnae'] as String?,
+      actividad: datos['actividad'] as String?,
+      activePacks: List<String>.from(datos['active_packs'] ?? []),
+      regimenFiscal: RegimenFiscal.fromFirestore(
+        datos['regimen_fiscal'] as Map<String, dynamic>? ?? {},
+      ),
+      estado: datos['estado'] as String? ?? 'activa',
+      createdBy: datos['created_by'] as String?,
     );
   }
 
@@ -320,15 +443,39 @@ class Empresa {
       'suscripcion': suscripcion.toFirestore(),
       'configuracion': configuracion.toFirestore(),
       'estadisticas': estadisticas.toFirestore(),
+      'legal_name': legalName,
+      'tax_id': taxId,
+      'sector': sector,
+      'cnae': cnae,
+      'actividad': actividad,
+      'active_packs': activePacks,
+      'regimen_fiscal': regimenFiscal.toFirestore(),
+      'estado': estado,
+      'created_by': createdBy,
     };
   }
 
   bool get puedeUsarModulo => suscripcion.estaActiva;
 
+  /// ¿Tiene un pack concreto activo?
+  bool tienePack(String packId) => activePacks.contains(packId);
+
+  /// ¿Tiene el Pack Fiscal IA?
+  bool get tienePackFiscal => tienePack('fiscal_ai');
+
   Empresa copyWith({
     PerfilEmpresa? perfil,
     SuscripcionEmpresa? suscripcion,
+    ConfiguracionEmpresa? configuracion,
     EstadisticasEmpresa? estadisticas,
+    String? legalName,
+    String? taxId,
+    String? sector,
+    String? cnae,
+    String? actividad,
+    List<String>? activePacks,
+    RegimenFiscal? regimenFiscal,
+    String? estado,
   }) {
     return Empresa(
       id: id,
@@ -336,6 +483,15 @@ class Empresa {
       suscripcion: suscripcion ?? this.suscripcion,
       configuracion: configuracion ?? this.configuracion,
       estadisticas: estadisticas ?? this.estadisticas,
+      legalName: legalName ?? this.legalName,
+      taxId: taxId ?? this.taxId,
+      sector: sector ?? this.sector,
+      cnae: cnae ?? this.cnae,
+      actividad: actividad ?? this.actividad,
+      activePacks: activePacks ?? this.activePacks,
+      regimenFiscal: regimenFiscal ?? this.regimenFiscal,
+      estado: estado ?? this.estado,
+      createdBy: createdBy,
     );
   }
 

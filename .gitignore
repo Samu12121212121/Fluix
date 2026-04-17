@@ -77,3 +77,6 @@ fluix_release.jks
 .vscode/
 *.code-workspace
 
+# Firebase service account keys
+serviceAccountKey.json
+functions/serviceAccountKey.json

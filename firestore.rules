@@ -594,6 +594,58 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // ── FISCAL EXPORTS (histórico de ficheros generados) ────────────
+      match /fiscal_exports/{exportId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow create, update, delete: if false; // Solo Cloud Functions
+      }
+
+      // ── FISCAL PERIODS (estado de cada trimestre/año) ───────────────
+      match /fiscal_periods/{periodId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // Admin puede cerrar/abrir períodos manualmente
+        allow update: if esAdminOPropietario(empresaId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['estado', 'notas', 'cerrado_at', 'presentado_at']);
+        allow create, delete: if false; // Solo Cloud Functions crean períodos
+      }
+
+      // ── MODELOS FISCALES LEGACY (111, 115, etc. desde calculadores Flutter)
+      match /modelos111/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos115/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos130/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos180/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos190/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos202/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos390/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+      match /modelos_fiscales/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+
+      // ── MEMBERS (RBAC interno) ──────────────────────────────────────
+      match /members/{userId} {
+        allow read: if perteneceAEmpresa(empresaId);
+        allow create, update: if esAdminOPropietario(empresaId)
+          && request.resource.data.keys().hasAll(['user_id', 'rol', 'activo'])
+          && request.resource.data.rol != 'propietario';
+        // Solo propietario puede eliminar miembros
+        allow delete: if esPropietario(empresaId);
+      }
+
     } // fin /empresas/{empresaId}
 
     // ════════════════════════════════════════════════════════════════════

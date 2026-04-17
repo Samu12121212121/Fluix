@@ -16,6 +16,10 @@ class ContenidoWebService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Stream<List<SeccionWeb>> obtenerSecciones(String empresaId) {
+    if (empresaId.isEmpty) {
+      print('❌ obtenerSecciones: empresaId está VACÍO — no se puede cargar contenido web');
+      return Stream.value([]);
+    }
     print('📂 obtenerSecciones: escuchando empresas/$empresaId/contenido_web');
     return _firestore
         .collection('empresas')

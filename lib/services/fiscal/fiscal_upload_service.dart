@@ -38,7 +38,9 @@ class FiscalUploadService {
 
     // 2. Comprobar duplicado
     final existing = await _db
-        .collection('empresas/$empresaId/fiscal_documents')
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('fiscal_documents')
         .where('sha256_hash', isEqualTo: hash)
         .limit(1)
         .get();
@@ -84,7 +86,10 @@ class FiscalUploadService {
         UploadProgress(step: 'Registrando...', percent: 0.55));
 
     await _db
-        .doc('empresas/$empresaId/fiscal_documents/$documentId')
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('fiscal_documents')
+        .doc(documentId)
         .set({
       'filename': captured.originalFilename,
       'mime_type': captured.mimeType,
@@ -134,7 +139,10 @@ class FiscalUploadService {
     required String transactionId,
   }) {
     return _db
-        .doc('empresas/$empresaId/fiscal_transactions/$transactionId')
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('fiscal_transactions')
+        .doc(transactionId)
         .snapshots();
   }
 }
@@ -145,6 +153,9 @@ class DuplicateDocumentException implements Exception {
   @override
   String toString() => message;
 }
+
+
+
 
 
 

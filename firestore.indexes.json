@@ -192,6 +192,55 @@
         { "fieldPath": "ejercicio", "order": "ASCENDING" },
         { "fieldPath": "trimestre", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "fiscal_transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "period", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fiscal_transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "invoice_date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fiscal_transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "period", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fiscal_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sha256_hash", "order": "ASCENDING" },
+        { "fieldPath": "uploaded_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fiscal_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "processing_status", "order": "ASCENDING" },
+        { "fieldPath": "uploaded_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empleado_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
