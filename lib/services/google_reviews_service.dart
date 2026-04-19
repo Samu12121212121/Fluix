@@ -5,7 +5,6 @@ import 'rating_historial_service.dart';
 /// Servicio para reseñas de Google Places API + gestión en Firestore.
 class GoogleReviewsService {
   static final GoogleReviewsService _i = GoogleReviewsService._();
-/// El rating global (rating / userRatingCount) SÍ viene siempre en la respuesta.
   GoogleReviewsService._();
 
   final Dio _dio = Dio(BaseOptions(
@@ -16,18 +15,21 @@ class GoogleReviewsService {
 
   factory GoogleReviewsService() => _i;
 
+  /// El rating global (rating / userRatingCount) SÍ viene siempre en la respuesta.
+  static const int _maxResenas = 50; // Límite: cuando hay más de 50, se borran las más antiguas
+
   // ── Configuración de Google por empresa ───────────────────────────────────
 
   /// Versión pública de _obtenerConfig para la pantalla de configuración
   Future<Map<String, String>> obtenerConfigPublica(String empresaId) =>
-  static const int _maxResenas = 20; // Límite: cuando hay más de 20, se borran las más antiguas
+      _obtenerConfig(empresaId);
 
   /// Lee la configuración de Google Reviews de Firestore para esta empresa.
   /// Si no existe, usa los valores hardcodeados de Fluix CRM como demo.
   Future<Map<String, String>> _obtenerConfig(String empresaId) async {
     try {
-      _obtenerConfig(empresaId);
-  static const int _maxResenas = 50;
+      final doc = await _db
+          .collection('empresas')
           .doc(empresaId)
           .collection('configuracion')
           .doc('google_reviews')
@@ -125,100 +127,133 @@ class GoogleReviewsService {
     }
 
     try {
-      print('🔄 Sincronizando Google Places para empresa $empresaId...');
-
-      final url = 'https://maps.googleapis.com/maps/api/place/details/json'
-          '?place_id=$placeId'
-          '&fields=name,rating,user_ratings_total,reviews'
-          '&language=es'
       print('🔄 Sincronizando Google Places (New API) para empresa $empresaId...');
-          '&key=$apiKey';
+
       // ✅ NUEVA API: Places API (New)
       final url = 'https://places.googleapis.com/v1/places/$placeId';
-        print('❌ Google Places status: $status — $errorMsg');
+
       final response = await _dio.get(
         url,
-          '&reviews_sort=newest'
+        options: Options(
           headers: {
             'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'rating,userRatingCount,reviews',
+          },
+        ),
+      );
 
-      final response = await _dio.get(url);
-      final status = response.data['status'] as String? ?? 'ERROR';
-
-      if (status != 'OK') {
-      print('🔄 Sincronizando Google Places para empresa $empresaId...');
-      final url = 'https://maps.googleapis.com/maps/api/place/details/json'
-      final reviews = response.data['reviews'] as List<dynamic>? ?? [];
-      print('⭐ Rating Google: $ratingGlobal ($totalGlobal reseñas) — ${reviews.length} descargadas');
-      print('⭐ Rating Google (New API): $ratingGlobal ($totalGlobal reseñas) — ${reviews.length} descargadas');
-        return (rating: cache.$1, total: cache.$2, error: 'Google: $status');
-      }
-
-      final response = await _dio.get(url);
-      final status = response.data['status'] as String? ?? 'ERROR';
-      final totalGlobal = (result['user_ratings_total'] as num?)?.toInt() ?? 0;
+      final result = response.data as Map<String, dynamic>? ?? {};
+      final ratingGlobal = (result['rating'] as num?)?.toDouble() ?? 0.0;
+      final totalGlobal = (result['userRatingCount'] as num?)?.toInt() ?? 0;
       final reviews = result['reviews'] as List<dynamic>? ?? [];
 
-      print('⭐ Rating Google: $ratingGlobal ($totalGlobal reseñas) — ${reviews.length} descargadas');
+      print('⭐ Rating Google (New API): $ratingGlobal ($totalGlobal reseñas) — ${reviews.length} descargadas');
 
       // 1. Guardar rating/total en estadisticas/resumen (siempre, incluso sin reseñas)
       await _db
-        final cache = await _leerRatingCache(empresaId);
-        final errorMsg = response.data['error_message'] as String? ?? status;
-        print('❌ Google Places status: $status — $errorMsg');
-        print('💡 Si status=REQUEST_DENIED: verifica que Places API esté habilitada en Google Cloud Console');
-        print('💡 y que la API Key no tenga restricciones de app Android (usa restricción por IP o sin restricción)');
-        final colRef = _db
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('valoraciones');
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('estadisticas')
+          .doc('resumen')
+          .set({
+        'rating_google': ratingGlobal,
+        'total_valoraciones_google': totalGlobal,
+        'ultima_sync': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-        final batch = _db.batch();
-        int nuevas = 0;
+      // 2. Guardar reseñas individuales
+      final colRef = _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('valoraciones');
 
-        for (final review in reviews) {
-          final r = review as Map<String, dynamic>;
-          final id = 'google_${r['time']}';
-            // Formato: accounts/XXX/locations/YYY/reviews/ZZZ
-            // Por ahora guardamos el time como identificador
-            'google_review_id': r['time']?.toString() ?? '',
-          }, SetOptions(merge: true));
-        }
-        await batch.commit();
-          
-          // ✅ Nueva API: campos renombrados
-        if (nuevas > 0) await _limpiarResenasSobrantes(empresaId);
-      await RatingHistorialService().guardarOActualizarSnapshotMes(empresaId);
-            'cliente': authorAttr?['displayName'] as String? ?? 'Usuario de Google',
+      final batch = _db.batch();
+      int nuevas = 0;
+
+      for (final review in reviews) {
+        final r = review as Map<String, dynamic>;
+        // ✅ Nueva API: campos renombrados
+        final authorAttr = r['authorAttribution'] as Map<String, dynamic>?;
+        final textObj    = r['text']              as Map<String, dynamic>?;
+        final publishTime = r['publishTime']      as String?;
+        final reviewName  = r['name']             as String?;
+
+        final timestamp = publishTime != null
+            ? Timestamp.fromDate(DateTime.parse(publishTime))
+            : Timestamp.now();
+
+        final id = reviewName?.split('/').last ?? 'google_${timestamp.seconds}';
+
+        batch.set(
+          colRef.doc(id),
+          {
+            'cliente':    authorAttr?['displayName'] as String? ?? 'Usuario de Google',
             'calificacion': (r['rating'] as num?)?.toDouble().round() ?? 5,
             'comentario': textObj?['text'] as String? ?? '',
-            'fecha': publishTime != null 
-                ? Timestamp.fromDate(DateTime.parse(publishTime))
-                : Timestamp.now(),
-      return (rating: cache.$1, total: cache.$2,
+            'fecha':      timestamp,
             'avatar_url': authorAttr?['photoUri'] as String? ?? '',
-            'author_url': authorAttr?['uri'] as String? ?? '',
+            'author_url': authorAttr?['uri']      as String? ?? '',
             'google_time': timestamp,
             // ✅ Nuevo campo: name único del review (formato: places/{placeId}/reviews/{reviewId})
             'google_review_name': reviewName ?? '',
+            // Por ahora guardamos el time como identificador
+            'google_review_id': reviewName?.split('/').last ?? '',
+            'origen': 'google',
+          },
+          SetOptions(merge: true),
+        );
+        nuevas++;
+      }
+
+      await batch.commit();
+      if (nuevas > 0) await _limpiarResenasSobrantes(empresaId);
+      await RatingHistorialService().guardarOActualizarSnapshotMes(empresaId);
 
       return (rating: ratingGlobal, total: totalGlobal, error: null);
+
     } on DioException catch (e) {
       print('❌ Error de red sincronizando Google: $e');
       final cache = await _leerRatingCache(empresaId);
-            // Por ahora guardamos el time como identificador
-            'google_review_id': r['time']?.toString() ?? '',
+      return (rating: cache.$1, total: cache.$2, error: 'Error de red: ${e.message}');
+    } catch (e) {
+      print('❌ Error sincronizando Google: $e');
+      final cache = await _leerRatingCache(empresaId);
+      return (rating: cache.$1, total: cache.$2, error: 'Error inesperado: $e');
+    }
+  }
+
+  // ── Leer rating desde cache ───────────────────────────────────────────────
+
+  Future<(double, int)> _leerRatingCache(String empresaId) async {
+    try {
+      final doc = await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('estadisticas')
+          .doc('resumen')
+          .get();
+      final data = doc.data() ?? {};
+      final rating = (data['rating_google'] as num?)?.toDouble() ?? 0.0;
+      final total  = (data['total_valoraciones_google'] as num?)?.toInt() ?? 0;
+      return (rating, total);
+    } catch (_) {
+      return (0.0, 0);
+    }
   }
 
   // ── Limpiar sobrantes ────────────────────────────────────────────────────
 
-            'cliente': r['author_name'] ?? 'Usuario de Google',
-            'calificacion': (r['rating'] as num?)?.toInt() ?? 5,
-            'comentario': r['text'] ?? '',
-            'fecha': Timestamp.fromMillisecondsSinceEpoch(
-                ((r['time'] as int?) ?? 0) * 1000),
+  Future<void> _limpiarResenasSobrantes(String empresaId) async {
     try {
-      final doc = await _db
+      final todas = await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('valoraciones')
+          .orderBy('fecha')
+          .get();
+
+      final total = todas.docs.length;
 
       if (total <= _maxResenas) {
         print('📊 Reseñas en Firestore: $total / $_maxResenas');
@@ -347,7 +382,7 @@ class GoogleReviewsService {
       final doc = await ref.get();
       final data = doc.data() ?? {};
       final total = (data['total_valoraciones'] as num?)?.toInt() ?? 0;
-      final suma = (data['suma_calificaciones'] as num?)?.toDouble() ?? 0;
+      final suma  = (data['suma_calificaciones'] as num?)?.toDouble() ?? 0;
       await ref.set({
         'total_valoraciones': total + 1,
         'suma_calificaciones': suma + calificacion,

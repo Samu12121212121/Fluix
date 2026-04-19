@@ -6,6 +6,8 @@ import 'importar_ventas_csv_screen.dart';
 import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
+
+class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;
 
   /// true si el usuario es admin o propietario (puede ver configuración)
@@ -35,6 +37,10 @@ import 'configuracion_facturacion_tpv_screen.dart';
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Resumen pendientes ───────────────────────────────────────────
+          _ResumenHoyWidget(empresaId: empresaId),
+          const SizedBox(height: 12),
+
           // ── Acceso rápido: Caja ──────────────────────────────────────────
           _TarjetaAccionTpv(
             icono: Icons.point_of_sale,
@@ -76,12 +82,44 @@ import 'configuracion_facturacion_tpv_screen.dart';
             empresaId: empresaId,
             context: context,
           ),
-
-          ],
           const SizedBox(height: 12),
 
+          // ── Configuración (solo admin) ───────────────────────────────────
+          if (esAdmin)
+            _TarjetaAccionTpv(
+              icono: Icons.settings,
+              titulo: 'Configuración TPV',
+              descripcion: 'Configura el modo de facturación y otros ajustes del TPV',
+              color: Colors.grey[700]!,
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ConfiguracionFacturacionTpvScreen(empresaId: empresaId),
+              )),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
-          ],
+// ── Tarjeta de acción genérica ────────────────────────────────────────────────
+
+class _TarjetaAccionTpv extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final String descripcion;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _TarjetaAccionTpv({
+    required this.icono,
+    required this.titulo,
+    required this.descripcion,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
@@ -191,4 +229,3 @@ class _ResumenHoyWidget extends StatelessWidget {
     );
   }
 }
-

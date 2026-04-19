@@ -1,12 +1,10 @@
-        backgroundColor: const Color(0xFF00796B),
-        foregroundColor: Colors.white,
 import 'package:flutter/material.dart';
 import '../../../models/vacacion_model.dart';
 import '../../../services/vacaciones_service.dart';
 import '../../../services/cobertura_equipo_service.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../widgets/calendario_vacaciones_widget.dart';
-import '../widgets/cobertura_semanal_widget.dart';
+import '../widgets/cobertura_semanal_widget.dart' show CoberturaSemanalWidget;
 import 'nueva_solicitud_form.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -26,6 +24,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   final VacacionesService _svc = VacacionesService();
+  // ignore: unused_field
   final CoberturaEquipoService _cobSvc = CoberturaEquipoService();
   String? _filtroEmpleadoId;
   TipoAusencia? _filtroTipo;
@@ -52,58 +51,93 @@ class _VacacionesScreenState extends State<VacacionesScreen>
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          // ── Cabecera desplazable ─────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF00796B), Color(0xFF26A69A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.beach_access, color: Colors.white, size: 24),
+        backgroundColor: const Color(0xFFF5F7FA),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _nuevaSolicitud,
+          backgroundColor: const Color(0xFF00796B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Nueva solicitud'),
+        ),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            // ── Cabecera desplazable ─────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00796B), Color(0xFF26A69A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Vacaciones y Ausencias',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700)),
-  // PESTAÑA CALENDARIO
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.beach_access, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Vacaciones y Ausencias',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ── TabBar ───────────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: TabBar(
+                controller: _tabs,
+                labelColor: const Color(0xFF00796B),
+                tabs: const [
+                  Tab(icon: Icon(Icons.calendar_month), text: 'Calendario'),
                   Tab(icon: Icon(Icons.list_alt), text: 'Solicitudes'),
-
-  Widget _buildCalendario() {
+                  Tab(icon: Icon(Icons.people_outline), text: 'Cobertura'),
+                ],
+              ),
+            ),
+          ],
+          body: Column(
+            children: [
               Expanded(
                 child: TabBarView(
                   controller: _tabs,
                   children: [
                     _buildCalendario(),
                     _buildListaSolicitudes(),
+                    _buildCobertura(),
                   ],
                 ),
               ),
             ],
-          )),
-        ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PESTAÑA CALENDARIO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCalendario() {
     return CalendarioVacacionesWidget(
       empresaId: widget.empresaId,
       sesion: widget.sesion,
@@ -111,13 +145,41 @@ class _VacacionesScreenState extends State<VacacionesScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PESTAÑA LISTA SOLICITUDES
-      ),
+  // PESTAÑA COBERTURA
+  // ═══════════════════════════════════════════════════════════════════════════
 
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w600)),
+  Widget _buildCobertura() {
+    return CoberturaSemanalWidget(
+      empresaId: widget.empresaId,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PESTAÑA LISTA SOLICITUDES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildListaSolicitudes() {
+    return StreamBuilder<List<SolicitudVacaciones>>(
+      stream: _svc.obtenerSolicitudes(widget.empresaId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        var solicitudes = snap.data ?? [];
+
+        if (solicitudes.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.beach_access, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 12),
+                Text(
+                  'No hay solicitudes',
+                  style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w600)),
               ],
             ),
           );
@@ -126,16 +188,16 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         // Aplicar filtros
         if (_filtroTipo != null) {
           solicitudes =
-    ),
+              solicitudes.where((s) => s.tipo == _filtroTipo).toList();
         }
         if (_filtroEmpleadoId != null) {
           solicitudes = solicitudes
               .where((s) => s.empleadoId == _filtroEmpleadoId)
               .toList();
-  // ═══════════════════════════════════════════════════════════════════════════
+        }
 
         return Column(
-              mainAxisSize: MainAxisSize.min,
+          children: [
             // Filtros
             Container(
               margin:
@@ -154,10 +216,10 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                     ),
                   ],
                 ),
-          children: [
+              ),
             ),
             Expanded(
-        ),
+              child: ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: solicitudes.length,
                 itemBuilder: (context, i) =>
@@ -496,6 +558,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // ignore: unused_element
   Widget _buildSemaforo(int disponibles, int total) {
     final porcentaje = total > 0 ? (disponibles / total) * 100.0 : 100.0;
     Color color;
@@ -549,11 +612,6 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         ),
       );
 }
-
-
-
-
-
 
 
 
