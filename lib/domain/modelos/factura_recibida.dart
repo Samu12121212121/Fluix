@@ -72,7 +72,27 @@ class FacturaRecibida {
   // Notas
   final String? notas;
 
+  // Metadatos
+  final DateTime fechaCreacion;
+  final DateTime? fechaActualizacion;
+
+  // IA / trazabilidad
+  final String? aiTransactionId;
+
+  const FacturaRecibida({
+    required this.id,
+    required this.empresaId,
+    required this.numeroFactura,
+    this.serie,
+    required this.fechaEmision,
+    required this.fechaRecepcion,
+    required this.nifProveedor,
+    this.nifIvaComunitario,
+    this.esIntracomunitario = false,
+    required this.nombreProveedor,
+    this.direccionProveedor,
     this.telefonoProveedor,
+    required this.baseImponible,
     this.porcentajeIva = 21.0,
     required this.importeIva,
     this.ivaDeducible = true,
@@ -91,6 +111,7 @@ class FacturaRecibida {
     this.notas,
     required this.fechaCreacion,
     this.fechaActualizacion,
+    this.aiTransactionId,
   });
 
   // Getters calculados
@@ -101,7 +122,7 @@ class FacturaRecibida {
 
   FacturaRecibida copyWith({
     String? numeroFactura,
-    this.aiTransactionId,
+    String? aiTransactionId,
     String? nifProveedor,
     String? nifIvaComunitario,
     bool? esIntracomunitario,
@@ -111,7 +132,9 @@ class FacturaRecibida {
     double? baseImponible,
     double? porcentajeIva,
     double? importeIva,
+    bool? ivaDeducible,
     double? descuentoGlobal,
+    double? recargoEquivalencia,
     double? totalConImpuestos,
     double? porcentajeRetencion,
     double? importeRetencion,
@@ -129,16 +152,16 @@ class FacturaRecibida {
         id: id,
         empresaId: empresaId,
         numeroFactura: numeroFactura ?? this.numeroFactura,
+        serie: serie,
         fechaEmision: fechaEmision,
         fechaRecepcion: fechaRecepcion,
         nifProveedor: nifProveedor ?? this.nifProveedor,
         nifIvaComunitario: nifIvaComunitario ?? this.nifIvaComunitario,
         esIntracomunitario: esIntracomunitario ?? this.esIntracomunitario,
         nombreProveedor: nombreProveedor ?? this.nombreProveedor,
-        baseImponible: baseImponible ?? this.baseImponible,
-        serie: serie,
         direccionProveedor: direccionProveedor ?? this.direccionProveedor,
         telefonoProveedor: telefonoProveedor ?? this.telefonoProveedor,
+        baseImponible: baseImponible ?? this.baseImponible,
         porcentajeIva: porcentajeIva ?? this.porcentajeIva,
         importeIva: importeIva ?? this.importeIva,
         ivaDeducible: ivaDeducible ?? this.ivaDeducible,
@@ -157,6 +180,7 @@ class FacturaRecibida {
         notas: notas ?? this.notas,
         fechaCreacion: fechaCreacion,
         fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+        aiTransactionId: aiTransactionId ?? this.aiTransactionId,
       );
 
   factory FacturaRecibida.fromFirestore(DocumentSnapshot doc) {
@@ -165,16 +189,17 @@ class FacturaRecibida {
       id: doc.id,
       empresaId: d['empresa_id'] ?? '',
       numeroFactura: d['numero_factura'] ?? '',
+      serie: d['serie'],
       fechaEmision: _parseTs(d['fecha_emision']),
       fechaRecepcion: _parseTs(d['fecha_recepcion']),
       nifProveedor: d['nif_proveedor'] ?? '',
-        aiTransactionId: aiTransactionId,
       nifIvaComunitario: d['nif_iva_comunitario'],
       esIntracomunitario: d['es_intracomunitario'] ?? false,
       nombreProveedor: d['nombre_proveedor'] ?? '',
-      baseImponible: (d['base_imponible'] as num?)?.toDouble() ?? 0,
-      serie: d['serie'],
+      direccionProveedor: d['direccion_proveedor'],
       telefonoProveedor: d['telefono_proveedor'],
+      baseImponible: (d['base_imponible'] as num?)?.toDouble() ?? 0,
+      porcentajeIva: (d['porcentaje_iva'] as num?)?.toDouble() ?? 21.0,
       importeIva: (d['importe_iva'] as num?)?.toDouble() ?? 0,
       ivaDeducible: d['iva_deducible'] ?? true,
       descuentoGlobal: (d['descuento_global'] as num?)?.toDouble() ?? 0,
@@ -197,6 +222,7 @@ class FacturaRecibida {
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? _parseTs(d['fecha_actualizacion'])
           : null,
+      aiTransactionId: d['_ai_transaction_id'] as String?,
     );
   }
 
@@ -205,11 +231,11 @@ class FacturaRecibida {
     'numero_factura': numeroFactura,
     'serie': serie,
     'fecha_emision': Timestamp.fromDate(fechaEmision),
+    'fecha_recepcion': Timestamp.fromDate(fechaRecepcion),
     'nif_proveedor': nifProveedor,
     'nif_iva_comunitario': nifIvaComunitario,
     'es_intracomunitario': esIntracomunitario,
     'nombre_proveedor': nombreProveedor,
-      aiTransactionId: d['_ai_transaction_id'] as String?,
     'direccion_proveedor': direccionProveedor,
     'telefono_proveedor': telefonoProveedor,
     'base_imponible': baseImponible,
@@ -218,6 +244,8 @@ class FacturaRecibida {
     'iva_deducible': ivaDeducible,
     'descuento_global': descuentoGlobal,
     'recargo_equivalencia': recargoEquivalencia,
+    'total_con_impuestos': totalConImpuestos,
+    'porcentaje_retencion': porcentajeRetencion,
     'importe_retencion': importeRetencion,
     'estado': estado.name,
     'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,
@@ -229,6 +257,7 @@ class FacturaRecibida {
     'notas': notas,
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': Timestamp.fromDate(fechaActualizacion ?? DateTime.now()),
+    '_ai_transaction_id': aiTransactionId,
   };
 }
 
@@ -239,8 +268,3 @@ DateTime _parseTs(dynamic v) {
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   return DateTime.now();
 }
-
-
-
-    '_ai_transaction_id': aiTransactionId,
-

@@ -1,4 +1,3 @@
-        .where((g) => g.estado == EstadoGasto.pagado)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/modelos/contabilidad.dart';
 import '../domain/modelos/factura.dart';
@@ -206,73 +205,129 @@ class ContabilidadService {
       fin = DateTime(anio + 1, 1, 1);
     }
 
-    // Facturas emitidas (solo pagadas para IVA devengado)
+    // Facturas emitidas del período
+    final snapFacturas = await _facturas(empresaId)
+        .where('fecha_emision',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha_emision', isLessThan: Timestamp.fromDate(fin))
+        .get();
+
+    final facturas = snapFacturas.docs
+        .map((d) => Factura.fromFirestore(d))
         .where((f) => f.estado != EstadoFactura.anulada)
         .toList();
 
-    final facturasPagadas = facturas.where((f) => f.esPagada).toList();
-
     double baseEmitida = 0, ivaRepercutido = 0, totalFacturado = 0;
-    for (final f in facturasPagadas) {
+    for (final f in facturas) {
       baseEmitida += f.subtotal;
       ivaRepercutido += f.totalIva;
       totalFacturado += f.total;
-    // BUG #3 fix: criterio devengo = todas las emitidas, caja = solo pagadas
-    final facturasContables = esCriterioCaja
-        ? facturas.where((f) => f.esPagada).toList()
-        : facturas;
+    }
 
     // Gastos — filtramos estado en Dart para evitar índice compuesto
-    for (final f in facturasContables) {
+    final snapGastos = await _gastos(empresaId)
         .where('fecha_gasto',
-    }
+            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha_gasto', isLessThan: Timestamp.fromDate(fin))
+        .get();
+
+    final gastos = snapGastos.docs
+        .map((d) => Gasto.fromMap({...d.data(), 'id': d.id}))
+        .toList();
+
+    // Sumar facturas recibidas
+    final snapRecibidas = await _facturasRecibidas(empresaId)
+        .where('fecha_recepcion',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha_recepcion', isLessThan: Timestamp.fromDate(fin))
+        .get();
+
+    final facturasRecibidas = snapRecibidas.docs
+        .map((d) => FacturaRecibida.fromFirestore(d))
+        .toList();
+
+    double baseRecibida = 0, ivaSoportado = 0, totalGastado = 0;
+
+    // Sumar gastos manuales
     for (final g in gastos) {
       baseRecibida += g.baseImponible;
       if (g.ivaDeducible) ivaSoportado += g.importeIva;
       totalGastado += g.total;
     }
 
-    return ResumenContable(
-      anio: anio,
-    for (final f in facturasPagadas) {
-      trimestre: trimestre,
-    final snapGastos = await _gastos(empresaId)
-    final snapRecibidas = await _facturasRecibidas(empresaId)
-        .where('fecha_recepcion',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
-    final gastos = snapGastos.docs
-        .get();
-
-      baseImponibleEmitida: baseEmitida,
-
-    // Sumar gastos manuales
-      ivaRepercutido: ivaRepercutido,
-    // Gastos — filtramos estado en Dart para evitar índice compuesto
-      baseImponibleRecibida: baseRecibida,
-      ivaSoportado: ivaSoportado,
-      totalGastado: totalGastado,
-      numFacturasEmitidas: facturas.length,
+    // Sumar facturas recibidas
+    for (final fr in facturasRecibidas) {
+      final base = fr.baseImponible;
+      final iva = fr.ivaDeducible ? fr.importeIva : 0.0;
+      final total = fr.totalConImpuestos;
+      baseRecibida += base;
       ivaSoportado += iva;
       totalGastado += total;
     }
 
-      numGastos: gastos.length,
+    return ResumenContable(
+      anio: anio,
+      trimestre: trimestre,
+      mes: mes,
+      baseImponibleEmitida: baseEmitida,
+      ivaRepercutido: ivaRepercutido,
+      totalFacturado: totalFacturado,
+      baseImponibleRecibida: baseRecibida,
+      ivaSoportado: ivaSoportado,
+      totalGastado: totalGastado,
+      numFacturasEmitidas: facturas.length,
+      numGastos: gastos.length + facturasRecibidas.length,
       numFacturasPendientes: facturas.where((f) => f.esPendiente).length,
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // LIBROS CONTABLES
+  // ═════════════════════════════════════════════════════════════════════════
+
+  Future<List<LineaLibroContable>> generarLibroEmitidas(
+      String empresaId, int anio, {int? mes}) async {
     final inicio = mes != null
         ? DateTime(anio, mes, 1)
         : DateTime(anio, 1, 1);
     final fin = mes != null
         ? DateTime(anio, mes + 1, 1)
+        : DateTime(anio + 1, 1, 1);
 
     final snap = await _facturas(empresaId)
         .where('fecha_emision',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha_emision', isLessThan: Timestamp.fromDate(fin))
         .get();
 
     final docs = snap.docs.map((d) => Factura.fromFirestore(d)).toList()
       ..sort((a, b) => a.fechaEmision.compareTo(b.fechaEmision));
 
     return docs.map((f) {
+      return LineaLibroContable(
+        tipo: 'ingreso',
+        fecha: f.fechaEmision,
+        numero: f.numeroFactura,
+        concepto: f.notasInternas ?? '',
+        nifContraparte: f.datosFiscales?.nif,
+        nombreContraparte: f.clienteNombre,
+        baseImponible: f.subtotal,
+        porcentajeIva: f.lineas.isNotEmpty ? f.lineas.first.porcentajeIva : 21.0,
+        importeIva: f.totalIva,
+        total: f.total,
+        estado: f.estado.name,
+      );
+    }).toList();
+  }
+
+  Future<List<LineaLibroContable>> generarLibroRecibidas(
+      String empresaId, int anio, {int? mes}) async {
+    final inicio = mes != null
+        ? DateTime(anio, mes, 1)
+        : DateTime(anio, 1, 1);
+    final fin = mes != null
+        ? DateTime(anio, mes + 1, 1)
+        : DateTime(anio + 1, 1, 1);
 
     final snap = await _gastos(empresaId)
         .where('fecha_gasto',
