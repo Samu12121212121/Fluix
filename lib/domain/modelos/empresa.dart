@@ -1,3 +1,12 @@
+      cnae: datos['cnae'] as String?,
+      actividad: datos['actividad'] as String?,
+      activePacks: List<String>.from(datos['active_packs'] ?? []),
+      regimenFiscal: RegimenFiscal.fromFirestore(
+        datos['regimen_fiscal'] as Map<String, dynamic>? ?? {},
+  }
+      legalName: datos['legal_name'] as String?,
+      taxId: datos['tax_id'] as String?,
+      'direccion': direccion,
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   if (v is DateTime) return v;
   return DateTime.now();
@@ -15,20 +24,6 @@ DateTime _parseDate(dynamic v) {
     if (identical(this, other)) return true;
     return other is Empresa && other.id == id;
   }
-  // Campos nuevos del mapa Firestore
-  final String? ciudad;
-  final String? codigoPostal;
-  final String? provincia;
-  final String? pais;
-  final String? web;
-
-  PerfilEmpresa({
-    required this.nombre,
-    required this.correo,
-    required this.telefono,
-    required this.direccion,
-    required this.descripcion,
-    this.logoUrl,
       estadisticas: estadisticas ?? this.estadisticas,
     this.ciudad,
     this.codigoPostal,
@@ -42,10 +37,13 @@ class Empresa {
   final PerfilEmpresa perfil;
   final SuscripcionEmpresa suscripcion;
   final ConfiguracionEmpresa configuracion;
+  final EstadisticasEmpresa estadisticas;
+
+  const Empresa({
+    required this.id,
+    required this.perfil,
     required this.suscripcion,
       descripcion: datos['descripcion'] ?? '',
-      logoUrl: datos['logo_url'],
-      fechaCreacion: _parseDate(datos['fecha_creacion']),
       ciudad: datos['ciudad'],
       codigoPostal: datos['codigo_postal'],
       provincia: datos['provincia'],
@@ -54,21 +52,6 @@ class Empresa {
     );
   }
 
-  Map<String, dynamic> toFirestore() {
-    return {
-      'nombre': nombre,
-    required this.configuracion,
-    required this.estadisticas,
-  });
-
-  factory Empresa.fromFirestore(String id, Map<String, dynamic> datos) {
-    return Empresa(
-      'ciudad': ciudad,
-      'codigo_postal': codigoPostal,
-      'provincia': provincia,
-      'pais': pais ?? 'ES',
-      'web': web,
-    );
   }
 
   Map<String, dynamic> toFirestore() {
@@ -91,15 +74,13 @@ class Empresa {
       direccion: direccion ?? this.direccion,
       descripcion: descripcion ?? this.descripcion,
   }
-      ciudad: ciudad ?? this.ciudad,
-      ciudad: ciudad ?? this.ciudad,
-      codigoPostal: codigoPostal ?? this.codigoPostal,
-      provincia: provincia ?? this.provincia,
-      pais: pais ?? this.pais,
-      web: web ?? this.web,
-      codigoPostal: codigoPostal ?? this.codigoPostal,
-      provincia: provincia ?? this.provincia,
-      pais: pais ?? this.pais,
+      id: id,
+      perfil: PerfilEmpresa.fromFirestore(datos['perfil'] ?? {}),
+      suscripcion: SuscripcionEmpresa.fromFirestore(datos['suscripcion'] ?? {}),
+      configuracion: ConfiguracionEmpresa.fromFirestore(datos['configuracion'] ?? {}),
+      'configuracion': configuracion.toFirestore(),
+      'estadisticas': estadisticas.toFirestore(),
+    };
       web: web ?? this.web,
     this.ciudad,
     this.codigoPostal,
@@ -107,12 +88,11 @@ class Empresa {
   final DateTime fechaFin;
   final bool avisoEnviado;
   final double monto;
-  final String? transaccionId;
+// caja: por fecha de cobro/pago (solo RECC)
+enum CriterioIVA { devengo, caja }
 
-  const SuscripcionEmpresa({
-
-// Criterio de liquidación de IVA para la empresa
-// devengo: por fecha de emisión/recepción (régimen general)
+class PerfilEmpresa {
+  final String nombre;
   final String correo;
   final String telefono;
     this.transaccionId,
@@ -120,12 +100,6 @@ class Empresa {
 
   factory SuscripcionEmpresa.fromFirestore(Map<String, dynamic> datos) {
     return SuscripcionEmpresa(
-      estado: EstadoSuscripcion.values.firstWhere(
-        (e) => e.name == (datos['estado'] ?? 'pendiente'),
-        orElse: () => EstadoSuscripcion.pendiente,
-      ),
-  final String direccion;
-  final String descripcion;
   final String? logoUrl;
   final DateTime fechaCreacion;
       transaccionId: datos['transaccion_id'],
@@ -144,21 +118,11 @@ class Empresa {
   }
 
   int get diasRestantes => fechaFin.difference(DateTime.now()).inDays;
-  bool get estaActiva => estado == EstadoSuscripcion.activa;
-      'telefono': telefono,
-      'descripcion': descripcion,
+    this.pais,
+    this.web,
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/enums/enums.dart';
       'logo_url': logoUrl,
-      'fecha_creacion': fechaCreacion.toIso8601String(),
-      ciudad: datos['ciudad'],
-      codigoPostal: datos['codigo_postal'],
-      provincia: datos['provincia'],
-    String? nombre,
-    String? correo,
-    String? telefono,
-      'provincia': provincia,
-      'pais': pais ?? 'ES',
-      'web': web,
-      nombre: nombre ?? this.nombre,
       logoUrl: logoUrl ?? this.logoUrl,
       fechaCreacion: fechaCreacion,
     );
@@ -174,8 +138,6 @@ class Empresa {
       avisoEnviado: datos['aviso_enviado'] ?? false,
       monto: (datos['monto'] ?? 0.0).toDouble(),
     return {
-      'estado': estado.toString().split('.').last,
-      'fecha_inicio': fechaInicio.toIso8601String(),
   bool get estaVencida => estado == EstadoSuscripcion.vencida;
   }
 
@@ -183,15 +145,6 @@ class Empresa {
     return diasRestantes <= 7 && diasRestantes > 0 && !avisoEnviado;
   }
 
-      ciudad: datos['ciudad'],
-      codigoPostal: datos['codigo_postal'],
-      provincia: datos['provincia'],
-      pais: datos['pais'] ?? 'ES',
-      web: datos['web'],
-    double? monto,
-    String? transaccionId,
-  }) {
-      'provincia': provincia,
       'pais': pais ?? 'ES',
       'web': web,
       monto: monto ?? this.monto,
@@ -315,6 +268,39 @@ class Empresa {
   final EstadisticasEmpresa estadisticas;
 
   const Empresa({
+    required this.id,
+    required this.perfil,
+    required this.suscripcion,
+    required this.configuracion,
+    required this.estadisticas,
+  });
+
+  factory Empresa.fromFirestore(String id, Map<String, dynamic> datos) {
+    return Empresa(
+      id: id,
+      perfil: PerfilEmpresa.fromFirestore(datos['perfil'] ?? {}),
+      suscripcion: SuscripcionEmpresa.fromFirestore(datos['suscripcion'] ?? {}),
+      configuracion: ConfiguracionEmpresa.fromFirestore(datos['configuracion'] ?? {}),
+      estadisticas: EstadisticasEmpresa.fromFirestore(datos['estadisticas'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'perfil': perfil.toFirestore(),
+      'suscripcion': suscripcion.toFirestore(),
+      'configuracion': configuracion.toFirestore(),
+      'estadisticas': estadisticas.toFirestore(),
+    };
+  }
+// ── RÉGIMEN FISCAL ────────────────────────────────────────────────────────────
+
+class RegimenFiscal {
+  final String tipo;              // 'general', 'recargo_equivalencia', 'modulo', 'simplificado'
+  final String periodicidadIva;   // 'trimestral', 'mensual'
+  final bool obligadoSii;
+  final bool obligadoVerifactu;
+  final bool esNuevaCreacion;     // tipo reducido 15% IS
   final List<String> codigosCnae;
 
   const RegimenFiscal({
@@ -351,70 +337,6 @@ class Empresa {
     'obligado_sii': obligadoSii,
     'obligado_verifactu': obligadoVerifactu,
     'es_nueva_creacion': esNuevaCreacion,
-    'codigos_cnae': codigosCnae,
-  };
-
-  RegimenFiscal copyWith({
-    String? tipo,
-    String? periodicidadIva,
-    bool? obligadoSii,
-    bool? obligadoVerifactu,
-    bool? esNuevaCreacion,
-    List<String>? codigosCnae,
-  }) {
-    return RegimenFiscal(
-      tipo: tipo ?? this.tipo,
-      periodicidadIva: periodicidadIva ?? this.periodicidadIva,
-      obligadoSii: obligadoSii ?? this.obligadoSii,
-      obligadoVerifactu: obligadoVerifactu ?? this.obligadoVerifactu,
-      esNuevaCreacion: esNuevaCreacion ?? this.esNuevaCreacion,
-      codigosCnae: codigosCnae ?? this.codigosCnae,
-    );
-  }
-}
-
-// ── EMPRESA ───────────────────────────────────────────────────────────────────
-
-class Empresa {
-  final String id;
-  final PerfilEmpresa perfil;
-  final SuscripcionEmpresa suscripcion;
-  final ConfiguracionEmpresa configuracion;
-  final EstadisticasEmpresa estadisticas;
-
-  // ⭐ Campos nuevos del mapa Firestore
-  final String? legalName;        // razón social
-  final String? taxId;            // CIF / NIF
-  final String? sector;           // 'hosteleria', 'peluqueria', etc.
-  final String? cnae;             // código CNAE oficial
-  final String? actividad;        // descripción libre
-  final List<String> activePacks; // ['base', 'fiscal_ai', ...]
-  final RegimenFiscal regimenFiscal;
-  final String estado;            // 'activa', 'suspendida', 'baja'
-  final String? createdBy;
-
-  const Empresa({
-    required this.id,
-    required this.perfil,
-    required this.suscripcion,
-    required this.configuracion,
-    required this.estadisticas,
-    this.legalName,
-    this.taxId,
-    this.sector,
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is Empresa && other.id == id;
-  });
-      sector: datos['sector'] as String?,
-  factory Empresa.fromFirestore(String id, Map<String, dynamic> datos) {
-    return Empresa(
-      id: id,
-      perfil: PerfilEmpresa.fromFirestore(datos['perfil'] ?? {}),
-      suscripcion: SuscripcionEmpresa.fromFirestore(datos['suscripcion'] ?? {}),
       configuracion: ConfiguracionEmpresa.fromFirestore(datos['configuracion'] ?? {}),
       estadisticas: EstadisticasEmpresa.fromFirestore(datos['estadisticas'] ?? {}),
       ),
@@ -428,9 +350,17 @@ class Empresa {
 /// Helper para parsear fechas desde Firestore
 DateTime _parseDate(dynamic v) {
   if (v == null) return DateTime.now();
+  if (v is Timestamp) return v.toDate();
+      'legal_name': legalName,
+      'tax_id': taxId,
+      'sector': sector,
     );
   }
       'cnae': cnae,
+      'actividad': actividad,
+      'active_packs': activePacks,
+      'regimen_fiscal': regimenFiscal.toFirestore(),
+      'estado': estado,
   Map<String, dynamic> toFirestore() {
     return {
       'perfil': perfil.toFirestore(),
@@ -445,6 +375,10 @@ DateTime _parseDate(dynamic v) {
 
   /// ¿Tiene un pack concreto activo?
   bool tienePack(String packId) => activePacks.contains(packId);
+
+  /// ¿Tiene el Pack Fiscal IA?
+  bool get tienePackFiscal => tienePack('fiscal_ai');
+
 
     };
   }

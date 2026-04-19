@@ -31,17 +31,11 @@ Si quieres reseñas reales de tu Google My Business:
 #### **Paso 2: Obtener Google API Key**
 1. Ve a: https://console.cloud.google.com/
 2. Crea un proyecto o selecciona uno existente
-3. Habilita **Places API (New)** ⚠️ **IMPORTANTE: Debe ser la NUEVA API, no la antigua**
-   - Ve a "APIs y servicios" → "Biblioteca"
-   - Busca "Places API (New)"
-   - Haz clic en "HABILITAR"
+3. Habilita **Places API**
 ```dart
 _wpService.configurarGoogleReviews(
 6. **IMPORTANTE**: La nueva API usa un formato diferente:
    - Endpoint: `https://places.googleapis.com/v1/places/{placeId}`
-   - Headers: `X-Goog-Api-Key` en lugar de query parameter
-  placeId: 'TU_PLACE_ID_AQUI',        // ← Tu Place ID real
-  apiKey: 'TU_API_KEY_AQUI',          // ← Tu API Key real
 );
 ```
 

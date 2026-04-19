@@ -51,58 +51,44 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
-      body: Column(
-        children: [
-          // ── Cabecera fija ─────────────────────────────────────────
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00796B), Color(0xFF26A69A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      child: Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          // ── Cabecera desplazable ─────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00796B), Color(0xFF26A69A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.beach_access, color: Colors.white, size: 24),
                   ),
-                  child: const Icon(Icons.beach_access, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Vacaciones y Ausencias',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700)),
-                      Text('Gestión integral · Art. 38 ET + convenios',
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ],
-  // ═══════════════════════════════════════════════════════════════════════════
-                ),
-              ],
-            ),
-          ),
-          // ── Tabs + contenido ──────────────────────────────────────
-          Expanded(child: Column(
-            children: [
-              TabBar(
-                controller: _tabs,
-                labelColor: const Color(0xFF00796B),
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xFF00796B),
-                tabs: const [
-                  Tab(icon: Icon(Icons.calendar_month), text: 'Calendario'),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Vacaciones y Ausencias',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700)),
+  // PESTAÑA CALENDARIO
                   Tab(icon: Icon(Icons.list_alt), text: 'Solicitudes'),
 
   Widget _buildCalendario() {
@@ -121,18 +107,13 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     return CalendarioVacacionesWidget(
       empresaId: widget.empresaId,
       sesion: widget.sesion,
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PESTAÑA LISTA SOLICITUDES
       ),
 
-  Widget _buildListaSolicitudes() {
-    return StreamBuilder<List<SolicitudVacaciones>>(
-      stream: _svc.obtenerSolicitudes(widget.empresaId),
-      builder: (context, snap) {
-                    size: 72, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text('No hay solicitudes',
                     style: TextStyle(
                         fontSize: 18,
                         color: Colors.grey[600],
@@ -151,7 +132,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
           solicitudes = solicitudes
               .where((s) => s.empleadoId == _filtroEmpleadoId)
               .toList();
-        }
+  // ═══════════════════════════════════════════════════════════════════════════
 
         return Column(
               mainAxisSize: MainAxisSize.min,
@@ -173,7 +154,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                     ),
                   ],
                 ),
-              ),
+          children: [
             ),
             Expanded(
         ),

@@ -1,3 +1,14 @@
+      if (valoracion['fecha'] != null) {
+      'cliente': 'Ana P.',
+      'estrellas': 5,
+      'comentario': 'Increíble transformación, súper contenta con el resultado. Lo recomiendo totalmente.'
+    },
+    {
+      'cliente': 'Miguel R.',
+      'estrellas': 4,
+      'comentario': 'Buen servicio y precio justo. El personal es muy amable.'
+    },
+              child: FutureBuilder<List<Map<String, dynamic>>>(
 
   Future<List<Map<String, dynamic>>> _obtenerReservasHoy() async {
     // Lógica para obtener reservas de hoy
@@ -13,7 +24,7 @@
   ];
                   // Mostrar hasta 5 reservas con scroll si hay más
 
-        padding: const EdgeInsets.all(14),
+  Future<Map<String, dynamic>> _obtenerKpisRapidos() async {
     // Lógica para obtener KPIs desde cache o Firebase
     return _getDatosDemo();
   }
@@ -27,14 +38,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Widget de KPIs Rápidos
-class WidgetKpisRapidos extends StatelessWidget {
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('empresas')
-                  .doc(empresaId)
-                  .collection('estadisticas')
-                  .doc('resumen')
-                  .snapshots(),
+  final String empresaId;
+
   const WidgetKpisRapidos({super.key, required this.empresaId});
 
   @override
@@ -47,24 +52,10 @@ class WidgetKpisRapidos extends StatelessWidget {
                 double ingresosSemana = 0;
                 double ratingPromedio = 0;
 
-                if (snapshot.hasData && snapshot.data!.exists) {
+  Widget build(BuildContext context) {
                   final data = snapshot.data!.data() as Map<String, dynamic>?;
                   if (data != null) {
-                    reservasHoy = (data['reservas_hoy'] as num?)?.toInt() ?? 0;
-                    ingresosSemana = (data['ingresos_semana'] as num?)?.toDouble() ?? 0;
-                    ratingPromedio = (data['valoracion_promedio'] as num?)?.toDouble() ?? 
-                                   (data['rating_google'] as num?)?.toDouble() ?? 0;
-                  }
-                }
-
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                      'Hoy', '$reservasHoy',
-              children: [
-                Icon(Icons.trending_up, color: const Color(0xFF4CAF50), size: 20),
-                const SizedBox(width: 8),
-                      'Semana', '€${ingresosSemana.toStringAsFixed(0)}',
+        padding: const EdgeInsets.all(14), // Reducido de 16 a 14
                   'KPIs Rápidos',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -82,21 +73,32 @@ class WidgetKpisRapidos extends StatelessWidget {
                   children: [
                     Expanded(child: _buildKpiItem(
                     height: 60, // Reducido de 80 a 60
-                      Icons.today, const Color(0xFF1976D2)
+            Row(
                     )),
                 final data = snapshot.data ?? _getDatosDemo();
         Text(valor, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-        Text(titulo, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                const Text(
       ],
     );
   }
 
+  Future<Map<String, dynamic>> _obtenerKpisRapidos() async {
+    // Lógica para obtener KPIs desde cache o Firebase
+    return _getDatosDemo();
+  }
+
+  Map<String, dynamic> _getDatosDemo() => {
+    'reservas_hoy': 6,
+    'ingresos_semana': 1250,
+    'rating_promedio': 4.6,
+  };
+}
 
 // Widget de Reservas de Hoy
 class WidgetReservasHoy extends StatelessWidget {
   final String empresaId;
 
-  const WidgetReservasHoy({super.key, required this.empresaId});
+              ],
 
   @override
   Widget build(BuildContext context) {
@@ -121,11 +123,6 @@ class WidgetReservasHoy extends StatelessWidget {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            Expanded( // Cambiado para que use todo el espacio disponible
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('empresas')
                     .doc(empresaId)
@@ -145,16 +142,9 @@ class WidgetReservasHoy extends StatelessWidget {
                               style: TextStyle(color: Colors.grey[600], fontSize: 16)), // Texto más grande
                         ],
                       ),
-                          Icon(Icons.free_cancellation, color: Colors.grey[400], size: 40),
-                  }
-
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                  return ListView.builder(
-                    itemCount: reservas.length,
-                    itemBuilder: (context, index) {
-                      final reserva = reservas[index];
-            Expanded( // Cambiado para que use todo el espacio disponible
+              child: FutureBuilder<List<Map<String, dynamic>>>(
                 future: _obtenerReservasHoy(),
+                builder: (context, snapshot) {
                     itemCount: snapshot.data!.docs.length,
                             Container(
                       final doc = snapshot.data!.docs[index];
@@ -165,50 +155,23 @@ class WidgetReservasHoy extends StatelessWidget {
                           ? '${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}'
                           : '--:--';
                       final cliente = data['cliente'] as String? ?? 'Cliente';
-                      final servicio = data['servicio'] as String? ?? data['nombre'] as String?;
+                          Icon(Icons.free_cancellation, color: Colors.grey[400], size: 40), // Icono más grande
+                          const SizedBox(height: 12),
                       final estado = (data['estado'] as String? ?? 'PENDIENTE').toUpperCase();
                       
-                      Color estadoColor;
+                    );
                       String estadoTexto;
                       switch (estado) {
                         case 'CONFIRMADA':
-                          estadoColor = const Color(0xFF4CAF50);
+                  // Mostrar hasta 5 reservas con scroll si hay más
                           estadoTexto = 'Confirmada';
                           break;
                         case 'PENDIENTE':
                           estadoColor = const Color(0xFFF57C00);
                           estadoTexto = 'Pendiente';
-                          break;
+                          children: [
                         case 'CANCELADA':
-                          estadoColor = const Color(0xFFD32F2F);
-                          estadoTexto = 'Cancelada';
-                          break;
-                        default:
-                          estadoColor = Colors.grey;
-                          estadoTexto = estado;
-                      }
-
-                              decoration: BoxDecoration(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(12),
-                              ),
-                              child: Icon(Icons.access_time, size: 18, color: Colors.white),
-                            ),
-                            const SizedBox(width: 12),
-                  final reservas = snapshot.data ?? _getReservasDemo();
-                  if (reservas.isEmpty) {
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                          Icon(Icons.free_cancellation, color: Colors.grey[400], size: 40), // Icono más grande
-                                    reserva['hora'] ?? '',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16)), // Texto más grande
-                    itemCount: reservas.length,
-                              child: const Icon(Icons.access_time, size: 18, color: Colors.white),
-                                      color: Color(0xFF1976D2),
-                      final reserva = reservas[index];
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
+                              padding: const EdgeInsets.all(8),
                                 ),
                               ),
                             ),
@@ -254,10 +217,8 @@ class WidgetReservasHoy extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-                        margin: const EdgeInsets.only(bottom: 10), // Más espacio entre items
+                                color: const Color(0xFF1976D2),
+                                borderRadius: BorderRadius.circular(8),
                         padding: const EdgeInsets.all(12), // Más padding
                 const SizedBox(width: 8),
                 const Text(
@@ -266,6 +227,19 @@ class WidgetReservasHoy extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Expanded( // Cambiado para que use todo el espacio disponible
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _obtenerValoracionesRecientes(),
+                builder: (context, snapshot) {
+                  final valoraciones = snapshot.data ?? _getValoracionesDemo();
+
+                              child: Icon(Icons.access_time, size: 18, color: Colors.white),
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.star_border, color: Colors.grey[400], size: 40), // Icono más grande
                           const SizedBox(height: 12),
                                     reserva['hora'] ?? '',
                                       fontSize: 14, // Aumentado de 12 a 14
@@ -278,7 +252,7 @@ class WidgetReservasHoy extends StatelessWidget {
                     itemCount: valoraciones.length,
                     itemBuilder: (context, index) {
                       final valoracion = valoraciones[index];
-                      return Container(
+                                      fontWeight: FontWeight.w700,
                                     reserva['cliente'] ?? '',
                                       fontSize: 13, // Aumentado de 12 a 13
                         decoration: BoxDecoration(
@@ -286,21 +260,21 @@ class WidgetReservasHoy extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                                   if (reserva['servicio'] != null)
                         ),
-                                      reserva['servicio'],
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          ],
+                      );
                           children: [
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(6),
+        ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF57C00),
+    );
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
+    // Lógica para obtener reservas de hoy
                     .collection('empresas')
                     .doc(empresaId)
-                    .collection('valoraciones')
+  }
                     .orderBy('fecha', descending: true)
                     .limit(5)
                     .snapshots(),
@@ -311,10 +285,10 @@ class WidgetReservasHoy extends StatelessWidget {
                               child: const Text(
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                                 style: TextStyle(
-                                  style: const TextStyle(
-                                    fontSize: 14, // Aumentado de 12 a 14
-                                    fontWeight: FontWeight.w600,
-                          Icon(Icons.star_border, color: Colors.grey[400], size: 40),
+class WidgetValoracionesRecientes extends StatelessWidget {
+  const WidgetValoracionesRecientes({super.key, required this.empresaId});
+
+  @override
                                 ),
                                 const Spacer(),
                               style: TextStyle(color: Colors.grey[600], fontSize: 16)),
@@ -339,29 +313,20 @@ class WidgetReservasHoy extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                               ),
                               maxLines: 3, // Permitir más líneas
-                  final valoraciones = snapshot.data ?? _getValoracionesDemo();
-                              _formatearFechaValoracion(valoracion),
-                  if (valoraciones.isEmpty) {
-                                fontSize: 10,
-                                color: Colors.grey[500],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                color: const Color(0xFF4CAF50),
                           Icon(Icons.star_border, color: Colors.grey[400], size: 40), // Icono más grande
                         ),
                       );
                     },
                   );
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16)), // Texto más grande
-                                  child: const Icon(Icons.person, size: 14, color: Colors.white),
-            ),
-          ],
-                                Expanded(
+                                const SizedBox(width: 8),
                                   child: Text(
                                     cliente,
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                'Confirmada',
                                     ),
                                     overflow: TextOverflow.ellipsis,
                     itemCount: valoraciones.length,
@@ -369,10 +334,10 @@ class WidgetReservasHoy extends StatelessWidget {
                                 const SizedBox(width: 8),
           .collection('empresas')
                       final valoracion = valoraciones[index];
-        };
+                                  ),
                                     size: 16,
                                     color: i < calificacion
-      print('❌ Error obteniendo valoraciones: $e');
+                                Row(
       return _getValoracionesDemo();
     }
   }
@@ -384,20 +349,11 @@ class WidgetReservasHoy extends StatelessWidget {
       'comentario': 'Excelente servicio, muy profesional. El trato fue excepcional y el resultado superó mis expectativas.'
                                 fontSize: 12,
                                 color: Colors.grey[700],
-                                height: 1.4,
+                                  )),
       'estrellas': 4,
+                        margin: const EdgeInsets.only(bottom: 12), // Más espacio
                               maxLines: 3,
-                        padding: const EdgeInsets.all(12), // Más padding
-    {
-                            if (fecha != null) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                _formatearFecha(fecha),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[500],
-                                  fontStyle: FontStyle.italic,
-                                ),
+              child: FutureBuilder<List<Map<String, dynamic>>>(
                               ),
                             ],
   ];
@@ -413,9 +369,76 @@ class WidgetReservasHoy extends StatelessWidget {
 
   // Helper method to format date for valoraciones
   String _formatearFechaValoracion(Map<String, dynamic> valoracion) {
-    try {
-  String _formatearFecha(Timestamp timestamp) {
-                                  child: Icon(Icons.person, size: 14, color: Colors.white),
+        final fecha = valoracion['fecha'];
+        if (fecha is Timestamp) {
+                                Text(
+                                  valoracion['cliente'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 14, // Aumentado de 12 a 14
+                                    fontWeight: FontWeight.w600,
+          }
+        }
+      }
+      return 'Reciente';
+      return 'Reciente';
+    } catch (e) {
+      return 'Reciente';
+    }
+  }
+}
+
+// Placeholders para otros widgets
+class WidgetIngresosMes extends StatelessWidget {
+  final String empresaId;
+                                const Spacer(),
+  @override
+  Widget build(BuildContext context) => _WidgetPlaceholder('Ingresos del Mes', Icons.euro);
+}
+
+class WidgetClientesNuevos extends StatelessWidget {
+                                    size: 16, // Aumentado de 12 a 16
+                                    color: i < _obtenerCalificacion(valoracion)
+  @override
+  Widget build(BuildContext context) => _WidgetPlaceholder('Clientes Nuevos', Icons.people);
+}
+
+class WidgetAlertasNegocio extends StatelessWidget {
+  final String empresaId;
+                            const SizedBox(height: 8), // Más espacio
+  @override
+                              valoracion['comentario'] ?? '',
+}
+
+class WidgetOfertasSugeridas extends StatelessWidget {
+  final String empresaId;
+                                fontSize: 12, // Mantenido en 12 para comentarios
+                                color: Colors.grey[700], // Color más oscuro
+                              maxLines: 3, // Permitir más líneas
+}
+
+class WidgetHorariosOcupacion extends StatelessWidget {
+  final String empresaId;
+                            const SizedBox(height: 6),
+                            Text(
+                              _formatearFechaValoracion(valoracion),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[500],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+      child: Container(
+        height: 100, // Reducido de 120 a 100
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+  Future<List<Map<String, dynamic>>> _obtenerValoracionesRecientes() async {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('empresas')
+                                color: Colors.grey[700], // Color más oscuro
+                                height: 1.4, // Mejor line height
       final dateTime = timestamp.toDate();
       final ahora = DateTime.now();
       final diferencia = ahora.difference(dateTime);
@@ -431,38 +454,17 @@ class WidgetReservasHoy extends StatelessWidget {
         final meses = (diferencia.inDays / 30).floor();
         return 'Hace $meses mes${meses > 1 ? 'es' : ''}';
         }
+        };
       }).toList();
     } catch (e) {
-      print('❌ Error obteniendo valoraciones: $e');
-      return _getValoracionesDemo();
-    }
-  }
-
-  List<Map<String, dynamic>> _getValoracionesDemo() => [
-    {
-      'cliente': 'Laura M.',
-      'estrellas': 5,
-      'comentario': 'Excelente servicio, muy profesional. El trato fue excepcional y el resultado superó mis expectativas.'
-    },
-    {
-      'cliente': 'Carlos G.',
-      'estrellas': 4,
-      'comentario': 'Muy buena atención, repetiré sin duda. El ambiente es acogedor.'
-    },
-    {
-      'cliente': 'Ana P.',
-      'estrellas': 5,
-      'comentario': 'Increíble transformación, súper contenta con el resultado. Lo recomiendo totalmente.'
-    },
-    {
-      'cliente': 'Miguel R.',
-      'estrellas': 4,
-      'comentario': 'Buen servicio y precio justo. El personal es muy amable.'
-    },
-  ];
-
-  // Helper method to get rating from different field names
-  int _obtenerCalificacion(Map<String, dynamic> valoracion) {
+          .collection('valoraciones')
+          if (diferencia.inDays < 1) {
+            return 'Hoy';
+          } else if (diferencia.inDays < 7) {
+            return 'Hace ${diferencia.inDays} días';
+          } else {
+            return 'Hace ${(diferencia.inDays / 7).floor()} semanas';
+          }
     // Try different field names that might be used
     return (valoracion['estrellas'] ??
            valoracion['calificacion'] ??
@@ -471,32 +473,28 @@ class WidgetReservasHoy extends StatelessWidget {
   }
 
   // Helper method to format date for valoraciones
-  String _formatearFechaValoracion(Map<String, dynamic> valoracion) {
+      final querySnapshot = await FirebaseFirestore.instance
     try {
       if (valoracion['fecha'] != null) {
         // If it's a timestamp
-        final fecha = valoracion['fecha'];
-        if (fecha is Timestamp) {
-          final dateTime = fecha.toDate();
+      }).toList();
+    } catch (e) {
           final ahora = DateTime.now();
           final diferencia = ahora.difference(dateTime);
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    {
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+      'estrellas': 5,
                 ),
                 child: const Text(
                   'Próximamente',
-                  style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        ),
+    },
+    {
+      'cliente': 'Carlos G.',
       ),
     );
   }

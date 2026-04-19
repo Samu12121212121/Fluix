@@ -72,16 +72,6 @@ class FacturaRecibida {
   // Notas
   final String? notas;
 
-  // Fechas de auditoría
-  final DateTime fechaCreacion;
-  final DateTime? fechaActualizacion;
-
-  // IA — enlace con la transacción fiscal procesada
-  final String? aiTransactionId;  // ID en fiscal_transactions (si fue procesada por IA)
-
-  FacturaRecibida({
-    required this.id,
-    required this.empresaId,
     this.telefonoProveedor,
     this.porcentajeIva = 21.0,
     required this.importeIva,
@@ -122,7 +112,6 @@ class FacturaRecibida {
     double? porcentajeIva,
     double? importeIva,
     double? descuentoGlobal,
-    double? recargoEquivalencia,
     double? totalConImpuestos,
     double? porcentajeRetencion,
     double? importeRetencion,
@@ -186,7 +175,6 @@ class FacturaRecibida {
       baseImponible: (d['base_imponible'] as num?)?.toDouble() ?? 0,
       serie: d['serie'],
       telefonoProveedor: d['telefono_proveedor'],
-      porcentajeIva: (d['porcentaje_iva'] as num?)?.toDouble() ?? 21.0,
       importeIva: (d['importe_iva'] as num?)?.toDouble() ?? 0,
       ivaDeducible: d['iva_deducible'] ?? true,
       descuentoGlobal: (d['descuento_global'] as num?)?.toDouble() ?? 0,
@@ -230,7 +218,6 @@ class FacturaRecibida {
     'iva_deducible': ivaDeducible,
     'descuento_global': descuentoGlobal,
     'recargo_equivalencia': recargoEquivalencia,
-    'total_con_impuestos': totalConImpuestos,
     'importe_retencion': importeRetencion,
     'estado': estado.name,
     'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,

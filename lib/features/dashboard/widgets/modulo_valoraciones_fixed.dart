@@ -1,10 +1,23 @@
+            const SizedBox(height: 8),
+            Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12), textAlign: TextAlign.center),
+          ] else ...[
+            Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
+            const SizedBox(height: 12),
+            const Text('Sin valoraciones todavía', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const SizedBox(height: 6),
+            Text('Las reseñas de Google aparecerán aquí al sincronizar',
               style: TextStyle(color: Colors.grey[500], fontSize: 13), textAlign: TextAlign.center),
           ],
           const SizedBox(height: 16),
           ElevatedButton.icon(onPressed: onAnadir, icon: const Icon(Icons.add),
+            label: const Text('Añadir valoración manual'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
+              foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
                 try {
                 try {
                   final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
+                  var acc = await gs.signInSilently() ?? await gs.signIn();
                   if (acc != null) {
                     final auth = await acc.authentication;
                     if (auth.accessToken != null) {
@@ -44,11 +57,10 @@ import 'estado_conexion_google_widget.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'estado_conexion_google_widget.dart';
+
 import 'package:flutter/services.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'estado_conexion_google_widget.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'estado_conexion_google_widget.dart';
@@ -75,16 +87,7 @@ class ModuloValoraciones extends StatefulWidget {
     if (!mounted) return;
     setState(() {
       if (reset) {
-        _resenas = resultado;
-      } else {
-        _resenas.addAll(resultado);
-      }
-      if (resultado.isNotEmpty) {
-}
-
-class _ModuloValoracionesState extends State<ModuloValoraciones> {
-  final GoogleReviewsService _svc = GoogleReviewsService();
-  static const int _porPagina = 25;
+  }
 
   bool _cargando = true;
   bool _sincronizando = false;
@@ -221,7 +224,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
               const Text('Nueva valoración manual',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
@@ -238,7 +240,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
               Row(children: [
                 const Text('Calificación: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                 ...List.generate(5, (i) => GestureDetector(
-                  onTap: () => setS(() => calificacion = i + 1),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
                   child: Icon(i < calificacion ? Icons.star : Icons.star_border,
                     color: const Color(0xFFF57C00), size: 32))),
               ]),
@@ -255,23 +257,25 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                     final com = comentarioCtrl.text.trim();
                     if (cli.isEmpty || com.isEmpty) return;
                     await _svc.anadirValoracionManual(empresaId: widget.empresaId,
-                      cliente: cli, calificacion: calificacion, comentario: com);
-                    if (ctx.mounted) { Navigator.pop(ctx); _cargarPagina(reset: true); }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Guardar valoración'),
-                    foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
-            ]),
-        ))));
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8, offset: const Offset(0, 2))]),
-      child: Column(children: [
-        // Fila acciones — solo botón de sincronizar queda como icono discreto
-        Align(
-          alignment: Alignment.centerRight,
-          child: sincronizando
-              ? Row(mainAxisSize: MainAxisSize.min, children: [
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cabecera completa con GMB, KPIs y analíticas colapsables
+// ─────────────────────────────────────────────────────────────────────────────
+class _CabeceraCompleta extends StatelessWidget {
+    required this.onToggleAnaliticas, required this.onGmbConectado,
+  final int totalGoogle;
+  final bool sincronizando;
+  final String? errorSync;
+  final bool mostrarAnaliticas;
+  final VoidCallback onSincronizar;
+  final VoidCallback onAnadir;
+  final VoidCallback onToggleAnaliticas;
+  final VoidCallback onGmbConectado;
+  final VoidCallback? onConfigurar;
+
+  const _CabeceraCompleta({
                   const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                   const SizedBox(width: 6),
                   Text('Sincronizando...', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
@@ -312,8 +316,8 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
             const SizedBox(width: 4),
             Text('Sync...', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
           ],
-          IconButton(onPressed: sincronizando ? null : onSincronizar,
-            icon: const Icon(Icons.sync, size: 20), color: const Color(0xFF4285F4),
+            icon: const Icon(Icons.add_comment_outlined, size: 20), color: const Color(0xFF43A047),
+            tooltip: 'Añadir valoración manual'),
             tooltip: 'Sincronizar con Google'),
           IconButton(onPressed: onAnadir,
                     valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
@@ -330,18 +334,13 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
               style: const TextStyle(fontSize: 46, fontWeight: FontWeight.bold, color: Color(0xFFF57C00))),
             Row(children: List.generate(5, (i) {
               if (rating <= 0) return const Icon(Icons.star_border, color: Color(0xFFF57C00), size: 20);
-              if (i < rating.floor()) return const Icon(Icons.star, color: Color(0xFFF57C00), size: 20);
-              if (i < rating) return const Icon(Icons.star_half, color: Color(0xFFF57C00), size: 20);
-              return const Icon(Icons.star_border, color: Color(0xFFF57C00), size: 20);
-            })),
-                'Se muestran las 5 más recientes de las $totalGoogle reales de Google.',
-                style: TextStyle(fontSize: 10, color: Colors.grey[700]))),
-            ])),
-        ],
-
-        // Error de sincronización
-        if (errorSync != null) ...[
-          const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            Text(total > 0 ? '$total reseñas en Google' : 'Sin datos de Google',
+              style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w500)),
+            if (resenas.isNotEmpty) Text('${resenas.length} guardadas aquí',
+              style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+          ]),
+          const SizedBox(width: 16),
           Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.red[50],
@@ -350,17 +349,13 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           Expanded(child: Column(children: List.generate(5, (i) {
             final stars = 5 - i;
             final count = resenas.where((r) =>
-              ((r['calificacion'] ?? r['estrellas'] ?? 0) as num).toInt() == stars).length;
-          })))],
-        ),
-                style: TextStyle(fontSize: 10, color: Colors.red[700]))),
+              child: Row(children: [
+                Text('$stars', style: const TextStyle(fontSize: 11)),
             ])),
         ],
                 const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
-        // Badges de origen + toggle analíticas
-        const SizedBox(height: 8),
-        Row(children: [
-          if (deGoogle > 0) _badge(Icons.g_mobiledata, 'Google ($deGoogle)', const Color(0xFF4285F4)),
+                const SizedBox(width: 4),
+                Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(value: pct,
                     backgroundColor: Colors.grey[300],
           })))],
@@ -409,71 +404,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
 
         // Sección analíticas colapsable
 // ─────────────────────────────────────────────────────────────────────────────
-class _EstadoVacio extends StatelessWidget {
-  final double ratingGoogle;
-  final int totalGoogle;
-  final VoidCallback onAnadir;
-
-  const _EstadoVacio({required this.ratingGoogle, required this.totalGoogle, required this.onAnadir});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (ratingGoogle > 0 && totalGoogle > 0) ...[
-          const SizedBox(height: 8),
-          Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12), textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.orange[50],
-              border: Border.all(color: Colors.orange[200]!),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(children: [
-              const Row(children: [
-                Icon(Icons.info_outline, color: Colors.orange, size: 18),
-                SizedBox(width: 6),
-                Text('Conexión OK pero sin reseñas descargadas',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              ]),
-              const SizedBox(height: 6),
-              Text(
-                'La API de Google Places devuelve máximo 5 reseñas por petición. '
-                'Esto puede deberse a:\n'
-                '• La API Key no tiene activado el campo "reviews" (requiere plan Places Details)\n'
-                '• La Key tiene restricción de dominio o IP\n'
-                '• El negocio tiene menos de 1 reseña pública\n\n'
-                'Pulsa el botón ↻ en la parte superior para sincronizar de nuevo y ver el error exacto.',
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-              ),
-            ]),
-          ),
-        ] else ...[
-          Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
-          const SizedBox(height: 12),
-          const Text('Sin valoraciones todavía', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-          const SizedBox(height: 6),
-          Text('Las reseñas de Google aparecerán aquí al sincronizar',
-            style: TextStyle(color: Colors.grey[500], fontSize: 13), textAlign: TextAlign.center),
-        ],
-        const SizedBox(height: 16),
-        ElevatedButton.icon(onPressed: onAnadir, icon: const Icon(Icons.add),
-          label: const Text('Añadir valoración manual'),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
-            foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
-      ]),
-    ));
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta de reseña con badge negativa + estado respuesta
-        if (mostrarAnaliticas) ...[
-          const Divider(height: 20),
           KPIsRatingWidget(empresaId: empresaId, ratingGoogle: ratingGoogle, totalGoogle: totalGoogle),
           const SizedBox(height: 16),
           GraficoEvolucionRatingWidget(empresaId: empresaId),
@@ -664,6 +594,7 @@ class _TarjetaResena extends StatelessWidget {
       const Color(0xFF5D4037), const Color(0xFF689F38), const Color(0xFFE91E63),
     ];
     return c[name.codeUnits.fold(0, (a, b) => a + b) % c.length];
+  }
     final uri = Uri.parse('https://business.google.com/reviews');
 }
 
@@ -697,6 +628,25 @@ class _BadgeNegativa extends StatefulWidget {
   late final Animation<double> _anim;
 
   @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.35, end: 1.0)
+      .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _anim,
+    builder: (_, __) => Opacity(opacity: _anim.value,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(8)),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
 class _BadgeNegativaState extends State<_BadgeNegativa> with SingleTickerProviderStateMixin {
             const SizedBox(height: 8),
             Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
@@ -714,10 +664,20 @@ class _BadgeNegativaState extends State<_BadgeNegativa> with SingleTickerProvide
             label: const Text('Añadir valoración manual'),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
               foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
-          Icon(Icons.warning_amber_outlined, size: 10, color: Colors.white),
+    if (f is Timestamp) return f.toDate();
+    if (f is String) return DateTime.tryParse(f) ?? DateTime.now();
           SizedBox(width: 3),
-          Text('⚠', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+
+  Color _colorDesdeNombre(String name) {
         ]),
       ),
     );
   }
+      ),
+    );
+  }
+      )),
+  );
+}
+
+

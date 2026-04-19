@@ -205,15 +205,7 @@ class ContabilidadService {
       inicio = DateTime(anio, 1, 1);
       fin = DateTime(anio + 1, 1, 1);
     }
-    // ── Determinar criterio IVA (devengo vs caja) ──
-    final criterioDoc = await _db
-        .collection('empresas').doc(empresaId)
-        .collection('configuracion').doc('fiscal')
-        .get();
-    final criterioStr = (criterioDoc.data()?['criterio_iva'] as String?) ?? 'devengo';
-    final esCriterioCaja = criterioStr == 'caja';
 
-    // ── Facturas emitidas ──
     // Facturas emitidas (solo pagadas para IVA devengado)
         .where((f) => f.estado != EstadoFactura.anulada)
         .toList();
@@ -233,12 +225,7 @@ class ContabilidadService {
     // Gastos — filtramos estado en Dart para evitar índice compuesto
     for (final f in facturasContables) {
         .where('fecha_gasto',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
-        .where('fecha_gasto', isLessThan: Timestamp.fromDate(fin))
-        .get();
-
-    // ── Gastos (colección gastos/) ──
-    final facturasPagadas = facturas.where((f) => f.esPagada).toList();
+    }
     for (final g in gastos) {
       baseRecibida += g.baseImponible;
       if (g.ivaDeducible) ivaSoportado += g.importeIva;
@@ -246,13 +233,14 @@ class ContabilidadService {
     }
 
     return ResumenContable(
+      anio: anio,
     for (final f in facturasPagadas) {
       trimestre: trimestre,
-    // ── BUG #1 fix: también leer facturas_recibidas/ ──
+    final snapGastos = await _gastos(empresaId)
     final snapRecibidas = await _facturasRecibidas(empresaId)
         .where('fecha_recepcion',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
-        .where('fecha_recepcion', isLessThan: Timestamp.fromDate(fin))
+    final gastos = snapGastos.docs
         .get();
 
       baseImponibleEmitida: baseEmitida,
@@ -264,13 +252,6 @@ class ContabilidadService {
       ivaSoportado: ivaSoportado,
       totalGastado: totalGastado,
       numFacturasEmitidas: facturas.length,
-    // Sumar facturas recibidas (pipeline IA)
-    for (final doc in snapRecibidas.docs) {
-      final d = doc.data();
-      final base = (d['base_imponible'] as num?)?.toDouble() ?? 0;
-      final iva = (d['iva_total'] as num?)?.toDouble() ?? 0;
-      final total = (d['total'] as num?)?.toDouble() ?? (base + iva);
-      baseRecibida += base;
       ivaSoportado += iva;
       totalGastado += total;
     }
@@ -282,7 +263,6 @@ class ContabilidadService {
         : DateTime(anio, 1, 1);
     final fin = mes != null
         ? DateTime(anio, mes + 1, 1)
-        : DateTime(anio + 1, 1, 1);
 
     final snap = await _facturas(empresaId)
         .where('fecha_emision',
@@ -293,21 +273,6 @@ class ContabilidadService {
       ..sort((a, b) => a.fechaEmision.compareTo(b.fechaEmision));
 
     return docs.map((f) {
-      return LineaLibroContable(
-        total: f.total,
-        estado: f.estado.etiqueta,
-      );
-    }).toList();
-  }
-
-  Future<List<LineaLibroContable>> generarLibroRecibidas(
-      String empresaId, int anio, {int? mes}) async {
-    final inicio = mes != null
-        ? DateTime(anio, mes, 1)
-        : DateTime(anio, 1, 1);
-    final fin = mes != null
-        ? DateTime(anio, mes + 1, 1)
-        : DateTime(anio + 1, 1, 1);
 
     final snap = await _gastos(empresaId)
         .where('fecha_gasto',

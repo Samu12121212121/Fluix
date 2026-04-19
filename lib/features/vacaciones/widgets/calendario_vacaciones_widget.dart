@@ -210,26 +210,20 @@ class _CalendarioVacacionesWidgetState
       children: [
         _buildSelectorEmpleado(),
         _buildLeyenda(),
-        if (_cargando)
-          const LinearProgressIndicator(
-              minHeight: 2, color: Color(0xFF00796B)),
-        _buildTableCalendar(),
-        if (_selectedDay != null)
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildPanelDia(_selectedDay!),
-                  const SizedBox(height: 80), // espacio FAB
-                ],
-              ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                if (_cargando)
+                  const LinearProgressIndicator(
+                      minHeight: 2, color: Color(0xFF00796B)),
+                _buildTableCalendar(),
+                if (_selectedDay != null) _buildPanelDia(_selectedDay!),
+                const SizedBox(height: 80), // espacio FAB
+              ],
             ),
-          )
-        else
-          const SizedBox(height: 80),
-      ],
-    );
-  }
+          ),
+        ),
 
   Widget _buildSelectorEmpleado() {
     return Container(

@@ -6,7 +6,6 @@ import 'importar_ventas_csv_screen.dart';
 import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
-import 'pantalla_cierre_caja.dart';
   final String empresaId;
 
   /// true si el usuario es admin o propietario (puede ver configuración)
@@ -80,19 +79,7 @@ import 'pantalla_cierre_caja.dart';
 
           ],
           const SizedBox(height: 12),
-          // ── Cierre de caja ───────────────────────────────────────────────
-          _TarjetaAccionTpv(
-            icono: Icons.point_of_sale_rounded,
-            titulo: 'Cierre de Caja',
-            descripcion: 'Resumen diario de ventas por método de pago e impresión de informe',
-            color: Colors.indigo[700]!,
-            onTap: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => PantallaCierreCaja(empresaId: empresaId),
-            )),
-          ),
-          const SizedBox(height: 12),
 
-          const SizedBox(height: 24),
 
           ],
     return Card(

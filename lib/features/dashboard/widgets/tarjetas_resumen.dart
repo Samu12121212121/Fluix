@@ -1,81 +1,29 @@
         // Segunda fila de tarjetas
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
         Row(
 /// Widget de resumen general con KPIs conectados a datos reales
-          children: const [
   final String empresaId;
 
   const TarjetasResumen({
     super.key,
     required this.empresaId,
   });
-              child: _TarjetaResumen(
-                titulo: 'Ingresos Mes',
-                valor: '\$2,450',
-    return StreamBuilder<DocumentSnapshot>(
+            Expanded(
       stream: FirebaseFirestore.instance
           .collection('empresas')
           .doc(empresaId)
           .collection('estadisticas')
           .doc('resumen')
           .snapshots(),
-      builder: (context, snapshot) {
-        // Valores por defecto mientras carga
-        int totalClientes = 0;
-        int reservasMes = 0;
-        double ingresosMes = 0.0;
-        double valoracionPromedio = 0.0;
-        double crecimientoClientes = 0.0;
-        double crecimientoReservas = 0.0;
-        double crecimientoIngresos = 0.0;
-
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>?;
-          if (data != null) {
-            totalClientes = (data['total_clientes'] as num?)?.toInt() ?? 0;
-            reservasMes = (data['reservas_mes'] as num?)?.toInt() ?? 0;
-            ingresosMes = (data['ingresos_mes'] as num?)?.toDouble() ?? 0.0;
-            valoracionPromedio = (data['valoracion_promedio'] as num?)?.toDouble() ?? 
-                                 (data['rating_google'] as num?)?.toDouble() ?? 0.0;
-            
-            // Cálculo de crecimientos basados en mes anterior
-            final reservasMesAnterior = (data['reservas_mes_anterior'] as num?)?.toInt() ?? 0;
-            final ingresosMesAnterior = (data['ingresos_mes_anterior'] as num?)?.toDouble() ?? 0.0;
-            final clientesMesAnterior = (data['nuevos_clientes_mes_anterior'] as num?)?.toInt() ?? 0;
-            final clientesNuevosMes = (data['nuevos_clientes_mes'] as num?)?.toInt() ?? 0;
-
-            if (reservasMesAnterior > 0) {
-              crecimientoReservas = ((reservasMes - reservasMesAnterior) / reservasMesAnterior) * 100;
-            }
-            if (ingresosMesAnterior > 0) {
-              crecimientoIngresos = ((ingresosMes - ingresosMesAnterior) / ingresosMesAnterior) * 100;
-            }
-            if (clientesMesAnterior > 0) {
-              crecimientoClientes = ((clientesNuevosMes - clientesMesAnterior) / clientesMesAnterior) * 100;
-            }
-          }
-        }
-
-        final formatoMoneda = NumberFormat.currency(symbol: '€', decimalDigits: 0);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resumen General',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+                icono: Icons.account_balance_wallet,
+                color: Color(0xFF689F38),
+                crecimiento: 15.7,
               ),
             ),
-            const SizedBox(height: 16),
-                icono: Icons.star,
-            // Primera fila de tarjetas
-            Row(
-              children: [
-                Expanded(
-                  child: _TarjetaResumen(
-                    titulo: 'Clientes',
+            SizedBox(width: 16),
+            Expanded(
+              child: _TarjetaResumen(
+                titulo: 'Valoración',
+                valor: '4.8 ★',
                     valor: '$totalClientes',
                     icono: Icons.people,
                     color: const Color(0xFF388E3C),
@@ -96,6 +44,31 @@ import 'package:intl/intl.dart';
             ),
             const SizedBox(height: 16),
                 color: Color(0xFF1976D2),
+                crecimiento: 8.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+import 'package:flutter/material.dart';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'Resumen General',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  const TarjetasResumen({super.key});
+        Row(
+          children: const [
+            Expanded(
+              child: _TarjetaResumen(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Resumen General',
             // Segunda fila de tarjetas
             Row(
               children: [
@@ -136,42 +109,31 @@ import 'package:intl/intl.dart';
               ),
           ],
         );
-      },
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-                if (mostrarCrecimiento && crecimiento != null)
-                  _buildIndicadorCrecimiento(),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Valor principal
-            Text(
-              valor,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // Título
-            Text(
-              titulo,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+                color: Color(0xFFF57C00),
+                mostrarCrecimiento: false,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildIndicadorCrecimiento() {
+      ],
+        // Primera fila de tarjetas
+        Row(
+          children: const [
+            Expanded(
+              child: _TarjetaResumen(
+                titulo: 'Clientes',
+                valor: '25',
+                icono: Icons.people,
+                color: Color(0xFF388E3C),
+                crecimiento: 12.5,
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: _TarjetaResumen(
+                titulo: 'Reservas',
+                valor: '48',
+                icono: Icons.calendar_today,
     if (crecimiento == null) return const SizedBox.shrink();
 
     final esPositivo = crecimiento! > 0;

@@ -90,25 +90,24 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Título + botón cerrar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
+            // Título
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                child: SizedBox(
                   width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+              ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
 
-            // Selector empleado
             const SizedBox(height: 8),
             if (widget.empleadoIdFijo == null) ...[
               _buildSelectorEmpleado(),

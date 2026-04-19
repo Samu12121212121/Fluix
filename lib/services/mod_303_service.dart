@@ -152,35 +152,6 @@ class Mod303Service {
         .toList();
   }
 
-  /// Calcula base IVA de una factura para un porcentaje dado.
-  /// Si tiene líneas desglosadas, las usa. Si no, hace fallback a totales de cabecera.
-  double _calcularBaseIVA(Factura f, double porcentaje) {
-    if (f.lineas.isNotEmpty) {
-      return f.lineas
-          .where((l) => l.porcentajeIva == porcentaje)
-          .fold(0.0, (s, l) => s + l.subtotalSinIva);
-    }
-    // Fallback: si el IVA total / subtotal ≈ porcentaje, asignar toda la base
-    if (f.subtotal > 0 && f.totalIva > 0) {
-      final pctCalculado = (f.totalIva / f.subtotal * 100).round();
-      if (pctCalculado == porcentaje.round()) return f.subtotal;
-    }
-    return 0;
-  }
-
-  double _calcularCuotaIVA(Factura f, double porcentaje) {
-    if (f.lineas.isNotEmpty) {
-      return f.lineas
-          .where((l) => l.porcentajeIva == porcentaje)
-          .fold(0.0, (s, l) => s + l.importeIva);
-    }
-    if (f.subtotal > 0 && f.totalIva > 0) {
-      final pctCalculado = (f.totalIva / f.subtotal * 100).round();
-      if (pctCalculado == porcentaje.round()) return f.totalIva;
-    }
-    return 0;
-  }
-
 
     final cuotaSuperReducida =
         emitidas.fold(0.0, (sum, f) => sum + f.lineas
@@ -205,21 +176,36 @@ class Mod303Service {
 
     final baseReducida =
         emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 10)
-            .fold(0.0, (s, l) => s + l.subtotalSinIva));
 
-    final cuotaReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 10)
-            .fold(0.0, (s, l) => s + l.importeIva));
+    // Calcular IVA soportado (recibidas deducibles)
+    final ivaSoportado =
+        recibidas.where((f) => f.ivaDeducible)
+            .fold(0.0, (sum, f) => sum + f.ivaDeducibleReal);
 
-    final baseSuperReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 4)
-            .fold(0.0, (s, l) => s + l.subtotalSinIva));
+    final totalRepercutido = cuotaGeneral + cuotaReducida + cuotaSuperReducida;
+    final iva303 = totalRepercutido - ivaSoportado;
 
-    final cuotaSuperReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+    return {
+      'base_general': baseGeneral,
+      'cuota_general': cuotaGeneral,
+      'base_reducida': baseReducida,
+      'cuota_reducida': cuotaReducida,
+      'base_super_reducida': baseSuperReducida,
+      'cuota_super_reducida': cuotaSuperReducida,
+      'total_repercutido': totalRepercutido,
+      'iva_soportado': ivaSoportado,
+      'iva_303': iva303,
+      'num_facturas_emitidas': emitidas.length,
+      'num_facturas_recibidas': recibidas.length,
+      'facturas_emitidas': emitidas,
+      'facturas_recibidas': recibidas,
+    };
+  }
+
+  /// Genera MOD 303 en formato AEAT descargable usando DR303e26v101
+  Future<String> generarMod303Dr303e26v101({
+    required String empresaId,
+    // Calcular bases y cuotas (emitidas)
             .where((l) => l.porcentajeIva == 4)
             .fold(0.0, (s, l) => s + l.importeIva));
         ejercicio: anio,

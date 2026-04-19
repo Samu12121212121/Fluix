@@ -1,7 +1,30 @@
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   void _responder(BuildContext context) {
     final ctrl = TextEditingController(text: respuesta ?? '');
     showDialog(
-import 'package:url_launcher/url_launcher.dart';
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Responder a $nombre'),
+            child: TextButton.icon(
+              onPressed: () => _responder(context),
+              icon: Icon(respuesta != null ? Icons.edit : Icons.reply, size: 16),
+              label: Text(respuesta != null ? 'Editar respuesta' : 'Responder',
+                  style: const TextStyle(fontSize: 13)),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+  void _responder(BuildContext context) {
+    final ctrl = TextEditingController(text: respuesta ?? '');
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Responder a $nombre'),
@@ -54,41 +77,31 @@ class ModuloValoraciones extends StatelessWidget {
             ]),
           );
         return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(), // ← Fuerza el scroll siempre
-          slivers: [
-            SliverToBoxAdapter(
-              child: _buildResumen(validas, promedio),
-            ),
-            SliverPadding(
-        final validas = <DocumentSnapshot>[];
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return _buildVacio();
+
+        final docs = snapshot.data!.docs;
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) {
                     final data = validas[i].data() as Map<String, dynamic>?;
-                    if (data == null) return const SizedBox.shrink();
-                    return _TarjetaResena(
-                      docId: validas[i].id,
-                      empresaId: empresaId,
-                      nombre: '${data['cliente'] ?? data['nombre_persona'] ?? 'Anónimo'}',
-                      estrellas: ((data['calificacion'] ?? data['estrellas'] ?? 0) as num).toInt(),
-                      comentario: '${data['comentario'] ?? ''}',
-                      fecha: _parseFecha(data['fecha']),
-                      respuesta: data['respuesta'] as String?,
-                    );
-                  },
-                  childCount: validas.length,
-                ),
-              ),
-            ),
-          ],
-        );
+        for (final doc in docs) {
+          try {
+            final data = doc.data() as Map<String, dynamic>?;
+            if (data != null && (data['calificacion'] ?? data['estrellas']) != null) {
+              validas.add(doc);
+            }
+          } catch (_) {}
+        }
+        if (validas.isEmpty) return _buildVacio();
 
-        return Column(children: [
-        return Column(children: [
-          _buildResumen(validas, promedio),
-          Expanded(
-            child: ListView.builder(
-                if (data == null) return const SizedBox.shrink();
+        double promedio = 0;
+        for (final doc in validas) {
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data == null) continue;
+          promedio += ((data['calificacion'] ?? data['estrellas'] ?? 0) as num).toDouble();
+        }
+        promedio /= validas.length;
                 return _TarjetaResena(
                   docId: validas[i].id,
                   empresaId: empresaId,
@@ -256,17 +269,15 @@ class _TarjetaResena extends StatelessWidget {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 elevation: 2,
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _responder(context),
-              icon: Icon(respuesta != null ? Icons.edit : Icons.reply, size: 16),
-              label: Text(respuesta != null ? 'Editar respuesta' : 'Responder',
-                  style: const TextStyle(fontSize: 13)),
-  Future<void> _abrirGoogleBusiness(BuildContext context) async {
-    final url = Uri.parse('https://business.google.com/reviews');
-    
+                Text('Tu respuesta',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12,
+                        color: Theme.of(context).colorScheme.primary)),
+                const SizedBox(height: 4),
+                Text(respuesta!, style: const TextStyle(fontSize: 13, height: 1.3)),
+              ]),
+            ),
+          ],
+
     try {
       final canLaunch = await canLaunchUrl(url);
       if (canLaunch) {
@@ -285,7 +296,9 @@ class _TarjetaResena extends StatelessWidget {
         }
       }
     } catch (e) {
-      if (context.mounted) {
+      ),
+    );
+                    .collection('valoraciones').doc(docId)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ Error al abrir: $e'),
