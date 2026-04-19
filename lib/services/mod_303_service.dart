@@ -152,41 +152,47 @@ class Mod303Service {
         .toList();
   }
 
+  /// Calcula base IVA de una factura para un porcentaje dado.
+  /// Si tiene líneas desglosadas, las usa. Si no, hace fallback a totales de cabecera.
+  double _calcularBaseIVA(Factura f, double porcentaje) {
+    if (f.lineas.isNotEmpty) {
+      return f.lineas
+          .where((l) => l.porcentajeIva == porcentaje)
+          .fold(0.0, (s, l) => s + l.subtotalSinIva);
+    }
+    // Fallback: si el IVA total / subtotal ≈ porcentaje, asignar toda la base
+    if (f.subtotal > 0 && f.totalIva > 0) {
+      final pctCalculado = (f.totalIva / f.subtotal * 100).round();
+      if (pctCalculado == porcentaje.round()) return f.subtotal;
+    }
+    return 0;
+  }
+
+  double _calcularCuotaIVA(Factura f, double porcentaje) {
+    if (f.lineas.isNotEmpty) {
+      return f.lineas
+          .where((l) => l.porcentajeIva == porcentaje)
+          .fold(0.0, (s, l) => s + l.importeIva);
+    }
+    if (f.subtotal > 0 && f.totalIva > 0) {
+      final pctCalculado = (f.totalIva / f.subtotal * 100).round();
+      if (pctCalculado == porcentaje.round()) return f.totalIva;
+    }
+    return 0;
+  }
+
   /// Calcula totales para MOD 303
   Map<String, dynamic> _calcularTotales(
     List<Factura> emitidas,
     List<FacturaRecibida> recibidas,
   ) {
-    // Calcular bases y cuotas (emitidas)
-    final baseGeneral =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 21)
-            .fold(0.0, (s, l) => s + l.subtotalSinIva));
-
-    final cuotaGeneral =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 21)
-            .fold(0.0, (s, l) => s + l.importeIva));
-
-    final baseReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 10)
-            .fold(0.0, (s, l) => s + l.subtotalSinIva));
-
-    final cuotaReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 10)
-            .fold(0.0, (s, l) => s + l.importeIva));
-
-    final baseSuperReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 4)
-            .fold(0.0, (s, l) => s + l.subtotalSinIva));
-
-    final cuotaSuperReducida =
-        emitidas.fold(0.0, (sum, f) => sum + f.lineas
-            .where((l) => l.porcentajeIva == 4)
-            .fold(0.0, (s, l) => s + l.importeIva));
+    // Calcular bases y cuotas (emitidas) — con fallback a cabecera si no hay líneas
+    final baseGeneral = emitidas.fold(0.0, (sum, f) => sum + _calcularBaseIVA(f, 21));
+    final cuotaGeneral = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 21));
+    final baseReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularBaseIVA(f, 10));
+    final cuotaReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 10));
+    final baseSuperReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularBaseIVA(f, 4));
+    final cuotaSuperReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 4));
 
     // Calcular IVA soportado (recibidas deducibles)
     final ivaSoportado =

@@ -9,19 +9,12 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-// Firebase options
 import 'firebase_options.dart';
-
-// Core
 import 'core/providers/app_config_provider.dart';
 import 'core/utils/admin_initializer.dart';
-
-// Services
 import 'services/notificaciones_service.dart';
 import 'services/auth/token_refresh_service.dart';
 import 'services/auth/sesion_service.dart';
-
-// Features
 import 'features/autenticacion/pantallas/pantalla_login.dart';
 import 'features/dashboard/pantallas/pantalla_dashboard.dart';
 import 'features/onboarding/pantallas/pantalla_onboarding.dart';
@@ -30,55 +23,34 @@ import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurar locales
   timeago.setLocaleMessages('es', timeago.EsMessages());
   await initializeDateFormatting('es_ES', null);
 
-  // Inicializar Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ── Firebase App Check ──────────────────────────────────────────────────
-  // Protege Firestore, Functions y Storage contra accesos no autorizados.
-  // En debug usa DebugProvider; en producción usa PlayIntegrity / DeviceCheck.
-  // IMPORTANTE: Las apps deben estar registradas en Firebase Console > App Check.
-
   await FirebaseAppCheck.instance.activate(
     androidProvider:
-       kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
     appleProvider:
         kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
   );
 
-  // Activar persistencia offline de Firestore
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  // ── Inicialización diferida de notificaciones ─────────────────────────
-  // No bloquea el arranque: se lanza tras el primer frame para reducir
-  // los frames saltados en el Choreographer.
-  // (El token FCM se guarda tras login, no necesita estar listo antes de la UI)
-  _inicializarNotificacionesEnBackground();
-
-  // ── Auto-inicializaciones ────────────────────────────────────────────────
-  // Se ejecutan tras el login (necesitan usuario autenticado para Firestore)
-  // Ver: pantalla_login.dart → _iniciarSesion()
-
-  // Cargar preferencias de tema y color
-  final appConfig = AppConfigProvider();
-  await appConfig.inicializar();
+  _intentarInicializarAdmin();
 
   runApp(
-    ChangeNotifierProvider.value(
-      value: appConfig,
+    ChangeNotifierProvider(
+      create: (_) => AppConfigProvider()..inicializar(),
       child: const FluixCrmApp(),
     ),
   );
 }
-
 
 class FluixCrmApp extends StatefulWidget {
   const FluixCrmApp({super.key});
@@ -89,8 +61,6 @@ class FluixCrmApp extends StatefulWidget {
 
 class _FluixCrmAppState extends State<FluixCrmApp>
     with WidgetsBindingObserver {
-  // Clave global para acceder al NavigatorState sin depender de un
-  // BuildContext almacenado en caché (soluciona el bug del PopupMenuButton).
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -106,17 +76,14 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     super.dispose();
   }
 
-  // ── Lifecycle de la app ────────────────────────────────────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        // Guardar momento de salida a background
         SesionService().registrarPausa();
         break;
       case AppLifecycleState.resumed:
-        // Al volver: verificar tiempo en background, refrescar token
         SesionService().manejarResumen();
         break;
       default:
@@ -124,9 +91,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     }
   }
 
-  // ── Callback de sesión expirada ────────────────────────────────────────
   void _onSesionExpirada() {
-    // Usar el NavigatorState global para evitar contextos obsoletos
     final nav = _navigatorKey.currentState;
     if (nav == null) return;
     nav.pushAndRemoveUntil(
@@ -139,8 +104,6 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   Widget build(BuildContext context) {
     return Consumer<AppConfigProvider>(
       builder: (context, config, _) => GestureDetector(
-        // HitTestBehavior.translucent garantiza que el GestureDetector
-        // no bloquea los eventos a los widgets hijo (PopupMenuButton, etc.)
         behavior: HitTestBehavior.translucent,
         onTap: () => SesionService().registrarActividad(),
         onPanDown: (_) => SesionService().registrarActividad(),
@@ -162,10 +125,6 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             Locale('en', 'US'),
           ],
           home: StreamBuilder<User?>(
-            // distinct() por UID: si el stream emite el mismo usuario
-            // (ej.: tras getIdToken(true) en resumed) NO reconstruye el árbol.
-            // Esto evita que FutureBuilder recree los futures y destruya
-            // el Navigator/Overlay (causa del PopupMenuButton muerto).
             stream: FirebaseAuth.instance.authStateChanges().distinct(
               (a, b) => a?.uid == b?.uid,
             ),
@@ -179,7 +138,6 @@ class _FluixCrmAppState extends State<FluixCrmApp>
                 );
                 return const _PantallaRuta();
               }
-              // Sin sesión → detener ambos servicios
               TokenRefreshService().detener();
               SesionService().detener();
               return const PantallaLogin();
@@ -191,12 +149,59 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   }
 }
 
-/// Decide si mostrar onboarding o dashboard según el estado de Firestore.
-///
-/// Los futures se crean UNA SOLA VEZ en initState() y se cachean.
-/// Si build() los recreara en cada llamada, cualquier rebuild externo
-/// (incluso sin cambio de usuario) destruiría el árbol completo y mataría
-/// el Navigator/Overlay, dejando el PopupMenuButton sin respuesta.
+class PantallaCarga extends StatelessWidget {
+  const PantallaCarga({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D47A1),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(60),
+              ),
+              child: const Icon(
+                Icons.business_center_rounded,
+                color: Colors.white,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Fluix CRM',
+              style: TextStyle(
+                fontSize: 28,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Cargando...',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PantallaRuta extends StatefulWidget {
   const _PantallaRuta();
 
@@ -205,9 +210,6 @@ class _PantallaRuta extends StatefulWidget {
 }
 
 class _PantallaRutaState extends State<_PantallaRuta> {
-  // ── Futures cacheados ─────────────────────────────────────────────────────
-  // Se asignan en initState y NUNCA se recrean en build().
-  // Así cualquier rebuild del padre no re-ejecuta las consultas.
   late Future<DocumentSnapshot> _futureUsuario;
   Future<DocumentSnapshot>? _futureEmpresa;
   Future<DocumentSnapshot>? _futureSuscripcion;
@@ -243,7 +245,6 @@ class _PantallaRutaState extends State<_PantallaRuta> {
 
         if (empresaId == null) return const PantallaDashboard();
 
-        // Cachear los futures de empresa la primera vez que se resuelve el UID
         if (_empresaId != empresaId || _futureEmpresa == null) {
           _empresaId = empresaId;
           _futureEmpresa = FirebaseFirestore.instance
@@ -290,13 +291,12 @@ class _PantallaRutaState extends State<_PantallaRuta> {
                 final suscData =
                     snapSuscripcion.data!.data() as Map<String, dynamic>;
                 final estado = suscData['estado'] as String? ?? 'ACTIVA';
-
-                DateTime? fechaFin;
-                final raw = suscData['fecha_fin'];
-                if (raw is Timestamp) fechaFin = raw.toDate();
+                final fechaFinTs = suscData['fecha_fin'] as Timestamp?;
+                final fechaFin = fechaFinTs?.toDate();
 
                 bool estaVencida =
                     estado == 'VENCIDA' || estado == 'SUSPENDIDA';
+
                 if (!estaVencida &&
                     fechaFin != null &&
                     estado == 'ACTIVA') {
@@ -308,7 +308,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
                 if (estaVencida) {
                   return PantallaSuscripcionVencida(
                     empresaId: empresaId,
-                    estado: estado == 'ACTIVA' ? 'VENCIDA' : estado,
+                    estado: estado,
                     fechaFin: fechaFin,
                   );
                 }
@@ -323,84 +323,13 @@ class _PantallaRutaState extends State<_PantallaRuta> {
   }
 }
 
-class PantallaCarga extends StatelessWidget {
-  const PantallaCarga({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1976D2),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: const Icon(
-                Icons.business_center_rounded,
-                size: 60,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            const Text(
-              'Fluix CRM',
-              style: TextStyle(
-                fontSize: 32,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            const CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Inicializa las notificaciones push en background (no bloquea el arranque).
-void _inicializarNotificacionesEnBackground() {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    Future(() async {
-      try {
-        await NotificacionesService().inicializar();
-      } catch (e) {
-        debugPrint('⚠️ Error inicializando notificaciones: $e');
-      }
-    });
-  });
-}
-
-/// Inicializa la cuenta admin y actualiza los módulos de la empresa.
-/// Se ejecuta en background para no bloquear el arranque de la app.
 void _intentarInicializarAdmin() {
   Future(() async {
     try {
       await AdminInitializer.crearUsuarioAdmin();
       await AdminInitializer.actualizarModulos();
     } catch (e) {
+      // ignore: avoid_print
       print('ℹ️ AdminInitializer no ejecutado: $e');
     }
   });

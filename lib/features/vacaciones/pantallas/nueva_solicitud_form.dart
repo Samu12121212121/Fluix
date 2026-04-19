@@ -108,8 +108,8 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
 
+            const SizedBox(height: 8),
             // Selector empleado
             if (widget.empleadoIdFijo == null) ...[
               _buildSelectorEmpleado(),

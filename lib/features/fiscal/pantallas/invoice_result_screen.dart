@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../services/fiscal/fiscal_upload_service.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // INVOICE RESULT SCREEN
@@ -230,7 +231,11 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
     final IconData icon;
     final String label;
 
-    if (errors.isNotEmpty || status == 'needs_review') {
+    if (status == 'voided') {
+      color = Colors.red;
+      icon = Icons.block;
+      label = 'Factura anulada';
+    } else if (errors.isNotEmpty || status == 'needs_review') {
       color = Colors.orange;
       icon = Icons.warning_amber;
       label = 'Requiere revisión';
@@ -238,6 +243,10 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
       color = Colors.green;
       icon = Icons.check_circle;
       label = 'Contabilizada correctamente';
+    } else if (status == 'duplicate') {
+      color = Colors.red;
+      icon = Icons.copy_all;
+      label = 'Duplicado detectado';
     } else {
       color = Colors.grey;
       icon = Icons.hourglass_empty;
@@ -664,6 +673,11 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
   // ─── Acciones ─────────────────────────────────────────────────────────────
 
   Widget _buildAcciones(Map<String, dynamic> tx) {
+    final status = tx['status'] as String? ?? '';
+    final esBorrador = status == 'draft' || status == 'needs_review';
+    final esPosted = status == 'posted';
+    final esVoided = status == 'voided';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -673,7 +687,9 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         const SizedBox(height: 8),
-        if (tx['status'] == 'needs_review')
+
+        // ── Marcar como revisada (needs_review → posted)
+        if (status == 'needs_review')
           ElevatedButton.icon(
             icon: const Icon(Icons.check),
             label: const Text('Marcar como revisada'),
@@ -683,7 +699,325 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
             ),
             onPressed: () => _marcarRevisada(),
           ),
+
+        if (esBorrador || esPosted) const SizedBox(height: 16),
+
+        // ── Menú de más acciones
+        if (esBorrador || esPosted)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.more_horiz),
+            label: const Text('Más acciones...'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey[700],
+            ),
+            onPressed: () => _mostrarMenuAcciones(tx),
+          ),
+
+        // ── Info anulación
+        if (esVoided) ...[
+          const SizedBox(height: 8),
+          Card(
+            color: Colors.red.withValues(alpha: 0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.block, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Anulada: ${tx['void_reason'] ?? 'sin motivo'}',
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+
+        // ── Info rectificativa
+        if (tx['rectified_by_transaction_id'] != null) ...[
+          const SizedBox(height: 8),
+          Card(
+            color: Colors.purple.withValues(alpha: 0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.undo, color: Colors.purple, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Rectificada por: ${tx['rectified_by_transaction_id']}',
+                      style: const TextStyle(color: Colors.purple, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  void _mostrarMenuAcciones(Map<String, dynamic> tx) {
+    final status = tx['status'] as String? ?? '';
+    final esBorrador = status == 'draft' || status == 'needs_review';
+    final esPosted = status == 'posted';
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Acciones',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const Divider(height: 1),
+
+            // Eliminar borrador
+            if (esBorrador)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Eliminar borrador'),
+                subtitle: const Text('Se borra sin dejar rastro contable'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmarEliminar();
+                },
+              ),
+
+            // Anular
+            if (esBorrador || esPosted)
+              ListTile(
+                leading: const Icon(Icons.block, color: Colors.orange),
+                title: const Text('Anular factura'),
+                subtitle: Text(esPosted
+                    ? 'Queda registro de la anulación'
+                    : 'Marca como anulada'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmarAnular();
+                },
+              ),
+
+            // Rectificativa (solo posted)
+            if (esPosted)
+              ListTile(
+                leading: const Icon(Icons.undo, color: Colors.purple),
+                title: const Text('Crear factura rectificativa'),
+                subtitle: const Text('Nueva factura con importes negativos'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _crearRectificativa();
+                },
+              ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmarEliminar() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('¿Eliminar borrador?'),
+        content: const Text(
+          'Esta factura se borrará completamente porque todavía no '
+          'está contabilizada. ¿Continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await FiscalUploadService().eliminarBorrador(
+        empresaId: widget.empresaId,
+        transactionId: widget.transactionId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('🗑️ Borrador eliminado'),
+          backgroundColor: Colors.orange,
+        ));
+        Navigator.of(context).pop(); // volver atrás
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _confirmarAnular() async {
+    final motivo = await _pedirMotivo('Motivo de anulación');
+    if (motivo == null || !mounted) return;
+
+    try {
+      await FiscalUploadService().anularTransaccion(
+        empresaId: widget.empresaId,
+        transactionId: widget.transactionId,
+        motivo: motivo,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Factura anulada correctamente'),
+          backgroundColor: Colors.orange,
+        ));
+        setState(() => _cargando = true);
+        _cargarTransaccion(); // recargar para ver el estado voided
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _crearRectificativa() async {
+    final motivo = await _pedirMotivo('Motivo de la rectificación');
+    if (motivo == null || !mounted) return;
+
+    // Preguntar si es total o parcial
+    final tipo = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Tipo de rectificación'),
+        content: const Text('¿Quieres anular toda la factura o solo un importe parcial?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancelar'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'parcial'),
+            child: const Text('Parcial'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'total'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+            child: const Text('Anulación total',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (tipo == null || !mounted) return;
+
+    double? importeParcial;
+    if (tipo == 'parcial') {
+      importeParcial = await _pedirImporte();
+      if (importeParcial == null || !mounted) return;
+    }
+
+    try {
+      final rectId = await FiscalUploadService().crearFacturaRectificativa(
+        empresaId: widget.empresaId,
+        transactionIdOriginal: widget.transactionId,
+        motivo: motivo,
+        importeRectificado: importeParcial,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Rectificativa creada: $rectId'),
+          backgroundColor: Colors.purple,
+        ));
+        setState(() => _cargando = true);
+        _cargarTransaccion();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<String?> _pedirMotivo(String titulo) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(titulo),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Ej: Error en el importe, factura duplicada...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isEmpty) return;
+              Navigator.pop(context, controller.text.trim());
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<double?> _pedirImporte() {
+    final controller = TextEditingController();
+    return showDialog<double>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Importe a rectificar'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            hintText: 'Ej: 150.00',
+            border: OutlineInputBorder(),
+            suffixText: '€',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(
+                  controller.text.trim().replaceAll(',', '.'));
+              if (val == null || val <= 0) return;
+              Navigator.pop(context, val);
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -887,6 +1221,9 @@ class _ModeloContribucion {
   final Color color;
   const _ModeloContribucion(this.code, this.nombre, this.casilla, this.color);
 }
+
+
+
 
 
 

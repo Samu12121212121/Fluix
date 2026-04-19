@@ -22,12 +22,12 @@ class PerfilEmpresa {
   final String? pais;
   final String? web;
 
-  const PerfilEmpresa({
+  PerfilEmpresa({
     required this.nombre,
     required this.correo,
     required this.telefono,
     required this.direccion,
-    this.descripcion = '',
+    required this.descripcion,
     this.logoUrl,
     required this.fechaCreacion,
     this.ciudad,
@@ -143,15 +143,9 @@ class SuscripcionEmpresa {
     };
   }
 
+  int get diasRestantes => fechaFin.difference(DateTime.now()).inDays;
   bool get estaActiva => estado == EstadoSuscripcion.activa;
   bool get estaVencida => estado == EstadoSuscripcion.vencida;
-  bool get estaPendiente => estado == EstadoSuscripcion.pendiente;
-
-  int get diasRestantes {
-    final ahora = DateTime.now();
-    if (fechaFin.isBefore(ahora)) return 0;
-    return fechaFin.difference(ahora).inDays;
-  }
 
   bool get requiereAviso {
     return diasRestantes <= 7 && diasRestantes > 0 && !avisoEnviado;
@@ -468,14 +462,6 @@ class Empresa {
     SuscripcionEmpresa? suscripcion,
     ConfiguracionEmpresa? configuracion,
     EstadisticasEmpresa? estadisticas,
-    String? legalName,
-    String? taxId,
-    String? sector,
-    String? cnae,
-    String? actividad,
-    List<String>? activePacks,
-    RegimenFiscal? regimenFiscal,
-    String? estado,
   }) {
     return Empresa(
       id: id,
@@ -483,14 +469,14 @@ class Empresa {
       suscripcion: suscripcion ?? this.suscripcion,
       configuracion: configuracion ?? this.configuracion,
       estadisticas: estadisticas ?? this.estadisticas,
-      legalName: legalName ?? this.legalName,
-      taxId: taxId ?? this.taxId,
-      sector: sector ?? this.sector,
-      cnae: cnae ?? this.cnae,
-      actividad: actividad ?? this.actividad,
-      activePacks: activePacks ?? this.activePacks,
-      regimenFiscal: regimenFiscal ?? this.regimenFiscal,
-      estado: estado ?? this.estado,
+      legalName: legalName,
+      taxId: taxId,
+      sector: sector,
+      cnae: cnae,
+      actividad: actividad,
+      activePacks: activePacks,
+      regimenFiscal: regimenFiscal,
+      estado: estado,
       createdBy: createdBy,
     );
   }

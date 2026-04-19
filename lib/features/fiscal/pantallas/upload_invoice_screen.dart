@@ -42,6 +42,19 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
 
       if (!mounted) return;
 
+      final resultStatus = result['status'] as String? ?? '';
+
+      // Si la CF detectó duplicado confirmado, mostrar aviso sin navegar
+      if (resultStatus == 'duplicate') {
+        setState(() {
+          _progress = null;
+          _errorMessage =
+              '⚠️ Factura duplicada: ya existe una factura con el mismo '
+              'NIF y número de factura. No se ha creado una nueva.';
+        });
+        return;
+      }
+
       // Extraer transaction_id del resultado de la CF
       final txId = result['transaction_id'] as String?
           ?? result['txId'] as String?
@@ -303,4 +316,5 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
     );
   }
 }
+
 

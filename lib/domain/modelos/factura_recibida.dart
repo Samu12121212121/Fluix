@@ -72,14 +72,14 @@ class FacturaRecibida {
   // Notas
   final String? notas;
 
-  // IA — enlace con la transacción fiscal procesada
-  final String? aiTransactionId;  // ID en fiscal_transactions (si fue procesada por IA)
-
-  // Auditoría
+  // Fechas de auditoría
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
 
-  const FacturaRecibida({
+  // IA — enlace con la transacción fiscal procesada
+  final String? aiTransactionId;  // ID en fiscal_transactions (si fue procesada por IA)
+
+  FacturaRecibida({
     required this.id,
     required this.empresaId,
     required this.numeroFactura,
@@ -109,15 +109,14 @@ class FacturaRecibida {
     this.nifArrendador,
     this.conceptoArrendamiento,
     this.notas,
-    this.aiTransactionId,
     required this.fechaCreacion,
     this.fechaActualizacion,
+    this.aiTransactionId,
   });
 
   // Getters calculados
   double get baseNetaDeducible => ivaDeducible ? baseImponible : 0;
   double get ivaDeducibleReal => ivaDeducible ? importeIva : 0;
-  double get totalConImpuestosNetoPago => totalConImpuestos - (importeRetencion ?? 0);
   bool get estaPagada => estado == EstadoFacturaRecibida.pagada;
   bool get estaPendiente => estado == EstadoFacturaRecibida.pendiente;
 
@@ -180,6 +179,7 @@ class FacturaRecibida {
         notas: notas ?? this.notas,
         fechaCreacion: fechaCreacion,
         fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+        aiTransactionId: aiTransactionId,
       );
 
   factory FacturaRecibida.fromFirestore(DocumentSnapshot doc) {
@@ -217,11 +217,11 @@ class FacturaRecibida {
       nifArrendador: d['nif_arrendador'],
       conceptoArrendamiento: d['concepto_arrendamiento'],
       notas: d['notas'],
-      aiTransactionId: d['_ai_transaction_id'] as String?,
       fechaCreacion: _parseTs(d['fecha_creacion']),
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? _parseTs(d['fecha_actualizacion'])
           : null,
+      aiTransactionId: d['_ai_transaction_id'] as String?,
     );
   }
 
@@ -230,7 +230,6 @@ class FacturaRecibida {
     'numero_factura': numeroFactura,
     'serie': serie,
     'fecha_emision': Timestamp.fromDate(fechaEmision),
-    'fecha_recepcion': Timestamp.fromDate(fechaRecepcion),
     'nif_proveedor': nifProveedor,
     'nif_iva_comunitario': nifIvaComunitario,
     'es_intracomunitario': esIntracomunitario,
@@ -256,6 +255,7 @@ class FacturaRecibida {
     'notas': notas,
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': Timestamp.fromDate(fechaActualizacion ?? DateTime.now()),
+    '_ai_transaction_id': aiTransactionId,
   };
 }
 
@@ -266,5 +266,3 @@ DateTime _parseTs(dynamic v) {
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   return DateTime.now();
 }
-
-

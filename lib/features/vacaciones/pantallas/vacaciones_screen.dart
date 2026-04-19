@@ -95,49 +95,36 @@ class _VacacionesScreenState extends State<VacacionesScreen>
           ),
           // ── Tabs + contenido ──────────────────────────────────────
           Expanded(child: Column(
-          children: [
-            // ── Tabs ──────────────────────────────────────────────────────
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
+            children: [
+              TabBar(
                 controller: _tabs,
                 labelColor: const Color(0xFF00796B),
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: const Color(0xFF00796B),
                 tabs: const [
-                  Tab(text: 'Calendario', icon: Icon(Icons.calendar_month)),
-                  Tab(text: 'Solicitudes', icon: Icon(Icons.list_alt)),
-                  Tab(text: 'Cobertura', icon: Icon(Icons.groups)),
+                  Tab(icon: Icon(Icons.calendar_month), text: 'Calendario'),
+                  Tab(icon: Icon(Icons.list_alt), text: 'Solicitudes'),
                 ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _buildCalendario(),
-                  _buildListaSolicitudes(),
-                  CoberturaSemanalWidget(empresaId: widget.empresaId),
-                ],
+              Expanded(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _buildCalendario(),
+                    _buildListaSolicitudes(),
+                  ],
+                ),
               ),
-            ),
-          ],
-        )),
+            ],
+          )),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _nuevaSolicitud(),
-        backgroundColor: const Color(0xFF00796B),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Nueva solicitud'),
       ),
-    ),
+      ),
     );
   }
 
@@ -167,7 +154,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         if (solicitudes.isEmpty) {
           return Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.beach_access,
                     size: 72, color: Colors.grey[400]),

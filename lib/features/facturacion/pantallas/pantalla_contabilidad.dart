@@ -209,8 +209,8 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
             tabs: const [
               Tab(icon: Icon(Icons.dashboard, size: 18), text: 'Resumen'),
               Tab(icon: Icon(Icons.trending_up, size: 18), text: 'Ingresos'),
-              Tab(icon: Icon(Icons.shopping_cart_outlined, size: 18), text: 'Compras'),
-              Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'Gastos'),
+              Tab(icon: Icon(Icons.shopping_cart_outlined, size: 18), text: 'F. Recibidas'),
+              Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'Gastos manuales'),
               Tab(icon: Icon(Icons.bar_chart, size: 18), text: 'Gráficos'),
               Tab(icon: Icon(Icons.account_balance, size: 18), text: 'Modelos'),
               Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: 'MOD 347'),

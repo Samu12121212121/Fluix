@@ -7,7 +7,6 @@ import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
 import 'pantalla_cierre_caja.dart';
-
 class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;
 
@@ -80,6 +79,7 @@ class ModuloTpvScreen extends StatelessWidget {
             context: context,
           ),
 
+          const SizedBox(height: 12),
           // ── Cierre de caja ───────────────────────────────────────────────
           _TarjetaAccionTpv(
             icono: Icons.point_of_sale_rounded,
@@ -92,19 +92,6 @@ class ModuloTpvScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // ── Configuración (solo admin) ───────────────────────────────────
-          if (esAdmin) ...[
-            const SizedBox(height: 12),
-            _TarjetaAccionTpv(
-              icono: Icons.settings,
-              titulo: 'Configuración TPV',
-              descripcion: 'Modo de facturación, series, VeriFactu y automatismos',
-              color: Colors.grey[700]!,
-              onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => ConfiguracionFacturacionTpvScreen(empresaId: empresaId),
-              )),
-            ),
-          ],
 
           const SizedBox(height: 24),
 

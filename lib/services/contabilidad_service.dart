@@ -205,7 +205,15 @@ class ContabilidadService {
       fin = DateTime(anio + 1, 1, 1);
     }
 
-    // Facturas emitidas (solo pagadas para IVA devengado)
+    // ── Determinar criterio IVA (devengo vs caja) ──
+    final criterioDoc = await _db
+        .collection('empresas').doc(empresaId)
+        .collection('configuracion').doc('fiscal')
+        .get();
+    final criterioStr = (criterioDoc.data()?['criterio_iva'] as String?) ?? 'devengo';
+    final esCriterioCaja = criterioStr == 'caja';
+
+    // ── Facturas emitidas ──
     final snapFacturas = await _facturas(empresaId)
         .where('fecha_emision',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
@@ -217,16 +225,19 @@ class ContabilidadService {
         .where((f) => f.estado != EstadoFactura.anulada)
         .toList();
 
-    final facturasPagadas = facturas.where((f) => f.esPagada).toList();
+    // BUG #3 fix: criterio devengo = todas las emitidas, caja = solo pagadas
+    final facturasContables = esCriterioCaja
+        ? facturas.where((f) => f.esPagada).toList()
+        : facturas;
 
     double baseEmitida = 0, ivaRepercutido = 0, totalFacturado = 0;
-    for (final f in facturasPagadas) {
+    for (final f in facturasContables) {
       baseEmitida += f.subtotal;
       ivaRepercutido += f.totalIva;
       totalFacturado += f.total;
     }
 
-    // Gastos — filtramos estado en Dart para evitar índice compuesto
+    // ── Gastos (colección gastos/) ──
     final snapGastos = await _gastos(empresaId)
         .where('fecha_gasto',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
@@ -235,14 +246,33 @@ class ContabilidadService {
 
     final gastos = snapGastos.docs
         .map((d) => Gasto.fromMap({...d.data(), 'id': d.id}))
-        .where((g) => g.estado == EstadoGasto.pagado)
         .toList();
 
+    // ── BUG #1 fix: también leer facturas_recibidas/ ──
+    final snapRecibidas = await _facturasRecibidas(empresaId)
+        .where('fecha_recepcion',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha_recepcion', isLessThan: Timestamp.fromDate(fin))
+        .get();
+
     double baseRecibida = 0, ivaSoportado = 0, totalGastado = 0;
+
+    // Sumar gastos manuales
     for (final g in gastos) {
       baseRecibida += g.baseImponible;
       if (g.ivaDeducible) ivaSoportado += g.importeIva;
       totalGastado += g.total;
+    }
+
+    // Sumar facturas recibidas (pipeline IA)
+    for (final doc in snapRecibidas.docs) {
+      final d = doc.data();
+      final base = (d['base_imponible'] as num?)?.toDouble() ?? 0;
+      final iva = (d['iva_total'] as num?)?.toDouble() ?? 0;
+      final total = (d['total'] as num?)?.toDouble() ?? (base + iva);
+      baseRecibida += base;
+      ivaSoportado += iva;
+      totalGastado += total;
     }
 
     return ResumenContable(

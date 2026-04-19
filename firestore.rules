@@ -75,9 +75,11 @@ service cloud.firestore {
         || staffTieneModulo(empresaId, moduloId);
     }
 
-    function empresaTienePack(empresaId, packId) {
-      return packId in get(/databases/$(database)/documents/empresas/$(empresaId)).data.get('active_packs', []);
-    }
+    // Nota: empresaTienePack no se usa actualmente pero se mantiene comentado
+    // por si se necesita en el futuro para validaciones de packs
+    // function empresaTienePack(empresaId, packId) {
+    //   return packId in get(/databases/$(database)/documents/empresas/$(empresaId)).data.get('active_packs', []);
+    // }
 
     // ════════════════════════════════════════════════════════════════════
     // USUARIOS
@@ -558,7 +560,16 @@ service cloud.firestore {
 
       match /fiscal_transactions/{txId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+
+        // Cloud Function crea la mayoría
         allow create: if false;
+
+        // Crear rectificativa manualmente desde la app
+        allow create: if esAdminOPropietario(empresaId)
+          && request.resource.data.keys().hasAll([
+            'type', 'status', 'rectifies_transaction_id', 'rectification_reason'
+          ])
+          && request.resource.data.status == 'posted';
 
         // Edición en borrador/revisión
         allow update: if esAdminOPropietario(empresaId)
@@ -568,19 +579,29 @@ service cloud.firestore {
           && request.resource.data.extraction_id == resource.data.extraction_id
           && request.resource.data.period == resource.data.period;
 
-        // FIX: anulación también verifica inmutabilidad de campos económicos
+        // Anulación: posted → voided (o draft/needs_review → voided)
         allow update: if esAdminOPropietario(empresaId)
-          && resource.data.status == 'posted'
+          && resource.data.status in ['posted', 'draft', 'needs_review']
           && request.resource.data.status == 'voided'
           && request.resource.data.document_id == resource.data.document_id
           && request.resource.data.total_amount_cents == resource.data.total_amount_cents;
 
-        allow delete: if false;
+        // Marcar original como rectificada (solo añade campos, no cambia status)
+        allow update: if esAdminOPropietario(empresaId)
+          && resource.data.status == 'posted'
+          && request.resource.data.status == 'posted'
+          && request.resource.data.keys().hasAny(['rectified_by_transaction_id']);
+
+        // Borrado solo si está en draft/needs_review
+        allow delete: if esAdminOPropietario(empresaId)
+          && resource.data.status in ['draft', 'needs_review'];
       }
 
       match /fiscal_transaction_history/{historyId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        allow write: if false;
+        allow create: if esAdminOPropietario(empresaId)
+          && request.resource.data.keys().hasAll(['transaction_id', 'change_type', 'changed_by']);
+        allow update, delete: if false;
       }
 
       match /fiscal_models/{modelId} {

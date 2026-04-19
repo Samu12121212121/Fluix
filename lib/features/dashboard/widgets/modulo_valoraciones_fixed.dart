@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
-import '../pantallas/configurar_google_reviews_screen.dart';
+import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
 import 'kpis_rating_widget.dart';
+import '../pantallas/configurar_google_reviews_screen.dart';
 
 class ModuloValoraciones extends StatefulWidget {
   final String empresaId;
@@ -41,13 +44,9 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
   }
 
   Future<void> _init() async {
-    // 1. Leer rating del cache de Firestore primero (instantáneo)
     await _leerRatingCache();
-    // 2. Borrar pruebas
     await _svc.borrarResenasDePrueba(widget.empresaId);
-    // 3. Cargar primera página de reseñas guardadas
     await _cargarPagina(reset: true);
-    // 4. Sincronizar con Google en background (actualiza rating + añade nuevas)
     _sincronizarEnBackground();
   }
 
@@ -102,8 +101,8 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
       _sincronizando = false;
     });
 
-    // Recargar reseñas por si llegaron nuevas
-    if (resultado.error == null) await _cargarPagina(reset: true);
+    // Recargar reseñas tras sincronizar
+    await _cargarPagina(reset: true);
   }
 
   Future<void> _cargarMas() async {
@@ -120,6 +119,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
         empresaId: widget.empresaId,
         resenas: _resenas,
         ratingGoogle: _ratingGoogle,
+        onGmbConectado: () => _sincronizarEnBackground(),
         totalGoogle: _totalGoogle,
         sincronizando: _sincronizando,
         errorSync: _errorSync,
@@ -127,8 +127,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
         onSincronizar: _sincronizarEnBackground,
         onAnadir: () => _mostrarFormAnadir(context),
         onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
-        onGmbConectado: () => _sincronizarEnBackground(),
-        // Solo admin/propietario ven el botón de configuración
         onConfigurar: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -288,8 +286,6 @@ class _CabeceraCompleta extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 10),
-
-        // Rating + barras distribución
         Row(children: [
           Column(children: [
             Text(rating > 0 ? rating.toStringAsFixed(1) : '-',
@@ -325,8 +321,8 @@ class _CabeceraCompleta extends StatelessWidget {
                 const SizedBox(width: 4),
                 SizedBox(width: 22, child: Text('$count', style: const TextStyle(fontSize: 11))),
               ]));
-          })))],
-        ),
+          }))),
+        ]),
 
         // Aviso limitación
         if (totalGoogle > 5) ...[
@@ -361,9 +357,8 @@ class _CabeceraCompleta extends StatelessWidget {
             ])),
         ],
 
-        const SizedBox(height: 10),
-
-        // Badges origen + botón analytics
+        // Badges de origen + toggle analíticas
+        const SizedBox(height: 8),
         Row(children: [
           if (deGoogle > 0) _badge(Icons.g_mobiledata, 'Google ($deGoogle)', const Color(0xFF4285F4)),
           if (deApp > 0) ...[
@@ -409,6 +404,70 @@ class _CabeceraCompleta extends StatelessWidget {
       Icon(icono, size: 14, color: color), const SizedBox(width: 4),
       Text(texto, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     ]));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Estado vacío
+// ─────────────────────────────────────────────────────────────────────────────
+class _EstadoVacio extends StatelessWidget {
+  final double ratingGoogle;
+  final int totalGoogle;
+  final VoidCallback onAnadir;
+
+  const _EstadoVacio({required this.ratingGoogle, required this.totalGoogle, required this.onAnadir});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (ratingGoogle > 0 && totalGoogle > 0) ...[
+          const SizedBox(height: 8),
+          Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 12), textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              border: Border.all(color: Colors.orange[200]!),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(children: [
+              const Row(children: [
+                Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                SizedBox(width: 6),
+                Text('Conexión OK pero sin reseñas descargadas',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ]),
+              const SizedBox(height: 6),
+              Text(
+                'La API de Google Places devuelve máximo 5 reseñas por petición. '
+                'Esto puede deberse a:\n'
+                '• La API Key no tiene activado el campo "reviews" (requiere plan Places Details)\n'
+                '• La Key tiene restricción de dominio o IP\n'
+                '• El negocio tiene menos de 1 reseña pública\n\n'
+                'Pulsa el botón ↻ en la parte superior para sincronizar de nuevo y ver el error exacto.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+            ]),
+          ),
+        ] else ...[
+          Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          const Text('Sin valoraciones todavía', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+          const SizedBox(height: 6),
+          Text('Las reseñas de Google aparecerán aquí al sincronizar',
+            style: TextStyle(color: Colors.grey[500], fontSize: 13), textAlign: TextAlign.center),
+        ],
+        const SizedBox(height: 16),
+        ElevatedButton.icon(onPressed: onAnadir, icon: const Icon(Icons.add),
+          label: const Text('Añadir valoración manual'),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
+            foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
+      ]),
+    ));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -543,13 +602,12 @@ class _TarjetaResena extends StatelessWidget {
         if (data['origen'] == 'google') ...[
           Container(padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: const Color(0xFF4285F4).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.2))),
+              borderRadius: BorderRadius.circular(10)),
             child: Text(
               data['google_review_name'] != null
                 ? 'Tu respuesta se publicará directamente en Google Maps.'
                 : '1. Escribe tu respuesta y pulsa Guardar.\n2. Se guarda en la app.\n'
-                  '3. Cuando se sincronice con Google, se publicará.',
+                  '3. Conéctate a Google Business para publicar en Google Maps.',
               style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5))),
           const SizedBox(height: 12),
         ],
@@ -576,15 +634,19 @@ class _TarjetaResena extends StatelessWidget {
             // 2. Publicar en GMB si tiene review name
             if (data['origen'] == 'google') {
               if (data['google_review_name'] != null) {
-                final res = await RespuestaGmbService().publicar(
-                  empresaId: empresaId, valoracionId: docId, texto: texto);
-                publicadoEnGoogle = res.publicadoEnGoogle;
-                if (res.enCola) msgExtra = ' (en cola, reintentando...)';
-                else if (!publicadoEnGoogle && res.error != null) msgExtra = ' (${res.error})';
+                try {
+                  final res = await RespuestaGmbService().publicar(
+                    empresaId: empresaId, valoracionId: docId, texto: texto);
+                  publicadoEnGoogle = res.publicadoEnGoogle;
+                  if (res.enCola) msgExtra = ' (en cola, reintentando...)';
+                  else if (!publicadoEnGoogle && res.error != null) msgExtra = ' (${res.error})';
+                } catch (_) {
+                  msgExtra = ' (Conecta Google Business para publicar en Maps)';
+                }
               } else {
                 msgExtra = ' (Se publicará en Maps más tarde)';
-              }  // closes else
-            }  // closes if (data['origen'] == 'google')
+              }
+            }
             Navigator.pop(ctx);
             ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
               content: Row(children: [
@@ -659,74 +721,11 @@ class _BadgeNegativaState extends State<_BadgeNegativa> with SingleTickerProvide
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(color: const Color(0xFFD32F2F), borderRadius: BorderRadius.circular(8)),
         child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.warning_rounded, size: 10, color: Colors.white), SizedBox(width: 3),
-          Text('Sin responder', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-        ]))));
-}
-
-// ── Estado vacío ──────────────────────────────────────────────────────────────
-class _EstadoVacio extends StatelessWidget {
-  final double ratingGoogle;
-  final int totalGoogle;
-  final VoidCallback onAnadir;
-
-  const _EstadoVacio({required this.ratingGoogle, required this.totalGoogle, required this.onAnadir});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (ratingGoogle > 0) ...[
-            const Icon(Icons.star, size: 56, color: Color(0xFFF57C00)),
-            const SizedBox(height: 8),
-            Text(ratingGoogle.toStringAsFixed(1), style: const TextStyle(fontSize: 48,
-              fontWeight: FontWeight.bold, color: Color(0xFFF57C00))),
-            Text('$totalGoogle reseñas reales en Google',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                border: Border.all(color: Colors.orange[200]!),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(children: [
-                const Row(children: [
-                  Icon(Icons.info_outline, color: Colors.orange, size: 18),
-                  SizedBox(width: 6),
-                  Text('Conexión OK pero sin reseñas descargadas',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                ]),
-                const SizedBox(height: 6),
-                Text(
-                  'La API de Google Places devuelve máximo 5 reseñas por petición. '
-                  'Esto puede deberse a:\n'
-                  '• La API Key no tiene activado el campo "reviews" (requiere plan Places Details)\n'
-                  '• La Key tiene restricción de dominio o IP\n'
-                  '• El negocio tiene menos de 1 reseña pública\n\n'
-                  'Pulsa el botón ↻ en la parte superior para sincronizar de nuevo y ver el error exacto.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                ),
-              ]),
-            ),
-          ] else ...[
-            Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            const Text('Sin valoraciones todavía', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            const SizedBox(height: 6),
-            Text('Las reseñas de Google aparecerán aquí al sincronizar',
-              style: TextStyle(color: Colors.grey[500], fontSize: 13), textAlign: TextAlign.center),
-          ],
-          const SizedBox(height: 16),
-          ElevatedButton.icon(onPressed: onAnadir, icon: const Icon(Icons.add),
-            label: const Text('Añadir valoración manual'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2),
-              foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
+          Icon(Icons.warning_amber_outlined, size: 10, color: Colors.white),
+          SizedBox(width: 3),
+          Text('⚠', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
         ]),
-      ),
-    );
-  }
+      )),
+  );
 }
+

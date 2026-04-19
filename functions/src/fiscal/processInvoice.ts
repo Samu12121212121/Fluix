@@ -267,7 +267,7 @@ export const processInvoice = onCall(
       const validation = validateInvoice(invoiceData);
       console.log(`Validación: ${validation.errors.length} errores, ${validation.warnings.length} warnings`);
 
-      // 10. DETECTAR DUPLICADOS
+      // 10. DETECTAR DUPLICADOS (lógica mejorada)
       if (invoiceData.supplier_tax_id && invoiceData.invoice_number) {
         const dupQuery = await admin
           .firestore()
@@ -276,12 +276,52 @@ export const processInvoice = onCall(
           .collection("fiscal_transactions")
           .where("counterparty.tax_id", "==", invoiceData.supplier_tax_id)
           .where("invoice_number", "==", invoiceData.invoice_number)
-          .where("status", "!=", "voided")
-          .limit(1)
+          .where("status", "in", ["posted", "needs_review", "draft"])
+          .limit(5)
           .get();
 
         if (!dupQuery.empty) {
-          validation.warnings.push("Posible duplicado de una factura ya registrada");
+          let duplicadoConfirmado = false;
+          const invoiceDate = new Date(invoiceData.invoice_date);
+
+          for (const existing of dupQuery.docs) {
+            const existingData = existing.data();
+            const existingDate = (existingData.invoice_date as admin.firestore.Timestamp).toDate();
+            const daysDiff = Math.abs(
+              (invoiceDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+
+            if (daysDiff <= 1) {
+              duplicadoConfirmado = true;
+              validation.errors.push(
+                `duplicate_confirmed: factura idéntica ya registrada (${existing.id}) el ${existingDate.toISOString().split("T")[0]}`
+              );
+              console.log(`DUPLICADO CONFIRMADO: tx existente ${existing.id}`);
+              break;
+            }
+
+            if (daysDiff <= 7) {
+              validation.warnings.push(
+                `duplicate_likely: mismo NIF y número pero fecha distinta (diferencia ${Math.round(daysDiff)} días, tx ${existing.id})`
+              );
+            }
+          }
+
+          // Si es duplicado confirmado, NO guardar nueva transacción
+          if (duplicadoConfirmado) {
+            await extractionRef.update({
+              status: "skipped_duplicate",
+              error: "Duplicado confirmado, no se crea nueva transacción",
+            });
+            console.log("Saliendo sin crear transacción por duplicado");
+            return {
+              transaction_id: dupQuery.docs[0].id,
+              factura_recibida_id: null,
+              status: "duplicate",
+              warnings: ["Esta factura ya existe en tu registro"],
+              errors: [`Duplicado de transacción ${dupQuery.docs[0].id}`],
+            };
+          }
         }
       }
 
@@ -343,97 +383,168 @@ export const processInvoice = onCall(
           updated_at: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-      // 14. GUARDAR EN facturas_recibidas (modelo contable existente)
-      console.log("Guardando factura_recibida...");
-      const baseAmount = parseFloat(invoiceData.base_amount || "0");
-      const vatRate = parseFloat(invoiceData.vat_rate || "0");
-      const vatAmount = parseFloat(invoiceData.vat_amount || "0");
-      const totalAmount = parseFloat(invoiceData.total_amount || "0");
-      const recargoRate = invoiceData.recargo_rate ? parseFloat(invoiceData.recargo_rate) : 0;
+      // 14. GUARDAR EN COLECCIÓN LEGACY CORRESPONDIENTE
+      if (tipoDocumento === "ingreso") {
+        // BUG #7 FIX: Ingresos van a facturas/ (emitidas), NO a facturas_recibidas/
+        console.log("Guardando en facturas/ (emitida)...");
 
-      const EU_COUNTRIES = [
-        "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR",
-        "HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","SE"
-      ];
+        const baseAmount = parseFloat(invoiceData.base_amount || "0");
+        const vatAmount = parseFloat(invoiceData.vat_amount || "0");
+        const totalAmount = parseFloat(invoiceData.total_amount || "0");
 
-      const esIntracomunitario =
-        invoiceData.vat_scheme === "reverse_charge_eu" ||
-        (invoiceData.supplier_country &&
-          invoiceData.supplier_country !== "ES" &&
-          EU_COUNTRIES.includes(invoiceData.supplier_country));
+        const facturaEmitidaRef = admin
+          .firestore()
+          .collection("empresas")
+          .doc(empresaId)
+          .collection("facturas")
+          .doc();
 
-      const esArrendamiento = (invoiceData.tax_tags || []).includes("ALQUILER_LOCAL");
+        const ahora = admin.firestore.Timestamp.now();
+        await facturaEmitidaRef.set({
+          empresa_id: empresaId,
+          numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
+          fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
+          cliente_nombre: invoiceData.supplier_name || "",
+          datos_fiscales: {
+            nif: invoiceData.supplier_tax_id || null,
+            razon_social: invoiceData.supplier_legal_name || invoiceData.supplier_name || null,
+            direccion: invoiceData.supplier_address || null,
+            pais: invoiceData.supplier_country || "ES",
+          },
+          subtotal: baseAmount,
+          total_iva: vatAmount,
+          total: totalAmount,
+          lineas: (invoiceData.lines || []).map((l: any) => ({
+            descripcion: l.description || "",
+            precio_unitario: parseFloat(l.unit_price || "0"),
+            cantidad: parseInt(l.quantity || "1"),
+            porcentaje_iva: parseFloat(l.vat_rate || invoiceData.vat_rate || "21"),
+            descuento: 0,
+            recargo_equivalencia: 0,
+          })),
+          estado: status === "posted" ? "pendiente" : "pendiente",
+          tipo_factura: "venta_directa",
+          notas: `Procesada por IA (${ocrEngine})`,
+          fecha_creacion: ahora,
+          _ai_transaction_id: txRef.id,
+          _ai_document_id: documentId,
+          _ai_ocr_engine: ocrEngine,
+        });
 
-      const facturaRecibidaRef = admin
-        .firestore()
-        .collection("empresas")
-        .doc(empresaId)
-        .collection("facturas_recibidas")
-        .doc();
+        // 15. COMPLETAR EXTRACCIÓN
+        await extractionRef.update({
+          raw_json: invoiceData,
+          status: "success",
+          confidence_score: calculateConfidence(invoiceData, validation),
+          transaction_id: txRef.id,
+          factura_recibida_id: null,
+          factura_emitida_id: facturaEmitidaRef.id,
+        });
 
-      const ahora = admin.firestore.Timestamp.now();
+        console.log("=== processInvoice COMPLETADO OK (ingreso) ===");
 
-      await facturaRecibidaRef.set({
-        empresa_id: empresaId,
-        numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
-        serie: null,
-        fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
-        fecha_recepcion: ahora,
-        nif_proveedor: invoiceData.supplier_tax_id || "",
-        nif_iva_comunitario: esIntracomunitario ? invoiceData.supplier_tax_id : null,
-        es_intracomunitario: esIntracomunitario,
-        nombre_proveedor: invoiceData.supplier_name || "",
-        direccion_proveedor: invoiceData.supplier_address || null,
-        telefono_proveedor: null,
-        base_imponible: baseAmount,
-        porcentaje_iva: vatRate,
-        importe_iva: vatAmount,
-        iva_deducible: !(invoiceData.tax_tags || []).includes("VAT_NOT_DEDUCTIBLE"),
-        descuento_global: 0,
-        recargo_equivalencia: recargoRate,
-        total_con_impuestos: totalAmount,
-        porcentaje_retencion: null,
-        importe_retencion: null,
-        estado: status === "posted" ? "recibida" : "pendiente",
-        fecha_pago: null,
-        metodo_pago: null,
-        referencia_bancaria: null,
-        es_arrendamiento: esArrendamiento,
-        nif_arrendador: esArrendamiento ? invoiceData.supplier_tax_id : null,
-        concepto_arrendamiento: esArrendamiento ? "Alquiler local" : null,
-        notas: [
-          `Procesada por IA (${ocrEngine})`,
-          ...(validation.warnings.length > 0 ? [`⚠️ ${validation.warnings.join(", ")}`] : []),
-          ...(invoiceData.vat_scheme !== "standard" ? [`Régimen IVA: ${invoiceData.vat_scheme}`] : []),
-        ].join("\n"),
-        fecha_creacion: ahora,
-        fecha_actualizacion: ahora,
-        _ai_transaction_id: txRef.id,
-        _ai_document_id: documentId,
-        _ai_confidence: calculateConfidence(invoiceData, validation),
-        _ai_tax_tags: invoiceData.tax_tags || [],
-        _ai_vat_scheme: invoiceData.vat_scheme,
-        _ai_lines: invoiceData.lines || [],
-      });
+        return {
+          transaction_id: txRef.id,
+          factura_emitida_id: facturaEmitidaRef.id,
+          factura_recibida_id: null,
+          status,
+          warnings: validation.warnings,
+          errors: validation.errors,
+        };
 
-      // 15. COMPLETAR EXTRACCIÓN
-      await extractionRef.update({
-        raw_json: invoiceData,
-        status: "success",
-        confidence_score: calculateConfidence(invoiceData, validation),
-        transaction_id: txRef.id,
-        factura_recibida_id: facturaRecibidaRef.id,
-      });
+      } else {
+        // GASTOS: guardar en facturas_recibidas/ (comportamiento original)
+        console.log("Guardando factura_recibida...");
+        const baseAmount2 = parseFloat(invoiceData.base_amount || "0");
+        const vatRate2 = parseFloat(invoiceData.vat_rate || "0");
+        const vatAmount2 = parseFloat(invoiceData.vat_amount || "0");
+        const totalAmount2 = parseFloat(invoiceData.total_amount || "0");
+        const recargoRate = invoiceData.recargo_rate ? parseFloat(invoiceData.recargo_rate) : 0;
 
-      console.log("=== processInvoice COMPLETADO OK ===");
+        const EU_COUNTRIES = [
+          "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR",
+          "HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","SE"
+        ];
 
-      return {
-        transaction_id: txRef.id,
-        factura_recibida_id: facturaRecibidaRef.id,
-        status,
-        warnings: validation.warnings,
-        errors: validation.errors,
-      };
+        const esIntracomunitario =
+          invoiceData.vat_scheme === "reverse_charge_eu" ||
+          (invoiceData.supplier_country &&
+            invoiceData.supplier_country !== "ES" &&
+            EU_COUNTRIES.includes(invoiceData.supplier_country));
+
+        const esArrendamiento = (invoiceData.tax_tags || []).includes("ALQUILER_LOCAL");
+
+        const facturaRecibidaRef = admin
+          .firestore()
+          .collection("empresas")
+          .doc(empresaId)
+          .collection("facturas_recibidas")
+          .doc();
+
+        const ahora2 = admin.firestore.Timestamp.now();
+
+        await facturaRecibidaRef.set({
+          empresa_id: empresaId,
+          numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
+          serie: null,
+          fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
+          fecha_recepcion: ahora2,
+          nif_proveedor: invoiceData.supplier_tax_id || "",
+          nif_iva_comunitario: esIntracomunitario ? invoiceData.supplier_tax_id : null,
+          es_intracomunitario: esIntracomunitario,
+          nombre_proveedor: invoiceData.supplier_name || "",
+          direccion_proveedor: invoiceData.supplier_address || null,
+          telefono_proveedor: null,
+          base_imponible: baseAmount2,
+          porcentaje_iva: vatRate2,
+          importe_iva: vatAmount2,
+          iva_deducible: !(invoiceData.tax_tags || []).includes("VAT_NOT_DEDUCTIBLE"),
+          descuento_global: 0,
+          recargo_equivalencia: recargoRate,
+          total_con_impuestos: totalAmount2,
+          porcentaje_retencion: null,
+          importe_retencion: null,
+          estado: status === "posted" ? "recibida" : "pendiente",
+          fecha_pago: null,
+          metodo_pago: null,
+          referencia_bancaria: null,
+          es_arrendamiento: esArrendamiento,
+          nif_arrendador: esArrendamiento ? invoiceData.supplier_tax_id : null,
+          concepto_arrendamiento: esArrendamiento ? "Alquiler local" : null,
+          notas: [
+            `Procesada por IA (${ocrEngine})`,
+            ...(validation.warnings.length > 0 ? [`⚠️ ${validation.warnings.join(", ")}`] : []),
+            ...(invoiceData.vat_scheme !== "standard" ? [`Régimen IVA: ${invoiceData.vat_scheme}`] : []),
+          ].join("\n"),
+          fecha_creacion: ahora2,
+          fecha_actualizacion: ahora2,
+          _ai_transaction_id: txRef.id,
+          _ai_document_id: documentId,
+          _ai_confidence: calculateConfidence(invoiceData, validation),
+          _ai_tax_tags: invoiceData.tax_tags || [],
+          _ai_vat_scheme: invoiceData.vat_scheme,
+          _ai_lines: invoiceData.lines || [],
+        });
+
+        // 15. COMPLETAR EXTRACCIÓN
+        await extractionRef.update({
+          raw_json: invoiceData,
+          status: "success",
+          confidence_score: calculateConfidence(invoiceData, validation),
+          transaction_id: txRef.id,
+          factura_recibida_id: facturaRecibidaRef.id,
+        });
+
+        console.log("=== processInvoice COMPLETADO OK (gasto) ===");
+
+        return {
+          transaction_id: txRef.id,
+          factura_recibida_id: facturaRecibidaRef.id,
+          status,
+          warnings: validation.warnings,
+          errors: validation.errors,
+        };
+      } // end else (gastos)
 
     } catch (error: any) {
       console.error("=== ERROR EN processInvoice ===");
@@ -533,7 +644,7 @@ function decideStatus(data: any, validation: any): string {
   if (parseFloat(data.total_amount || "0") > 3000) return "needs_review";
   if (!data.supplier_tax_id) return "needs_review";
   if (!data.invoice_number) return "needs_review";
-  if (validation.warnings.some((w: string) => w.toLowerCase().includes("duplicado"))) return "needs_review";
+  if (validation.warnings.some((w: string) => w.toLowerCase().includes("duplicado") || w.includes("duplicate"))) return "needs_review";
   return "posted";
 }
 
