@@ -81,10 +81,6 @@ service cloud.firestore {
     //   return packId in get(/databases/$(database)/documents/empresas/$(empresaId)).data.get('active_packs', []);
     // }
 
-    // ════════════════════════════════════════════════════════════════════
-    // USUARIOS
-    // ════════════════════════════════════════════════════════════════════
-
     match /usuarios/{userId} {
       allow read: if esUsuarioReal() && uid() == userId;
       allow read: if esUsuarioReal()
@@ -560,10 +556,14 @@ service cloud.firestore {
 
       match /fiscal_transactions/{txId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-
-        // Cloud Function crea la mayoría
         allow create: if false;
 
+        // Edición en borrador/revisión
+        allow update: if esAdminOPropietario(empresaId)
+
+        // Cloud Function crea la mayoría
+          && resource.data.status in ['draft', 'needs_review']
+          && request.resource.data.status in ['draft', 'needs_review', 'posted', 'voided']
         // Crear rectificativa manualmente desde la app
         allow create: if esAdminOPropietario(empresaId)
           && request.resource.data.keys().hasAll([
@@ -571,21 +571,21 @@ service cloud.firestore {
           ])
           && request.resource.data.status == 'posted';
 
-        // Edición en borrador/revisión
-        allow update: if esAdminOPropietario(empresaId)
-          && resource.data.status in ['draft', 'needs_review']
-          && request.resource.data.status in ['draft', 'needs_review', 'posted', 'voided']
-          && request.resource.data.document_id == resource.data.document_id
           && request.resource.data.extraction_id == resource.data.extraction_id
-          && request.resource.data.period == resource.data.period;
-
-        // Anulación: posted → voided (o draft/needs_review → voided)
-        allow update: if esAdminOPropietario(empresaId)
-          && resource.data.status in ['posted', 'draft', 'needs_review']
-          && request.resource.data.status == 'voided'
-          && request.resource.data.document_id == resource.data.document_id
           && request.resource.data.total_amount_cents == resource.data.total_amount_cents;
 
+        allow delete: if false;
+      }
+
+      match /fiscal_transaction_history/{historyId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // Anulación: posted → voided (o draft/needs_review → voided)
+      }
+          && resource.data.status in ['posted', 'draft', 'needs_review']
+      match /fiscal_models/{modelId} {
+        allow read: if esAdminOPropietario(empresaId);
+        allow create, update, delete: if false;
+      }
         // Marcar original como rectificada (solo añade campos, no cambia status)
         allow update: if esAdminOPropietario(empresaId)
           && resource.data.status == 'posted'
@@ -595,45 +595,24 @@ service cloud.firestore {
         // Borrado solo si está en draft/needs_review
         allow delete: if esAdminOPropietario(empresaId)
           && resource.data.status in ['draft', 'needs_review'];
-      }
-
-      match /fiscal_transaction_history/{historyId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        allow create: if esAdminOPropietario(empresaId)
-          && request.resource.data.keys().hasAll(['transaction_id', 'change_type', 'changed_by']);
-        allow update, delete: if false;
-      }
-
-      match /fiscal_models/{modelId} {
-        allow read: if esAdminOPropietario(empresaId);
-        allow create, update, delete: if false;
-      }
-
       match /fiscal_counterparties/{tax_id} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow create, update: if esAdminOPropietario(empresaId);
         allow delete: if false;
-      }
+        allow create: if esAdminOPropietario(empresaId)
+          && request.resource.data.keys().hasAll(['transaction_id', 'change_type', 'changed_by']);
+        allow update, delete: if false;
 
       // ── FISCAL EXPORTS (histórico de ficheros generados) ────────────
       match /fiscal_exports/{exportId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // FIX: anulación también verifica inmutabilidad de campos económicos
         allow create, update, delete: if false; // Solo Cloud Functions
       }
-
+          && resource.data.status == 'posted'
       // ── FISCAL PERIODS (estado de cada trimestre/año) ───────────────
       match /fiscal_periods/{periodId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        // Admin puede cerrar/abrir períodos manualmente
-        allow update: if esAdminOPropietario(empresaId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['estado', 'notas', 'cerrado_at', 'presentado_at']);
-        allow create, delete: if false; // Solo Cloud Functions crean períodos
-      }
-
-      // ── MODELOS FISCALES LEGACY (111, 115, etc. desde calculadores Flutter)
-      match /modelos111/{docId} {
-        allow read, write: if esAdminOPropietario(empresaId);
+        allow delete: if false;
       }
       match /modelos115/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
@@ -653,11 +632,7 @@ service cloud.firestore {
       match /modelos390/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
       }
-      match /modelos_fiscales/{docId} {
-        allow read, write: if esAdminOPropietario(empresaId);
-      }
-
-      // ── MEMBERS (RBAC interno) ──────────────────────────────────────
+        allow write: if false;
       match /members/{userId} {
         allow read: if perteneceAEmpresa(empresaId);
         allow create, update: if esAdminOPropietario(empresaId)

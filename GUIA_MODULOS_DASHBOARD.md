@@ -15,9 +15,11 @@ Este documento explica cómo funcionan los 3 módulos principales del dashboard 
 │ FLUJO DE VALORACIONES                                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  1. SINCRONIZACIÓN GOOGLE                                   │
+│  1. SINCRONIZACIÓN GOOGLE (Places API New)                  │
 │     └─> GoogleReviewsService.sincronizarDesdeGoogle()       │
-│         └─> Llama Google Places API con Place ID            │
+│         └─> Llama Google Places API (New) con Place ID      │
+│         └─> Endpoint: places.googleapis.com/v1/places/...   │
+│         └─> Headers: X-Goog-Api-Key (no query param)        │
 │         └─> Descarga máx 5 reseñas más recientes            │
 │         └─> Guarda en google_reviews/                       │
 │         └─> Actualiza estadisticas/resumen                  │
@@ -434,14 +436,18 @@ ListView(
 
 ### Problema: "Google Reviews muestra 0 pero tengo reseñas"
 
-**Causa**: No has sincronizado con Google Places API todavía.
+**Causa**: No has sincronizado con Google Places API (New) todavía.
 
 **Solución**:
 1. Ve al módulo de Valoraciones
 2. Click en el icono de configuración ⚙️
 3. Introduce tu Google Place ID y API Key
-4. Guarda y espera la sincronización automática
-5. O pulsa el botón de sincronizar ↻
+4. ⚠️ **IMPORTANTE**: Asegúrate de habilitar **Places API (New)** en Google Cloud Console
+   - No uses la API antigua (maps.googleapis.com)
+   - Usa la nueva (places.googleapis.com)
+5. Guarda y espera la sincronización automática
+6. O pulsa el botón de sincronizar ↻
+7. Si falla, consulta `MIGRACION_PLACES_API_NEW.md` para más detalles
 
 ### Problema: "Reservas del mes está vacío"
 
@@ -490,4 +496,6 @@ ListView(
 ```
 
 **¡Listo!** Ahora el usuario puede recalcular manualmente todas las estadísticas cuando lo necesite.
+
+
 

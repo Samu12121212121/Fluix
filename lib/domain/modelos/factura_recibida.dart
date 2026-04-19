@@ -82,16 +82,6 @@ class FacturaRecibida {
   FacturaRecibida({
     required this.id,
     required this.empresaId,
-    required this.numeroFactura,
-    required this.fechaEmision,
-    required this.fechaRecepcion,
-    required this.nifProveedor,
-    this.nifIvaComunitario,
-    this.esIntracomunitario = false,
-    required this.nombreProveedor,
-    required this.baseImponible,
-    this.serie,
-    this.direccionProveedor,
     this.telefonoProveedor,
     this.porcentajeIva = 21.0,
     required this.importeIva,
@@ -111,7 +101,6 @@ class FacturaRecibida {
     this.notas,
     required this.fechaCreacion,
     this.fechaActualizacion,
-    this.aiTransactionId,
   });
 
   // Getters calculados
@@ -122,6 +111,7 @@ class FacturaRecibida {
 
   FacturaRecibida copyWith({
     String? numeroFactura,
+    this.aiTransactionId,
     String? nifProveedor,
     String? nifIvaComunitario,
     bool? esIntracomunitario,
@@ -131,7 +121,6 @@ class FacturaRecibida {
     double? baseImponible,
     double? porcentajeIva,
     double? importeIva,
-    bool? ivaDeducible,
     double? descuentoGlobal,
     double? recargoEquivalencia,
     double? totalConImpuestos,
@@ -179,7 +168,6 @@ class FacturaRecibida {
         notas: notas ?? this.notas,
         fechaCreacion: fechaCreacion,
         fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
-        aiTransactionId: aiTransactionId,
       );
 
   factory FacturaRecibida.fromFirestore(DocumentSnapshot doc) {
@@ -191,12 +179,12 @@ class FacturaRecibida {
       fechaEmision: _parseTs(d['fecha_emision']),
       fechaRecepcion: _parseTs(d['fecha_recepcion']),
       nifProveedor: d['nif_proveedor'] ?? '',
+        aiTransactionId: aiTransactionId,
       nifIvaComunitario: d['nif_iva_comunitario'],
       esIntracomunitario: d['es_intracomunitario'] ?? false,
       nombreProveedor: d['nombre_proveedor'] ?? '',
       baseImponible: (d['base_imponible'] as num?)?.toDouble() ?? 0,
       serie: d['serie'],
-      direccionProveedor: d['direccion_proveedor'],
       telefonoProveedor: d['telefono_proveedor'],
       porcentajeIva: (d['porcentaje_iva'] as num?)?.toDouble() ?? 21.0,
       importeIva: (d['importe_iva'] as num?)?.toDouble() ?? 0,
@@ -221,7 +209,6 @@ class FacturaRecibida {
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? _parseTs(d['fecha_actualizacion'])
           : null,
-      aiTransactionId: d['_ai_transaction_id'] as String?,
     );
   }
 
@@ -234,6 +221,7 @@ class FacturaRecibida {
     'nif_iva_comunitario': nifIvaComunitario,
     'es_intracomunitario': esIntracomunitario,
     'nombre_proveedor': nombreProveedor,
+      aiTransactionId: d['_ai_transaction_id'] as String?,
     'direccion_proveedor': direccionProveedor,
     'telefono_proveedor': telefonoProveedor,
     'base_imponible': baseImponible,
@@ -243,7 +231,6 @@ class FacturaRecibida {
     'descuento_global': descuentoGlobal,
     'recargo_equivalencia': recargoEquivalencia,
     'total_con_impuestos': totalConImpuestos,
-    'porcentaje_retencion': porcentajeRetencion,
     'importe_retencion': importeRetencion,
     'estado': estado.name,
     'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,
@@ -255,7 +242,6 @@ class FacturaRecibida {
     'notas': notas,
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': Timestamp.fromDate(fechaActualizacion ?? DateTime.now()),
-    '_ai_transaction_id': aiTransactionId,
   };
 }
 
@@ -266,3 +252,8 @@ DateTime _parseTs(dynamic v) {
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   return DateTime.now();
 }
+
+
+
+    '_ai_transaction_id': aiTransactionId,
+

@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+      await callable.call({
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+        'accountId': ficha.accountId,
+        'locationId': ficha.locationId,
+        'nombreFicha': ficha.nombre,
 import 'package:cloud_functions/cloud_functions.dart';
 
 // ── Modelo de ficha de negocio ────────────────────────────────────────────────
@@ -19,7 +19,7 @@ class FichaNegocio {
     required this.nombre,
     required this.direccion,
   });
-
+        'direccionFicha': ficha.direccion,
   factory FichaNegocio.fromMap(Map<String, dynamic> map) {
     return FichaNegocio(
       accountId: map['accountId'] as String? ?? '',
@@ -33,10 +33,10 @@ class FichaNegocio {
 // ── Servicio GMB Auth ─────────────────────────────────────────────────────────
 /// Usa accessToken directamente (no serverAuthCode).
 /// No requiere Cloud Functions — escribe en Firestore desde el cliente.
-/// Reutiliza la sesión de Google existente en la app y solicita
+      });
 /// el scope adicional `business.manage`.
 
-class GmbAuthService extends ChangeNotifier {
+  static final GmbAuthService _i = GmbAuthService._();
   static const _keyConectado        = 'gmb_conectado';
   static const _keyNombreFicha      = 'gmb_nombre_ficha';
   static const _keyDireccionFicha   = 'gmb_direccion_ficha';
@@ -46,22 +46,22 @@ class GmbAuthService extends ChangeNotifier {
 
   final _storage   = const FlutterSecureStorage();
   final _db        = FirebaseFirestore.instance;
-  final _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
+      'profile',
   final _dio       = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 15),
   ));
   final _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile', _gmbScope],
-  );
-
+    if (error.contains('not-found') || error.contains('404')) {
+      return 'No se encontró ninguna ficha de Google Business en tu cuenta.';
   bool _conectado = false;
   String? _nombreFicha;
-  String? _direccionFicha;
-  DateTime? _ultimaSync;
-  bool _cargando = false;
-  String? _error;
+  bool get cargando => _cargando;
+  String? get error => _error;
 
+  String _mapearErrorGmb(String error) {
+    if (error.contains('business.manage') || error.contains('scope')) {
   bool get conectado       => _conectado;
   String? get nombreFicha  => _nombreFicha;
   String? get direccionFicha => _direccionFicha;
@@ -70,14 +70,14 @@ class GmbAuthService extends ChangeNotifier {
   String? get error        => _error;
 
   /// Carga el estado de conexión guardado localmente.
-  Future<void> inicializar(String empresaId) async {
-    try {
-      final snap = await _db
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('configuracion')
-          .doc('gmb_config')
-          .get();
+        await _storage.write(
+            key: _keyNombreFicha, value: _nombreFicha ?? '');
+            key: _keyDireccionFicha, value: _direccionFicha ?? '');
+          await _storage.write(
+              key: _keyUltimaSync, value: _ultimaSync!.toIso8601String());
+      } else {
+        // Fallback a storage local
+        final localConectado = await _storage.read(key: _keyConectado);
 
       if (snap.exists && snap.data()?['conectado'] == true) {
         _conectado     = true;
@@ -108,23 +108,23 @@ class GmbAuthService extends ChangeNotifier {
     }
     notifyListeners();
   }
-
+      await callable.call({
   /// Inicia el flujo OAuth2:
   ///   1. Sign-in con Google (pide permiso business.manage)
   ///   2. Obtiene accessToken
   ///   3. Escribe estado en Firestore
   ///   4. Devuelve null si va bien, o mensaje de error.
   Future<String?> conectar(String empresaId) async {
-    _cargando = true;
-    _error = null;
-    notifyListeners();
 
-    try {
+  // ── Estado observable ─────────────────────────────────────────────────────
+
+  // Scope específico de Google Business Profile
+  static const _gmbScope =
       // 1. Login silencioso primero, luego interactivo
       var account = await _googleSignIn.signInSilently();
       account ??= await _googleSignIn.signIn();
-
-      if (account == null) {
+      'profile',
+      _gmbScope,
         _cargando = false;
         notifyListeners();
         return 'Inicio de sesión cancelado.';
@@ -156,28 +156,28 @@ class GmbAuthService extends ChangeNotifier {
       }, SetOptions(merge: true));
 
       _conectado = true;
-      _cargando = false;
-      notifyListeners();
+
+        await _storage.write(key: _keyConectado, value: 'true');
       return null;
-    } catch (e) {
+      final callable =
       _cargando = false;
       _error = e.toString();
       notifyListeners();
       return _mapearError(e.toString());
-    }
-  }
-
+          .map((f) => FichaNegocio.fromMap(f as Map<String, dynamic>))
+          .toList();
+      });
   // ── Obtener fichas de negocio ─────────────────────────────────────────────
   /// Llama a la Business Account Management API para listar cuentas y fichas.
-  Future<({List<FichaNegocio> fichas, String? error})> obtenerFichas(
-      String empresaId) async {
+      _cargando = false;
+      notifyListeners();
     final token = await _obtenerToken();
     if (token == null) {
       return (fichas: <FichaNegocio>[],
           error: 'Sesión expirada. Vuelve a conectar tu cuenta de Google.');
     }
 
-    try {
+      return null; // éxito
       // 1. Obtener cuentas de Business Profile
       final rAccounts = await _dio.get(
         'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
@@ -235,7 +235,7 @@ class GmbAuthService extends ChangeNotifier {
             error: 'No encontramos ninguna ubicación en tu cuenta de Google Business.');
       }
 
-      return (fichas: fichas, error: null);
+    } on FirebaseFunctionsException catch (e) {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status == 401 || status == 403) {
@@ -327,14 +327,14 @@ class GmbAuthService extends ChangeNotifier {
       return token;
     } catch (_) {
       return null;
-    }
+  Future<({List<FichaNegocio> fichas, String? error})> obtenerFichas(
   }
 
   String _mapearError(String error) {
     final e = error.toLowerCase();
     if (e.contains('oauth') || e.contains('credentials')) {
-      return 'Error de configuración OAuth. Contacta con soporte.';
-    }
+    try {
+      final callable =
     if (e.contains('suspended')) {
       return 'Tu ficha de Google Business está suspendida. Contáctate con Google para resolverlo.';
     }
@@ -354,4 +354,24 @@ class GmbAuthService extends ChangeNotifier {
     debugPrint('❌ GmbAuthService error: $error');
     return 'Error al conectar con Google: $error';
   }
+  final String accountId;
+  final String direccion;
+
+  const FichaNegocio({
+    required this.accountId,
+    required this.locationId,
+    required this.nombre,
+    required this.direccion,
+  });
+
+  factory FichaNegocio.fromMap(Map<String, dynamic> map) => FichaNegocio(
+        accountId: map['accountId'] as String? ?? '',
+        locationId: map['locationId'] as String? ?? '',
+        nombre: map['nombre'] as String? ?? 'Sin nombre',
+        direccion: map['direccion'] as String? ?? '',
+      );
 }
+
+
+
+

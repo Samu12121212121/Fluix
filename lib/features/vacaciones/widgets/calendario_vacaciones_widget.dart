@@ -231,8 +231,6 @@ class _CalendarioVacacionesWidgetState
     );
   }
 
-  // ── Selector de empleado ───────────────────────────────────────────────────
-
   Widget _buildSelectorEmpleado() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),

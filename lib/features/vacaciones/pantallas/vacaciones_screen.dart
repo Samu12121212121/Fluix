@@ -1,3 +1,5 @@
+        backgroundColor: const Color(0xFF00796B),
+        foregroundColor: Colors.white,
 import 'package:flutter/material.dart';
 import '../../../models/vacacion_model.dart';
 import '../../../services/vacaciones_service.dart';
@@ -49,8 +51,6 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
-      child: Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
         children: [
           // ── Cabecera fija ─────────────────────────────────────────
@@ -88,7 +88,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                       Text('Gestión integral · Art. 38 ET + convenios',
                           style: TextStyle(color: Colors.white70, fontSize: 12)),
                     ],
-                  ),
+  // ═══════════════════════════════════════════════════════════════════════════
                 ),
               ],
             ),
@@ -104,8 +104,8 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                 tabs: const [
                   Tab(icon: Icon(Icons.calendar_month), text: 'Calendario'),
                   Tab(icon: Icon(Icons.list_alt), text: 'Solicitudes'),
-                ],
-              ),
+
+  Widget _buildCalendario() {
               Expanded(
                 child: TabBarView(
                   controller: _tabs,
@@ -118,45 +118,18 @@ class _VacacionesScreenState extends State<VacacionesScreen>
             ],
           )),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _nuevaSolicitud(),
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva solicitud'),
-      ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PESTAÑA CALENDARIO
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildCalendario() {
     return CalendarioVacacionesWidget(
       empresaId: widget.empresaId,
       sesion: widget.sesion,
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PESTAÑA LISTA SOLICITUDES
-  // ═══════════════════════════════════════════════════════════════════════════
+      ),
 
   Widget _buildListaSolicitudes() {
     return StreamBuilder<List<SolicitudVacaciones>>(
       stream: _svc.obtenerSolicitudes(widget.empresaId),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        var solicitudes = snap.data ?? [];
-        if (solicitudes.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.beach_access,
                     size: 72, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 Text('No hay solicitudes',
@@ -172,7 +145,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         // Aplicar filtros
         if (_filtroTipo != null) {
           solicitudes =
-              solicitudes.where((s) => s.tipo == _filtroTipo).toList();
+    ),
         }
         if (_filtroEmpleadoId != null) {
           solicitudes = solicitudes
@@ -181,7 +154,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         }
 
         return Column(
-          children: [
+              mainAxisSize: MainAxisSize.min,
             // Filtros
             Container(
               margin:
@@ -203,7 +176,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
               ),
             ),
             Expanded(
-              child: ListView.builder(
+        ),
                 padding: const EdgeInsets.all(16),
                 itemCount: solicitudes.length,
                 itemBuilder: (context, i) =>

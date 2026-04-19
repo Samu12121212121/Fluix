@@ -1,81 +1,81 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-
-import 'firebase_options.dart';
-import 'core/providers/app_config_provider.dart';
-import 'core/utils/admin_initializer.dart';
-import 'services/notificaciones_service.dart';
-import 'services/auth/token_refresh_service.dart';
+                if (!snapSuscripcion.hasData || !snapSuscripcion.data!.exists) {
+                if (snapSuscripcion.connectionState == ConnectionState.waiting) {
+              future: FirebaseFirestore.instance
+                  .collection('empresas')
+                  .doc(empresaId)
+       kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+                  .doc('actual')
+                  .get(),
+            // Comprobar suscripción
+            final empresaData = snapEmpresa.data?.data() as Map<String, dynamic>?;
+    ChangeNotifierProvider.value(
+        return FutureBuilder<DocumentSnapshot>(
+class FluixCrmApp extends StatelessWidget {
+class FluixCrmApp extends StatelessWidget {
+        final empresaId = userData?['empresa_id'] as String?;
+                bool estaVencida = estado == 'VENCIDA' || estado == 'SUSPENDIDA';
 import 'services/auth/sesion_service.dart';
-import 'features/autenticacion/pantallas/pantalla_login.dart';
-import 'features/dashboard/pantallas/pantalla_dashboard.dart';
-import 'features/onboarding/pantallas/pantalla_onboarding.dart';
-import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  timeago.setLocaleMessages('es', timeago.EsMessages());
-  await initializeDateFormatting('es_ES', null);
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+        // Sin empresa → ir al dashboard (lo crea automáticamente)
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(empresaId)
+              .get(),
+            final empresaData = snapEmpresa.data?.data() as Map<String, dynamic>?;
+            final onboardingCompletado = empresaData?['onboarding_completado'] as bool? ?? false;
+                if (snapSuscripcion.connectionState == ConnectionState.waiting) {
+            if (!onboardingCompletado) {
+              return PantallaOnboarding(empresaId: empresaId);
+            final empresaData = snapEmpresa.data?.data() as Map<String, dynamic>?;
+            // Comprobar suscripción
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+              builder: (context, snapSuscripcion) {
+      builder: (context, config, _) => MaterialApp(
+        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+        debugShowCheckedModeBanner: false,
+        theme: config.temaClaro,
+        darkTheme: config.temaOscuro,
+        themeMode: config.themeMode,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+  _intentarInicializarAdmin();
+            // Sin sesión → detener el servicio
+            TokenRefreshService().detener();
+    ChangeNotifierProvider(
+      create: (_) => AppConfigProvider()..inicializar(),
 
   await FirebaseAppCheck.instance.activate(
     androidProvider:
-        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+       kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
     appleProvider:
-        kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
-  );
-
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
-
-  _intentarInicializarAdmin();
-
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppConfigProvider()..inicializar(),
-      child: const FluixCrmApp(),
-    ),
-  );
-}
-
 class FluixCrmApp extends StatefulWidget {
   const FluixCrmApp({super.key});
-
-  @override
+  // Activar persistencia offline de Firestore
+  FirebaseFirestore.instance.settings = const Settings(
   State<FluixCrmApp> createState() => _FluixCrmAppState();
 }
-
+  // No bloquea el arranque: se lanza tras el primer frame para reducir
 class _FluixCrmAppState extends State<FluixCrmApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
+  _inicializarNotificacionesEnBackground();
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
   }
-
+  // Se ejecutan tras el login (necesitan usuario autenticado para Firestore)
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     SesionService().detener();
     super.dispose();
   }
-
+      child: const FluixCrmApp(),
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
@@ -90,7 +90,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
         break;
     }
   }
-
+}
   void _onSesionExpirada() {
     final nav = _navigatorKey.currentState;
     if (nav == null) return;
@@ -99,7 +99,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
       (_) => false,
     );
   }
-
+class FluixCrmApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppConfigProvider>(
@@ -164,44 +164,44 @@ class PantallaCarga extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
+                  .get(),
+              builder: (context, snapSuscripcion) {
+      builder: (context, config, _) => MaterialApp(
+        title: 'Fluix CRM',
+        debugShowCheckedModeBanner: false,
+        darkTheme: config.temaOscuro,
+                size: 40,
+        themeMode: config.themeMode,
+        locale: const Locale('es', 'ES'),
+            const SizedBox(height: 24),
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+                fontSize: 28,
+          Locale('es', 'ES'),
+          Locale('en', 'US'),
+        ],
+        home: StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const PantallaCarga();
+            }
+            if (snapshot.hasData) {
+              return const _PantallaRuta();
+            }
+            // Sin sesión → detener el servicio
+            TokenRefreshService().detener();
+          },
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(60),
               ),
               child: const Icon(
                 Icons.business_center_rounded,
+                size: 60,
                 color: Colors.white,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Fluix CRM',
-              style: TextStyle(
-                fontSize: 28,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 32),
-            const CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PantallaRuta extends StatefulWidget {
   const _PantallaRuta();
 
@@ -323,13 +323,44 @@ class _PantallaRutaState extends State<_PantallaRuta> {
   }
 }
 
+              style: TextStyle(
+                fontSize: 32,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+      // ignore: avoid_print
+            const SizedBox(height: 8),
+
+            Text(
+              'Cargando...',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Decide si mostrar onboarding o dashboard según el estado de Firestore
+class _PantallaRuta extends StatelessWidget {
+/// Se ejecuta en background para no bloquear el arranque de la app.
 void _intentarInicializarAdmin() {
   Future(() async {
     try {
       await AdminInitializer.crearUsuarioAdmin();
       await AdminInitializer.actualizarModulos();
     } catch (e) {
-      // ignore: avoid_print
       print('ℹ️ AdminInitializer no ejecutado: $e');
     }
   });

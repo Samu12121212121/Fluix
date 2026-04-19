@@ -107,10 +107,9 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
-            ),
 
-            const SizedBox(height: 8),
             // Selector empleado
+            const SizedBox(height: 8),
             if (widget.empleadoIdFijo == null) ...[
               _buildSelectorEmpleado(),
               const SizedBox(height: 12),

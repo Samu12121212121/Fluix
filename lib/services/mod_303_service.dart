@@ -181,11 +181,11 @@ class Mod303Service {
     return 0;
   }
 
-  /// Calcula totales para MOD 303
-  Map<String, dynamic> _calcularTotales(
-    List<Factura> emitidas,
-    List<FacturaRecibida> recibidas,
-  ) {
+
+    final cuotaSuperReducida =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 4)
+            .fold(0.0, (s, l) => s + l.importeIva));
     // Calcular bases y cuotas (emitidas) — con fallback a cabecera si no hay líneas
     final baseGeneral = emitidas.fold(0.0, (sum, f) => sum + _calcularBaseIVA(f, 21));
     final cuotaGeneral = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 21));
@@ -193,55 +193,35 @@ class Mod303Service {
     final cuotaReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 10));
     final baseSuperReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularBaseIVA(f, 4));
     final cuotaSuperReducida = emitidas.fold(0.0, (sum, f) => sum + _calcularCuotaIVA(f, 4));
+    final baseGeneral =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 21)
+            .fold(0.0, (s, l) => s + l.subtotalSinIva));
 
-    // Calcular IVA soportado (recibidas deducibles)
-    final ivaSoportado =
-        recibidas.where((f) => f.ivaDeducible)
-            .fold(0.0, (sum, f) => sum + f.ivaDeducibleReal);
+    final cuotaGeneral =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 21)
+            .fold(0.0, (s, l) => s + l.importeIva));
 
-    final totalRepercutido = cuotaGeneral + cuotaReducida + cuotaSuperReducida;
-    final iva303 = totalRepercutido - ivaSoportado;
+    final baseReducida =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 10)
+            .fold(0.0, (s, l) => s + l.subtotalSinIva));
 
-    return {
-      'base_general': baseGeneral,
-      'cuota_general': cuotaGeneral,
-      'base_reducida': baseReducida,
-      'cuota_reducida': cuotaReducida,
-      'base_super_reducida': baseSuperReducida,
-      'cuota_super_reducida': cuotaSuperReducida,
-      'total_repercutido': totalRepercutido,
-      'iva_soportado': ivaSoportado,
-      'iva_303': iva303,
-      'num_facturas_emitidas': emitidas.length,
-      'num_facturas_recibidas': recibidas.length,
-      'facturas_emitidas': emitidas,
-      'facturas_recibidas': recibidas,
-    };
-  }
+    final cuotaReducida =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 10)
+            .fold(0.0, (s, l) => s + l.importeIva));
 
-  /// Genera MOD 303 en formato AEAT descargable usando DR303e26v101
-  Future<String> generarMod303Dr303e26v101({
-    required String empresaId,
-    required String nifEmpresa,
-    required String nombreEmpresa,
-    required int anio,
-    required int trimestre,
-  }) async {
-    final datos = await calcularMod303(
-      empresaId: empresaId,
-      anio: anio,
-      trimestre: trimestre,
-    );
+    final baseSuperReducida =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 4)
+            .fold(0.0, (s, l) => s + l.subtotalSinIva));
 
-    final periodo = _periodoTrimestral(trimestre);
-    final casillas = _construirCasillas(datos);
-    final porcentajes = _construirPorcentajes(datos);
-
-    final exporter = Dr303e26v101Exporter();
-    return exporter.exportar(
-      DatosDr303e26v101(
-        nifDeclarante: nifEmpresa,
-        nombreRazonSocial: nombreEmpresa,
+    final cuotaSuperReducida =
+        emitidas.fold(0.0, (sum, f) => sum + f.lineas
+            .where((l) => l.porcentajeIva == 4)
+            .fold(0.0, (s, l) => s + l.importeIva));
         ejercicio: anio,
         periodo: periodo,
         tipoDeclaracion: 1,

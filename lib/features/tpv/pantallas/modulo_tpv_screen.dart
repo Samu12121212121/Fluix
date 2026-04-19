@@ -7,7 +7,6 @@ import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
 import 'pantalla_cierre_caja.dart';
-class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;
 
   /// true si el usuario es admin o propietario (puede ver configuración)
@@ -79,6 +78,7 @@ class ModuloTpvScreen extends StatelessWidget {
             context: context,
           ),
 
+          ],
           const SizedBox(height: 12),
           // ── Cierre de caja ───────────────────────────────────────────────
           _TarjetaAccionTpv(
@@ -92,36 +92,9 @@ class ModuloTpvScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-
           const SizedBox(height: 24),
 
-          // ── Resumen de hoy ───────────────────────────────────────────────
-          _ResumenHoyWidget(empresaId: empresaId),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Tarjeta de acción ─────────────────────────────────────────────────────────
-
-class _TarjetaAccionTpv extends StatelessWidget {
-  final IconData icono;
-  final String titulo;
-  final String descripcion;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _TarjetaAccionTpv({
-    required this.icono,
-    required this.titulo,
-    required this.descripcion,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+          ],
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
