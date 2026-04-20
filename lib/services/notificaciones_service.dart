@@ -314,6 +314,42 @@ class NotificacionesService {
     await _messaging.unsubscribeFromTopic('empresa_$empresaId');
   }
 
+  /// Guardar token FCM asegurando que se vincula a la empresa correcta.
+  /// Llamar desde el dashboard cuando empresa_id ya está disponible.
+  Future<void> guardarTokenConEmpresa(String empresaId) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final token = await _messaging.getToken();
+      if (token == null) return;
+
+      // Guardar en usuarios (por si acaso)
+      await _firestore.collection('usuarios').doc(uid).set({
+        'token_dispositivo': token,
+        'token_actualizado': FieldValue.serverTimestamp(),
+        'plataforma': _obtenerPlataforma(),
+      }, SetOptions(merge: true));
+
+      // Guardar en dispositivos de la empresa
+      await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('dispositivos')
+          .doc(uid)
+          .set({
+        'token': token,
+        'uid_usuario': uid,
+        'plataforma': _obtenerPlataforma(),
+        'ultima_actualizacion': FieldValue.serverTimestamp(),
+        'activo': true,
+      }, SetOptions(merge: true));
+      print('✅ Token FCM guardado en empresas/$empresaId/dispositivos/$uid (explícito)');
+    } catch (e) {
+      print('❌ Error en guardarTokenConEmpresa: $e');
+    }
+  }
+
   /// Obtener el token actual del dispositivo
   Future<String?> obtenerToken() async {
     return await _messaging.getToken();

@@ -1,49 +1,13 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.obtenerScriptJSON = exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.calculateFiscalModel = exports.processInvoice = void 0;
-exports.onReservaNueva = exports.enviarDocumentacionFiniquito = void 0;
-const admin = __importStar(require("firebase-admin"));
+exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.obtenerScriptJSON = exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
+exports.testPushNotification = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = void 0;
+const admin = require("firebase-admin");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
-const stripe_1 = __importDefault(require("stripe"));
-const nodemailer = __importStar(require("nodemailer"));
+const stripe_1 = require("stripe");
+const nodemailer = require("nodemailer");
 const recordatoriosCitas_1 = require("./recordatoriosCitas");
 Object.defineProperty(exports, "enviarRecordatoriosCitas", { enumerable: true, get: function () { return recordatoriosCitas_1.enviarRecordatoriosCitas; } });
 const notificacionesTareas_1 = require("./notificacionesTareas");
@@ -58,11 +22,13 @@ Object.defineProperty(exports, "scheduledAlertaCertificado", { enumerable: true,
 const authGuard_1 = require("./utils/authGuard");
 const fuerzaBruta_1 = require("./auth/fuerzaBruta");
 Object.defineProperty(exports, "verificarLoginIntento", { enumerable: true, get: function () { return fuerzaBruta_1.verificarLoginIntento; } });
-const node_fetch_1 = __importDefault(require("node-fetch"));
+const node_fetch_1 = require("node-fetch");
 var processInvoice_1 = require("./fiscal/processInvoice");
 Object.defineProperty(exports, "processInvoice", { enumerable: true, get: function () { return processInvoice_1.processInvoice; } });
 var calculateModel_1 = require("./fiscal/models/calculateModel");
 Object.defineProperty(exports, "calculateFiscalModel", { enumerable: true, get: function () { return calculateModel_1.calculateFiscalModel; } });
+var whatsappBot_1 = require("./whatsappBot");
+Object.defineProperty(exports, "whatsappWebhook", { enumerable: true, get: function () { return whatsappBot_1.whatsappWebhook; } });
 // NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
 // "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
 // export { generarThumbnailCatalogo } from "./catalogoFunciones";
@@ -238,14 +204,42 @@ async function obtenerTokensEmpresa(empresaId) {
         if (token && token.length > 10)
             tokens.push(token);
     });
+    // Fallback: si no hay tokens en dispositivos, buscar en colección usuarios
+    if (tokens.length === 0) {
+        console.log(`⚠️ Sin tokens en dispositivos para ${empresaId}, buscando en usuarios...`);
+        const usuariosSnap = await db
+            .collection("usuarios")
+            .where("empresa_id", "==", empresaId)
+            .where("activo", "!=", false)
+            .get();
+        for (const userDoc of usuariosSnap.docs) {
+            const tokenUsuario = userDoc.data().token_dispositivo;
+            if (tokenUsuario && tokenUsuario.length > 10 && !tokens.includes(tokenUsuario)) {
+                tokens.push(tokenUsuario);
+                // Sincronizar: guardar también en dispositivos para la próxima vez
+                try {
+                    await col.doc(userDoc.id).set({
+                        token: tokenUsuario,
+                        uid_usuario: userDoc.id,
+                        activo: true,
+                        sincronizado_desde: "fallback_usuarios",
+                        ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    console.log(`🔄 Token sincronizado de usuarios/${userDoc.id} → dispositivos`);
+                }
+                catch (_) { /* no bloquear el envío */ }
+            }
+        }
+    }
     return tokens;
 }
 async function enviarNotificacionEmpresa(empresaId, titulo, cuerpo, data = {}) {
     const tokens = await obtenerTokensEmpresa(empresaId);
     if (tokens.length === 0) {
-        console.log(`No hay tokens para empresa ${empresaId}`);
+        console.log(`❌ No hay tokens para empresa ${empresaId} — NO se envía push`);
         return;
     }
+    console.log(`📤 Enviando push a ${tokens.length} token(s) para empresa ${empresaId}: "${titulo}"`);
     const mensaje = {
         tokens,
         notification: { title: titulo, body: cuerpo },
@@ -302,45 +296,72 @@ async function enviarNotificacionEmpresa(empresaId, titulo, cuerpo, data = {}) {
     }
 }
 /**
- * 1. NUEVA RESERVA
+ * Helper compartido: procesa reserva/cita nueva → bandeja + push
  */
-exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
-    var _a, _b;
-    const empresaId = event.params.empresaId;
-    const reservaId = event.params.reservaId;
-    const reserva = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
-    if (!reserva)
-        return;
+async function procesarNuevaReservaOCita(empresaId, entidadId, reserva, coleccion) {
+    var _a;
     const cliente = reserva.nombre_cliente || reserva.cliente || "Cliente";
     const telefonoVal = reserva.telefono_cliente;
-    const emailVal = reserva.email_cliente || reserva.email || null;
+    const emailVal = reserva.email_cliente || reserva.correo_cliente || reserva.email || null;
     const telefono = telefonoVal ? ` · ${telefonoVal}` : "";
     const personas = reserva.personas ? ` · ${reserva.personas} pers.` : "";
     const servicio = reserva.servicio || reserva.notas || "";
-    const fechaHora = reserva.fecha_hora
-        ? reserva.fecha_hora.replace("T", " a las ").substring(0, 16)
-        : ((_b = reserva.fecha) === null || _b === void 0 ? void 0 : _b.toDate)
-            ? reserva.fecha.toDate().toLocaleString("es-ES")
-            : "Fecha pendiente";
-    const titulo = "📅 Nueva Reserva";
+    const fechaHoraRaw = reserva.fecha_hora;
+    let fechaHora = "Fecha pendiente";
+    if (fechaHoraRaw) {
+        if (typeof fechaHoraRaw === "string") {
+            fechaHora = fechaHoraRaw.replace("T", " a las ").substring(0, 19);
+        }
+        else if (typeof fechaHoraRaw.toDate === "function") {
+            fechaHora = fechaHoraRaw.toDate().toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
+        }
+        else if (fechaHoraRaw._seconds !== undefined) {
+            fechaHora = new Date(fechaHoraRaw._seconds * 1000).toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
+        }
+    }
+    else if ((_a = reserva.fecha) === null || _a === void 0 ? void 0 : _a.toDate) {
+        fechaHora = reserva.fecha.toDate().toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
+    }
+    const emoji = coleccion === "citas" ? "💈" : "📅";
+    const label = coleccion === "citas" ? "Nueva Cita" : "Nueva Reserva";
+    const titulo = `${emoji} ${label}`;
     const cuerpo = `${cliente}${telefono}${personas} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
-    // 1. Guardar en bandeja in-app con campos de remitente separados
-    const bandejaData = {
+    // 1. Guardar en bandeja in-app
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
         titulo,
         cuerpo,
         tipo: "reservaNueva",
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         leida: false,
-        modulo_destino: "reservas",
-        entidad_id: reservaId,
+        modulo_destino: coleccion,
+        entidad_id: entidadId,
         remitente_nombre: cliente !== "Cliente" ? cliente : null,
         remitente_telefono: telefonoVal || null,
         remitente_email: emailVal,
-    };
-    await db.collection("notificaciones").doc(empresaId).collection("items").add(bandejaData);
+    });
     // 2. Enviar push FCM
-    await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: reservaId });
-    console.log(`✅ Reserva guardada en bandeja y push enviado — empresa ${empresaId}`);
+    await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: entidadId, coleccion });
+    console.log(`✅ ${label} guardada en bandeja y push enviado — empresa ${empresaId}`);
+}
+/**
+ * 1. NUEVA RESERVA
+ */
+exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
+    var _a;
+    const reserva = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!reserva)
+        return;
+    await procesarNuevaReservaOCita(event.params.empresaId, event.params.reservaId, reserva, "reservas");
+});
+/**
+ * 1b. NUEVA CITA (mismo flujo, colección distinta)
+ */
+exports.onNuevaCita = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/citas/{citaId}", region: REGION }, async (event) => {
+    var _a;
+    const cita = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!cita)
+        return;
+    await procesarNuevaReservaOCita(event.params.empresaId, event.params.citaId, cita, "citas");
 });
 /**
  * 2. RESERVA CANCELADA
@@ -1695,7 +1716,12 @@ exports.onVacacionEstadoCambiado = (0, firestore_1.onDocumentUpdated)({ document
                     },
                 },
                 apns: {
-                    payload: { aps: { sound: "default", badge: 1 } },
+                    payload: {
+                        aps: {
+                            sound: "default",
+                            badge: 1,
+                        },
+                    },
                 },
             });
             console.log(`✅ Push enviado a empleado ${empleadoId} — ${nuevoEstado}`);
@@ -1938,11 +1964,11 @@ exports.scheduledAlertaCobertura = (0, scheduler_1.onSchedule)({ schedule: "0 7 
     }
     console.log("✅ Verificación de cobertura completada");
 });
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE FINIQUITOS — Cloud Functions
-// ═══════════════════════════════════════════════════════════════════════════════
-const https = __importStar(require("https"));
-const http = __importStar(require("http"));
+// ═════════════════════════════════════════════════════════════════════════════
+const https = require("https");
+const http = require("http");
 /**
  * Descarga un archivo desde una URL (Firebase Storage URL firmada).
  */
@@ -2089,145 +2115,116 @@ exports.enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, a
         await transporter.sendMail({
             from: `"${nombreEmpresa}" <${smtpUser.value()}>`,
             to: emailDestino,
-            subject: `Documentación de tu cese en ${nombreEmpresa}`,
+            subject: `Documentación de cese — ${nombreEmpresa}`,
             html: htmlEmail,
-            attachments: adjuntos.map((a) => ({
-                filename: a.filename,
-                content: a.content,
-                contentType: a.contentType,
-            })),
+            attachments: adjuntos,
         });
+        // Actualizar finiquito con la fecha de envío
+        await finiqDoc.ref.update({
+            documentacion_enviada_a: emailDestino,
+            fecha_envio_documentacion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`✅ Documentación de finiquito enviada a ${emailDestino}`);
+        return {
+            exito: true,
+            mensaje: `Documentación enviada a ${emailDestino}`,
+            documentos_enviados: adjuntos.map(a => a.filename),
+            documentos_faltantes: erroresDescarga,
+        };
     }
-    catch (e) {
-        console.error("❌ Error enviando email:", e.message);
-        throw new https_1.HttpsError("internal", `Error enviando email: ${e.message}. Verifica la configuración SMTP.`);
+    catch (error) {
+        console.error("❌ Error enviando email:", error);
+        throw new https_1.HttpsError("internal", `Error enviando email: ${error instanceof Error ? error.message : "Desconocido"}`);
     }
-    // Registrar en Firestore
-    await db.collection("empresas").doc(empresaId)
-        .collection("finiquitos").doc(finiquitoId).update({
-        email_enviado: emailDestino,
-        fecha_envio_email: admin.firestore.FieldValue.serverTimestamp(),
-        documentos_enviados: documentosSeleccionados.filter(d => !erroresDescarga.includes(d)),
-    });
-    console.log(`✅ Documentación enviada a ${emailDestino} (${adjuntos.length} archivos)`);
-    return {
-        ok: true,
-        archivosEnviados: adjuntos.length,
-        errores: erroresDescarga,
-    };
 });
-// ── Notificación push cuando llega una reserva nueva desde la web ─────────────
-// Trigger: onCreate en empresas/{empresaId}/reservas/{reservaId}
-// Solo notifica cuando origen == 'web' (no spamea al admin con sus propias reservas manuales)
-exports.onReservaNueva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
-    var _a, _b, _c;
-    const snap = event.data;
-    if (!snap)
-        return;
-    const data = snap.data();
-    const empresaId = event.params.empresaId;
-    const reservaId = event.params.reservaId;
-    // Solo notificar reservas que vienen de la web
-    const origen = (_b = (_a = data.origen) !== null && _a !== void 0 ? _a : data.creado_por) !== null && _b !== void 0 ? _b : '';
-    if (origen !== 'web' && origen !== 'web_widget') {
-        console.log(`ℹ️ Reserva ${reservaId} con origen '${origen}' — sin notificación`);
-        return;
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST — Enviar notificación de prueba al usuario actual
+// ═══════════════════════════════════════════════════════════════════════════
+exports.testPushNotification = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a, _b;
+    const uid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    if (!uid) {
+        throw new https_1.HttpsError("unauthenticated", "Debes estar autenticado");
     }
-    // Obtener tokens FCM de admins y propietarios de la empresa
-    // Los usuarios están en la colección raíz con campo empresa_id
-    const usuariosSnap = await db
-        .collection('usuarios')
-        .where('empresa_id', '==', empresaId)
-        .where('rol', 'in', ['propietario', 'admin'])
-        .where('activo', '==', true)
-        .get();
-    if (usuariosSnap.empty) {
-        console.log(`⚠️ No hay admins/propietarios para empresa ${empresaId}`);
-        return;
+    // Obtener datos del usuario
+    const userDoc = await db.collection("usuarios").doc(uid).get();
+    const userData = userDoc.data();
+    if (!userData) {
+        throw new https_1.HttpsError("not-found", "Usuario no encontrado");
     }
-    // Recoger todos los tokens válidos (token_dispositivo en el doc usuario)
-    const tokens = [];
-    for (const userDoc of usuariosSnap.docs) {
-        const uData = userDoc.data();
-        // Intentar primero en empresas/{id}/dispositivos (como hace notificacionesTareas)
-        try {
-            const dispositivoSnap = await db
-                .collection('empresas').doc(empresaId)
-                .collection('dispositivos').doc(userDoc.id)
-                .get();
-            const tokenDispositivo = (_c = dispositivoSnap.data()) === null || _c === void 0 ? void 0 : _c.token;
-            if (tokenDispositivo) {
-                tokens.push(tokenDispositivo);
-                continue;
-            }
-        }
-        catch (_) { /* fallback */ }
-        // Fallback: token_dispositivo en el doc usuario
-        const tokenUsuario = uData.token_dispositivo;
-        if (tokenUsuario)
-            tokens.push(tokenUsuario);
-    }
-    if (tokens.length === 0) {
-        console.log(`⚠️ Ningún admin de empresa ${empresaId} tiene token FCM registrado`);
-        return;
-    }
-    // Construir el texto de la notificación
-    const nombre = (data.nombre_cliente || data.nombre_cliente_web || 'Cliente desconocido');
-    const servicio = (data.servicio || data.servicio_nombre || '');
-    const fechaHoraRaw = data.fecha_hora;
-    let fechaFormateada = 'Fecha pendiente';
-    if (fechaHoraRaw) {
-        try {
-            fechaFormateada = new Date(fechaHoraRaw).toLocaleString('es-ES', {
-                timeZone: 'Europe/Madrid',
-                weekday: 'short',
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-        }
-        catch (_) {
-            fechaFormateada = fechaHoraRaw;
-        }
-    }
-    const bodyParts = [nombre];
-    if (servicio)
-        bodyParts.push(servicio);
-    bodyParts.push(fechaFormateada);
-    const mensaje = {
-        notification: {
-            title: '📅 Nueva reserva desde la web',
-            body: bodyParts.join(' · '),
-        },
-        data: {
-            tipo: 'reserva_nueva',
-            empresa_id: empresaId,
-            reserva_id: reservaId,
-            click_action: 'FLUTTER_NOTIFICATION_CLICK',
-        },
-        android: {
-            priority: 'high',
-            notification: {
-                channelId: 'fluixcrm_canal_principal',
-                clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-            },
-        },
-        tokens,
+    const empresaId = userData.empresa_id;
+    const tokenUsuario = userData.token_dispositivo;
+    const diagnostico = {
+        uid,
+        empresa_id: empresaId || "NO TIENE",
+        token_en_usuarios: tokenUsuario ? `${tokenUsuario.substring(0, 30)}...` : "NO TIENE",
     };
+    // Buscar token en dispositivos
+    let tokenDispositivo;
+    if (empresaId) {
+        const dispDoc = await db
+            .collection("empresas")
+            .doc(empresaId)
+            .collection("dispositivos")
+            .doc(uid)
+            .get();
+        tokenDispositivo = (_b = dispDoc.data()) === null || _b === void 0 ? void 0 : _b.token;
+        diagnostico.token_en_dispositivos = tokenDispositivo
+            ? `${tokenDispositivo.substring(0, 30)}...`
+            : "NO TIENE";
+    }
+    // Usar el token que exista
+    const tokenFinal = tokenDispositivo || tokenUsuario;
+    if (!tokenFinal) {
+        return {
+            ok: false,
+            error: "No hay token FCM registrado para este usuario",
+            diagnostico,
+        };
+    }
+    diagnostico.token_usado = `${tokenFinal.substring(0, 30)}...`;
+    // Enviar notificación de prueba
     try {
-        const result = await messaging.sendEachForMulticast(mensaje);
-        console.log(`✅ Notificación reserva web enviada: ${result.successCount}/${tokens.length} tokens OK (empresa ${empresaId})`);
-        if (result.failureCount > 0) {
-            result.responses.forEach((r, i) => {
-                var _a;
-                if (!r.success)
-                    console.warn(`  ⚠️ Token[${i}] falló: ${(_a = r.error) === null || _a === void 0 ? void 0 : _a.message}`);
-            });
-        }
+        const result = await messaging.send({
+            token: tokenFinal,
+            notification: {
+                title: "🧪 Test de Notificación",
+                body: `Enviado a las ${new Date().toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid" })}`,
+            },
+            data: {
+                tipo: "test",
+                timestamp: Date.now().toString(),
+            },
+            android: {
+                priority: "high",
+                notification: {
+                    channelId: "fluixcrm_canal_principal",
+                    sound: "default",
+                },
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        sound: "default",
+                        badge: 1,
+                    },
+                },
+            },
+        });
+        return {
+            ok: true,
+            message_id: result,
+            diagnostico,
+        };
     }
     catch (e) {
-        console.error(`❌ Error enviando notificación reserva web:`, e.message);
+        const error = e;
+        return {
+            ok: false,
+            error: error.message || "Error desconocido",
+            error_code: error.code,
+            diagnostico,
+        };
     }
 });
 //# sourceMappingURL=index.js.map

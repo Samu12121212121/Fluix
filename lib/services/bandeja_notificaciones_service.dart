@@ -80,10 +80,7 @@ class NotificacionInApp {
       id: doc.id,
       titulo: data['titulo'] as String? ?? '',
       cuerpo: data['cuerpo'] as String? ?? '',
-      tipo: TipoNotificacion.values.firstWhere(
-        (t) => t.id == (data['tipo'] as String? ?? ''),
-        orElse: () => TipoNotificacion.tareaAsignada,
-      ),
+      tipo: _parseTipo(data['tipo'] as String? ?? ''),
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       leida: data['leida'] as bool? ?? false,
       moduloDestino: data['modulo_destino'] as String? ?? '',
@@ -92,6 +89,30 @@ class NotificacionInApp {
       remitenteTelefono: data['remitente_telefono'] as String?,
       remitenteEmail: data['remitente_email'] as String?,
     );
+  }
+
+  static TipoNotificacion _parseTipo(String raw) {
+    // Soporta camelCase (Cloud Function v1) y snake_case (posibles variantes)
+    switch (raw) {
+      case 'reservaNueva':
+      case 'reserva_nueva':
+      case 'nueva_reserva':
+        return TipoNotificacion.reservaNueva;
+      case 'tareaAsignada':
+      case 'tarea_asignada':
+        return TipoNotificacion.tareaAsignada;
+      case 'facturaVencida':
+      case 'factura_vencida':
+        return TipoNotificacion.facturaVencida;
+      case 'alertaFiscal':
+      case 'alerta_fiscal':
+        return TipoNotificacion.alertaFiscal;
+      case 'nominaPendiente':
+      case 'nomina_pendiente':
+        return TipoNotificacion.nominaPendiente;
+      default:
+        return TipoNotificacion.tareaAsignada; // fallback
+    }
   }
 }
 

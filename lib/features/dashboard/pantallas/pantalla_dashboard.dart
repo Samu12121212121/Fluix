@@ -242,6 +242,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         // Suscribir a notificaciones de la empresa
         if (empresaId != null) {
           NotificacionesService().suscribirseATopic(empresaId);
+          NotificacionesService().guardarTokenConEmpresa(empresaId);
         }
         debugPrint('✅ EmpresaId cargado: $_empresaId');
       } else {
@@ -1220,15 +1221,14 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           const Expanded(child: Text('Generar datos de prueba', overflow: TextOverflow.ellipsis)),
         ]),
         content: const Text(
-          'Se crearán datos de ejemplo para que puedas explorar toda la app:\n\n'
-          '• 10 clientes españoles\n'
-          '• 5 reservas próximas\n'
-          '• 3 facturas\n'
-          '• 3 empleados\n'
-          '• 2 nóminas\n'
-          '• 5 tareas\n'
-          '• 10 pedidos WhatsApp\n'
-          '• Datos fiscales del trimestre\n\n'
+          'Se crearán datos de ejemplo completos y realistas:\n\n'
+          '✅ BORRA datos demo anteriores automáticamente\n\n'
+          '• 3 empleados con IBANs válidos\n'
+          '• 15 nóminas conectadas (5 meses)\n'
+          '• Convenios de hostelería (grupos 5, 7, 8)\n'
+          '• 3 clientes con historial\n'
+          '• 3 servicios de restaurante\n'
+          '• 5 reservas futuras\n\n'
           '¿Continuar?',
         ),
         actions: [
@@ -1251,10 +1251,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
     setState(() => _generandoDemo = true);
     try {
-      await _demoService.generarDatosPrueba(_empresaId!);
+      await _demoService.generarDatosCompletosDemo(_empresaId!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Datos de prueba generados correctamente'),
+          content: Text('✅ Datos demo completos generados correctamente'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 4),
         ));

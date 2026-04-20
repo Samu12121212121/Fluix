@@ -82,9 +82,18 @@ export const onTareaAsignada = onDocumentWritten(
         apns: {
           payload: {
             aps: {
+              alert: {
+                title: titulo,
+                body: cuerpo,
+              },
               sound: "default",
               badge: 1,
+              'mutable-content': 1,
             },
+          },
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
           },
         },
       };

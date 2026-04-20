@@ -3,49 +3,13 @@
  * GMB Tokens — gestión de tokens OAuth2 para Google Business Profile API
  * Los tokens se guardan cifrados en Secret Manager (nunca en Firestore en claro)
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = void 0;
 exports.getGmbTokens = getGmbTokens;
 exports.getValidGmbAccessToken = getValidGmbAccessToken;
-const admin = __importStar(require("firebase-admin"));
+const admin = require("firebase-admin");
 const https_1 = require("firebase-functions/v2/https");
-const node_fetch_1 = __importDefault(require("node-fetch"));
+const node_fetch_1 = require("node-fetch");
 const authGuard_1 = require("./utils/authGuard");
 const REGION = "europe-west1";
 // Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
@@ -54,7 +18,7 @@ if (!admin.apps.length)
 const db = admin.firestore();
 // ── Secret Manager helpers ────────────────────────────────────────────────────
 async function storeSecret(secretId, value) {
-    const { SecretManagerServiceClient } = await Promise.resolve().then(() => __importStar(require("@google-cloud/secret-manager")));
+    const { SecretManagerServiceClient } = await Promise.resolve().then(() => require("@google-cloud/secret-manager"));
     const client = new SecretManagerServiceClient();
     const project = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "";
     const name = `projects/${project}/secrets/${secretId}`;
@@ -79,7 +43,7 @@ async function storeSecret(secretId, value) {
 }
 async function getSecret(secretId) {
     var _a, _b, _c;
-    const { SecretManagerServiceClient } = await Promise.resolve().then(() => __importStar(require("@google-cloud/secret-manager")));
+    const { SecretManagerServiceClient } = await Promise.resolve().then(() => require("@google-cloud/secret-manager"));
     const client = new SecretManagerServiceClient();
     const project = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "";
     const [version] = await client.accessSecretVersion({

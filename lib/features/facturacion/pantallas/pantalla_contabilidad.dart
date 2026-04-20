@@ -1290,33 +1290,6 @@ class _TabExportarState extends State<_TabExportar> {
         ),
 
         const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-          ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                SizedBox(width: 6),
-                Text('¿Cómo usar el CSV?',
-                    style: TextStyle(fontWeight: FontWeight.bold,
-                        color: Colors.blue, fontSize: 13)),
-              ]),
-              SizedBox(height: 8),
-              Text('1. Pulsa "Copiar" en el archivo generado\n'
-                  '2. Abre Google Sheets → Archivo → Importar → Pegar\n'
-                  '3. O envía el texto directamente a tu gestor\n\n'
-                  'Los datos incluyen base imponible, IVA, totales y estado '
-                  'de cada documento, listos para el modelo 303 y 130.',
-                  style: TextStyle(fontSize: 12, color: Colors.blue, height: 1.5)),
-            ],
-          ),
-        ),
       ],
     );
   }

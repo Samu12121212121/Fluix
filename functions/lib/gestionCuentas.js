@@ -12,42 +12,9 @@
  *     tenga `es_plataforma_admin: true` en /usuarios/{uid}.
  *   - El webhook de pago web valida un token secreto en cabecera.
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.PLANES_CONFIG = void 0;
-const admin = __importStar(require("firebase-admin"));
+const admin = require("firebase-admin");
 const https_1 = require("firebase-functions/v2/https");
 // Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
 if (!admin.apps.length)
@@ -138,7 +105,7 @@ async function verificarPropietarioPlatforma(uid) {
 }
 /** Envía email de bienvenida con credenciales usando la función de email existente */
 async function enviarEmailBienvenida(email, nombreEmpresa, tempPassword, planNombre, smtpUser, smtpPass, smtpHost, smtpPort) {
-    const nodemailer = await Promise.resolve().then(() => __importStar(require("nodemailer")));
+    const nodemailer = await Promise.resolve().then(() => require("nodemailer"));
     const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort),

@@ -232,6 +232,10 @@ class DemoCuentaService {
       {'nombre': 'David Moreno Jiménez', 'telefono': '+34 689 012 345', 'email': 'david.moreno@email.com', 'nif': '89012345G'},
       {'nombre': 'Isabel Ruiz Navarro', 'telefono': '+34 690 123 456', 'email': 'isabel.ruiz@email.com', 'nif': '90123456H'},
       {'nombre': 'Miguel Alonso Serrano', 'telefono': '+34 601 234 567', 'email': 'miguel.alonso@email.com', 'nif': '01234567J'},
+      {'nombre': 'Carmen Díaz Torres', 'telefono': '+34 678 901 234', 'email': 'carmen.diaz@email.com', 'nif': '78901234F'},
+      {'nombre': 'David Moreno Jiménez', 'telefono': '+34 689 012 345', 'email': 'david.moreno@email.com', 'nif': '89012345G'},
+      {'nombre': 'Isabel Ruiz Navarro', 'telefono': '+34 690 123 456', 'email': 'isabel.ruiz@email.com', 'nif': '90123456H'},
+      {'nombre': 'Miguel Alonso Serrano', 'telefono': '+34 601 234 567', 'email': 'miguel.alonso@email.com', 'nif': '01234567J'},
     ];
 
     for (final c in clientes) {
@@ -448,7 +452,7 @@ class DemoCuentaService {
     int generadas = 0;
     for (final emp in empleadosDemo) {
       final bruto = emp['bruto'] as double;
-      final irpf = bruto * 0.12;
+      final irpf = bruto * 0.08;  // 8% más realista
 
       // Comprobar si ya existe para este mes/año/empleado
       final existing = await ref.collection('nominas')
@@ -499,7 +503,7 @@ class DemoCuentaService {
         'ss_horas_extra_trabajador': 0.0,
         // ── IRPF ──────────────────────────────────────────────────────────
         'base_irpf':        bruto,
-        'porcentaje_irpf':  12.0,
+        'porcentaje_irpf':  8.0,
         'retencion_irpf':   irpfRet,
         'irpf_ajustado':    false,
         // ── SS Empresa ────────────────────────────────────────────────────
@@ -575,5 +579,399 @@ class DemoCuentaService {
       await batch.commit();
     } catch (_) {}
   }
-}
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GENERAR DATOS COMPLETOS DEMO (con limpieza y estructura mejorada)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Genera datos demo completos con:
+  /// - Limpieza automática de datos anteriores
+  /// - 3 empleados con IBANs válidos y convenios diferentes
+  /// - 15 nóminas (5 meses × 3 empleados)
+  /// - 3 clientes con historial
+  /// - 3 servicios
+  /// - 5 reservas futuras
+  Future<void> generarDatosCompletosDemo(String empresaId) async {
+    debugPrint('🌱 Iniciando generación de datos demo completos...');
+
+    // 1. LIMPIAR DATOS ANTERIORES
+    await _limpiarDatosDemo(empresaId);
+
+    // 2. CREAR EMPLEADOS
+    final empleadosIds = await _crearEmpleadosDemo(empresaId);
+
+    // 3. CREAR NÓMINAS
+    await _crearNominasDemo(empresaId, empleadosIds);
+
+    // 4. CREAR CLIENTES
+    await _crearClientesDemo(empresaId);
+
+    // 5. CREAR SERVICIOS
+    final serviciosIds = await _crearServiciosDemo(empresaId);
+
+    // 6. CREAR RESERVAS
+    await _crearReservasDemo(empresaId, serviciosIds);
+
+    debugPrint('✅ Datos demo completos generados exitosamente');
+  }
+
+  /// Limpia datos demo anteriores (incluye es_demo y es_prueba)
+  Future<void> _limpiarDatosDemo(String empresaId) async {
+    debugPrint('🧹 Limpiando datos demo y de prueba anteriores...');
+
+    final ref = _db.collection('empresas').doc(empresaId);
+
+    // Limpiar empleados (es_demo O es_prueba)
+    var snap = await ref.collection('empleados').where('es_demo', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+    snap = await ref.collection('empleados').where('es_prueba', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+
+    // Limpiar nóminas
+    snap = await ref.collection('nominas').where('es_demo', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+    snap = await ref.collection('nominas').where('es_prueba', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+
+    // Limpiar clientes
+    snap = await ref.collection('clientes').where('es_demo', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+    snap = await ref.collection('clientes').where('es_prueba', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+
+    // Limpiar servicios
+    snap = await ref.collection('servicios').where('es_demo', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+    snap = await ref.collection('servicios').where('es_prueba', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+
+    // Limpiar reservas
+    snap = await ref.collection('reservas').where('origen', isEqualTo: 'demo').get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+    snap = await ref.collection('reservas').where('es_prueba', isEqualTo: true).get();
+    for (final doc in snap.docs) { await doc.reference.delete(); }
+
+    debugPrint('✅ Datos anteriores eliminados (demo + prueba)');
+  }
+
+  /// Crea 3 empleados demo con IBANs válidos y convenios diferentes
+  Future<List<String>> _crearEmpleadosDemo(String empresaId) async {
+    debugPrint('👥 Creando empleados demo...');
+
+    final now = DateTime.now();
+    final empleadosIds = <String>[];
+
+    final empleados = [
+      {
+        'nombre': 'María García López',
+        'email': 'maria.garcia@demo.fluix.com',
+        'telefono': '+34 612 345 678',
+        'cargo': 'Encargada de Salón',
+        'salario_bruto_anual': 24000.0,
+        'nif': '12345678A',
+        'nss': '281234567890',
+        'cuenta_bancaria': 'ES9121000418450200051332',
+        'convenio': 'hosteleria',
+        'categoria_convenio': 'grupo5',
+        'grupo_cotizacion': 'grupo5',
+        'fecha_alta': now.subtract(const Duration(days: 365)),
+      },
+      {
+        'nombre': 'Carlos López Martínez',
+        'email': 'carlos.lopez@demo.fluix.com',
+        'telefono': '+34 623 456 789',
+        'cargo': 'Camarero',
+        'salario_bruto_anual': 18000.0,
+        'nif': '23456789B',
+        'nss': '282345678901',
+        'cuenta_bancaria': 'ES7921000813610123456789',
+        'convenio': 'hosteleria',
+        'categoria_convenio': 'grupo7',
+        'grupo_cotizacion': 'grupo7',
+        'fecha_alta': now.subtract(const Duration(days: 180)),
+      },
+      {
+        'nombre': 'Ana Martínez Ruiz',
+        'email': 'ana.martinez@demo.fluix.com',
+        'telefono': '+34 634 567 890',
+        'cargo': 'Ayudante de Cocina',
+        'salario_bruto_anual': 16800.0,
+        'nif': '34567890C',
+        'nss': '283456789012',
+        'cuenta_bancaria': 'ES1720852066623456789011',
+        'convenio': 'hosteleria',
+        'categoria_convenio': 'grupo8',
+        'grupo_cotizacion': 'grupo8',
+        'fecha_alta': now.subtract(const Duration(days: 90)),
+      },
+    ];
+
+    for (final emp in empleados) {
+      final docRef = await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('empleados')
+          .add({
+        'nombre': emp['nombre'],
+        'email': emp['email'],
+        'telefono': emp['telefono'],
+        'cargo': emp['cargo'],
+        'activo': true,
+        'es_demo': true,
+        'fecha_alta': Timestamp.fromDate(emp['fecha_alta'] as DateTime),
+        'fecha_creacion': Timestamp.fromDate(now),
+        'nif': emp['nif'],
+        'nss': emp['nss'],
+        'salario_bruto_anual': emp['salario_bruto_anual'],
+        'convenio': emp['convenio'],
+        'categoria_convenio_id': emp['categoria_convenio'],
+        'grupo_cotizacion': emp['grupo_cotizacion'],
+        'horas_semanales': 40.0,
+        'datos_nomina': {
+          'salario_bruto_anual': emp['salario_bruto_anual'],
+          'grupo_cotizacion': emp['grupo_cotizacion'],
+          'irpf_porcentaje': 8.0,
+          'num_pagas': 14,
+          'horas_semanales': 40.0,
+          'categoria_convenio_id': emp['categoria_convenio'],
+          'sector_empresa': emp['convenio'],
+          'pagas_prorrateadas': true,
+          'cuenta_bancaria': emp['cuenta_bancaria'],
+          'nif': emp['nif'],
+          'nss': emp['nss'],
+          'estado_civil': 'soltero',
+          'num_hijos': 0,
+          'num_hijos_menores_3': 0,
+          'tipo_contrato': 'indefinido',
+        },
+      });
+
+      empleadosIds.add(docRef.id);
+    }
+
+    debugPrint('✅ ${empleados.length} empleados creados');
+    return empleadosIds;
+  }
+
+  /// Crea nóminas para los empleados (5 meses)
+  Future<void> _crearNominasDemo(String empresaId, List<String> empleadosIds) async {
+    debugPrint('💰 Creando nóminas demo...');
+
+    if (empleadosIds.isEmpty) {
+      debugPrint('⚠️ No hay empleados para generar nóminas');
+      return;
+    }
+
+    final now = DateTime.now();
+    final meses = [
+      {'mes': 1, 'año': 2026, 'nombre': 'Enero'},
+      {'mes': 2, 'año': 2026, 'nombre': 'Febrero'},
+      {'mes': 3, 'año': 2026, 'nombre': 'Marzo'},
+      {'mes': 4, 'año': 2026, 'nombre': 'Abril'},
+      {'mes': 5, 'año': 2026, 'nombre': 'Mayo'},
+    ];
+
+    final salarios = [24000.0, 18000.0, 16800.0];
+    int count = 0;
+
+    for (int i = 0; i < empleadosIds.length; i++) {
+      final empleadoId = empleadosIds[i];
+      final salarioAnual = salarios[i];
+
+      for (final periodo in meses) {
+        final salarioBrutoMensual = salarioAnual / 14;
+        final irpf = salarioBrutoMensual * 0.08;  // 8% más realista
+        final ssEmpleado = salarioBrutoMensual * 0.0635;
+        final ssEmpresa = salarioBrutoMensual * 0.30;
+        final salarioNeto = salarioBrutoMensual - irpf - ssEmpleado;
+
+        await _db
+            .collection('empresas')
+            .doc(empresaId)
+            .collection('nominas')
+            .add({
+          'empleado_id': empleadoId,
+          'empleado_nombre': ['María García López', 'Carlos López Martínez', 'Ana Martínez Ruiz'][i],
+          'empleado_nif': ['12345678A', '23456789B', '34567890C'][i],
+          'mes': periodo['mes'],
+          'año': periodo['año'],
+          'periodo': '${periodo['nombre']} ${periodo['año']}',
+          'salario_bruto': double.parse(salarioBrutoMensual.toStringAsFixed(2)),
+          'salario_neto': double.parse(salarioNeto.toStringAsFixed(2)),
+          'irpf': double.parse(irpf.toStringAsFixed(2)),
+          'ss_empleado': double.parse(ssEmpleado.toStringAsFixed(2)),
+          'ss_empresa': double.parse(ssEmpresa.toStringAsFixed(2)),
+          'estado': 'generada',
+          'fecha_generacion': Timestamp.fromDate(now),
+          'es_demo': true,
+          'convenio': 'hosteleria',
+          'categoria_convenio_id': ['grupo5', 'grupo7', 'grupo8'][i],
+          'grupo_cotizacion': ['grupo5', 'grupo7', 'grupo8'][i],
+          'horas_trabajadas': 160.0,
+          'dias_trabajados': 22,
+        });
+
+        count++;
+      }
+    }
+
+    debugPrint('✅ $count nóminas creadas (${empleadosIds.length} empleados × 5 meses)');
+  }
+
+  /// Crea 3 clientes demo
+  Future<void> _crearClientesDemo(String empresaId) async {
+    debugPrint('👤 Creando clientes demo...');
+
+    final now = DateTime.now();
+    final clientes = [
+      {
+        'nombre': 'Pedro Sánchez',
+        'telefono': '+34 645 123 456',
+        'email': 'pedro.sanchez@email.com',
+        'total_gastado': 250.50,
+        'numero_reservas': 5,
+        'notas': 'Cliente habitual, prefiere mesa junto a ventana',
+      },
+      {
+        'nombre': 'Laura González',
+        'telefono': '+34 656 234 567',
+        'email': 'laura.gonzalez@email.com',
+        'total_gastado': 180.00,
+        'numero_reservas': 3,
+        'notas': 'Alérgica al gluten',
+      },
+      {
+        'nombre': 'Roberto Fernández',
+        'telefono': '+34 667 345 678',
+        'email': 'roberto.fernandez@email.com',
+        'total_gastado': 420.75,
+        'numero_reservas': 8,
+        'notas': 'Cliente VIP, pide siempre vino de la casa',
+      },
+    ];
+
+    for (final cliente in clientes) {
+      await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('clientes')
+          .add({
+        ...cliente,
+        'activo': true,
+        'es_demo': true,
+        'fecha_creacion': Timestamp.fromDate(now),
+        'fecha_registro': Timestamp.fromDate(now.subtract(Duration(days: _random.nextInt(180)))),
+        'ultima_visita': Timestamp.fromDate(now.subtract(Duration(days: _random.nextInt(30)))),
+      });
+    }
+
+    debugPrint('✅ ${clientes.length} clientes creados');
+  }
+
+  /// Crea 3 servicios demo
+  Future<List<String>> _crearServiciosDemo(String empresaId) async {
+    debugPrint('🍽️ Creando servicios demo...');
+
+    final now = DateTime.now();
+    final serviciosIds = <String>[];
+    final servicios = [
+      {
+        'nombre': 'Menú del Día',
+        'descripcion': 'Primer plato, segundo plato, postre y bebida',
+        'precio': 12.50,
+        'duracion_minutos': 60,
+        'categoria': 'Restaurante',
+      },
+      {
+        'nombre': 'Menú Degustación',
+        'descripcion': 'Menú especial de 5 platos con maridaje',
+        'precio': 45.00,
+        'duracion_minutos': 120,
+        'categoria': 'Restaurante',
+      },
+      {
+        'nombre': 'Reserva Sala Privada',
+        'descripcion': 'Sala privada para eventos (hasta 20 personas)',
+        'precio': 150.00,
+        'duracion_minutos': 180,
+        'categoria': 'Eventos',
+      },
+    ];
+
+    for (final servicio in servicios) {
+      final docRef = await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('servicios')
+          .add({
+        ...servicio,
+        'activo': true,
+        'es_demo': true,
+        'fecha_creacion': Timestamp.fromDate(now),
+      });
+
+      serviciosIds.add(docRef.id);
+    }
+
+    debugPrint('✅ ${servicios.length} servicios creados');
+    return serviciosIds;
+  }
+
+  /// Crea 5 reservas futuras
+  Future<void> _crearReservasDemo(String empresaId, List<String> serviciosIds) async {
+    debugPrint('📅 Creando reservas demo...');
+
+    if (serviciosIds.isEmpty) {
+      debugPrint('⚠️ No hay servicios para crear reservas');
+      return;
+    }
+
+    final now = DateTime.now();
+    final clientes = ['Pedro Sánchez', 'Laura González', 'Roberto Fernández'];
+    final telefonos = ['+34 645 123 456', '+34 656 234 567', '+34 667 345 678'];
+    final precios = [12.50, 45.00, 150.00];
+
+    final reservas = [
+      {'dias': 2, 'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
+      {'dias': 5, 'estado': 'CONFIRMADA', 'servicio_idx': 1, 'cliente_idx': 1},
+      {'dias': 7, 'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
+      {'dias': 10, 'estado': 'PENDIENTE', 'servicio_idx': 2, 'cliente_idx': 2},
+      {'dias': 15, 'estado': 'CONFIRMADA', 'servicio_idx': 1, 'cliente_idx': 1},
+    ];
+
+    for (final reserva in reservas) {
+      final dias = reserva['dias'] as int;
+      final fechaReserva = now.add(Duration(days: dias));
+      final fechaConHora = DateTime(
+        fechaReserva.year,
+        fechaReserva.month,
+        fechaReserva.day,
+        13 + _random.nextInt(8),
+        _random.nextBool() ? 0 : 30,
+      );
+
+      final servicioIdx = reserva['servicio_idx'] as int;
+      final clienteIdx = reserva['cliente_idx'] as int;
+
+      await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('reservas')
+          .add({
+        'nombre_cliente': clientes[clienteIdx],
+        'telefono_cliente': telefonos[clienteIdx],
+        'servicio': ['Menú del Día', 'Menú Degustación', 'Reserva Sala Privada'][servicioIdx],
+        'servicio_id': serviciosIds[servicioIdx],
+        'precio': precios[servicioIdx],
+        'fecha': Timestamp.fromDate(fechaConHora),
+        'fecha_hora': Timestamp.fromDate(fechaConHora),
+        'estado': reserva['estado'],
+        'origen': 'demo',
+        'notas': 'Reserva de prueba generada automáticamente',
+        'fecha_creacion': Timestamp.fromDate(now),
+      });
+    }
+
+    debugPrint('✅ ${reservas.length} reservas creadas');
+  }
+}

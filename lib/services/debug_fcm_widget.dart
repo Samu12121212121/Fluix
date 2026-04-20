@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'notificaciones_service.dart';
 
 /// Widget flotante de debug para verificar y renovar el token FCM
@@ -179,6 +180,23 @@ class _DebugFCMWidgetState extends State<DebugFCMWidget> {
                           ),
                         ),
                       ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      // Botón de prueba PUSH via Cloud Function
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.cloud, size: 16),
+                          label: const Text('🔥 Probar PUSH (Cloud)', style: TextStyle(fontSize: 11)),
+                          onPressed: _probarPushCloud,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepOrange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -316,6 +334,74 @@ class _DebugFCMWidgetState extends State<DebugFCMWidget> {
           duration: Duration(seconds: 1),
         ),
       );
+    }
+  }
+
+  Future<void> _probarPushCloud() async {
+    setState(() => _cargando = true);
+    
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
+      final callable = functions.httpsCallable('testPushNotification');
+      final result = await callable.call<Map<String, dynamic>>();
+      
+      final data = result.data;
+      final ok = data['ok'] as bool? ?? false;
+      final diagnostico = data['diagnostico'] as Map<String, dynamic>? ?? {};
+      
+      setState(() => _cargando = false);
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(ok ? Icons.check_circle : Icons.error, 
+                     color: ok ? Colors.green : Colors.red),
+                const SizedBox(width: 8),
+                Text(ok ? 'Push enviado' : 'Error'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (ok)
+                    Text('Message ID: ${data['message_id']}')
+                  else
+                    Text('Error: ${data['error']}\nCode: ${data['error_code'] ?? 'N/A'}'),
+                  const SizedBox(height: 16),
+                  const Text('Diagnóstico:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...diagnostico.entries.map((e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('${e.key}: ${e.value}', 
+                           style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+                  )),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _cargando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
