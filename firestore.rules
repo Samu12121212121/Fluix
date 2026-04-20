@@ -75,17 +75,22 @@ service cloud.firestore {
         || staffTieneModulo(empresaId, moduloId);
     }
 
-    function empresaTienePack(empresaId, packId) {
-      return packId in get(/databases/$(database)/documents/empresas/$(empresaId)).data.get('active_packs', []);
-    }
+    // ════════════════════════════════════════════════════════════════════
+    // USUARIOS
+    // ════════════════════════════════════════════════════════════════════
 
     match /usuarios/{userId} {
+      // Leer propio documento
       allow read: if esUsuarioReal() && uid() == userId;
+
+      // Admin/propietario puede leer (y consultar con .where) usuarios de su misma empresa.
+      // IMPORTANTE: usar resource.data en lugar de get(usuarios/$(userId))
+      // porque get() con rutas dinámicas no funciona en queries de colección.
       allow read: if esUsuarioReal()
         && existeUsuarioDoc()
-        && exists(/databases/$(database)/documents/usuarios/$(userId))
-        && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+        && resource.data.empresa_id == getUserData().empresa_id
         && (getRol() == 'admin' || getRol() == 'propietario');
+
       allow read: if esPlataformaAdmin();
 
       allow create: if esUsuarioReal()
@@ -125,7 +130,6 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
@@ -134,7 +138,6 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
@@ -143,7 +146,6 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
@@ -152,7 +154,6 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
@@ -161,7 +162,6 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
@@ -170,12 +170,10 @@ service cloud.firestore {
         allow read, write: if esUsuarioReal() && uid() == userId;
         allow read, write: if esUsuarioReal()
           && existeUsuarioDoc()
-          && exists(/databases/$(database)/documents/usuarios/$(userId))
           && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
           && (getRol() == 'admin' || getRol() == 'propietario');
       }
 
-      // Datos bancarios: SOLO el propio usuario (ni el admin)
       match /datos_bancarios/{docId} {
         allow read, write: if esUsuarioReal() && uid() == userId;
       }
@@ -221,7 +219,7 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // LOGIN INTENTOS E INVITACIONES (solo Admin SDK)
+    // LOGIN INTENTOS E INVITACIONES
     // ════════════════════════════════════════════════════════════════════
 
     match /login_intentos/{email} {
@@ -250,21 +248,17 @@ service cloud.firestore {
       allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       allow delete: if esPlataformaAdmin();
 
-      // ── CLIENTES ────────────────────────────────────────────────────
       match /clientes/{clienteId} {
         allow read: if puedeVerModulo(empresaId, 'clientes');
         allow write: if esAdminOPropietario(empresaId);
       }
 
-      // ── RESERVAS ────────────────────────────────────────────────────
       match /reservas/{reservaId} {
         allow read: if puedeVerModulo(empresaId, 'reservas')
           || puedeVerModulo(empresaId, 'citas');
         allow update, delete: if puedeVerModulo(empresaId, 'reservas')
           || puedeVerModulo(empresaId, 'citas')
           || esAdminOPropietario(empresaId);
-
-        // Web pública — FIX: sin límite de size (campos extra como empresa_id rompen el límite)
         allow create: if isAuth()
           && request.resource.data.estado == 'PENDIENTE'
           && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente', 'fecha_hora'])
@@ -277,13 +271,10 @@ service cloud.firestore {
           && request.resource.data.fecha_hora is timestamp
           && request.resource.data.fecha_hora > request.time
           && request.resource.data.fecha_hora < request.time + duration.value(365, 'd');
-
-        // Creación interna por staff
         allow create: if puedeVerModulo(empresaId, 'reservas')
           || puedeVerModulo(empresaId, 'citas');
       }
 
-      // ── VALORACIONES ────────────────────────────────────────────────
       match /valoraciones/{valoracionId} {
         allow read: if true;
         allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -298,7 +289,6 @@ service cloud.firestore {
           && request.resource.data.cliente.size() <= 100;
       }
 
-      // ── RESEÑAS ─────────────────────────────────────────────────────
       match /resenas/{resenaId} {
         allow read: if true;
         allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -310,7 +300,6 @@ service cloud.firestore {
           && request.resource.data.calificacion <= 5;
       }
 
-      // ── GOOGLE MY BUSINESS ──────────────────────────────────────────
       match /google_reviews/{reviewId} {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
@@ -323,7 +312,6 @@ service cloud.firestore {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── PEDIDOS ─────────────────────────────────────────────────────
       match /pedidos/{pedidoId} {
         allow read: if puedeVerModulo(empresaId, 'pedidos');
         allow create: if puedeVerModulo(empresaId, 'pedidos')
@@ -335,14 +323,24 @@ service cloud.firestore {
 
       match /pedidos_whatsapp/{pedidoId} {
         allow read: if puedeVerModulo(empresaId, 'pedidos')
-          || puedeVerModulo(empresaId, 'whatsapp');
-        allow create: if (puedeVerModulo(empresaId, 'pedidos') || puedeVerModulo(empresaId, 'whatsapp'))
-          && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
-          && request.resource.data.empresaId == empresaId;
+          || puedeVerModulo(empresaId, 'whatsapp')
+          || esAdminOPropietario(empresaId);
+        allow create: if esAdminOPropietario(empresaId)
+          || ((puedeVerModulo(empresaId, 'pedidos') || puedeVerModulo(empresaId, 'whatsapp'))
+            && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
+            && request.resource.data.empresaId == empresaId);
         allow update, delete: if esAdminOPropietario(empresaId);
       }
 
-      // ── PRODUCTOS Y SERVICIOS ───────────────────────────────────────
+      // ── Chats del bot WhatsApp ───────────────────────────────────────
+      match /chats_bot/{chatId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+
+        match /mensajes/{msgId} {
+          allow read, write: if esAdminOPropietario(empresaId);
+        }
+      }
+
       match /productos/{productoId} {
         allow read: if true;
         allow write: if esAdminOPropietario(empresaId);
@@ -353,12 +351,10 @@ service cloud.firestore {
         allow write: if esAdminOPropietario(empresaId);
       }
 
-      // ── CUENTAS GOOGLE ──────────────────────────────────────────────
       match /cuentas_google/{cuentaId} {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── CONTABILIDAD ────────────────────────────────────────────────
       match /gastos/{gastoId} {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
@@ -367,7 +363,6 @@ service cloud.firestore {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── FACTURACIÓN ─────────────────────────────────────────────────
       match /facturas/{facturaId} {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
@@ -384,7 +379,6 @@ service cloud.firestore {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── TAREAS ──────────────────────────────────────────────────────
       match /tareas/{tareaId} {
         allow read, write: if puedeVerModulo(empresaId, 'tareas');
 
@@ -397,14 +391,12 @@ service cloud.firestore {
         }
       }
 
-      // ── NÓMINAS ─────────────────────────────────────────────────────
       match /nominas/{nominaId} {
         allow read: if esAdminOPropietario(empresaId)
           || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
         allow write: if esAdminOPropietario(empresaId);
       }
 
-      // ── FICHAJES ────────────────────────────────────────────────────
       match /fichajes/{fichajeId} {
         allow read: if esAdminOPropietario(empresaId)
           || (perteneceAEmpresa(empresaId)
@@ -418,13 +410,11 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // ── EQUIPOS ─────────────────────────────────────────────────────
       match /equipos/{equipoId} {
         allow read: if esStaffOSuperior(empresaId);
         allow write: if esAdminOPropietario(empresaId);
       }
 
-      // ── WEB PÚBLICA ─────────────────────────────────────────────────
       match /secciones_web/{seccionId} {
         allow read: if true;
         allow write: if esAdminOPropietario(empresaId);
@@ -435,7 +425,6 @@ service cloud.firestore {
         allow write: if esAdminOPropietario(empresaId);
       }
 
-      // FIX: requiere isAuth() para evitar spam de bots
       match /contacto_web/{mensajeId} {
         allow create: if isAuth()
           && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
@@ -453,13 +442,11 @@ service cloud.firestore {
         allow read, update, delete: if esAdminOPropietario(empresaId);
       }
 
-      // ── DISPOSITIVOS FCM — FIX: verifica empresa ────────────────────
       match /dispositivos/{dispositivoId} {
         allow read: if esAdminOPropietario(empresaId);
         allow write: if perteneceAEmpresa(empresaId);
       }
 
-      // ── SUSCRIPCIÓN ─────────────────────────────────────────────────
       match /suscripcion/{docId} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow create: if esAdminOPropietario(empresaId)
@@ -473,7 +460,6 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // ── ESTADÍSTICAS ────────────────────────────────────────────────
       match /estadisticas/{docId} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
@@ -484,7 +470,6 @@ service cloud.firestore {
         allow write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       }
 
-      // FIX: requiere isAuth() — antes era escritura totalmente anónima
       match /estadisticas/trafico_web {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow create, update: if isAuth() && request.resource.data.size() <= 25;
@@ -503,7 +488,6 @@ service cloud.firestore {
         allow delete: if esAdminOPropietario(empresaId);
       }
 
-      // FIX: requiere isAuth()
       match /eventos_web/{eventoId} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow create: if isAuth()
@@ -514,31 +498,24 @@ service cloud.firestore {
         allow update, delete: if esAdminOPropietario(empresaId);
       }
 
-      // ── CACHÉ ───────────────────────────────────────────────────────
       match /cache/{docId} {
         allow read, write: if perteneceAEmpresa(empresaId);
       }
 
-      // ── CONFIGURACIÓN ───────────────────────────────────────────────
       match /configuracion/{docId} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow read: if docId == 'web_avanzada';
         allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── CIERRES DE CAJA (inmutables) ────────────────────────────────
       match /cierres_caja/{cierreId} {
         allow read: if perteneceAEmpresa(empresaId);
         allow create: if esAdminOPropietario(empresaId);
         allow update, delete: if false;
       }
 
-      // ════════════════════════════════════════════════════════════════
-      // PACK FISCAL IA
-      // ════════════════════════════════════════════════════════════════
+      // ── PACK FISCAL IA ───────────────────────────────────────────────
 
-      // FIX: eliminado empresaTienePack() para no bloquear el upload
-      // mientras el sistema de packs no está activo en producción
       match /fiscal_documents/{docId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow create: if esAdminOPropietario(empresaId)
@@ -554,66 +531,85 @@ service cloud.firestore {
 
       match /fiscal_transactions/{txId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        allow create: if false;
 
-        // Edición en borrador/revisión
-        allow update: if esAdminOPropietario(empresaId)
-
-        // Cloud Function crea la mayoría
-          && resource.data.status in ['draft', 'needs_review']
-        // Crear rectificativa manualmente desde la app
+        // Cloud Function crea la mayoría — cliente no puede crear
         allow create: if esAdminOPropietario(empresaId)
           && request.resource.data.keys().hasAll([
             'type', 'status', 'rectifies_transaction_id', 'rectification_reason'
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        // Anulación: posted → voided (o draft/needs_review → voided)
-      }
+          ]);
+
+        // Edición en borrador/revisión
+        allow update: if esAdminOPropietario(empresaId)
+          && resource.data.status in ['draft', 'needs_review'];
+
+        // Anulación: posted/draft/needs_review → voided
+        allow update: if esAdminOPropietario(empresaId)
           && resource.data.status in ['posted', 'draft', 'needs_review']
+          && request.resource.data.status == 'voided';
+
+        // Marcar original como rectificada (status sigue posted)
+        allow update: if esAdminOPropietario(empresaId)
+          && resource.data.status == 'posted'
+          && request.resource.data.status == 'posted';
+
+        // Borrado solo en draft/needs_review
+        allow delete: if esAdminOPropietario(empresaId)
+          && resource.data.status in ['draft', 'needs_review'];
+      }
+
       match /fiscal_models/{modelId} {
         allow read: if esAdminOPropietario(empresaId);
         allow create, update, delete: if false;
       }
-        // Marcar original como rectificada (solo añade campos, no cambia status)
-        allow update: if esAdminOPropietario(empresaId)
-          && resource.data.status == 'posted'
-          && request.resource.data.status == 'posted'
-        allow write: if false;
 
-        // Borrado solo si está en draft/needs_review
-
-          && resource.data.status in ['draft', 'needs_review'];
       match /fiscal_counterparties/{tax_id} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow create, update: if esAdminOPropietario(empresaId);
-
-      }
-          && resource.data.status == 'posted'
-      // ── FISCAL PERIODS (estado de cada trimestre/año) ───────────────
-      match /fiscal_periods/{periodId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow delete: if false;
       }
+
+      match /fiscal_periods/{periodId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if false;
+      }
+
       match /modelos115/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
       }
+
+      match /modelos111/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+
+      match /modelos390/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+
+      match /modelos_fiscales/{docId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+
+      match /empleados/{empleadoId} {
+        allow read, write: if esAdminOPropietario(empresaId);
+      }
+
       match /modelos130/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
       }
+
       match /modelos180/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
       }
+
       match /modelos190/{docId} {
         allow read, write: if esAdminOPropietario(empresaId);
       }
-      }
-      }
-        allow write: if false;
+
       match /members/{userId} {
         allow read: if perteneceAEmpresa(empresaId);
         allow create, update: if esAdminOPropietario(empresaId)
           && request.resource.data.keys().hasAll(['user_id', 'rol', 'activo'])
           && request.resource.data.rol != 'propietario';
-        // Solo propietario puede eliminar miembros
         allow delete: if esPropietario(empresaId);
       }
 
@@ -646,6 +642,17 @@ service cloud.firestore {
     match /plataforma_pagos/{pagoId} {
       allow read: if esPlataformaAdmin();
       allow write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // TIPOS DE CAMBIO (caché BCE)
+    // Solo la Cloud Function escribe (Admin SDK, bypasea reglas).
+    // Lectura permitida a admins/propietarios autenticados.
+    // ════════════════════════════════════════════════════════════════════
+
+    match /currency_rates/{rateId} {
+      allow read: if esUsuarioReal();
+      allow write: if false; // Solo Cloud Function (Admin SDK)
     }
 
     // ════════════════════════════════════════════════════════════════════

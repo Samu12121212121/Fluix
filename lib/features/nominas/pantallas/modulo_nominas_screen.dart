@@ -139,6 +139,7 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
       ),
       floatingActionButton: _puedeGestionarNominas
           ? FloatingActionButton.extended(
+              heroTag: 'fab_nominas',
               onPressed: _generando ? null : _generarNominasMes,
               backgroundColor: const Color(0xFF0D47A1),
               foregroundColor: Colors.white,

@@ -30,7 +30,7 @@ class ModuloReservas extends StatelessWidget {
           .collection('empresas')
           .doc(empresaId)
           .collection(collectionId)
-          .orderBy('fecha', descending: false)
+          .orderBy('fecha_hora', descending: false)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1055,7 +1055,7 @@ class _FormularioReservaState extends State<_FormularioReserva> {
                         _aviso('Aún no hay clientes guardados. Puedes escribir el nombre directamente seleccionando "Nuevo / Sin cliente".')
                       else
                         DropdownButtonFormField<Map<String, dynamic>>(
-                          value: _clienteSeleccionado,
+                          initialValue: _clienteSeleccionado,
                           decoration: _deco('Seleccionar cliente (opcional)', Icons.person),
                           items: [
                             const DropdownMenuItem(value: null, child: Text('— Sin cliente —')),
@@ -1093,7 +1093,7 @@ class _FormularioReservaState extends State<_FormularioReserva> {
                       _aviso('No hay servicios configurados aún. La ${widget.moduloSingular.toLowerCase()} se creará sin servicio asignado.')
                     else
                       DropdownButtonFormField<Map<String, dynamic>>(
-                        value: _servicioSeleccionado,
+                        initialValue: _servicioSeleccionado,
                         decoration: _deco('Seleccionar servicio (opcional)', Icons.spa),
                         items: [
                           const DropdownMenuItem(value: null, child: Text('— Sin servicio —')),
@@ -1164,7 +1164,7 @@ class _FormularioReservaState extends State<_FormularioReserva> {
                         _aviso('No hay empleados activos. Añade empleados en el módulo de Empleados.')
                       else
                         DropdownButtonFormField<Map<String, dynamic>>(
-                          value: _profesionalSeleccionado,
+                          initialValue: _profesionalSeleccionado,
                           decoration: _deco('Seleccionar profesional (opcional)', Icons.person_pin),
                           items: [
                             const DropdownMenuItem(value: null, child: Text('— Sin asignar —')),

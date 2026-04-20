@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../domain/modelos/contabilidad.dart';
 import '../domain/modelos/factura.dart';
 import '../domain/modelos/factura_recibida.dart';
@@ -815,6 +816,68 @@ class ContabilidadService {
       'pagadas': facturas.where((f) => f.estaPagada).length,
       'pendientes': facturas.where((f) => f.estaPendiente).length,
     };
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // CONVERSIÓN DE DIVISA — BCE
+  // ═════════════════════════════════════════════════════════════════════════
+
+  /// Convierte una factura recibida en moneda extranjera a EUR usando el BCE.
+  ///
+  /// Si [currency] es "EUR" o null, marca `conversion_status = "not_needed"`.
+  /// En caso contrario, llama a la Cloud Function `convertCurrencyBCE` y
+  /// actualiza el documento en Firestore con los campos de conversión.
+  Future<void> convertirDivisaFacturaRecibida({
+    required String empresaId,
+    required String facturaId,
+    required double totalOriginal,
+    required String? currency,
+    required DateTime fechaEmision,
+  }) async {
+    final ref = _facturasRecibidas(empresaId).doc(facturaId);
+
+    // Si es EUR o no hay divisa → no hace falta conversión
+    if (currency == null ||
+        currency.isEmpty ||
+        currency.toUpperCase() == 'EUR') {
+      await ref.update({
+        'conversion_status': 'not_needed',
+      });
+      return;
+    }
+
+    // Marcar como pendiente antes de llamar
+    await ref.update({'conversion_status': 'pending'});
+
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('convertCurrencyBCE');
+
+      final dateStr =
+          '${fechaEmision.year}-${fechaEmision.month.toString().padLeft(2, '0')}-${fechaEmision.day.toString().padLeft(2, '0')}';
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'amount': totalOriginal,
+        'currency': currency.toUpperCase(),
+        'date': dateStr,
+      });
+
+      final data = result.data;
+      await ref.update({
+        'currency': currency.toUpperCase(),
+        'eur_amount': data['eur_amount'],
+        'exchange_rate': data['rate'],
+        'exchange_rate_date': data['rate_date'],
+        'exchange_rate_source': data['source'] ?? 'ECB',
+        'conversion_status': 'converted',
+      });
+    } catch (e) {
+      await ref.update({
+        'conversion_status': 'error',
+        'conversion_error': e.toString(),
+      });
+      rethrow;
+    }
   }
 }
 

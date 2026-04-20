@@ -193,6 +193,7 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
       ),
       floatingActionButton: (widget.sesion?.puedeGestionarClientes ?? true)
           ? FloatingActionButton.extended(
+              heroTag: 'fab_clientes',
               onPressed: _abrirFormulario,
               backgroundColor: const Color(0xFF00796B),
               foregroundColor: Colors.white,

@@ -407,7 +407,7 @@ class EstadisticasCacheService {
       if (doc.exists) {
         final data = doc.data()!;
         final ultimaActualizacion = data['fecha_calculo'] != null
-            ? DateTime.parse(data['fecha_calculo'])
+            ? (DateTime.tryParse((data['fecha_calculo'] as String).length > 23 ? (data['fecha_calculo'] as String).substring(0, 23) : data['fecha_calculo']) ?? DateTime.now().subtract(const Duration(days: 1)))
             : DateTime.now().subtract(const Duration(days: 1));
 
         // Si los datos tienen más de 1 hora, recalcular
@@ -467,7 +467,7 @@ class EstadisticasCacheService {
 
       final data = doc.data()!;
       final ultimaActualizacion = data['fecha_calculo'] != null
-          ? DateTime.parse(data['fecha_calculo'])
+          ? (DateTime.tryParse((data['fecha_calculo'] as String).length > 23 ? (data['fecha_calculo'] as String).substring(0, 23) : data['fecha_calculo']) ?? DateTime.now().subtract(const Duration(days: 1)))
           : DateTime.now().subtract(const Duration(days: 1));
 
       final diferencia = DateTime.now().difference(ultimaActualizacion);

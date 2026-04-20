@@ -21,6 +21,7 @@ import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import fetch from "node-fetch";
 export { processInvoice } from "./fiscal/processInvoice";
 export { calculateFiscalModel } from "./fiscal/models/calculateModel";
+export { whatsappWebhook } from "./whatsappBot";
 
 // NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
 // "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
@@ -2572,3 +2573,122 @@ export const onReservaNueva = onDocumentCreated(
   }
 );
 
+// ═════════════════════════════════════════════════════════════════════════════
+// CONVERSIÓN DE DIVISA — BCE (Banco Central Europeo)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * convertCurrencyBCE
+ * Recibe { amount, currency, date (YYYY-MM-DD) }
+ * Consulta la API del BCE para obtener el tipo de cambio.
+ * Devuelve { eur_amount, rate, rate_date, source: "ECB" }
+ * Cachea el tipo en Firestore: currency_rates/{CURRENCY}_{date}
+ */
+export const convertCurrencyBCE = onCall(
+  { region: REGION },
+  async (request) => {
+    const { amount, currency, date } = request.data as {
+      amount: number;
+      currency: string;
+      date: string;
+    };
+
+    if (!amount || !currency || !date) {
+      throw new HttpsError("invalid-argument", "Se requieren amount, currency y date (YYYY-MM-DD)");
+    }
+
+    const cur = currency.toUpperCase().trim();
+    if (cur === "EUR") {
+      return { eur_amount: amount, rate: 1.0, rate_date: date, source: "ECB" };
+    }
+
+    // Intentar leer de caché Firestore
+    const cacheRef = db.collection("currency_rates").doc(`${cur}_${date}`);
+    const cacheSnap = await cacheRef.get();
+    if (cacheSnap.exists) {
+      const cached = cacheSnap.data()!;
+      const rate = cached.rate as number;
+      return {
+        eur_amount: Math.round((amount / rate) * 100) / 100,
+        rate,
+        rate_date: cached.rate_date as string,
+        source: "ECB",
+      };
+    }
+
+    // Buscar en BCE (hasta 5 días atrás si festivo/finde)
+    let rate: number | null = null;
+    let rateDate: string = date;
+
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(date);
+      d.setDate(d.getDate() - i);
+      const isoDate = d.toISOString().slice(0, 10);
+
+      const url =
+        `https://data-api.ecb.europa.eu/service/data/EXR/D.${cur}.EUR.SP00.A` +
+        `?startPeriod=${isoDate}&endPeriod=${isoDate}&format=csvdata`;
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
+
+        const csv = await resp.text();
+        const lines = csv.trim().split("\n");
+        if (lines.length < 2) continue;
+
+        // Buscar columna OBS_VALUE en la cabecera CSV
+        const headers = lines[0].split(",");
+        const obsIdx = headers.findIndex(
+          (h) => h.replace(/"/g, "").trim() === "OBS_VALUE"
+        );
+        if (obsIdx < 0) continue;
+
+        const dataLine = lines[1].split(",");
+        const val = parseFloat(dataLine[obsIdx].replace(/"/g, "").trim());
+        if (isNaN(val) || val <= 0) continue;
+
+        rate = val;
+        rateDate = isoDate;
+        break;
+      } catch {
+        continue;
+      }
+    }
+
+    if (rate === null) {
+      throw new HttpsError(
+        "not-found",
+        `No se encontró tipo de cambio BCE para ${cur} en las últimas 5 sesiones desde ${date}`
+      );
+    }
+
+    // Guardar en caché
+    await cacheRef.set({
+      currency: cur,
+      rate,
+      rate_date: rateDate,
+      source: "ECB",
+      fetched_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // También cachear para la fecha original si es diferente (festivo → día hábil anterior)
+    if (rateDate !== date) {
+      await db.collection("currency_rates").doc(`${cur}_${date}`).set({
+        currency: cur,
+        rate,
+        rate_date: rateDate,
+        source: "ECB",
+        fetched_at: admin.firestore.FieldValue.serverTimestamp(),
+        original_date: date,
+      });
+    }
+
+    return {
+      eur_amount: Math.round((amount / rate) * 100) / 100,
+      rate,
+      rate_date: rateDate,
+      source: "ECB",
+    };
+  }
+);

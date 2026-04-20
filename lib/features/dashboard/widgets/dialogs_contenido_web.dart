@@ -401,6 +401,7 @@ class _EditorSeccionPageState extends State<EditorSeccionPage> {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_agregar_elemento',
         onPressed: _agregarNuevoElemento,
         icon: const Icon(Icons.add),
         label: const Text('Agregar Elemento'),

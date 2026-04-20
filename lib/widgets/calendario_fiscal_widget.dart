@@ -79,9 +79,10 @@ class _CalendarioFiscalWidgetState extends State<CalendarioFiscalWidget> {
           child: Row(
             children: [
               Icon(Icons.check_circle, color: Colors.green),
-              SizedBox(width: 10),
-              Text('🎉 Todo presentado — sin vencimientos pendientes',
-                  style: TextStyle(fontSize: 13)),
+              SizedBox(width: 10), Expanded(
+                child: Text('🎉 Todo presentado — sin vencimientos pendientes',
+                    style: TextStyle(fontSize: 13)),
+              ),
             ],
           ),
         ),
@@ -100,12 +101,14 @@ class _CalendarioFiscalWidgetState extends State<CalendarioFiscalWidget> {
               children: [
                 Icon(Icons.calendar_month, color: Colors.indigo.shade700, size: 20),
                 const SizedBox(width: 8),
-                Text('Próximos vencimientos fiscales',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo.shade700,
-                    )),
+                Expanded(
+                  child: Text('Próximos vencimientos fiscales',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo.shade700,
+                      )),
+                ),
               ],
             ),
             const Divider(height: 16),

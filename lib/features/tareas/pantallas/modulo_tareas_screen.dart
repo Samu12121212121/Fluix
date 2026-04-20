@@ -132,6 +132,7 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen>
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_tareas',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => FormularioTareaScreen(
             empresaId: widget.empresaId,

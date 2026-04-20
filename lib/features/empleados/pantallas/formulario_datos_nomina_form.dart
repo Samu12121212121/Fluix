@@ -708,10 +708,14 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
   Widget _buildDropdown<T>(String label, List<T> items, T? valor,
       void Function(T?) onChanged, String Function(T) itemLabel, IconData icon,
       {List<DropdownMenuItem<T>>? opciones}) {
+    final allItems = opciones ??
+        items.map((i) => DropdownMenuItem(value: i, child: Text(itemLabel(i)))).toList();
+    // Verificar que el valor existe en los items para evitar el error
+    // "There should be exactly one item with DropdownButton's value"
+    final valorValido = allItems.any((item) => item.value == valor) ? valor : null;
     return DropdownButtonFormField<T>(
-      initialValue: valor,
-      items: opciones ??
-          items.map((i) => DropdownMenuItem(value: i, child: Text(itemLabel(i)))).toList(),
+      initialValue: valorValido,
+      items: allItems,
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,

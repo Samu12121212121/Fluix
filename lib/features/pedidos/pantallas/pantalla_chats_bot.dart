@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/modelos/bot_chat.dart';
 import '../../../services/chatbot_service.dart';
+import 'configurar_bot_whatsapp_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL — lista de chats
@@ -79,6 +80,15 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
                         ),
                       );
                     }
+                    if (v == 'whatsapp_api') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ConfigurarBotWhatsAppScreen(
+                              empresaId: widget.empresaId),
+                        ),
+                      );
+                    }
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(
@@ -95,6 +105,15 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
                       child: ListTile(
                         leading: Icon(Icons.settings, color: Colors.blue),
                         title: Text('Configurar bot'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'whatsapp_api',
+                      child: ListTile(
+                        leading: Icon(Icons.api, color: Color(0xFF25D366)),
+                        title: Text('WhatsApp API (Meta)'),
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                       ),
@@ -121,6 +140,7 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_nuevo_chat',
         onPressed: () => _nuevoChat(),
         icon: const Icon(Icons.add_comment_outlined),
         label: const Text('Nuevo chat'),

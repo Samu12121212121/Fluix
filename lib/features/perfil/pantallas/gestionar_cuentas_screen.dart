@@ -189,6 +189,7 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
           bottom: 16,
           right: 16,
           child: FloatingActionButton.extended(
+            heroTag: 'fab_nueva_cuenta',
             onPressed: _abrirFormNuevaCuenta,
             backgroundColor: const Color(0xFF0D47A1),
             foregroundColor: Colors.white,

@@ -50,6 +50,7 @@ class EquiposScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_equipos',
         onPressed: () => _dialogCrearEquipo(context, svc),
         icon: const Icon(Icons.add),
         label: const Text('Nuevo equipo'),

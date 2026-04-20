@@ -53,6 +53,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'fab_vacaciones',
           onPressed: _nuevaSolicitud,
           backgroundColor: const Color(0xFF00796B),
           foregroundColor: Colors.white,

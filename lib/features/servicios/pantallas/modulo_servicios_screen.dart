@@ -132,6 +132,7 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
       ),
       floatingActionButton: (widget.sesion?.puedeGestionarServicios ?? true)
           ? FloatingActionButton.extended(
+              heroTag: 'fab_servicios',
               onPressed: _abrirFormulario,
               backgroundColor: const Color(0xFF7B1FA2),
               foregroundColor: Colors.white,

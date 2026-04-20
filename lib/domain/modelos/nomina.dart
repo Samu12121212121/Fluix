@@ -535,7 +535,7 @@ class DatosNominaEmpleado {
       horasSemanales: (m['horas_semanales'] as num?)?.toDouble() ?? 40,
       salarioBrutoAnual: (m['salario_bruto_anual'] as num?)?.toDouble() ?? 0,
       numPagas: (m['num_pagas'] as num?)?.toInt() ?? 12,
-      pagasProrrateadas: m['pagas_prorrateadas'] as bool? ?? true,
+      pagasProrrateadas: (m['pagas_prorrateadas'] ?? m['pags_prorrateadas']) as bool? ?? true,
       complementoFijo: (m['complemento_fijo'] as num?)?.toDouble() ?? 0,
       complementoAntiguedad: (m['complemento_antiguedad'] as num?)?.toDouble() ?? 0,
       antiguedadManual: m['antiguedad_manual'] as bool? ?? false,

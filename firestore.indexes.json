@@ -1,30 +1,5 @@
-      "collectionGroup": "nominas",
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
-      "collectionGroup": "clientes",
-        { "fieldPath": "completada", "order": "ASCENDING" },
-        { "fieldPath": "fecha_limite", "order": "ASCENDING" }
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
-      "collectionGroup": "tareas",
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
-      "collectionGroup": "nominas",
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
-      "collectionGroup": "clientes",
-        { "fieldPath": "fecha", "order": "DESCENDING" }
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
-      "collectionGroup": "tareas",
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
-      "collectionGroup": "nominas",
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
-        { "fieldPath": "estado", "order": "ASCENDING" }
-      ]
-    },
+{
+  "indexes": [
     {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION",
@@ -34,7 +9,6 @@
       ]
     },
     {
-      "collectionGroup": "reservas",
       "collectionGroup": "clientes",
       "queryScope": "COLLECTION",
       "fields": [
@@ -43,12 +17,7 @@
       ]
     },
     {
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "cliente_id", "order": "ASCENDING" },
-      ]
-    },
-    {
+      "collectionGroup": "clientes",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "telefono", "order": "ASCENDING" },
@@ -56,7 +25,40 @@
       ]
     },
     {
+      "collectionGroup": "tareas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tareas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "completada", "order": "ASCENDING" },
+        { "fieldPath": "fecha_limite", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "anio", "order": "ASCENDING" },
+        { "fieldPath": "mes", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa_id", "order": "ASCENDING" },
+        { "fieldPath": "anio", "order": "ASCENDING" },
+        { "fieldPath": "mes", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_recibidas",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "es_arrendamiento", "order": "ASCENDING" },
@@ -67,51 +69,36 @@
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-      "collectionGroup": "facturas",
-      "queryScope": "COLLECTION",
-      "fields": [
-      ]
-    },
-    {
-      "queryScope": "COLLECTION",
-      "collectionGroup": "tareas",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "fecha_limite", "order": "ASCENDING" },
-        { "fieldPath": "completada", "order": "ASCENDING" }
-      ]
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "estado", "order": "ASCENDING" },
         { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "tareas",
-    {
-      "collectionGroup": "tareas",
-    },
-      ]
-    },
-    {
-      "collectionGroup": "clientes",
-      "collectionGroup": "usuarios",
-      "queryScope": "COLLECTION",
-      "fields": [
-      "collectionGroup": "facturas",
-      ]
-    },
-        { "fieldPath": "publicada", "order": "ASCENDING" },
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "cliente_id", "order": "ASCENDING" },
-    {
-      "collectionGroup": "nominas",
       "collectionGroup": "finiquitos",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "anio", "order": "ASCENDING" },
         { "fieldPath": "mes", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa_id", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa_id", "order": "ASCENDING" },
+        { "fieldPath": "rol", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "actividad",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -122,14 +109,34 @@
     {
       "collectionGroup": "actividad",
       "queryScope": "COLLECTION_GROUP",
+      "fields": [
         { "fieldPath": "tipo", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "DESCENDING" }
       ]
     },
     {
-      ]
+      "collectionGroup": "fiscal_transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "ejercicio", "order": "ASCENDING" },
         { "fieldPath": "trimestre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "modelos130",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ejercicio", "order": "ASCENDING" },
+        { "fieldPath": "trimestre", "order": "ASCENDING" },
+        { "fieldPath": "fecha_generacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "currency_rates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "currency", "order": "ASCENDING" },
+        { "fieldPath": "rate_date", "order": "DESCENDING" }
       ]
     }
   ],

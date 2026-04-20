@@ -233,19 +233,26 @@ class NotificacionesService {
   /// Actualizar token en Firestore para el usuario actual
   Future<void> _actualizarTokenEnFirestore(String token) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      print('⚠️ No hay usuario autenticado para guardar token FCM');
+      return;
+    }
 
+    // 1. Guardar en documento del usuario (usar set+merge para evitar errores si no existe el campo)
     try {
-      // Guardar en documento del usuario
-      await _firestore.collection('usuarios').doc(uid).update({
+      await _firestore.collection('usuarios').doc(uid).set({
         'token_dispositivo': token,
         'token_actualizado': FieldValue.serverTimestamp(),
         'plataforma': _obtenerPlataforma(),
-      });
+      }, SetOptions(merge: true));
+      print('✅ Token FCM guardado en usuarios/$uid');
+    } catch (e) {
+      print('❌ Error guardando token en usuarios/$uid: $e');
+    }
 
-      // También guardar en la empresa para poder enviar a todos los empleados
-      final userDoc =
-          await _firestore.collection('usuarios').doc(uid).get();
+    // 2. También guardar en la empresa (si existe)
+    try {
+      final userDoc = await _firestore.collection('usuarios').doc(uid).get();
       final empresaId = userDoc.data()?['empresa_id'] as String?;
       if (empresaId != null) {
         await _firestore
@@ -260,10 +267,12 @@ class NotificacionesService {
           'ultima_actualizacion': FieldValue.serverTimestamp(),
           'activo': true,
         }, SetOptions(merge: true));
+        print('✅ Token FCM guardado en empresas/$empresaId/dispositivos/$uid');
+      } else {
+        print('⚠️ Usuario $uid no tiene empresa_id asignado');
       }
-      print('✅ Token guardado en Firestore');
     } catch (e) {
-      print('❌ Error guardando token: $e');
+      print('❌ Error guardando token en dispositivos: $e');
     }
   }
 

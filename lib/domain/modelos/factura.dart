@@ -450,7 +450,7 @@ class Factura {
       return Factura(
         id: doc.id,
         empresaId: '',
-        numeroFactura: 'FAC-000',
+        numeroFactura: 'F-ERR-${doc.id.substring(0, 6).toUpperCase()}',
         tipo: TipoFactura.venta_directa,
         estado: EstadoFactura.pendiente,
         clienteNombre: '',
@@ -467,7 +467,9 @@ class Factura {
     return Factura(
       id: doc.id,
       empresaId: d['empresa_id'] ?? '',
-      numeroFactura: d['numero_factura'] ?? 'FAC-000',
+      numeroFactura: (d['numero_factura'] as String?)?.isNotEmpty == true
+          ? d['numero_factura'] as String
+          : 'F-SN-${doc.id.substring(0, 6).toUpperCase()}',
       serie: SerieFactura.values.firstWhere(
         (e) => e.name == d['serie'],
         orElse: () => SerieFactura.fac,

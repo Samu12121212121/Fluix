@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../domain/modelos/nomina.dart';
 
 /// Servicio para la cuenta demo de Fluix CRM.
 /// Crea la cuenta demoFluix2026@gmail.com / FlFluix26 si no existe
@@ -140,12 +141,12 @@ class DemoCuentaService {
         'num_hijos':            0,
         'num_hijos_menores_3':  0,
         'discapacidad':         false,
-        'sector_empresa':       'demo',
-        'pags_prorrateadas':    false,
+        'sector_empresa':       'hosteleria',
+        'pagas_prorrateadas':   false,
       },
     }, SetOptions(merge: true));
 
-    // ── Empleados demo en la colección usuarios (para generarNominasMasivas) ──
+    // ── Empleados demo en la coleccion usuarios (para generarNominasMasivas) ──
     // generarNominasMasivas lee de usuarios/{uid} donde empresa_id == demoEmpresaId
     // Solo los creamos si no existen para no duplicar
     const empleado1Id = 'demo_empleado_001';
@@ -153,66 +154,66 @@ class DemoCuentaService {
     final emp1Doc = await _db.collection('usuarios').doc(empleado1Id).get();
     if (!emp1Doc.exists) {
       await _db.collection('usuarios').doc(empleado1Id).set({
-        'nombre':         'Elena Martín Sanz',
-        'correo':         'elena.demo@fluixcrm.test',
-        'telefono':       '+34 611 111 111',
-        'rol':            'staff',
-        'empresa_id':     demoEmpresaId,
-        'activo':         true,
-        'permisos':       [],
+        'nombre': 'Elena Martin Sanz',
+        'correo': 'elena.demo@fluixcrm.test',
+        'telefono': '+34 611 111 111',
+        'rol': 'staff',
+        'empresa_id': demoEmpresaId,
+        'activo': true,
+        'permisos': [],
         'fecha_creacion': now.toIso8601String(),
-        'es_demo':        true,
+        'es_demo': true,
         'datos_nomina': {
-          'salario_bruto_anual':  19950.0,   // Grupo II convenio peluquería 2026 (14 pagas × 1325€ × 1,07 bruto aprox)
-          'tipo_contrato':        'indefinido',
-          'num_pagas':            14,
-          'horas_semanales':      40.0,
-          'complemento_fijo':     0.0,
-          'nif':                  '11111111H',
-          'nss':                  '280000000001',
-          'situacion_familiar':   'casado',
-          'num_hijos':            2,
-          'num_hijos_menores_3':  0,
-          'discapacidad':         false,
-          'sector_empresa':       'peluqueria',
-          'pags_prorrateadas':    false,
+          'salario_bruto_anual': 19950.0,
+          'tipo_contrato': 'indefinido',
+          'num_pagas': 14,
+          'horas_semanales': 40.0,
+          'complemento_fijo': 0.0,
+          'nif': '11111111H',
+          'nss': '280000000001',
+          'situacion_familiar': 'casado',
+          'num_hijos': 2,
+          'num_hijos_menores_3': 0,
+          'discapacidad': false,
+          'sector_empresa': 'peluqueria',
+          'pagas_prorrateadas': false,
         },
       });
-      debugPrint('✅ Demo: empleado1 ($empleado1Id) creado en usuarios');
+      debugPrint('Demo: empleado1 creado');
     }
     final emp2Doc = await _db.collection('usuarios').doc(empleado2Id).get();
     if (!emp2Doc.exists) {
       await _db.collection('usuarios').doc(empleado2Id).set({
-        'nombre':         'Roberto López Vega',
-        'correo':         'roberto.demo@fluixcrm.test',
-        'telefono':       '+34 622 222 222',
-        'rol':            'staff',
-        'empresa_id':     demoEmpresaId,
-        'activo':         true,
-        'permisos':       [],
+        'nombre': 'Roberto Lopez Vega',
+        'correo': 'roberto.demo@fluixcrm.test',
+        'telefono': '+34 622 222 222',
+        'rol': 'staff',
+        'empresa_id': demoEmpresaId,
+        'activo': true,
+        'permisos': [],
         'fecha_creacion': now.toIso8601String(),
-        'es_demo':        true,
+        'es_demo': true,
         'datos_nomina': {
-          'salario_bruto_anual':  17500.0,   // Grupo I convenio peluquería 2026 (14 pagas × 1250€)
-          'tipo_contrato':        'indefinido',
-          'num_pagas':            14,
-          'horas_semanales':      40.0,
-          'complemento_fijo':     0.0,
-          'nif':                  '22222222J',
-          'nss':                  '280000000002',
-          'situacion_familiar':   'soltero',
-          'num_hijos':            0,
-          'num_hijos_menores_3':  0,
-          'discapacidad':         false,
-          'sector_empresa':       'peluqueria',
-          'pags_prorrateadas':    false,
+          'salario_bruto_anual': 17500.0,
+          'tipo_contrato': 'indefinido',
+          'num_pagas': 14,
+          'horas_semanales': 40.0,
+          'complemento_fijo': 0.0,
+          'nif': '22222222J',
+          'nss': '280000000002',
+          'situacion_familiar': 'soltero',
+          'num_hijos': 0,
+          'num_hijos_menores_3': 0,
+          'discapacidad': false,
+          'sector_empresa': 'peluqueria',
+          'pagas_prorrateadas': false,
         },
       });
-      debugPrint('✅ Demo: empleado2 ($empleado2Id) creado en usuarios');
+      debugPrint('Demo: empleado2 creado');
     }
 
-    debugPrint('✅ Demo: Firestore configurado para $uid / $demoEmpresaId');
-  }
+    debugPrint('Demo Firestore configurado para $uid / $demoEmpresaId');
+  } // _configurarFirestoreDemo
 
   /// Genera datos de prueba completos para la empresa del usuario demo.
   Future<void> generarDatosPrueba(String empresaId) async {
@@ -447,10 +448,7 @@ class DemoCuentaService {
     int generadas = 0;
     for (final emp in empleadosDemo) {
       final bruto = emp['bruto'] as double;
-      final ssEmpresa = bruto * 0.3160;
-      final ssTrabajador = bruto * 0.0647;
       final irpf = bruto * 0.12;
-      final neto = bruto - ssTrabajador - irpf;
 
       // Comprobar si ya existe para este mes/año/empleado
       final existing = await ref.collection('nominas')
@@ -460,30 +458,83 @@ class DemoCuentaService {
           .get();
       if (existing.docs.isNotEmpty) continue;
 
+      // Desglose SS trabajador (tipos 2026)
+      final ssTraCC     = double.parse((bruto * 4.70 / 100).toStringAsFixed(2));
+      final ssTraDesemp = double.parse((bruto * 1.55 / 100).toStringAsFixed(2));
+      final ssTraFP     = double.parse((bruto * 0.10 / 100).toStringAsFixed(2));
+      final ssMeiTra    = double.parse((bruto * 0.15 / 100).toStringAsFixed(2));
+      // Desglose SS empresa (tipos 2026)
+      final ssEmpCC     = double.parse((bruto * 23.60 / 100).toStringAsFixed(2));
+      final ssEmpDesemp = double.parse((bruto *  5.50 / 100).toStringAsFixed(2));
+      final ssEmpFog    = double.parse((bruto *  0.20 / 100).toStringAsFixed(2));
+      final ssEmpFP_    = double.parse((bruto *  0.60 / 100).toStringAsFixed(2));
+      final ssEmpAT_    = double.parse((bruto *  1.50 / 100).toStringAsFixed(2));
+      final ssMeiEmp    = double.parse((bruto *  0.75 / 100).toStringAsFixed(2));
+      final irpfRet     = double.parse(irpf.toStringAsFixed(2));
+
       await ref.collection('nominas').add({
-        'empleado_id': emp['id'],
-        'empleado_nombre': emp['nombre'],
-        'mes': mes,
-        'anio': anio,
-        'salario_bruto': bruto,
-        'ss_empresa': double.parse(ssEmpresa.toStringAsFixed(2)),
-        'ss_trabajador': double.parse(ssTrabajador.toStringAsFixed(2)),
-        'irpf': double.parse(irpf.toStringAsFixed(2)),
-        'salario_neto': double.parse(neto.toStringAsFixed(2)),
-        'coste_total_empresa': double.parse((bruto + ssEmpresa).toStringAsFixed(2)),
-        'estado': 'borrador',
-        'fecha_generacion': Timestamp.fromDate(now),
-        'categoria': emp['categoria'],
-        'tipo_contrato': emp['contrato'],
-        'num_pagas': 14,
-        'horas_semanales': 40.0,
-        'es_prueba': true,
-        'es_demo': true,
-        'lineas': [
-          {'concepto': 'Salario base', 'importe': bruto, 'tipo': 'percepcion'},
-          {'concepto': 'SS Trabajador (6,47%)', 'importe': -ssTrabajador, 'tipo': 'deduccion'},
-          {'concepto': 'IRPF (12%)', 'importe': -irpf, 'tipo': 'deduccion'},
-        ],
+        // ── Identificación ────────────────────────────────────────────────
+        'empresa_id':       empresaId,
+        'empleado_id':      emp['id'],
+        'empleado_nombre':  emp['nombre'],
+        'mes':              mes,
+        'anio':             anio,
+        'periodo':          '${Nomina.nombreMes(mes)} $anio',
+        // ── Devengos ──────────────────────────────────────────────────────
+        'salario_bruto_mensual': bruto,
+        'paga_extra':            0.0,
+        'horas_extra':           0.0,
+        'precio_hora_extra':     0.0,
+        'importe_horas_extra':   0.0,
+        'complementos':          0.0,
+        'paga_extra_prorrateada':0.0,
+        'retribuciones_especie': 0.0,
+        // ── SS Trabajador ─────────────────────────────────────────────────
+        'base_cotizacion':           bruto,
+        'ss_trabajador_cc':          ssTraCC,
+        'ss_trabajador_desempleo':   ssTraDesemp,
+        'ss_trabajador_fp':          ssTraFP,
+        'ss_mei_trabajador':         ssMeiTra,
+        'ss_solidaridad_trabajador': 0.0,
+        'ss_horas_extra_trabajador': 0.0,
+        // ── IRPF ──────────────────────────────────────────────────────────
+        'base_irpf':        bruto,
+        'porcentaje_irpf':  12.0,
+        'retencion_irpf':   irpfRet,
+        'irpf_ajustado':    false,
+        // ── SS Empresa ────────────────────────────────────────────────────
+        'ss_empresa_cc':          ssEmpCC,
+        'ss_empresa_desempleo':   ssEmpDesemp,
+        'ss_empresa_fogasa':      ssEmpFog,
+        'ss_empresa_fp':          ssEmpFP_,
+        'ss_empresa_at':          ssEmpAT_,
+        'ss_mei_empresa':         ssMeiEmp,
+        'ss_solidaridad_empresa': 0.0,
+        'ss_horas_extra_empresa': 0.0,
+        'tipo_hora_extra':        'noEstructural',
+        // ── Otros ─────────────────────────────────────────────────────────
+        'descuento_ausencias':    0.0,
+        'lineas_ausencias':       [],
+        'plus_antiguedad':        0.0,
+        'anios_antiguedad':       0,
+        'trienios_bienios':       0,
+        'embargo_judicial':       0.0,
+        'regularizacion_irpf':    0.0,
+        'complementos_detallados': [],
+        'dias_it':                0,
+        'importe_it':             0.0,
+        'importe_it_empresa':     0.0,
+        'importe_it_inss':        0.0,
+        'importe_it_mutua':       0.0,
+        'descuento_salario_por_it': 0.0,
+        // ── Estado ────────────────────────────────────────────────────────
+        'estado':           'borrador',
+        'fecha_creacion':   Timestamp.fromDate(now),
+        // ── Metadatos demo ────────────────────────────────────────────────
+        'es_prueba':        true,
+        'es_demo':          true,
+        'categoria':        emp['categoria'],
+        'tipo_contrato':    emp['contrato'],
       });
       generadas++;
     }
@@ -525,6 +576,4 @@ class DemoCuentaService {
     } catch (_) {}
   }
 }
-
-
 

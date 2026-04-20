@@ -70,7 +70,18 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   }
 
   Future<void> _seedConveniosSeguros() async {
-    // Solo se hace el seed de los convenios activos para el sector
+    // Guard: solo plataforma admin puede ejecutar seeds de convenios
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final usuarioDoc = await _firestore.collection('usuarios').doc(uid).get();
+    final userData = usuarioDoc.data();
+    if (userData == null) return;
+    final esPlataformaAdmin = userData['es_plataforma_admin'] == true;
+    final esDemo = userData['es_demo'] == true;
+    if (!esPlataformaAdmin || esDemo) {
+      debugPrint('⏭️ seed convenios omitido — no es plataforma_admin o es cuenta demo');
+      return;
+    }
     final doc = await _firestore.collection('empresas').doc(widget.empresaId).get();
     final sector = (doc.data()?['sector'] as String? ?? '').toLowerCase();
     final tipo = (doc.data()?['tipo_negocio'] as String? ?? '').toLowerCase();

@@ -65,7 +65,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
         // Verificar si el cache es reciente (menos de 1 hora)
         final fechaCalculo = data['fecha_calculo'] as String?;
         if (fechaCalculo != null) {
-          final ultimaAct = DateTime.parse(fechaCalculo);
+          final ultimaAct = DateTime.tryParse(fechaCalculo.length > 23 ? fechaCalculo.substring(0, 23) : fechaCalculo) ?? DateTime.now();
           final diferencia = DateTime.now().difference(ultimaAct);
           if (diferencia.inHours < 1) {
             print('✅ Usando estadísticas desde cache (${diferencia.inMinutes} min)');
@@ -913,7 +913,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     final fechaCalculo = data['fecha_calculo'] as String?;
     if (fechaCalculo == null) return const SizedBox.shrink();
 
-    final ultimaActualizacion = DateTime.parse(fechaCalculo);
+    final ultimaActualizacion = DateTime.tryParse(fechaCalculo.length > 23 ? fechaCalculo.substring(0, 23) : fechaCalculo) ?? DateTime.now();
     final diferencia = DateTime.now().difference(ultimaActualizacion);
 
     Color color;

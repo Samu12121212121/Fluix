@@ -127,6 +127,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_pedido_nuevo',
         onPressed: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => FormularioNuevoPedidoScreen(empresaId: widget.empresaId),
         )),

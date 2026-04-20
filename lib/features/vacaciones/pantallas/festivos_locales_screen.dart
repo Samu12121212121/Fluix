@@ -280,6 +280,7 @@ class _FestivosLocalesScreenState extends State<FestivosLocalesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_festivo_local',
         onPressed: _anadirFestivoLocal,
         backgroundColor: const Color(0xFF00796B),
         foregroundColor: Colors.white,

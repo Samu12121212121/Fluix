@@ -112,6 +112,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_pedidos',
         onPressed: () => _mostrarFormularioNuevoPedido(),
         icon: const Icon(Icons.add),
         label: const Text('Nuevo pedido'),

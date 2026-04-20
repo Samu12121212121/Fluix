@@ -79,6 +79,14 @@ class FacturaRecibida {
   // IA / trazabilidad
   final String? aiTransactionId;
 
+  // Conversión de divisa (facturas en moneda extranjera)
+  final String? currency;              // Moneda original: "USD", "GBP", etc.
+  final double? eurAmount;             // Importe convertido a EUR
+  final double? exchangeRate;          // Tipo de cambio usado
+  final String? exchangeRateDate;      // Fecha del tipo (YYYY-MM-DD)
+  final String? exchangeRateSource;    // "ECB"
+  final String conversionStatus;       // "not_needed", "pending", "converted", "error"
+
   const FacturaRecibida({
     required this.id,
     required this.empresaId,
@@ -112,6 +120,12 @@ class FacturaRecibida {
     required this.fechaCreacion,
     this.fechaActualizacion,
     this.aiTransactionId,
+    this.currency,
+    this.eurAmount,
+    this.exchangeRate,
+    this.exchangeRateDate,
+    this.exchangeRateSource,
+    this.conversionStatus = 'not_needed',
   });
 
   // Getters calculados
@@ -147,6 +161,12 @@ class FacturaRecibida {
     String? conceptoArrendamiento,
     String? notas,
     DateTime? fechaActualizacion,
+    String? currency,
+    double? eurAmount,
+    double? exchangeRate,
+    String? exchangeRateDate,
+    String? exchangeRateSource,
+    String? conversionStatus,
   }) =>
       FacturaRecibida(
         id: id,
@@ -181,6 +201,12 @@ class FacturaRecibida {
         fechaCreacion: fechaCreacion,
         fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
         aiTransactionId: aiTransactionId ?? this.aiTransactionId,
+        currency: currency ?? this.currency,
+        eurAmount: eurAmount ?? this.eurAmount,
+        exchangeRate: exchangeRate ?? this.exchangeRate,
+        exchangeRateDate: exchangeRateDate ?? this.exchangeRateDate,
+        exchangeRateSource: exchangeRateSource ?? this.exchangeRateSource,
+        conversionStatus: conversionStatus ?? this.conversionStatus,
       );
 
   factory FacturaRecibida.fromFirestore(DocumentSnapshot doc) {
@@ -223,6 +249,12 @@ class FacturaRecibida {
           ? _parseTs(d['fecha_actualizacion'])
           : null,
       aiTransactionId: d['_ai_transaction_id'] as String?,
+      currency: d['currency'] as String?,
+      eurAmount: (d['eur_amount'] as num?)?.toDouble(),
+      exchangeRate: (d['exchange_rate'] as num?)?.toDouble(),
+      exchangeRateDate: d['exchange_rate_date'] as String?,
+      exchangeRateSource: d['exchange_rate_source'] as String?,
+      conversionStatus: (d['conversion_status'] as String?) ?? 'not_needed',
     );
   }
 
@@ -258,6 +290,12 @@ class FacturaRecibida {
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': Timestamp.fromDate(fechaActualizacion ?? DateTime.now()),
     '_ai_transaction_id': aiTransactionId,
+    'currency': currency,
+    'eur_amount': eurAmount,
+    'exchange_rate': exchangeRate,
+    'exchange_rate_date': exchangeRateDate,
+    'exchange_rate_source': exchangeRateSource,
+    'conversion_status': conversionStatus,
   };
 }
 
@@ -268,3 +306,7 @@ DateTime _parseTs(dynamic v) {
   if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
   return DateTime.now();
 }
+
+
+
+

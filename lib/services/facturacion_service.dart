@@ -1140,6 +1140,35 @@ class FacturacionService {
       usuarioNombre: usuarioNombre,
     );
   }
+
+  // ── MIGRACIÓN: RENUMERAR FACTURAS SIN NÚMERO VÁLIDO ───────────────────────
+
+  /// Busca facturas sin número (campo vacío, null o 'FAC-000') y les asigna
+  /// un número correlativo nuevo. Devuelve el nº de facturas reparadas.
+  Future<int> migrarFacturasSinNumero(String empresaId) async {
+    final snap = await _facturas(empresaId).orderBy('fecha_emision').get();
+    int reparadas = 0;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final numero = (data['numero_factura'] as String?) ?? '';
+      if (numero.isEmpty || numero == 'FAC-000' || numero.startsWith('F-SN-') || numero.startsWith('F-ERR-')) {
+        // Obtener la serie del documento
+        final serieStr = data['serie'] as String? ?? 'fac';
+        final serie = SerieFactura.values.firstWhere(
+          (e) => e.name == serieStr,
+          orElse: () => SerieFactura.fac,
+        );
+        final nuevoNumero = await _generarNumeroFacturaSerie(empresaId, serie);
+        await _facturas(empresaId).doc(doc.id).update({
+          'numero_factura': nuevoNumero,
+        });
+        _log.i('Factura ${doc.id} renumerada → $nuevoNumero');
+        reparadas++;
+      }
+    }
+    return reparadas;
+  }
 }
 
 

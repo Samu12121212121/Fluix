@@ -31,6 +31,7 @@ class FiniquitosScreen extends StatelessWidget {
         elevation: 1,
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_finiquito',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(

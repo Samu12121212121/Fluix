@@ -55,6 +55,7 @@ class RemesaSepaScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_remesa_sepa',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(

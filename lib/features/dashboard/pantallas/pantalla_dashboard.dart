@@ -16,6 +16,7 @@ import '../widgets/offline_banner.dart';
 import '../../../core/constantes/constantes_app.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/notificaciones_service.dart';
+import '../../../services/debug_fcm_widget.dart';
 import '../../../services/datos_prueba_service.dart';
 import '../../../services/datos_prueba_contabilidad_service.dart';
 import '../../../services/bandeja_notificaciones_service.dart';
@@ -333,7 +334,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       );
     }
 
-    return GestureDetector(
+    final scaffoldContent = GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
@@ -488,6 +489,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       floatingActionButton: _buildDemoFab(),
     ),
     );
+
+    // En modo debug, superponer widget de debug FCM
+    return kDebugMode
+        ? Stack(
+            children: [
+              scaffoldContent,
+              const DebugFCMWidget(),
+            ],
+          )
+        : scaffoldContent;
   }
 
   /// Devuelve el widget correspondiente a cada módulo por su ID
@@ -1203,10 +1214,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [
-          Icon(Icons.auto_fix_high, color: Color(0xFF7C4DFF)),
-          SizedBox(width: 8),
-          Text('Generar datos de prueba'),
+        title: Row(children: [
+          const Icon(Icons.auto_fix_high, color: Color(0xFF7C4DFF)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Generar datos de prueba', overflow: TextOverflow.ellipsis)),
         ]),
         content: const Text(
           'Se crearán datos de ejemplo para que puedas explorar toda la app:\n\n'

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/widget_manager_service.dart';
-import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_widgets_screen.dart';
 import 'pantallas_configuracion_extras.dart';
@@ -48,14 +47,7 @@ class _ConfiguracionDashboardScreenState
     } catch (_) {}
   }
 
-  /// Devuelve true si el plan del módulo está contratado
-  bool _planContratado(PlanModulo plan) {
-    switch (plan) {
-      case PlanModulo.basico:  return true; // siempre incluido
-      case PlanModulo.gestion: return _packsContratados.contains('gestion');
-      case PlanModulo.tienda:  return _packsContratados.contains('tienda');
-    }
-  }
+  // _planContratado omitted
 
   Widget _buildFilaModulo(ModuloConfig modulo, PlanModulo plan) {
     return Padding(
@@ -83,12 +75,12 @@ class _ConfiguracionDashboardScreenState
           ),
           trailing: Checkbox(
             value: modulo.activo,
-            onChanged: (bool? value) async {
+            onChanged: (bool? value) {
               if (value != null) {
-                // Usar copyWith para actualizar modulo inmutable
-                // TODO: Save to database
+                _toggleModulo(modulo.id, value, modulo.nombre);
               }
             },
+            activeColor: plan.color,
           ),
         ),
       ),
@@ -413,6 +405,8 @@ class _ConfiguracionDashboardScreenState
               ],
             ),
           ),
+          const SizedBox(height: 8),
+          ...modulos.map(_buildFilaModuloAddOn),
           const SizedBox(height: 8),
         ],
       ),

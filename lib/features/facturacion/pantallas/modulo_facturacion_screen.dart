@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
@@ -54,6 +55,36 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
     super.dispose();
   }
 
+  Future<void> _migrarNumeros() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Renumerar facturas'),
+        content: const Text('¿Asignar números correlativos a todas las facturas que no tienen número válido? Esta operación no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Continuar')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final n = await _service.migrarFacturasSinNumero(widget.empresaId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ $n factura${n != 1 ? 's' : ''} renumerada${n != 1 ? 's' : ''}'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error: $e'), backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -61,6 +92,29 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
+      appBar: kDebugMode ? AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFF0D47A1),
+        title: const Text('Facturas', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.build_outlined, color: Colors.white70, size: 20),
+            tooltip: 'Herramientas',
+            onSelected: (v) { if (v == 'migrar') _migrarNumeros(); },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'migrar',
+                child: ListTile(
+                  leading: Icon(Icons.refresh, color: Colors.blue),
+                  title: Text('Renumerar facturas sin número'),
+                  subtitle: Text('Asigna números a facturas con "FAC-000"'),
+                  contentPadding: EdgeInsets.zero, dense: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ) : null,
       body: Column(
         children: [
           _buildTabBar(),

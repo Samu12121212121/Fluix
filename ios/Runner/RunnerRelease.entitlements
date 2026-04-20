@@ -7,5 +7,8 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Push Notifications — obligatorio para notificaciones remotas FCM (PRODUCCIÓN) -->
+	<key>aps-environment</key>
+	<string>production</string>
 </dict>
 </plist>
