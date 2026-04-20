@@ -90,7 +90,7 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Título
+            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -99,14 +99,9 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(2),
-                  child: IconButton(
-                    icon: const Icon(Icons.close),
-                child: SizedBox(
-                  width: 40,
-                  child: IconButton(
-                    icon: const Icon(Icons.close),
+                ),
               ),
-                  ),
+            ),
 
             const SizedBox(height: 8),
             if (widget.empleadoIdFijo == null) ...[

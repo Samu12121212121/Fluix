@@ -224,6 +224,9 @@ class _CalendarioVacacionesWidgetState
             ),
           ),
         ),
+      ],
+    );
+  }
 
   Widget _buildSelectorEmpleado() {
     return Container(

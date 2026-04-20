@@ -298,6 +298,37 @@ class GmbAuthService extends ChangeNotifier {
     }
   }
 
+  // ── Desconectar ───────────────────────────────────────────────────────────
+
+  Future<void> desconectar(String empresaId) async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+
+    try {
+      await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('configuracion')
+          .doc('gmb_config')
+          .set({'conectado': false}, SetOptions(merge: true));
+    } catch (_) {}
+
+    try {
+      await _storage.delete(key: _keyConectado);
+      await _storage.delete(key: _keyNombreFicha);
+      await _storage.delete(key: _keyDireccionFicha);
+      await _storage.delete(key: _keyUltimaSync);
+    } catch (_) {}
+
+    _conectado      = false;
+    _nombreFicha    = null;
+    _direccionFicha = null;
+    _ultimaSync     = null;
+    _error          = null;
+    notifyListeners();
+  }
+
   // ── Mapear errores GMB ────────────────────────────────────────────────────
 
   String _mapearErrorGmb(String error) {

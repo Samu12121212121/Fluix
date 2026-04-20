@@ -117,7 +117,6 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
       final contenido = await _svc.generarMod303Dr303e26v101(
         empresaId: widget.empresaId,
         nifEmpresa: _nifEmpresa,
-        nombreEmpresa: _nombreEmpresa,
         anio: _anio,
         trimestre: trimestre,
       );

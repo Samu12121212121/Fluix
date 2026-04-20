@@ -413,6 +413,83 @@ class DemoCuentaService {
     }, SetOptions(merge: true));
   }
 
+  /// Genera nóminas con datos aleatorios para la cuenta demo.
+  /// Útil cuando no hay empleados configurados o para mostrar el módulo funcional.
+  Future<int> generarNominasDemoAleatorias(
+      String empresaId, int mes, int anio) async {
+    final ref = _db.collection('empresas').doc(empresaId);
+    final now = DateTime.now();
+
+    final empleadosDemo = [
+      {
+        'id': 'demo_emp_001',
+        'nombre': 'Elena Martín Sanz',
+        'bruto': 1425.0,
+        'categoria': 'Oficial de 1ª',
+        'contrato': 'Indefinido',
+      },
+      {
+        'id': 'demo_emp_002',
+        'nombre': 'Roberto López Vega',
+        'bruto': 1250.0,
+        'categoria': 'Oficial de 2ª',
+        'contrato': 'Indefinido',
+      },
+      {
+        'id': 'demo_emp_003',
+        'nombre': 'Sofía García Ruiz',
+        'bruto': 1100.0 + (_random.nextDouble() * 200).roundToDouble(),
+        'categoria': 'Auxiliar',
+        'contrato': 'Jornada parcial',
+      },
+    ];
+
+    int generadas = 0;
+    for (final emp in empleadosDemo) {
+      final bruto = emp['bruto'] as double;
+      final ssEmpresa = bruto * 0.3160;
+      final ssTrabajador = bruto * 0.0647;
+      final irpf = bruto * 0.12;
+      final neto = bruto - ssTrabajador - irpf;
+
+      // Comprobar si ya existe para este mes/año/empleado
+      final existing = await ref.collection('nominas')
+          .where('empleado_id', isEqualTo: emp['id'])
+          .where('mes', isEqualTo: mes)
+          .where('anio', isEqualTo: anio)
+          .get();
+      if (existing.docs.isNotEmpty) continue;
+
+      await ref.collection('nominas').add({
+        'empleado_id': emp['id'],
+        'empleado_nombre': emp['nombre'],
+        'mes': mes,
+        'anio': anio,
+        'salario_bruto': bruto,
+        'ss_empresa': double.parse(ssEmpresa.toStringAsFixed(2)),
+        'ss_trabajador': double.parse(ssTrabajador.toStringAsFixed(2)),
+        'irpf': double.parse(irpf.toStringAsFixed(2)),
+        'salario_neto': double.parse(neto.toStringAsFixed(2)),
+        'coste_total_empresa': double.parse((bruto + ssEmpresa).toStringAsFixed(2)),
+        'estado': 'borrador',
+        'fecha_generacion': Timestamp.fromDate(now),
+        'categoria': emp['categoria'],
+        'tipo_contrato': emp['contrato'],
+        'num_pagas': 14,
+        'horas_semanales': 40.0,
+        'es_prueba': true,
+        'es_demo': true,
+        'lineas': [
+          {'concepto': 'Salario base', 'importe': bruto, 'tipo': 'percepcion'},
+          {'concepto': 'SS Trabajador (6,47%)', 'importe': -ssTrabajador, 'tipo': 'deduccion'},
+          {'concepto': 'IRPF (12%)', 'importe': -irpf, 'tipo': 'deduccion'},
+        ],
+      });
+      generadas++;
+    }
+    return generadas;
+  }
+
   /// Elimina todos los datos de prueba generados por la demo.
   Future<void> limpiarDatosPrueba(String empresaId) async {
     final ref = _db.collection('empresas').doc(empresaId);

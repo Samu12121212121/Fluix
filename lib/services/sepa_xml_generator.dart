@@ -130,20 +130,14 @@ class SepaXmlGenerator {
 
     // Calcular DC1: pesos sobre "00" + entidad + oficina
     final dc1Calculado = _calcularDigitoControl('00$entidad$oficina');
-    if (dc1Calculado == null) {
-      return 'Combinación entidad/oficina inválida ($entidad/$oficina)';
-    }
-    if (dc1 != dc1Calculado) {
+    if (dc1Calculado != null && dc1 != dc1Calculado) {
       return 'Dígito de control 1 del CCC incorrecto '
           '(esperado $dc1Calculado, encontrado $dc1)';
     }
 
     // Calcular DC2: pesos sobre cuenta
     final dc2Calculado = _calcularDigitoControl(cuenta);
-    if (dc2Calculado == null) {
-      return 'Número de cuenta inválido ($cuenta)';
-    }
-    if (dc2 != dc2Calculado) {
+    if (dc2Calculado != null && dc2 != dc2Calculado) {
       return 'Dígito de control 2 del CCC incorrecto '
           '(esperado $dc2Calculado, encontrado $dc2)';
     }
@@ -164,7 +158,7 @@ class SepaXmlGenerator {
     final resto = suma % 11;
     final dc = 11 - resto;
     if (dc == 11) return 0;
-    if (dc == 10) return null; // No existe DC válido
+    if (dc == 10) return 1; // Algunos bancos usan 1 cuando el cálculo da 10
     return dc;
   }
 

@@ -42,7 +42,7 @@ class _EstadoConexionGoogleWidgetState
   }
 
   Future<void> _init() async {
-    await _svc.inicializar(widget.empresaId);
+    await _svc.init(widget.empresaId);
     if (mounted) setState(() => _inicializado = true);
   }
 

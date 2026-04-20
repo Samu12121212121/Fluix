@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/nomina.dart';
 import '../../../services/nominas_service.dart';
+import '../../../services/demo_cuenta_service.dart';
 import 'package:planeag_flutter/features/nominas/pantallas/detalle_nomina_screen.dart';
 
 /// Pantalla principal del módulo de nóminas.
@@ -802,9 +804,23 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
 
   Future<void> _generarNominasMes() async {
     setState(() => _generando = true);
+    final email = FirebaseAuth.instance.currentUser?.email;
+    final esDemo = DemoCuentaService().esDemo(email);
     try {
-      final n = await _svc.generarNominasMasivas(
-          widget.empresaId, _mesActual, _anioActual);
+      int n;
+      if (esDemo) {
+        // En modo demo generamos nóminas de ejemplo directamente
+        n = await DemoCuentaService().generarNominasDemoAleatorias(
+            widget.empresaId, _mesActual, _anioActual);
+        if (n == 0) {
+          // Puede que ya existan, intentar con el servicio normal
+          n = await _svc.generarNominasMasivas(
+              widget.empresaId, _mesActual, _anioActual);
+        }
+      } else {
+        n = await _svc.generarNominasMasivas(
+            widget.empresaId, _mesActual, _anioActual);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -815,9 +831,19 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('⚠️ $e'), backgroundColor: Colors.orange),
-        );
+        // En modo demo: si ya existen, mostrar mensaje informativo
+        if (esDemo && e.toString().contains('Ya existen')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ℹ️ $e'),
+              backgroundColor: Colors.blue[700],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('⚠️ $e'), backgroundColor: Colors.orange),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _generando = false);

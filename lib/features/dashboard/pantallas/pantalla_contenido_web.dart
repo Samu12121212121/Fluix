@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
+import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
 import 'tab_seo_web.dart';
 import 'tab_config_web.dart';
@@ -39,6 +41,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
 
   @override
   Widget build(BuildContext context) {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (DemoCuentaService().esDemo(email)) {
+      return _buildDemoScreen(context);
+    }
     final color = context.watch<AppConfigProvider>().colorPrimario;
 
     return Scaffold(
@@ -71,11 +77,175 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       ),
     );
   }
+
+  Widget _buildDemoScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        title: const Text('Contenido Web'),
+        backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.web_rounded, color: Colors.white, size: 56),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Módulo de Contenido Web',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Cuenta de demostración',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            _demoCard(
+              icon: Icons.travel_explore_rounded,
+              color: const Color(0xFF1976D2),
+              titulo: 'Mapeo automático de tu web',
+              descripcion:
+                  'Analizamos tu página web y la mapeamos dentro de la app. '
+                  'Desde ese momento podrás ver y editar el contenido de tu '
+                  'sitio directamente desde el móvil, sin tocar código.',
+            ),
+            const SizedBox(height: 16),
+            _demoCard(
+              icon: Icons.edit_note_rounded,
+              color: const Color(0xFF388E3C),
+              titulo: 'Edición al instante',
+              descripcion:
+                  'Cambia textos, imágenes, precios o descripciones de tu web '
+                  'con un par de toques. Los cambios se publican en tiempo real '
+                  'sin necesidad de acceder al panel de tu proveedor de hosting.',
+            ),
+            const SizedBox(height: 16),
+            _demoCard(
+              icon: Icons.search_rounded,
+              color: const Color(0xFFE64A19),
+              titulo: 'SEO integrado',
+              descripcion:
+                  'Gestiona los metadatos, títulos y descripciones de cada '
+                  'página para mejorar tu posicionamiento en Google, todo '
+                  'desde la misma aplicación.',
+            ),
+            const SizedBox(height: 16),
+            _demoCard(
+              icon: Icons.devices_rounded,
+              color: const Color(0xFF7B1FA2),
+              titulo: 'Previsualización en tiempo real',
+              descripcion:
+                  'Antes de publicar cualquier cambio podrás previsualizarlo '
+                  'tal y como lo verán tus clientes, tanto en móvil como en '
+                  'escritorio.',
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_open_rounded, color: Colors.amber[700], size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Activa tu cuenta completa para conectar tu página web '
+                      'y empezar a gestionarla desde el móvil.',
+                      style: TextStyle(color: Colors.amber[900], fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _demoCard({
+    required IconData icon,
+    required Color color,
+    required String titulo,
+    required String descripcion,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(titulo,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(height: 4),
+                Text(descripcion,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.5)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB SECCIONES (lógica existente extraída a clase separada)
 // ═════════════════════════════════════════════════════════════════════════════
+
 
 class _TabSecciones extends StatelessWidget {
   final String empresaId;
