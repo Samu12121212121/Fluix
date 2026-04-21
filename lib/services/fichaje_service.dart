@@ -15,6 +15,24 @@ class FichajeService {
 
   // ── FICHAR ENTRADA ────────────────────────────────────────────────────────
 
+  /// Verifica si el empleado ya tiene una entrada activa (sin salida posterior) hoy.
+  Future<bool> _tieneEntradaActiva(String empleadoId, String empresaId) async {
+    final hoy = DateTime.now();
+    final inicioDia = DateTime(hoy.year, hoy.month, hoy.day);
+
+    final query = await _fichajes(empresaId)
+        .where('empleado_id', isEqualTo: empleadoId)
+        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia))
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) return false;
+    final ultimoTipo = query.docs.first.data()['tipo'] as String?;
+    // 'entrada' o 'pausa_fin' = sigue "dentro"
+    return ultimoTipo == 'entrada' || ultimoTipo == 'pausa_fin';
+  }
+
   Future<RegistroFichaje> ficharEntrada({
     required String empresaId,
     required String empleadoId,
@@ -22,6 +40,12 @@ class FichajeService {
     double? latitud,
     double? longitud,
   }) async {
+    // ── Validación: evitar doble entrada ─────────────────────────────────
+    final tieneEntrada = await _tieneEntradaActiva(empleadoId, empresaId);
+    if (tieneEntrada) {
+      throw Exception('Ya tienes una entrada activa. Ficha la salida primero.');
+    }
+
     final registro = RegistroFichaje(
       id: '',
       empleadoId: empleadoId,

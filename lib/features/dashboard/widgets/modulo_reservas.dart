@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../services/estadisticas_trigger_service.dart';
 
-class ModuloReservas extends StatelessWidget {
+class ModuloReservas extends StatefulWidget {
   final String empresaId;
   final SesionUsuario? sesion;
   final String collectionId;
@@ -24,14 +24,45 @@ class ModuloReservas extends StatelessWidget {
   });
 
   @override
+  State<ModuloReservas> createState() => _ModuloReservasState();
+}
+
+class _ModuloReservasState extends State<ModuloReservas> {
+  // false = solo últimos 90 días + futuras; true = todo el histórico
+  bool _mostrarHistorial = false;
+
+  String get empresaId => widget.empresaId;
+  SesionUsuario? get sesion => widget.sesion;
+  String get collectionId => widget.collectionId;
+  String get moduloSingular => widget.moduloSingular;
+  String get moduloPlural => widget.moduloPlural;
+  bool get mostrarProfesional => widget.mostrarProfesional;
+
+  Stream<QuerySnapshot> _buildStream() {
+    final ref = FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(empresaId)
+        .collection(collectionId);
+
+    if (_mostrarHistorial) {
+      // Historial completo (admin lo pidió explícitamente)
+      return ref.orderBy('fecha_hora', descending: false).snapshots();
+    }
+
+    // Por defecto: últimos 90 días + todas las futuras
+    final hace90Dias = Timestamp.fromDate(
+      DateTime.now().subtract(const Duration(days: 90)),
+    );
+    return ref
+        .where('fecha_hora', isGreaterThanOrEqualTo: hace90Dias)
+        .orderBy('fecha_hora', descending: false)
+        .snapshots();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(empresaId)
-          .collection(collectionId)
-          .orderBy('fecha_hora', descending: false)
-          .snapshots(),
+      stream: _buildStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -69,6 +100,47 @@ class ModuloReservas extends StatelessWidget {
                           _miniKpi('Canceladas',  '${canceladas.length}',  const Color(0xFFD32F2F)),
                           _divider(),
                           _miniKpi('Total',       '${docs.length}',        const Color(0xFF1976D2)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Banner filtro activo / historial ───────────────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _mostrarHistorial ? Icons.history : Icons.filter_list,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _mostrarHistorial
+                                  ? 'Mostrando historial completo'
+                                  : 'Mostrando últimos 90 días + futuras',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: Icon(
+                              _mostrarHistorial ? Icons.filter_list : Icons.history,
+                              size: 14,
+                            ),
+                            label: Text(
+                              _mostrarHistorial ? 'Ver recientes' : 'Ver historial',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            onPressed: () => setState(() => _mostrarHistorial = !_mostrarHistorial),
+                          ),
                         ],
                       ),
                     ),

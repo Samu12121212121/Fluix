@@ -49,6 +49,7 @@ class FacturaRecibida {
   final double baseImponible;
   final double porcentajeIva;           // 21, 10, 0, 4
   final double importeIva;              // baseImponible × (porcentajeIva/100)
+  final double importeNoSujeto;         // Importe no sujeto a IVA (BUG#6 fix)
   final bool ivaDeducible;              // true: deducible, false: no deducible
   final double descuentoGlobal;         // % descuento
   final double recargoEquivalencia;     // % recargo (mayoristas)
@@ -103,6 +104,7 @@ class FacturaRecibida {
     required this.baseImponible,
     this.porcentajeIva = 21.0,
     required this.importeIva,
+    this.importeNoSujeto = 0,
     this.ivaDeducible = true,
     this.descuentoGlobal = 0,
     this.recargoEquivalencia = 0,
@@ -146,6 +148,7 @@ class FacturaRecibida {
     double? baseImponible,
     double? porcentajeIva,
     double? importeIva,
+    double? importeNoSujeto,
     bool? ivaDeducible,
     double? descuentoGlobal,
     double? recargoEquivalencia,
@@ -184,6 +187,7 @@ class FacturaRecibida {
         baseImponible: baseImponible ?? this.baseImponible,
         porcentajeIva: porcentajeIva ?? this.porcentajeIva,
         importeIva: importeIva ?? this.importeIva,
+        importeNoSujeto: importeNoSujeto ?? this.importeNoSujeto,
         ivaDeducible: ivaDeducible ?? this.ivaDeducible,
         descuentoGlobal: descuentoGlobal ?? this.descuentoGlobal,
         recargoEquivalencia: recargoEquivalencia ?? this.recargoEquivalencia,
@@ -227,6 +231,7 @@ class FacturaRecibida {
       baseImponible: (d['base_imponible'] as num?)?.toDouble() ?? 0,
       porcentajeIva: (d['porcentaje_iva'] as num?)?.toDouble() ?? 21.0,
       importeIva: (d['importe_iva'] as num?)?.toDouble() ?? 0,
+      importeNoSujeto: (d['importe_no_sujeto'] as num?)?.toDouble() ?? 0,
       ivaDeducible: d['iva_deducible'] ?? true,
       descuentoGlobal: (d['descuento_global'] as num?)?.toDouble() ?? 0,
       recargoEquivalencia: (d['recargo_equivalencia'] as num?)?.toDouble() ?? 0,
@@ -273,6 +278,7 @@ class FacturaRecibida {
     'base_imponible': baseImponible,
     'porcentaje_iva': porcentajeIva,
     'importe_iva': importeIva,
+    'importe_no_sujeto': importeNoSujeto,
     'iva_deducible': ivaDeducible,
     'descuento_global': descuentoGlobal,
     'recargo_equivalencia': recargoEquivalencia,

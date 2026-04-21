@@ -2,50 +2,119 @@ import 'dart:typed_data';
 import '../../domain/modelos/factura.dart';
 import '../../domain/modelos/factura_recibida.dart';
 
-// ── UMBRAL LEGAL ──────────────────────────────────────────────────────────────
-const double _kUmbral347 = 3005.06; // Importe mínimo (artículo 33 RD 1065/2007)
+// ── CONSTANTES ────────────────────────────────────────────────────────────────
+const double _kUmbral347 = 3005.06; // Art. 33 RD 1065/2007
 const int _kRegistroLen = 500;
 
-// ── MODELOS ───────────────────────────────────────────────────────────────────
+// ── ENUMS ─────────────────────────────────────────────────────────────────────
 
-enum TipoOperacion347 {
-  compra('A', 'Compra a proveedor'),   // A = adquirente
-  venta('V', 'Venta a cliente'),       // V = vendedor / proveedor de quien declara
-  arrendamiento('A', 'Arrendamiento inmueble');
+/// Clave de operación oficial AEAT Mod.347 (corregida según BOE).
+/// A=adquisiciones (compras), B=entregas (ventas), C=cobros por cuenta terceros.
+enum ClaveOperacion347 {
+  adquisiciones('A', 'Adquisiciones bienes/servicios'),
+  entregas('B', 'Entregas bienes/servicios'),
+  cobros('C', 'Cobros por cuenta terceros');
 
   final String codigo;
   final String etiqueta;
-  const TipoOperacion347(this.codigo, this.etiqueta);
+  const ClaveOperacion347(this.codigo, this.etiqueta);
 }
 
-/// Operación consolidada con un tercero (proveedor o cliente)
+enum SituacionInmueble {
+  conRefCatastral('1'),
+  paisVascaNavarra('2'),
+  sinRefCatastral('3'),
+  extranjero('4');
+
+  final String codigo;
+  const SituacionInmueble(this.codigo);
+}
+
+// ── MODELOS ───────────────────────────────────────────────────────────────────
+
+class ImportesTrimestral {
+  final double t1;
+  final double t2;
+  final double t3;
+  final double t4;
+
+  const ImportesTrimestral({
+    this.t1 = 0, this.t2 = 0, this.t3 = 0, this.t4 = 0,
+  });
+
+  double get total => t1 + t2 + t3 + t4;
+}
+
 class Operacion347 {
   final String nifTercero;
   final String nombreTercero;
-  final TipoOperacion347 tipo;
-  final double baseImponibleAnual;
-  final double ivaAnual;
-  final double totalAnual;
-  final int numOperaciones;
+  final ClaveOperacion347 clave;
+  final double totalAnual; // IVA incluido, en EUROS
+  final ImportesTrimestral trimestres;
+  final bool esArrendamiento;
   final bool superaUmbral;
+  // Datos NIF comunitario (pos 264-280)
+  final String? codigoPaisNifComunitario;
+  final String? numeroNifComunitario;
 
   const Operacion347({
     required this.nifTercero,
     required this.nombreTercero,
-    required this.tipo,
-    required this.baseImponibleAnual,
-    required this.ivaAnual,
+    required this.clave,
     required this.totalAnual,
-    required this.numOperaciones,
-    required this.superaUmbral,
+    required this.trimestres,
+    this.esArrendamiento = false,
+    this.superaUmbral = false,
+    this.codigoPaisNifComunitario,
+    this.numeroNifComunitario,
   });
 }
 
-/// Resumen completo MOD 347
+class InmuebleArrendado {
+  final String nifArrendatario;
+  final String nombreArrendatario;
+  final double importeAnual; // EUROS
+  final SituacionInmueble situacion;
+  final String? refCatastral;
+  final String? tipoVia;
+  final String? nombreVia;
+  final String? numero;
+  final String? bloque;
+  final String? escalera;
+  final String? planta;
+  final String? puerta;
+  final String? municipio;
+  final String? codigoMunicipioINE;
+  final String? codigoPostal;
+  final String? provincia;
+  final String? codigoProvinciaINE;
+
+  const InmuebleArrendado({
+    required this.nifArrendatario,
+    required this.nombreArrendatario,
+    required this.importeAnual,
+    this.situacion = SituacionInmueble.sinRefCatastral,
+    this.refCatastral,
+    this.tipoVia,
+    this.nombreVia,
+    this.numero,
+    this.bloque,
+    this.escalera,
+    this.planta,
+    this.puerta,
+    this.municipio,
+    this.codigoMunicipioINE,
+    this.codigoPostal,
+    this.provincia,
+    this.codigoProvinciaINE,
+  });
+}
+
 class Resumen347 {
   final int anio;
-  final List<Operacion347> operacionesVenta;    // Clientes > umbral
-  final List<Operacion347> operacionesCompra;   // Proveedores > umbral
+  final List<Operacion347> operacionesVenta;   // clave B
+  final List<Operacion347> operacionesCompra;  // clave A
+  final List<InmuebleArrendado> inmuebles;
   final double totalVentas;
   final double totalCompras;
   final int numDeclaraciones;
@@ -54,6 +123,7 @@ class Resumen347 {
     required this.anio,
     required this.operacionesVenta,
     required this.operacionesCompra,
+    this.inmuebles = const [],
     required this.totalVentas,
     required this.totalCompras,
     required this.numDeclaraciones,
@@ -63,230 +133,312 @@ class Resumen347 {
 // ── EXPORTADOR ────────────────────────────────────────────────────────────────
 
 class Mod347Exporter {
-  /// Calcula todas las operaciones del ejercicio y agrupa por tercero.
+  // ── CÁLCULO ──────────────────────────────────────────────────────────────
+
   static Resumen347 calcular({
     required int anio,
     required List<Factura> facturasEmitidas,
     required List<FacturaRecibida> facturasRecibidas,
   }) {
-    // ── VENTAS (facturas emitidas) ───────────────────────────────────────────
-    final mapaVentas = <String, Map<String, dynamic>>{};
-
+    // VENTAS (clave B)
+    final mapaVentas = <String, _Acumulado>{};
     for (final f in facturasEmitidas) {
       if (f.estado == EstadoFactura.anulada) continue;
       final nif = f.datosFiscales?.nif;
-      if (nif == null || nif.isEmpty) continue; // Sin NIF no declarable
-
-      mapaVentas.putIfAbsent(nif, () => {
-        'nif': nif,
-        'nombre': f.datosFiscales?.razonSocial ?? f.clienteNombre,
-        'base': 0.0,
-        'iva': 0.0,
-        'total': 0.0,
-        'num': 0,
-      });
-
-      mapaVentas[nif]!['base'] =
-          (mapaVentas[nif]!['base'] as double) + f.subtotal;
-      mapaVentas[nif]!['iva'] =
-          (mapaVentas[nif]!['iva'] as double) + f.totalIva;
-      mapaVentas[nif]!['total'] =
-          (mapaVentas[nif]!['total'] as double) + f.total;
-      mapaVentas[nif]!['num'] = (mapaVentas[nif]!['num'] as int) + 1;
+      if (nif == null || nif.isEmpty) continue;
+      if (f.datosFiscales?.esIntracomunitario ?? false) continue; // → 349
+      final acum = mapaVentas.putIfAbsent(nif, () => _Acumulado(
+        nif: nif,
+        nombre: f.datosFiscales?.razonSocial ?? f.clienteNombre,
+      ));
+      acum.add(_trimestre(f.fechaEmision), f.total);
     }
 
-    // ── COMPRAS (facturas recibidas) ─────────────────────────────────────────
-    final mapaCompras = <String, Map<String, dynamic>>{};
-
+    // COMPRAS (clave A)
+    final mapaCompras = <String, _Acumulado>{};
     for (final f in facturasRecibidas) {
       if (f.estado == EstadoFacturaRecibida.rechazada) continue;
       final nif = f.nifProveedor;
       if (nif.isEmpty) continue;
-
-      mapaCompras.putIfAbsent(nif, () => {
-        'nif': nif,
-        'nombre': f.nombreProveedor,
-        'base': 0.0,
-        'iva': 0.0,
-        'total': 0.0,
-        'num': 0,
-      });
-
-      mapaCompras[nif]!['base'] =
-          (mapaCompras[nif]!['base'] as double) + f.baseImponible;
-      mapaCompras[nif]!['iva'] =
-          (mapaCompras[nif]!['iva'] as double) + f.importeIva;
-      mapaCompras[nif]!['total'] =
-          (mapaCompras[nif]!['total'] as double) + f.totalConImpuestos;
-      mapaCompras[nif]!['num'] = (mapaCompras[nif]!['num'] as int) + 1;
+      if (f.esArrendamiento && (f.importeRetencion ?? 0) > 0) continue; // → 115/180
+      if (f.esIntracomunitario) continue;                      // → 349
+      final acum = mapaCompras.putIfAbsent(nif, () => _Acumulado(
+        nif: nif,
+        nombre: f.nombreProveedor,
+      ));
+      acum.add(_trimestre(f.fechaRecepcion), f.totalConImpuestos);
     }
 
-    // ── CONSTRUIR LISTAS ─────────────────────────────────────────────────────
-    List<Operacion347> _toList(
-      Map<String, Map<String, dynamic>> mapa,
-      TipoOperacion347 tipo,
-    ) =>
-        mapa.values.map((m) {
-          final total = m['total'] as double;
-          return Operacion347(
-            nifTercero: m['nif'] as String,
-            nombreTercero: m['nombre'] as String,
-            tipo: tipo,
-            baseImponibleAnual: m['base'] as double,
-            ivaAnual: m['iva'] as double,
-            totalAnual: total,
-            numOperaciones: m['num'] as int,
-            superaUmbral: total >= _kUmbral347,
-          );
-        }).toList()
-          ..sort((a, b) => b.totalAnual.compareTo(a.totalAnual));
+    List<Operacion347> _toOps(_Acumulado a, ClaveOperacion347 clave) {
+      final trim = ImportesTrimestral(
+        t1: _r2(a.t1), t2: _r2(a.t2),
+        t3: _r2(a.t3), t4: _r2(a.t4),
+      );
+      final total = _r2(trim.total);
+      return [
+        Operacion347(
+          nifTercero: a.nif,
+          nombreTercero: a.nombre,
+          clave: clave,
+          totalAnual: total,
+          trimestres: trim,
+          superaUmbral: total >= _kUmbral347,
+        )
+      ];
+    }
 
-    final ventas = _toList(mapaVentas, TipoOperacion347.venta);
-    final compras = _toList(mapaCompras, TipoOperacion347.compra);
+    final ventas = mapaVentas.values
+        .expand((a) => _toOps(a, ClaveOperacion347.entregas))
+        .where((o) => o.superaUmbral)
+        .toList()
+      ..sort((a, b) => b.totalAnual.compareTo(a.totalAnual));
 
-    // Solo declarables (> umbral)
-    final ventasDeclarables = ventas.where((o) => o.superaUmbral).toList();
-    final comprasDeclarables = compras.where((o) => o.superaUmbral).toList();
+    final compras = mapaCompras.values
+        .expand((a) => _toOps(a, ClaveOperacion347.adquisiciones))
+        .where((o) => o.superaUmbral)
+        .toList()
+      ..sort((a, b) => b.totalAnual.compareTo(a.totalAnual));
 
     return Resumen347(
       anio: anio,
-      operacionesVenta: ventasDeclarables,
-      operacionesCompra: comprasDeclarables,
-      totalVentas: ventasDeclarables.fold(0, (s, o) => s + o.totalAnual),
-      totalCompras: comprasDeclarables.fold(0, (s, o) => s + o.totalAnual),
-      numDeclaraciones:
-          ventasDeclarables.length + comprasDeclarables.length,
+      operacionesVenta: ventas,
+      operacionesCompra: compras,
+      totalVentas: ventas.fold(0, (s, o) => s + o.totalAnual),
+      totalCompras: compras.fold(0, (s, o) => s + o.totalAnual),
+      numDeclaraciones: ventas.length + compras.length,
     );
   }
 
-  /// Genera fichero MOD 347 en formato posicional AEAT oficial.
-  /// Registros de 500 caracteres, encoding ISO-8859-1, terminador CRLF.
+  // ── GENERACIÓN FICHERO ────────────────────────────────────────────────────
+
+  /// Genera el fichero MOD 347 posicional AEAT.
+  /// 500 chars + CRLF por registro, ISO-8859-1, importes en EUROS con decimal.
   static Uint8List generarFichero({
     required String nifDeclarante,
     required String nombreDeclarante,
     required Resumen347 resumen,
+    String telefonoContacto = '',
+    String nombreContacto = '',
+    String? nifRepresentanteLegal,
+    bool esComplementaria = false,
+    bool esSustitutiva = false,
+    String? nDeclaracionAnterior,
   }) {
     final lineas = <String>[
-      _registroDeclarante(nifDeclarante, nombreDeclarante, resumen),
+      _tipo1(
+        nifDeclarante: nifDeclarante,
+        nombreDeclarante: nombreDeclarante,
+        resumen: resumen,
+        telefono: telefonoContacto,
+        contacto: nombreContacto,
+        nifRepresentante: nifRepresentanteLegal,
+        complementaria: esComplementaria,
+        sustitutiva: esSustitutiva,
+        nDeclaracionAnterior: nDeclaracionAnterior,
+      ),
+      for (final op in [...resumen.operacionesVenta, ...resumen.operacionesCompra])
+        _tipo2Declarado(nifDeclarante, resumen.anio, op),
+      for (final inm in resumen.inmuebles)
+        _tipo2Inmueble(nifDeclarante, resumen.anio, inm),
     ];
 
-    for (final op in resumen.operacionesVenta) {
-      lineas.add(_registroOperacion(nifDeclarante, resumen.anio, op));
-    }
-    for (final op in resumen.operacionesCompra) {
-      lineas.add(_registroOperacion(nifDeclarante, resumen.anio, op));
-    }
-
-    final contenido = '${lineas.join('\r\n')}\r\n';
-    return _encodeIso88591(contenido);
+    return _encodeIso88591('${lineas.join('\r\n')}\r\n');
   }
 
-  /// Genera fichero como String (para tests y retrocompatibilidad).
   static String generarFicheroTexto({
     required String nifDeclarante,
     required String nombreDeclarante,
     required Resumen347 resumen,
+  }) =>
+      String.fromCharCodes(generarFichero(
+        nifDeclarante: nifDeclarante,
+        nombreDeclarante: nombreDeclarante,
+        resumen: resumen,
+      ));
+
+  // ── REGISTRO TIPO 1 ───────────────────────────────────────────────────────
+
+  static String _tipo1({
+    required String nifDeclarante,
+    required String nombreDeclarante,
+    required Resumen347 resumen,
+    String telefono = '',
+    String contacto = '',
+    String? nifRepresentante,
+    bool complementaria = false,
+    bool sustitutiva = false,
+    String? nDeclaracionAnterior,
   }) {
-    final bytes = generarFichero(
-      nifDeclarante: nifDeclarante,
-      nombreDeclarante: nombreDeclarante,
-      resumen: resumen,
-    );
-    return String.fromCharCodes(bytes);
-  }
-
-  // ── REGISTRO TIPO 1 — DECLARANTE (500 chars) ─────────────────────────────
-
-  static String _registroDeclarante(
-    String nif,
-    String nombre,
-    Resumen347 r,
-  ) {
-    final buf = List<String>.filled(_kRegistroLen, ' ');
-
-    // Pos 1:     Tipo registro = "1"
-    _write(buf, 0, '1');
-    // Pos 2-4:   Modelo = "347"
-    _write(buf, 1, '347');
-    // Pos 5-8:   Ejercicio
-    _write(buf, 4, r.anio.toString().padLeft(4, '0'));
-    // Pos 9-17:  NIF declarante (9 chars)
-    _write(buf, 8, _padAlpha(_cleanNif(nif), 9));
-    // Pos 18-57: Razón social (40 chars)
-    _write(buf, 17, _padAlpha(_normalizarTexto(nombre), 40));
-    // Pos 58-58: Complementaria (S/N) — siempre N para generación normal
-    _write(buf, 57, 'N');
-    // Pos 59-72: Nº justificante anterior (14 dígitos, ceros si no aplica)
-    _write(buf, 58, ''.padLeft(14, '0'));
-    // Pos 73-85: Total importe operaciones (13 dígitos, céntimos, sin signo)
-    _write(buf, 72, _importeCentimos(r.totalVentas + r.totalCompras, 13));
-    // Pos 86-91: Nº total de operadores declarados (6 dígitos)
-    _write(buf, 85, r.numDeclaraciones.toString().padLeft(6, '0'));
-    // Pos 92-500: Blancos (ya inicializado a espacios)
-
+    final buf = _buf();
+    _w(buf, 0, '1');
+    _w(buf, 1, '347');
+    _w(buf, 4, resumen.anio.toString().padLeft(4, '0'));
+    _w(buf, 8, _nif9(nifDeclarante));
+    _w(buf, 17, _al(_norm(nombreDeclarante), 40));
+    _w(buf, 57, 'T'); // soporte telemático
+    _w(buf, 58, _soloDigitos(telefono).padLeft(9, '0'));
+    _w(buf, 67, _al(_norm(contacto), 40));
+    // pos 108-120: número identificativo (13 chars)
+    final numId = '347${resumen.anio}${_soloDigitos(_nif9(nifDeclarante))}'.padRight(13).substring(0, 13);
+    _w(buf, 107, numId);
+    _w(buf, 120, complementaria ? 'C' : ' ');
+    _w(buf, 121, sustitutiva ? 'S' : ' ');
+    _w(buf, 122, _soloDigitos(nDeclaracionAnterior ?? '').padLeft(13, '0'));
+    // pos 136-144: total personas/entidades (9 dígitos)
+    final totalEntidades = resumen.numDeclaraciones + resumen.inmuebles.length;
+    _w(buf, 135, totalEntidades.toString().padLeft(9, '0'));
+    // pos 145: signo importe total
+    final importeTotal = resumen.totalVentas + resumen.totalCompras;
+    _w(buf, 144, importeTotal < 0 ? 'N' : ' ');
+    // pos 146-158: entera (13d), pos 159-160: decimal (2d)
+    _wImporteDecimal(buf, 145, importeTotal.abs());
+    // pos 161-169: total inmuebles
+    _w(buf, 160, resumen.inmuebles.length.toString().padLeft(9, '0'));
+    // pos 170: signo arrendamientos
+    final importeAlq = resumen.inmuebles.fold<double>(0, (s, i) => s + i.importeAnual);
+    _w(buf, 169, importeAlq < 0 ? 'N' : ' ');
+    // pos 171-183: entera (13d), pos 184-185: decimal (2d)
+    _wImporteDecimal(buf, 170, importeAlq.abs());
+    // pos 391-399: NIF representante legal
+    if (nifRepresentante != null && nifRepresentante.isNotEmpty) {
+      _w(buf, 390, _nif9(nifRepresentante));
+    }
     assert(buf.length == _kRegistroLen);
     return buf.join();
   }
 
-  // ── REGISTRO TIPO 2 — OPERADOR (500 chars) ───────────────────────────────
+  // ── REGISTRO TIPO 2 — DECLARADO (hoja D) ─────────────────────────────────
 
-  static String _registroOperacion(
-    String nifDeclarante,
-    int anio,
-    Operacion347 op,
-  ) {
-    final buf = List<String>.filled(_kRegistroLen, ' ');
+  static String _tipo2Declarado(String nifDeclarante, int anio, Operacion347 op) {
+    final buf = _buf();
+    _w(buf, 0, '2');
+    _w(buf, 1, '347');
+    _w(buf, 4, anio.toString().padLeft(4, '0'));
+    _w(buf, 8, _nif9(nifDeclarante));
+    _w(buf, 17, _nif9(op.nifTercero));
+    // pos 27-35: NIF representante declarado (blancos)
+    _w(buf, 35, _al(_norm(op.nombreTercero), 40)); // pos 36-75
+    _w(buf, 75, 'D'); // pos 76: tipo hoja
+    _w(buf, 76, '28'); // pos 77-78: código provincia (default 28=Madrid)
+    // pos 79-80: código país ISO (blancos para residentes)
+    _w(buf, 80, ' '); // pos 81: blanco
+    _w(buf, 81, op.clave.codigo); // pos 82: clave
+    _w(buf, 82, op.totalAnual < 0 ? 'N' : ' '); // pos 83: signo
+    // pos 84-96: entera(13d), pos 97-98: decimal(2d)
+    _wImporteDecimal(buf, 83, op.totalAnual.abs());
+    _w(buf, 98, ' '); // pos 99: operación seguro
+    _w(buf, 99, op.esArrendamiento ? 'X' : ' '); // pos 100: arrendamiento
+    _w(buf, 100, '0' * 15); // pos 101-115: importe metálico
+    _w(buf, 115, '0' * 16); // pos 116-131: transmisiones inmuebles IVA
+    _w(buf, 131, '0000'); // pos 132-135: ejercicio cobro metálico
+    // Desglose trimestral (pos 136-263): signo(1)+entera(13)+decimal(2)=16 por trimestre
+    // + transmisiones inmuebles por trimestre: 16 → total 32 por trimestre
+    _wTrimestreDecimal(buf, 135, op.trimestres.t1); // pos 136-151
+    _w(buf, 151, '0' * 16);                          // pos 152-167
+    _wTrimestreDecimal(buf, 167, op.trimestres.t2); // pos 168-183
+    _w(buf, 183, '0' * 16);                          // pos 184-199
+    _wTrimestreDecimal(buf, 199, op.trimestres.t3); // pos 200-215
+    _w(buf, 215, '0' * 16);                          // pos 216-231
+    _wTrimestreDecimal(buf, 231, op.trimestres.t4); // pos 232-247
+    _w(buf, 247, '0' * 16);                          // pos 248-263
+    // pos 264-265: código país NIF comunitario
+    if (op.codigoPaisNifComunitario != null) {
+      _w(buf, 263, _al(op.codigoPaisNifComunitario!, 2));
+    }
+    // pos 266-280: número NIF comunitario (15 chars izquierda)
+    if (op.numeroNifComunitario != null) {
+      _w(buf, 265, _al(op.numeroNifComunitario!, 15));
+    }
+    assert(buf.length == _kRegistroLen);
+    return buf.join();
+  }
 
-    // Pos 1:     Tipo registro = "2"
-    _write(buf, 0, '2');
-    // Pos 2-4:   Modelo = "347"
-    _write(buf, 1, '347');
-    // Pos 5-8:   Ejercicio
-    _write(buf, 4, anio.toString().padLeft(4, '0'));
-    // Pos 9-17:  NIF declarante (9 chars)
-    _write(buf, 8, _padAlpha(_cleanNif(nifDeclarante), 9));
-    // Pos 18-26: NIF tercero (9 chars)
-    _write(buf, 17, _padAlpha(_cleanNif(op.nifTercero), 9));
-    // Pos 27-66: Razón social tercero (40 chars)
-    _write(buf, 26, _padAlpha(_normalizarTexto(op.nombreTercero), 40));
-    // Pos 67-67: Clave operación (A=adquirente/compra, V=vendedor/venta)
-    _write(buf, 66, op.tipo.codigo);
-    // Pos 68-80: Importe anual (13 dígitos, céntimos, sin signo)
-    _write(buf, 67, _importeCentimos(op.totalAnual, 13));
-    // Pos 81-81: Operación seguro (S/N)
-    _write(buf, 80, 'N');
-    // Pos 82-82: Arrendamiento local negocio (S/N)
-    _write(buf, 81, op.tipo == TipoOperacion347.arrendamiento ? 'S' : 'N');
-    // Pos 83-91: NIF representante (9 chars, blancos si no aplica)
-    // Pos 92-500: Blancos
+  // ── REGISTRO TIPO 2 — INMUEBLE (hoja I) ──────────────────────────────────
 
+  static String _tipo2Inmueble(String nifDeclarante, int anio, InmuebleArrendado inm) {
+    final buf = _buf();
+    _w(buf, 0, '2');
+    _w(buf, 1, '347');
+    _w(buf, 4, anio.toString().padLeft(4, '0'));
+    _w(buf, 8, _nif9(nifDeclarante));
+    _w(buf, 17, _nif9(inm.nifArrendatario));
+    // pos 27-35: NIF representante arrendatario (blancos)
+    _w(buf, 35, _al(_norm(inm.nombreArrendatario), 40)); // pos 36-75
+    _w(buf, 75, 'I'); // pos 76: tipo hoja
+    // pos 77-98: BLANCOS (22 chars) — ya inicializados
+    _w(buf, 98, inm.importeAnual < 0 ? 'N' : ' '); // pos 99: signo
+    // pos 100-114: entera(13d)+decimal(2d) = 15 chars (EUROS)
+    _wImporteDecimal(buf, 99, inm.importeAnual.abs());
+    _w(buf, 114, inm.situacion.codigo); // pos 115
+    _w(buf, 115, _al(inm.refCatastral ?? '', 25)); // pos 116-140
+    _w(buf, 140, _al(_norm(inm.tipoVia ?? 'CL'), 5)); // pos 141-145
+    _w(buf, 145, _al(_norm(inm.nombreVia ?? ''), 50)); // pos 146-195
+    _w(buf, 195, _al('NUM', 3)); // pos 196-198
+    final numCasa = _soloDigitos(inm.numero ?? '0').padLeft(5, '0');
+    _w(buf, 198, numCasa.length > 5 ? numCasa.substring(0, 5) : numCasa); // pos 199-203
+    // pos 204-206: calificador (blancos)
+    _w(buf, 206, _al(inm.bloque ?? '', 2)); // pos 207-208
+    // pos 209-210: portal (blancos)
+    _w(buf, 210, _al(inm.escalera ?? '', 2)); // pos 211-212
+    _w(buf, 212, _al(inm.planta ?? '', 3)); // pos 213-215
+    _w(buf, 215, _al(inm.puerta ?? '', 3)); // pos 216-218
+    // pos 219-258: complemento (blancos)
+    _w(buf, 258, _al(_norm(inm.municipio ?? ''), 40)); // pos 259-298
+    _w(buf, 298, _al(inm.codigoMunicipioINE ?? '', 10)); // pos 299-308
+    final cp = _soloDigitos(inm.codigoPostal ?? '').padLeft(5, '0');
+    _w(buf, 308, _al(cp, 10)); // pos 309-318
+    _w(buf, 318, _al(_norm(inm.provincia ?? ''), 10)); // pos 319-328
+    _w(buf, 328, _soloDigitos(inm.codigoProvinciaINE ?? '99').padLeft(2, '0')); // pos 329-330
+    // pos 331-500: blancos
     assert(buf.length == _kRegistroLen);
     return buf.join();
   }
 
   // ── UTILIDADES ────────────────────────────────────────────────────────────
 
-  static void _write(List<String> buf, int pos, String texto) {
+  static List<String> _buf() => List<String>.filled(_kRegistroLen, ' ');
+
+  static void _w(List<String> buf, int pos, String texto) {
     for (var i = 0; i < texto.length && (pos + i) < buf.length; i++) {
       buf[pos + i] = texto[i];
     }
   }
 
-  static String _padAlpha(String valor, int len) {
-    if (valor.length >= len) return valor.substring(0, len);
-    return valor.padRight(len);
+  /// Escribe importe en EUROS: entera (13d) + decimal (2d) en posición pos.
+  static void _wImporteDecimal(List<String> buf, int pos, double importe) {
+    final absVal = importe.abs();
+    final enteros = absVal.truncate();
+    final decimales = ((absVal - enteros) * 100).round();
+    _w(buf, pos, enteros.toString().padLeft(13, '0'));
+    _w(buf, pos + 13, decimales.toString().padLeft(2, '0'));
   }
 
-  /// Convierte euros a céntimos y formatea con ceros a la izquierda.
-  static String _importeCentimos(double euros, int len) {
-    final centimos = (euros.abs() * 100).round();
-    return centimos.toString().padLeft(len, '0');
+  /// Escribe campo trimestral: signo(1) + entera(13) + decimal(2) = 16 chars.
+  static void _wTrimestreDecimal(List<String> buf, int pos, double importe) {
+    _w(buf, pos, importe < 0 ? 'N' : ' ');
+    _wImporteDecimal(buf, pos + 1, importe.abs());
   }
 
-  static String _cleanNif(String nif) =>
-      nif.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  static String _nif9(String nif) {
+    final clean = nif.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    return clean.length >= 9 ? clean.substring(0, 9) : clean.padLeft(9, '0');
+  }
 
-  static String _normalizarTexto(String input) {
+  static String _al(String valor, int len) =>
+      valor.length >= len ? valor.substring(0, len) : valor.padRight(len);
+
+  static String _soloDigitos(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
+
+  static double _r2(double v) => (v * 100).roundToDouble() / 100;
+
+  static int _trimestre(DateTime fecha) {
+    if (fecha.month <= 3) return 1;
+    if (fecha.month <= 6) return 2;
+    if (fecha.month <= 9) return 3;
+    return 4;
+  }
+
+  static String _norm(String input) {
     const map = {
       'á': 'A', 'à': 'A', 'ä': 'A', 'â': 'A',
       'Á': 'A', 'À': 'A', 'Ä': 'A', 'Â': 'A',
@@ -308,8 +460,25 @@ class Mod347Exporter {
     return sb.toString().toUpperCase();
   }
 
-  static Uint8List _encodeIso88591(String s) {
-    return Uint8List.fromList(
-        s.codeUnits.map((c) => c > 255 ? 0x3F : c).toList());
+  static Uint8List _encodeIso88591(String s) =>
+      Uint8List.fromList(s.codeUnits.map((c) => c > 255 ? 0x3F : c).toList());
+}
+
+// ── ACUMULADOR INTERNO ────────────────────────────────────────────────────────
+
+class _Acumulado {
+  final String nif;
+  final String nombre;
+  double t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+
+  _Acumulado({required this.nif, required this.nombre});
+
+  void add(int trimestre, double importe) {
+    switch (trimestre) {
+      case 1: t1 += importe; break;
+      case 2: t2 += importe; break;
+      case 3: t3 += importe; break;
+      case 4: t4 += importe; break;
+    }
   }
 }

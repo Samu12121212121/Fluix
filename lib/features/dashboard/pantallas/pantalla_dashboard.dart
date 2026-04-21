@@ -91,6 +91,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   void initState() {
     super.initState();
     _cargarDatosUsuario();
+
+    // ── Inicializar el servicio completo de notificaciones ───────────────
+    // Se llama aquí (post-login) para que el permiso de notificaciones
+    // se pida cuando el usuario ya está dentro de la app y entiende por qué.
+    NotificacionesService().inicializar();
     
     // Escuchar notificaciones
     _notifSubscription = NotificacionesService().onTap.listen((data) {

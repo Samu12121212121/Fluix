@@ -21,7 +21,12 @@ import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import fetch from "node-fetch";
 export { processInvoice } from "./fiscal/processInvoice";
 export { calculateFiscalModel } from "./fiscal/models/calculateModel";
-export { whatsappWebhook } from "./whatsappBot";
+export {
+  whatsappWebhook,
+  enviarPlantillaWhatsApp,
+  enviarMensajeAdminWhatsApp,
+  cambiarEstadoChatBot,
+} from "./whatsappBot";
 
 // NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
 // "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
@@ -1468,6 +1473,24 @@ export const stripeWebhook = onRequest(
           }
           break;
         }
+        case "invoice.paid": {
+          // Renovación de suscripción pagada — marcar empresa como activa
+          const invoice = event.data.object as Stripe.Invoice;
+          await _procesarInvoicePagado(invoice, db);
+          break;
+        }
+        case "customer.subscription.deleted": {
+          // Suscripción cancelada o impagada — desactivar empresa
+          const subscription = event.data.object as Stripe.Subscription;
+          await _procesarSuscripcionCancelada(subscription, db);
+          break;
+        }
+        case "customer.subscription.updated": {
+          // Cambio de plan, renovación, etc.
+          const subscription = event.data.object as Stripe.Subscription;
+          await _procesarSuscripcionActualizada(subscription, db);
+          break;
+        }
         default:
           console.log(`ℹ️ Evento Stripe ignorado: ${event.type}`);
       }
@@ -1780,6 +1803,125 @@ async function _procesarPaymentIntentExitoso(
 
     console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros}`);
   }
+}
+
+// ── HELPERS STRIPE: SUSCRIPCIONES ────────────────────────────────────────────
+
+/**
+ * invoice.paid — Se dispara en cada renovación de suscripción pagada con éxito.
+ * Actualiza la empresa en Firestore como activa y registra la fecha de próximo vencimiento.
+ */
+async function _procesarInvoicePagado(
+  invoice: Stripe.Invoice,
+  db: admin.firestore.Firestore
+): Promise<void> {
+  const customerId = invoice.customer as string;
+  if (!customerId) return;
+
+  // Buscar empresa por stripe_customer_id
+  const snap = await db
+    .collectionGroup("empresas")
+    .where("stripe_customer_id", "==", customerId)
+    .limit(1)
+    .get();
+
+  // Si no está en collectionGroup, buscar en raíz
+  const rootSnap = snap.empty
+    ? await db.collection("empresas").where("stripe_customer_id", "==", customerId).limit(1).get()
+    : snap;
+
+  if (rootSnap.empty) {
+    console.warn(`⚠️ invoice.paid: No se encontró empresa con stripe_customer_id=${customerId}`);
+    return;
+  }
+
+  const empresaRef = rootSnap.docs[0].ref;
+  const empresaId = rootSnap.docs[0].id;
+
+  const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+  const proximoVencimiento = periodEnd
+    ? admin.firestore.Timestamp.fromDate(new Date(periodEnd * 1000))
+    : null;
+
+  await empresaRef.update({
+    suscripcion_activa: true,
+    suscripcion_estado: "active",
+    suscripcion_proximo_pago: proximoVencimiento,
+    suscripcion_ultima_factura_stripe: invoice.id,
+    fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`✅ [SUSCRIPCIÓN] invoice.paid — empresa ${empresaId} renovada hasta ${proximoVencimiento?.toDate()?.toISOString() ?? "—"}`);
+}
+
+/**
+ * customer.subscription.deleted — Suscripción cancelada por impago o por el usuario.
+ * Marca la empresa como inactiva en Firestore.
+ */
+async function _procesarSuscripcionCancelada(
+  subscription: Stripe.Subscription,
+  db: admin.firestore.Firestore
+): Promise<void> {
+  const customerId = subscription.customer as string;
+  if (!customerId) return;
+
+  const snap = await db
+    .collection("empresas")
+    .where("stripe_customer_id", "==", customerId)
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    console.warn(`⚠️ subscription.deleted: No se encontró empresa con stripe_customer_id=${customerId}`);
+    return;
+  }
+
+  const empresaRef = snap.docs[0].ref;
+  const empresaId = snap.docs[0].id;
+
+  await empresaRef.update({
+    suscripcion_activa: false,
+    suscripcion_estado: "canceled",
+    suscripcion_cancelada_en: admin.firestore.FieldValue.serverTimestamp(),
+    fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`🔴 [SUSCRIPCIÓN] subscription.deleted — empresa ${empresaId} DESACTIVADA`);
+}
+
+/**
+ * customer.subscription.updated — Cambio de plan, pausa, renovación automática.
+ * Sincroniza el estado de la suscripción con Firestore.
+ */
+async function _procesarSuscripcionActualizada(
+  subscription: Stripe.Subscription,
+  db: admin.firestore.Firestore
+): Promise<void> {
+  const customerId = subscription.customer as string;
+  if (!customerId) return;
+
+  const snap = await db
+    .collection("empresas")
+    .where("stripe_customer_id", "==", customerId)
+    .limit(1)
+    .get();
+
+  if (snap.empty) return;
+
+  const empresaRef = snap.docs[0].ref;
+  const empresaId = snap.docs[0].id;
+  const estado = subscription.status; // "active" | "past_due" | "canceled" | "trialing" | etc.
+
+  await empresaRef.update({
+    suscripcion_activa: estado === "active" || estado === "trialing",
+    suscripcion_estado: estado,
+    suscripcion_proximo_pago: subscription.current_period_end
+      ? admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000))
+      : null,
+    fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`🔄 [SUSCRIPCIÓN] subscription.updated — empresa ${empresaId} estado=${estado}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

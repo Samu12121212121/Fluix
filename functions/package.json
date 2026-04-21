@@ -12,7 +12,7 @@
     "migrate:fase1": "ts-node --project scripts/tsconfig.scripts.json scripts/migrate_fase1.ts"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "lib/index.js",
   "dependencies": {

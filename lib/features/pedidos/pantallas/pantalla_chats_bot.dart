@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../../domain/modelos/bot_chat.dart';
 import '../../../services/chatbot_service.dart';
 import 'configurar_bot_whatsapp_screen.dart';
@@ -25,7 +27,7 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -127,16 +129,18 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
           unselectedLabelColor: Colors.white60,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: '💬 Conversaciones'),
-            Tab(text: '🤖 Respuestas Bot'),
+            Tab(text: '🤖 Activos'),
+            Tab(text: '👤 Derivados'),
+            Tab(text: '✅ Resueltos'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabs,
         children: [
-          _TabConversaciones(empresaId: widget.empresaId, svc: _svc),
-          _TabRespuestasBot(empresaId: widget.empresaId, svc: _svc),
+          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'activo'),
+          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'derivado'),
+          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'resuelto'),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -201,151 +205,168 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
 class _TabConversaciones extends StatelessWidget {
   final String empresaId;
   final ChatbotService svc;
-  const _TabConversaciones({required this.empresaId, required this.svc});
+  final String filtroEstado; // 'activo' | 'derivado' | 'resuelto'
+  const _TabConversaciones({
+    required this.empresaId,
+    required this.svc,
+    required this.filtroEstado,
+  });
+
+  Stream<QuerySnapshot> get _streamFirestore =>
+      FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('chats_bot')
+          .where('estado', isEqualTo: filtroEstado)
+          .orderBy('fecha_ultimo_mensaje', descending: true)
+          .snapshots();
+
+  Color get _colorEstado {
+    switch (filtroEstado) {
+      case 'derivado':  return const Color(0xFFF57C00);
+      case 'resuelto':  return Colors.grey;
+      default:          return const Color(0xFF25D366);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Chat>>(
-      stream: svc.chatsStream(empresaId),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _streamFirestore,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final chats = snap.data ?? [];
-        if (chats.isEmpty) {
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.chat_bubble_outline, size: 72, color: Colors.grey[300]),
                 const SizedBox(height: 16),
-                Text('Sin conversaciones aún',
+                Text('Sin chats $filtroEstados',
                     style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-                const SizedBox(height: 8),
-                Text('Pulsa el botón "+" para iniciar un chat de prueba',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13)),
               ],
             ),
           );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(12),
-          itemCount: chats.length,
-          itemBuilder: (_, i) => _tarjetaChat(context, chats[i]),
+          itemCount: docs.length,
+          itemBuilder: (_, i) {
+            final data = docs[i].data() as Map<String, dynamic>;
+            final chatId          = docs[i].id;
+            final clienteNombre   = data['cliente_nombre']   as String? ?? 'Cliente';
+            final clienteTelefono = data['cliente_telefono'] as String? ?? '';
+            final totalMensajes   = data['total_mensajes']   as int?    ?? 0;
+            final sinLeer         = data['mensajes_sin_leer'] as int?   ?? 0;
+            final fechaTs         = data['fecha_ultimo_mensaje'] as Timestamp?;
+            final fechaStr = fechaTs != null
+                ? _formatFecha(fechaTs.toDate())
+                : '';
+
+            // Construir un Chat mínimo para reutilizar la pantalla de detalle
+            final chatMinimo = Chat(
+              id: chatId,
+              empresaId: empresaId,
+              clienteNombre: clienteNombre,
+              telefono: clienteTelefono.isNotEmpty ? clienteTelefono : null,
+              canal: CanalChat.whatsapp,
+              estado: filtroEstado == 'activo' ? EstadoChat.activo : EstadoChat.cerrado,
+              fechaInicio: fechaTs?.toDate() ?? DateTime.now(),
+              ultimoMensaje: fechaTs?.toDate(),
+              mensajesSinLeer: sinLeer,
+            );
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: sinLeer > 0 ? 3 : 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: sinLeer > 0
+                    ? BorderSide(color: _colorEstado, width: 1.5)
+                    : BorderSide.none,
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                leading: Stack(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: _colorEstado.withAlpha(30),
+                      child: Text(
+                        clienteNombre.isNotEmpty ? clienteNombre[0].toUpperCase() : '?',
+                        style: TextStyle(color: _colorEstado, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (sinLeer > 0)
+                      Positioned(
+                        right: 0, top: 0,
+                        child: Container(
+                          width: 14, height: 14,
+                          decoration: BoxDecoration(color: _colorEstado, shape: BoxShape.circle),
+                          child: Center(
+                            child: Text('$sinLeer',
+                                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                title: Row(
+                  children: [
+                    Expanded(child: Text(clienteNombre,
+                        style: TextStyle(fontWeight: sinLeer > 0 ? FontWeight.bold : FontWeight.w600, fontSize: 14))),
+                    Text(fechaStr, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  ],
+                ),
+                subtitle: Text(
+                  '+$clienteTelefono · $totalMensajes mensajes',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                trailing: sinLeer > 0
+                    ? Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: _colorEstado, shape: BoxShape.circle),
+                        child: Text('$sinLeer',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      )
+                    : null,
+                onTap: () {
+                  svc.marcarLeido(empresaId, chatId);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => PantallaDetalleChat(
+                      chat: chatMinimo,
+                      empresaId: empresaId,
+                      estadoActual: filtroEstado,
+                      telefonoCliente: clienteTelefono,
+                    ),
+                  ));
+                },
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _tarjetaChat(BuildContext context, Chat chat) {
-    final sinLeer = chat.mensajesSinLeer > 0;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: sinLeer ? 3 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: sinLeer
-            ? const BorderSide(color: Color(0xFF25D366), width: 1.5)
-            : BorderSide.none,
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: Stack(
-          children: [
-            CircleAvatar(
-              backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
-              child: Text(
-                chat.clienteNombre.isNotEmpty
-                    ? chat.clienteNombre[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                    color: Color(0xFF25D366), fontWeight: FontWeight.bold),
-              ),
-            ),
-            if (sinLeer)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const BoxDecoration(
-                      color: Color(0xFF25D366), shape: BoxShape.circle),
-                  child: Center(
-                    child: Text('${chat.mensajesSinLeer}',
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 8,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        title: Text(chat.clienteNombre,
-            style: TextStyle(
-                fontWeight: sinLeer ? FontWeight.bold : FontWeight.w600,
-                fontSize: 14)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (chat.telefono != null)
-              Text(chat.telefono!,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-            if (chat.ultimoTexto != null)
-              Text(chat.ultimoTexto!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: sinLeer ? Colors.black87 : Colors.grey[600])),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (chat.ultimoMensaje != null)
-              Text(
-                DateFormat('HH:mm').format(chat.ultimoMensaje!),
-                style: TextStyle(
-                    fontSize: 11,
-                    color: sinLeer
-                        ? const Color(0xFF25D366)
-                        : Colors.grey[500]),
-              ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: chat.estado == EstadoChat.activo
-                    ? const Color(0xFF25D366).withValues(alpha: 0.1)
-                    : Colors.grey.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                chat.estado == EstadoChat.activo ? 'Activo' : 'Cerrado',
-                style: TextStyle(
-                    fontSize: 10,
-                    color: chat.estado == EstadoChat.activo
-                        ? const Color(0xFF25D366)
-                        : Colors.grey),
-              ),
-            ),
-          ],
-        ),
-        onTap: () {
-          svc.marcarLeido(empresaId, chat.id);
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) =>
-                PantallaDetalleChat(chat: chat, empresaId: empresaId),
-          ));
-        },
-      ),
-    );
+  String get filtroEstados => filtroEstado == 'activo'
+      ? 'activos'
+      : filtroEstado == 'derivado'
+          ? 'derivados al equipo'
+          : 'resueltos';
+
+  String _formatFecha(DateTime dt) {
+    final ahora = DateTime.now();
+    if (dt.year == ahora.year && dt.month == ahora.month && dt.day == ahora.day) {
+      return DateFormat('HH:mm').format(dt);
+    }
+    return DateFormat('dd/MM').format(dt);
   }
 }
 
-// ── Tab respuestas bot ────────────────────────────────────────────────────────
+// ── Tab respuestas bot (configuración de palabras clave) ─────────────────────
 
 class _TabRespuestasBot extends StatelessWidget {
   final String empresaId;
@@ -523,8 +544,16 @@ class _TabRespuestasBot extends StatelessWidget {
 class PantallaDetalleChat extends StatefulWidget {
   final Chat chat;
   final String empresaId;
-  const PantallaDetalleChat(
-      {super.key, required this.chat, required this.empresaId});
+  final String estadoActual;
+  final String telefonoCliente;
+
+  const PantallaDetalleChat({
+    super.key,
+    required this.chat,
+    required this.empresaId,
+    this.estadoActual = 'activo',
+    this.telefonoCliente = '',
+  });
 
   @override
   State<PantallaDetalleChat> createState() => _PantallaDetalleChatState();
@@ -536,6 +565,16 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
   final ScrollController _scroll = ScrollController();
   bool _enviando = false;
   bool _modoAgente = false;
+  bool _cambiandoEstado = false;
+  late String _estadoActual;
+
+  @override
+  void initState() {
+    super.initState();
+    _estadoActual = widget.estadoActual;
+    // Si el chat ya está derivado, activar modo agente automáticamente
+    if (_estadoActual == 'derivado') _modoAgente = true;
+  }
 
   @override
   void dispose() {
@@ -580,6 +619,18 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
           ],
         ),
         actions: [
+          // Botón cambiar estado (Resolver / Reactivar)
+          if (_estadoActual != 'resuelto')
+            _cambiandoEstado
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+                : IconButton(
+                    icon: const Icon(Icons.check_circle_outline),
+                    tooltip: 'Marcar resuelto',
+                    onPressed: () => _cambiarEstado('resuelto'),
+                  ),
           // Toggle modo agente / bot
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -602,19 +653,50 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
           ),
         ],
       ),
+      // FAB "Tomar conversación" — visible solo cuando el bot gestiona el chat
+      floatingActionButton: _estadoActual == 'activo'
+          ? FloatingActionButton.extended(
+              heroTag: 'fab_tomar',
+              backgroundColor: const Color(0xFFF57C00),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_outlined),
+              label: const Text('Tomar conversación'),
+              onPressed: () => _cambiarEstado('derivado'),
+            )
+          : null,
       body: Column(
         children: [
-          // Banner modo agente
-          if (_modoAgente)
+          // Banner estado del chat
+          if (_estadoActual == 'derivado')
             Container(
-              color: Colors.orange[100],
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: Colors.orange[50],
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   const Icon(Icons.person, size: 16, color: Colors.orange),
                   const SizedBox(width: 8),
                   const Expanded(
+                    child: Text(
+                      '👤 Chat derivado al equipo — el bot no responde',
+                      style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _cambiarEstado('activo'),
+                    child: const Text('Devolver al bot', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            )
+          else if (_modoAgente)
+            Container(
+              color: Colors.orange[100],
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: const Row(
+                children: [
+                  Icon(Icons.person, size: 16, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Expanded(
                     child: Text(
                       'Modo agente activo — tus mensajes no los procesa el bot',
                       style: TextStyle(fontSize: 12, color: Colors.orange),
@@ -815,14 +897,30 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
     setState(() => _enviando = true);
 
     try {
-      if (_modoAgente) {
-        await _svc.responderComoAgente(
-          empresaId: widget.empresaId,
-          chatId: widget.chat.id,
-          mensaje: texto,
-        );
+      // Si el chat está derivado o en modo agente → envío real vía Cloud Function
+      if (_estadoActual == 'derivado' || _modoAgente) {
+        final telefono = widget.telefonoCliente.isNotEmpty
+            ? widget.telefonoCliente
+            : widget.chat.telefono ?? '';
+        try {
+          await FirebaseFunctions.instanceFor(region: 'europe-west1')
+              .httpsCallable('enviarMensajeAdminWhatsApp')
+              .call({
+            'empresaId': widget.empresaId,
+            'telefonoCliente': telefono,
+            'chatId': widget.chat.id,
+            'texto': texto,
+          });
+        } catch (_) {
+          // Fallback: guardar solo en Firestore si WhatsApp falla
+          await _svc.responderComoAgente(
+            empresaId: widget.empresaId,
+            chatId: widget.chat.id,
+            mensaje: texto,
+          );
+        }
       } else {
-        // Simula mensaje del cliente y respuesta del bot
+        // Simula mensaje del cliente y respuesta del bot (modo demo)
         await _svc.procesarMensaje(
           empresaId: widget.empresaId,
           chatId: widget.chat.id,
@@ -832,6 +930,46 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  Future<void> _cambiarEstado(String nuevoEstado) async {
+    setState(() => _cambiandoEstado = true);
+    try {
+      await FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('cambiarEstadoChatBot')
+          .call({
+        'empresaId': widget.empresaId,
+        'chatId': widget.chat.id,
+        'estado': nuevoEstado,
+      });
+      if (mounted) {
+        setState(() {
+          _estadoActual = nuevoEstado;
+          if (nuevoEstado == 'derivado') _modoAgente = true;
+          if (nuevoEstado == 'activo') _modoAgente = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(nuevoEstado == 'derivado'
+              ? '👤 Chat tomado por el equipo'
+              : nuevoEstado == 'resuelto'
+                  ? '✅ Chat marcado como resuelto'
+                  : '🤖 Chat devuelto al bot'),
+          backgroundColor: nuevoEstado == 'derivado'
+              ? Colors.orange
+              : nuevoEstado == 'resuelto'
+                  ? Colors.green
+                  : const Color(0xFF25D366),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cambiandoEstado = false);
     }
   }
 }
