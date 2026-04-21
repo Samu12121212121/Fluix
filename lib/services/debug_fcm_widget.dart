@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'notificaciones_service.dart';
+import 'push_notifications_tester.dart';
 
 /// Widget flotante de debug para verificar y renovar el token FCM
 /// Solo visible en modo DEBUG
@@ -192,6 +193,40 @@ class _DebugFCMWidgetState extends State<DebugFCMWidget> {
                           onPressed: _probarPushCloud,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepOrange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      // Botón de test completo estilo WhatsApp
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.analytics, size: 16),
+                          label: const Text('🧪 TEST COMPLETO', style: TextStyle(fontSize: 11)),
+                          onPressed: _runCompleteTest,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      // Botón de notificación estilo WhatsApp
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.message, size: 16),
+                          label: const Text('💬 Test WhatsApp Style', style: TextStyle(fontSize: 11)),
+                          onPressed: _testWhatsAppStyle,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 8),
                           ),
@@ -402,6 +437,127 @@ class _DebugFCMWidgetState extends State<DebugFCMWidget> {
           ),
         );
       }
+    }
+  }
+
+  /// Ejecutar test completo de notificaciones push
+  Future<void> _runCompleteTest() async {
+    setState(() => _cargando = true);
+    
+    try {
+      final tester = PushNotificationsTester();
+      final results = await tester.runCompleteTest();
+      
+      if (!mounted) return;
+      
+      // Mostrar resultados en un dialog detallado
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('🧪 Resultados del Test Completo'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: results.entries.map((entry) {
+                  final testName = entry.key;
+                  final result = entry.value as Map<String, dynamic>;
+                  final status = result['status'] ?? 'UNKNOWN';
+                  final emoji = _getStatusEmoji(status);
+                  
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$emoji $testName',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Status: $status',
+                            style: TextStyle(
+                              color: status == 'OK' 
+                                  ? Colors.green 
+                                  : status == 'ERROR' 
+                                      ? Colors.red 
+                                      : Colors.orange,
+                            ),
+                          ),
+                          if (result['message'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(result['message'], style: const TextStyle(fontSize: 12)),
+                          ],
+                          if (result['solution'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '💡 ${result['solution']}',
+                              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error en test completo: $e')),
+        );
+      }
+    }
+    
+    setState(() => _cargando = false);
+  }
+
+  /// Probar notificación estilo WhatsApp
+  Future<void> _testWhatsAppStyle() async {
+    try {
+      final tester = PushNotificationsTester();
+      await tester.sendTestNotificationFromClient();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🧪 Notificación estilo WhatsApp enviada!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error enviando notificación: $e')),
+        );
+      }
+    }
+  }
+
+  String _getStatusEmoji(String status) {
+    switch (status) {
+      case 'OK': return '✅';
+      case 'ERROR': return '❌';
+      case 'WARNING': return '⚠️';
+      case 'INFO': return 'ℹ️';
+      case 'SKIPPED': return '⏭️';
+      default: return '❓';
     }
   }
 }

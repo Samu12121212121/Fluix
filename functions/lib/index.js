@@ -1,13 +1,49 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.obtenerScriptJSON = exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
 exports.testPushNotification = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = void 0;
-const admin = require("firebase-admin");
+const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
-const stripe_1 = require("stripe");
-const nodemailer = require("nodemailer");
+const stripe_1 = __importDefault(require("stripe"));
+const nodemailer = __importStar(require("nodemailer"));
 const recordatoriosCitas_1 = require("./recordatoriosCitas");
 Object.defineProperty(exports, "enviarRecordatoriosCitas", { enumerable: true, get: function () { return recordatoriosCitas_1.enviarRecordatoriosCitas; } });
 const notificacionesTareas_1 = require("./notificacionesTareas");
@@ -22,7 +58,7 @@ Object.defineProperty(exports, "scheduledAlertaCertificado", { enumerable: true,
 const authGuard_1 = require("./utils/authGuard");
 const fuerzaBruta_1 = require("./auth/fuerzaBruta");
 Object.defineProperty(exports, "verificarLoginIntento", { enumerable: true, get: function () { return fuerzaBruta_1.verificarLoginIntento; } });
-const node_fetch_1 = require("node-fetch");
+const node_fetch_1 = __importDefault(require("node-fetch"));
 var processInvoice_1 = require("./fiscal/processInvoice");
 Object.defineProperty(exports, "processInvoice", { enumerable: true, get: function () { return processInvoice_1.processInvoice; } });
 var calculateModel_1 = require("./fiscal/models/calculateModel");
@@ -1245,6 +1281,24 @@ exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, r
                 }
                 break;
             }
+            case "invoice.paid": {
+                // Renovación de suscripción pagada — marcar empresa como activa
+                const invoice = event.data.object;
+                await _procesarInvoicePagado(invoice, db);
+                break;
+            }
+            case "customer.subscription.deleted": {
+                // Suscripción cancelada o impagada — desactivar empresa
+                const subscription = event.data.object;
+                await _procesarSuscripcionCancelada(subscription, db);
+                break;
+            }
+            case "customer.subscription.updated": {
+                // Cambio de plan, renovación, etc.
+                const subscription = event.data.object;
+                await _procesarSuscripcionActualizada(subscription, db);
+                break;
+            }
             default:
                 console.log(`ℹ️ Evento Stripe ignorado: ${event.type}`);
         }
@@ -1511,6 +1565,100 @@ async function _procesarPaymentIntentExitoso(pi, db) {
         }, { merge: true });
         console.log(`✅ [GASTO] Gasto ${gastoRef.id} creado en empresa "${empresaClienteId}" — €${totalEuros}`);
     }
+}
+// ── HELPERS STRIPE: SUSCRIPCIONES ────────────────────────────────────────────
+/**
+ * invoice.paid — Se dispara en cada renovación de suscripción pagada con éxito.
+ * Actualiza la empresa en Firestore como activa y registra la fecha de próximo vencimiento.
+ */
+async function _procesarInvoicePagado(invoice, db) {
+    var _a, _b, _c, _d, _e, _f;
+    const customerId = invoice.customer;
+    if (!customerId)
+        return;
+    // Buscar empresa por stripe_customer_id
+    const snap = await db
+        .collectionGroup("empresas")
+        .where("stripe_customer_id", "==", customerId)
+        .limit(1)
+        .get();
+    // Si no está en collectionGroup, buscar en raíz
+    const rootSnap = snap.empty
+        ? await db.collection("empresas").where("stripe_customer_id", "==", customerId).limit(1).get()
+        : snap;
+    if (rootSnap.empty) {
+        console.warn(`⚠️ invoice.paid: No se encontró empresa con stripe_customer_id=${customerId}`);
+        return;
+    }
+    const empresaRef = rootSnap.docs[0].ref;
+    const empresaId = rootSnap.docs[0].id;
+    const periodEnd = (_d = (_c = (_b = (_a = invoice.lines) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b[0]) === null || _c === void 0 ? void 0 : _c.period) === null || _d === void 0 ? void 0 : _d.end;
+    const proximoVencimiento = periodEnd
+        ? admin.firestore.Timestamp.fromDate(new Date(periodEnd * 1000))
+        : null;
+    await empresaRef.update({
+        suscripcion_activa: true,
+        suscripcion_estado: "active",
+        suscripcion_proximo_pago: proximoVencimiento,
+        suscripcion_ultima_factura_stripe: invoice.id,
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`✅ [SUSCRIPCIÓN] invoice.paid — empresa ${empresaId} renovada hasta ${(_f = (_e = proximoVencimiento === null || proximoVencimiento === void 0 ? void 0 : proximoVencimiento.toDate()) === null || _e === void 0 ? void 0 : _e.toISOString()) !== null && _f !== void 0 ? _f : "—"}`);
+}
+/**
+ * customer.subscription.deleted — Suscripción cancelada por impago o por el usuario.
+ * Marca la empresa como inactiva en Firestore.
+ */
+async function _procesarSuscripcionCancelada(subscription, db) {
+    const customerId = subscription.customer;
+    if (!customerId)
+        return;
+    const snap = await db
+        .collection("empresas")
+        .where("stripe_customer_id", "==", customerId)
+        .limit(1)
+        .get();
+    if (snap.empty) {
+        console.warn(`⚠️ subscription.deleted: No se encontró empresa con stripe_customer_id=${customerId}`);
+        return;
+    }
+    const empresaRef = snap.docs[0].ref;
+    const empresaId = snap.docs[0].id;
+    await empresaRef.update({
+        suscripcion_activa: false,
+        suscripcion_estado: "canceled",
+        suscripcion_cancelada_en: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`🔴 [SUSCRIPCIÓN] subscription.deleted — empresa ${empresaId} DESACTIVADA`);
+}
+/**
+ * customer.subscription.updated — Cambio de plan, pausa, renovación automática.
+ * Sincroniza el estado de la suscripción con Firestore.
+ */
+async function _procesarSuscripcionActualizada(subscription, db) {
+    const customerId = subscription.customer;
+    if (!customerId)
+        return;
+    const snap = await db
+        .collection("empresas")
+        .where("stripe_customer_id", "==", customerId)
+        .limit(1)
+        .get();
+    if (snap.empty)
+        return;
+    const empresaRef = snap.docs[0].ref;
+    const empresaId = snap.docs[0].id;
+    const estado = subscription.status; // "active" | "past_due" | "canceled" | "trialing" | etc.
+    await empresaRef.update({
+        suscripcion_activa: estado === "active" || estado === "trialing",
+        suscripcion_estado: estado,
+        suscripcion_proximo_pago: subscription.current_period_end
+            ? admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000))
+            : null,
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`🔄 [SUSCRIPCIÓN] subscription.updated — empresa ${empresaId} estado=${estado}`);
 }
 // ═══════════════════════════════════════════════════════════════════════════════
 // REGISTRAR VISITA WEB — endpoint HTTP llamado desde el script embebido
@@ -1970,8 +2118,8 @@ exports.scheduledAlertaCobertura = (0, scheduler_1.onSchedule)({ schedule: "0 7 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE FINIQUITOS — Cloud Functions
 // ═════════════════════════════════════════════════════════════════════════════
-const https = require("https");
-const http = require("http");
+const https = __importStar(require("https"));
+const http = __importStar(require("http"));
 /**
  * Descarga un archivo desde una URL (Firebase Storage URL firmada).
  */

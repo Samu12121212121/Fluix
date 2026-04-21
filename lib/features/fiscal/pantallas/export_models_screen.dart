@@ -15,6 +15,7 @@ import 'modelo190_screen.dart';
 import 'modelo180_screen.dart';
 import 'modelo347_screen.dart';
 import 'subir_certificado_verifactu_screen.dart';
+import 'calendario_fiscal_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EXPORT MODELS SCREEN — Wizard unificado para los 8 modelos AEAT
@@ -108,6 +109,16 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
         title: const Text('Modelos AEAT'),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.event_note_outlined),
+            tooltip: 'Calendario Fiscal',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CalendarioFiscalScreen(empresaId: widget.empresaId),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.verified_user_outlined),
             tooltip: 'Certificado VeriFactu',

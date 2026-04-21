@@ -1,14 +1,50 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processInvoice = void 0;
 const https_1 = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
-const sdk_1 = require("@anthropic-ai/sdk");
+const admin = __importStar(require("firebase-admin"));
+const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const documentai_1 = require("@google-cloud/documentai");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const sharp = require("sharp");
+const pdf_parse_1 = __importDefault(require("pdf-parse"));
+const sharp_1 = __importDefault(require("sharp"));
+const crypto = __importStar(require("crypto"));
+const node_fetch_1 = __importDefault(require("node-fetch"));
 const invoiceExtractionV4_1 = require("./prompts/invoiceExtractionV4");
 const ocrPreprocessor_1 = require("./ocrPreprocessor");
 if (!admin.apps.length)
@@ -17,6 +53,56 @@ const EU_COUNTRIES = [
     "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
     "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "SE"
 ];
+// ═══════════════════════════════════════════════════════════════
+// HELPER: HASH SHA-256 del archivo (detección de duplicados)
+// ═══════════════════════════════════════════════════════════════
+function computeFileHash(buffer) {
+    return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+// ═══════════════════════════════════════════════════════════════
+// HELPER: TIPO DE CAMBIO BCE (Banco Central Europeo)
+// Llama a la API SDMX pública del BCE para obtener el tipo de
+// cambio oficial de cierre del día anterior.
+// ═══════════════════════════════════════════════════════════════
+async function fetchExchangeRateBCE(currency) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    if (currency === "EUR")
+        return null;
+    try {
+        const url = `https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A` +
+            `?lastNObservations=1&format=jsondata`;
+        const resp = await (0, node_fetch_1.default)(url, {
+            headers: { "Accept": "application/json" },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            signal: AbortSignal.timeout(8000),
+        });
+        if (!resp.ok) {
+            console.warn(`BCE API HTTP ${resp.status} para ${currency}`);
+            return null;
+        }
+        const json = await resp.json();
+        const observations = (_d = (_c = (_b = (_a = json === null || json === void 0 ? void 0 : json.dataSets) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.series) === null || _c === void 0 ? void 0 : _c["0:0:0:0:0"]) === null || _d === void 0 ? void 0 : _d.observations;
+        if (!observations) {
+            console.warn(`BCE: sin observaciones para ${currency}`);
+            return null;
+        }
+        const keys = Object.keys(observations).sort((a, b) => Number(b) - Number(a));
+        const latestKey = keys[0];
+        const rateRaw = (_e = observations[latestKey]) === null || _e === void 0 ? void 0 : _e[0];
+        if (!rateRaw)
+            return null;
+        // El BCE da EUR por 1 unidad de divisa. Invertimos para obtener divisa/EUR.
+        const rateEurPerForeign = parseFloat(rateRaw);
+        // Obtener la fecha de la observación más reciente
+        const timeDimension = (_h = (_g = (_f = json === null || json === void 0 ? void 0 : json.structure) === null || _f === void 0 ? void 0 : _f.dimensions) === null || _g === void 0 ? void 0 : _g.observation) === null || _h === void 0 ? void 0 : _h.find((d) => d.id === "TIME_PERIOD");
+        const dateStr = ((_k = (_j = timeDimension === null || timeDimension === void 0 ? void 0 : timeDimension.values) === null || _j === void 0 ? void 0 : _j[parseInt(latestKey)]) === null || _k === void 0 ? void 0 : _k.id) || new Date().toISOString().substring(0, 10);
+        return { rate: rateEurPerForeign, date: dateStr };
+    }
+    catch (e) {
+        console.warn(`BCE API error para ${currency}:`, e);
+        return null;
+    }
+}
 // ═══════════════════════════════════════════════════════════════
 // HELPER: DOCUMENT AI
 // ═══════════════════════════════════════════════════════════════
@@ -129,6 +215,27 @@ function validateInvoice(data) {
             warnings.push(`math_small_discrepancy: diff=${diferencia.toFixed(2)}`);
         }
     }
+    // Detección automática: proveedor fuera de UE → art. 21 exención IVA importación
+    const supplierCountry = (data.supplier_country || "").toUpperCase();
+    if (supplierCountry &&
+        supplierCountry !== "ES" &&
+        !EU_COUNTRIES.includes(supplierCountry) &&
+        data.vat_scheme !== "margin_scheme") {
+        if (!(data.tax_tags || []).includes("IMPORTACION_TERCEROS_PAISES")) {
+            (data.tax_tags = data.tax_tags || []).push("IMPORTACION_TERCEROS_PAISES");
+        }
+        if (!data.vat_scheme || data.vat_scheme === "standard") {
+            data.vat_scheme = "import_vat";
+            warnings.push("Posible importación de terceros países (art.21 LIVA) — verifica la exención de IVA");
+        }
+    }
+    // Régimen de margen (REBU / art. 135 LIVA)
+    if (data.vat_scheme === "margin_scheme") {
+        if (!(data.tax_tags || []).includes("REBU")) {
+            (data.tax_tags = data.tax_tags || []).push("REBU");
+        }
+        warnings.push("Régimen especial del margen de beneficios (REBU) — IVA calculado sobre el margen, no sobre el total");
+    }
     return { errors, warnings };
 }
 // ═══════════════════════════════════════════════════════════════
@@ -195,7 +302,7 @@ exports.processInvoice = (0, https_1.onCall)({
     secrets: ["ANTHROPIC_API_KEY", "DOCAI_PROCESSOR_ID"],
     cors: true,
 }, async (request) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     console.log("=== processInvoice INICIADO ===");
     // 1. AUTH
     if (!request.auth) {
@@ -231,16 +338,17 @@ exports.processInvoice = (0, https_1.onCall)({
     }
     const doc = docSnap.data();
     console.log(`storage_path: ${doc.storage_path}, mime_type: ${doc.mime_type}`);
-    // 5. DESCARGAR ARCHIVO DE STORAGE
+    // 5. DESCARGAR ARCHIVO DE STORAGE + calcular hash SHA-256
     const bucket = admin.storage().bucket("planeaapp-4bea4.firebasestorage.app");
     const [fileBuffer] = await bucket.file(doc.storage_path).download();
-    console.log(`Archivo descargado: ${fileBuffer.length} bytes`);
+    const fileHash = computeFileHash(fileBuffer);
+    console.log(`Archivo descargado: ${fileBuffer.length} bytes, hash: ${fileHash.substring(0, 12)}…`);
     // 6. EXTRAER TEXTO
     let rawText = "";
     let ocrEngine = "";
     if (doc.mime_type === "application/pdf") {
         try {
-            const parsed = await pdfParse(fileBuffer);
+            const parsed = await (0, pdf_parse_1.default)(fileBuffer);
             if (parsed.text && parsed.text.trim().length >= 50) {
                 rawText = parsed.text;
                 ocrEngine = "pdf-parse";
@@ -256,7 +364,7 @@ exports.processInvoice = (0, https_1.onCall)({
         }
     }
     else if (doc.mime_type.startsWith("image/")) {
-        const optimized = await sharp(fileBuffer)
+        const optimized = await (0, sharp_1.default)(fileBuffer)
             .rotate()
             .resize({ width: 2400, height: 2400, fit: "inside", withoutEnlargement: true })
             .jpeg({ quality: 90 })
@@ -310,7 +418,25 @@ exports.processInvoice = (0, https_1.onCall)({
     // 9. VALIDAR
     const validation = validateInvoice(invoiceData);
     console.log(`Validación: ${validation.errors.length} errores, ${validation.warnings.length} warnings`);
-    // 10. DETECTAR DUPLICADOS
+    // 10. DETECTAR DUPLICADOS — por hash SHA-256 del archivo (exacto) y por NIF+número (lógico)
+    // 10a. Duplicado exacto por hash
+    const hashQuery = await admin
+        .firestore()
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("fiscal_documents")
+        .where("file_hash", "==", fileHash)
+        .where("status", "!=", "processing")
+        .limit(1)
+        .get();
+    if (!hashQuery.empty && hashQuery.docs[0].id !== documentId) {
+        validation.errors.push(`Archivo duplicado — este fichero ya fue subido (doc: ${hashQuery.docs[0].id})`);
+    }
+    else {
+        // Guardar hash en el documento para futuras comparaciones
+        await docRef.update({ file_hash: fileHash });
+    }
+    // 10b. Duplicado lógico por NIF proveedor + número de factura
     if (invoiceData.supplier_tax_id && invoiceData.invoice_number) {
         const dupQuery = await admin
             .firestore()
@@ -323,7 +449,7 @@ exports.processInvoice = (0, https_1.onCall)({
             .limit(1)
             .get();
         if (!dupQuery.empty) {
-            validation.warnings.push("Posible duplicado de una factura ya registrada");
+            validation.warnings.push(`Posible duplicado — ya existe una factura de ${invoiceData.supplier_tax_id} con nº ${invoiceData.invoice_number}`);
         }
     }
     // 11. DECIDIR ESTADO (auto-publicación ≥ 92% confianza)
@@ -331,10 +457,19 @@ exports.processInvoice = (0, https_1.onCall)({
     const status = decideStatus(invoiceData, validation, docaiEntities);
     const autoPublished = status === "posted";
     console.log(`Confianza: ${(confidence * 100).toFixed(1)}%, estado: ${status}, auto_published: ${autoPublished}`);
-    // 12. NECESITA CONVERSIÓN DE MONEDA
-    const needsCurrencyConversion = invoiceData.currency &&
-        invoiceData.currency !== "EUR" &&
-        validation.warnings.some((w) => w.startsWith("currency_conversion_needed"));
+    // 12. CONVERSIÓN DE MONEDA BCE (llamada real a la API del BCE)
+    let bceRate = null;
+    const currency = invoiceData.currency || "EUR";
+    const needsCurrencyConversion = currency !== "EUR";
+    if (needsCurrencyConversion) {
+        bceRate = await fetchExchangeRateBCE(currency);
+        if (bceRate) {
+            console.log(`BCE: 1 ${currency} = ${bceRate.rate} EUR (${bceRate.date})`);
+        }
+        else {
+            validation.warnings.push(`No se pudo obtener tipo de cambio BCE para ${currency} — conversión pendiente manual`);
+        }
+    }
     // 13. PARSEAR FECHA
     let invoiceDate;
     try {
@@ -342,7 +477,7 @@ exports.processInvoice = (0, https_1.onCall)({
         if (isNaN(invoiceDate.getTime()))
             throw new Error("Fecha inválida");
     }
-    catch (_c) {
+    catch (_e) {
         invoiceDate = new Date();
     }
     const ahora = admin.firestore.Timestamp.now();
@@ -401,13 +536,26 @@ exports.processInvoice = (0, https_1.onCall)({
         non_subject_amount_cents: toCents(nonSubjectAmount),
         total_amount_cents: toCents(totalAmount),
         // Moneda
-        currency: invoiceData.currency || "EUR",
+        currency: currency,
         needs_currency_conversion: needsCurrencyConversion,
-        conversion_status: invoiceData.currency === "EUR" ? "not_needed" : "pending",
-        eur_amount: null,
-        exchange_rate: null,
-        exchange_rate_date: null,
-        exchange_rate_source: null,
+        conversion_status: !needsCurrencyConversion
+            ? "not_needed"
+            : bceRate
+                ? "converted"
+                : "pending",
+        eur_amount: bceRate ? Math.round(totalAmount * bceRate.rate * 100) / 100 : null,
+        exchange_rate: (_c = bceRate === null || bceRate === void 0 ? void 0 : bceRate.rate) !== null && _c !== void 0 ? _c : null,
+        exchange_rate_date: (_d = bceRate === null || bceRate === void 0 ? void 0 : bceRate.date) !== null && _d !== void 0 ? _d : null,
+        exchange_rate_source: bceRate ? "ECB" : null,
+        original_currency_data: bceRate
+            ? {
+                original_currency: currency,
+                original_total: totalAmount,
+                exchange_rate: bceRate.rate,
+                rate_date: bceRate.date,
+                total_eur: Math.round(totalAmount * bceRate.rate * 100) / 100,
+            }
+            : null,
         // Régimen y clasificación
         vat_scheme: invoiceData.vat_scheme || "standard",
         tax_tags: invoiceData.tax_tags || [],

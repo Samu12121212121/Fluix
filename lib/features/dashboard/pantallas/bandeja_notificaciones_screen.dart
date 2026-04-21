@@ -179,7 +179,6 @@ class _NotificacionItem extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 4),
               Text(
                 timeago.format(notif.timestamp, locale: 'es'),
                 style: TextStyle(fontSize: 11, color: Colors.grey[400]),
