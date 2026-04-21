@@ -1952,8 +1952,8 @@ export const registrarVisita = onRequest(
 
       // 1. Actualizar resumen general
       await db
-        .collection("empresas").doc(empresaId)
-        .collection("estadisticas").doc("web_resumen")
+        .collection('empresas').doc(empresaId)
+        .collection('estadisticas').doc('web_resumen')
         .set({
           visitas_totales: admin.firestore.FieldValue.increment(1),
           visitas_mes: admin.firestore.FieldValue.increment(1),
@@ -1965,8 +1965,8 @@ export const registrarVisita = onRequest(
 
       // 2. Actualizar estadísticas del día
       await db
-        .collection("empresas").doc(empresaId)
-        .collection("estadisticas").doc(`visitas_${fechaHoy}`)
+        .collection('empresas').doc(empresaId)
+        .collection('estadisticas').doc(`visitas_${fechaHoy}`)
         .set({
           fecha: fechaHoy,
           sitio: dominioActual,
@@ -2672,101 +2672,184 @@ export const enviarDocumentacionFiniquito = onCall(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEST — Enviar notificación de prueba al usuario actual
+// CALENDARIO FISCAL — Alertas de vencimientos AEAT
 // ═══════════════════════════════════════════════════════════════════════════
-export const testPushNotification = onCall(
-  { region: REGION },
-  async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "Debes estar autenticado");
+
+export const alertasVencimientosFiscales = onSchedule(
+  { schedule: "0 9 * * *", timeZone: "Europe/Madrid", region: REGION },
+  async (_event) => {
+    console.log("🗓️ Ejecutando alertas de vencimientos fiscales...");
+
+    const hoy = new Date();
+    const vencimientosProximos = _calcularVencimientos(hoy);
+
+    if (vencimientosProximos.length === 0) {
+      console.log("✅ No hay vencimientos fiscales próximos");
+      return;
     }
 
-    // Obtener datos del usuario
-    const userDoc = await db.collection("usuarios").doc(uid).get();
-    const userData = userDoc.data();
-    if (!userData) {
-      throw new HttpsError("not-found", "Usuario no encontrado");
-    }
+    // Obtener empresas con Pack Fiscal activo
+    const empresasSnap = await db.collection("empresas")
+      .where("active_packs", "array-contains", "fiscal_ai")
+      .get();
 
-    const empresaId = userData.empresa_id as string | undefined;
-    const tokenUsuario = userData.token_dispositivo as string | undefined;
+    console.log(`📊 Enviando alertas a ${empresasSnap.size} empresa(s) con Pack Fiscal`);
 
-    const diagnostico: Record<string, unknown> = {
-      uid,
-      empresa_id: empresaId || "NO TIENE",
-      token_en_usuarios: tokenUsuario ? `${tokenUsuario.substring(0, 30)}...` : "NO TIENE",
-    };
+    for (const empresaDoc of empresasSnap.docs) {
+      const empresaId = empresaDoc.id;
+      const empresaData = empresaDoc.data();
+      const nombreEmpresa = empresaData.nombre || "Tu empresa";
 
-    // Buscar token en dispositivos
-    let tokenDispositivo: string | undefined;
-    if (empresaId) {
-      const dispDoc = await db
-        .collection("empresas")
-        .doc(empresaId)
-        .collection("dispositivos")
-        .doc(uid)
-        .get();
-      tokenDispositivo = dispDoc.data()?.token as string | undefined;
-      diagnostico.token_en_dispositivos = tokenDispositivo
-        ? `${tokenDispositivo.substring(0, 30)}...`
-        : "NO TIENE";
-    }
+      try {
+        // Buscar tokens FCM de usuarios de la empresa
+        const tokensQuery = await db
+          .collection("empresas").doc(empresaId)
+          .collection("usuario_tokens")
+          .where("activo", "==", true)
+          .get();
 
-    // Usar el token que exista
-    const tokenFinal = tokenDispositivo || tokenUsuario;
-    if (!tokenFinal) {
-      return {
-        ok: false,
-        error: "No hay token FCM registrado para este usuario",
-        diagnostico,
-      };
-    }
+        const tokens: string[] = [];
+        tokensQuery.forEach(doc => {
+          const token = doc.data().fcm_token;
+          if (token) tokens.push(token);
+        });
 
-    diagnostico.token_usado = `${tokenFinal.substring(0, 30)}...`;
+        if (tokens.length === 0) {
+          console.log(`⚠️ Sin tokens FCM para empresa ${empresaId}`);
+          continue;
+        }
 
-    // Enviar notificación de prueba
-    try {
-      const result = await messaging.send({
-        token: tokenFinal,
-        notification: {
-          title: "🧪 Test de Notificación",
-          body: `Enviado a las ${new Date().toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid" })}`,
-        },
-        data: {
-          tipo: "test",
-          timestamp: Date.now().toString(),
-        },
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "fluixcrm_canal_principal",
-            sound: "default",
+        // Preparar mensaje de alerta
+        const modelo = vencimientosProximos[0]; // El más próximo
+        const dias = Math.ceil((modelo.fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+
+        let titulo = "📅 Vencimiento fiscal próximo";
+        let mensaje = "";
+
+        if (dias === 0) {
+          titulo = "🚨 Vencimiento fiscal HOY";
+          mensaje = `Modelo ${modelo.modelo} vence hoy (${_formatearFecha(modelo.fecha)})`;
+        } else if (dias === 1) {
+          titulo = "⚠️ Vencimiento fiscal MAÑANA";
+          mensaje = `Modelo ${modelo.modelo} vence mañana (${_formatearFecha(modelo.fecha)})`;
+        } else {
+          mensaje = `Modelo ${modelo.modelo} vence en ${dias} días (${_formatearFecha(modelo.fecha)})`;
+        }
+
+        // Enviar notificación push
+        const response = await messaging.sendMulticast({
+          tokens,
+          notification: { title: titulo, body: mensaje },
+          data: {
+            tipo: "vencimiento_fiscal",
+            modelo: modelo.modelo,
+            fecha: modelo.fecha.toISOString(),
+            dias_restantes: dias.toString(),
+            empresa_id: empresaId,
           },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
-              badge: 1,
+          android: {
+            notification: {
+              channelId: "fluixcrm_canal_principal",
+              priority: "high" as const,
+              defaultSound: true,
+              defaultVibrateTimings: true,
             },
           },
-        },
-      });
+          apns: {
+            payload: {
+              aps: {
+                alert: { title: titulo, body: mensaje },
+                badge: 1,
+                sound: "default",
+              },
+            },
+          },
+        });
 
-      return {
-        ok: true,
-        message_id: result,
-        diagnostico,
-      };
-    } catch (e: unknown) {
-      const error = e as { code?: string; message?: string };
-      return {
-        ok: false,
-        error: error.message || "Error desconocido",
-        error_code: error.code,
-        diagnostico,
-      };
+        console.log(`✅ Alerta enviada a ${response.successCount}/${tokens.length} dispositivos - ${nombreEmpresa}`);
+
+        // Crear notificación en Firestore para historial
+        await db
+          .collection("empresas").doc(empresaId)
+          .collection("notificaciones")
+          .add({
+            titulo: titulo,
+            mensaje: mensaje,
+            tipo: "vencimiento_fiscal",
+            modelo: modelo.modelo,
+            fecha_vencimiento: admin.firestore.Timestamp.fromDate(modelo.fecha),
+            dias_restantes: dias,
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+      } catch (error) {
+        console.error(`❌ Error enviando alerta fiscal a empresa ${empresaId}:`, error);
+      }
     }
   }
 );
+
+function _calcularVencimientos(fechaActual: Date): VencimientoFiscal[] {
+  const vencimientos: VencimientoFiscal[] = [];
+  const anio = fechaActual.getFullYear();
+
+  // Solo alertar si faltan 7 días o menos
+  const limiteAlerta = new Date(fechaActual);
+  limiteAlerta.setDate(limiteAlerta.getDate() + 7);
+
+  // Vencimientos trimestrales - día 20 del mes siguiente
+  for (let trim = 1; trim <= 4; trim++) {
+    const mesVencimiento = trim * 3 + 1; // Ene=4, Abr=7, Jul=10, Oct=13
+    const fecha = new Date(
+      anio + (mesVencimiento > 12 ? 1 : 0),
+      mesVencimiento > 12 ? mesVencimiento - 12 : mesVencimiento,
+      20
+    );
+
+    if (fecha >= fechaActual && fecha <= limiteAlerta) {
+      vencimientos.push({
+        modelo: "303",
+        descripcion: `IVA trimestral ${trim}T/${anio}`,
+        fecha: fecha,
+      });
+    }
+  }
+
+  // Vencimientos anuales - enero del año siguiente
+  const anioSiguiente = anio + 1;
+  const vencimientosAnuales = [
+    { modelo: "390", fecha: new Date(anioSiguiente, 0, 30), desc: `Resumen anual IVA ${anio}` },
+    { modelo: "190", fecha: new Date(anioSiguiente, 0, 31), desc: `Resumen retenciones IRPF ${anio}` },
+    { modelo: "347", fecha: new Date(anioSiguiente, 1, 28), desc: `Operaciones con terceros ${anio}` },
+  ];
+
+  for (const v of vencimientosAnuales) {
+    if (v.fecha >= fechaActual && v.fecha <= limiteAlerta) {
+      vencimientos.push({
+        modelo: v.modelo,
+        descripcion: v.desc,
+        fecha: v.fecha,
+      });
+    }
+  }
+
+  // Ordenar por fecha más próxima primero
+  vencimientos.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+  return vencimientos;
+}
+
+function _formatearFecha(fecha: Date): string {
+  return fecha.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+interface VencimientoFiscal {
+  modelo: string;
+  descripcion: string;
+  fecha: Date;
+}
+

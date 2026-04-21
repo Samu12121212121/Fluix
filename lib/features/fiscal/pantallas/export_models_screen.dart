@@ -110,6 +110,16 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: const Icon(Icons.history_outlined),
+            tooltip: 'Historial de Presentaciones',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HistorialPresentacionesScreen(empresaId: widget.empresaId),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.event_note_outlined),
             tooltip: 'Calendario Fiscal',
             onPressed: () => Navigator.push(

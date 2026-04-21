@@ -17,8 +17,17 @@ class CalendarioFiscalScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendario Fiscal'),
-        subtitle: Text('Vencimientos AEAT ${now.year}'),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Calendario Fiscal'),
+            Text(
+              'Vencimientos AEAT ${now.year}',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -193,4 +202,5 @@ class VencimientoFiscal {
     required this.fecha,
   });
 }
+
 
