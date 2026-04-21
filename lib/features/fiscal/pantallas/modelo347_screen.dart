@@ -318,7 +318,7 @@ class _Modelo347ScreenState extends State<Modelo347Screen>
                       fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 Text(
-                  '${op.numOperaciones} operaciones',
+                  'Clave ${op.clave.codigo}',
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],
@@ -350,6 +350,7 @@ class _Modelo347ScreenState extends State<Modelo347Screen>
     );
   }
 }
+
 
 
 

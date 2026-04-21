@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/providers/empresa_config_provider.dart';
 import '../../../domain/modelos/empresa_config.dart';
 import '../../../domain/modelos/factura.dart';
 import '../../../domain/modelos/factura_recibida.dart';
@@ -278,6 +281,92 @@ class _Mod349TabState extends State<Mod349Tab> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// WRAPPER — carga facturas desde Firestore y monta Mod349Tab
+// ═════════════════════════════════════════════════════════════════════════════
+
+class TabMod349Wrapper extends StatefulWidget {
+  final String empresaId;
+  final int anio;
+
+  const TabMod349Wrapper({
+    super.key,
+    required this.empresaId,
+    required this.anio,
+  });
+
+  @override
+  State<TabMod349Wrapper> createState() => _TabMod349WrapperState();
+}
+
+class _TabMod349WrapperState extends State<TabMod349Wrapper> {
+  final _db = FirebaseFirestore.instance;
+  bool _cargando = true;
+  List<Factura> _facturas = [];
+  List<FacturaRecibida> _recibidas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  @override
+  void didUpdateWidget(TabMod349Wrapper old) {
+    super.didUpdateWidget(old);
+    if (old.anio != widget.anio || old.empresaId != widget.empresaId) {
+      _cargar();
+    }
+  }
+
+  Future<void> _cargar() async {
+    setState(() => _cargando = true);
+    try {
+      final snap = await _db
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('facturas')
+          .get();
+      final snapRec = await _db
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('facturas_recibidas')
+          .get();
+
+      final f = snap.docs
+          .map((d) => Factura.fromFirestore(d))
+          .where((x) => x.fechaEmision.year == widget.anio)
+          .toList();
+      final r = snapRec.docs
+          .map((d) => FacturaRecibida.fromFirestore(d))
+          .where((x) => x.fechaRecepcion.year == widget.anio)
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _facturas = f;
+          _recibidas = r;
+          _cargando = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cargando) return const Center(child: CircularProgressIndicator());
+    final empresaConfig = context.watch<EmpresaConfigProvider>().config;
+    return Mod349Tab(
+      empresa: empresaConfig,
+      ejercicio: widget.anio,
+      facturas: _facturas,
+      facturasRecibidas: _recibidas,
     );
   }
 }

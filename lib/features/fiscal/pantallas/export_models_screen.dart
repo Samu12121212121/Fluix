@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'modelo130_screen.dart';
+import 'modelo349_screen.dart';
 import 'modelo303_screen.dart';
 import 'modelo111_screen.dart';
 import 'modelo115_screen.dart';
@@ -231,6 +235,7 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
     final periodoKey = _periodo.replaceAll('-Q', '_').replaceAll('-', '_');
     final docId = '${m.code}_$periodoKey';
     final estado = _estados[docId];
+    final pdfUrl = _pdfUrls[docId];
 
     Color? estadoColor;
     IconData? estadoIcon;
@@ -249,38 +254,159 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
       opacity: activo ? 1.0 : 0.45,
       child: Card(
         margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: m.color.withValues(alpha: 0.15),
-            child: Text(
-              m.code,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: m.color),
+        child: Column(
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: m.color.withValues(alpha: 0.15),
+                child: Text(
+                  m.code,
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: m.color),
+                ),
+              ),
+              title: Text('Modelo ${m.code}',
+                  style: const TextStyle(fontWeight: FontWeight.w500)),
+              subtitle: Text(m.nombre),
+              trailing: estadoLabel != null
+                  ? _buildBadge(estadoLabel, estadoColor!, estadoIcon!)
+                  : const Icon(Icons.chevron_right),
+              onTap: activo ? () => _abrirModelo(m.code) : null,
             ),
-          ),
-          title: Text('Modelo ${m.code}',
-              style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text(m.nombre),
-          trailing: estadoLabel != null
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
+            // ── Fila PDF justificante ────────────────────────────────────
+            if (activo) ...[
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
                   children: [
-                    Icon(estadoIcon, color: estadoColor, size: 16),
-                    const SizedBox(width: 4),
-                    Text(estadoLabel,
+                    Icon(Icons.picture_as_pdf,
+                        size: 16,
+                        color: pdfUrl != null ? Colors.red : Colors.grey[400]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        pdfUrl != null
+                            ? 'Justificante AEAT adjunto'
+                            : 'Sin justificante de presentación',
                         style: TextStyle(
-                            color: estadoColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600)),
+                          fontSize: 11,
+                          color: pdfUrl != null
+                              ? Colors.red[700]
+                              : Colors.grey[500],
+                        ),
+                      ),
+                    ),
+                    if (pdfUrl != null) ...[
+                      TextButton.icon(
+                        onPressed: () => _verPdf(pdfUrl),
+                        icon: const Icon(Icons.open_in_new, size: 14),
+                        label: const Text('Ver', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 32),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    OutlinedButton.icon(
+                      onPressed: () => _subirPdfOficial(docId),
+                      icon: const Icon(Icons.upload_file, size: 14),
+                      label: Text(
+                        pdfUrl != null ? 'Reemplazar' : 'Subir PDF',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 32),
+                      ),
+                    ),
                   ],
-                )
-              : const Icon(Icons.chevron_right),
-          onTap: activo ? () => _abrirModelo(m.code) : null,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildBadge(String label, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _subirPdfOficial(String docId) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      dialogTitle: 'Seleccionar justificante PDF de AEAT',
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+
+    try {
+      final ref = FirebaseStorage.instance
+          .ref('empresas/${widget.empresaId}/modelos_fiscales/$docId.pdf');
+      await ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
+      final url = await ref.getDownloadURL();
+
+      await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('modelos_fiscales')
+          .doc(docId)
+          .set({
+        'pdf_justificante_url': url,
+        'pdf_subido_en': FieldValue.serverTimestamp(),
+        'estado': 'presentado',
+      }, SetOptions(merge: true));
+
+      await _cargarEstados();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Justificante PDF subido y modelo marcado como presentado'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error subiendo PDF: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  Future<void> _verPdf(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   void _abrirModelo(String code) {
@@ -314,6 +440,9 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
             empresaId: widget.empresaId, anioInicial: anio);
       case '347':
         pantalla = Modelo347Screen(
+            empresaId: widget.empresaId, anioInicial: anio);
+      case '349':
+        pantalla = Modelo349Screen(
             empresaId: widget.empresaId, anioInicial: anio);
       default:
         return;

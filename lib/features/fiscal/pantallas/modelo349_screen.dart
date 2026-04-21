@@ -53,11 +53,11 @@ class _Modelo349ScreenState extends State<Modelo349Screen> {
           .get();
 
       final facturas = snap.docs
-          .map((d) => Factura.fromMap(d.data(), d.id))
+          .map((d) => Factura.fromFirestore(d))
           .where((f) => f.fechaEmision.year == _anio)
           .toList();
       final recibidas = snapRec.docs
-          .map((d) => FacturaRecibida.fromMap(d.data(), d.id))
+          .map((d) => FacturaRecibida.fromFirestore(d))
           .where((f) => f.fechaRecepcion.year == _anio)
           .toList();
 
@@ -110,4 +110,6 @@ class _Modelo349ScreenState extends State<Modelo349Screen> {
     );
   }
 }
+
+
 

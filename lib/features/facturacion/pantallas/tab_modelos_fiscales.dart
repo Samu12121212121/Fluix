@@ -20,6 +20,7 @@ import 'package:planeag_flutter/features/fiscal/pantallas/modelo303_screen.dart'
 import '../../../widgets/calendario_fiscal_widget.dart';
 import 'pantalla_configuracion_fiscal_empresa.dart';
 import 'tab_mod_347.dart';
+import 'tab_mod_349.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB MODELOS FISCALES — 303 (IVA) y 130 (IRPF)
@@ -155,6 +156,8 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
           _buildBotonModelo390(color),
         ] else if (_tabModelo == 6) ...[
           _buildBotonModelo347(color),
+        ] else if (_tabModelo == 7) ...[
+          _buildBotonModelo349(color),
         ] else if (_tabModelo == 1 && empresaConfig.esSociedad) ...[
           _buildBotonModelo202(color),
         ] else ...[
@@ -330,6 +333,8 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
           _tabChip('390\nIVA anual', 5, color),
           const SizedBox(width: 6),
           _tabChip('347\nTerceros', 6, color),
+          const SizedBox(width: 6),
+          _tabChip('349\nIntracom.', 7, color),
         ],
       ),
     );
@@ -1210,6 +1215,70 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
               },
               icon: const Icon(Icons.open_in_new, size: 18),
               label: const Text('Abrir Modelo 347'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildBotonModelo349(Color color) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(Icons.public, size: 48, color: color),
+            const SizedBox(height: 12),
+            const Text(
+              'Modelo 349 — Operaciones intracomunitarias',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Art. 79 RIVA · Declaración recapitulativa de operaciones '
+              'intracomunitarias con otros países de la UE.\n'
+              'Periodicidad trimestral (mensual si >50.000 €/trim.)',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                final appConfig = context.read<AppConfigProvider>();
+                final empConf = context.read<EmpresaConfigProvider>();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MultiProvider(
+                      providers: [
+                        ChangeNotifierProvider.value(value: appConfig),
+                        ChangeNotifierProvider.value(value: empConf),
+                      ],
+                      child: Scaffold(
+                        appBar: AppBar(
+                          title: const Text('Modelo 349 — Intracomunitarias'),
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          elevation: 1,
+                        ),
+                        body: TabMod349Wrapper(
+                          empresaId: widget.empresaId,
+                          anio: widget.anio,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir Modelo 349'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: color,
                 foregroundColor: Colors.white,
