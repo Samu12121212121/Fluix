@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/fiscal/fiscal_capture_service.dart';
 import '../../../services/fiscal/fiscal_upload_service.dart';
+import '../../fiscal/pantallas/review_transaction_screen.dart';
 
 /// Tipo de documento: gasto (factura recibida) o ingreso (factura emitida)
 enum TipoDocumento { gasto, ingreso }
@@ -47,18 +48,28 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
 
       if (!mounted) return;
 
+      final txId = result['transaction_id']?.toString();
+      final status = (result['status'] ?? 'needs_review').toString();
+      final autoPublished = result['auto_published'] == true;
+
       setState(() {
         _progress = null;
         _resultado = _ResultadoIA(
-          status: (result['status'] ?? 'needs_review').toString(),
+          transactionId: txId,
+          status: status,
+          autoPublished: autoPublished,
           warnings: (result['warnings'] as List?)?.map((e) => e.toString()).toList() ?? [],
           errors: (result['errors'] as List?)?.map((e) => e.toString()).toList() ?? [],
         );
       });
 
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      Navigator.pop(context, true);
+      // Si fue auto-aprobado (≥92% confianza), volver directamente tras 2s
+      if (status == 'posted') {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      }
+      // Si needs_review, se queda en pantalla para que el usuario decida
     } on DuplicateDocumentException catch (e) {
       setState(() { _progress = null; _errorMessage = e.message; });
     } on FileTooLargeException catch (e) {
@@ -365,6 +376,9 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
 
   Widget _buildResultView() {
     final ok = _resultado!.status == 'posted';
+    final needsReview = _resultado!.status == 'needs_review';
+    final autoPublished = _resultado!.autoPublished;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -375,11 +389,35 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
             color: ok ? Colors.green : Colors.orange,
           ),
           const SizedBox(height: 16),
+
+          // Título principal
           Text(
-            ok ? '¡Documento registrado!' : 'Documento pendiente de revisión',
+            ok
+                ? autoPublished
+                    ? '✅ Contabilizado automáticamente'
+                    : '✅ Documento registrado'
+                : '⚠️ Pendiente de revisión',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
+
+          // Badge de confianza si fue auto-aprobado
+          if (ok && autoPublished) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                border: Border.all(color: Colors.green.shade300),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                '🤖 Confianza IA ≥ 92% — aprobado automáticamente',
+                style: TextStyle(fontSize: 12, color: Colors.green),
+              ),
+            ),
+          ],
+
           if (_resultado!.warnings.isNotEmpty) ...[
             const SizedBox(height: 12),
             ..._resultado!.warnings.map((w) => Padding(
@@ -398,8 +436,43 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
                       textAlign: TextAlign.center),
                 )),
           ],
+
           const SizedBox(height: 24),
-          Text('Volviendo...', style: TextStyle(color: Colors.grey[500])),
+
+          // Botón de revisar si needs_review y tenemos transactionId
+          if (needsReview && _resultado!.transactionId != null) ...[
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ReviewTransactionScreen(
+                      empresaId: widget.empresaId,
+                      transactionId: _resultado!.transactionId!,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.rate_review),
+              label: const Text('Revisar y confirmar ahora'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Revisar más tarde',
+                  style: TextStyle(color: Colors.grey[600])),
+            ),
+          ],
+
+          if (ok) ...[
+            const SizedBox(height: 8),
+            Text('Volviendo...', style: TextStyle(color: Colors.grey[500])),
+          ],
         ],
       ),
     );
@@ -407,8 +480,20 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
 }
 
 class _ResultadoIA {
+  final String? transactionId;
   final String status;
+  final bool autoPublished;
   final List<String> warnings;
   final List<String> errors;
-  _ResultadoIA({required this.status, required this.warnings, required this.errors});
+  _ResultadoIA({
+    this.transactionId,
+    required this.status,
+    this.autoPublished = false,
+    required this.warnings,
+    required this.errors,
+  });
 }
+
+
+
+

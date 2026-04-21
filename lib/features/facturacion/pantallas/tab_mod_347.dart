@@ -279,7 +279,7 @@ class _TabMod347State extends State<TabMod347> {
   }
 
   Widget _buildTarjetaOp(Operacion347 op, Color color) {
-    final esVenta = op.tipo == TipoOperacion347.venta;
+    final esVenta = op.clave == ClaveOperacion347.entregas;
     final c = esVenta ? Colors.green : Colors.deepPurple;
 
     return Card(
@@ -315,7 +315,7 @@ class _TabMod347State extends State<TabMod347> {
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    'NIF: ${op.nifTercero}  ·  ${op.numOperaciones} operaciones',
+                    'NIF: ${op.nifTercero}  ·  ${op.clave.etiqueta}',
                     style:
                         TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
@@ -331,11 +331,6 @@ class _TabMod347State extends State<TabMod347> {
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                       color: c),
-                ),
-                Text(
-                  'IVA: ${op.ivaAnual.toStringAsFixed(2)}€',
-                  style:
-                      TextStyle(fontSize: 11, color: Colors.grey[600]),
                 ),
               ],
             ),

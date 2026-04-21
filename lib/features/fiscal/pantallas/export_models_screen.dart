@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'modelo130_screen.dart';
 import 'modelo303_screen.dart';
 import 'modelo111_screen.dart';
 import 'modelo115_screen.dart';
@@ -9,6 +10,7 @@ import 'modelo390_screen.dart';
 import 'modelo190_screen.dart';
 import 'modelo180_screen.dart';
 import 'modelo347_screen.dart';
+import 'subir_certificado_verifactu_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EXPORT MODELS SCREEN — Wizard unificado para los 8 modelos AEAT
@@ -27,12 +29,18 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
   String _periodo = '';
   bool _tienePack = false;
   bool _cargando = true;
+  // Cache de estados guardados en modelos_fiscales/
+  Map<String, String> _estados = {};
+  // Cache de URLs PDF oficiales AEAT
+  Map<String, String> _pdfUrls = {};
 
   static const _modelosTrimestrales = [
     _ModeloInfo('303', 'IVA trimestral', Icons.receipt_long, Colors.blue),
     _ModeloInfo('111', 'Retenciones IRPF', Icons.people, Colors.purple),
     _ModeloInfo('115', 'Retenciones alquileres', Icons.home_work, Colors.teal),
+    _ModeloInfo('130', 'Pago fraccionado IRPF (autónomos)', Icons.person_outline, Colors.orange),
     _ModeloInfo('202', 'Pagos fraccionados IS', Icons.business_center, Colors.indigo),
+    _ModeloInfo('349', 'Operaciones intracomunitarias', Icons.public, Colors.green),
   ];
 
   static const _modelosAnuales = [
@@ -62,9 +70,27 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
         _tienePack = packs.contains('fiscal_ai');
         _cargando = false;
       });
+      if (_tienePack) _cargarEstados();
     } catch (_) {
       setState(() => _cargando = false);
     }
+  }
+
+  Future<void> _cargarEstados() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(widget.empresaId)
+        .collection('modelos_fiscales')
+        .get();
+    final map = <String, String>{};
+    final pdfMap = <String, String>{};
+    for (final doc in snap.docs) {
+      final estado = doc.data()['estado'] as String? ?? 'calculado';
+      map[doc.id] = estado;
+      final url = doc.data()['pdf_justificante_url'] as String?;
+      if (url != null && url.isNotEmpty) pdfMap[doc.id] = url;
+    }
+    if (mounted) setState(() { _estados = map; _pdfUrls = pdfMap; });
   }
 
   @override
@@ -77,6 +103,24 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
       appBar: AppBar(
         title: const Text('Modelos AEAT'),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.verified_user_outlined),
+            tooltip: 'Certificado VeriFactu',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SubirCertificadoVerifactuScreen(
+                    empresaId: widget.empresaId),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Actualizar estados',
+            onPressed: _cargarEstados,
+          ),
+        ],
       ),
       body: !_tienePack
           ? _buildSinPack()
@@ -181,9 +225,25 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
   Widget _buildModelCard(_ModeloInfo m) {
     final isAnual = !_periodo.contains('-Q');
     final modelIsAnual = ['390', '190', '180', '347'].contains(m.code);
-
-    // Grayed out si el tipo no coincide con el período seleccionado
     final activo = isAnual == modelIsAnual;
+
+    // Buscar estado guardado para este modelo+período
+    final periodoKey = _periodo.replaceAll('-Q', '_').replaceAll('-', '_');
+    final docId = '${m.code}_$periodoKey';
+    final estado = _estados[docId];
+
+    Color? estadoColor;
+    IconData? estadoIcon;
+    String? estadoLabel;
+    if (estado == 'presentado') {
+      estadoColor = Colors.green;
+      estadoIcon = Icons.check_circle;
+      estadoLabel = 'Presentado';
+    } else if (estado == 'calculado') {
+      estadoColor = Colors.orange;
+      estadoIcon = Icons.pending_actions;
+      estadoLabel = 'Calculado';
+    }
 
     return Opacity(
       opacity: activo ? 1.0 : 0.45,
@@ -203,7 +263,20 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
           title: Text('Modelo ${m.code}',
               style: const TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Text(m.nombre),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: estadoLabel != null
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(estadoIcon, color: estadoColor, size: 16),
+                    const SizedBox(width: 4),
+                    Text(estadoLabel,
+                        style: TextStyle(
+                            color: estadoColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                )
+              : const Icon(Icons.chevron_right),
           onTap: activo ? () => _abrirModelo(m.code) : null,
         ),
       ),
@@ -215,6 +288,9 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
 
     Widget pantalla;
     switch (code) {
+      case '130':
+        pantalla = Modelo130Screen(
+            empresaId: widget.empresaId, anioInicial: anio);
       case '303':
         pantalla = Modelo303Screen(
             empresaId: widget.empresaId, anioInicial: anio);
@@ -243,8 +319,8 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
         return;
     }
 
-    Navigator.push(
-        context, MaterialPageRoute(builder: (_) => pantalla));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => pantalla))
+        .then((_) => _cargarEstados()); // Recarga estados al volver
   }
 
   Widget _buildPrevisionCalendario() {

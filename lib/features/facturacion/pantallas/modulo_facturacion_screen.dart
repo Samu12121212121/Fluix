@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/services/pdf_service.dart';
@@ -8,6 +9,8 @@ import 'package:planeag_flutter/features/facturacion/pantallas/detalle_factura_s
 import 'package:planeag_flutter/features/facturacion/pantallas/formulario_factura_screen.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/resumen_fiscal_screen.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/pantalla_contabilidad.dart';
+import 'package:planeag_flutter/features/fiscal/pantallas/review_transaction_screen.dart';
+import 'package:planeag_flutter/features/fiscal/pantallas/export_models_screen.dart';
 import 'upload_invoice_screen.dart';
 
 class ModuloFacturacionScreen extends StatefulWidget {
@@ -29,15 +32,15 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     // Detect and mark overdue invoices
     _service.detectarYMarcarVencidas(widget.empresaId);
-    // Al pulsar tab 5 (Contabilidad), navegar a pantalla separada
+    // Al pulsar tab 6 (Contabilidad), navegar a pantalla separada
     _tabController.addListener(() {
-      if (_tabController.index == 5 && !_tabController.indexIsChanging) {
+      if (_tabController.index == 6 && !_tabController.indexIsChanging) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _tabController.animateTo(4);
+          _tabController.animateTo(5);
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -127,6 +130,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
                 _buildListaFacturas(EstadoFactura.pagada),
                 _buildListaFacturas(EstadoFactura.vencida),
                 _buildEstadisticas(),
+                _buildRevisionIA(),
                 // Slot dummy – la navegación real ocurre en el listener del TabController
                 const SizedBox.shrink(),
               ],
@@ -137,6 +141,20 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          FloatingActionButton.small(
+            heroTag: 'modelos_aeat',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ExportModelsScreen(empresaId: widget.empresaId),
+              ),
+            ),
+            backgroundColor: const Color(0xFF1A237E),
+            tooltip: 'Modelos AEAT',
+            child: const Icon(Icons.account_balance, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
           FloatingActionButton.small(
             heroTag: 'resumen_fiscal',
             onPressed: _abrirResumenFiscal,
@@ -181,13 +199,30 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
         tabAlignment: TabAlignment.start,
         labelStyle:
             const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        tabs: const [
-          Tab(text: 'Todas'),
-          Tab(text: 'Pendientes'),
-          Tab(text: 'Pagadas'),
-          Tab(text: '⚠️ Vencidas'),
-          Tab(text: 'Estadísticas'),
-          Tab(icon: Icon(Icons.calculate, size: 16), text: 'Contabilidad'),
+        tabs: [
+          const Tab(text: 'Todas'),
+          const Tab(text: 'Pendientes'),
+          const Tab(text: 'Pagadas'),
+          const Tab(text: '⚠️ Vencidas'),
+          const Tab(text: 'Estadísticas'),
+          Tab(
+            child: StreamBuilder<int>(
+              stream: watchNeedsReviewCount(widget.empresaId),
+              builder: (context, snap) {
+                final count = snap.data ?? 0;
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  backgroundColor: Colors.orange,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Text('🔍 Revisión IA'),
+                  ),
+                );
+              },
+            ),
+          ),
+          const Tab(icon: Icon(Icons.calculate, size: 16), text: 'Contabilidad'),
         ],
       ),
     );
@@ -720,6 +755,128 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
         );
       }
     }
+  }
+
+  // ── TAB REVISIÓN IA ────────────────────────────────────────────────────────
+
+  Widget _buildRevisionIA() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('fiscal_transactions')
+          .where('status', isEqualTo: 'needs_review')
+          .orderBy('created_at', descending: true)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                const SizedBox(height: 16),
+                const Text('¡Todo revisado!',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Text('No hay facturas pendientes de revisión IA',
+                    style: TextStyle(color: Colors.grey[600])),
+              ],
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: docs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, i) {
+            final data = docs[i].data() as Map<String, dynamic>;
+            final txId = docs[i].id;
+            final proveedor =
+                data['supplier_name'] ?? data['counterparty']?['name'] ?? '—';
+            final numero = data['invoice_number'] ?? '—';
+            final totalCents = (data['total_amount_cents'] as num?)?.toInt() ?? 0;
+            final total = (totalCents / 100).toStringAsFixed(2);
+            final errors =
+                List<String>.from(data['validation_errors'] ?? []);
+            final warnings =
+                List<String>.from(data['validation_warnings'] ?? []);
+            final confidence =
+                (data['confidence_score'] as num?)?.toDouble() ?? 0;
+
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: errors.isNotEmpty
+                      ? Colors.red.shade100
+                      : Colors.orange.shade100,
+                  child: Icon(
+                    errors.isNotEmpty
+                        ? Icons.error_outline
+                        : Icons.warning_amber,
+                    color:
+                        errors.isNotEmpty ? Colors.red : Colors.orange,
+                    size: 20,
+                  ),
+                ),
+                title: Text(proveedor,
+                    style:
+                        const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Nº $numero · $total €'),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.psychology,
+                            size: 12, color: Colors.grey[500]),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Confianza: ${(confidence * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey[600]),
+                        ),
+                        if (errors.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text('· ${errors.length} error(es)',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.red)),
+                        ] else if (warnings.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text('· ${warnings.length} aviso(s)',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.orange)),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await Navigator.push<String>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReviewTransactionScreen(
+                        empresaId: widget.empresaId,
+                        transactionId: txId,
+                      ),
+                    ),
+                  );
+                  // El stream se actualiza automáticamente tras confirmar/rechazar
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _abrirResumenFiscal() {

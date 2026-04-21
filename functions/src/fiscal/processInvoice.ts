@@ -2,10 +2,10 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const sharp = require("sharp") as typeof import("sharp");
+import pdfParse from "pdf-parse";
+import sharp from "sharp";
+import * as crypto from "crypto";
+import fetch from "node-fetch";
 import {
   SYSTEM_PROMPT_INVOICE_ES,
   PROMPT_VERSION,
@@ -18,6 +18,73 @@ const EU_COUNTRIES = [
   "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR",
   "HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","SE"
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER: HASH SHA-256 del archivo (detección de duplicados)
+// ═══════════════════════════════════════════════════════════════
+
+function computeFileHash(buffer: Buffer): string {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER: TIPO DE CAMBIO BCE (Banco Central Europeo)
+// Llama a la API SDMX pública del BCE para obtener el tipo de
+// cambio oficial de cierre del día anterior.
+// ═══════════════════════════════════════════════════════════════
+
+async function fetchExchangeRateBCE(currency: string): Promise<{
+  rate: number;
+  date: string;
+} | null> {
+  if (currency === "EUR") return null;
+  try {
+    const url =
+      `https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A` +
+      `?lastNObservations=1&format=jsondata`;
+
+    const resp = await fetch(url, {
+      headers: { "Accept": "application/json" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      signal: (AbortSignal as any).timeout(8000),
+    });
+
+    if (!resp.ok) {
+      console.warn(`BCE API HTTP ${resp.status} para ${currency}`);
+      return null;
+    }
+
+    const json = await resp.json() as any;
+    const observations =
+      json?.dataSets?.[0]?.series?.["0:0:0:0:0"]?.observations;
+
+    if (!observations) {
+      console.warn(`BCE: sin observaciones para ${currency}`);
+      return null;
+    }
+
+    const keys = Object.keys(observations).sort((a, b) => Number(b) - Number(a));
+    const latestKey = keys[0];
+    const rateRaw = observations[latestKey]?.[0];
+
+    if (!rateRaw) return null;
+
+    // El BCE da EUR por 1 unidad de divisa. Invertimos para obtener divisa/EUR.
+    const rateEurPerForeign = parseFloat(rateRaw);
+
+    // Obtener la fecha de la observación más reciente
+    const timeDimension = json?.structure?.dimensions?.observation?.find(
+      (d: any) => d.id === "TIME_PERIOD"
+    );
+    const dateStr =
+      timeDimension?.values?.[parseInt(latestKey)]?.id || new Date().toISOString().substring(0, 10);
+
+    return { rate: rateEurPerForeign, date: dateStr };
+  } catch (e) {
+    console.warn(`BCE API error para ${currency}:`, e);
+    return null;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // HELPER: DOCUMENT AI
@@ -152,6 +219,31 @@ function validateInvoice(data: any): { errors: string[]; warnings: string[] } {
     } else if (diferencia > 0.10) {
       warnings.push(`math_small_discrepancy: diff=${diferencia.toFixed(2)}`);
     }
+  }
+
+  // Detección automática: proveedor fuera de UE → art. 21 exención IVA importación
+  const supplierCountry = (data.supplier_country || "").toUpperCase();
+  if (
+    supplierCountry &&
+    supplierCountry !== "ES" &&
+    !EU_COUNTRIES.includes(supplierCountry) &&
+    data.vat_scheme !== "margin_scheme"
+  ) {
+    if (!(data.tax_tags || []).includes("IMPORTACION_TERCEROS_PAISES")) {
+      (data.tax_tags = data.tax_tags || []).push("IMPORTACION_TERCEROS_PAISES");
+    }
+    if (!data.vat_scheme || data.vat_scheme === "standard") {
+      data.vat_scheme = "import_vat";
+      warnings.push("Posible importación de terceros países (art.21 LIVA) — verifica la exención de IVA");
+    }
+  }
+
+  // Régimen de margen (REBU / art. 135 LIVA)
+  if (data.vat_scheme === "margin_scheme") {
+    if (!(data.tax_tags || []).includes("REBU")) {
+      (data.tax_tags = data.tax_tags || []).push("REBU");
+    }
+    warnings.push("Régimen especial del margen de beneficios (REBU) — IVA calculado sobre el margen, no sobre el total");
   }
 
   return { errors, warnings };
@@ -291,10 +383,11 @@ export const processInvoice = onCall(
     const doc = docSnap.data()!;
     console.log(`storage_path: ${doc.storage_path}, mime_type: ${doc.mime_type}`);
 
-    // 5. DESCARGAR ARCHIVO DE STORAGE
+    // 5. DESCARGAR ARCHIVO DE STORAGE + calcular hash SHA-256
     const bucket = admin.storage().bucket("planeaapp-4bea4.firebasestorage.app");
     const [fileBuffer] = await bucket.file(doc.storage_path).download();
-    console.log(`Archivo descargado: ${fileBuffer.length} bytes`);
+    const fileHash = computeFileHash(fileBuffer);
+    console.log(`Archivo descargado: ${fileBuffer.length} bytes, hash: ${fileHash.substring(0, 12)}…`);
 
     // 6. EXTRAER TEXTO
     let rawText = "";
@@ -384,7 +477,28 @@ export const processInvoice = onCall(
     const validation = validateInvoice(invoiceData);
     console.log(`Validación: ${validation.errors.length} errores, ${validation.warnings.length} warnings`);
 
-    // 10. DETECTAR DUPLICADOS
+    // 10. DETECTAR DUPLICADOS — por hash SHA-256 del archivo (exacto) y por NIF+número (lógico)
+    // 10a. Duplicado exacto por hash
+    const hashQuery = await admin
+      .firestore()
+      .collection("empresas")
+      .doc(empresaId)
+      .collection("fiscal_documents")
+      .where("file_hash", "==", fileHash)
+      .where("status", "!=", "processing")
+      .limit(1)
+      .get();
+
+    if (!hashQuery.empty && hashQuery.docs[0].id !== documentId) {
+      validation.errors.push(
+        `Archivo duplicado — este fichero ya fue subido (doc: ${hashQuery.docs[0].id})`
+      );
+    } else {
+      // Guardar hash en el documento para futuras comparaciones
+      await docRef.update({ file_hash: fileHash });
+    }
+
+    // 10b. Duplicado lógico por NIF proveedor + número de factura
     if (invoiceData.supplier_tax_id && invoiceData.invoice_number) {
       const dupQuery = await admin
         .firestore()
@@ -398,7 +512,9 @@ export const processInvoice = onCall(
         .get();
 
       if (!dupQuery.empty) {
-        validation.warnings.push("Posible duplicado de una factura ya registrada");
+        validation.warnings.push(
+          `Posible duplicado — ya existe una factura de ${invoiceData.supplier_tax_id} con nº ${invoiceData.invoice_number}`
+        );
       }
     }
 
@@ -409,11 +525,21 @@ export const processInvoice = onCall(
 
     console.log(`Confianza: ${(confidence * 100).toFixed(1)}%, estado: ${status}, auto_published: ${autoPublished}`);
 
-    // 12. NECESITA CONVERSIÓN DE MONEDA
-    const needsCurrencyConversion =
-      invoiceData.currency &&
-      invoiceData.currency !== "EUR" &&
-      validation.warnings.some((w) => w.startsWith("currency_conversion_needed"));
+    // 12. CONVERSIÓN DE MONEDA BCE (llamada real a la API del BCE)
+    let bceRate: { rate: number; date: string } | null = null;
+    const currency = invoiceData.currency || "EUR";
+    const needsCurrencyConversion = currency !== "EUR";
+
+    if (needsCurrencyConversion) {
+      bceRate = await fetchExchangeRateBCE(currency);
+      if (bceRate) {
+        console.log(`BCE: 1 ${currency} = ${bceRate.rate} EUR (${bceRate.date})`);
+      } else {
+        validation.warnings.push(
+          `No se pudo obtener tipo de cambio BCE para ${currency} — conversión pendiente manual`
+        );
+      }
+    }
 
     // 13. PARSEAR FECHA
     let invoiceDate: Date;
@@ -491,13 +617,26 @@ export const processInvoice = onCall(
       total_amount_cents: toCents(totalAmount),
 
       // Moneda
-      currency: invoiceData.currency || "EUR",
+      currency: currency,
       needs_currency_conversion: needsCurrencyConversion,
-      conversion_status: invoiceData.currency === "EUR" ? "not_needed" : "pending",
-      eur_amount: null,
-      exchange_rate: null,
-      exchange_rate_date: null,
-      exchange_rate_source: null,
+      conversion_status: !needsCurrencyConversion
+        ? "not_needed"
+        : bceRate
+          ? "converted"
+          : "pending",
+      eur_amount: bceRate ? Math.round(totalAmount * bceRate.rate * 100) / 100 : null,
+      exchange_rate: bceRate?.rate ?? null,
+      exchange_rate_date: bceRate?.date ?? null,
+      exchange_rate_source: bceRate ? "ECB" : null,
+      original_currency_data: bceRate
+        ? {
+            original_currency: currency,
+            original_total: totalAmount,
+            exchange_rate: bceRate.rate,
+            rate_date: bceRate.date,
+            total_eur: Math.round(totalAmount * bceRate.rate * 100) / 100,
+          }
+        : null,
 
       // Régimen y clasificación
       vat_scheme: invoiceData.vat_scheme || "standard",
