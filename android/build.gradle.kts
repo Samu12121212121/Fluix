@@ -23,9 +23,11 @@ subprojects {
     }
 }
 
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
+// Configuración de directorio de build personalizado
+val newBuildDir: Directory = rootProject.layout.buildDirectory
+    .dir("../../build")
+    .get()
+
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
