@@ -16,7 +16,6 @@ class HistorialPresentacionesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Historial de Presentaciones'),
-        subtitle: const Text('Estado de modelos AEAT por períodos'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -174,7 +173,7 @@ class HistorialPresentacionesScreen extends StatelessWidget {
                   ? Colors.orange.shade100 
                   : Colors.grey.shade100,
           child: Icon(
-            esAnual ? Icons.calendar_view_year : Icons.calendar_view_month,
+            esAnual ? Icons.date_range : Icons.calendar_today,
             color: presentados == total 
                 ? Colors.green.shade700 
                 : calculados > 0 
@@ -368,3 +367,5 @@ class ModeloEstado {
     this.justificanteUrl,
   });
 }
+
+

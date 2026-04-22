@@ -16,6 +16,7 @@ import 'modelo180_screen.dart';
 import 'modelo347_screen.dart';
 import 'subir_certificado_verifactu_screen.dart';
 import 'calendario_fiscal_screen.dart';
+import 'historial_presentaciones_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EXPORT MODELS SCREEN — Wizard unificado para los 8 modelos AEAT
