@@ -6,8 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/modulo_valoraciones_fixed.dart';
-import '../widgets/modulo_citas.dart';
-import '../widgets/modulo_reservas.dart';
 import '../widgets/modulo_estadisticas.dart';
 import '../widgets/modulo_propietario.dart';
 import '../widgets/widget_factory.dart';
@@ -17,8 +15,6 @@ import '../../../core/constantes/constantes_app.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/notificaciones_service.dart';
 import '../../../services/debug_fcm_widget.dart';
-import '../../../services/datos_prueba_service.dart';
-import '../../../services/datos_prueba_contabilidad_service.dart';
 import '../../../services/bandeja_notificaciones_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/widget_config.dart';
@@ -31,6 +27,7 @@ import '../../pedidos/pantallas/modulo_pedidos_nuevo_screen.dart';
 import '../../pedidos/pantallas/modulo_whatsapp_screen.dart';
 import '../../empleados/pantallas/modulo_empleados_screen.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
+import '../../reservas/pantallas/modulo_reservas_screen.dart';
 import '../../clientes/pantallas/modulo_clientes_screen.dart';
 import '../../servicios/pantallas/modulo_servicios_screen.dart';
 import '../../nominas/pantallas/modulo_nominas_screen.dart';
@@ -53,14 +50,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     with TickerProviderStateMixin {
   TabController? _tabController;
   final WidgetManagerService _widgetService = WidgetManagerService();
-  final DatosPruebaService _datosPruebaService = DatosPruebaService();
-  final DatosPruebaContabilidadService _datosPruebaContabilidad =
-      DatosPruebaContabilidadService();
   final DemoCuentaService _demoService = DemoCuentaService();
   String? _empresaId;
   String _nombreUsuario = '';
   bool _cargando = true;
-  bool _generandoPrueba = false;
   bool _generandoDemo = false;
   List<String> _modulosActivos = [];
   SesionUsuario? _sesion;
@@ -518,8 +511,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'propietario':     return esPropietario ? const ModuloPropietario() : const Center(child: Text('Sin acceso'));
       case 'dashboard':       return _buildDashboardModular();
       case 'valoraciones':    return ModuloValoraciones(empresaId: id);
-      case 'reservas':        return ModuloReservas(empresaId: id, sesion: sesionActiva);
-      case 'citas':           return ModuloCitas(empresaId: id, sesion: sesionActiva);
+      case 'reservas':        return ModuloReservasScreen(empresaId: id, sesion: sesionActiva);
+      case 'citas':           return ModuloReservasScreen(empresaId: id, sesion: sesionActiva);
       case 'estadisticas':    return ModuloEstadisticas(empresaId: id);
       case 'tareas':          return ModuloTareasScreen(empresaId: id);
       case 'pedidos':         return ModuloPedidosNuevoScreen(empresaId: id);
@@ -1032,50 +1025,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               ],
             ),
           ),
-          // Botón datos de prueba (SOLO en debug)
-          if (kDebugMode) ...[
-          if (_generandoPrueba)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              ),
-            )
-          else
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.science_outlined,
-                  color: Colors.white, size: 22),
-              tooltip: 'Datos de prueba',
-              color: Colors.white,
-              onSelected: (v) {
-                if (v == 'generar') _generarDatosPrueba();
-                if (v == 'limpiar') _limpiarDatosPrueba();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'generar',
-                  child: ListTile(
-                    leading: Icon(Icons.add_chart, color: Colors.green),
-                    title: Text('Generar datos de prueba'),
-                    subtitle: Text('Reservas · Facturas · Pedidos · Gastos'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'limpiar',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_sweep, color: Colors.red),
-                    title: Text('Limpiar datos de prueba'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-                ),
-              ],
-            ),
-          ], // fin kDebugMode
+          // Botón de configuración del dashboard
           IconButton(
             onPressed: () {
               Navigator.push(
@@ -1341,79 +1291,6 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         .first;
   }
 
-  /// Vista cuando el contenido web está desactivado
-  /// Genera datos de prueba completos (reservas, facturas, pedidos, gastos...)
-  Future<void> _generarDatosPrueba() async {
-    if (_empresaId == null) return;
-    setState(() => _generandoPrueba = true);
-    try {
-      await Future.wait([
-        _datosPruebaService.crearDatosPrueba(_empresaId!),
-        _datosPruebaContabilidad.generarDatosDePrueba(_empresaId!),
-      ]);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Datos de prueba generados — reservas, facturas, pedidos, gastos'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _generandoPrueba = false);
-    }
-  }
-
-  Future<void> _limpiarDatosPrueba() async {
-    if (_empresaId == null) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('¿Limpiar datos de prueba?'),
-        content: const Text(
-            'Se eliminarán reservas, facturas, pedidos, gastos y proveedores de prueba.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-
-    setState(() => _generandoPrueba = true);
-    try {
-      await Future.wait([
-        _datosPruebaService.limpiarDatosPrueba(_empresaId!),
-        _datosPruebaContabilidad.limpiarDatosDePrueba(_empresaId!),
-      ]);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('🗑️ Datos de prueba eliminados'),
-          backgroundColor: Colors.orange,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'), backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _generandoPrueba = false);
-    }
-  }
 
   // ignore: unused_element
   Widget _buildVistaWebDesactivada() {

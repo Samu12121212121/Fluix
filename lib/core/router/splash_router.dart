@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
-import '../../features/autenticacion/pantallas/pantalla_login.dart';
-import '../../features/dashboard/pantallas/pantalla_dashboard.dart';
-import '../../features/onboarding/pantallas/pantalla_onboarding.dart';
-import '../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
+import 'package:planeag_flutter/features/autenticacion/pantallas/pantalla_login.dart';
+import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_dashboard.dart';
+import 'package:planeag_flutter/features/registro/pantallas/pantalla_registrar_empresa_social.dart';
+import 'package:planeag_flutter/features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 
 final _log = Logger();
 
@@ -34,28 +34,33 @@ class _SplashRouterState extends State<SplashRouter> {
     try {
       final db = FirebaseFirestore.instance;
 
-      // Un solo Future.wait para las 2 consultas obligatorias
+      // 1. Leer documento de usuario
       final userDoc = await db.collection('usuarios').doc(uid).get();
       final userData = userDoc.data();
       final empresaId = userData?['empresa_id'] as String?;
 
-      if (empresaId == null) return const PantallaDashboard();
-      // Sin empresa (null o vacío) → flujo de registro social incompleto
+      // Sin empresa → flujo de registro social incompleto
       if (empresaId == null || empresaId.isEmpty) {
         final nombre = (userData?['nombre'] as String?) ?? '';
         final correo = (userData?['correo'] as String?) ?? '';
+        if (nombre.isEmpty && correo.isEmpty) return const PantallaDashboard();
         return PantallaRegistrarEmpresaSocial(
           nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',
           correoUsuario: correo,
         );
       }
-      // Ahora traer empresa y suscripción en paralelo
-      final results = await Future.wait([
-      if (empresaId == null) return const PantallaDashboard();
-      }
 
-      // Verificar suscripción
-      if (suscData != null && results[1].exists) {
+      // 2. Traer empresa y suscripción en paralelo
+      final results = await Future.wait([
+        db.collection('empresas').doc(empresaId).get(),
+        db.collection('empresas').doc(empresaId).collection('suscripcion').doc('actual').get(),
+      ]);
+
+      final suscDoc = results[1];
+      final suscData = suscDoc.data();
+
+      // 3. Verificar suscripción
+      if (suscData != null && suscDoc.exists) {
         final estado = suscData['estado'] as String? ?? 'ACTIVA';
         if (estado == 'VENCIDA' || estado == 'SUSPENDIDA') {
           DateTime? fechaFin;

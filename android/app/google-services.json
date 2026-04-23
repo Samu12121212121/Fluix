@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:1085482191658:android:ff19ff386aed2e90d62c53",
         "android_client_info": {
-          "package_name": "com.example.planeaa"
+          "package_name": "com.fluixcrm.ap"
         }
       },
       "oauth_client": [],
@@ -27,25 +27,6 @@
     {
       "client_info": {
         "mobilesdk_app_id": "1:1085482191658:android:c2de28caf383e9e4d62c53",
-        "android_client_info": {
-          "package_name": "com.example.planeag_flutter"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCvOaB1hF_sF-A6jMZ0MusttuhzSMDezb4"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1085482191658:android:fluixcrm001d62c53",
         "android_client_info": {
           "package_name": "com.fluixcrm.app"
         }

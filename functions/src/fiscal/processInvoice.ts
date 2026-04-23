@@ -672,17 +672,19 @@ export const processInvoice = onCall(
       await facturaEmitidaRef.set({
         empresa_id: empresaId,
         numero_factura: invoiceData.invoice_number || `AI-${documentId.substring(0, 8)}`,
-        fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
+        // Campos de schema requeridos por Factura.fromFirestore
+        serie: "fac",
+        tipo: "venta_directa",
+        estado: status === "posted" ? "emitida" : "pendiente",
         cliente_nombre: invoiceData.customer_name || invoiceData.supplier_name || "",
+        cliente_telefono: null,
+        cliente_correo: null,
         datos_fiscales: {
           nif: invoiceData.customer_tax_id || null,
           razon_social: invoiceData.customer_name || null,
           direccion: null,
           pais: invoiceData.customer_country || "ES",
         },
-        subtotal: baseAmount,
-        total_iva: vatAmount,
-        total: totalAmount,
         lineas: (invoiceData.lines || []).map((l: any) => ({
           descripcion: l.description || "",
           precio_unitario: parseFloat(l.unit_price || "0"),
@@ -691,8 +693,29 @@ export const processInvoice = onCall(
           descuento: 0,
           recargo_equivalencia: 0,
         })),
-        estado: status === "posted" ? "emitida" : "pendiente",
-        fecha_creacion: ahora,
+        subtotal: baseAmount,
+        total_iva: vatAmount,
+        total: totalAmount,
+        descuento_global: 0,
+        importe_descuento_global: 0,
+        porcentaje_irpf: parseFloat(invoiceData.withholding_rate || "0"),
+        retencion_irpf: withholdingAmount,
+        total_recargo_equivalencia: toCents(invoiceData.recargo_amount || "0") / 100,
+        dias_vencimiento: 30,
+        metodo_pago: null,
+        notas_internas: null,
+        notas_cliente: null,
+        historial: [{
+          usuario_id: "",
+          usuario_nombre: "Sistema IA",
+          accion: "creada",
+          descripcion: `Factura procesada por IA (${ocrEngine})`,
+          fecha: ahora,
+        }],
+        fecha_emision: admin.firestore.Timestamp.fromDate(invoiceDate),
+        fecha_vencimiento: admin.firestore.Timestamp.fromDate(
+          new Date(invoiceDate.getTime() + 30 * 24 * 60 * 60 * 1000)
+        ),
         fecha_actualizacion: ahora,
         _ai_transaction_id: txRef.id,
         _ai_document_id: documentId,
@@ -755,11 +778,21 @@ export const processInvoice = onCall(
         importe_retencion: withholdingAmount || null,
         total_con_impuestos: totalAmount,
 
-        // Moneda
+        // Moneda — ahora usa bceRate correctamente (igual que fiscal_transactions)
         moneda: invoiceData.currency || "EUR",
-        importe_eur: invoiceData.currency === "EUR" ? totalAmount : null,
-        tipo_cambio: null,
-        conversion_status: invoiceData.currency === "EUR" ? "not_needed" : "pending",
+        importe_eur: !needsCurrencyConversion
+          ? totalAmount
+          : bceRate
+            ? Math.round(totalAmount * bceRate.rate * 100) / 100
+            : null,
+        tipo_cambio: bceRate?.rate ?? null,
+        fecha_tipo_cambio: bceRate?.date ?? null,
+        fuente_tipo_cambio: bceRate ? "ECB" : null,
+        conversion_status: !needsCurrencyConversion
+          ? "not_needed"
+          : bceRate
+            ? "converted"
+            : "pending",
 
         // Estado y pago
         estado: status === "posted" ? "recibida" : "pendiente",

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recordatorio de pago</title>
+  <style>
+    body { margin:0; padding:0; background:#f5f7fa; font-family:'Helvetica Neue',Arial,sans-serif; }
+    .wrapper { max-width:640px; margin:0 auto; padding:32px 16px; }
+    .card { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.08); }
+    .header { background:#E65100; padding:28px 32px; }
+    .header-title { color:#fff; font-size:20px; font-weight:700; margin:0; }
+    .header-sub { color:#FFCCBC; font-size:13px; margin:6px 0 0; }
+    .body { padding:32px; }
+    .alert-box { background:#FFF3E0; border-left:4px solid #E65100; border-radius:0 8px 8px 0; padding:16px 20px; margin-bottom:24px; }
+    .alert-box p { margin:0; font-size:14px; color:#333; }
+    .invoice-card { background:#F5F5F5; border-radius:8px; padding:20px 24px; margin-bottom:24px; }
+    .invoice-row { display:flex; justify-content:space-between; font-size:14px; color:#555; padding:6px 0; border-bottom:1px solid #E0E0E0; }
+    .invoice-row:last-child { border-bottom:none; font-weight:700; font-size:16px; color:#222; }
+    .label { color:#666; }
+    .cta-btn { display:block; background:#E65100; color:#fff; text-decoration:none; text-align:center; padding:14px 24px; border-radius:8px; font-size:15px; font-weight:600; margin:24px 0; }
+    .footer-bar { background:#F8FAFF; padding:16px 32px; text-align:center; font-size:11px; color:#999; border-top:1px solid #E8EEF7; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <p class="header-title">{{urgencia}} — Factura pendiente de pago</p>
+        <p class="header-sub">{{empresaNombre}}</p>
+      </div>
+      <div class="body">
+        <p style="font-size:15px;color:#333;margin:0 0 20px;">
+          Estimado/a <strong>{{clienteNombre}}</strong>,
+        </p>
+        <div class="alert-box">
+          <p>La factura <strong>{{numeroFactura}}</strong> vence el <strong>{{fechaVencimiento}}</strong>
+          — quedan <strong>{{diasRestantes}} días</strong>.</p>
+        </div>
+        <div class="invoice-card">
+          <div class="invoice-row"><span class="label">Nº Factura</span><span>{{numeroFactura}}</span></div>
+          <div class="invoice-row"><span class="label">Fecha vencimiento</span><span>{{fechaVencimiento}}</span></div>
+          <div class="invoice-row"><span class="label">Total</span><span>{{importeTotal}} €</span></div>
+        </div>
+        <p style="font-size:13px;color:#555;line-height:1.6;">
+          Si ya ha realizado el pago, ignore este mensaje. Si tiene alguna duda,
+          no dude en contactarnos respondiendo a este email.
+        </p>
+        <p style="font-size:14px;color:#333;margin-top:20px;">
+          Atentamente,<br><strong>{{empresaNombre}}</strong>
+        </p>
+      </div>
+      <div class="footer-bar">{{empresaNombre}} · Este es un mensaje automático</div>
+    </div>
+  </div>
+</body>
+</html>
+

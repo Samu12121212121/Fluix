@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../domain/modelos/widget_config.dart';
 import '../../../services/widget_manager_service.dart';
+import '../../../services/suscripcion_service.dart';
+
+/// Mapa de widget ID → pack requerido ('gestion', 'tienda', o null = siempre disponible)
+const Map<String, String?> _packRequeridoPorWidget = {
+  'resumen_facturacion': 'gestion',
+  'resumen_pedidos': 'tienda',
+};
 
 class ConfiguracionWidgetsScreen extends StatefulWidget {
   final String empresaId;
@@ -14,6 +21,30 @@ class ConfiguracionWidgetsScreen extends StatefulWidget {
 class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen> {
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _guardandoCambios = false;
+  List<String> _packsActivos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarPacks();
+  }
+
+  Future<void> _cargarPacks() async {
+    try {
+      final svc = SuscripcionService();
+      final datos = await svc.cargarSuscripcion(widget.empresaId);
+      if (datos != null && mounted) {
+        setState(() => _packsActivos = datos.packsActivos);
+      }
+    } catch (_) {}
+  }
+
+  /// Devuelve true si el widget está disponible para el plan actual
+  bool _widgetPermitido(String widgetId) {
+    final packRequerido = _packRequeridoPorWidget[widgetId];
+    if (packRequerido == null) return true; // No requiere pack
+    return _packsActivos.contains(packRequerido);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,13 +218,15 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
 
   Widget _buildWidgetCard(WidgetConfig widgetConfig) {
     final implementado = WidgetConfig.implementados.contains(widgetConfig.id);
+    final packPermitido = _widgetPermitido(widgetConfig.id);
+    final disponible = implementado && packPermitido;
     final colorActivo = const Color(0xFF4CAF50);
-    final colorBorde = widgetConfig.activo && implementado ? colorActivo : Colors.transparent;
+    final colorBorde = widgetConfig.activo && disponible ? colorActivo : Colors.transparent;
 
     return Card(
       key: ValueKey(widgetConfig.id),
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: widgetConfig.activo && implementado ? 3 : 1,
+      elevation: widgetConfig.activo && disponible ? 3 : 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         decoration: BoxDecoration(
@@ -208,14 +241,14 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: widgetConfig.activo && implementado
+                  color: widgetConfig.activo && disponible
                       ? colorActivo.withValues(alpha: 0.1)
                       : Colors.grey.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   widgetConfig.icono,
-                  color: widgetConfig.activo && implementado
+                  color: widgetConfig.activo && disponible
                       ? colorActivo
                       : Colors.grey[500],
                   size: 24,
@@ -233,7 +266,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: implementado ? Colors.black87 : Colors.grey[500],
+                        color: disponible ? Colors.black87 : Colors.grey[500],
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -244,32 +277,47 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        // Badge implementado / próximamente
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: implementado
-                                ? const Color(0xFF1976D2).withValues(alpha: 0.1)
-                                : Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            implementado ? '✅ Disponible' : '🚧 Próximamente',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                        if (!packPermitido)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock, size: 10, color: Colors.red[700]),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Requiere Pack ${_packRequeridoPorWidget[widgetConfig.id] == 'gestion' ? 'Gestión' : 'Tienda'}',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red[700]),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
                               color: implementado
-                                  ? const Color(0xFF1976D2)
-                                  : Colors.orange[800],
+                                  ? const Color(0xFF1976D2).withValues(alpha: 0.1)
+                                  : Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              implementado ? '✅ Disponible' : '🚧 Próximamente',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: implementado ? const Color(0xFF1976D2) : Colors.orange[800],
+                              ),
                             ),
                           ),
-                        ),
-                        if (widgetConfig.activo && implementado) ...[
+                        if (widgetConfig.activo && disponible) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: colorActivo.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -294,14 +342,14 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
               Column(
                 children: [
                   Switch(
-                    value: widgetConfig.activo && implementado,
-                    onChanged: (!implementado || _guardandoCambios)
+                    value: widgetConfig.activo && disponible,
+                    onChanged: (!disponible || _guardandoCambios)
                         ? null
                         : (v) => _toggleWidget(widgetConfig, v),
                     activeThumbColor: colorActivo,
                   ),
                   Icon(Icons.drag_handle,
-                      color: implementado ? Colors.grey[400] : Colors.grey[300],
+                      color: disponible ? Colors.grey[400] : Colors.grey[300],
                       size: 20),
                 ],
               ),

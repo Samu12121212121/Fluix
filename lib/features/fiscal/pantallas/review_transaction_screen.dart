@@ -427,30 +427,151 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
 
   // ── ACCIONES ───────────────────────────────────────────────────
 
+  /// Valida que base × tipo_iva ≈ cuota_iva (tolerancia 0,02€).
+  /// Retorna null si es coherente, o un mensaje de advertencia si no.
+  String? _validarCoherenciaIva() {
+    final base = double.tryParse(_baseAmountCtrl.text) ?? 0;
+    final vat = double.tryParse(_vatAmountCtrl.text) ?? 0;
+    final total = double.tryParse(_totalAmountCtrl.text) ?? 0;
+    final tipoIva = (_tx?['vat_rate'] as num?)?.toDouble() ?? 21.0;
+
+    if (base > 0 && tipoIva > 0) {
+      final vatEsperado = base * tipoIva / 100;
+      if ((vat - vatEsperado).abs() > 0.02) {
+        return 'La cuota IVA (${vat.toStringAsFixed(2)}€) no coincide con '
+            '${tipoIva.toStringAsFixed(0)}% de la base (${vatEsperado.toStringAsFixed(2)}€). '
+            '¿Es correcto?';
+      }
+    }
+    if (base > 0 && vat >= 0 && total > 0) {
+      final totalEsperado = base + vat;
+      if ((total - totalEsperado).abs() > 0.02) {
+        return 'El total (${total.toStringAsFixed(2)}€) no coincide con '
+            'base + IVA (${totalEsperado.toStringAsFixed(2)}€). ¿Es correcto?';
+      }
+    }
+    return null;
+  }
+
   Future<void> _onConfirm() async {
+    // ── Validación de coherencia IVA ───────────────────────────────
+    final avisoIva = _validarCoherenciaIva();
+    if (avisoIva != null) {
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Posible error de importe'),
+            ],
+          ),
+          content: Text(avisoIva),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Corregir'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Confirmar de todas formas'),
+            ),
+          ],
+        ),
+      );
+      if (confirmar != true) return;
+    }
+
     setState(() => _saving = true);
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       final edits = _buildEdits();
-
-      await FirebaseFirestore.instance
+      final db = FirebaseFirestore.instance;
+      final txRef = db
           .collection('empresas')
           .doc(widget.empresaId)
           .collection('fiscal_transactions')
-          .doc(widget.transactionId)
-          .update({
+          .doc(widget.transactionId);
+
+      final tx = _tx!;
+      final baseEur = double.tryParse(_baseAmountCtrl.text) ?? 0;
+      final vatEur = double.tryParse(_vatAmountCtrl.text) ?? 0;
+      final totalEur = double.tryParse(_totalAmountCtrl.text) ?? 0;
+      final invoiceDate = tx['invoice_date'];
+      final fechaFactura = invoiceDate is Timestamp
+          ? invoiceDate.toDate()
+          : DateTime.now();
+
+      // ── Trazabilidad: detectar cambios respecto a los datos IA ────
+      final cambiosRealizados = <String, Map<String, dynamic>>{};
+      void _registrarCambio(String campo, dynamic original, dynamic editado) {
+        final origStr = original?.toString() ?? '';
+        final editStr = editado?.toString() ?? '';
+        if (origStr != editStr) {
+          cambiosRealizados[campo] = {'ia': origStr, 'usuario': editStr};
+        }
+      }
+      _registrarCambio('invoice_number', tx['invoice_number'], _invoiceNumberCtrl.text.trim());
+      _registrarCambio('proveedor_nombre', tx['counterparty']?['name'], _supplierNameCtrl.text.trim());
+      _registrarCambio('proveedor_nif', tx['counterparty']?['tax_id'], _supplierTaxIdCtrl.text.trim());
+      _registrarCambio('base_imponible', ((tx['base_amount_cents'] ?? 0) / 100).toStringAsFixed(2), _baseAmountCtrl.text);
+      _registrarCambio('cuota_iva', ((tx['vat_amount_cents'] ?? 0) / 100).toStringAsFixed(2), _vatAmountCtrl.text);
+      _registrarCambio('total', ((tx['total_amount_cents'] ?? 0) / 100).toStringAsFixed(2), _totalAmountCtrl.text);
+
+      // ── Operación atómica: WriteBatch para fiscal_transaction + facturas_recibidas ──
+      // Si cualquiera de las dos escrituras falla, ninguna se aplica.
+      final batch = db.batch();
+
+      final facturaRecibidaRef = db
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('facturas_recibidas')
+          .doc(); // nuevo ID
+
+      // 1. Actualizar fiscal_transaction
+      batch.update(txRef, {
         ...edits,
         'status': 'posted',
         'user_reviewed': true,
         'posted_at': FieldValue.serverTimestamp(),
         'posted_by': uid,
         'updated_at': FieldValue.serverTimestamp(),
+        'factura_recibida_id': facturaRecibidaRef.id, // enlace inverso
+        if (cambiosRealizados.isNotEmpty) 'cambios_revision': cambiosRealizados,
       });
+
+      // 2. Crear factura_recibida
+      batch.set(facturaRecibidaRef, {
+        'numero_factura': _invoiceNumberCtrl.text.trim().isNotEmpty
+            ? _invoiceNumberCtrl.text.trim()
+            : 'FRec-${DateTime.now().millisecondsSinceEpoch}',
+        'proveedor_nombre': _supplierNameCtrl.text.trim(),
+        'proveedor_nif': _supplierTaxIdCtrl.text.trim(),
+        'base_imponible': baseEur,
+        'cuota_iva': vatEur,
+        'total': totalEur,
+        'tipo_iva': (tx['vat_rate'] as num?)?.toDouble() ?? 21.0,
+        'fecha_factura': Timestamp.fromDate(fechaFactura),
+        'fecha_registro': FieldValue.serverTimestamp(),
+        'estado': 'pendiente',
+        'fiscal_transaction_id': widget.transactionId,
+        'categoria': (tx['tags'] as List<dynamic>?)?.firstOrNull ?? 'gasto_general',
+        'notas': '',
+        'registrado_por': uid,
+        'revisado_con_cambios': cambiosRealizados.isNotEmpty,
+      });
+
+      // Commit atómico — si falla, NADA se escribe en Firestore
+      await batch.commit();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Factura confirmada y contabilizada'),
+          SnackBar(
+            content: Text(cambiosRealizados.isNotEmpty
+                ? '✅ Factura confirmada (${cambiosRealizados.length} campo(s) corregido(s))'
+                : '✅ Factura confirmada y contabilizada'),
             backgroundColor: Colors.green,
           ),
         );
@@ -460,7 +581,7 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Error al confirmar: $e'),
             backgroundColor: Colors.red),
       );
     }

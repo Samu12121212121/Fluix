@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/widget_manager_service.dart';
+import '../../../services/suscripcion_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_widgets_screen.dart';
 import 'pantallas_configuracion_extras.dart';
@@ -20,68 +21,134 @@ class _ConfiguracionDashboardScreenState
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _cargando = false;
 
-  // Packs contratados por la empresa (leídos de suscripcion/actual)
-  List<String> _packsContratados = [];
+  // Pack contratado por la empresa (leído de suscripcion/actual)
+  PlanModulo _planContratado = PlanModulo.basico;
 
   @override
   void initState() {
     super.initState();
-    _cargarPacks();
+    _cargarPlan();
   }
 
-  Future<void> _cargarPacks() async {
+  Future<void> _cargarPlan() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .collection('suscripcion')
-          .doc('actual')
-          .get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        final packs = (data['packs_activos'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ?? [];
-        if (mounted) setState(() => _packsContratados = packs);
+      // Usamos SuscripcionService que maneja tanto formato nuevo (packs_activos)
+      // como el formato antiguo (campo 'plan'), evitando que siempre quede en 'básico'.
+      final svc = SuscripcionService();
+      final datos = await svc.cargarSuscripcion(widget.empresaId);
+
+      PlanModulo plan;
+      if (datos != null) {
+        // Formato nuevo: inferir PlanModulo desde packs_activos
+        if (datos.packsActivos.contains('tienda')) {
+          plan = PlanModulo.tienda;
+        } else if (datos.packsActivos.contains('gestion')) {
+          plan = PlanModulo.gestion;
+        } else {
+          // Fallback: leer campo legacy 'plan' si existe
+          switch (datos.planLegacy) {
+            case 'tienda':
+              plan = PlanModulo.tienda;
+              break;
+            case 'gestion':
+              plan = PlanModulo.gestion;
+              break;
+            default:
+              plan = PlanModulo.basico;
+          }
+        }
+      } else {
+        // Sin suscripción: leer el campo 'plan' directamente como fallback
+        final doc = await FirebaseFirestore.instance
+            .collection('empresas')
+            .doc(widget.empresaId)
+            .collection('suscripcion')
+            .doc('actual')
+            .get();
+        final planStr = doc.data()?['plan'] as String? ?? 'basico';
+        switch (planStr) {
+          case 'tienda': plan = PlanModulo.tienda; break;
+          case 'gestion': plan = PlanModulo.gestion; break;
+          default: plan = PlanModulo.basico;
+        }
       }
+
+      if (mounted) setState(() => _planContratado = plan);
     } catch (_) {}
   }
 
-  // _planContratado omitted
+  /// Devuelve true si el módulo está incluido en el plan contratado.
+  bool _moduloPermitido(ModuloConfig modulo) {
+    switch (_planContratado) {
+      case PlanModulo.tienda:
+        return true; // Tienda incluye todo
+      case PlanModulo.gestion:
+        return modulo.plan == PlanModulo.basico ||
+            modulo.plan == PlanModulo.gestion;
+      case PlanModulo.basico:
+        return modulo.plan == PlanModulo.basico;
+    }
+  }
 
   Widget _buildFilaModulo(ModuloConfig modulo, PlanModulo plan) {
+    final permitido = _moduloPermitido(modulo);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: modulo.activo
+          color: modulo.activo && permitido
               ? plan.color.withValues(alpha: 0.1)
-              : Colors.grey.withValues(alpha: 0.1),
+              : Colors.grey.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
         child: ListTile(
           leading: Icon(
             modulo.icono,
-            color: modulo.activo ? plan.color : Colors.grey,
+            color: modulo.activo && permitido ? plan.color : Colors.grey[400],
           ),
-          title: Text(modulo.nombre),
-          subtitle: Text(
-            modulo.descripcion,
+          title: Text(
+            modulo.nombre,
             style: TextStyle(
-              color: plan.color,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              color: permitido ? Colors.black87 : Colors.grey[500],
             ),
           ),
-          trailing: Checkbox(
-            value: modulo.activo,
-            onChanged: (bool? value) {
-              if (value != null) {
-                _toggleModulo(modulo.id, value, modulo.nombre);
-              }
-            },
-            activeColor: plan.color,
-          ),
+          subtitle: permitido
+              ? Text(
+                  modulo.descripcion,
+                  style: TextStyle(
+                    color: plan.color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Icon(Icons.lock_outline, size: 11, color: Colors.grey[400]),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Requiere ${plan.nombre}',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+          trailing: permitido
+              ? Checkbox(
+                  value: modulo.activo,
+                  onChanged: (bool? value) {
+                    if (value != null) {
+                      _toggleModulo(modulo.id, value, modulo.nombre);
+                    }
+                  },
+                  activeColor: plan.color,
+                )
+              : Tooltip(
+                  message: 'No incluido en tu plan actual (${_planContratado.nombre})',
+                  child: Icon(Icons.lock, color: Colors.grey[400], size: 22),
+                ),
         ),
       ),
     );

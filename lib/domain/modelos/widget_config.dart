@@ -251,12 +251,10 @@ class ModulosDisponibles {
     'citas',
   ];
 
-  /// Módulos activos por defecto al inicializar
-  /// El usuario puede desactivarlos desde Ajustes
+  /// Módulos activos por defecto al inicializar (solo el dashboard base)
+  /// El propietario asigna el plan correcto en Firestore.
   static List<String> get activosPorDefecto => [
     'dashboard',
-    'pedidos',
-    'tpv',
   ];
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/analytics_web_service.dart';
 
@@ -32,6 +33,32 @@ class TabAnalyticsWeb extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ── Dominio vinculado ─────────────────────────────────────────
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('empresas')
+                  .doc(empresaId)
+                  .collection('configuracion')
+                  .doc('web_avanzada')
+                  .get(),
+              builder: (_, snap) {
+                final dominio = (snap.data?.data()
+                    as Map<String, dynamic>?)?['dominio_propio_url'] as String?;
+                if (dominio == null || dominio.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(children: [
+                    const Icon(Icons.language, size: 14, color: Colors.blueGrey),
+                    const SizedBox(width: 6),
+                    Text(dominio,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blueGrey)),
+                  ]),
+                );
+              },
+            ),
             // ── KPIs principales ──────────────────────────────────────────
             _buildKpis(m, color),
             const SizedBox(height: 14),

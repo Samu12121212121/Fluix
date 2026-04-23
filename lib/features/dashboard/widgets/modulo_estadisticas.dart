@@ -1104,10 +1104,25 @@ class _SeccionTraficoWeb extends StatelessWidget {
                 child: const Icon(Icons.language, color: Color(0xFF1565C0), size: 20),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tráfico Web', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  Text('fluixtech.com', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text('Tráfico Web', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('empresas')
+                        .doc(empresaId)
+                        .collection('configuracion')
+                        .doc('web_avanzada')
+                        .get(),
+                    builder: (_, snap) {
+                      final dominio = (snap.data?.data()
+                          as Map<String, dynamic>?)?['dominio_propio_url'] as String?;
+                      return Text(
+                        dominio != null && dominio.isNotEmpty ? dominio : 'Sin dominio configurado',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      );
+                    },
+                  ),
                 ]),
               ),
               if (m.ultimaActualizacion != null)
@@ -1142,7 +1157,7 @@ class _SeccionTraficoWeb extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'El script JavaScript del footer de fluixtech.com '
+                      'El script JavaScript del footer de tu web '
                       'enviará los datos automáticamente. Cada visita se registra en tiempo real.',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       textAlign: TextAlign.center,

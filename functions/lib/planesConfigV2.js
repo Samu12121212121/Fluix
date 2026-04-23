@@ -46,9 +46,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.actualizarModulosSegunPlan = exports.ADDONS = exports.PACKS = exports.PLAN_BASE = void 0;
+exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.actualizarModulosSegunPlan = exports.ADDONS = exports.PACKS = exports.BUNDLES = exports.PLAN_BASE = void 0;
 exports.calcularModulosActivos = calcularModulosActivos;
 exports.calcularPrecioTotal = calcularPrecioTotal;
+exports.calcularDescuentoBundle = calcularDescuentoBundle;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 // Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
@@ -78,12 +79,29 @@ exports.PLAN_BASE = {
 // ─────────────────────────────────────────────────────────────────────────────
 // PACKS
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// BUNDLES — descuento automático al contratar dos packs juntos
+// ─────────────────────────────────────────────────────────────────────────────
+exports.BUNDLES = [
+    {
+        packs: ["gestion", "fiscal"],
+        descuento: 100,
+        nombre: "Bundle Gestión + Fiscal",
+        // gestion(350) + fiscal(350) = 700 → con bundle: 600€ (ahorro 100€)
+    },
+];
 exports.PACKS = {
     gestion: {
         id: "gestion",
         nombre: "Pack Gestión",
         precioAnual: 350,
         modulosAdicionales: ["facturacion", "vacaciones"],
+    },
+    fiscal: {
+        id: "fiscal",
+        nombre: "Pack Fiscal",
+        precioAnual: 350,
+        modulosAdicionales: ["fiscal", "contabilidad", "verifactu"],
     },
     tienda: {
         id: "tienda",
@@ -135,7 +153,7 @@ function calcularModulosActivos(packsActivos, addonsActivos) {
     }
     return Array.from(modulos);
 }
-/** Calcula precio total anual */
+/** Calcula precio total anual aplicando descuentos de bundle automáticamente */
 function calcularPrecioTotal(packsActivos, addonsActivos) {
     let total = exports.PLAN_BASE.precioAnual;
     for (const packId of packsActivos) {
@@ -148,7 +166,23 @@ function calcularPrecioTotal(packsActivos, addonsActivos) {
         if (addon && addon.precioAnual !== null)
             total += addon.precioAnual;
     }
+    // Aplicar descuentos de bundle
+    for (const bundle of exports.BUNDLES) {
+        if (bundle.packs.every((p) => packsActivos.includes(p))) {
+            total -= bundle.descuento;
+        }
+    }
     return total;
+}
+/** Calcula el descuento de bundle activo (para mostrar en UI) */
+function calcularDescuentoBundle(packsActivos) {
+    let descuento = 0;
+    for (const bundle of exports.BUNDLES) {
+        if (bundle.packs.every((p) => packsActivos.includes(p))) {
+            descuento += bundle.descuento;
+        }
+    }
+    return descuento;
 }
 /** Verifica que el usuario sea admin de la plataforma */
 async function verificarPropietarioPlatforma(uid) {

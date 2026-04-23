@@ -119,47 +119,33 @@ async function verificarPropietarioPlatforma(uid: string): Promise<void> {
   }
 }
 
-/** Envía email de bienvenida con credenciales usando la función de email existente */
+/** Envía email de bienvenida con credenciales usando Resend */
 async function enviarEmailBienvenida(
   email: string,
   nombreEmpresa: string,
   tempPassword: string,
-  planNombre: string,
-  smtpUser: string,
-  smtpPass: string,
-  smtpHost: string,
-  smtpPort: string
+  planNombre: string
 ): Promise<void> {
-  const nodemailer = await import("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: parseInt(smtpPort),
-    secure: parseInt(smtpPort) === 465,
-    auth: { user: smtpUser, pass: smtpPass },
-  });
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-  const html = `
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 20px;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-        <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#0D47A1,#1976D2);padding:32px 40px;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:28px;font-weight:700;">🚀 ¡Bienvenido a Fluix CRM!</h1>
           <p style="color:rgba(255,255,255,.85);margin:8px 0 0;font-size:15px;">Tu negocio, bajo control</p>
         </td></tr>
-        <!-- Body -->
         <tr><td style="padding:40px;">
           <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Hola, ${nombreEmpresa} 👋</h2>
           <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 24px;">
             Tu cuenta en <strong>Fluix CRM</strong> ha sido activada con el <strong>${planNombre}</strong>.
             Aquí están tus credenciales de acceso:
           </p>
-
-          <!-- Credentials box -->
           <div style="background:#f0f4ff;border:1px solid #c5d3f0;border-radius:12px;padding:24px;margin-bottom:24px;">
             <p style="margin:0 0 12px;"><strong style="color:#0D47A1;">📧 Email:</strong><br>
               <span style="font-size:17px;font-family:monospace;color:#1a1a2e;">${email}</span>
@@ -168,28 +154,19 @@ async function enviarEmailBienvenida(
               <span style="font-size:20px;font-family:monospace;font-weight:700;color:#1a1a2e;letter-spacing:2px;">${tempPassword}</span>
             </p>
           </div>
-
           <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:16px;margin-bottom:24px;">
             <p style="margin:0;color:#f57f17;font-size:14px;">
-              ⚠️ <strong>Por seguridad</strong>, te recomendamos cambiar la contraseña en tu primera sesión:
-              Perfil → Seguridad → Cambiar contraseña.
+              ⚠️ <strong>Por seguridad</strong>, cambia la contraseña en tu primera sesión: Perfil → Seguridad → Cambiar contraseña.
             </p>
           </div>
-
-          <p style="color:#555;font-size:14px;margin:0 0 24px;">
-            Descarga la app <strong>Fluix CRM</strong> en tu teléfono o accede desde la web,
-            inicia sesión con las credenciales de arriba y empieza a gestionar tu negocio.
-          </p>
-
           <div style="text-align:center;margin:32px 0 0;">
             <a href="https://fluixcrm.app" style="background:linear-gradient(135deg,#0D47A1,#1976D2);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:16px;font-weight:700;display:inline-block;">
               Acceder ahora →
             </a>
           </div>
         </td></tr>
-        <!-- Footer -->
         <tr><td style="background:#f5f7fa;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
-          <p style="margin:0;color:#999;font-size:12px;">Fluix CRM · FluxTech · soporte@fluixcrm.app</p>
+          <p style="margin:0;color:#999;font-size:12px;">Fluix CRM · FluxTech · hola@fluixtech.com</p>
         </td></tr>
       </table>
     </td></tr>
@@ -197,12 +174,14 @@ async function enviarEmailBienvenida(
 </body>
 </html>`;
 
-  await transporter.sendMail({
-    from: `"Fluix CRM" <${smtpUser}>`,
+  const { error } = await resend.emails.send({
+    from: "Fluix CRM <hola@fluixtech.com>",
     to: email,
     subject: `🚀 Tu cuenta Fluix CRM está lista — ${planNombre}`,
     html,
   });
+
+  if (error) throw new Error(error.message);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -378,24 +357,8 @@ export const crearCuentaConPlan = onCall(
 
     // 7. Enviar email de bienvenida (no bloquea si falla)
     try {
-      const smtpHost = process.env.SMTP_HOST ?? "";
-      const smtpPort = process.env.SMTP_PORT ?? "587";
-      const smtpUser = process.env.SMTP_USER ?? "";
-      const smtpPass = process.env.SMTP_PASS ?? "";
-
-      if (smtpUser && smtpPass) {
-        await enviarEmailBienvenida(
-          email,
-          nombreEmpresa,
-          tempPassword,
-          plan.nombre,
-          smtpUser,
-          smtpPass,
-          smtpHost,
-          smtpPort
-        );
-        console.log(`📧 Email de bienvenida enviado a ${email}`);
-      }
+      await enviarEmailBienvenida(email, nombreEmpresa, tempPassword, plan.nombre);
+      console.log(`📧 Email de bienvenida enviado a ${email}`);
     } catch (emailErr) {
       console.warn("⚠️ Email de bienvenida no enviado:", emailErr);
     }
@@ -800,20 +763,12 @@ export const webhookPagoWeb = onRequest(
           cuentaCreada = true;
 
           // Enviar email de bienvenida
-          const smtpUser = process.env.SMTP_USER ?? "";
-          const smtpPass = process.env.SMTP_PASS ?? "";
-          if (smtpUser && smtpPass) {
-            await enviarEmailBienvenida(
-              email,
-              nombreEmpresa ?? email,
-              tempPassword,
-              plan.nombre,
-              smtpUser,
-              smtpPass,
-              process.env.SMTP_HOST ?? "",
-              process.env.SMTP_PORT ?? "587"
-            );
-          }
+          await enviarEmailBienvenida(
+            email,
+            nombreEmpresa ?? email,
+            tempPassword,
+            plan.nombre
+          ).catch((e) => console.warn("⚠️ Email bienvenida no enviado:", e));
 
           console.log(`✅ [webhookPago] Cuenta creada automáticamente: ${empresaId}`);
         } catch (autoErr) {

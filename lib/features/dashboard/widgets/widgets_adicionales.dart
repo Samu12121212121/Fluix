@@ -33,7 +33,7 @@ class WidgetKpisRapidos extends StatelessWidget {
                   );
                 }
 
-                final data = snapshot.data ?? _getDatosDemo();
+                final data = snapshot.data ?? {};
                 final ratingPromedio =
                     (data['rating_promedio'] ?? 0.0) as double;
                 return Row(
@@ -87,15 +87,77 @@ class WidgetKpisRapidos extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>> _obtenerKpisRapidos() async {
-    // Lógica para obtener KPIs desde cache o Firebase
-    return _getDatosDemo();
-  }
+    try {
+      final hoy = DateTime.now();
+      final inicioHoy = DateTime(hoy.year, hoy.month, hoy.day);
+      final finHoy = inicioHoy.add(const Duration(days: 1));
+      final inicioSemana =
+          inicioHoy.subtract(Duration(days: hoy.weekday - 1));
 
-  Map<String, dynamic> _getDatosDemo() => {
-        'reservas_hoy': 6,
-        'ingresos_semana': 1250,
-        'rating_promedio': 4.6,
+      final db = FirebaseFirestore.instance;
+      final base = db.collection('empresas').doc(empresaId);
+
+      // Reservas de hoy (colección reservas + citas)
+      final reservasSnap = await base
+          .collection('reservas')
+          .where('fecha_hora',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(finHoy))
+          .count()
+          .get();
+      final citasSnap = await base
+          .collection('citas')
+          .where('fecha_hora',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(finHoy))
+          .count()
+          .get();
+      final reservasHoy =
+          (reservasSnap.count ?? 0) + (citasSnap.count ?? 0);
+
+      // Ingresos de la semana (facturas pagadas)
+      final facturasSnap = await base
+          .collection('facturas')
+          .where('fecha_emision',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioSemana))
+          .where('estado', isEqualTo: 'pagada')
+          .get();
+      final ingresosSemana = facturasSnap.docs.fold<double>(
+        0,
+        (sum, d) => sum + ((d.data()['total'] as num?)?.toDouble() ?? 0),
+      );
+
+      // Rating promedio (últimas 50 valoraciones)
+      final valoracionesSnap = await base
+          .collection('valoraciones')
+          .orderBy('fecha', descending: true)
+          .limit(50)
+          .get();
+      double totalRating = 0;
+      int countRating = 0;
+      for (final doc in valoracionesSnap.docs) {
+        final r = (doc.data()['rating'] as num?)?.toDouble();
+        if (r != null) {
+          totalRating += r;
+          countRating++;
+        }
+      }
+      final ratingPromedio =
+          countRating > 0 ? totalRating / countRating : 0.0;
+
+      return {
+        'reservas_hoy': reservasHoy,
+        'ingresos_semana': ingresosSemana.round(),
+        'rating_promedio': ratingPromedio,
       };
+    } catch (_) {
+      return {
+        'reservas_hoy': 0,
+        'ingresos_semana': 0,
+        'rating_promedio': 0.0,
+      };
+    }
+  }
 }
 
 // ── Widget de Reservas de Hoy ─────────────────────────────────────────────────

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
 import '../../../services/respuesta_gmb_service.dart';
+import '../../../services/demo_cuenta_service.dart';
 import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
@@ -116,63 +118,255 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      _CabeceraCompleta(
-        empresaId:          widget.empresaId,
-        resenas:            _resenas,
-        ratingGoogle:       _ratingGoogle,
-        totalGoogle:        _totalGoogle,
-        sincronizando:      _sincronizando,
-        errorSync:          _errorSync,
-        mostrarAnaliticas:  _mostrarAnaliticas,
-        onSincronizar:      _sincronizarEnBackground,
-        onAnadir:           () => _mostrarFormAnadir(context),
-        onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
-        onGmbConectado:     () => _sincronizarEnBackground(),
-        // Solo admin/propietario ven el botón de configuración
-        onConfigurar: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ConfigurarGoogleReviewsScreen(empresaId: widget.empresaId),
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (DemoCuentaService().esDemo(email)) {
+      return _buildModoDemo(context);
+    }
+    return CustomScrollView(
+      slivers: [
+        // ── Cabecera (scrollea con el contenido) ──────────────────────────
+        SliverToBoxAdapter(
+          child: _CabeceraCompleta(
+            empresaId:          widget.empresaId,
+            resenas:            _resenas,
+            ratingGoogle:       _ratingGoogle,
+            totalGoogle:        _totalGoogle,
+            sincronizando:      _sincronizando,
+            errorSync:          _errorSync,
+            mostrarAnaliticas:  _mostrarAnaliticas,
+            onSincronizar:      _sincronizarEnBackground,
+            onAnadir:           () => _mostrarFormAnadir(context),
+            onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
+            onGmbConectado:     () => _sincronizarEnBackground(),
+            onConfigurar: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ConfigurarGoogleReviewsScreen(empresaId: widget.empresaId),
+              ),
+            ).then((_) => _sincronizarEnBackground()),
           ),
-        ).then((_) => _sincronizarEnBackground()),
-      ),
-      if (_cargando)
-        const Expanded(child: Center(child: CircularProgressIndicator()))
-      else if (_resenas.isEmpty)
-        Expanded(child: _EstadoVacio(
-            ratingGoogle: _ratingGoogle,
-            totalGoogle:  _totalGoogle,
-            onAnadir:     () => _mostrarFormAnadir(context)))
-      else
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          itemCount: _resenas.length + (_hayMas ? 1 : 0),
-          itemBuilder: (_, i) {
-            if (i == _resenas.length) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: _cargandoMas
-                  ? const CircularProgressIndicator()
-                  : OutlinedButton.icon(
-                      onPressed: _cargarMas,
-                      icon: const Icon(Icons.expand_more),
-                      label: Text('Ver más (${_resenas.length} de máx 50)'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1976D2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ))));
-            }
-            final data = Map<String, dynamic>.from(_resenas[i])..remove('_snap');
-            return _TarjetaResena(
-              docId:     _resenas[i]['id'] as String,
-              empresaId: widget.empresaId,
-              data:      data,
-              svc:       _svc,
-            );
-          },
-        )),
-    ]);
+        ),
+
+        // ── Cuerpo ────────────────────────────────────────────────────────
+        if (_cargando)
+          const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_resenas.isEmpty)
+          SliverFillRemaining(
+            child: _EstadoVacio(
+              ratingGoogle: _ratingGoogle,
+              totalGoogle:  _totalGoogle,
+              onAnadir:     () => _mostrarFormAnadir(context),
+            ),
+          )
+        else ...[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) {
+                  if (i == _resenas.length) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: _cargandoMas
+                          ? const CircularProgressIndicator()
+                          : OutlinedButton.icon(
+                              onPressed: _cargarMas,
+                              icon: const Icon(Icons.expand_more),
+                              label: Text('Ver más (${_resenas.length} de máx 50)'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF1976D2),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20)),
+                              ),
+                            ),
+                      ),
+                    );
+                  }
+                  final data = Map<String, dynamic>.from(_resenas[i])
+                    ..remove('_snap');
+                  return _TarjetaResena(
+                    docId:     _resenas[i]['id'] as String,
+                    empresaId: widget.empresaId,
+                    data:      data,
+                    svc:       _svc,
+                  );
+                },
+                childCount: _resenas.length + (_hayMas ? 1 : 0),
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ],
+      ],
+    );
+  }
+
+  // ── MODO DEMO ──────────────────────────────────────────────────────────────
+
+  Widget _buildModoDemo(BuildContext context) {
+    const resenasDemo = [
+      _DemoResena('Laura Martínez', 5, 'Increíble atención, el mejor sitio. Volveré seguro.'),
+      _DemoResena('Carlos Gómez', 4, 'Muy buena atención y rapidez en el servicio.'),
+      _DemoResena('Ana Ruiz', 5, 'Todo perfecto, la comida estaba deliciosa.'),
+      _DemoResena('Pedro López', 3, 'Bien en general, aunque tardaron un poco en atendernos.'),
+      _DemoResena('María García', 5, 'Sitio muy agradable y trato excelente.'),
+    ];
+
+    return CustomScrollView(
+      slivers: [
+        // Banner explicativo
+        SliverToBoxAdapter(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.star, color: Color(0xFFFFC107), size: 20),
+                  SizedBox(width: 8),
+                  Text('Módulo de Valoraciones',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                ]),
+                SizedBox(height: 8),
+                Text(
+                  'Gestiona todas las reseñas de tu negocio desde un solo lugar. '
+                  'Conecta tu perfil de Google Business para sincronizar reseñas reales, '
+                  'responder directamente y ver analíticas de satisfacción.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Rating demo
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)
+                ],
+              ),
+              child: Row(children: [
+                Column(children: [
+                  const Text('4.4',
+                      style: TextStyle(
+                          fontSize: 46,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFF57C00))),
+                  Row(children: List.generate(5, (i) => Icon(
+                    i < 4 ? Icons.star : Icons.star_half,
+                    color: const Color(0xFFF57C00), size: 20))),
+                  const SizedBox(height: 4),
+                  Text('5 reseñas de ejemplo',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                ]),
+                const SizedBox(width: 16),
+                Expanded(child: Column(children: [5, 4, 3, 2, 1].map((stars) {
+                  final pct = stars == 5 ? 0.6 : stars == 4 ? 0.2 : stars == 3 ? 0.2 : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(children: [
+                      Text('$stars', style: const TextStyle(fontSize: 11)),
+                      const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
+                      const SizedBox(width: 4),
+                      Expanded(child: LinearProgressIndicator(
+                          value: pct,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
+                          minHeight: 6)),
+                    ]));
+                }).toList())),
+              ]),
+            ),
+          ),
+        ),
+
+        // Tarjetas de funcionalidades
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text('¿Qué puedes hacer?',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey[700])),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(spacing: 8, runSpacing: 8, children: const [
+              _FuncionalidadChip(Icons.sync, 'Sincronizar con Google', Color(0xFF4285F4)),
+              _FuncionalidadChip(Icons.reply, 'Responder reseñas', Color(0xFF34A853)),
+              _FuncionalidadChip(Icons.bar_chart, 'Analíticas de rating', Color(0xFFFBBC05)),
+              _FuncionalidadChip(Icons.add_comment_outlined, 'Reseñas manuales', Color(0xFFEA4335)),
+              _FuncionalidadChip(Icons.trending_up, 'Evolución histórica', Color(0xFF7B1FA2)),
+            ]),
+          ),
+        ),
+
+        // Reseñas demo
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Row(children: [
+              Text('Reseñas de ejemplo',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey[700])),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10)),
+                child: const Text('DEMO',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange)),
+              ),
+            ]),
+          ),
+        ),
+
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (_, i) {
+                final r = resenasDemo[i];
+                return _TarjetaResenaDemo(
+                    nombre: r.nombre,
+                    estrellas: r.estrellas,
+                    comentario: r.comentario);
+              },
+              childCount: resenasDemo.length,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _mostrarFormAnadir(BuildContext context) {
@@ -859,3 +1053,101 @@ class _BadgeNegativaState extends State<_BadgeNegativa>
   );
 }
 
+// ── Clases helper para modo demo ──────────────────────────────────────────────
+
+class _DemoResena {
+  final String nombre;
+  final int estrellas;
+  final String comentario;
+  const _DemoResena(this.nombre, this.estrellas, this.comentario);
+}
+
+class _TarjetaResenaDemo extends StatelessWidget {
+  final String nombre;
+  final int estrellas;
+  final String comentario;
+  const _TarjetaResenaDemo({
+    required this.nombre,
+    required this.estrellas,
+    required this.comentario,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iniciales = nombre.split(' ').where((s) => s.isNotEmpty).take(2)
+        .map((s) => s[0]).join().toUpperCase();
+    final colors = [
+      const Color(0xFF1976D2), const Color(0xFF388E3C),
+      const Color(0xFF7B1FA2), const Color(0xFFF57C00), const Color(0xFFD32F2F),
+    ];
+    final avatarColor = colors[nombre.codeUnits.fold(0, (a, b) => a + b) % colors.length];
+
+    return Opacity(
+      opacity: 0.75,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: avatarColor,
+                child: Text(iniciales,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(nombre,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Row(children: List.generate(5, (i) => Icon(
+                  i < estrellas ? Icons.star : Icons.star_border,
+                  color: const Color(0xFFF57C00), size: 14))),
+              ])),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('DEMO',
+                    style: TextStyle(fontSize: 9, color: Colors.orange,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text(comentario,
+                style: const TextStyle(fontSize: 13.5, height: 1.4, color: Colors.black54)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _FuncionalidadChip extends StatelessWidget {
+  final IconData icono;
+  final String texto;
+  final Color color;
+  const _FuncionalidadChip(this.icono, this.texto, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icono, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(texto, style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w500, color: color)),
+      ]),
+    );
+  }
+}

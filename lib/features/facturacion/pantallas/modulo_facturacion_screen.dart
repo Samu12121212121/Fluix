@@ -138,49 +138,60 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'modelos_aeat',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    ExportModelsScreen(empresaId: widget.empresaId),
-              ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Botones secundarios en fila
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'modelos_aeat',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ExportModelsScreen(empresaId: widget.empresaId),
+                    ),
+                  ),
+                  backgroundColor: const Color(0xFF1A237E),
+                  tooltip: 'Modelos AEAT (303, 130, 347…)',
+                  child: const Icon(Icons.account_balance, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'resumen_fiscal',
+                  onPressed: _abrirResumenFiscal,
+                  backgroundColor: const Color(0xFF1565C0),
+                  tooltip: 'Resumen Fiscal',
+                  child: const Icon(Icons.summarize, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'subir_documento',
+                  onPressed: _subirDocumento,
+                  backgroundColor: const Color(0xFF2E7D32),
+                  tooltip: 'Subir factura recibida (PDF/imagen)',
+                  child: const Icon(Icons.document_scanner, color: Colors.white, size: 20),
+                ),
+              ],
             ),
-            backgroundColor: const Color(0xFF1A237E),
-            tooltip: 'Modelos AEAT',
-            child: const Icon(Icons.account_balance, color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: 'resumen_fiscal',
-            onPressed: _abrirResumenFiscal,
-            backgroundColor: const Color(0xFF1565C0),
-            tooltip: 'Resumen Fiscal',
-            child: const Icon(Icons.summarize, color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.extended(
-            heroTag: 'subir_documento',
-            onPressed: _subirDocumento,
-            backgroundColor: const Color(0xFF2E7D32),
-            icon: const Icon(Icons.document_scanner, color: Colors.white),
-            label: const Text('Subir documento',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.extended(
-            heroTag: 'nueva_factura',
-            onPressed: _nuevaFactura,
-            backgroundColor: const Color(0xFF0D47A1),
-            icon: const Icon(Icons.receipt_long, color: Colors.white),
-            label: const Text('Nueva Factura',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ],
+            const SizedBox(height: 10),
+            // Botón principal
+            FloatingActionButton.extended(
+              heroTag: 'nueva_factura',
+              onPressed: _nuevaFactura,
+              backgroundColor: const Color(0xFF0D47A1),
+              icon: const Icon(Icons.receipt_long, color: Colors.white),
+              label: const Text('Nueva Factura',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
       ),
     ),
     );
@@ -266,7 +277,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 220),
                 itemCount: facturas.length,
                 itemBuilder: (ctx, i) => _buildTarjetaFactura(facturas[i]),
               );
@@ -467,30 +478,25 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
     String mensaje = 'No hay facturas';
     if (filtro == EstadoFactura.pendiente) mensaje = 'No hay facturas pendientes';
     if (filtro == EstadoFactura.pagada) mensaje = 'No hay facturas pagadas';
+    if (filtro == EstadoFactura.vencida) mensaje = 'No hay facturas vencidas';
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(mensaje,
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey)),
-          const SizedBox(height: 8),
-          const Text('Crea una nueva factura pulsando el botón +',
-              style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _nuevaFactura,
-            icon: const Icon(Icons.add),
-            label: const Text('Nueva Factura'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(32, 0, 32, 200),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(mensaje,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey)),
+            const SizedBox(height: 8),
+            const Text('Crea una nueva factura con el botón de abajo',
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }

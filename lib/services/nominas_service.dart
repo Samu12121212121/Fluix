@@ -14,6 +14,28 @@ import 'convenio_firestore_service.dart';
 import 'vacaciones_service.dart';
 import 'antiguedad_calculator.dart';
 
+/// Excepción lanzada cuando el sector de la empresa no tiene convenio registrado.
+class SectorNoReconocidoException implements Exception {
+  final String message;
+  SectorNoReconocidoException(this.message);
+  @override
+  String toString() => 'SectorNoReconocidoException: $message';
+}
+
+/// Excepción lanzada cuando el salario no cumple el SMI o el mínimo del convenio.
+class SalarioInferiorMinimoException implements Exception {
+  final String message;
+  final double salarioActual;
+  final double salarioMinimo;
+  SalarioInferiorMinimoException({
+    required this.message,
+    required this.salarioActual,
+    required this.salarioMinimo,
+  });
+  @override
+  String toString() => 'SalarioInferiorMinimoException: $message';
+}
+
 /// Servicio de gestión de nóminas con cálculo automático
 /// según normativa española (Seguridad Social + IRPF 2026).
 class NominasService {
@@ -82,7 +104,14 @@ class NominasService {
       case 'comercio_general_cuenca':
         return _convComercioCuencaId;
       default:
-        return _convHosteleriaId;
+        // ⚠️ Sector no reconocido: NO usar hostelería silenciosamente.
+        // Se lanza excepción para que el usuario configure el sector correcto.
+        throw SectorNoReconocidoException(
+          'Sector "${sector ?? 'null'}" no está registrado en el sistema. '
+          'Por favor, configura el sector de la empresa en Ajustes → Datos de empresa. '
+          'Sectores soportados: hosteleria, comercio, peluqueria, carniceria, '
+          'veterinarios, construccion (y variantes cuenca).',
+        );
     }
   }
 
@@ -941,8 +970,15 @@ class NominasService {
         cat = await _convSvc.obtenerCategoriaPorId(convenioId, config.convenioCodigoCat!);
       }
       if (!_salarioCumpleMinimo(config.salarioBrutoAnual, cat)) {
-        debugPrint('⚠️ Nómina omitida por salario inferior a mínimo SMI/convenio para empleado ${data['nombre'] ?? emp.id}');
-        continue;
+        final minimoAplicable = cat?.salarioAnual ?? _smiAnual2026;
+        throw SalarioInferiorMinimoException(
+          message: 'El salario anual de ${data['nombre'] ?? emp.id} '
+              '(${config.salarioBrutoAnual.toStringAsFixed(2)}€) es inferior al mínimo '
+              'legal (${minimoAplicable.toStringAsFixed(2)}€/año). '
+              'Corrige el salario en Datos Nómina antes de generar la nómina.',
+          salarioActual: config.salarioBrutoAnual,
+          salarioMinimo: minimoAplicable,
+        );
       }
 
       // Resolver convenio para obtener pluses y unidades variables

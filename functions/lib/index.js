@@ -36,14 +36,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.obtenerScriptJSON = exports.generarScriptEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevaFactura = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
-exports.testPushNotification = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = void 0;
+exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
+exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
 const stripe_1 = __importDefault(require("stripe"));
-const nodemailer = __importStar(require("nodemailer"));
+const resend_service_1 = require("./resend_service");
 const recordatoriosCitas_1 = require("./recordatoriosCitas");
 Object.defineProperty(exports, "enviarRecordatoriosCitas", { enumerable: true, get: function () { return recordatoriosCitas_1.enviarRecordatoriosCitas; } });
 const notificacionesTareas_1 = require("./notificacionesTareas");
@@ -224,10 +224,7 @@ Object.defineProperty(exports, "resumenSemanalResenas", { enumerable: true, get:
 // Valores reales: edita functions/.env (no subir a git)
 const stripeSecretKey = { value: () => { var _a; return (_a = process.env.STRIPE_SECRET_KEY) !== null && _a !== void 0 ? _a : ""; } };
 const stripeWebhookSecret = { value: () => { var _a; return (_a = process.env.STRIPE_WEBHOOK_SECRET) !== null && _a !== void 0 ? _a : ""; } };
-const smtpHost = { value: () => { var _a; return (_a = process.env.SMTP_HOST) !== null && _a !== void 0 ? _a : ""; } };
-const smtpPort = { value: () => { var _a; return (_a = process.env.SMTP_PORT) !== null && _a !== void 0 ? _a : "587"; } };
-const smtpUser = { value: () => { var _a; return (_a = process.env.SMTP_USER) !== null && _a !== void 0 ? _a : ""; } };
-const smtpPass = { value: () => { var _a; return (_a = process.env.SMTP_PASS) !== null && _a !== void 0 ? _a : ""; } };
+// Resend API key — configurado en functions/.env como RESEND_API_KEY
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 async function obtenerTokensEmpresa(empresaId) {
     const col = db.collection("empresas").doc(empresaId).collection("dispositivos");
@@ -557,39 +554,58 @@ exports.onNuevoPedidoGenerarFactura = (0, firestore_1.onDocumentCreated)({ docum
         });
         const lineasPedido = pedido.lineas || [];
         const lineasFactura = lineasPedido.map((l) => ({
-            descripcion: l.producto_nombre || l.descripcion || "Producto",
+            descripcion: (l.producto_nombre || l.descripcion || "Producto"),
             precio_unitario: l.precio_unitario || 0,
             cantidad: l.cantidad || 1,
-            porcentaje_iva: 21.0,
-            referencia: l.producto_id || null,
+            // Usar el IVA real de la línea del pedido; si no existe, 21% por defecto
+            porcentaje_iva: l.porcentaje_iva || l.iva || 21.0,
+            descuento: l.descuento || 0,
+            recargo_equivalencia: l.recargo_equivalencia || 0,
+            referencia: (l.producto_id || l.referencia || null),
         }));
-        const subtotal = lineasFactura.reduce((sum, l) => sum + l.precio_unitario * l.cantidad, 0);
-        const totalIva = lineasFactura.reduce((sum, l) => sum + l.precio_unitario * l.cantidad * (l.porcentaje_iva / 100), 0);
+        const subtotal = lineasFactura.reduce((sum, l) => sum + l.precio_unitario * l.cantidad * (1 - l.descuento / 100), 0);
+        const totalIva = lineasFactura.reduce((sum, l) => sum + l.precio_unitario * l.cantidad * (1 - l.descuento / 100) * (l.porcentaje_iva / 100), 0);
         const total = subtotal + totalIva;
         const metodoPagoMap = {
             tarjeta: "tarjeta",
             paypal: "paypal",
             bizum: "bizum",
             efectivo: "efectivo",
+            transferencia: "transferencia",
+            stripe: "tarjeta",
         };
         const metodoPago = (_a = metodoPagoMap[pedido.metodo_pago]) !== null && _a !== void 0 ? _a : null;
+        // Si el pedido ya está pagado (origen Stripe, etc.), la factura nace directamente como "pagada"
+        const estadoPago = pedido.estado_pago || "";
+        const estadoFactura = (estadoPago === "pagado" || estadoPago === "paid") ? "pagada" : "pendiente";
         const facturaData = {
             empresa_id: empresaId,
             numero_factura: numeroFactura,
+            serie: "fac",
             tipo: "pedido",
-            estado: "pendiente",
+            estado: estadoFactura,
             cliente_nombre: pedido.cliente_nombre || "Cliente",
             cliente_telefono: pedido.cliente_telefono || null,
             cliente_correo: pedido.cliente_correo || null,
-            datos_fiscales: null,
+            datos_fiscales: pedido.datos_fiscales || null,
             lineas: lineasFactura,
             subtotal: subtotal,
             total_iva: totalIva,
             total: total,
+            descuento_global: 0,
+            importe_descuento_global: 0,
+            porcentaje_irpf: 0,
+            retencion_irpf: 0,
+            total_recargo_equivalencia: 0,
+            dias_vencimiento: 30,
             metodo_pago: metodoPago,
             pedido_id: pedidoId,
             notas_internas: null,
             notas_cliente: pedido.notas_cliente || null,
+            // Si ya está pagada, registrar fecha_pago
+            fecha_pago: estadoFactura === "pagada"
+                ? admin.firestore.FieldValue.serverTimestamp()
+                : null,
             historial: [
                 {
                     usuario_id: "",
@@ -615,22 +631,9 @@ exports.onNuevoPedidoGenerarFactura = (0, firestore_1.onDocumentCreated)({ docum
         console.error(`❌ Error generando factura para pedido ${pedidoId}:`, error);
     }
 });
-/**
- * 6. NUEVA FACTURA PENDIENTE
- */
-exports.onNuevaFactura = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/facturas/{facturaId}", region: REGION }, async (event) => {
-    var _a;
-    const empresaId = event.params.empresaId;
-    const factura = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
-    if (!factura)
-        return;
-    if (factura.estado !== "pendiente")
-        return;
-    const numero = factura.numero_factura || event.params.facturaId;
-    const total = factura.total || 0;
-    const cliente = factura.cliente_nombre || "Cliente";
-    await enviarNotificacionEmpresa(empresaId, "🧾 Nueva Factura Pendiente", `${numero} — ${cliente} — €${total.toFixed(2)}`, { tipo: "nueva_factura", factura_id: event.params.facturaId });
-});
+// onNuevaFactura ELIMINADA — todas las facturas se generan automáticamente
+// desde pedidos de la web, por lo que la notificación de "nuevo pedido" (onNuevoPedido)
+// ya cubre el aviso. Tener una notificación extra por factura era redundante.
 /**
  * 7. SUSCRIPCIÓN POR VENCER — Cron diario (v2 scheduler)
  */
@@ -715,35 +718,12 @@ exports.onNuevoPedidoWhatsApp = (0, firestore_1.onDocumentCreated)({ document: "
     await enviarNotificacionEmpresa(empresaId, "💬 Pedido por WhatsApp", `${cliente} — €${total.toFixed(2)}`, { tipo: "pedido_whatsapp", pedido_id: event.params.pedidoId });
 });
 // ── GENERADOR DE SCRIPTS DINÁMICOS ────────────────────────────────────────────
-/**
- * 9. GENERAR SCRIPT PERSONALIZADO (v2 onRequest)
- */
-exports.generarScriptEmpresa = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
-    try {
-        const { empresaId, dominio } = req.query;
-        if (!empresaId || typeof empresaId !== "string") {
-            res.status(400).json({ error: "empresaId es requerido" });
-            return;
-        }
-        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-        if (!empresaDoc.exists) {
-            res.status(404).json({ error: "Empresa no encontrada" });
-            return;
-        }
-        const empresa = empresaDoc.data();
-        const nombreEmpresa = empresa.nombre || "Mi Negocio";
-        const dominiWeb = dominio || empresa.sitio_web || "midominio.com";
-        const script = generarScriptHTML(empresaId, nombreEmpresa, dominiWeb);
-        res.set("Content-Type", "text/html; charset=utf-8");
-        res.set("Content-Disposition", `attachment; filename="script-fluixcrm-${empresaId}.html"`);
-        res.status(200).send(script);
-    }
-    catch (error) {
-        console.error("❌ Error generando script:", error);
-        res.status(500).json({ error: "Error generando script" });
-    }
-});
-function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
+// ⛔ generarScriptEmpresa ELIMINADA — causaba doble push al tener formulario de
+//    reservas propio que disparaba onNuevaReserva. Usar script_hostinger_v2.txt
+//    (data-fluix-seccion) directamente en la web.
+/* generarScriptHTML — ELIMINADO (ver comentario en bloque superior) */
+// @ts-ignore — función eliminada, mantenida solo como referencia
+function _generarScriptHTML_ELIMINADO(empresaId, nombreEmpresa, dominio) {
     return `<!-- ============================================================
      🔥 FLUIX CRM - SCRIPT COMPLETO: CONTENIDO DINÁMICO + ANALYTICS
      Web: ${dominio}
@@ -1141,35 +1121,7 @@ function generarScriptHTML(empresaId, nombreEmpresa, dominio) {
 ✅ Módulo Estadísticas (tráfico web)
 -->`;
 }
-// ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
-exports.obtenerScriptJSON = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
-    try {
-        const { empresaId } = req.query;
-        if (!empresaId || typeof empresaId !== "string") {
-            res.status(400).json({ error: "empresaId es requerido" });
-            return;
-        }
-        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-        if (!empresaDoc.exists) {
-            res.status(404).json({ error: "Empresa no encontrada" });
-            return;
-        }
-        const empresa = empresaDoc.data();
-        const script = generarScriptHTML(empresaId, empresa.nombre || "Mi Negocio", empresa.sitio_web || "midominio.com");
-        res.status(200).json({
-            exito: true,
-            empresaId,
-            nombre: empresa.nombre,
-            dominio: empresa.sitio_web,
-            script: script,
-            instrucciones: "Pega este script en el footer de tu WordPress (antes del </body>)"
-        });
-    }
-    catch (error) {
-        console.error("❌ Error:", error);
-        res.status(500).json({ error: "Error generando script" });
-    }
-});
+// ⛔ obtenerScriptJSON ELIMINADA — mismo motivo que generarScriptEmpresa
 /**
  * 10. INICIALIZAR EMPRESA (v2 onCall)
  */
@@ -1267,6 +1219,21 @@ exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, r
         return;
     }
     console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
+    // ── IDEMPOTENCIA: evitar procesar el mismo evento dos veces ──────────────
+    // Stripe puede reenviar eventos ante timeouts o fallos de red.
+    const eventDocRef = db.collection("stripe_processed_events").doc(event.id);
+    const eventDoc = await eventDocRef.get();
+    if (eventDoc.exists) {
+        console.log(`⏭️ Evento Stripe ${event.id} ya procesado. Ignorando duplicado.`);
+        res.status(200).json({ received: true, skipped: true, reason: "already_processed" });
+        return;
+    }
+    // Marcar como procesado ANTES de ejecutar la lógica (evita race conditions)
+    await eventDocRef.set({
+        event_id: event.id,
+        event_type: event.type,
+        processed_at: new Date().toISOString(),
+    });
     try {
         switch (event.type) {
             case "checkout.session.completed": {
@@ -1314,15 +1281,12 @@ exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, r
  * 12. ENVIAR EMAIL — Envía factura/nómina en PDF por email
  *
  * CONFIGURACIÓN REQUERIDA:
- *   firebase functions:secrets:set SMTP_HOST     (ej: smtp.gmail.com)
- *   firebase functions:secrets:set SMTP_PORT     (ej: 587)
- *   firebase functions:secrets:set SMTP_USER     (ej: noreply@fluixtech.com)
- *   firebase functions:secrets:set SMTP_PASS     (ej: app-password)
+ *   RESEND_API_KEY en functions/.env
+ *   Dominio verificado en https://resend.com/domains
  */
 exports.enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (request) => {
     var _a;
     const { destinatario, asunto, cuerpoHtml, pdfBase64, nombreArchivo, empresaId } = request.data;
-    // ── AUTH GUARD ──
     if (empresaId) {
         await (0, authGuard_1.verificarAuthYEmpresa)(request, empresaId);
     }
@@ -1332,20 +1296,7 @@ exports.enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (reque
     if (!destinatario || !asunto || !pdfBase64) {
         throw new https_1.HttpsError("invalid-argument", "destinatario, asunto y pdfBase64 son requeridos");
     }
-    const host = smtpHost.value();
-    const port = parseInt(smtpPort.value() || "587", 10);
-    const user = smtpUser.value();
-    const pass = smtpPass.value();
-    if (!host || !user || !pass) {
-        throw new https_1.HttpsError("failed-precondition", "SMTP no configurado. Ejecuta: firebase functions:secrets:set SMTP_HOST / SMTP_USER / SMTP_PASS");
-    }
-    const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-    });
-    // Obtener datos de la empresa para el remitente
+    // Obtener nombre de empresa para el remitente
     let nombreEmpresa = "Fluix CRM";
     if (empresaId) {
         const empresaDoc = await db.collection("empresas").doc(empresaId).get();
@@ -1353,27 +1304,19 @@ exports.enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (reque
             nombreEmpresa = ((_a = empresaDoc.data()) === null || _a === void 0 ? void 0 : _a.nombre) || "Fluix CRM";
         }
     }
-    try {
-        await transporter.sendMail({
-            from: `"${nombreEmpresa}" <${user}>`,
-            to: destinatario,
-            subject: asunto,
-            html: cuerpoHtml || `<p>Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
-            attachments: [
-                {
-                    filename: nombreArchivo || "documento.pdf",
-                    content: Buffer.from(pdfBase64, "base64"),
-                    contentType: "application/pdf",
-                },
-            ],
-        });
-        console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
-        return { exito: true, mensaje: `Email enviado a ${destinatario}` };
+    const resultado = await (0, resend_service_1.enviarPdfGenerico)({
+        from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+        to: destinatario,
+        subject: asunto,
+        html: cuerpoHtml || `<p style="font-family:Arial,sans-serif;">Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
+        pdf: Buffer.from(pdfBase64, "base64"),
+        nombreArchivo: nombreArchivo || "documento.pdf",
+    });
+    if (!resultado.exito) {
+        throw new https_1.HttpsError("internal", `Error enviando email: ${resultado.error}`);
     }
-    catch (error) {
-        console.error("❌ Error enviando email:", error);
-        throw new https_1.HttpsError("internal", `Error enviando email: ${error instanceof Error ? error.message : "Desconocido"}`);
-    }
+    console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
+    return { exito: true, mensaje: `Email enviado a ${destinatario}` };
 });
 // ── FUNCIONES HELPER STRIPE ───────────────────────────────────────────────────
 async function _procesarCheckoutCompletado(session, db) {
@@ -1433,7 +1376,10 @@ async function _procesarCheckoutCompletado(session, db) {
         await db.runTransaction(async (tx) => {
             var _a, _b;
             const snap = await tx.get(configRef);
-            const contador = (_b = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.ultimo_numero_factura) !== null && _b !== void 0 ? _b : 0;
+            // NOTA: onNuevoPedidoGenerarFactura incrementará este contador más tarde.
+            // Aquí solo leemos el valor ACTUAL + 1 para que el numero_factura_proveedor
+            // coincida con la factura que se generará automáticamente.
+            const contador = ((_b = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.ultimo_numero_factura) !== null && _b !== void 0 ? _b : 0) + 1;
             const anio = new Date().getFullYear();
             numeroFactura = `FAC-${anio}-${String(contador).padStart(4, "0")}`;
         });
@@ -1682,8 +1628,8 @@ exports.registrarVisita = (0, https_1.onRequest)({ region: REGION, cors: true },
         const dominioActual = dominio || "desconocido";
         // 1. Actualizar resumen general
         await db
-            .collection("empresas").doc(empresaId)
-            .collection("estadisticas").doc("web_resumen")
+            .collection('empresas').doc(empresaId)
+            .collection('estadisticas').doc('web_resumen')
             .set({
             visitas_totales: admin.firestore.FieldValue.increment(1),
             visitas_mes: admin.firestore.FieldValue.increment(1),
@@ -1694,8 +1640,8 @@ exports.registrarVisita = (0, https_1.onRequest)({ region: REGION, cors: true },
         }, { merge: true });
         // 2. Actualizar estadísticas del día
         await db
-            .collection("empresas").doc(empresaId)
-            .collection("estadisticas").doc(`visitas_${fechaHoy}`)
+            .collection('empresas').doc(empresaId)
+            .collection('estadisticas').doc(`visitas_${fechaHoy}`)
             .set({
             fecha: fechaHoy,
             sitio: dominioActual,
@@ -2255,21 +2201,22 @@ exports.enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, a
   </div>
 </body>
 </html>`;
-    // Enviar email
-    const transporter = nodemailer.createTransport({
-        host: smtpHost.value(),
-        port: parseInt(smtpPort.value()),
-        secure: smtpPort.value() === "465",
-        auth: { user: smtpUser.value(), pass: smtpPass.value() },
-    });
+    // Enviar email con Resend
+    const { Resend } = await Promise.resolve().then(() => __importStar(require("resend")));
+    const resendClient = new Resend(process.env.RESEND_API_KEY);
     try {
-        await transporter.sendMail({
-            from: `"${nombreEmpresa}" <${smtpUser.value()}>`,
+        const { error } = await resendClient.emails.send({
+            from: `${nombreEmpresa} <noreply@fluixtech.com>`,
             to: emailDestino,
             subject: `Documentación de cese — ${nombreEmpresa}`,
             html: htmlEmail,
-            attachments: adjuntos,
+            attachments: adjuntos.map((a) => ({
+                filename: a.filename,
+                content: a.content.toString("base64"),
+            })),
         });
+        if (error)
+            throw new Error(error.message);
         // Actualizar finiquito con la fecha de envío
         await finiqDoc.ref.update({
             documentacion_enviada_a: emailDestino,
@@ -2289,93 +2236,150 @@ exports.enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, a
     }
 });
 // ═══════════════════════════════════════════════════════════════════════════
-// TEST — Enviar notificación de prueba al usuario actual
+// CALENDARIO FISCAL — Alertas de vencimientos AEAT
 // ═══════════════════════════════════════════════════════════════════════════
-exports.testPushNotification = (0, https_1.onCall)({ region: REGION }, async (request) => {
-    var _a, _b;
-    const uid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
-    if (!uid) {
-        throw new https_1.HttpsError("unauthenticated", "Debes estar autenticado");
+exports.alertasVencimientosFiscales = (0, scheduler_1.onSchedule)({ schedule: "0 9 * * *", timeZone: "Europe/Madrid", region: REGION }, async (_event) => {
+    console.log("🗓️ Ejecutando alertas de vencimientos fiscales...");
+    const hoy = new Date();
+    const vencimientosProximos = _calcularVencimientos(hoy);
+    if (vencimientosProximos.length === 0) {
+        console.log("✅ No hay vencimientos fiscales próximos");
+        return;
     }
-    // Obtener datos del usuario
-    const userDoc = await db.collection("usuarios").doc(uid).get();
-    const userData = userDoc.data();
-    if (!userData) {
-        throw new https_1.HttpsError("not-found", "Usuario no encontrado");
-    }
-    const empresaId = userData.empresa_id;
-    const tokenUsuario = userData.token_dispositivo;
-    const diagnostico = {
-        uid,
-        empresa_id: empresaId || "NO TIENE",
-        token_en_usuarios: tokenUsuario ? `${tokenUsuario.substring(0, 30)}...` : "NO TIENE",
-    };
-    // Buscar token en dispositivos
-    let tokenDispositivo;
-    if (empresaId) {
-        const dispDoc = await db
-            .collection("empresas")
-            .doc(empresaId)
-            .collection("dispositivos")
-            .doc(uid)
-            .get();
-        tokenDispositivo = (_b = dispDoc.data()) === null || _b === void 0 ? void 0 : _b.token;
-        diagnostico.token_en_dispositivos = tokenDispositivo
-            ? `${tokenDispositivo.substring(0, 30)}...`
-            : "NO TIENE";
-    }
-    // Usar el token que exista
-    const tokenFinal = tokenDispositivo || tokenUsuario;
-    if (!tokenFinal) {
-        return {
-            ok: false,
-            error: "No hay token FCM registrado para este usuario",
-            diagnostico,
-        };
-    }
-    diagnostico.token_usado = `${tokenFinal.substring(0, 30)}...`;
-    // Enviar notificación de prueba
-    try {
-        const result = await messaging.send({
-            token: tokenFinal,
-            notification: {
-                title: "🧪 Test de Notificación",
-                body: `Enviado a las ${new Date().toLocaleTimeString("es-ES", { timeZone: "Europe/Madrid" })}`,
-            },
-            data: {
-                tipo: "test",
-                timestamp: Date.now().toString(),
-            },
-            android: {
-                priority: "high",
-                notification: {
-                    channelId: "fluixcrm_canal_principal",
-                    sound: "default",
+    // Obtener empresas con Pack Fiscal activo
+    const empresasSnap = await db.collection("empresas")
+        .where("active_packs", "array-contains", "fiscal_ai")
+        .get();
+    console.log(`📊 Enviando alertas a ${empresasSnap.size} empresa(s) con Pack Fiscal`);
+    for (const empresaDoc of empresasSnap.docs) {
+        const empresaId = empresaDoc.id;
+        const empresaData = empresaDoc.data();
+        const nombreEmpresa = empresaData.nombre || "Tu empresa";
+        try {
+            // Buscar tokens FCM de usuarios de la empresa
+            const tokensQuery = await db
+                .collection("empresas").doc(empresaId)
+                .collection("usuario_tokens")
+                .where("activo", "==", true)
+                .get();
+            const tokens = [];
+            tokensQuery.forEach(doc => {
+                const token = doc.data().fcm_token;
+                if (token)
+                    tokens.push(token);
+            });
+            if (tokens.length === 0) {
+                console.log(`⚠️ Sin tokens FCM para empresa ${empresaId}`);
+                continue;
+            }
+            // Preparar mensaje de alerta
+            const modelo = vencimientosProximos[0]; // El más próximo
+            const dias = Math.ceil((modelo.fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+            let titulo = "📅 Vencimiento fiscal próximo";
+            let mensaje = "";
+            if (dias === 0) {
+                titulo = "🚨 Vencimiento fiscal HOY";
+                mensaje = `Modelo ${modelo.modelo} vence hoy (${_formatearFecha(modelo.fecha)})`;
+            }
+            else if (dias === 1) {
+                titulo = "⚠️ Vencimiento fiscal MAÑANA";
+                mensaje = `Modelo ${modelo.modelo} vence mañana (${_formatearFecha(modelo.fecha)})`;
+            }
+            else {
+                mensaje = `Modelo ${modelo.modelo} vence en ${dias} días (${_formatearFecha(modelo.fecha)})`;
+            }
+            // Enviar notificación push
+            const response = await messaging.sendMulticast({
+                tokens,
+                notification: { title: titulo, body: mensaje },
+                data: {
+                    tipo: "vencimiento_fiscal",
+                    modelo: modelo.modelo,
+                    fecha: modelo.fecha.toISOString(),
+                    dias_restantes: dias.toString(),
+                    empresa_id: empresaId,
                 },
-            },
-            apns: {
-                payload: {
-                    aps: {
-                        sound: "default",
-                        badge: 1,
+                android: {
+                    notification: {
+                        channelId: "fluixcrm_canal_principal",
+                        priority: "high",
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
                     },
                 },
-            },
-        });
-        return {
-            ok: true,
-            message_id: result,
-            diagnostico,
-        };
-    }
-    catch (e) {
-        const error = e;
-        return {
-            ok: false,
-            error: error.message || "Error desconocido",
-            error_code: error.code,
-            diagnostico,
-        };
+                apns: {
+                    payload: {
+                        aps: {
+                            alert: { title: titulo, body: mensaje },
+                            badge: 1,
+                            sound: "default",
+                        },
+                    },
+                },
+            });
+            console.log(`✅ Alerta enviada a ${response.successCount}/${tokens.length} dispositivos - ${nombreEmpresa}`);
+            // Crear notificación en Firestore para historial
+            await db
+                .collection("empresas").doc(empresaId)
+                .collection("notificaciones")
+                .add({
+                titulo: titulo,
+                mensaje: mensaje,
+                tipo: "vencimiento_fiscal",
+                modelo: modelo.modelo,
+                fecha_vencimiento: admin.firestore.Timestamp.fromDate(modelo.fecha),
+                dias_restantes: dias,
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        catch (error) {
+            console.error(`❌ Error enviando alerta fiscal a empresa ${empresaId}:`, error);
+        }
     }
 });
+function _calcularVencimientos(fechaActual) {
+    const vencimientos = [];
+    const anio = fechaActual.getFullYear();
+    // Solo alertar si faltan 7 días o menos
+    const limiteAlerta = new Date(fechaActual);
+    limiteAlerta.setDate(limiteAlerta.getDate() + 7);
+    // Vencimientos trimestrales - día 20 del mes siguiente
+    for (let trim = 1; trim <= 4; trim++) {
+        const mesVencimiento = trim * 3 + 1; // Ene=4, Abr=7, Jul=10, Oct=13
+        const fecha = new Date(anio + (mesVencimiento > 12 ? 1 : 0), mesVencimiento > 12 ? mesVencimiento - 12 : mesVencimiento, 20);
+        if (fecha >= fechaActual && fecha <= limiteAlerta) {
+            vencimientos.push({
+                modelo: "303",
+                descripcion: `IVA trimestral ${trim}T/${anio}`,
+                fecha: fecha,
+            });
+        }
+    }
+    // Vencimientos anuales - enero del año siguiente
+    const anioSiguiente = anio + 1;
+    const vencimientosAnuales = [
+        { modelo: "390", fecha: new Date(anioSiguiente, 0, 30), desc: `Resumen anual IVA ${anio}` },
+        { modelo: "190", fecha: new Date(anioSiguiente, 0, 31), desc: `Resumen retenciones IRPF ${anio}` },
+        { modelo: "347", fecha: new Date(anioSiguiente, 1, 28), desc: `Operaciones con terceros ${anio}` },
+    ];
+    for (const v of vencimientosAnuales) {
+        if (v.fecha >= fechaActual && v.fecha <= limiteAlerta) {
+            vencimientos.push({
+                modelo: v.modelo,
+                descripcion: v.desc,
+                fecha: v.fecha,
+            });
+        }
+    }
+    // Ordenar por fecha más próxima primero
+    vencimientos.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+    return vencimientos;
+}
+function _formatearFecha(fecha) {
+    return fecha.toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+}
 //# sourceMappingURL=index.js.map

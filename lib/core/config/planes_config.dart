@@ -100,6 +100,22 @@ class AddonConfig {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: Bundle (descuento por contratar packs combinados)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class BundleConfig {
+  final List<String> packs;
+  final double descuento;
+  final String nombre;
+
+  const BundleConfig({
+    required this.packs,
+    required this.descuento,
+    required this.nombre,
+  });
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // CATÁLOGO DE PLANES, PACKS Y ADDONS
 // ═════════════════════════════════════════════════════════════════════════════
@@ -141,6 +157,16 @@ class PlanesConfig {
     icono: Icons.workspace_premium,
   );
 
+  static const packFiscal = PackConfig(
+    id: 'fiscal',
+    nombre: 'Pack Fiscal',
+    precioAnual: 350,
+    modulosAdicionales: ['fiscal', 'contabilidad', 'verifactu'],
+    descripcion: 'Contabilidad, modelos fiscales y Verifactu.',
+    color: Color(0xFF0288D1),
+    icono: Icons.account_balance,
+  );
+
   static const packTienda = PackConfig(
     id: 'tienda',
     nombre: 'Pack Tienda Online',
@@ -151,7 +177,18 @@ class PlanesConfig {
     icono: Icons.storefront,
   );
 
-  static const List<PackConfig> todosPacks = [packGestion, packTienda];
+  static const List<PackConfig> todosPacks = [packGestion, packFiscal, packTienda];
+
+  // ── BUNDLES ────────────────────────────────────────────────────────────────
+  // gestion(350) + fiscal(350) = 700 por separado → bundle: 600€ (ahorro 100€)
+
+  static const List<BundleConfig> bundles = [
+    BundleConfig(
+      packs: ['gestion', 'fiscal'],
+      descuento: 100,
+      nombre: 'Bundle Gestión + Fiscal',
+    ),
+  ];
 
   // ── ADD-ONS ────────────────────────────────────────────────────────────────
 
@@ -269,11 +306,24 @@ class PlanesConfig {
       if (addon != null && addon.precioAnual != null) {
         total += addon.precioAnual!;
       }
-      // Los addons con precioVariable se podrían calcular aquí
-      // cuando se definan los precios (ej: nóminas * empleadosNomina)
     }
 
+    // Aplicar descuentos de bundle automáticamente
+    total -= calcularDescuentoBundle(packsActivos);
+
     return total;
+  }
+
+  /// Devuelve el descuento total aplicado por bundles activos.
+  /// Útil para mostrar en UI "Ahorras Xen".
+  static double calcularDescuentoBundle(List<String> packsActivos) {
+    double descuento = 0;
+    for (final bundle in bundles) {
+      if (bundle.packs.every(packsActivos.contains)) {
+        descuento += bundle.descuento;
+      }
+    }
+    return descuento;
   }
 
   // ── HELPERS DE BÚSQUEDA ─────────────────────────────────────────────────────

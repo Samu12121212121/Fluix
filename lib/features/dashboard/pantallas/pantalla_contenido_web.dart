@@ -6,7 +6,6 @@ import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
-import 'tab_seo_web.dart';
 import 'tab_config_web.dart';
 import 'pantalla_items_seccion.dart';
 
@@ -30,7 +29,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -62,7 +61,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.web, size: 17), text: 'Secciones'),
-            Tab(icon: Icon(Icons.search, size: 17), text: 'SEO'),
             Tab(icon: Icon(Icons.settings, size: 17), text: 'Config'),
           ],
         ),
@@ -71,7 +69,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         controller: _tab,
         children: [
           _TabSecciones(empresaId: widget.empresaId, svc: _svc, color: color),
-          TabSeoWeb(empresaId: widget.empresaId, svc: _svc),
           TabConfigWeb(empresaId: widget.empresaId, svc: _svc),
         ],
       ),

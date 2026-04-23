@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
@@ -8,7 +7,6 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../core/providers/empresa_config_provider.dart';
 import '../../../services/contabilidad_service.dart';
-import '../../../services/datos_prueba_contabilidad_service.dart';
 import '../../../domain/modelos/contabilidad.dart';
 import 'tab_libro_ingresos.dart';
 import 'tab_graficos_contabilidad.dart';
@@ -32,10 +30,7 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   final ContabilidadService _svc = ContabilidadService();
-  final DatosPruebaContabilidadService _pruebas =
-      DatosPruebaContabilidadService();
   int _anio = DateTime.now().year;
-  bool _cargandoPrueba = false;
 
   @override
   void initState() {
@@ -47,75 +42,6 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
   void dispose() {
     _tab.dispose();
     super.dispose();
-  }
-
-  Future<void> _generarDatosPrueba() async {
-    setState(() => _cargandoPrueba = true);
-    try {
-      await _pruebas.generarDatosDePrueba(widget.empresaId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Datos de prueba generados correctamente'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ));
-        // Recargar el tab activo cambiando y volviendo al año
-        setState(() {});
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _cargandoPrueba = false);
-    }
-  }
-
-  Future<void> _limpiarDatosPrueba() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Limpiar datos de prueba'),
-        content: const Text(
-            '¿Eliminar todos los gastos y proveedores de prueba? '
-            'Las facturas emitidas no se borrarán.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-
-    setState(() => _cargandoPrueba = true);
-    try {
-      await _pruebas.limpiarDatosDePrueba(widget.empresaId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('🗑️ Datos de prueba eliminados'),
-          backgroundColor: Colors.orange,
-        ));
-        setState(() {});
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'), backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _cargandoPrueba = false);
-    }
   }
 
   @override
@@ -138,44 +64,6 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           actions: [
-            if (kDebugMode)
-              _cargandoPrueba
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      ),
-                    )
-                  : PopupMenuButton<String>(
-                      icon: const Icon(Icons.science_outlined, color: Colors.white, size: 22),
-                      tooltip: 'Datos de prueba',
-                      color: Colors.white,
-                      onSelected: (v) {
-                        if (v == 'generar') _generarDatosPrueba();
-                        if (v == 'limpiar') _limpiarDatosPrueba();
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'generar',
-                          child: ListTile(
-                            leading: Icon(Icons.add_chart, color: Colors.green),
-                            title: Text('Generar datos de prueba'),
-                            subtitle: Text('Crea gastos y proveedores de ejemplo'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'limpiar',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_sweep, color: Colors.red),
-                            title: Text('Limpiar datos de prueba'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ],
-                    ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: DropdownButtonHideUnderline(

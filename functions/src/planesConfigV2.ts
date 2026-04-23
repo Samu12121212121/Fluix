@@ -45,6 +45,19 @@ export const PLAN_BASE = {
 // PACKS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BUNDLES — descuento automático al contratar dos packs juntos
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const BUNDLES: Array<{ packs: string[]; descuento: number; nombre: string }> = [
+  {
+    packs: ["gestion", "fiscal"],
+    descuento: 100,
+    nombre: "Bundle Gestión + Fiscal",
+    // gestion(350) + fiscal(350) = 700 → con bundle: 600€ (ahorro 100€)
+  },
+];
+
 export const PACKS: Record<string, {
   id: string; nombre: string; precioAnual: number; modulosAdicionales: string[];
 }> = {
@@ -53,6 +66,12 @@ export const PACKS: Record<string, {
     nombre: "Pack Gestión",
     precioAnual: 350,
     modulosAdicionales: ["facturacion", "vacaciones"],
+  },
+  fiscal: {
+    id: "fiscal",
+    nombre: "Pack Fiscal",
+    precioAnual: 350,
+    modulosAdicionales: ["fiscal", "contabilidad", "verifactu"],
   },
   tienda: {
     id: "tienda",
@@ -117,7 +136,7 @@ export function calcularModulosActivos(
   return Array.from(modulos);
 }
 
-/** Calcula precio total anual */
+/** Calcula precio total anual aplicando descuentos de bundle automáticamente */
 export function calcularPrecioTotal(
   packsActivos: string[],
   addonsActivos: string[]
@@ -134,7 +153,25 @@ export function calcularPrecioTotal(
     if (addon && addon.precioAnual !== null) total += addon.precioAnual;
   }
 
+  // Aplicar descuentos de bundle
+  for (const bundle of BUNDLES) {
+    if (bundle.packs.every((p) => packsActivos.includes(p))) {
+      total -= bundle.descuento;
+    }
+  }
+
   return total;
+}
+
+/** Calcula el descuento de bundle activo (para mostrar en UI) */
+export function calcularDescuentoBundle(packsActivos: string[]): number {
+  let descuento = 0;
+  for (const bundle of BUNDLES) {
+    if (bundle.packs.every((p) => packsActivos.includes(p))) {
+      descuento += bundle.descuento;
+    }
+  }
+  return descuento;
 }
 
 /** Verifica que el usuario sea admin de la plataforma */

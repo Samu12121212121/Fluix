@@ -1,65 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #444; }
-        .invoice-box {
-            max-width: 800px; margin: auto; padding: 30px;
-            border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15);
-            font-size: 16px; line-height: 24px; color: #555;
-        }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .logo { max-width: 150px; }
-        .title { font-size: 32px; color: #333; }
-        .info { margin-bottom: 30px; }
-        .table { width: 100%; border-collapse: collapse; }
-        .table th { text-align: left; border-bottom: 2px solid #eee; padding: 5px; color: #000; }
-        .table td { padding: 5px; border-bottom: 1px solid #eee; }
-        .total { font-weight: bold; border-top: 2px solid #eee; margin-top: 20px; text-align: right; font-size: 1.25em; }
-        .btn { display: inline-block; background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura {{numeroFactura}}</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f5f7fa; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .wrapper { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+    .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .header { background: #1565C0; padding: 28px 32px; }
+    .header-title { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 1px; margin: 0; }
+    .header-num { color: #90CAF9; font-size: 14px; margin: 4px 0 0; }
+    .header-empresa { color: #90CAF9; font-size: 13px; margin: 8px 0 0; }
+    .body { padding: 32px; }
+    .meta { margin-bottom: 24px; font-size: 14px; color: #555; }
+    .meta-item { margin-bottom: 12px; }
+    .meta-label { color: #1565C0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+    .divider { border: none; border-top: 1px solid #E8EEF7; margin: 20px 0; }
+    .total-box { background: #E8F0FE; border-radius: 8px; padding: 20px 24px; text-align: right; margin-top: 20px; }
+    .total-label { font-size: 12px; color: #1565C0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .total-amount { font-size: 28px; font-weight: 800; color: #0D47A1; margin: 4px 0 0; }
+    .footer-bar { background: #F8FAFF; padding: 20px 32px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #E8EEF7; }
+  </style>
 </head>
 <body>
-    <div class="invoice-box">
-        <div class="header">
-            {{#if logoUrl}}<img src="{{logoUrl}}" class="logo">{{/if}}
-            <div class="title">FACTURA</div>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <p class="header-title">FACTURA</p>
+        <p class="header-num">Nº {{numeroFactura}}</p>
+        <p class="header-empresa">{{empresaNombre}}</p>
+      </div>
+      <div class="body">
+        <div class="meta">
+          <div class="meta-item"><span class="meta-label">Fecha de emisión</span>{{fecha}}</div>
+          <div class="meta-item"><span class="meta-label">Destinatario</span>{{clienteNombre}}</div>
         </div>
-
-        <div class="info">
-            <p><strong>Nº Factura:</strong> {{numeroFactura}}<br>
-            <strong>Fecha:</strong> {{fecha}}<br>
-            <strong>Cliente:</strong> {{clienteNombre}}</p>
-        </div>
-
-        <p>Apreciado cliente, adjuntamos la factura correspondiente a los servicios prestados.</p>
-
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Concepto</th>
-                    <th style="text-align: right;">Importe</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{#each conceptos}}
-                <tr>
-                    <td>{{nombre}}</td>
-                    <td style="text-align: right;">{{importe}}€</td>
-                </tr>
-                {{/each}}
-            </tbody>
-        </table>
-
-        <div class="total">
-            Total a Pagar: {{importeTotal}}€
-        </div>
-
-        {{#if metodoPago}}<p><strong>Forma de Pago:</strong> {{metodoPago}}</p>{{/if}}
-
-        <p style="text-align: center; color: #999; margin-top: 40px; font-size: 0.8em;">
-            {{empresaNombre}} | {{empresaDireccion}}
+        <hr class="divider">
+        <p style="font-size:15px;color:#333;margin:0 0 12px;">
+          Estimado/a <strong>{{clienteNombre}}</strong>,
         </p>
+        <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 16px;">
+          Le adjuntamos la factura <strong>{{numeroFactura}}</strong> correspondiente a los servicios prestados.
+          Encontrará el documento completo en el archivo PDF adjunto.
+        </p>
+        <hr class="divider">
+        <div class="total-box">
+          <div class="total-label">Total a pagar</div>
+          <div class="total-amount">{{importeTotal}} €</div>
+        </div>
+        <p style="margin-top:24px;font-size:13px;color:#777;line-height:1.6;">
+          Si tiene cualquier duda, responda directamente a este correo.
+        </p>
+        <p style="font-size:14px;color:#333;margin-top:20px;">
+          Un saludo,<br><strong>{{empresaNombre}}</strong>
+        </p>
+      </div>
+      <div class="footer-bar">
+        <strong>{{empresaNombre}}</strong> · {{empresaDireccion}}
+      </div>
     </div>
+  </div>
 </body>
 </html>

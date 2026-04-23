@@ -662,11 +662,14 @@ class FacturacionService {
 
   Stream<List<Factura>> obtenerFacturasPorEstado(
       String empresaId, EstadoFactura estado) {
+    // Filtramos en memoria para evitar necesitar índice compuesto en Firestore
     return _facturas(empresaId)
-        .where('estado', isEqualTo: estado.name)
         .orderBy('fecha_emision', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(Factura.fromFirestore).toList());
+        .map((snap) => snap.docs
+            .map(Factura.fromFirestore)
+            .where((f) => f.estado == estado)
+            .toList());
   }
 
   Stream<List<Factura>> obtenerFacturasVencidas(String empresaId) {

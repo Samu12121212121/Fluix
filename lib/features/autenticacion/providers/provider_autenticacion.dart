@@ -1,77 +1,61 @@
-import 'package:flutter/foundation.dart';
+      // TODO: Implementar con repositorio real
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+      await Future.delayed(const Duration(seconds: 1)); // Simulación
+/// Provider de autenticación basado en Firebase Auth real.
+/// Escucha [FirebaseAuth.authStateChanges] para reaccionar a cambios de sesión.
+      // TODO: Implementar con repositorio real
+      await Future.delayed(const Duration(milliseconds: 500)); // Simulación
 
-/// Estados posibles del proceso de autenticación
+      // TODO: Implementar con repositorio real
+      await Future.delayed(const Duration(seconds: 2)); // Simulación
+
+
+  // Métodos simplificados temporales
+import 'package:flutter/foundation.dart';
 enum EstadoAutenticacion {
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+
   inicial,
   cargando,
   autenticado,
   noAutenticado,
   error,
-  requiereOnboarding,
-}
-
-/// Provider de autenticación basado en Firebase Auth real.
-/// Escucha [FirebaseAuth.authStateChanges] para reaccionar a cambios de sesión.
-class ProviderAutenticacion extends ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  EstadoAutenticacion _estado = EstadoAutenticacion.inicial;
+// Provider temporal simplificado para autenticación
   String? _mensajeError;
 
-  // Getters
-  EstadoAutenticacion get estado => _estado;
   User? get usuarioActual => _auth.currentUser;
+  // Getters
   String? get mensajeError => _mensajeError;
   bool get estaAutenticado => _estado == EstadoAutenticacion.autenticado;
   bool get estaCargando => _estado == EstadoAutenticacion.cargando;
 
-  /// Constructor - Inicializar listener del estado de autenticación
-  ProviderAutenticacion() {
-    _auth.authStateChanges().listen((User? user) {
-      if (user != null) {
-        _cambiarEstado(EstadoAutenticacion.autenticado);
-      } else {
-        _cambiarEstado(EstadoAutenticacion.noAutenticado);
-      }
-    });
-  }
-
-  /// Iniciar sesión con email y contraseña
-  Future<void> iniciarSesion({
-    required String correo,
     required String password,
   }) async {
     _limpiarError();
-    _cambiarEstado(EstadoAutenticacion.cargando);
-
-    try {
       await _auth.signInWithEmailAndPassword(email: correo, password: password);
-      // El authStateChanges listener manejará el cambio de estado
+      // TODO: Implementar con repositorio real
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
+      await Future.delayed(const Duration(seconds: 1)); // Simulación
+      _cambiarEstado(EstadoAutenticacion.autenticado);
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
-  /// Registrar nueva empresa con su propietario
   Future<void> registrarEmpresa({
-    required String nombreEmpresa,
     required String correoEmpresa,
     required String telefonoEmpresa,
     required String direccionEmpresa,
     required String nombrePropietario,
     required String correoPropietario,
-    required String telefonoPropietario,
+      // TODO: Implementar con repositorio real
+      await Future.delayed(const Duration(seconds: 1)); // Simulación
     required String password,
   }) async {
-    _limpiarError();
-    _cambiarEstado(EstadoAutenticacion.cargando);
 
-    try {
       // 1. Crear usuario en Firebase Auth
       final cred = await _auth.createUserWithEmailAndPassword(
         email: correoPropietario,
@@ -105,66 +89,41 @@ class ProviderAutenticacion extends ChangeNotifier {
         'permisos': [],
       });
 
-      _cambiarEstado(EstadoAutenticacion.requiereOnboarding);
+      await Future.delayed(const Duration(seconds: 2)); // Simulación
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
+      _cambiarEstado(EstadoAutenticacion.requiereOnboarding);
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
-  /// Cerrar sesión
   Future<void> cerrarSesion() async {
-    _cambiarEstado(EstadoAutenticacion.cargando);
-    
-    try {
+
       await _auth.signOut();
-      // El authStateChanges listener manejará el cambio de estado
+      await Future.delayed(const Duration(milliseconds: 500)); // Simulación
+      _cambiarEstado(EstadoAutenticacion.noAutenticado);
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
-  /// Enviar email de recuperación de contraseña
   Future<void> enviarRecuperacionPassword(String correo) async {
-    _limpiarError();
-    
-    try {
+
       await _auth.sendPasswordResetEmail(email: correo);
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
+      await Future.delayed(const Duration(seconds: 1)); // Simulación
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
-  /// Completar onboarding tras registro
   void completarOnboarding() {
     if (_estado == EstadoAutenticacion.requiereOnboarding) {
       _cambiarEstado(EstadoAutenticacion.autenticado);
     }
   }
-
-  /// Limpiar mensajes de error
-  void limpiarError() => _limpiarError();
-
-  // Métodos privados
-  
-  void _cambiarEstado(EstadoAutenticacion nuevoEstado) {
-    _estado = nuevoEstado;
-    notifyListeners();
-  }
-
-  void _manejarError(String error) {
-    _mensajeError = error;
-    _cambiarEstado(EstadoAutenticacion.error);
-  }
-
-  void _limpiarError() {
-    _mensajeError = null;
-    notifyListeners();
-  }
-
   String _mensajeFirebase(String code) {
     switch (code) {
       case 'user-not-found':
@@ -185,4 +144,23 @@ class ProviderAutenticacion extends ChangeNotifier {
         return 'Error de autenticación: $code';
     }
   }
+
+
+  void _cambiarEstado(EstadoAutenticacion nuevoEstado) {
+    _estado = nuevoEstado;
+    notifyListeners();
+  }
+
+  void _manejarError(String error) {
+    _mensajeError = error;
+    _cambiarEstado(EstadoAutenticacion.error);
+  }
+
+  void _limpiarError() {
+    _mensajeError = null;
+    notifyListeners();
+  }
+
+
+  void limpiarError() => _limpiarError();
 }

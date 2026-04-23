@@ -6,7 +6,7 @@ import {
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import Stripe from "stripe";
-import * as nodemailer from "nodemailer";
+import { enviarPdfGenerico } from "./resend_service";
 import { enviarRecordatoriosCitas } from "./recordatoriosCitas";
 import { onTareaAsignada } from "./notificacionesTareas";
 import {
@@ -204,10 +204,7 @@ export {
 // Valores reales: edita functions/.env (no subir a git)
 const stripeSecretKey   = { value: () => process.env.STRIPE_SECRET_KEY   ?? "" };
 const stripeWebhookSecret = { value: () => process.env.STRIPE_WEBHOOK_SECRET ?? "" };
-const smtpHost          = { value: () => process.env.SMTP_HOST            ?? "" };
-const smtpPort          = { value: () => process.env.SMTP_PORT            ?? "587" };
-const smtpUser          = { value: () => process.env.SMTP_USER            ?? "" };
-const smtpPass          = { value: () => process.env.SMTP_PASS            ?? "" };
+// Resend API key — configurado en functions/.env como RESEND_API_KEY
 
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 
@@ -627,19 +624,23 @@ export const onNuevoPedidoGenerarFactura = onDocumentCreated(
 
       const lineasPedido = (pedido.lineas as Array<Record<string, unknown>>) || [];
       const lineasFactura = lineasPedido.map((l) => ({
-        descripcion: l.producto_nombre || l.descripcion || "Producto",
+        descripcion: (l.producto_nombre || l.descripcion || "Producto") as string,
         precio_unitario: (l.precio_unitario as number) || 0,
         cantidad: (l.cantidad as number) || 1,
-        porcentaje_iva: 21.0,
-        referencia: l.producto_id || null,
+        // Usar el IVA real de la línea del pedido; si no existe, 21% por defecto
+        porcentaje_iva: (l.porcentaje_iva as number) || (l.iva as number) || 21.0,
+        descuento: (l.descuento as number) || 0,
+        recargo_equivalencia: (l.recargo_equivalencia as number) || 0,
+        referencia: (l.producto_id || l.referencia || null) as string | null,
       }));
 
       const subtotal = lineasFactura.reduce(
-        (sum, l) => sum + l.precio_unitario * l.cantidad,
+        (sum, l) => sum + l.precio_unitario * l.cantidad * (1 - l.descuento / 100),
         0
       );
       const totalIva = lineasFactura.reduce(
-        (sum, l) => sum + l.precio_unitario * l.cantidad * (l.porcentaje_iva / 100),
+        (sum, l) =>
+          sum + l.precio_unitario * l.cantidad * (1 - l.descuento / 100) * (l.porcentaje_iva / 100),
         0
       );
       const total = subtotal + totalIva;
@@ -649,26 +650,43 @@ export const onNuevoPedidoGenerarFactura = onDocumentCreated(
         paypal: "paypal",
         bizum: "bizum",
         efectivo: "efectivo",
+        transferencia: "transferencia",
+        stripe: "tarjeta",
       };
       const metodoPago = metodoPagoMap[pedido.metodo_pago as string] ?? null;
+
+      // Si el pedido ya está pagado (origen Stripe, etc.), la factura nace directamente como "pagada"
+      const estadoPago = pedido.estado_pago as string || "";
+      const estadoFactura = (estadoPago === "pagado" || estadoPago === "paid") ? "pagada" : "pendiente";
 
       const facturaData = {
         empresa_id: empresaId,
         numero_factura: numeroFactura,
+        serie: "fac",
         tipo: "pedido",
-        estado: "pendiente",
+        estado: estadoFactura,
         cliente_nombre: pedido.cliente_nombre || "Cliente",
-        cliente_telefono: pedido.cliente_telefono || null,
-        cliente_correo: pedido.cliente_correo || null,
-        datos_fiscales: null,
+        cliente_telefono: (pedido.cliente_telefono as string) || null,
+        cliente_correo: (pedido.cliente_correo as string) || null,
+        datos_fiscales: (pedido.datos_fiscales as object) || null,
         lineas: lineasFactura,
         subtotal: subtotal,
         total_iva: totalIva,
         total: total,
+        descuento_global: 0,
+        importe_descuento_global: 0,
+        porcentaje_irpf: 0,
+        retencion_irpf: 0,
+        total_recargo_equivalencia: 0,
+        dias_vencimiento: 30,
         metodo_pago: metodoPago,
         pedido_id: pedidoId,
         notas_internas: null,
-        notas_cliente: pedido.notas_cliente || null,
+        notas_cliente: (pedido.notas_cliente as string) || null,
+        // Si ya está pagada, registrar fecha_pago
+        fecha_pago: estadoFactura === "pagada"
+          ? admin.firestore.FieldValue.serverTimestamp()
+          : null,
         historial: [
           {
             usuario_id: "",
@@ -702,30 +720,9 @@ export const onNuevoPedidoGenerarFactura = onDocumentCreated(
   }
 );
 
-/**
- * 6. NUEVA FACTURA PENDIENTE
- */
-export const onNuevaFactura = onDocumentCreated(
-  { document: "empresas/{empresaId}/facturas/{facturaId}", region: REGION },
-  async (event) => {
-    const empresaId = event.params.empresaId;
-    const factura = event.data?.data();
-    if (!factura) return;
-
-    if (factura.estado !== "pendiente") return;
-
-    const numero = factura.numero_factura || event.params.facturaId;
-    const total = factura.total || 0;
-    const cliente = factura.cliente_nombre || "Cliente";
-
-    await enviarNotificacionEmpresa(
-      empresaId,
-      "🧾 Nueva Factura Pendiente",
-      `${numero} — ${cliente} — €${total.toFixed(2)}`,
-      { tipo: "nueva_factura", factura_id: event.params.facturaId }
-    );
-  }
-);
+// onNuevaFactura ELIMINADA — todas las facturas se generan automáticamente
+// desde pedidos de la web, por lo que la notificación de "nuevo pedido" (onNuevoPedido)
+// ya cubre el aviso. Tener una notificación extra por factura era redundante.
 
 /**
  * 7. SUSCRIPCIÓN POR VENCER — Cron diario (v2 scheduler)
@@ -851,48 +848,13 @@ export const onNuevoPedidoWhatsApp = onDocumentCreated(
 );
 
 // ── GENERADOR DE SCRIPTS DINÁMICOS ────────────────────────────────────────────
+// ⛔ generarScriptEmpresa ELIMINADA — causaba doble push al tener formulario de
+//    reservas propio que disparaba onNuevaReserva. Usar script_hostinger_v2.txt
+//    (data-fluix-seccion) directamente en la web.
 
-/**
- * 9. GENERAR SCRIPT PERSONALIZADO (v2 onRequest)
- */
-export const generarScriptEmpresa = onRequest(
-  { region: REGION, cors: true },
-  async (req, res) => {
-    try {
-      const { empresaId, dominio } = req.query;
-
-      if (!empresaId || typeof empresaId !== "string") {
-        res.status(400).json({ error: "empresaId es requerido" });
-        return;
-      }
-
-      const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-
-      if (!empresaDoc.exists) {
-        res.status(404).json({ error: "Empresa no encontrada" });
-        return;
-      }
-
-      const empresa = empresaDoc.data()!;
-      const nombreEmpresa = empresa.nombre || "Mi Negocio";
-      const dominiWeb = (dominio as string) || empresa.sitio_web || "midominio.com";
-
-      const script = generarScriptHTML(empresaId, nombreEmpresa, dominiWeb);
-
-      res.set("Content-Type", "text/html; charset=utf-8");
-      res.set(
-        "Content-Disposition",
-        `attachment; filename="script-fluixcrm-${empresaId}.html"`
-      );
-      res.status(200).send(script);
-    } catch (error) {
-      console.error("❌ Error generando script:", error);
-      res.status(500).json({ error: "Error generando script" });
-    }
-  }
-);
-
-function generarScriptHTML(
+/* generarScriptHTML — ELIMINADO (ver comentario en bloque superior) */
+// @ts-ignore — función eliminada, mantenida solo como referencia
+function _generarScriptHTML_ELIMINADO(
   empresaId: string,
   nombreEmpresa: string,
   dominio: string
@@ -1295,46 +1257,7 @@ function generarScriptHTML(
 -->`;
 }
 
-// ── ENDPOINT ALTERNATIVO: JSON ────────────────────────────────────────────
-
-export const obtenerScriptJSON = onRequest(
-  { region: REGION, cors: true },
-  async (req, res) => {
-    try {
-      const { empresaId } = req.query;
-
-      if (!empresaId || typeof empresaId !== "string") {
-        res.status(400).json({ error: "empresaId es requerido" });
-        return;
-      }
-
-      const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-      if (!empresaDoc.exists) {
-        res.status(404).json({ error: "Empresa no encontrada" });
-        return;
-      }
-
-      const empresa = empresaDoc.data()!;
-      const script = generarScriptHTML(
-        empresaId,
-        empresa.nombre || "Mi Negocio",
-        empresa.sitio_web || "midominio.com"
-      );
-
-      res.status(200).json({
-        exito: true,
-        empresaId,
-        nombre: empresa.nombre,
-        dominio: empresa.sitio_web,
-        script: script,
-        instrucciones: "Pega este script en el footer de tu WordPress (antes del </body>)"
-      });
-    } catch (error) {
-      console.error("❌ Error:", error);
-      res.status(500).json({ error: "Error generando script" });
-    }
-  }
-);
+// ⛔ obtenerScriptJSON ELIMINADA — mismo motivo que generarScriptEmpresa
 
 /**
  * 10. INICIALIZAR EMPRESA (v2 onCall)
@@ -1459,6 +1382,22 @@ export const stripeWebhook = onRequest(
 
     console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
 
+    // ── IDEMPOTENCIA: evitar procesar el mismo evento dos veces ──────────────
+    // Stripe puede reenviar eventos ante timeouts o fallos de red.
+    const eventDocRef = db.collection("stripe_processed_events").doc(event.id);
+    const eventDoc = await eventDocRef.get();
+    if (eventDoc.exists) {
+      console.log(`⏭️ Evento Stripe ${event.id} ya procesado. Ignorando duplicado.`);
+      res.status(200).json({ received: true, skipped: true, reason: "already_processed" });
+      return;
+    }
+    // Marcar como procesado ANTES de ejecutar la lógica (evita race conditions)
+    await eventDocRef.set({
+      event_id: event.id,
+      event_type: event.type,
+      processed_at: new Date().toISOString(),
+    });
+
     try {
       switch (event.type) {
         case "checkout.session.completed": {
@@ -1509,17 +1448,14 @@ export const stripeWebhook = onRequest(
  * 12. ENVIAR EMAIL — Envía factura/nómina en PDF por email
  *
  * CONFIGURACIÓN REQUERIDA:
- *   firebase functions:secrets:set SMTP_HOST     (ej: smtp.gmail.com)
- *   firebase functions:secrets:set SMTP_PORT     (ej: 587)
- *   firebase functions:secrets:set SMTP_USER     (ej: noreply@fluixtech.com)
- *   firebase functions:secrets:set SMTP_PASS     (ej: app-password)
+ *   RESEND_API_KEY en functions/.env
+ *   Dominio verificado en https://resend.com/domains
  */
 export const enviarEmailConPdf = onCall(
   { region: REGION },
   async (request) => {
     const { destinatario, asunto, cuerpoHtml, pdfBase64, nombreArchivo, empresaId } = request.data;
 
-    // ── AUTH GUARD ──
     if (empresaId) {
       await verificarAuthYEmpresa(request, empresaId);
     } else {
@@ -1530,26 +1466,7 @@ export const enviarEmailConPdf = onCall(
       throw new HttpsError("invalid-argument", "destinatario, asunto y pdfBase64 son requeridos");
     }
 
-    const host = smtpHost.value();
-    const port = parseInt(smtpPort.value() || "587", 10);
-    const user = smtpUser.value();
-    const pass = smtpPass.value();
-
-    if (!host || !user || !pass) {
-      throw new HttpsError(
-        "failed-precondition",
-        "SMTP no configurado. Ejecuta: firebase functions:secrets:set SMTP_HOST / SMTP_USER / SMTP_PASS"
-      );
-    }
-
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
-
-    // Obtener datos de la empresa para el remitente
+    // Obtener nombre de empresa para el remitente
     let nombreEmpresa = "Fluix CRM";
     if (empresaId) {
       const empresaDoc = await db.collection("empresas").doc(empresaId).get();
@@ -1558,30 +1475,21 @@ export const enviarEmailConPdf = onCall(
       }
     }
 
-    try {
-      await transporter.sendMail({
-        from: `"${nombreEmpresa}" <${user}>`,
-        to: destinatario,
-        subject: asunto,
-        html: cuerpoHtml || `<p>Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
-        attachments: [
-          {
-            filename: nombreArchivo || "documento.pdf",
-            content: Buffer.from(pdfBase64, "base64"),
-            contentType: "application/pdf",
-          },
-        ],
-      });
+    const resultado = await enviarPdfGenerico({
+      from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+      to: destinatario,
+      subject: asunto,
+      html: cuerpoHtml || `<p style="font-family:Arial,sans-serif;">Adjuntamos el documento solicitado.</p><p>— ${nombreEmpresa}</p>`,
+      pdf: Buffer.from(pdfBase64, "base64"),
+      nombreArchivo: nombreArchivo || "documento.pdf",
+    });
 
-      console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
-      return { exito: true, mensaje: `Email enviado a ${destinatario}` };
-    } catch (error) {
-      console.error("❌ Error enviando email:", error);
-      throw new HttpsError(
-        "internal",
-        `Error enviando email: ${error instanceof Error ? error.message : "Desconocido"}`
-      );
+    if (!resultado.exito) {
+      throw new HttpsError("internal", `Error enviando email: ${resultado.error}`);
     }
+
+    console.log(`✅ Email enviado a ${destinatario} — ${asunto}`);
+    return { exito: true, mensaje: `Email enviado a ${destinatario}` };
   }
 );
 
@@ -1655,7 +1563,10 @@ async function _procesarCheckoutCompletado(
     let numeroFactura = "";
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(configRef);
-      const contador = (snap.data()?.ultimo_numero_factura as number) ?? 0;
+      // NOTA: onNuevoPedidoGenerarFactura incrementará este contador más tarde.
+      // Aquí solo leemos el valor ACTUAL + 1 para que el numero_factura_proveedor
+      // coincida con la factura que se generará automáticamente.
+      const contador = ((snap.data()?.ultimo_numero_factura as number) ?? 0) + 1;
       const anio = new Date().getFullYear();
       numeroFactura = `FAC-${anio}-${String(contador).padStart(4, "0")}`;
     });
@@ -2631,22 +2542,23 @@ export const enviarDocumentacionFiniquito = onCall(
 </body>
 </html>`;
 
-    // Enviar email
-    const transporter = nodemailer.createTransport({
-      host: smtpHost.value(),
-      port: parseInt(smtpPort.value()),
-      secure: smtpPort.value() === "465",
-      auth: { user: smtpUser.value(), pass: smtpPass.value() },
-    });
+    // Enviar email con Resend
+    const { Resend } = await import("resend");
+    const resendClient = new Resend(process.env.RESEND_API_KEY);
 
     try {
-      await transporter.sendMail({
-        from: `"${nombreEmpresa}" <${smtpUser.value()}>`,
+      const { error } = await resendClient.emails.send({
+        from: `${nombreEmpresa} <noreply@fluixtech.com>`,
         to: emailDestino,
         subject: `Documentación de cese — ${nombreEmpresa}`,
         html: htmlEmail,
-        attachments: adjuntos,
+        attachments: adjuntos.map((a) => ({
+          filename: a.filename,
+          content: a.content.toString("base64"),
+        })),
       });
+
+      if (error) throw new Error(error.message);
 
       // Actualizar finiquito con la fecha de envío
       await finiqDoc.ref.update({

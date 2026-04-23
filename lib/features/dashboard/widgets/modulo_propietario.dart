@@ -331,7 +331,25 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _tituloSeccion(Icons.language, 'fluixtech.com — Tráfico web'),
+        // Leer dominio dinámicamente desde configuración web
+        StreamBuilder<DocumentSnapshot>(
+          stream: _db
+              .collection('empresas')
+              .doc(ConstantesApp.empresaPropietariaId)
+              .collection('configuracion')
+              .doc('web_avanzada')
+              .snapshots(),
+          builder: (context, cfgSnap) {
+            final dominio = (cfgSnap.data?.data() as Map<String, dynamic>?)?['dominio_propio_url']
+                as String?;
+            return _tituloSeccion(
+              Icons.language,
+              dominio != null && dominio.isNotEmpty
+                  ? '$dominio — Tráfico web'
+                  : 'Tráfico web',
+            );
+          },
+        ),
         const SizedBox(height: 10),
         StreamBuilder<DocumentSnapshot>(
           stream: _db
@@ -347,7 +365,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(
-                    'Instala el script de fluixtech.com para ver las estadísticas aquí.',
+                    'Instala el script de Fluix CRM en tu web para ver las estadísticas aquí.',
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                 ),
