@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 // ── PLANES DE SUSCRIPCIÓN ─────────────────────────────────────────────────────
 
 enum PlanModulo {
-  /// Incluido en todos los planes (300€/año base)
+  /// Incluido en todos los planes (310€/año base)
   basico,
-  /// Pack Gestión + WhatsApp: 350€/año
+  /// Pack Gestión: 370€/año
   gestion,
-  /// Pack Tienda Online (pedidos + facturación): 450€/año
+  /// Pack Tienda Online: 490€/año
   tienda,
 }
 
@@ -22,9 +22,9 @@ extension PlanModuloExt on PlanModulo {
 
   String get precio {
     switch (this) {
-      case PlanModulo.basico:   return '300€/año';
-      case PlanModulo.gestion:  return '350€/año';
-      case PlanModulo.tienda:   return '450€/año';
+      case PlanModulo.basico:   return '310€/año';
+      case PlanModulo.gestion:  return '370€/año';
+      case PlanModulo.tienda:   return '490€/año';
     }
   }
 
@@ -104,7 +104,7 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.basico,
     ),
-    // ── PLAN BASE (300€/año) ───────────────────────────────────────────────
+    // ── PLAN BASE (310€/año) ───────────────────────────────────────────────
     ModuloConfig(
       id: 'dashboard',
       nombre: 'Dashboard',
@@ -153,7 +153,7 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.basico,
     ),
-    // ── PACK GESTIÓN (350€/año) ────────────────────────────────────────────
+    // ── PACK GESTIÓN (370€/año) ────────────────────────────────────────────
     ModuloConfig(
       id: 'whatsapp',
       nombre: 'WhatsApp',
@@ -170,7 +170,7 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.gestion,
     ),
-    // ── PACK TIENDA ONLINE (450€/año) ──────────────────────────────────────
+    // ── PACK TIENDA ONLINE (490€/año) ──────────────────────────────────────
     ModuloConfig(
       id: 'pedidos',
       nombre: 'Pedidos',

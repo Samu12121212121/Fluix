@@ -128,7 +128,7 @@ class PlanesConfig {
   static const planBase = PlanConfig(
     id: 'basico',
     nombre: 'Plan Base',
-    precioAnual: 300,
+    precioAnual: 310,
     modulosIncluidos: [
       'dashboard',
       'reservas',
@@ -150,7 +150,7 @@ class PlanesConfig {
   static const packGestion = PackConfig(
     id: 'gestion',
     nombre: 'Pack Gestión',
-    precioAnual: 350,
+    precioAnual: 370,
     modulosAdicionales: ['facturacion', 'vacaciones'],
     descripcion: 'Facturación completa y gestión de vacaciones.',
     color: Color(0xFF7B1FA2),
@@ -159,10 +159,10 @@ class PlanesConfig {
 
   static const packFiscal = PackConfig(
     id: 'fiscal',
-    nombre: 'Pack Fiscal',
-    precioAnual: 350,
+    nombre: 'Pack Fiscal AI',
+    precioAnual: 430,
     modulosAdicionales: ['fiscal', 'contabilidad', 'verifactu'],
-    descripcion: 'Contabilidad, modelos fiscales y Verifactu.',
+    descripcion: 'IA: escaneo de facturas, modelos AE automáticos, presentación directa en sede.',
     color: Color(0xFF0288D1),
     icono: Icons.account_balance,
   );
@@ -170,7 +170,7 @@ class PlanesConfig {
   static const packTienda = PackConfig(
     id: 'tienda',
     nombre: 'Pack Tienda Online',
-    precioAnual: 150,
+    precioAnual: 490,
     modulosAdicionales: ['pedidos'],
     descripcion: 'Catálogo de productos y pedidos online.',
     color: Color(0xFFE65100),
@@ -180,13 +180,13 @@ class PlanesConfig {
   static const List<PackConfig> todosPacks = [packGestion, packFiscal, packTienda];
 
   // ── BUNDLES ────────────────────────────────────────────────────────────────
-  // gestion(350) + fiscal(350) = 700 por separado → bundle: 600€ (ahorro 100€)
+  // gestion(370) + fiscal(430) = 800 por separado → bundle: 700€ (ahorro 100€)
 
   static const List<BundleConfig> bundles = [
     BundleConfig(
       packs: ['gestion', 'fiscal'],
       descuento: 100,
-      nombre: 'Bundle Gestión + Fiscal',
+      nombre: 'Bundle Gestión + Fiscal AI',
     ),
   ];
 
@@ -217,13 +217,13 @@ class PlanesConfig {
   static const addonNominas = AddonConfig(
     id: 'nominas',
     nombre: 'Nóminas',
-    precioAnual: null, // precio por definir
+    precioAnual: 310,
     modulosAdicionales: ['nominas'],
     descripcion: 'Cálculo automático de nóminas, IRPF y SS.',
     color: Color(0xFFFF7043),
     icono: Icons.payments,
-    precioVariable: true,
-    etiquetaPrecioVariable: 'Precio por definir',
+    precioVariable: false,
+    etiquetaPrecioVariable: null,
   );
 
   static const List<AddonConfig> todosAddons = [

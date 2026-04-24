@@ -773,6 +773,9 @@ class _DetalleDiaSheet extends StatelessWidget {
       final servicio = data['servicio'] as String? ?? '';
       final personas = data['personas'] ?? data['num_personas'];
       final estado = (data['estado'] as String? ?? '').toUpperCase();
+      final telefono = data['telefono_cliente'] as String? ?? '';
+      final correo = data['correo_cliente'] as String? ?? '';
+      final numero = data['numero'] as String?;
 
       String descripcion = servicio.isNotEmpty ? servicio : 'Reserva';
       if (personas != null) descripcion += ' para $personas personas';
@@ -791,6 +794,10 @@ class _DetalleDiaSheet extends StatelessWidget {
         horaTexto: DateFormat('HH:mm').format(hora),
         badge: estado,
         badgeColor: color,
+        telefono: telefono.isNotEmpty ? telefono : null,
+        correo: correo.isNotEmpty ? correo : null,
+        comensales: personas as int?,
+        numero: numero,
       );
     }).toList();
   }
@@ -849,50 +856,99 @@ class _DetalleDiaSheet extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: e.color.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hora
-          SizedBox(
-            width: 42,
-            child: Column(
-              children: [
-                Text(e.horaTexto,
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: e.color)),
-              ],
+          // Fila principal: hora, icono, título y badge
+          Row(
+            children: [
+              // Hora
+              SizedBox(
+                width: 42,
+                child: Column(
+                  children: [
+                    Text(e.horaTexto,
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: e.color)),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 36, color: e.color.withValues(alpha: 0.3),
+                  margin: const EdgeInsets.symmetric(horizontal: 10)),
+              // Icono
+              Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(color: e.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                child: Icon(e.icono, color: e.color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              // Texto principal
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.titulo,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (e.subtitulo.isNotEmpty)
+                      Text(e.subtitulo,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              // Badge estado
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(color: e.badgeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(e.badge,
+                    style: TextStyle(color: e.badgeColor, fontSize: 9, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+          // Información adicional (teléfono, correo, comensales) si está disponible
+          if (e.telefono != null || e.correo != null || e.comensales != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 52),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  if (e.comensales != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.people, size: 13, color: Colors.grey[600]),
+                        const SizedBox(width: 3),
+                        Text('${e.comensales} personas',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                      ],
+                    ),
+                  if (e.telefono != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.phone, size: 13, color: Colors.grey[600]),
+                        const SizedBox(width: 3),
+                        Text(e.telefono!,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                      ],
+                    ),
+                  if (e.correo != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.email, size: 13, color: Colors.grey[600]),
+                        const SizedBox(width: 3),
+                        Text(e.correo!,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                      ],
+                    ),
+                ],
+              ),
             ),
-          ),
-          Container(width: 1, height: 36, color: e.color.withValues(alpha: 0.3),
-              margin: const EdgeInsets.symmetric(horizontal: 10)),
-          // Icono
-          Container(
-            width: 34, height: 34,
-            decoration: BoxDecoration(color: e.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Icon(e.icono, color: e.color, size: 18),
-          ),
-          const SizedBox(width: 10),
-          // Texto
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(e.titulo,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (e.subtitulo.isNotEmpty)
-                  Text(e.subtitulo,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          // Badge estado
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: e.badgeColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8)),
-            child: Text(e.badge,
-                style: TextStyle(color: e.badgeColor, fontSize: 9, fontWeight: FontWeight.w700)),
-          ),
+          ],
         ],
       ),
     );
@@ -993,6 +1049,10 @@ class _EventoDia {
   final String horaTexto;
   final String badge;
   final Color badgeColor;
+  final String? telefono;
+  final String? correo;
+  final int? comensales;
+  final String? numero;
 
   _EventoDia({
     required this.hora,
@@ -1003,5 +1063,9 @@ class _EventoDia {
     required this.horaTexto,
     required this.badge,
     required this.badgeColor,
+    this.telefono,
+    this.correo,
+    this.comensales,
+    this.numero,
   });
 }

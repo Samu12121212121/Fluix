@@ -496,14 +496,6 @@ class _CabeceraCompleta extends StatelessWidget {
             const SizedBox(width: 4),
             Text('Sync...', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
           ],
-          IconButton(
-            onPressed: sincronizando ? null : onSincronizar,
-            icon: const Icon(Icons.sync, size: 20),
-            color: const Color(0xFF4285F4),
-            tooltip: 'Sincronizar con Google',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
           const SizedBox(width: 4),
           IconButton(
             onPressed: onAnadir,
@@ -513,17 +505,6 @@ class _CabeceraCompleta extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          if (onConfigurar != null) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: onConfigurar,
-              icon: const Icon(Icons.settings_outlined, size: 20),
-              color: Colors.grey[500],
-              tooltip: 'Configurar Google Reviews',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
        ]),
 
         const SizedBox(height: 10),
