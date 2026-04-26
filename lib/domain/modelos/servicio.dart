@@ -1,9 +1,5 @@
-      ),
 import 'package:equatable/equatable.dart';
-          ? DateTime.parse(datos['fecha_modificacion'])
-      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
-          ? DateTime.parse(datos['fecha_modificacion'])
-      fechaCreacion: DateTime.parse(datos['fecha_creacion']),
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Servicio extends Equatable {
   final String id;
@@ -41,13 +37,16 @@ class Servicio extends Equatable {
       descripcion: datos['descripcion'] ?? '',
       precio: (datos['precio'] ?? 0.0).toDouble(),
       duracion: Duration(minutes: datos['duracion_minutos'] ?? 60),
+      empleadoAsignado: datos['empleado_asignado'],
+      categoria: datos['categoria'],
+      activo: datos['activo'] ?? true,
       imagenes: List<String>.from(datos['imagenes'] ?? []),
+      configuracionAdicional: Map<String, dynamic>.from(
         datos['configuracion_adicional'] ?? {},
       ),
-      configuracionAdicional: Map<String, dynamic>.from(
+      fechaCreacion: _parseDate(datos['fecha_creacion']),
+      fechaModificacion: datos['fecha_modificacion'] != null
           ? _parseDate(datos['fecha_modificacion'])
-          ? _parseDate(datos['fecha_modificacion'])
-          ? DateTime.parse(datos['fecha_modificacion'])
           : null,
     );
   }
@@ -115,23 +114,24 @@ class Servicio extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        nombre,
-        descripcion,
-       ];
-        duracion,
-        empleadoAsignado,
-        activo,
-        imagenes,
-        configuracionAdicional,
-        fechaCreacion,
-        fechaModificacion,
-      ];
-}
+    id,
+    nombre,
+    descripcion,
+    precio,
+    duracion,
+    empleadoAsignado,
+    categoria,
+    activo,
+    imagenes,
+    configuracionAdicional,
+    fechaCreacion,
+    fechaModificacion,
+  ];
 
-DateTime _parseDate(dynamic v) {
-  if (v is Timestamp) return v.toDate();
-  if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
-  if (v is DateTime) return v;
-  return DateTime.now();
+  static DateTime _parseDate(dynamic v) {
+    if (v is Timestamp) return v.toDate();
+    if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.now();
+  }
 }

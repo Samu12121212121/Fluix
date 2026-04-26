@@ -11,7 +11,7 @@ import 'package:planeag_flutter/features/dashboard/widgets/alertas_fiscales_widg
 class WidgetFactory {
   static Widget buildWidget(WidgetConfig config, String empresaId) {
     switch (config.id) {
-      // ── IMPLEMENTADOS ──────────────────────────────────────────────────────
+    // ── IMPLEMENTADOS ──────────────────────────────────────────────────────
       case 'briefing_matutino':
         return BriefingCard(
           empresaId: empresaId,
@@ -36,7 +36,7 @@ class WidgetFactory {
         return WidgetResumenFacturacion(empresaId: empresaId);
       case 'resumen_pedidos':
         return WidgetResumenPedidos(empresaId: empresaId);
-      // ── PRÓXIMAMENTE ───────────────────────────────────────────────────────
+    // ── PRÓXIMAMENTE ───────────────────────────────────────────────────────
       case 'ingresos_mes':
         return WidgetIngresosMes(empresaId: empresaId);
       case 'clientes_nuevos':
@@ -44,8 +44,8 @@ class WidgetFactory {
       case 'alertas_negocio':
         return WidgetAlertasNegocio(empresaId: empresaId);
 
-
       default:
+        debugPrint('WidgetFactory: id no reconocido -> ${config.id}');
         return WidgetNoImplementado(config: config);
     }
   }
@@ -98,7 +98,7 @@ class WidgetNoImplementado extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                color: Colors.orange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Text(
@@ -116,8 +116,3 @@ class WidgetNoImplementado extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

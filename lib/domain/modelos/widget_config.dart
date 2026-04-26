@@ -3,51 +3,57 @@ import 'package:flutter/material.dart';
 // ── PLANES DE SUSCRIPCIÓN ─────────────────────────────────────────────────────
 
 enum PlanModulo {
-  /// Incluido en todos los planes (310€/año base)
   basico,
-  /// Pack Gestión: 370€/año
+  fiscal,
   gestion,
-  /// Pack Tienda Online: 490€/año
   tienda,
+  nominas,
 }
 
 extension PlanModuloExt on PlanModulo {
   String get nombre {
     switch (this) {
-      case PlanModulo.basico:   return 'Plan Base';
-      case PlanModulo.gestion:  return 'Pack Gestión';
-      case PlanModulo.tienda:   return 'Pack Tienda Online';
+      case PlanModulo.basico:  return 'Plan Base';
+      case PlanModulo.fiscal:  return 'Pack Fiscal AI';
+      case PlanModulo.gestion: return 'Pack Gestión';
+      case PlanModulo.tienda:  return 'Pack Tienda Online';
+      case PlanModulo.nominas: return 'Add-on Nóminas';
     }
   }
 
   String get precio {
     switch (this) {
-      case PlanModulo.basico:   return '310€/año';
-      case PlanModulo.gestion:  return '370€/año';
-      case PlanModulo.tienda:   return '490€/año';
+      case PlanModulo.basico:  return '310€/año';
+      case PlanModulo.fiscal:  return '430€/año';
+      case PlanModulo.gestion: return '370€/año';
+      case PlanModulo.tienda:  return '490€/año';
+      case PlanModulo.nominas: return '310€/año';
     }
   }
 
   Color get color {
     switch (this) {
-      case PlanModulo.basico:   return const Color(0xFF1976D2);
-      case PlanModulo.gestion:  return const Color(0xFF7B1FA2);
-      case PlanModulo.tienda:   return const Color(0xFFE65100);
+      case PlanModulo.basico:  return const Color(0xFF1976D2);
+      case PlanModulo.fiscal:  return const Color(0xFF388E3C);
+      case PlanModulo.gestion: return const Color(0xFF7B1FA2);
+      case PlanModulo.tienda:  return const Color(0xFFE65100);
+      case PlanModulo.nominas: return const Color(0xFF00897B);
     }
   }
 
   IconData get icono {
     switch (this) {
-      case PlanModulo.basico:   return Icons.star_outline;
-      case PlanModulo.gestion:  return Icons.workspace_premium;
-      case PlanModulo.tienda:   return Icons.storefront;
+      case PlanModulo.basico:  return Icons.star_outline;
+      case PlanModulo.fiscal:  return Icons.account_balance;
+      case PlanModulo.gestion: return Icons.workspace_premium;
+      case PlanModulo.tienda:  return Icons.storefront;
+      case PlanModulo.nominas: return Icons.payments;
     }
   }
 }
 
-// ── MÓDULOS DE TAB (pestañas del menú) ───────────────────────────────────────
+// ── MODELO DE MÓDULO ──────────────────────────────────────────────────────────
 
-/// Representa un módulo/pestaña del menú principal (no solo widget del dashboard)
 class ModuloConfig {
   final String id;
   final String nombre;
@@ -55,9 +61,7 @@ class ModuloConfig {
   final IconData icono;
   final bool activo;
   final PlanModulo plan;
-  /// true = viene por defecto en el plan, false = add-on de pago adicional
   final bool incluidoEnPlan;
-  /// Precio adicional si es add-on (ej: WhatsApp 50€/año extra)
   final String? precioAdicional;
 
   const ModuloConfig({
@@ -71,57 +75,67 @@ class ModuloConfig {
     this.precioAdicional,
   });
 
-  ModuloConfig copyWith({bool? activo}) => ModuloConfig(
-    id: id,
-    nombre: nombre,
-    descripcion: descripcion,
-    icono: icono,
-    activo: activo ?? this.activo,
-    plan: plan,
-    incluidoEnPlan: incluidoEnPlan,
-    precioAdicional: precioAdicional,
-  );
+  ModuloConfig copyWith({bool? activo}) {
+    return ModuloConfig(
+      id: id,
+      nombre: nombre,
+      descripcion: descripcion,
+      icono: icono,
+      activo: activo ?? this.activo,
+      plan: plan,
+      incluidoEnPlan: incluidoEnPlan,
+      precioAdicional: precioAdicional,
+    );
+  }
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'activo': activo,
-  };
-
-  factory ModuloConfig.fromMap(Map<String, dynamic> map, ModuloConfig base) =>
-      base.copyWith(activo: map['activo'] as bool? ?? base.activo);
+  factory ModuloConfig.safe(ModuloConfig? base) {
+    if (base == null) {
+      return const ModuloConfig(
+        id: 'error',
+        nombre: 'Módulo inválido',
+        descripcion: 'Error de configuración',
+        icono: Icons.error,
+        activo: false,
+        plan: PlanModulo.basico,
+      );
+    }
+    return base;
+  }
 }
 
-// ── CATÁLOGO COMPLETO DE MÓDULOS ──────────────────────────────────────────────
+// ── CATÁLOGO DE MÓDULOS ───────────────────────────────────────────────────────
 
 class ModulosDisponibles {
   static List<ModuloConfig> get todos => [
-    // ── MÓDULO PROPIETARIO (solo visible en Fluixtech) ────────────────
-    ModuloConfig(
+
+    // ── OCULTO ───────────────────────────────────────────────────────────────
+    const ModuloConfig(
       id: 'propietario',
       nombre: 'Panel Propietario',
-      descripcion: 'Estadísticas globales de la plataforma (solo Fluixtech)',
+      descripcion: 'Solo Fluixtech',
       icono: Icons.admin_panel_settings,
       activo: false,
       plan: PlanModulo.basico,
     ),
-    // ── PLAN BASE (310€/año) ───────────────────────────────────────────────
-    ModuloConfig(
+
+    // ── PLAN BASE ─────────────────────────────────────────────────────────────
+    const ModuloConfig(
       id: 'dashboard',
       nombre: 'Dashboard',
       descripcion: 'Resumen general del negocio con widgets personalizables',
       icono: Icons.dashboard,
-      activo: true, // Siempre activo — no se puede desactivar
+      activo: true,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'valoraciones',
       nombre: 'Valoraciones',
-      descripcion: 'Gestiona las reseñas y valoraciones de clientes',
+      descripcion: 'Gestión de las reseñas y valoraciones de los clientes',
       icono: Icons.star,
       activo: false,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'estadisticas',
       nombre: 'Estadísticas',
       descripcion: 'Métricas y KPIs del negocio en tiempo real',
@@ -129,7 +143,7 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'reservas',
       nombre: 'Reservas',
       descripcion: 'Gestión de citas y reservas de clientes',
@@ -137,69 +151,15 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
-      id: 'citas',
-      nombre: 'Citas',
-      descripcion: 'Agenda de citas con el mismo estilo visual que reservas',
-      icono: Icons.event_available,
-      activo: false,
-      plan: PlanModulo.basico,
-    ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'web',
       nombre: 'Contenido Web',
-      descripcion: 'Gestiona el contenido dinámico de tu página web',
+      descripcion: 'Gestión del contenido dinámico de tu página web',
       icono: Icons.web,
       activo: false,
       plan: PlanModulo.basico,
     ),
-    // ── PACK GESTIÓN (370€/año) ────────────────────────────────────────────
-    ModuloConfig(
-      id: 'whatsapp',
-      nombre: 'WhatsApp',
-      descripcion: 'Gestiona pedidos y comunicaciones por WhatsApp',
-      icono: Icons.chat_bubble_outline,
-      activo: false,
-      plan: PlanModulo.gestion,
-    ),
-    ModuloConfig(
-      id: 'facturacion',
-      nombre: 'Facturación',
-      descripcion: 'Facturas, IVA, resumen fiscal y estadísticas de cobros',
-      icono: Icons.receipt_long,
-      activo: false,
-      plan: PlanModulo.gestion,
-    ),
-    // ── PACK TIENDA ONLINE (490€/año) ──────────────────────────────────────
-    ModuloConfig(
-      id: 'pedidos',
-      nombre: 'Pedidos',
-      descripcion: 'Catálogo de productos y gestión de pedidos online',
-      icono: Icons.shopping_bag_outlined,
-      activo: false,
-      plan: PlanModulo.tienda,
-    ),
-    ModuloConfig(
-      id: 'tpv',
-      nombre: 'TPV',
-      descripcion: 'Caja rápida, importación CSV y facturación TPV',
-      icono: Icons.point_of_sale,
-      activo: false,
-      plan: PlanModulo.gestion,
-    ),
-    // ── ADD-ON: TAREAS ────────────────────────────────────────────────────
-    ModuloConfig(
-      id: 'tareas',
-      nombre: 'Tareas',
-      descripcion: 'Gestión de tareas y productividad por usuario',
-      icono: Icons.task_alt,
-      activo: false,
-      plan: PlanModulo.basico,
-      incluidoEnPlan: false,
-      precioAdicional: 'Precio por usuario/mes',
-    ),
-    // ── CRM ───────────────────────────────────────────────────────────────
-    ModuloConfig(
+    const ModuloConfig(
       id: 'clientes',
       nombre: 'Clientes',
       descripcion: 'Gestión de clientes, historial y CRM',
@@ -207,59 +167,109 @@ class ModulosDisponibles {
       activo: false,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'empleados',
       nombre: 'Empleados',
-      descripcion: 'Gestión del equipo y roles de acceso',
+      descripcion: 'Gestión de equipo y roles de acceso',
       icono: Icons.badge,
       activo: false,
       plan: PlanModulo.basico,
     ),
-    ModuloConfig(
+    const ModuloConfig(
+      id: 'servicios',
+      nombre: 'Servicios',
+      descripcion: 'Catálogo de servicios, precios y categorías',
+      icono: Icons.design_services,
+      activo: false,
+      plan: PlanModulo.basico,
+    ),
+
+    // ── PACK FISCAL AI ────────────────────────────────────────────────────────
+    const ModuloConfig(
+      id: 'fiscal',
+      nombre: 'Fiscal AI',
+      descripcion: 'Automatización fiscal con IA: genera informes trimestrales, '
+          'calcula el IVA, detecta deducciones y prepara los modelos 303 y 130 '
+          'listos para presentar',
+      icono: Icons.account_balance,
+      activo: false,
+      plan: PlanModulo.fiscal,
+    ),
+
+    // ── PACK GESTIÓN ──────────────────────────────────────────────────────────
+    const ModuloConfig(
+      id: 'whatsapp',
+      nombre: 'WhatsApp',
+      descripcion: 'Comunicación con clientes vía WhatsApp Business',
+      icono: Icons.chat,
+      activo: false,
+      plan: PlanModulo.gestion,
+    ),
+    const ModuloConfig(
+      id: 'facturacion',
+      nombre: 'Facturación',
+      descripcion: 'Facturas completas con IVA, series y exportación PDF',
+      icono: Icons.receipt_long,
+      activo: false,
+      plan: PlanModulo.gestion,
+    ),
+    const ModuloConfig(
+      id: 'tpv',
+      nombre: 'TPV',
+      descripcion: 'Terminal punto de venta para cobros presenciales',
+      icono: Icons.point_of_sale,
+      activo: false,
+      plan: PlanModulo.gestion,
+    ),
+    const ModuloConfig(
       id: 'nominas',
       nombre: 'Nóminas',
-      descripcion: 'Cálculo automático, IRPF y envío de nóminas 2026',
+      descripcion: 'Gestión completa de nóminas y cotizaciones',
       icono: Icons.payments,
       activo: false,
       plan: PlanModulo.gestion,
     ),
-    ModuloConfig(
+    const ModuloConfig(
       id: 'vacaciones',
       nombre: 'Vacaciones',
-      descripcion: 'Gestión de vacaciones, ausencias y permisos retribuidos',
+      descripcion: 'Control de vacaciones, ausencias y calendario del equipo',
       icono: Icons.beach_access,
       activo: false,
       plan: PlanModulo.gestion,
     ),
-    ModuloConfig(
-      id: 'servicios',
-      nombre: 'Servicios',
-      descripcion: 'Catálogo de servicios, precios y categorías',
-      icono: Icons.miscellaneous_services,
+
+    // ── PACK TIENDA ONLINE ────────────────────────────────────────────────────
+    const ModuloConfig(
+      id: 'pedidos',
+      nombre: 'Pedidos',
+      descripcion: 'Gestión de pedidos online y presenciales con stock',
+      icono: Icons.shopping_bag_outlined,
+      activo: false,
+      plan: PlanModulo.tienda,
+    ),
+
+    // ── ADD-ONS ───────────────────────────────────────────────────────────────
+    const ModuloConfig(
+      id: 'tareas',
+      nombre: 'Tareas',
+      descripcion: 'Tareas de productividad por usuario',
+      icono: Icons.task_alt,
       activo: false,
       plan: PlanModulo.basico,
+      incluidoEnPlan: false,
+      precioAdicional: 'Precio por usuario/mes',
     ),
-  ];
 
-  /// Módulos siempre activos que no se pueden desactivar
-  static const List<String> siempreActivos = [
-    'dashboard', // El dashboard principal siempre visible
-  ];
+  ]
+      .whereType<ModuloConfig>()
+      .map(ModuloConfig.safe)
+      .toList();
 
-  /// Módulos opcionales pero recomendados del plan básico (se pueden desactivar)
-  static const List<String> opcionalesBasico = [
-    'citas',
-  ];
-
-  /// Módulos activos por defecto al inicializar (solo el dashboard base)
-  /// El propietario asigna el plan correcto en Firestore.
-  static List<String> get activosPorDefecto => [
-    'dashboard',
-  ];
+  static const List<String> siempreActivos = ['dashboard'];
+  static List<String> get activosPorDefecto => ['dashboard'];
 }
 
-
-// ── WIDGET CONFIG (dashboard) ─────────────────────────────────────────────────
+// ── WIDGET CONFIG ─────────────────────────────────────────────────────────────
 
 class WidgetConfig {
   final String id;
@@ -285,7 +295,7 @@ class WidgetConfig {
       id: map['id'] ?? '',
       nombre: map['nombre'] ?? '',
       descripcion: map['descripcion'] ?? '',
-      icono: _iconFromString(map['icono'] ?? ''),
+      icono: Icons.widgets,
       activo: map['activo'] ?? true,
       orden: map['orden'] ?? 0,
       configuracion: map['configuracion'] ?? {},
@@ -297,201 +307,57 @@ class WidgetConfig {
       'id': id,
       'nombre': nombre,
       'descripcion': descripcion,
-      'icono': _iconToString(icono),
+      'icono': 'widgets',
       'activo': activo,
       'orden': orden,
       'configuracion': configuracion,
     };
   }
 
-  WidgetConfig copyWith({
-    String? id,
-    String? nombre,
-    String? descripcion,
-    IconData? icono,
-    bool? activo,
-    int? orden,
-    Map<String, dynamic>? configuracion,
-  }) {
+  WidgetConfig copyWith({bool? activo, int? orden}) {
     return WidgetConfig(
-      id: id ?? this.id,
-      nombre: nombre ?? this.nombre,
-      descripcion: descripcion ?? this.descripcion,
-      icono: icono ?? this.icono,
+      id: id,
+      nombre: nombre,
+      descripcion: descripcion,
+      icono: icono,
       activo: activo ?? this.activo,
       orden: orden ?? this.orden,
-      configuracion: configuracion ?? this.configuracion,
+      configuracion: configuracion,
     );
-  }
-
-  static IconData _iconFromString(String iconString) {
-    switch (iconString) {
-      case 'calendar_view_week':    return Icons.calendar_view_week;
-      case 'analytics':             return Icons.analytics;
-      case 'star':                  return Icons.star;
-      case 'calendar_today':        return Icons.calendar_today;
-      case 'trending_up':           return Icons.trending_up;
-      case 'people':                return Icons.people;
-      case 'euro':                  return Icons.euro;
-      case 'notifications':         return Icons.notifications;
-      case 'local_offer':           return Icons.local_offer;
-      case 'schedule':              return Icons.schedule;
-      case 'web':                   return Icons.web;
-      case 'task_alt':              return Icons.task_alt;
-      case 'shopping_bag':          return Icons.shopping_bag_outlined;
-      case 'chat_bubble':           return Icons.chat_bubble_outline;
-      case 'receipt_long':          return Icons.receipt_long;
-      case 'wb_sunny':              return Icons.wb_sunny;
-      case 'gavel':                 return Icons.gavel;
-      case 'event_available':       return Icons.event_available;
-      case 'notifications_active':  return Icons.notifications_active;
-      default:                      return Icons.widgets;
-    }
-  }
-
-  static String _iconToString(IconData icon) {
-    if (icon == Icons.calendar_view_week)    return 'calendar_view_week';
-    if (icon == Icons.analytics)             return 'analytics';
-    if (icon == Icons.star)                  return 'star';
-    if (icon == Icons.calendar_today)        return 'calendar_today';
-    if (icon == Icons.trending_up)           return 'trending_up';
-    if (icon == Icons.people)                return 'people';
-    if (icon == Icons.euro)                  return 'euro';
-    if (icon == Icons.notifications)         return 'notifications';
-    if (icon == Icons.local_offer)           return 'local_offer';
-    if (icon == Icons.schedule)              return 'schedule';
-    if (icon == Icons.web)                   return 'web';
-    if (icon == Icons.task_alt)              return 'task_alt';
-    if (icon == Icons.shopping_bag_outlined) return 'shopping_bag';
-    if (icon == Icons.chat_bubble_outline)   return 'chat_bubble';
-    if (icon == Icons.receipt_long)          return 'receipt_long';
-    if (icon == Icons.wb_sunny)              return 'wb_sunny';
-    if (icon == Icons.gavel)                 return 'gavel';
-    if (icon == Icons.event_available)       return 'event_available';
-    if (icon == Icons.notifications_active)  return 'notifications_active';
-    return 'widgets';
   }
 
   static List<WidgetConfig> obtenerWidgetsDefault() {
     return [
-      // ── IMPLEMENTADOS Y ACTIVOS POR DEFECTO ───────────────────────────────
-      WidgetConfig(
-        id: 'briefing_matutino',
-        nombre: 'Briefing Matutino',
-        descripcion: 'Resumen inteligente del día (visible de 6h a 12h)',
-        icono: Icons.wb_sunny,
-        activo: true,
-        orden: 0,
-      ),
-      WidgetConfig(
-        id: 'proximos_dias',
-        nombre: 'Próximos 3 Días',
-        descripcion: 'Reservas y alertas de los próximos días',
-        icono: Icons.calendar_view_week,
-        activo: true,
-        orden: 1,
-      ),
-      WidgetConfig(
-        id: 'reservas_hoy',
-        nombre: 'Reservas de Hoy',
-        descripcion: 'Citas y reservas del día en curso',
-        icono: Icons.calendar_today,
-        activo: true,
-        orden: 2,
-      ),
-      WidgetConfig(
-        id: 'alertas_fiscales',
-        nombre: 'Alertas Fiscales',
-        descripcion: 'Alertas de obligaciones fiscales próximas',
-        icono: Icons.gavel,
-        activo: true,
-        orden: 3,
-      ),
-      WidgetConfig(
-        id: 'citas_resumen',
-        nombre: 'Citas del Día',
-        descripcion: 'Próximas citas del día con hora y cliente',
-        icono: Icons.event_available,
-        activo: true,
-        orden: 4,
-      ),
-      WidgetConfig(
-        id: 'valoraciones_recientes',
-        nombre: 'Valoraciones Recientes',
-        descripcion: 'Últimas reseñas y puntuaciones de clientes',
-        icono: Icons.star,
-        activo: true,
-        orden: 5,
-      ),
-      WidgetConfig(
-        id: 'kpis_rapidos',
-        nombre: 'KPIs Rápidos',
-        descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',
-        icono: Icons.trending_up,
-        orden: 6,
-      ),
-      // ── IMPLEMENTADOS, DESACTIVADOS POR DEFECTO ───────────────────────────
-      WidgetConfig(
-        id: 'resumen_facturacion',
-        nombre: 'Resumen Facturación',
-        icono: Icons.shopping_bag_outlined,
-        descripcion: 'Total facturado hoy y del mes, pendientes de cobro',
-        activo: false,
-        orden: 7,
-      ),
-      WidgetConfig(
-        id: 'resumen_pedidos',
-        nombre: 'Resumen Pedidos',
-        descripcion: 'Pedidos y ventas del día',
-        icono: Icons.receipt_long,
-        activo: false,
-        orden: 8,
-      ),
-      // ── PRÓXIMAMENTE ──────────────────────────────────────────────────────
-      WidgetConfig(
-        id: 'ingresos_mes',
-        nombre: 'Ingresos del Mes',
-        descripcion: 'Gráfico de evolución de ingresos mensuales',
-        icono: Icons.euro,
-        activo: false,
-        orden: 9,
-      ),
-      WidgetConfig(
-        id: 'clientes_nuevos',
-        nombre: 'Clientes Nuevos',
-        descripcion: 'Últimos clientes registrados en el sistema',
-        icono: Icons.people,
-        activo: false,
-        orden: 10,
-      ),
-      WidgetConfig(
-        id: 'alertas_negocio',
-        nombre: 'Alertas del Negocio',
-        icono: Icons.notifications_active,
-        activo: false,
-        orden: 11,
-      ),
+      WidgetConfig(id: 'briefing_matutino',    nombre: 'Briefing Matutino',     descripcion: 'Resumen inteligente del día (visible de 6h a 12h)',           icono: Icons.wb_sunny,         activo: true,  orden: 1),
+      WidgetConfig(id: 'proximos_dias',         nombre: 'Próximos 3 Días',       descripcion: 'Reservas y alertas de los próximos días',                     icono: Icons.event_note,       activo: true,  orden: 2),
+      WidgetConfig(id: 'alertas_fiscales',      nombre: 'Alertas Fiscales',      descripcion: 'Alertas de obligaciones fiscales próximas',                   icono: Icons.account_balance,  activo: true,  orden: 3),
+      WidgetConfig(id: 'reservas_hoy',          nombre: 'Reservas de Hoy',       descripcion: 'Citas y reservas del día en curso',                           icono: Icons.calendar_today,   activo: true,  orden: 4),
+      WidgetConfig(id: 'valoraciones_recientes',nombre: 'Valoraciones Recientes',descripcion: 'Últimas reseñas y puntuaciones de clientes',                  icono: Icons.star,             activo: true,  orden: 5),
+      WidgetConfig(id: 'citas_resumen',         nombre: 'Citas del Día',         descripcion: 'Próximas citas del día con hora y cliente',                   icono: Icons.schedule,         activo: true,  orden: 6),
+      WidgetConfig(id: 'kpis_rapidos',          nombre: 'KPIs Rápidos',          descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',    icono: Icons.analytics,        activo: true,  orden: 7),
+      WidgetConfig(id: 'resumen_facturacion',   nombre: 'Resumen Facturación',   descripcion: 'Total facturado hoy y del mes, pendientes de cobro',          icono: Icons.receipt_long,     activo: true,  orden: 8),
+      WidgetConfig(id: 'resumen_pedidos',       nombre: 'Resumen Pedidos',       descripcion: 'Pedidos y ventas del día',                                    icono: Icons.shopping_bag,     activo: true,  orden: 9),
+      WidgetConfig(id: 'ingresos_mes',          nombre: 'Ingresos del Mes',      descripcion: 'Gráfico de evolución de ingresos mensuales',                  icono: Icons.trending_up,      activo: false, orden: 10),
+      WidgetConfig(id: 'clientes_nuevos',       nombre: 'Clientes Nuevos',       descripcion: 'Últimos clientes registrados en el sistema',                  icono: Icons.people,           activo: false, orden: 11),
+      WidgetConfig(id: 'alertas_negocio',       nombre: 'Alertas del Negocio',   descripcion: 'Sugerencias y alertas automáticas del negocio',               icono: Icons.notifications,    activo: false, orden: 12),
+      WidgetConfig(id: 'kpis',                  nombre: 'KPIs',                  descripcion: 'Métricas clave del negocio',                                  icono: Icons.bar_chart,        activo: true,  orden: 13),
     ];
   }
 
-  /// IDs de widgets realmente implementados (no placeholder)
+  // Widgets completamente implementados y funcionales
   static const Set<String> implementados = {
     'briefing_matutino',
-    'alertas_fiscales',
     'proximos_dias',
+    'alertas_fiscales',
     'reservas_hoy',
-    'citas_resumen',
     'valoraciones_recientes',
+    'citas_resumen',
     'kpis_rapidos',
     'resumen_facturacion',
     'resumen_pedidos',
+    'kpis',
   };
+
+// Próximamente
+// 'ingresos_mes', 'clientes_nuevos', 'alertas_negocio'
 }
-
-
-
-
-
-
-
-

@@ -51,7 +51,7 @@ class _ConfiguracionVacacionesScreenState
     try {
       final config = await _vacSvc.obtenerConfigCarryover(widget.empresaId);
       final comunidad =
-          await _festSvc.obtenerComunidadAutonoma(widget.empresaId);
+      await _festSvc.obtenerComunidadAutonoma(widget.empresaId);
 
       // Leer mínimo cobertura
       final minCob = await _cobSvc.obtenerMinimoPorcentaje(widget.empresaId);
@@ -128,13 +128,13 @@ class _ConfiguracionVacacionesScreenState
           if (_guardando)
             const Center(
                 child: Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white)),
-            ))
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white)),
+                ))
           else
             IconButton(
               icon: const Icon(Icons.save),
@@ -146,143 +146,143 @@ class _ConfiguracionVacacionesScreenState
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // ── Comunidad autónoma ──
-                _buildSeccion(
-                  'Comunidad autónoma',
-                  'Festivos autonómicos que se importarán automáticamente',
-                  Icons.map,
-                  [
-                    DropdownButtonFormField<String>(
-                      value: _comunidadSeleccionada,
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── Comunidad autónoma ──
+          _buildSeccion(
+            'Comunidad autónoma',
+            'Festivos autonómicos que se importarán automáticamente',
+            Icons.map,
+            [
+              DropdownButtonFormField<String>(
+                value: _comunidadSeleccionada,
+                decoration: const InputDecoration(
+                  labelText: 'Comunidad autónoma',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                ),
+                items: ComunidadesAutonomas.lista
+                    .map((e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Text(e.value,
+                      style: const TextStyle(fontSize: 13)),
+                ))
+                    .toList(),
+                onChanged: (v) =>
+                    setState(() => _comunidadSeleccionada = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Carryover (arrastre) ──
+          _buildSeccion(
+            'Arrastre de días',
+            'Configuración del traspaso de días no disfrutados',
+            Icons.swap_horiz,
+            [
+              _buildSlider(
+                'Máximo días a traspasar',
+                _diasMaximos,
+                0,
+                30,
+                    (v) => setState(() => _diasMaximos = v.round()),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _mesExpiracion,
                       decoration: const InputDecoration(
-                        labelText: 'Comunidad autónoma',
+                        labelText: 'Mes límite',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                       ),
-                      items: ComunidadesAutonomas.lista
-                          .map((e) => DropdownMenuItem(
-                                value: e.key,
-                                child: Text(e.value,
-                                    style: const TextStyle(fontSize: 13)),
-                              ))
-                          .toList(),
+                      items: List.generate(
+                          12,
+                              (i) => DropdownMenuItem(
+                            value: i + 1,
+                            child: Text(_nombreMes(i + 1)),
+                          )),
                       onChanged: (v) =>
-                          setState(() => _comunidadSeleccionada = v),
+                          setState(() => _mesExpiracion = v!),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 80,
+                    child: TextFormField(
+                      initialValue: '$_diaExpiracion',
+                      decoration: const InputDecoration(
+                        labelText: 'Día',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) {
+                        final parsed = int.tryParse(v);
+                        if (parsed != null && parsed >= 1 && parsed <= 31) {
+                          _diaExpiracion = parsed;
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Notificar 7 días antes de expirar',
+                    style: TextStyle(fontSize: 13)),
+                value: _notificarAntes,
+                onChanged: (v) =>
+                    setState(() => _notificarAntes = v),
+                activeColor: const Color(0xFF00796B),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Permitir traspaso manual',
+                    style: TextStyle(fontSize: 13)),
+                subtitle: const Text(
+                    'El propietario puede traspasar días manualmente',
+                    style: TextStyle(fontSize: 11)),
+                value: _permitirManual,
+                onChanged: (v) =>
+                    setState(() => _permitirManual = v),
+                activeColor: const Color(0xFF00796B),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
 
-                // ── Carryover (arrastre) ──
-                _buildSeccion(
-                  'Arrastre de días',
-                  'Configuración del traspaso de días no disfrutados',
-                  Icons.swap_horiz,
-                  [
-                    _buildSlider(
-                      'Máximo días a traspasar',
-                      _diasMaximos,
-                      0,
-                      30,
-                      (v) => setState(() => _diasMaximos = v.round()),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: _mesExpiracion,
-                            decoration: const InputDecoration(
-                              labelText: 'Mes límite',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                            ),
-                            items: List.generate(
-                                12,
-                                (i) => DropdownMenuItem(
-                                      value: i + 1,
-                                      child: Text(_nombreMes(i + 1)),
-                                    )),
-                            onChanged: (v) =>
-                                setState(() => _mesExpiracion = v!),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 80,
-                          child: TextFormField(
-                            initialValue: '$_diaExpiracion',
-                            decoration: const InputDecoration(
-                              labelText: 'Día',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                            ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (v) {
-                              final parsed = int.tryParse(v);
-                              if (parsed != null && parsed >= 1 && parsed <= 31) {
-                                _diaExpiracion = parsed;
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Notificar 7 días antes de expirar',
-                          style: TextStyle(fontSize: 13)),
-                      value: _notificarAntes,
-                      onChanged: (v) =>
-                          setState(() => _notificarAntes = v),
-                      activeThumbColor: const Color(0xFF00796B),
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Permitir traspaso manual',
-                          style: TextStyle(fontSize: 13)),
-                      subtitle: const Text(
-                          'El propietario puede traspasar días manualmente',
-                          style: TextStyle(fontSize: 11)),
-                      value: _permitirManual,
-                      onChanged: (v) =>
-                          setState(() => _permitirManual = v),
-                      activeThumbColor: const Color(0xFF00796B),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // ── Cobertura mínima ──
-                _buildSeccion(
-                  'Cobertura mínima del equipo',
-                  'Porcentaje mínimo de empleados presentes para alertas',
-                  Icons.groups,
-                  [
-                    _buildSlider(
-                      'Mínimo presentes',
-                      _minimoCoberturaPorc,
-                      10,
-                      100,
-                      (v) =>
-                          setState(() => _minimoCoberturaPorc = v.round()),
-                      suffix: '%',
-                    ),
-                    Text(
-                      'Se mostrará alerta al aprobar vacaciones si la cobertura '
-                      'queda por debajo del $_minimoCoberturaPorc%',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          // ── Cobertura mínima ──
+          _buildSeccion(
+            'Cobertura mínima del equipo',
+            'Porcentaje mínimo de empleados presentes para alertas',
+            Icons.groups,
+            [
+              _buildSlider(
+                'Mínimo presentes',
+                _minimoCoberturaPorc,
+                10,
+                100,
+                    (v) =>
+                    setState(() => _minimoCoberturaPorc = v.round()),
+                suffix: '%',
+              ),
+              Text(
+                'Se mostrará alerta al aprobar vacaciones si la cobertura '
+                    'queda por debajo del $_minimoCoberturaPorc%',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -295,7 +295,7 @@ class _ConfiguracionVacacionesScreenState
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 6,
               offset: const Offset(0, 2)),
         ],
@@ -316,7 +316,7 @@ class _ConfiguracionVacacionesScreenState
                             fontWeight: FontWeight.w700, fontSize: 15)),
                     Text(subtitulo,
                         style:
-                            TextStyle(fontSize: 11, color: Colors.grey[600])),
+                        TextStyle(fontSize: 11, color: Colors.grey[600])),
                   ],
                 ),
               ),
@@ -330,13 +330,13 @@ class _ConfiguracionVacacionesScreenState
   }
 
   Widget _buildSlider(
-    String label,
-    int value,
-    int min,
-    int max,
-    ValueChanged<double> onChanged, {
-    String suffix = '',
-  }) {
+      String label,
+      int value,
+      int min,
+      int max,
+      ValueChanged<double> onChanged, {
+        String suffix = '',
+      }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -382,12 +382,3 @@ class _ConfiguracionVacacionesScreenState
     return meses[mes];
   }
 }
-
-
-
-
-
-
-
-
-

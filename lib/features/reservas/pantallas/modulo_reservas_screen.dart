@@ -95,9 +95,9 @@ class _BodyStreams extends StatelessWidget {
 
   const _BodyStreams(
       {required this.empresaId,
-      required this.tc,
-      required this.sesion,
-      required this.onNueva});
+        required this.tc,
+        required this.sesion,
+        required this.onNueva});
 
   static DateTime _ts(dynamic v) {
     if (v is Timestamp) return v.toDate();
@@ -108,7 +108,7 @@ class _BodyStreams extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final desde =
-        Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 90)));
+    Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 90)));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -252,9 +252,9 @@ class _VistaHoyState extends State<_VistaHoy> {
                 final esHoy = dia == hoy;
                 final rdias = _delDia(dia);
                 final tieneConf =
-                    rdias.any((d) => _estado(d) == 'CONFIRMADA');
+                rdias.any((d) => _estado(d) == 'CONFIRMADA');
                 final tienePend =
-                    rdias.any((d) => _estado(d) == 'PENDIENTE');
+                rdias.any((d) => _estado(d) == 'PENDIENTE');
 
                 return GestureDetector(
                   onTap: () => setState(() => _sel = dia),
@@ -265,12 +265,12 @@ class _VistaHoyState extends State<_VistaHoy> {
                       color: esSel
                           ? color
                           : esHoy
-                              ? color.withValues(alpha: 0.08)
-                              : Colors.transparent,
+                          ? color.withValues(alpha: 0.08)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                       border: esHoy && !esSel
                           ? Border.all(
-                              color: color.withValues(alpha: 0.4), width: 1.5)
+                          color: color.withValues(alpha: 0.4), width: 1.5)
                           : null,
                     ),
                     child: Column(
@@ -326,7 +326,7 @@ class _VistaHoyState extends State<_VistaHoy> {
             child: Text(
               DateFormat('EEEE, d MMMM', 'es').format(_sel).capitalized,
               style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
           if (conf > 0)
@@ -341,25 +341,25 @@ class _VistaHoyState extends State<_VistaHoy> {
       Expanded(
         child: reservas.isEmpty
             ? _Vacio(
-                icono: Icons.event_available,
-                msg: 'Sin reservas el ${DateFormat('d MMMM', 'es').format(_sel)}',
-                onNueva: widget.onNueva,
-              )
+          icono: Icons.event_available,
+          msg: 'Sin reservas el ${DateFormat('d MMMM', 'es').format(_sel)}',
+          onNueva: widget.onNueva,
+        )
             : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                itemCount: reservas.length,
-                itemBuilder: (_, i) =>
-                    _Tarjeta(doc: reservas[i], empresaId: widget.empresaId),
-              ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          itemCount: reservas.length,
+          itemBuilder: (_, i) =>
+              _Tarjeta(doc: reservas[i], empresaId: widget.empresaId),
+        ),
       ),
     ]);
   }
 
   Widget _punto(Color c) => Container(
-        width: 5, height: 5,
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-      );
+    width: 5, height: 5,
+    margin: const EdgeInsets.symmetric(horizontal: 1),
+    decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -421,13 +421,13 @@ class _VistaSemanaState extends State<_VistaSemana> {
             icon: const Icon(Icons.chevron_left),
             color: color,
             onPressed: () => setState(
-                () => _lunes = _lunes.subtract(const Duration(days: 7))),
+                    () => _lunes = _lunes.subtract(const Duration(days: 7))),
           ),
           Expanded(
             child: Center(
               child: Text(
                 '${DateFormat('d MMM', 'es').format(_semana.first)} – '
-                '${DateFormat('d MMM yyyy', 'es').format(_semana.last)}',
+                    '${DateFormat('d MMM yyyy', 'es').format(_semana.last)}',
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 13),
               ),
@@ -505,7 +505,7 @@ class _VistaSemanaState extends State<_VistaSemana> {
                           style: TextStyle(
                               fontSize: 12,
                               color:
-                                  esHoy ? Colors.white60 : Colors.grey[400])),
+                              esHoy ? Colors.white60 : Colors.grey[400])),
                   ]),
                 ),
                 ...reservas.map((doc) => _Tarjeta(
@@ -599,24 +599,24 @@ class _VistaEstadosState extends State<_VistaEstados>
   }
 
   Tab _tabBadge(String label, int n, Color c) => Tab(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label),
-            const SizedBox(width: 6),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                  color: c.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Text('$n',
-                  style: TextStyle(
-                      color: c, fontSize: 11, fontWeight: FontWeight.bold)),
-            ),
-          ],
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label),
+        const SizedBox(width: 6),
+        Container(
+          padding:
+          const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10)),
+          child: Text('$n',
+              style: TextStyle(
+                  color: c, fontSize: 11, fontWeight: FontWeight.bold)),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _ListaEstado extends StatelessWidget {
@@ -701,6 +701,7 @@ class _Tarjeta extends StatelessWidget {
     final fecha = _ts(_d['fecha_hora']);
     final precio = _d['precio'];
     final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
+    final comensales = _d['numero_personas'] as int?;
     final esCita = doc.reference.path.contains('citas');
 
     return Card(
@@ -730,7 +731,7 @@ class _Tarjeta extends StatelessWidget {
                 if (!compact)
                   Text(DateFormat('d MMM', 'es').format(fecha),
                       style:
-                          TextStyle(fontSize: 10, color: Colors.grey[500])),
+                      TextStyle(fontSize: 10, color: Colors.grey[500])),
               ]),
             ),
             // Franja de color
@@ -759,8 +760,8 @@ class _Tarjeta extends StatelessWidget {
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: (esCita
-                                ? const Color(0xFF7B1FA2)
-                                : const Color(0xFF1976D2))
+                            ? const Color(0xFF7B1FA2)
+                            : const Color(0xFF1976D2))
                             .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -778,7 +779,7 @@ class _Tarjeta extends StatelessWidget {
                   if (servicio.isNotEmpty)
                     Text(servicio,
                         style:
-                            TextStyle(color: Colors.grey[600], fontSize: 12),
+                        TextStyle(color: Colors.grey[600], fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                   if (!compact && profesional.isNotEmpty)
@@ -790,6 +791,17 @@ class _Tarjeta extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF5C6BC0),
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                  if (!compact && comensales != null && comensales > 0)
+                    Row(children: [
+                      const Icon(Icons.people,
+                          size: 11, color: Color(0xFF607D8B)),
+                      const SizedBox(width: 3),
+                      Text('$comensales ${comensales == 1 ? "comensal" : "comensales"}',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF607D8B),
                               fontWeight: FontWeight.w600)),
                     ]),
                 ],
@@ -825,6 +837,7 @@ class _Tarjeta extends StatelessWidget {
     final precio = _d['precio'];
     final notas = '${_d['notas'] ?? _d['observaciones'] ?? ''}';
     final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
+    final comensales = _d['numero_personas'] as int?;
     final col = doc.reference.path.contains('citas') ? 'citas' : 'reservas';
 
     showModalBottomSheet(
@@ -869,17 +882,17 @@ class _Tarjeta extends StatelessWidget {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(cliente,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18)),
-                      if (telefono.isNotEmpty)
-                        Text(telefono,
-                            style: TextStyle(
-                                color: Colors.grey[600], fontSize: 13)),
-                    ])),
+                          Text(cliente,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 18)),
+                          if (telefono.isNotEmpty)
+                            Text(telefono,
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 13)),
+                        ])),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                       color: _color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20)),
@@ -903,6 +916,8 @@ class _Tarjeta extends StatelessWidget {
                     '€${(precio as num).toStringAsFixed(2)}'),
               if (profesional.isNotEmpty)
                 _fila(Icons.person_pin, 'Profesional', profesional),
+              if (comensales != null && comensales > 0)
+                _fila(Icons.people, 'Comensales', '$comensales ${comensales == 1 ? "persona" : "personas"}'),
               if (notas.isNotEmpty) _fila(Icons.notes, 'Notas', notas),
               const SizedBox(height: 20),
               if (_estado == 'PENDIENTE' ||
@@ -959,12 +974,12 @@ class _Tarjeta extends StatelessWidget {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Text(label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500)),
-            ])),
+                  Text(label,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500)),
+                ])),
       ]),
     );
   }
@@ -1056,6 +1071,7 @@ class _FormNuevaReserva {
     final servicioCtrl = TextEditingController();
     final notasCtrl = TextEditingController();
     final precioCtrl = TextEditingController();
+    final comensalesCtrl = TextEditingController(text: '1');
     DateTime fecha = fechaInicial ?? DateTime.now();
     TimeOfDay hora = TimeOfDay.fromDateTime(fecha);
     String estadoSel = 'PENDIENTE';
@@ -1067,13 +1083,13 @@ class _FormNuevaReserva {
       builder: (_) => StatefulBuilder(
         builder: (ctx, setS) => Padding(
           padding:
-              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
             height: MediaQuery.of(ctx).size.height * 0.85,
             decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(20))),
+                BorderRadius.vertical(top: Radius.circular(20))),
             child: Column(children: [
               Container(
                 margin: const EdgeInsets.only(top: 12),
@@ -1102,8 +1118,19 @@ class _FormNuevaReserva {
                     _tf(clienteCtrl, 'Cliente *', Icons.person_outline),
                     _tf(telefonoCtrl, 'Teléfono', Icons.phone_outlined),
                     _tf(servicioCtrl, 'Servicio', Icons.spa_outlined),
-                    _tf(precioCtrl, 'Precio (€)', Icons.euro_outlined,
-                        keyboard: TextInputType.number),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _tf(precioCtrl, 'Precio (€)', Icons.euro_outlined,
+                              keyboard: TextInputType.number),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _tf(comensalesCtrl, 'Comensales', Icons.people_outlined,
+                              keyboard: TextInputType.number),
+                        ),
+                      ],
+                    ),
                     // Fecha y hora
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -1112,7 +1139,7 @@ class _FormNuevaReserva {
                       title: Text(
                         DateFormat('EEEE d MMMM · HH:mm', 'es')
                             .format(DateTime(fecha.year, fecha.month, fecha.day,
-                                hora.hour, hora.minute))
+                            hora.hour, hora.minute))
                             .capitalized,
                         style: const TextStyle(fontSize: 14),
                       ),
@@ -1147,18 +1174,18 @@ class _FormNuevaReserva {
                     const SizedBox(height: 4),
                     const Text('Estado',
                         style:
-                            TextStyle(fontSize: 13, color: Colors.grey)),
+                        TextStyle(fontSize: 13, color: Colors.grey)),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       children: ['PENDIENTE', 'CONFIRMADA', 'POR_CONFIRMAR']
                           .map((e) => ChoiceChip(
-                                label: Text(e,
-                                    style: const TextStyle(fontSize: 12)),
-                                selected: estadoSel == e,
-                                onSelected: (_) =>
-                                    setS(() => estadoSel = e),
-                              ))
+                        label: Text(e,
+                            style: const TextStyle(fontSize: 12)),
+                        selected: estadoSel == e,
+                        onSelected: (_) =>
+                            setS(() => estadoSel = e),
+                      ))
                           .toList(),
                     ),
                     const SizedBox(height: 8),
@@ -1183,6 +1210,7 @@ class _FormNuevaReserva {
                       'telefono': telefonoCtrl.text.trim(),
                       'servicio': servicioCtrl.text.trim(),
                       'precio': double.tryParse(precioCtrl.text.trim()),
+                      'numero_personas': int.tryParse(comensalesCtrl.text.trim()) ?? 1,
                       'notas': notasCtrl.text.trim(),
                       'estado': estadoSel,
                       'fecha_hora': Timestamp.fromDate(dt),
@@ -1223,7 +1251,7 @@ class _FormNuevaReserva {
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12)),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           ),
         ),
       );
@@ -1233,4 +1261,3 @@ extension _Cap on String {
   String get capitalized =>
       isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }
-

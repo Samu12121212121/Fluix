@@ -30,17 +30,17 @@ extension TipoContingenciaExt on TipoContingencia {
   /// true = contingencia profesional (AT / EP). false = común.
   bool get esProfesional =>
       this == TipoContingencia.accidenteLaboral ||
-      this == TipoContingencia.enfermedadProfesional;
+          this == TipoContingencia.enfermedadProfesional;
 
   /// true = maternidad / paternidad (100% base reguladora, INSS).
   bool get esMaternidadPaternidad =>
       this == TipoContingencia.maternidad ||
-      this == TipoContingencia.paternidad;
+          this == TipoContingencia.paternidad;
 
   /// true = contingencia común (enfermedad común / acc. no laboral).
   bool get esComun =>
       this == TipoContingencia.enfermedadComun ||
-      this == TipoContingencia.accidenteNoLaboral;
+          this == TipoContingencia.accidenteNoLaboral;
 }
 
 /// Modelo de baja laboral / incapacidad temporal.
@@ -86,12 +86,18 @@ class BajaLaboral {
     final a = DateTime.utc(fechaInicio.year, fechaInicio.month, fechaInicio.day);
     final b = DateTime.utc(fin.year, fin.month, fin.day);
     return b.difference(a).inDays + 1;
-    final fin       = fechaFin ?? DateTime.now();
+  }
+
+  /// Días de baja dentro de un mes concreto.
+  int diasEnMes(int mes, int anio) {
+    final inicioMes = DateTime(anio, mes, 1);
+    final finMes = DateTime(anio, mes + 1, 0); // último día del mes
+    final fin = fechaFin ?? DateTime.now();
 
     if (fechaInicio.isAfter(finMes) || fin.isBefore(inicioMes)) return 0;
 
     final start = fechaInicio.isBefore(inicioMes) ? inicioMes : fechaInicio;
-    final end   = fin.isAfter(finMes) ? finMes : fin;
+    final end = fin.isAfter(finMes) ? finMes : fin;
 
     return end.difference(start).inDays + 1;
   }
@@ -99,28 +105,32 @@ class BajaLaboral {
   /// Día de baja en el que empieza el mes (relativo al inicio de la baja).
   /// Ejemplo: baja empezó el 20/01, mes febrero → diaInicioRelativo = 12.
   int diaInicioRelativo(int mes, int anio) {
-    // Usar aritmética de días de calendario (start y end están en el mismo mes)
-    // para evitar errores por cambio de hora (DST).
-    return end.day - start.day + 1;
-    if (fechaInicio.isAfter(inicioMes)) return 1;
-    return inicioMes.difference(fechaInicio).inDays + 1;
-  }
+    final inicioMes = DateTime(anio, mes, 1);
 
-    return end.difference(start).inDays + 1;
-    tipo: TipoContingencia.values.firstWhere(
-      (e) => e.name == (m['tipo'] as String?),
+    if (fechaInicio.isAfter(inicioMes)) return 1;
+
     // Usar UTC para evitar problemas con cambio de hora (DST)
     final a = DateTime.utc(fechaInicio.year, fechaInicio.month, fechaInicio.day);
     final b = DateTime.utc(anio, mes, 1);
     return b.difference(a).inDays + 1;
+  }
+
+  factory BajaLaboral.fromMap(Map<String, dynamic> m, String id) => BajaLaboral(
+    id: id,
+    empleadoId: m['empleado_id'] as String,
+    tipo: TipoContingencia.values.firstWhere(
+          (e) => e.name == (m['tipo'] as String?),
+      orElse: () => TipoContingencia.enfermedadComun,
     ),
-    fechaInicio:            _parseDate(m['fecha_inicio']),
-    fechaFin:               m['fecha_fin'] != null ? _parseDate(m['fecha_fin']) : null,
-    numeroParteMedico:      m['numero_parte_medico'] as String?,
-    diagnostico:            m['diagnostico'] as String?,
-    return inicioMes.difference(fechaInicio).inDays + 1;
+    fechaInicio: _parseDate(m['fecha_inicio']),
+    fechaFin: m['fecha_fin'] != null ? _parseDate(m['fecha_fin']) : null,
+    numeroParteMedico: m['numero_parte_medico'] as String?,
+    diagnostico: m['diagnostico'] as String?,
+    observaciones: m['observaciones'] as String?,
+    baseReguladoraDiaria: (m['base_reguladora_diaria'] as num?)?.toDouble() ?? 0,
+    mejoraConvenioDias1a3: m['mejora_convenio_dias_1a3'] as bool? ?? false,
     porcentajeMejoraDias1a3: (m['porcentaje_mejora_dias_1a3'] as num?)?.toDouble() ?? 0,
-    fechaCreacion:          _parseDate(m['fecha_creacion']),
+    fechaCreacion: _parseDate(m['fecha_creacion']),
   );
 
   Map<String, dynamic> toMap() => {
@@ -199,4 +209,3 @@ class TramoIT {
 
   double get importe => importeDiario * dias;
 }
-

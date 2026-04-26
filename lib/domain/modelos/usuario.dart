@@ -99,8 +99,9 @@ class Usuario {
   }
 
   @override
-
+  int get hashCode => id.hashCode;
 }
+
 
 DateTime _parseDate(dynamic v) {
   if (v is Timestamp) return v.toDate();

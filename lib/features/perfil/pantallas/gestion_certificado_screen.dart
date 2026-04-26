@@ -117,14 +117,14 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
         title: const Text('Eliminar certificado'),
         content: const Text(
             '¿Seguro que deseas eliminar el certificado digital? '
-            'Los modelos fiscales dejarán de poder firmarse automáticamente.'),
+                'Los modelos fiscales dejarán de poder firmarse automáticamente.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancelar')),
           ElevatedButton(
               style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Eliminar',
                   style: TextStyle(color: Colors.white))),
@@ -185,7 +185,7 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
             icon: '❌',
             titulo: 'Sin certificado digital',
             descripcion:
-                'Sube tu certificado FNMT para firmar automáticamente los modelos fiscales.',
+            'Sube tu certificado FNMT para firmar automáticamente los modelos fiscales.',
             color: Colors.orange.shade700,
             bgColor: Colors.orange.shade50,
             actions: [],
@@ -262,10 +262,11 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
                               fontWeight: FontWeight.bold,
                               color: color,
                               fontSize: 14)),
-                      child: Text(descripcion,
+                      const SizedBox(height: 2),
+                      Text(descripcion,
                           style: TextStyle(
                               fontSize: 11,
-                              color: color.withValues(alpha: 0.8)))),
+                              color: color.withOpacity(0.8))),
                     ],
                   ),
                 ),
@@ -303,7 +304,7 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
               Text(
                   'Archivo PKCS#12 (.p12 / .pfx) con clave privada RSA.',
                   style:
-                      TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               const SizedBox(height: 14),
 
               // Selector de archivo
@@ -332,7 +333,7 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
                   ),
                 ),
                 validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Introduce la contraseña' : null,
+                (v == null || v.isEmpty) ? 'Introduce la contraseña' : null,
               ),
 
               // Error
@@ -365,10 +366,10 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
                 onPressed: _procesando ? null : _subirCertificado,
                 icon: _procesando
                     ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.upload_outlined),
                 label: Text(
                     _procesando ? 'Validando...' : 'Subir certificado'),
@@ -396,7 +397,7 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
 
         return Card(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -434,22 +435,22 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
                     ),
                     subtitle: Text(
                         'Subido: ${_fmtDate(h.fechaSubida)} · '
-                        'Expira: ${_fmtDate(h.validoHasta)}',
+                            'Expira: ${_fmtDate(h.validoHasta)}',
                         style: TextStyle(
                             fontSize: 10, color: Colors.grey.shade500)),
                     trailing: i == 0
                         ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text('Activo',
-                                style: TextStyle(
-                                    fontSize: 9,
-                                    color: Colors.teal.shade700)),
-                          )
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('Activo',
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.teal.shade700)),
+                    )
                         : null,
                   );
                 }),
@@ -554,7 +555,3 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
   static String _fmtDate(DateTime d) =>
       DateFormat('dd/MM/yyyy').format(d);
 }
-
-
-
-

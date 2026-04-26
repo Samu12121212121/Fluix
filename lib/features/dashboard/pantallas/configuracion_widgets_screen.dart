@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../domain/modelos/widget_config.dart';
+import 'package:planeag_flutter/domain/modelos/widget_config.dart' show WidgetConfig;
 import '../../../services/widget_manager_service.dart';
 import '../../../services/suscripcion_service.dart';
 
@@ -39,10 +39,9 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
     } catch (_) {}
   }
 
-  /// Devuelve true si el widget está disponible para el plan actual
   bool _widgetPermitido(String widgetId) {
     final packRequerido = _packRequeridoPorWidget[widgetId];
-    if (packRequerido == null) return true; // No requiere pack
+    if (packRequerido == null) return true;
     return _packsActivos.contains(packRequerido);
   }
 
@@ -98,10 +97,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
       ),
       body: Column(
         children: [
-          // Header informativo
           _buildHeader(),
-
-          // Lista de widgets
           Expanded(
             child: StreamBuilder<List<WidgetConfig>>(
               stream: _widgetService.obtenerConfiguracionWidgets(widget.empresaId),
@@ -109,11 +105,9 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return _buildEstadoVacio();
                 }
-
                 final widgets = snapshot.data!;
                 return _buildListaWidgets(widgets);
               },
@@ -152,18 +146,10 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Personaliza tu Dashboard',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Elige qué widgets quieres ver y en qué orden',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
+                      Text('Personaliza tu Dashboard',
+                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('Elige qué widgets quieres ver y en qué orden',
+                          style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -209,8 +195,6 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
           final item = widgets.removeAt(oldIndex);
           widgets.insert(newIndex, item);
         });
-
-        // Guardar nuevo orden
         _widgetService.reordenarWidgets(this.widget.empresaId, widgets);
       },
     );
@@ -220,7 +204,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
     final implementado = WidgetConfig.implementados.contains(widgetConfig.id);
     final packPermitido = _widgetPermitido(widgetConfig.id);
     final disponible = implementado && packPermitido;
-    final colorActivo = const Color(0xFF4CAF50);
+    const colorActivo = Color(0xFF4CAF50);
     final colorBorde = widgetConfig.activo && disponible ? colorActivo : Colors.transparent;
 
     return Card(
@@ -237,7 +221,6 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Icono
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -248,15 +231,11 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                 ),
                 child: Icon(
                   widgetConfig.icono,
-                  color: widgetConfig.activo && disponible
-                      ? colorActivo
-                      : Colors.grey[500],
+                  color: widgetConfig.activo && disponible ? colorActivo : Colors.grey[500],
                   size: 24,
                 ),
               ),
               const SizedBox(width: 16),
-
-              // Información
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,15 +249,15 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      widgetConfig.descripcion,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
+                    Text(widgetConfig.descripcion,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     const SizedBox(height: 6),
+                    // ── Badges — envueltos en Flexible para evitar overflow ──
                     Row(
                       children: [
-                        if (!packPermitido)
-                          Container(
+                        Flexible(
+                          child: !packPermitido
+                              ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.red.withValues(alpha: 0.1),
@@ -289,15 +268,17 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                               children: [
                                 Icon(Icons.lock, size: 10, color: Colors.red[700]),
                                 const SizedBox(width: 3),
-                                Text(
-                                  'Requiere Pack ${_packRequeridoPorWidget[widgetConfig.id] == 'gestion' ? 'Gestión' : 'Tienda'}',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red[700]),
+                                Flexible(
+                                  child: Text(
+                                    'Requiere Pack ${_packRequeridoPorWidget[widgetConfig.id] == 'gestion' ? 'Gestión' : 'Tienda'}',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red[700]),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
                           )
-                        else
-                          Container(
+                              : Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: implementado
@@ -314,6 +295,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                               ),
                             ),
                           ),
+                        ),
                         if (widgetConfig.activo && disponible) ...[
                           const SizedBox(width: 6),
                           Container(
@@ -322,14 +304,8 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                               color: colorActivo.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              'Activo',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF4CAF50),
-                              ),
-                            ),
+                            child: const Text('Activo',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF4CAF50))),
                           ),
                         ],
                       ],
@@ -337,8 +313,6 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                   ],
                 ),
               ),
-
-              // Switch y handle
               Column(
                 children: [
                   Switch(
@@ -349,8 +323,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
                     activeThumbColor: colorActivo,
                   ),
                   Icon(Icons.drag_handle,
-                      color: disponible ? Colors.grey[400] : Colors.grey[300],
-                      size: 20),
+                      color: disponible ? Colors.grey[400] : Colors.grey[300], size: 20),
                 ],
               ),
             ],
@@ -369,23 +342,15 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
               child: Icon(Icons.widgets, size: 64, color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),
-            Text(
-              'No hay widgets configurados',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700]),
-            ),
+            Text('No hay widgets configurados',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700])),
             const SizedBox(height: 8),
-            Text(
-              'Los widgets se configurarán automáticamente',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
+            Text('Los widgets se configurarán automáticamente',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => _widgetService.resetearWidgets(widget.empresaId),
@@ -404,34 +369,24 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
 
   void _toggleWidget(WidgetConfig widgetConfig, bool value) async {
     setState(() => _guardandoCambios = true);
-
     try {
       await _widgetService.toggleWidget(widget.empresaId, widgetConfig.id, value);
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Widget ${widgetConfig.nombre} ${value ? 'activado' : 'desactivado'}',
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Widget ${widgetConfig.nombre} ${value ? 'activado' : 'desactivado'}'),
+          backgroundColor: const Color(0xFF4CAF50),
+          duration: const Duration(seconds: 2),
+        ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFF44336),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFF44336),
+        ));
       }
     } finally {
-      if (mounted) {
-        setState(() => _guardandoCambios = false);
-      }
+      if (mounted) setState(() => _guardandoCambios = false);
     }
   }
 
@@ -439,32 +394,24 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.refresh, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Resetear Configuración'),
-          ],
-        ),
+        title: const Row(children: [
+          Icon(Icons.refresh, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Resetear Configuración'),
+        ]),
         content: const Text(
-          '¿Estás seguro de que quieres resetear la configuración de widgets a los valores por defecto?\n\nEsta acción no se puede deshacer.',
-        ),
+            '¿Estás seguro de que quieres resetear la configuración de widgets a los valores por defecto?\n\nEsta acción no se puede deshacer.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await _widgetService.resetearWidgets(widget.empresaId);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Configuración reseteada a valores por defecto'),
-                    backgroundColor: Color(0xFF4CAF50),
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Configuración reseteada a valores por defecto'),
+                  backgroundColor: Color(0xFF4CAF50),
+                ));
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -477,18 +424,15 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
 
   void _mostrarEstadisticas() async {
     final stats = await _widgetService.obtenerEstadisticasUso(widget.empresaId);
-
     if (mounted) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.analytics, color: Color(0xFF1976D2)),
-              SizedBox(width: 8),
-              Text('Estadísticas de Widgets'),
-            ],
-          ),
+          title: const Row(children: [
+            Icon(Icons.analytics, color: Color(0xFF1976D2)),
+            SizedBox(width: 8),
+            Text('Estadísticas de Widgets'),
+          ]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -499,10 +443,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cerrar'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
           ],
         ),
       );
@@ -526,60 +467,31 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.help, color: Color(0xFF1976D2)),
-            SizedBox(width: 8),
-            Text('Cómo Funciona'),
-          ],
-        ),
+        title: const Row(children: [
+          Icon(Icons.help, color: Color(0xFF1976D2)),
+          SizedBox(width: 8),
+          Text('Cómo Funciona'),
+        ]),
         content: const SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Personalización del Dashboard',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text('Personalización del Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
               Text(
-                        '• Activa los widgets que te sean útiles con el switch\n'
-                        '• Solo puedes activar los marcados como ✅ Disponible\n'
-                        '• Los marcados 🚧 Próximamente estarán disponibles pronto\n'
-                        '• Arrastra para reordenar (mantén presionado el ícono ≡)\n'
-                        '• Los widgets activos aparecerán en tu dashboard principal',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Widgets Disponibles',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        '✅ Briefing Matutino — resumen inteligente del día (6h-12h)\n'
-                        '✅ Alertas Fiscales — vencimientos próximos con semáforo\n'
-                        '✅ Próximos 3 Días — reservas y alertas de los próximos días\n'
-                        '✅ Reservas de Hoy — citas del día en curso\n'
-                        '✅ Resumen de Citas — próximas citas con hora y cliente\n'
-                        '✅ Valoraciones Recientes — últimas reseñas de clientes\n'
-                        '✅ KPIs Rápidos — reservas, ingresos y rating de un vistazo\n'
-                        '✅ Resumen Facturación — total hoy y del mes, pendientes\n'
-                        '✅ Resumen Pedidos — pedidos y ventas del día\n'
-                        '🚧 Ingresos del Mes — gráfico de evolución (próximamente)\n'
-                        '🚧 Clientes Nuevos — últimos registros (próximamente)\n'
-                        '🚧 Alertas del Negocio — sugerencias automáticas (próximamente)',
-                        style: TextStyle(fontSize: 13),
-                      ),
+                '• Activa los widgets que te sean útiles con el switch\n'
+                    '• Solo puedes activar los marcados como ✅ Disponible\n'
+                    '• Los marcados 🚧 Próximamente estarán disponibles pronto\n'
+                    '• Arrastra para reordenar (mantén presionado el ícono ≡)\n'
+                    '• Los widgets activos aparecerán en tu dashboard principal',
+                style: TextStyle(fontSize: 13),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Entendido'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
         ],
       ),
     );

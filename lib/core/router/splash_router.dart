@@ -1,22 +1,12 @@
-      // Verificar suscripción
-      if (suscData != null && results[1].exists) {
-      if (empresaId == null) return const PantallaDashboard();
-      }
-import 'package:planeag_flutter/features/autenticacion/pantallas/pantalla_login.dart';
-import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_dashboard.dart';
-import 'package:planeag_flutter/features/registro/pantallas/pantalla_registrar_empresa_social.dart';
-import 'package:planeag_flutter/features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
-import '../../features/autenticacion/pantallas/pantalla_login.dart';
-import '../../features/dashboard/pantallas/pantalla_dashboard.dart';
-import '../../features/onboarding/pantallas/pantalla_onboarding.dart';
-import '../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
-import '../../features/dashboard/pantallas/pantalla_dashboard.dart';
-import '../../features/onboarding/pantallas/pantalla_onboarding.dart';
-import '../../features/registro/pantallas/pantalla_registrar_empresa_social.dart';
+import 'package:planeag_flutter/features/autenticacion/pantallas/pantalla_login.dart';
+import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_dashboard.dart';
+import 'package:planeag_flutter/features/onboarding/pantallas/pantalla_onboarding.dart';
+import 'package:planeag_flutter/features/registro/pantallas/pantalla_registrar_empresa_social.dart';
+import 'package:planeag_flutter/features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 
 final _log = Logger();
 
@@ -34,44 +24,56 @@ class _SplashRouterState extends State<SplashRouter> {
 
   @override
   void initState() {
-      // 1. Leer documento de usuario
+    super.initState();
     _futureDestino = _resolverDestino();
   }
 
   Future<Widget> _resolverDestino() async {
-      // Sin empresa → flujo de registro social incompleto
-
     try {
-      final db = FirebaseFirestore.instance;
-        if (nombre.isEmpty && correo.isEmpty) return const PantallaDashboard();
+      final user = FirebaseAuth.instance.currentUser;
 
-      // Un solo Future.wait para las 2 consultas obligatorias
+      // Si no hay usuario autenticado, ir a login
+      if (user == null) return const PantallaLogin();
+
+      final uid = user.uid;
+      final db = FirebaseFirestore.instance;
+
+      // 1. Leer documento de usuario
       final userDoc = await db.collection('usuarios').doc(uid).get();
       final userData = userDoc.data();
-      final empresaId = userData?['empresa_id'] as String?;
+
+      if (userData == null) {
+        // Usuario sin datos -> onboarding o registro
+        return const PantallaOnboarding();
+      }
+
+      final nombre = (userData['nombre'] as String?) ?? '';
+      final correo = (userData['correo'] as String?) ?? user.email ?? '';
+      final empresaId = userData['empresa_id'] as String?;
+
+      // Sin empresa → flujo de registro social incompleto
+      if (empresaId == null) {
+        if (nombre.isEmpty && correo.isEmpty) {
+          return const PantallaOnboarding();
+        }
+        return PantallaRegistrarEmpresaSocial(
+          nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',
+          correoUsuario: correo,
+        );
+      }
 
       // 2. Traer empresa y suscripción en paralelo
-      if (empresaId == null) return const PantallaDashboard();
+      final results = await Future.wait([
         db.collection('empresas').doc(empresaId).get(),
         db.collection('empresas').doc(empresaId).collection('suscripcion').doc('actual').get(),
       ]);
-        final nombre = (userData?['nombre'] as String?) ?? '';
+
+      final empresaDoc = results[0];
       final suscDoc = results[1];
       final suscData = suscDoc.data();
 
       // 3. Verificar suscripción
       if (suscData != null && suscDoc.exists) {
-          nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',
-          correoUsuario: correo,
-        );
-      }
-      // Ahora traer empresa y suscripción en paralelo
-      final results = await Future.wait([
-      if (empresaId == null) return const PantallaDashboard();
-      }
-
-      // Verificar suscripción
-      if (suscData != null && results[1].exists) {
         final estado = suscData['estado'] as String? ?? 'ACTIVA';
         if (estado == 'VENCIDA' || estado == 'SUSPENDIDA') {
           DateTime? fechaFin;
@@ -89,7 +91,7 @@ class _SplashRouterState extends State<SplashRouter> {
       return const PantallaDashboard();
     } catch (e) {
       _log.e('Error resolviendo ruta inicial', error: e);
-      return const PantallaDashboard();
+      return const PantallaLogin();
     }
   }
 
@@ -109,6 +111,8 @@ class _SplashRouterState extends State<SplashRouter> {
 }
 
 class _PantallaCarga extends StatelessWidget {
+  const _PantallaCarga();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,5 +162,3 @@ class _PantallaCarga extends StatelessWidget {
     );
   }
 }
-
-

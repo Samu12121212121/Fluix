@@ -199,12 +199,12 @@ class WidgetReservasHoy extends StatelessWidget {
                     .collection('empresas')
                     .doc(empresaId)
                     .collection('reservas')
-                    .where('fecha',
-                        isGreaterThanOrEqualTo:
-                            Timestamp.fromDate(inicioHoy))
-                    .where('fecha',
-                        isLessThan: Timestamp.fromDate(finHoy))
-                    .orderBy('fecha')
+                    .where('fecha_hora',
+                    isGreaterThanOrEqualTo:
+                    Timestamp.fromDate(inicioHoy))
+                    .where('fecha_hora',
+                    isLessThan: Timestamp.fromDate(finHoy))
+                    .orderBy('fecha_hora')
                     .limit(10)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -236,16 +236,17 @@ class WidgetReservasHoy extends StatelessWidget {
                       final data = doc.data() as Map<String, dynamic>;
 
                       final fecha =
-                          (data['fecha'] as Timestamp?)?.toDate();
+                      (data['fecha_hora'] as Timestamp?)?.toDate();
                       final hora = fecha != null
                           ? '${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}'
                           : '--:--';
                       final cliente =
-                          data['cliente'] as String? ?? 'Cliente';
+                          data['cliente'] as String? ?? data['nombre_cliente'] as String? ?? 'Cliente';
                       final servicio = data['servicio'] as String?;
+                      final comensales = data['numero_personas'] as int?;
                       final estado =
-                          (data['estado'] as String? ?? 'PENDIENTE')
-                              .toUpperCase();
+                      (data['estado'] as String? ?? 'PENDIENTE')
+                          .toUpperCase();
 
                       Color estadoColor;
                       String estadoTexto;
@@ -290,16 +291,32 @@ class WidgetReservasHoy extends StatelessWidget {
                             Expanded(
                               child: Column(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                CrossAxisAlignment.start,
                                 children: [
                                   Text(hora,
                                       style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700)),
-                                  Text(cliente,
-                                      style: const TextStyle(
-                                          fontSize: 13),
-                                      overflow: TextOverflow.ellipsis),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(cliente,
+                                            style: const TextStyle(
+                                                fontSize: 13),
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
+                                      if (comensales != null && comensales > 0) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.people, size: 14, color: Colors.grey[600]),
+                                        const SizedBox(width: 2),
+                                        Text('$comensales',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700],
+                                                fontWeight: FontWeight.w600)),
+                                      ],
+                                    ],
+                                  ),
                                   if (servicio != null)
                                     Text(servicio,
                                         style: TextStyle(
@@ -345,13 +362,14 @@ class WidgetReservasHoy extends StatelessWidget {
   }
 
   List<Map<String, dynamic>> _getReservasDemo() => [
-        {'hora': '10:00', 'cliente': 'María García', 'servicio': 'Corte + Peinado'},
-        {'hora': '11:30', 'cliente': 'Ana López', 'servicio': 'Tinte + Corte'},
-        {'hora': '13:00', 'cliente': 'Carmen Ruiz', 'servicio': 'Tratamiento capilar'},
-        {'hora': '15:00', 'cliente': 'Laura Martín', 'servicio': 'Peinado evento'},
-        {'hora': '16:30', 'cliente': 'Sofia Jiménez', 'servicio': 'Corte'},
-      ];
+    {'hora': '10:00', 'cliente': 'María García', 'servicio': 'Corte + Peinado'},
+    {'hora': '11:30', 'cliente': 'Ana López', 'servicio': 'Tinte + Corte'},
+    {'hora': '13:00', 'cliente': 'Carmen Ruiz', 'servicio': 'Tratamiento capilar'},
+    {'hora': '15:00', 'cliente': 'Laura Martín', 'servicio': 'Peinado evento'},
+    {'hora': '16:30', 'cliente': 'Sofia Jiménez', 'servicio': 'Corte'},
+  ];
 }
+
 
 // ── Widget de Valoraciones Recientes ─────────────────────────────────────────
 

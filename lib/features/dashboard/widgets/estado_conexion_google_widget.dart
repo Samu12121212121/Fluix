@@ -110,33 +110,9 @@ class _EstadoConexionGoogleWidgetState
   }
 
   Widget _BadgeDesconectado() {
-    return GestureDetector(
-      onTap: () => _abrirConectar(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFF4285F4).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: const Color(0xFF4285F4).withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.link_off, size: 13, color: Color(0xFF4285F4)),
-            const SizedBox(width: 5),
-            const Text(
-              'Conectar Google',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Eliminado el botón de "Conectar Google" a petición del cliente.
+    // Se mantiene un espacio vacío para que la cabecera no cambie de layout.
+    return const SizedBox.shrink();
   }
 
   void _abrirConectar(BuildContext context) {

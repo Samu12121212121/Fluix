@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:url_launcher/url_launcher.dart';
 import '../../../services/google_reviews_service.dart';
-import '../../../services/respuesta_gmb_service.dart';
 import '../../../services/demo_cuenta_service.dart';
-import 'estado_conexion_google_widget.dart';
 import 'estado_respuesta_widget.dart';
 import 'grafico_evolucion_rating_widget.dart';
 import 'kpis_rating_widget.dart';
-import '../pantallas/configurar_google_reviews_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Widget principal de valoraciones
+// Reviews Module - Main Widget
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ModuloValoraciones extends StatefulWidget {
@@ -45,18 +39,14 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
   @override
   void initState() {
     super.initState();
-    timeago.setLocaleMessages('es', timeago.EsMessages());
+    timeago.setLocaleMessages('en', timeago.EnMessages());
     _init();
   }
 
   Future<void> _init() async {
-    // 1. Leer rating del cache de Firestore primero (instantáneo)
     await _leerRatingCache();
-    // 2. Borrar pruebas
     await _svc.borrarResenasDePrueba(widget.empresaId);
-    // 3. Cargar primera página de reseñas guardadas
     await _cargarPagina(reset: true);
-    // 4. Sincronizar con Google en background (actualiza rating + añade nuevas)
     _sincronizarEnBackground();
   }
 
@@ -112,7 +102,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
       _sincronizando = false;
     });
 
-    // Recargar reseñas tras sincronizar
     await _cargarPagina(reset: true);
   }
 
@@ -124,7 +113,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
     }
     return CustomScrollView(
       slivers: [
-        // ── Cabecera (scrollea con el contenido) ──────────────────────────
         SliverToBoxAdapter(
           child: _CabeceraCompleta(
             empresaId:          widget.empresaId,
@@ -135,19 +123,10 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
             errorSync:          _errorSync,
             mostrarAnaliticas:  _mostrarAnaliticas,
             onSincronizar:      _sincronizarEnBackground,
-            onAnadir:           () => _mostrarFormAnadir(context),
             onToggleAnaliticas: () => setState(() => _mostrarAnaliticas = !_mostrarAnaliticas),
-            onGmbConectado:     () => _sincronizarEnBackground(),
-            onConfigurar: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ConfigurarGoogleReviewsScreen(empresaId: widget.empresaId),
-              ),
-            ).then((_) => _sincronizarEnBackground()),
           ),
         ),
 
-        // ── Cuerpo ────────────────────────────────────────────────────────
         if (_cargando)
           const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator()),
@@ -157,67 +136,65 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
             child: _EstadoVacio(
               ratingGoogle: _ratingGoogle,
               totalGoogle:  _totalGoogle,
-              onAnadir:     () => _mostrarFormAnadir(context),
             ),
           )
         else ...[
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (_, i) {
-                  if (i == _resenas.length) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Center(
-                        child: _cargandoMas
-                          ? const CircularProgressIndicator()
-                          : OutlinedButton.icon(
-                              onPressed: _cargarMas,
-                              icon: const Icon(Icons.expand_more),
-                              label: Text('Ver más (${_resenas.length} de máx 50)'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF1976D2),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20)),
-                              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (_, i) {
+                    if (i == _resenas.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: _cargandoMas
+                              ? const CircularProgressIndicator()
+                              : OutlinedButton.icon(
+                            onPressed: _cargarMas,
+                            icon: const Icon(Icons.expand_more),
+                            label: Text('Load more (${_resenas.length} of max 50)'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1976D2),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
                             ),
-                      ),
+                          ),
+                        ),
+                      );
+                    }
+                    final data = Map<String, dynamic>.from(_resenas[i])
+                      ..remove('_snap');
+                    return _TarjetaResena(
+                      docId:     _resenas[i]['id'] as String,
+                      empresaId: widget.empresaId,
+                      data:      data,
+                      svc:       _svc,
                     );
-                  }
-                  final data = Map<String, dynamic>.from(_resenas[i])
-                    ..remove('_snap');
-                  return _TarjetaResena(
-                    docId:     _resenas[i]['id'] as String,
-                    empresaId: widget.empresaId,
-                    data:      data,
-                    svc:       _svc,
-                  );
-                },
-                childCount: _resenas.length + (_hayMas ? 1 : 0),
+                  },
+                  childCount: _resenas.length + (_hayMas ? 1 : 0),
+                ),
               ),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
       ],
     );
   }
 
-  // ── MODO DEMO ──────────────────────────────────────────────────────────────
+  // ── DEMO MODE ─────────────────────────────────────────────────────────────
 
   Widget _buildModoDemo(BuildContext context) {
     const resenasDemo = [
-      _DemoResena('Laura Martínez', 5, 'Increíble atención, el mejor sitio. Volveré seguro.'),
-      _DemoResena('Carlos Gómez', 4, 'Muy buena atención y rapidez en el servicio.'),
-      _DemoResena('Ana Ruiz', 5, 'Todo perfecto, la comida estaba deliciosa.'),
-      _DemoResena('Pedro López', 3, 'Bien en general, aunque tardaron un poco en atendernos.'),
-      _DemoResena('María García', 5, 'Sitio muy agradable y trato excelente.'),
+      _DemoResena('Laura Martínez', 5, 'Amazing service, best place around. Will definitely come back.'),
+      _DemoResena('Carlos Gómez', 4, 'Great attention and fast service.'),
+      _DemoResena('Ana Ruiz', 5, 'Everything was perfect, the food was delicious.'),
+      _DemoResena('Pedro López', 3, 'Good overall, though we waited a bit to be attended.'),
+      _DemoResena('María García', 5, 'Very pleasant place and excellent treatment.'),
     ];
 
     return CustomScrollView(
       slivers: [
-        // Banner explicativo
         SliverToBoxAdapter(
           child: Container(
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -234,7 +211,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                 Row(children: [
                   Icon(Icons.star, color: Color(0xFFFFC107), size: 20),
                   SizedBox(width: 8),
-                  Text('Módulo de Valoraciones',
+                  Text('Reviews Module',
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -242,9 +219,9 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                 ]),
                 SizedBox(height: 8),
                 Text(
-                  'Gestiona todas las reseñas de tu negocio desde un solo lugar. '
-                  'Conecta tu perfil de Google Business para sincronizar reseñas reales, '
-                  'responder directamente y ver analíticas de satisfacción.',
+                  'Manage all your business reviews from one place. '
+                      'Connect your Google Business profile to sync real reviews, '
+                      'reply directly, and view satisfaction analytics.',
                   style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
                 ),
               ],
@@ -252,7 +229,6 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           ),
         ),
 
-        // Rating demo
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -273,38 +249,37 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                           fontWeight: FontWeight.bold,
                           color: Color(0xFFF57C00))),
                   Row(children: List.generate(5, (i) => Icon(
-                    i < 4 ? Icons.star : Icons.star_half,
-                    color: const Color(0xFFF57C00), size: 20))),
+                      i < 4 ? Icons.star : Icons.star_half,
+                      color: const Color(0xFFF57C00), size: 20))),
                   const SizedBox(height: 4),
-                  Text('5 reseñas de ejemplo',
+                  Text('5 sample reviews',
                       style: TextStyle(color: Colors.grey[500], fontSize: 11)),
                 ]),
                 const SizedBox(width: 16),
                 Expanded(child: Column(children: [5, 4, 3, 2, 1].map((stars) {
                   final pct = stars == 5 ? 0.6 : stars == 4 ? 0.2 : stars == 3 ? 0.2 : 0.0;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(children: [
-                      Text('$stars', style: const TextStyle(fontSize: 11)),
-                      const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
-                      const SizedBox(width: 4),
-                      Expanded(child: LinearProgressIndicator(
-                          value: pct,
-                          backgroundColor: Colors.grey[300],
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
-                          minHeight: 6)),
-                    ]));
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(children: [
+                        Text('$stars', style: const TextStyle(fontSize: 11)),
+                        const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
+                        const SizedBox(width: 4),
+                        Expanded(child: LinearProgressIndicator(
+                            value: pct,
+                            backgroundColor: Colors.grey[300],
+                            valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
+                            minHeight: 6)),
+                      ]));
                 }).toList())),
               ]),
             ),
           ),
         ),
 
-        // Tarjetas de funcionalidades
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('¿Qué puedes hacer?',
+            child: Text('What can you do?',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -315,21 +290,19 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(spacing: 8, runSpacing: 8, children: const [
-              _FuncionalidadChip(Icons.sync, 'Sincronizar con Google', Color(0xFF4285F4)),
-              _FuncionalidadChip(Icons.reply, 'Responder reseñas', Color(0xFF34A853)),
-              _FuncionalidadChip(Icons.bar_chart, 'Analíticas de rating', Color(0xFFFBBC05)),
-              _FuncionalidadChip(Icons.add_comment_outlined, 'Reseñas manuales', Color(0xFFEA4335)),
-              _FuncionalidadChip(Icons.trending_up, 'Evolución histórica', Color(0xFF7B1FA2)),
+              _FuncionalidadChip(Icons.sync, 'Sync with Google', Color(0xFF4285F4)),
+              _FuncionalidadChip(Icons.reply, 'Reply to reviews', Color(0xFF34A853)),
+              _FuncionalidadChip(Icons.bar_chart, 'Rating analytics', Color(0xFFFBBC05)),
+              _FuncionalidadChip(Icons.trending_up, 'Historical evolution', Color(0xFF7B1FA2)),
             ]),
           ),
         ),
 
-        // Reseñas demo
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
             child: Row(children: [
-              Text('Reseñas de ejemplo',
+              Text('Sample reviews',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -354,7 +327,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-              (_, i) {
+                  (_, i) {
                 final r = resenasDemo[i];
                 return _TarjetaResenaDemo(
                     nombre: r.nombre,
@@ -368,83 +341,10 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
       ],
     );
   }
-
-  void _mostrarFormAnadir(BuildContext context) {
-    final clienteCtrl    = TextEditingController();
-    final comentarioCtrl = TextEditingController();
-    int calificacion = 5;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(builder: (ctx, setS) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 16),
-              const Text('Nueva valoración manual',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-              Text('Para clientes que valoran en persona',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-              const SizedBox(height: 16),
-              TextField(controller: clienteCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Nombre del cliente',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
-              const SizedBox(height: 12),
-              Row(children: [
-                const Text('Calificación: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                ...List.generate(5, (i) => GestureDetector(
-                  onTap: () => setS(() => calificacion = i + 1),
-                  child: Icon(i < calificacion ? Icons.star : Icons.star_border,
-                    color: const Color(0xFFF57C00), size: 32))),
-              ]),
-              const SizedBox(height: 12),
-              TextField(controller: comentarioCtrl, maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Comentario',
-                  prefixIcon: const Icon(Icons.comment_outlined),
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
-              const SizedBox(height: 16),
-              SizedBox(width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final cli = clienteCtrl.text.trim();
-                    final com = comentarioCtrl.text.trim();
-                    if (cli.isEmpty || com.isEmpty) return;
-                    await _svc.anadirValoracionManual(
-                      empresaId:    widget.empresaId,
-                      cliente:      cli,
-                      calificacion: calificacion,
-                      comentario:   com);
-                    if (ctx.mounted) {
-                      Navigator.pop(ctx);
-                      setState(() {});
-                      _cargarPagina(reset: true);
-                    }
-                  },
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Guardar valoración'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1976D2),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
-            ])))));
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cabecera completa con GMB, KPIs y analíticas colapsables
+// Header: KPIs + collapsible analytics
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CabeceraCompleta extends StatelessWidget {
@@ -456,10 +356,7 @@ class _CabeceraCompleta extends StatelessWidget {
   final String? errorSync;
   final bool mostrarAnaliticas;
   final VoidCallback onSincronizar;
-  final VoidCallback onAnadir;
   final VoidCallback onToggleAnaliticas;
-  final VoidCallback onGmbConectado;
-  final VoidCallback? onConfigurar;
 
   const _CabeceraCompleta({
     required this.empresaId,
@@ -470,10 +367,7 @@ class _CabeceraCompleta extends StatelessWidget {
     required this.errorSync,
     required this.mostrarAnaliticas,
     required this.onSincronizar,
-    required this.onAnadir,
     required this.onToggleAnaliticas,
-    required this.onGmbConectado,
-    this.onConfigurar,
   });
 
   @override
@@ -485,36 +379,24 @@ class _CabeceraCompleta extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Fila estado GMB + acciones ────────────────────────────────────
-        Row(children: [
-          Expanded(child: EstadoConexionGoogleWidget(
-            empresaId: empresaId, onEstadoCambiado: onGmbConectado)),
-          if (sincronizando) ...[
-            const SizedBox(width: 8),
-            const SizedBox(width: 14, height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 4),
-            Text('Sync...', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-          ],
-          const SizedBox(width: 4),
-          IconButton(
-            onPressed: onAnadir,
-            icon: const Icon(Icons.add_comment_outlined, size: 20),
-            color: const Color(0xFF43A047),
-            tooltip: 'Añadir valoración manual',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+        // ── Sync status row ───────────────────────────────────────────────
+        if (sincronizando)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              const SizedBox(width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 6),
+              Text('Syncing...', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+            ]),
           ),
-       ]),
 
-        const SizedBox(height: 10),
-
-        // ── Rating grande + histograma ────────────────────────────────────
+        // ── Rating + histogram ────────────────────────────────────────────
         Row(children: [
           Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
             Text(rating > 0 ? rating.toStringAsFixed(1) : '-',
-              style: const TextStyle(fontSize: 46, fontWeight: FontWeight.bold,
-                color: Color(0xFFF57C00))),
+                style: const TextStyle(fontSize: 46, fontWeight: FontWeight.bold,
+                    color: Color(0xFFF57C00))),
             Row(children: List.generate(5, (i) {
               if (rating <= 0) {
                 return const Icon(Icons.star_border, color: Color(0xFFF57C00), size: 20);
@@ -522,89 +404,86 @@ class _CabeceraCompleta extends StatelessWidget {
               final filled = i < rating.floor();
               final half   = !filled && i < rating;
               return Icon(
-                filled ? Icons.star : (half ? Icons.star_half : Icons.star_border),
-                color: const Color(0xFFF57C00), size: 20);
+                  filled ? Icons.star : (half ? Icons.star_half : Icons.star_border),
+                  color: const Color(0xFFF57C00), size: 20);
             })),
             const SizedBox(height: 4),
-            Text(total > 0 ? '$total reseñas en Google' : 'Sin datos de Google',
-              style: TextStyle(color: Colors.grey[600], fontSize: 11,
-                fontWeight: FontWeight.w500)),
-            if (resenas.isNotEmpty)
-              Text('${resenas.length} guardadas aquí',
-                style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+            Text(total > 0 ? '$total reviews on Google' : 'No Google data',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11,
+                    fontWeight: FontWeight.w500)),
           ]),
           const SizedBox(width: 16),
           Expanded(child: Column(children: List.generate(5, (i) {
             final stars = 5 - i;
             final count = resenas.where((r) =>
-              ((r['calificacion'] ?? r['estrellas'] ?? 0) as num).toInt() == stars).length;
+            ((r['calificacion'] ?? r['estrellas'] ?? 0) as num).toInt() == stars).length;
             final pct = resenas.isEmpty ? 0.0 : count / resenas.length;
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1),
-              child: Row(children: [
-                Text('$stars', style: const TextStyle(fontSize: 11)),
-                const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
-                const SizedBox(width: 4),
-                Expanded(child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
-                    minHeight: 7))),
-                const SizedBox(width: 4),
-                SizedBox(width: 22,
-                  child: Text('$count', style: const TextStyle(fontSize: 11))),
-              ]));
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Row(children: [
+                  Text('$stars', style: const TextStyle(fontSize: 11)),
+                  const Icon(Icons.star, size: 10, color: Color(0xFFF57C00)),
+                  const SizedBox(width: 4),
+                  Expanded(child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                          value: pct,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: const AlwaysStoppedAnimation(Color(0xFFF57C00)),
+                          minHeight: 7))),
+                  const SizedBox(width: 4),
+                  SizedBox(width: 22,
+                      child: Text('$count', style: const TextStyle(fontSize: 11))),
+                ]));
           })))
         ]),
 
-        // ── Aviso limitación Google (solo descarga 5) ─────────────────────
+        // ── Google limitation notice ──────────────────────────────────────
         if (totalGoogle > 5) ...[
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4285F4).withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.2))),
-            child: Text(
-              'Google solo devuelve las 5 más recientes al sincronizar. '
-              'Se acumulan aquí hasta llegar a 50.',
-              style: TextStyle(fontSize: 10, color: Colors.grey[700], height: 1.5))),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF4285F4).withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.2))),
+              child: Text(
+                  'Google only returns the 5 most recent reviews when syncing. '
+                      'They accumulate here up to a maximum of 50.',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[700], height: 1.5))),
         ],
 
-        // ── Error de sincronización ───────────────────────────────────────
+        // ── Sync error ────────────────────────────────────────────────────
         if (errorSync != null && !errorSync!.contains('último')) ...[
           const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8)),
-            child: Row(children: [
-              Icon(Icons.error_outline, size: 13, color: Colors.red[700]),
-              const SizedBox(width: 6),
-              Expanded(child: Text('Sync: $errorSync',
-                style: const TextStyle(fontSize: 10, color: Colors.orange))),
-            ])),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Row(children: [
+                Icon(Icons.error_outline, size: 13, color: Colors.red[700]),
+                const SizedBox(width: 6),
+                Expanded(child: Text('Sync error: $errorSync',
+                    style: const TextStyle(fontSize: 10, color: Colors.orange))),
+              ])),
         ],
 
-        // ── Botón analíticas ──────────────────────────────────────────────
+        // ── Analytics toggle ──────────────────────────────────────────────
         Row(children: [
           const Spacer(),
           TextButton.icon(
             onPressed: onToggleAnaliticas,
             icon: Icon(mostrarAnaliticas ? Icons.expand_less : Icons.bar_chart, size: 16),
-            label: Text(mostrarAnaliticas ? 'Ocultar' : 'Ver análisis',
-              style: const TextStyle(fontSize: 12)),
+            label: Text(mostrarAnaliticas ? 'Hide' : 'View analytics',
+                style: const TextStyle(fontSize: 12)),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF1976D2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                foregroundColor: const Color(0xFF1976D2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
           ),
         ]),
 
-        // ── Sección analíticas colapsable ─────────────────────────────────
+        // ── Collapsible analytics section ─────────────────────────────────
         if (mostrarAnaliticas) ...[
           KPIsRatingWidget(empresaId: empresaId, ratingGoogle: ratingGoogle, totalGoogle: totalGoogle),
           const SizedBox(height: 16),
@@ -618,36 +497,22 @@ class _CabeceraCompleta extends StatelessWidget {
   double _promedioLocal() {
     if (resenas.isEmpty) return 0;
     final suma = resenas.fold<double>(0, (s, r) =>
-      s + ((r['calificacion'] ?? r['estrellas'] ?? 0) as num).toDouble());
+    s + ((r['calificacion'] ?? r['estrellas'] ?? 0) as num).toDouble());
     return suma / resenas.length;
   }
-
-  Widget _badge(IconData icono, String texto, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withValues(alpha: 0.3))),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icono, size: 14, color: color),
-      const SizedBox(width: 4),
-      Text(texto, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-    ]));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Estado vacío
+// Empty state
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EstadoVacio extends StatelessWidget {
   final double ratingGoogle;
   final int totalGoogle;
-  final VoidCallback onAnadir;
 
   const _EstadoVacio({
     required this.ratingGoogle,
     required this.totalGoogle,
-    required this.onAnadir,
   });
 
   @override
@@ -659,31 +524,22 @@ class _EstadoVacio extends StatelessWidget {
           if (totalGoogle > 0) ...[
             Icon(Icons.cloud_download_outlined, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            Text('$totalGoogle reseñas en Google',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            Text('$totalGoogle reviews on Google',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 8),
-            Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta llegar a 50.',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              textAlign: TextAlign.center),
+            Text('The 5 most recent are downloaded when syncing\nand accumulate here up to 50.',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                textAlign: TextAlign.center),
           ] else ...[
             Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            const Text('Sin valoraciones todavía',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const Text('No reviews yet',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 6),
-            Text('Las reseñas de Google aparecerán aquí al sincronizar',
-              style: TextStyle(color: Colors.grey[500], fontSize: 13),
-              textAlign: TextAlign.center),
+            Text('Google reviews will appear here after syncing',
+                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                textAlign: TextAlign.center),
           ],
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: onAnadir,
-            icon: const Icon(Icons.add),
-            label: const Text('Añadir valoración manual'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1976D2),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
         ]),
       ),
     );
@@ -691,7 +547,7 @@ class _EstadoVacio extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tarjeta de reseña individual
+// Individual review card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TarjetaResena extends StatelessWidget {
@@ -709,7 +565,7 @@ class _TarjetaResena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cliente      = data['cliente']   as String? ?? 'Anónimo';
+    final cliente      = data['cliente']   as String? ?? 'Anonymous';
     final calificacion = ((data['calificacion'] ?? data['estrellas'] ?? 0) as num).toInt();
     final comentario   = data['comentario'] as String? ?? '';
     final respuesta    = data['respuesta']  as String?;
@@ -721,110 +577,110 @@ class _TarjetaResena extends StatelessWidget {
 
     final respuestaSubida = data['respuesta_subida_google'] as bool? ?? false;
     final respuestaEstado = respuestaSubida
-        ? 'publicada'
-        : (respuesta != null && respuesta.isNotEmpty ? 'guardada' : null);
+        ? 'published'
+        : (respuesta != null && respuesta.isNotEmpty ? 'saved' : null);
 
     return Stack(children: [
       Card(
         margin: const EdgeInsets.only(bottom: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // ── Cabecera: avatar + nombre + fuente + estrellas + fecha ──────
-            Row(children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: _colorDesdeNombre(cliente),
-                child: Text(
-                  cliente.isNotEmpty ? cliente[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white,
-                    fontWeight: FontWeight.bold, fontSize: 15))),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(child: Text(cliente,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    overflow: TextOverflow.ellipsis)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: esGoogle
-                        ? const Color(0xFF4285F4).withValues(alpha: 0.1)
-                        : const Color(0xFF43A047).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(esGoogle ? Icons.g_mobiledata : Icons.phone_android,
-                        size: 12,
-                        color: esGoogle ? const Color(0xFF4285F4) : const Color(0xFF43A047)),
-                      const SizedBox(width: 2),
-                      Text(esGoogle ? 'Google' : 'App',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                          color: esGoogle ? const Color(0xFF4285F4) : const Color(0xFF43A047))),
-                    ])),
-                ]),
-                const SizedBox(height: 3),
-                Row(children: [
-                  ...List.generate(5, (i) => Icon(
-                    i < calificacion ? Icons.star : Icons.star_border,
-                    color: const Color(0xFFF57C00), size: 14)),
-                  const SizedBox(width: 6),
-                  Text(timeago.format(fecha, locale: 'es'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                ]),
-              ])),
-            ]),
-
-            // ── Comentario ────────────────────────────────────────────────
-            if (comentario.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(comentario,
-                style: const TextStyle(fontSize: 13.5, height: 1.45)),
-            ],
-
-            // ── Respuesta guardada ─────────────────────────────────────────
-            if (respuesta != null && respuesta.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: const Border(left: BorderSide(color: Color(0xFF1976D2), width: 3))),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── Header: avatar + name + source + stars + date ─────────────
+              Row(children: [
+                CircleAvatar(
+                    radius: 18,
+                    backgroundColor: _colorDesdeNombre(cliente),
+                    child: Text(
+                        cliente.isNotEmpty ? cliente[0].toUpperCase() : '?',
+                        style: const TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.bold, fontSize: 15))),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    const Text('Tu respuesta',
-                      style: TextStyle(fontWeight: FontWeight.w600,
-                        fontSize: 12, color: Color(0xFF1976D2))),
-                    const SizedBox(width: 8),
-                    EstadoRespuestaWidget(estado: respuestaEstado, esDeGoogle: esGoogle),
+                    Expanded(child: Text(cliente,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        overflow: TextOverflow.ellipsis)),
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: esGoogle
+                                ? const Color(0xFF4285F4).withValues(alpha: 0.1)
+                                : const Color(0xFF43A047).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(esGoogle ? Icons.g_mobiledata : Icons.phone_android,
+                              size: 12,
+                              color: esGoogle ? const Color(0xFF4285F4) : const Color(0xFF43A047)),
+                          const SizedBox(width: 2),
+                          Text(esGoogle ? 'Google' : 'App',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                  color: esGoogle ? const Color(0xFF4285F4) : const Color(0xFF43A047))),
+                        ])),
                   ]),
-                  const SizedBox(height: 4),
-                  Text(respuesta, style: const TextStyle(fontSize: 13, height: 1.35)),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    ...List.generate(5, (i) => Icon(
+                        i < calificacion ? Icons.star : Icons.star_border,
+                        color: const Color(0xFFF57C00), size: 14)),
+                    const SizedBox(width: 6),
+                    Text(timeago.format(fecha, locale: 'en'),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  ]),
                 ])),
-            ],
+              ]),
 
-            // ── Botón responder ────────────────────────────────────────────
-            const SizedBox(height: 4),
-            Row(children: [
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () => _dialogoResponder(context, respuesta),
-                icon: Icon(respuesta != null && respuesta.isNotEmpty
-                  ? Icons.edit_outlined : Icons.reply, size: 16),
-                label: Text(respuesta != null && respuesta.isNotEmpty
-                  ? 'Editar respuesta' : 'Responder',
-                  style: const TextStyle(fontSize: 13)),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1976D2),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
-              ),
-            ]),
-          ])),
+              // ── Comment ───────────────────────────────────────────────────
+              if (comentario.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(comentario,
+                    style: const TextStyle(fontSize: 13.5, height: 1.45)),
+              ],
+
+              // ── Saved reply ───────────────────────────────────────────────
+              if (respuesta != null && respuesta.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: const Border(left: BorderSide(color: Color(0xFF1976D2), width: 3))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        const Text('Your reply',
+                            style: TextStyle(fontWeight: FontWeight.w600,
+                                fontSize: 12, color: Color(0xFF1976D2))),
+                        const SizedBox(width: 8),
+                        EstadoRespuestaWidget(estado: respuestaEstado, esDeGoogle: esGoogle),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(respuesta, style: const TextStyle(fontSize: 13, height: 1.35)),
+                    ])),
+              ],
+
+              // ── Reply button ──────────────────────────────────────────────
+              const SizedBox(height: 4),
+              Row(children: [
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _dialogoResponder(context, respuesta),
+                  icon: Icon(respuesta != null && respuesta.isNotEmpty
+                      ? Icons.edit_outlined : Icons.reply, size: 16),
+                  label: Text(respuesta != null && respuesta.isNotEmpty
+                      ? 'Edit reply' : 'Reply',
+                      style: const TextStyle(fontSize: 13)),
+                  style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF1976D2),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                ),
+              ]),
+            ])),
       ),
 
-      // ── Badge rojo parpadeante para reseñas negativas sin responder ──────
+      // ── Blinking red badge for negative reviews without reply ─────────
       if (esNegativa && sinResponder && !eliminadaPorGoogle)
         const Positioned(top: 8, left: 8, child: _BadgeNegativa()),
     ]);
@@ -833,138 +689,55 @@ class _TarjetaResena extends StatelessWidget {
   void _dialogoResponder(BuildContext context, String? actual) {
     final ctrl = TextEditingController(text: actual ?? '');
     showDialog(context: context, builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(children: [
-        const Icon(Icons.reply, color: Color(0xFF1976D2)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(
-          actual != null && actual.isNotEmpty ? 'Editar respuesta' : 'Responder reseña',
-          style: const TextStyle(fontSize: 17))),
-      ]),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (data['origen'] == 'google') ...[
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4285F4).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10)),
-            child: Text(
-              data['google_review_name'] != null
-                ? 'Tu respuesta se publicará directamente en Google Maps.'
-                : '1. Escribe tu respuesta y pulsa Guardar.\n'
-                  '2. Se guarda en la app.\n'
-                  '3. Conéctate a Google Business para publicar en Google Maps.',
-              style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5))),
-          const SizedBox(height: 12),
-        ],
-        TextField(
-          controller: ctrl,
-          maxLines: 5,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Escribe tu respuesta...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true, fillColor: Colors.grey[50])),
-      ]),
-      actions: [
-        if (data['origen'] == 'google')
-          TextButton.icon(
-            onPressed: () => _abrirEnGoogle(ctx),
-            icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF4285F4)),
-            label: const Text('Abrir Google',
-              style: TextStyle(color: Color(0xFF4285F4), fontSize: 13))),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancelar')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1976D2),
-            foregroundColor: Colors.white),
-          onPressed: () async {
-            final texto = ctrl.text.trim();
-            if (texto.isEmpty) return;
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.reply, color: Color(0xFF1976D2)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+              actual != null && actual.isNotEmpty ? 'Edit reply' : 'Reply to review',
+              style: const TextStyle(fontSize: 17))),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+              controller: ctrl,
+              maxLines: 5,
+              autofocus: true,
+              decoration: InputDecoration(
+                  hintText: 'Write your reply...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  filled: true, fillColor: Colors.grey[50])),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1976D2),
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                final texto = ctrl.text.trim();
+                if (texto.isEmpty) return;
 
-            // 1. Guardar en Firestore
-            await svc.guardarRespuesta(
-              empresaId:    empresaId,
-              valoracionId: docId,
-              respuesta:    texto);
-
-            bool publicadoEnGoogle = false;
-            String msgExtra = '';
-
-            // 2. Publicar en GMB si tiene review name
-            if (data['origen'] == 'google') {
-              if (data['google_review_name'] != null) {
-                try {
-                  final res = await RespuestaGmbService().publicar(
+                await svc.guardarRespuesta(
                     empresaId:    empresaId,
                     valoracionId: docId,
-                    texto:        texto);
-                  publicadoEnGoogle = res.publicadoEnGoogle;
-                  if (res.enCola) {
-                    msgExtra = ' (en cola, reintentando...)';
-                  } else if (!publicadoEnGoogle && res.error != null) {
-                    msgExtra = ' (${res.error})';
-                  }
-                } on PlatformException catch (_) {
-                  msgExtra = ' (Conecta Google Business para publicar en Maps)';
-                } catch (_) {
-                  msgExtra = ' (Conecta Google Business para publicar en Maps)';
-                }
-              } else {
-                // Sin review_name: intentar OAuth directo
-                try {
-                  final gs = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/business.manage']);
-                  var acc = await gs.signInSilently() ?? await gs.signIn();
-                  if (acc != null) {
-                    final auth = await acc.authentication;
-                    if (auth.accessToken != null) {
-                      await svc.responderResena(
-                        'accounts/me/locations/me/reviews/$docId',
-                        texto,
-                        auth.accessToken!);
-                      publicadoEnGoogle = true;
-                    }
-                  }
-                } on PlatformException catch (_) {
-                  msgExtra = ' (Se publicará en Maps más tarde)';
-                }
-              }
-            }
+                    respuesta:    texto);
 
-            if (ctx.mounted) Navigator.pop(ctx);
-            if (ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                content: Row(children: [
-                  Icon(publicadoEnGoogle ? Icons.check_circle : Icons.save,
-                    color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(data['origen'] == 'google'
-                    ? (publicadoEnGoogle
-                        ? 'Respuesta publicada en Google Maps ✅'
-                        : 'Guardada localmente$msgExtra')
-                    : 'Respuesta guardada correctamente')),
-                ]),
-                backgroundColor: publicadoEnGoogle
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFF1976D2),
-                duration: const Duration(seconds: 4)));
-            }
-          },
-          child: const Text('Guardar')),
-      ]));
-  }
-
-  Future<void> _abrirEnGoogle(BuildContext context) async {
-    final uri = Uri.parse('https://business.google.com/reviews');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Accede a business.google.com/reviews'),
-        backgroundColor: Colors.orange));
-    }
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Row(children: [
+                        Icon(Icons.save, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('Reply saved successfully'),
+                      ]),
+                      backgroundColor: Color(0xFF1976D2),
+                      duration: Duration(seconds: 3)));
+                }
+              },
+              child: const Text('Save')),
+        ]));
   }
 
   DateTime _parseFecha(dynamic f) {
@@ -983,7 +756,7 @@ class _TarjetaResena extends StatelessWidget {
   }
 }
 
-// ── Badge rojo parpadeante ────────────────────────────────────────────────────
+// ── Blinking red badge ────────────────────────────────────────────────────────
 
 class _BadgeNegativa extends StatefulWidget {
   const _BadgeNegativa();
@@ -1020,21 +793,21 @@ class _BadgeNegativaState extends State<_BadgeNegativa>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFFD32F2F),
-          borderRadius: BorderRadius.circular(8)),
+            color: const Color(0xFFD32F2F),
+            borderRadius: BorderRadius.circular(8)),
         child: const Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.priority_high, color: Colors.white, size: 10),
           SizedBox(width: 3),
-          Text('¡Responde!',
-            style: TextStyle(color: Colors.white, fontSize: 9,
-              fontWeight: FontWeight.bold)),
+          Text('Reply needed!',
+              style: TextStyle(color: Colors.white, fontSize: 9,
+                  fontWeight: FontWeight.bold)),
         ]),
       ),
     ),
   );
 }
 
-// ── Clases helper para modo demo ──────────────────────────────────────────────
+// ── Demo helper classes ───────────────────────────────────────────────────────
 
 class _DemoResena {
   final String nombre;
@@ -1085,8 +858,8 @@ class _TarjetaResenaDemo extends StatelessWidget {
                 Text(nombre,
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 Row(children: List.generate(5, (i) => Icon(
-                  i < estrellas ? Icons.star : Icons.star_border,
-                  color: const Color(0xFFF57C00), size: 14))),
+                    i < estrellas ? Icons.star : Icons.star_border,
+                    color: const Color(0xFFF57C00), size: 14))),
               ])),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

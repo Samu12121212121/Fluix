@@ -53,8 +53,8 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
           IconButton(
             icon: _creandoPrueba
                 ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                width: 20, height: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.science_outlined),
             tooltip: 'Crear datos de prueba',
             onPressed: _creandoPrueba ? null : _crearDatosPrueba,
@@ -130,7 +130,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     final listos       = pedidos.where((p) => p.estado == EstadoPedido.listo).length;
     final ahora        = DateTime.now();
     final hoy          = pedidos.where((p) =>
-        p.fechaCreacion.day == ahora.day &&
+    p.fechaCreacion.day == ahora.day &&
         p.fechaCreacion.month == ahora.month &&
         p.fechaCreacion.year == ahora.year).length;
 
@@ -155,7 +155,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -202,7 +202,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorEstado.withValues(alpha: 0.3), width: 1),
+        side: BorderSide(color: colorEstado.withOpacity(0.3), width: 1),
       ),
       child: InkWell(
         onTap: () => _abrirDetalle(pedido),
@@ -217,7 +217,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: const Color(0xFF1976D2).withValues(alpha: 0.12),
+                    backgroundColor: const Color(0xFF1976D2).withOpacity(0.12),
                     child: Text(
                       pedido.clienteNombre.isNotEmpty
                           ? pedido.clienteNombre[0].toUpperCase()
@@ -414,7 +414,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<OrigenPedido>(
-                      initialValue: _origen,
+                      value: _origen,
                       decoration: const InputDecoration(
                           labelText: 'Origen',
                           border: OutlineInputBorder()),
@@ -428,7 +428,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<MetodoPago>(
-                      initialValue: _metodo,
+                      value: _metodo,
                       decoration: const InputDecoration(
                           labelText: 'Pago',
                           border: OutlineInputBorder()),
@@ -521,6 +521,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     OrigenPedido.app        => 'App',
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
+    OrigenPedido.tpvExterno => 'TPV Externo',
   };
 
   String _nombreMetodoPago(MetodoPago m) => switch (m) {
@@ -528,12 +529,13 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     MetodoPago.paypal   => 'PayPal',
     MetodoPago.bizum    => 'Bizum',
     MetodoPago.efectivo => 'Efectivo',
+    MetodoPago.mixto    => 'Mixto',
   };
 
   Widget _badgeEstado(EstadoPedido e) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: _colorEstado(e).withValues(alpha: 0.12),
+      color: _colorEstado(e).withOpacity(0.12),
       borderRadius: BorderRadius.circular(8),
     ),
     child: Text(_nombreEstado(e),
@@ -549,12 +551,13 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
       OrigenPedido.app: Colors.purple,
       OrigenPedido.whatsapp: const Color(0xFF25D366),
       OrigenPedido.presencial: Colors.grey,
+      OrigenPedido.tpvExterno: Colors.orange,
     };
     final c = colores[o] ?? Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.1),
+        color: c.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(_nombreOrigen(o),
@@ -628,9 +631,9 @@ class _DetallePedidoNuevo extends StatelessWidget {
         final pedido = todos.isEmpty
             ? null
             : todos.firstWhere(
-                (p) => p.id == pedidoId,
-                orElse: () => _pedidoVacio(),
-              );
+              (p) => p.id == pedidoId,
+          orElse: () => _pedidoVacio(),
+        );
 
         if (pedido == null || snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -663,17 +666,17 @@ class _DetallePedidoNuevo extends StatelessWidget {
                 itemBuilder: (_) => EstadoPedido.values
                     .where((e) => e != pedido.estado)
                     .map((e) => PopupMenuItem(
-                          value: e,
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                  radius: 6,
-                                  backgroundColor: _colorEstado(e)),
-                              const SizedBox(width: 10),
-                              Text(_nombreEstado(e)),
-                            ],
-                          ),
-                        ))
+                  value: e,
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                          radius: 6,
+                          backgroundColor: _colorEstado(e)),
+                      const SizedBox(width: 10),
+                      Text(_nombreEstado(e)),
+                    ],
+                  ),
+                ))
                     .toList(),
               ),
             ],
@@ -687,10 +690,10 @@ class _DetallePedidoNuevo extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: colorEstado.withValues(alpha: 0.08),
+                    color: colorEstado.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: colorEstado.withValues(alpha: 0.3)),
+                        color: colorEstado.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
@@ -747,7 +750,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
                         else
                           ...pedido.lineas.map((l) => Padding(
                             padding:
-                                const EdgeInsets.symmetric(vertical: 4),
+                            const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
                                 Text('${l.cantidad}x',
@@ -876,6 +879,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
     MetodoPago.paypal   => 'PayPal',
     MetodoPago.bizum    => 'Bizum',
     MetodoPago.efectivo => 'Efectivo',
+    MetodoPago.mixto    => 'Mixto',
   };
 
   String _nombreEstadoPago(EstadoPago e) => switch (e) {
@@ -889,6 +893,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
     OrigenPedido.app        => 'App',
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
+    OrigenPedido.tpvExterno => 'TPV Externo',
   };
 
   Pedido _pedidoVacio() => Pedido(

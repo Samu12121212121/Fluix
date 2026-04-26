@@ -34,9 +34,9 @@ class TabTareasCliente extends StatelessWidget {
 
         final todas = snap.data ?? [];
         final pendientes =
-            todas.where((t) => t.estado != EstadoTarea.completada && t.estado != EstadoTarea.cancelada).toList();
+        todas.where((t) => t.estado != EstadoTarea.completada && t.estado != EstadoTarea.cancelada).toList();
         final completadas =
-            todas.where((t) => t.estado == EstadoTarea.completada).toList();
+        todas.where((t) => t.estado == EstadoTarea.completada).toList();
 
         return Column(
           children: [
@@ -63,10 +63,10 @@ class TabTareasCliente extends StatelessWidget {
                         const Color(0xFF1976D2)),
                     const SizedBox(height: 8),
                     ...pendientes.map((t) => _TarjetaTarea(
-                          tarea: t,
-                          empresaId: empresaId,
-                          usuarioId: usuarioId,
-                        )),
+                      tarea: t,
+                      empresaId: empresaId,
+                      usuarioId: usuarioId,
+                    )),
                   ],
                   if (completadas.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -74,11 +74,11 @@ class TabTareasCliente extends StatelessWidget {
                         'Completadas', completadas.length, Colors.green),
                     const SizedBox(height: 8),
                     ...completadas.map((t) => _TarjetaTarea(
-                          tarea: t,
-                          empresaId: empresaId,
-                          usuarioId: usuarioId,
-                          opaca: true,
-                        )),
+                      tarea: t,
+                      empresaId: empresaId,
+                      usuarioId: usuarioId,
+                      opaca: true,
+                    )),
                   ],
                 ],
               ),
@@ -159,16 +159,16 @@ class _TarjetaTarea extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: color.withValues(alpha: 0.2)),
+          side: BorderSide(color: color.withOpacity(0.2)),
         ),
         child: ListTile(
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           leading: Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_iconoEstado(tarea.estado), color: color, size: 20),
@@ -196,9 +196,9 @@ class _TarjetaTarea extends StatelessWidget {
                 children: [
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
+                      color: color.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -235,28 +235,26 @@ class _TarjetaTarea extends StatelessWidget {
   }
 
   Color _colorEstado(EstadoTarea e) => switch (e) {
-        EstadoTarea.pendiente   => Colors.orange,
-        EstadoTarea.enProgreso  => Colors.blue,
-        EstadoTarea.enRevision  => Colors.purple,
-        EstadoTarea.completada  => Colors.green,
-        EstadoTarea.cancelada   => Colors.grey,
-      };
+    EstadoTarea.pendiente   => Colors.orange,
+    EstadoTarea.enProgreso  => Colors.blue,
+    EstadoTarea.enRevision  => Colors.purple,
+    EstadoTarea.completada  => Colors.green,
+    EstadoTarea.cancelada   => Colors.grey,
+  };
 
   IconData _iconoEstado(EstadoTarea e) => switch (e) {
-        EstadoTarea.pendiente   => Icons.radio_button_unchecked,
-        EstadoTarea.enProgreso  => Icons.autorenew,
-        EstadoTarea.enRevision  => Icons.visibility,
-        EstadoTarea.completada  => Icons.check_circle,
-        EstadoTarea.cancelada   => Icons.cancel,
-      };
+    EstadoTarea.pendiente   => Icons.radio_button_unchecked,
+    EstadoTarea.enProgreso  => Icons.autorenew,
+    EstadoTarea.enRevision  => Icons.visibility,
+    EstadoTarea.completada  => Icons.check_circle,
+    EstadoTarea.cancelada   => Icons.cancel,
+  };
 
   String _nombreEstado(EstadoTarea e) => switch (e) {
-        EstadoTarea.pendiente   => 'Pendiente',
-        EstadoTarea.enProgreso  => 'En Progreso',
-        EstadoTarea.enRevision  => 'En Revisión',
-        EstadoTarea.completada  => 'Completada',
-        EstadoTarea.cancelada   => 'Cancelada',
-      };
+    EstadoTarea.pendiente   => 'Pendiente',
+    EstadoTarea.enProgreso  => 'En Progreso',
+    EstadoTarea.enRevision  => 'En Revisión',
+    EstadoTarea.completada  => 'Completada',
+    EstadoTarea.cancelada   => 'Cancelada',
+  };
 }
-
-

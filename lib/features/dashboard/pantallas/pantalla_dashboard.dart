@@ -408,12 +408,33 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   }
                 }
 
+                // Asegurar que el módulo 'dashboard' esté siempre presente en el catálogo
+                // para que el usuario pueda acceder al resumen incluso si la config
+                // en Firestore no lo tiene activado o los permisos lo ocultan.
+                final dashMod = ModulosDisponibles.todos.where((m) => m.id == 'dashboard').firstOrNull;
+                if (dashMod != null && !modulosFiltrados.any((m) => m.id == 'dashboard')) {
+                  debugPrint('ℹ️ Insertando módulo "dashboard" por defecto en modulosFiltrados');
+                  // Insertarlo al inicio, después del propietario si existe
+                  final idxProp = modulosFiltrados.indexWhere((m) => m.id == 'propietario');
+                  if (idxProp >= 0) {
+                    modulosFiltrados.insert(idxProp + 1, dashMod.copyWith(activo: true));
+                  } else {
+                    modulosFiltrados.insert(0, dashMod.copyWith(activo: true));
+                  }
+                }
+
                 // Filtrar por permisos del rol efectivo (real o simulado)
                 final sesionActiva = _sesionEfectiva;
                 final modulosVisibles = sesionActiva != null
                     ? modulosFiltrados.where((m) =>
                         m.id == 'propietario' || sesionActiva.modulosVisibles.contains(m.id)).toList()
                     : modulosFiltrados;
+
+                // Forzar visibilidad del módulo 'dashboard' en la vista final
+                if (!modulosVisibles.any((m) => m.id == 'dashboard') && dashMod != null) {
+                  debugPrint('ℹ️ Forzando visibilidad del módulo "dashboard" en modulosVisibles');
+                  modulosVisibles.insert(0, dashMod.copyWith(activo: true));
+                }
 
                 // Sincronizar tabs DESPUÉS del frame para evitar dispose durante build
                 final ids = modulosVisibles.map((m) => m.id).toList();
@@ -470,9 +491,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                     Expanded(
                       child: TabBarView(
                         controller: _tabController!,
-                        children: modulosVisibles
-                            .map((m) => _buildContenidoModulo(m.id))
-                            .toList(),
+                                children: modulosVisibles
+                                            .map((m) => _safeBuildContenidoModulo(m.id))
+                                            .toList(),
                       ),
                     ),
                   ],
@@ -525,7 +546,22 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'nominas':         return ModuloNominasScreen(empresaId: id, sesion: sesionActiva);
       case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
       case 'web':             return _buildVistaWeb();
-      default:                return const Center(child: Text('Módulo no disponible'));
+      default:                return Center(child: Text('Módulo "$moduloId" no disponible', style: TextStyle(color: Colors.red)));
+    }
+  }
+
+  /// Envoltorio seguro para evitar que un módulo mal formado provoque
+  /// un crash de la UI. Captura excepciones y muestra un placeholder.
+  Widget _safeBuildContenidoModulo(String? moduloId) {
+    try {
+      if (moduloId == null || moduloId.isEmpty) {
+        debugPrint('⚠️ _safeBuildContenidoModulo recibió moduloId inválido: $moduloId');
+        return const Center(child: Text('Módulo no disponible'));
+      }
+      return _buildContenidoModulo(moduloId);
+    } catch (e, st) {
+      debugPrint('❌ Error building módulo "$moduloId": $e\n$st');
+      return Center(child: Text('Error cargando módulo "$moduloId"', style: const TextStyle(color: Colors.red)));
     }
   }
 
@@ -944,32 +980,54 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     if (widgetConfig.id == 'briefing_matutino' ||
         widgetConfig.id == 'alertas_fiscales' ||
         widgetConfig.id == 'proximos_dias') {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
-      );
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          child: _safeBuildWidget(widgetConfig),
+        );
     }
     if (widgetConfig.id == 'reservas_hoy' ||
         widgetConfig.id == 'valoraciones_recientes' ||
         widgetConfig.id == 'citas_resumen') {
-      return Container(
-        height: 280,
-        margin: const EdgeInsets.only(bottom: 16),
-        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
-      );
+        return Container(
+          height: 280,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: _safeBuildWidget(widgetConfig),
+        );
     }
     if (widgetConfig.id == 'resumen_facturacion' ||
         widgetConfig.id == 'resumen_pedidos') {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
-      );
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: _safeBuildWidget(widgetConfig),
+        );
     }
     return Container(
       height: 160,
       margin: const EdgeInsets.only(bottom: 16),
-      child: WidgetFactory.buildWidget(widgetConfig, _empresaId!),
+      child: _safeBuildWidget(widgetConfig),
     );
+  }
+
+  Widget _safeBuildWidget(WidgetConfig widgetConfig) {
+    try {
+      return WidgetFactory.buildWidget(widgetConfig, _empresaId!);
+    } catch (e, st) {
+      debugPrint('❌ Error construyendo widget "${widgetConfig.id}": $e\n$st');
+      return Card(
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(height: 8),
+              Text('Error al cargar widget ${widgetConfig.id}', style: const TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   /// Header del dashboard con botón de configuración
@@ -1414,5 +1472,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
   }
 }
+
+
+
+
+
+
 
 

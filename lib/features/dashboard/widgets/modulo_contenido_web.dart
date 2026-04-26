@@ -1,585 +1,464 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
-import 'dialogs_contenido_web.dart';
 
-class ModuloContenidoWeb extends StatefulWidget {
+class DialogNuevaSeccion extends StatefulWidget {
   final String empresaId;
-  const ModuloContenidoWeb({super.key, required this.empresaId});
+  final ContenidoWebService contenidoService;
+
+  const DialogNuevaSeccion({
+    super.key,
+    required this.empresaId,
+    required this.contenidoService,
+  });
 
   @override
-  State<ModuloContenidoWeb> createState() => _ModuloContenidoWebState();
+  State<DialogNuevaSeccion> createState() => _DialogNuevaSeccionState();
 }
 
-class _ModuloContenidoWebState extends State<ModuloContenidoWeb> {
-  final ContenidoWebService _contenidoService = ContenidoWebService();
+class _DialogNuevaSeccionState extends State<DialogNuevaSeccion> {
+  final _formKey = GlobalKey<FormState>();
+  final _nombreController = TextEditingController();
+  TipoSeccionWeb _tipoSeleccionado = TipoSeccionWeb.ofertas;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.add, color: Color(0xFF1976D2)),
+          SizedBox(width: 8),
+          Text('Nueva Sección'),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nombreController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de la sección',
+                hintText: 'Ej: Ofertas Especiales',
+                prefixIcon: Icon(Icons.title),
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value?.isEmpty ?? true) {
+                  return 'El nombre es obligatorio';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<TipoSeccionWeb>(
+              value: _tipoSeleccionado,
+              decoration: const InputDecoration(
+                labelText: 'Tipo de sección',
+                prefixIcon: Icon(Icons.category),
+                border: OutlineInputBorder(),
+              ),
+              items: TipoSeccionWeb.values.map((tipo) => DropdownMenuItem(
+                value: tipo,
+                child: Row(
+                  children: [
+                    Icon(tipo.icono, size: 20),
+                    const SizedBox(width: 8),
+                    Text(tipo.nombre),
+                  ],
+                ),
+              )).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _tipoSeleccionado = value!;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _crearSeccion,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1976D2),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Crear'),
+        ),
+      ],
+    );
+  }
+
+  void _crearSeccion() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      try {
+        final seccion = SeccionWeb(
+          id: _nombreController.text.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_'),
+          nombre: _nombreController.text,
+          tipo: _tipoSeleccionado.id,
+          activa: true,
+          elementos: [],
+          configuracion: _tipoSeleccionado == TipoSeccionWeb.ofertas ||
+              _tipoSeleccionado == TipoSeccionWeb.carta
+              ? {'mostrar_precio': true}
+              : {},
+          fechaCreacion: DateTime.now(),
+        );
+
+        await widget.contenidoService.crearSeccion(widget.empresaId, seccion);
+
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sección "${seccion.nombre}" creada'),
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: const Color(0xFFF44336),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    super.dispose();
+  }
+}
+
+class DialogAgregarElemento extends StatefulWidget {
+  final String empresaId;
+  final String seccionId;
+  final String tipoSeccion;
+  final ContenidoWebService contenidoService;
+
+  const DialogAgregarElemento({
+    super.key,
+    required this.empresaId,
+    required this.seccionId,
+    required this.tipoSeccion,
+    required this.contenidoService,
+  });
+
+  @override
+  State<DialogAgregarElemento> createState() => _DialogAgregarElementoState();
+}
+
+class _DialogAgregarElementoState extends State<DialogAgregarElemento> {
+  final _formKey = GlobalKey<FormState>();
+  final _tituloController = TextEditingController();
+  final _descripcionController = TextEditingController();
+  final _precioController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.add_box, color: Color(0xFF4CAF50)),
+          SizedBox(width: 8),
+          Text('Nuevo Elemento'),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _tituloController,
+                decoration: const InputDecoration(
+                  labelText: 'Título',
+                  hintText: 'Ej: Pizza Margarita',
+                  prefixIcon: Icon(Icons.title),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value?.isEmpty ?? true) {
+                    return 'El título es obligatorio';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descripcionController,
+                decoration: const InputDecoration(
+                  labelText: 'Descripción',
+                  hintText: 'Ej: Tomate, mozzarella y albahaca',
+                  prefixIcon: Icon(Icons.description),
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              if (widget.tipoSeccion == 'ofertas' || widget.tipoSeccion == 'carta' || widget.tipoSeccion == 'servicios')
+                TextFormField(
+                  controller: _precioController,
+                  decoration: const InputDecoration(
+                    labelText: 'Precio (opcional)',
+                    hintText: '12.50',
+                    prefixIcon: Icon(Icons.euro),
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  onEditingComplete: () => FocusScope.of(context).unfocus(),
+                  validator: (value) {
+                    if (value?.isNotEmpty ?? false) {
+                      final precio = double.tryParse(value!);
+                      if (precio == null) {
+                        return 'Formato de precio inválido';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _agregarElemento,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4CAF50),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Agregar'),
+        ),
+      ],
+    );
+  }
+
+  void _agregarElemento() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      try {
+        final elemento = ElementoContenido(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          titulo: _tituloController.text,
+          descripcion: _descripcionController.text.isEmpty ? null : _descripcionController.text,
+          precio: _precioController.text.isEmpty ? null : double.parse(_precioController.text),
+          camposPersonalizados: {},
+          visible: true,
+          orden: DateTime.now().millisecondsSinceEpoch,
+        );
+
+        await widget.contenidoService.agregarElemento(widget.empresaId, widget.seccionId, elemento);
+
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Elemento "${elemento.titulo}" agregado'),
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: const Color(0xFFF44336),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _descripcionController.dispose();
+    _precioController.dispose();
+    super.dispose();
+  }
+}
+
+// Página de edición de sección (versión simplificada)
+class EditorSeccionPage extends StatefulWidget {
+  final String empresaId;
+  final SeccionWeb seccion;
+  final ContenidoWebService contenidoService;
+
+  const EditorSeccionPage({
+    super.key,
+    required this.empresaId,
+    required this.seccion,
+    required this.contenidoService,
+  });
+
+  @override
+  State<EditorSeccionPage> createState() => _EditorSeccionPageState();
+}
+
+class _EditorSeccionPageState extends State<EditorSeccionPage> {
+  late List<ElementoContenido> _elementos;
+
+  @override
+  void initState() {
+    super.initState();
+    _elementos = [...widget.seccion.elementos];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Header
-          _buildHeader(context),
-
-          // Lista de secciones
-          Expanded(
-            child: StreamBuilder<List<SeccionWeb>>(
-              stream: _contenidoService.obtenerSecciones(widget.empresaId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEstadoVacio(context);
-                }
-
-                final secciones = snapshot.data!;
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: secciones.length,
-                  itemBuilder: (context, index) => _buildSeccionCard(context, secciones[index]),
-                );
-              },
-            ),
+      appBar: AppBar(
+        title: Text('Editar: ${widget.seccion.nombre}'),
+        backgroundColor: const Color(0xFF1976D2),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _guardarCambios,
+            icon: const Icon(Icons.save),
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'fab_codigo',
-            onPressed: () => _generarCodigoWeb(context),
-            icon: const Icon(Icons.code),
-            label: const Text('Generar Código'),
-            backgroundColor: const Color(0xFF21759B),
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton(
-            heroTag: 'fab_add',
-            onPressed: () => _mostrarDialogNuevaSeccion(context),
-            child: const Icon(Icons.add),
-            backgroundColor: const Color(0xFF1976D2),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.web, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Gestión de Contenido Web',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Actualiza tu web dinámicamente',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => _mostrarAyuda(context),
-                    icon: const Icon(Icons.help_outline, color: Colors.white),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.white70, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Crea secciones para ofertas, cartas, promociones y más. Los cambios se reflejan en tiempo real en tu web.',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEstadoVacio(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      body: _elementos.isEmpty
+          ? Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.web, size: 64, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 24),
+            Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
             Text(
-              'No hay secciones web',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              'No hay elementos',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
-              'Crea tu primera sección para gestionar el contenido de tu web',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _crearSeccionesPorDefecto(context),
-                  icon: const Icon(Icons.auto_fix_high),
-                  label: const Text('Crear por Defecto'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _mostrarDialogNuevaSeccion(context),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Crear Manual'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1976D2),
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
+              'Agrega elementos para comenzar',
+              style: TextStyle(color: Colors.grey[500]),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSeccionCard(BuildContext context, SeccionWeb seccion) {
-    final tipoSeccion = TipoSeccionWeb.values.firstWhere(
-      (tipo) => tipo.id == seccion.tipo,
-      orElse: () => TipoSeccionWeb.personalizado,
-    );
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _editarSeccion(context, seccion),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header de la sección
-              Row(
+      )
+          : ReorderableListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _elementos.length,
+        itemBuilder: (context, index) {
+          final elemento = _elementos[index];
+          return Card(
+            key: ValueKey(elemento.id),
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: const Icon(Icons.drag_handle),
+              title: Text(elemento.titulo),
+              subtitle: elemento.descripcion != null
+                  ? Text(elemento.descripcion!, maxLines: 1, overflow: TextOverflow.ellipsis)
+                  : null,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: seccion.activa ? const Color(0xFF4CAF50) : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      tipoSeccion.icono,
-                      color: seccion.activa ? Colors.white : Colors.grey[600],
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          seccion.nombre,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '${seccion.elementos.length} elemento${seccion.elementos.length != 1 ? 's' : ''}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: seccion.activa,
-                    onChanged: (value) => _toggleSeccion(seccion.id, value),
-                    activeThumbColor: const Color(0xFF4CAF50),
-                  ),
-                ],
-              ),
-
-              if (seccion.elementos.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-
-                // Preview de elementos
-                ...seccion.elementos.take(2).map((elemento) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.fiber_manual_record, size: 8, color: Colors.grey[400]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          elemento.titulo,
-                          style: const TextStyle(fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  if (elemento.precio != null)
+                    Text(
+                      '€${elemento.precio!.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4CAF50),
                       ),
-                      if (elemento.precio != null)
-                        Text(
-                          '€${elemento.precio!.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF4CAF50),
-                          ),
-                        ),
-                    ],
-                  ),
-                )),
-
-                if (seccion.elementos.length > 2)
-                  Text(
-                    'y ${seccion.elementos.length - 2} más...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                      fontStyle: FontStyle.italic,
                     ),
-                  ),
-              ],
-
-              // Footer con acciones rápidas
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Text(
-                    'ID: fluixcrm_${seccion.id}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[500],
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () => _agregarElementoRapido(context, seccion),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Añadir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF1976D2),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Color(0xFFF44336)),
+                    onPressed: () => _eliminarElemento(index),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
+        onReorder: (oldIndex, newIndex) {
+          setState(() {
+            if (newIndex > oldIndex) newIndex--;
+            final elemento = _elementos.removeAt(oldIndex);
+            _elementos.insert(newIndex, elemento);
+          });
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_agregar_elemento',
+        onPressed: _agregarNuevoElemento,
+        icon: const Icon(Icons.add),
+        label: const Text('Agregar Elemento'),
+        backgroundColor: const Color(0xFF4CAF50),
       ),
     );
   }
 
-  void _toggleSeccion(String seccionId, bool activa) async {
-    try {
-      await _contenidoService.toggleSeccion(widget.empresaId, seccionId, activa);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sección ${activa ? 'activada' : 'desactivada'}'),
-          backgroundColor: const Color(0xFF4CAF50),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFF44336),
-        ),
-      );
-    }
-  }
-
-  void _mostrarDialogNuevaSeccion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => DialogNuevaSeccion(
-        empresaId: widget.empresaId,
-        contenidoService: _contenidoService,
-      ),
-    );
-  }
-
-  void _editarSeccion(BuildContext context, SeccionWeb seccion) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditorSeccionPage(
-          empresaId: widget.empresaId,
-          seccion: seccion,
-          contenidoService: _contenidoService,
-        ),
-      ),
-    );
-  }
-
-  void _agregarElementoRapido(BuildContext context, SeccionWeb seccion) {
+  void _agregarNuevoElemento() {
     showDialog(
       context: context,
       builder: (context) => DialogAgregarElemento(
         empresaId: widget.empresaId,
-        seccionId: seccion.id,
-        tipoSeccion: seccion.tipo,
-        contenidoService: _contenidoService,
+        seccionId: widget.seccion.id,
+        tipoSeccion: widget.seccion.tipo,
+        contenidoService: widget.contenidoService,
       ),
-    );
+    ).then((_) {
+      setState(() {});
+    });
   }
 
-  void _crearSeccionesPorDefecto(BuildContext context) async {
+  void _eliminarElemento(int index) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Crear Secciones por Defecto'),
-        content: const Text('¿Qué tipo de negocio tienes?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _contenidoService.crearSeccionesPorDefecto(widget.empresaId, 'restaurante');
-            },
-            child: const Text('️ Restaurante'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _contenidoService.crearSeccionesPorDefecto(widget.empresaId, 'peluqueria');
-            },
-            child: const Text('‍♀️ Peluquería'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _contenidoService.crearSeccionesPorDefecto(widget.empresaId, 'general');
-            },
-            child: const Text(' General'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _generarCodigoWeb(BuildContext context) async {
-    try {
-      final codigo = await _contenidoService.generarCodigoJavaScript(widget.empresaId);
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.code, color: Color(0xFF21759B)),
-              SizedBox(width: 8),
-              Text('Código para tu Web'),
-            ],
-          ),
-          content: Container(
-            width: double.maxFinite,
-            height: 400,
-            child: Column(
-              children: [
-                const Text(
-                  'Copia este código y pégalo en el HTML de tu web donde quieras que aparezcan las secciones:',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        codigo,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  ' Para cada sección, añade un div con id="fluixcrm_[id_seccion]" en tu HTML',
-                  style: TextStyle(fontSize: 12, color: Colors.orange),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: codigo));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Código copiado al portapapeles'),
-                    backgroundColor: Color(0xFF4CAF50),
-                  ),
-                );
-                Navigator.pop(context);
-              },
-              child: const Text(' Copiar Código'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error generando código: $e'),
-          backgroundColor: const Color(0xFFF44336),
-        ),
-      );
-    }
-  }
-
-  void _mostrarAyuda(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.help, color: Color(0xFF1976D2)),
-            SizedBox(width: 8),
-            Text('Cómo Funciona'),
-          ],
-        ),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '1. Crear Secciones',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Crea secciones como "Ofertas", "Carta", "Promociones", etc.',
-                style: TextStyle(fontSize: 13),
-              ),
-              SizedBox(height: 12),
-              Text(
-                '2. Añadir Elementos',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Agrega elementos a cada sección con títulos, descripciones y precios.',
-                style: TextStyle(fontSize: 13),
-              ),
-              SizedBox(height: 12),
-              Text(
-                '3. Generar Código',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Copia el código JavaScript generado y pégalo en tu web.',
-                style: TextStyle(fontSize: 13),
-              ),
-              SizedBox(height: 12),
-              Text(
-                '4. Añadir DIVs en tu Web',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'En tu HTML, añade: <div id="fluixcrm_[id_seccion]"></div>',
-                style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
-              ),
-              SizedBox(height: 12),
-              Text(
-                '✨ Los cambios que hagas en la app se reflejarán automáticamente en tu web!',
-                style: TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
+        title: const Text('Eliminar Elemento'),
+        content: Text('¿Estás seguro de que quieres eliminar "${_elementos[index].titulo}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Entendido'),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              widget.contenidoService.eliminarElemento(
+                widget.empresaId,
+                widget.seccion.id,
+                _elementos[index].id,
+              );
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF44336)),
+            child: const Text('Eliminar'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _guardarCambios() {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Cambios guardados'),
+        backgroundColor: Color(0xFF4CAF50),
       ),
     );
   }
 }
-

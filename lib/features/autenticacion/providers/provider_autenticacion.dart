@@ -1,61 +1,73 @@
-      // TODO: Implementar con repositorio real
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-      await Future.delayed(const Duration(seconds: 1)); // Simulación
-/// Provider de autenticación basado en Firebase Auth real.
-/// Escucha [FirebaseAuth.authStateChanges] para reaccionar a cambios de sesión.
-      // TODO: Implementar con repositorio real
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulación
 
-      // TODO: Implementar con repositorio real
-      await Future.delayed(const Duration(seconds: 2)); // Simulación
-
-
-  // Métodos simplificados temporales
-import 'package:flutter/foundation.dart';
 enum EstadoAutenticacion {
-  final _auth = FirebaseAuth.instance;
-  final _db = FirebaseFirestore.instance;
-
   inicial,
   cargando,
   autenticado,
   noAutenticado,
+  requiereOnboarding,
   error,
-// Provider temporal simplificado para autenticación
+}
+
+/// Provider de autenticación basado en Firebase Auth real.
+/// Escucha [FirebaseAuth.authStateChanges] para reaccionar a cambios de sesión.
+class ProveedorAutenticacion extends ChangeNotifier {
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+
+  EstadoAutenticacion _estado = EstadoAutenticacion.inicial;
   String? _mensajeError;
 
-  User? get usuarioActual => _auth.currentUser;
   // Getters
+  EstadoAutenticacion get estado => _estado;
+  User? get usuarioActual => _auth.currentUser;
   String? get mensajeError => _mensajeError;
   bool get estaAutenticado => _estado == EstadoAutenticacion.autenticado;
   bool get estaCargando => _estado == EstadoAutenticacion.cargando;
 
+  ProveedorAutenticacion() {
+    _auth.authStateChanges().listen((user) {
+      if (user != null) {
+        _cambiarEstado(EstadoAutenticacion.autenticado);
+      } else {
+        _cambiarEstado(EstadoAutenticacion.noAutenticado);
+      }
+    });
+  }
+
+  Future<void> iniciarSesion({
+    required String correo,
     required String password,
   }) async {
     _limpiarError();
+    _cambiarEstado(EstadoAutenticacion.cargando);
+
+    try {
       await _auth.signInWithEmailAndPassword(email: correo, password: password);
-      // TODO: Implementar con repositorio real
+      _cambiarEstado(EstadoAutenticacion.autenticado);
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
-      await Future.delayed(const Duration(seconds: 1)); // Simulación
-      _cambiarEstado(EstadoAutenticacion.autenticado);
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
   Future<void> registrarEmpresa({
+    required String nombreEmpresa,
     required String correoEmpresa,
     required String telefonoEmpresa,
     required String direccionEmpresa,
     required String nombrePropietario,
     required String correoPropietario,
-      // TODO: Implementar con repositorio real
-      await Future.delayed(const Duration(seconds: 1)); // Simulación
+    required String telefonoPropietario,
     required String password,
   }) async {
+    _limpiarError();
+    _cambiarEstado(EstadoAutenticacion.cargando);
 
+    try {
       // 1. Crear usuario en Firebase Auth
       final cred = await _auth.createUserWithEmailAndPassword(
         email: correoPropietario,
@@ -89,19 +101,19 @@ enum EstadoAutenticacion {
         'permisos': [],
       });
 
-      await Future.delayed(const Duration(seconds: 2)); // Simulación
+      _cambiarEstado(EstadoAutenticacion.requiereOnboarding);
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
-      _cambiarEstado(EstadoAutenticacion.requiereOnboarding);
     } catch (e) {
       _manejarError(e.toString());
     }
   }
 
   Future<void> cerrarSesion() async {
+    _cambiarEstado(EstadoAutenticacion.cargando);
 
+    try {
       await _auth.signOut();
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulación
       _cambiarEstado(EstadoAutenticacion.noAutenticado);
     } catch (e) {
       _manejarError(e.toString());
@@ -109,11 +121,14 @@ enum EstadoAutenticacion {
   }
 
   Future<void> enviarRecuperacionPassword(String correo) async {
+    _limpiarError();
+    _cambiarEstado(EstadoAutenticacion.cargando);
 
+    try {
       await _auth.sendPasswordResetEmail(email: correo);
+      _cambiarEstado(EstadoAutenticacion.noAutenticado);
     } on FirebaseAuthException catch (e) {
       _manejarError(_mensajeFirebase(e.code));
-      await Future.delayed(const Duration(seconds: 1)); // Simulación
     } catch (e) {
       _manejarError(e.toString());
     }
@@ -124,6 +139,7 @@ enum EstadoAutenticacion {
       _cambiarEstado(EstadoAutenticacion.autenticado);
     }
   }
+
   String _mensajeFirebase(String code) {
     switch (code) {
       case 'user-not-found':
@@ -145,7 +161,6 @@ enum EstadoAutenticacion {
     }
   }
 
-
   void _cambiarEstado(EstadoAutenticacion nuevoEstado) {
     _estado = nuevoEstado;
     notifyListeners();
@@ -160,7 +175,6 @@ enum EstadoAutenticacion {
     _mensajeError = null;
     notifyListeners();
   }
-
 
   void limpiarError() => _limpiarError();
 }
