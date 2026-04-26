@@ -63,7 +63,7 @@ const REGION = "europe-west1";
 exports.PLAN_BASE = {
     id: "basico",
     nombre: "Plan Base",
-    precioAnual: 300,
+    precioAnual: 310,
     modulosIncluidos: [
         "dashboard",
         "reservas",
@@ -86,27 +86,27 @@ exports.BUNDLES = [
     {
         packs: ["gestion", "fiscal"],
         descuento: 100,
-        nombre: "Bundle Gestión + Fiscal",
-        // gestion(350) + fiscal(350) = 700 → con bundle: 600€ (ahorro 100€)
+        nombre: "Bundle Gestión + Fiscal AI",
+        // gestion(370) + fiscal(430) = 800 → con bundle: 700€ (ahorro 100€)
     },
 ];
 exports.PACKS = {
     gestion: {
         id: "gestion",
         nombre: "Pack Gestión",
-        precioAnual: 350,
+        precioAnual: 370,
         modulosAdicionales: ["facturacion", "vacaciones"],
     },
     fiscal: {
         id: "fiscal",
-        nombre: "Pack Fiscal",
-        precioAnual: 350,
+        nombre: "Pack Fiscal AI",
+        precioAnual: 430,
         modulosAdicionales: ["fiscal", "contabilidad", "verifactu"],
     },
     tienda: {
         id: "tienda",
         nombre: "Pack Tienda Online",
-        precioAnual: 150,
+        precioAnual: 490,
         modulosAdicionales: ["pedidos"],
     },
 };
@@ -129,7 +129,7 @@ exports.ADDONS = {
     nominas: {
         id: "nominas",
         nombre: "Nóminas",
-        precioAnual: null,
+        precioAnual: 310,
         modulosAdicionales: ["nominas"],
     },
 };

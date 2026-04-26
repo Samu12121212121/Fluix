@@ -34,6 +34,7 @@ export {
 export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
 export { verificarLoginIntento };
+export { onInvitacionCreada } from "./invitaciones";
 
 
 if (!admin.apps.length) admin.initializeApp();

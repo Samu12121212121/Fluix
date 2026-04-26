@@ -158,7 +158,7 @@ class SepaXmlGenerator {
     final resto = suma % 11;
     final dc = 11 - resto;
     if (dc == 11) return 0;
-    if (dc == 10) return 1; // Algunos bancos usan 1 cuando el cálculo da 10
+    if (dc == 10) return null; // Secuencia inválida — el CCC no puede tener este dígito de control
     return dc;
   }
 

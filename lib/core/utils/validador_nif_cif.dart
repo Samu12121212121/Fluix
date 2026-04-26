@@ -37,8 +37,9 @@ class ValidadorNifCif {
     }
   }
 
-  /// Validar CIF: [A-H,J,N,P-S,U,V,W] + 7 dígitos + [0-9,A-J]
+  /// Validar CIF: [A-H,J,N,P-S,T,U,V,W] + 7 dígitos + [0-9,A-J]
   /// Ejemplo: "A12345678", "V98765432"
+  // FIX #3: añadida letra 'T' al regex (organismos públicos)
   static bool esCifValido(String? cif) {
     if (cif == null || cif.isEmpty) return false;
 
@@ -48,7 +49,7 @@ class ValidadorNifCif {
         .toUpperCase();
 
     // Validar formato: 1 letra + 7 dígitos + control alfanumérico
-    if (!RegExp(r'^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$').hasMatch(cleaned)) {
+    if (!RegExp(r'^[ABCDEFGHJNPQRSTUVW][0-9]{7}[0-9A-J]$').hasMatch(cleaned)) {
       return false;
     }
 
@@ -169,7 +170,7 @@ class ValidadorNifCif {
       valido: false,
       tipo: 'desconocido',
       razon:
-          'NIF/CIF/NIE inválido (formato o dígito control incorrecto). '
+      'NIF/CIF/NIE inválido (formato o dígito control incorrecto). '
           'Formatos válidos: 12345678Z (NIF), A12345678 (CIF), X1234567L (NIE)',
     );
   }
@@ -205,5 +206,3 @@ class ValidacionNif {
   @override
   String toString() => 'ValidacionNif(valido: $valido, tipo: $tipo, razon: $razon)';
 }
-
-

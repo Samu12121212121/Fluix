@@ -50,18 +50,12 @@ service cloud.firestore {
         && (getRol() == 'staff' || getRol() == 'admin' || getRol() == 'propietario');
     }
 
-    // ── Versión rápida: solo usa el token JWT, sin get() a Firestore ──
-    // Para que funcione debes tener el custom claim plataforma_admin: true
-    // en tu usuario de Firebase Auth. Puedes ponerlo desde la consola de
-    // Firebase o con una Cloud Function. Mientras tanto el fallback
-    // lee es_plataforma_admin del documento de usuario.
     function esPlataformaAdmin() {
       return isAuth()
         && !esAnonimo()
         && request.auth.token.plataforma_admin == true;
     }
 
-    // Versión con fallback a Firestore (más lenta, usar solo donde sea necesario)
     function esPlataformaAdminConFallback() {
       return isAuth()
         && !esAnonimo()
@@ -228,15 +222,39 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // LOGIN INTENTOS E INVITACIONES
+    // LOGIN INTENTOS
     // ════════════════════════════════════════════════════════════════════
 
     match /login_intentos/{email} {
       allow read, write: if false;
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // INVITACIONES
+    // FIX: antes era `if false` — bloqueaba crear/leer invitaciones.
+    // Ahora: admin/propietario puede crear y leer; el invitado puede leer
+    // su token para aceptar la invitación; nadie puede borrar ni modificar.
+    // ════════════════════════════════════════════════════════════════════
+
     match /invitaciones/{token} {
-      allow read, write: if false;
+      // El invitado puede leer su token para aceptar la invitación
+      allow read: if esUsuarioReal();
+
+      // FIX: admin Y propietario pueden crear invitaciones (antes solo propietario)
+      // FIX: no se bloquea cuentas demo — es_demo no restringe permisos de escritura
+      allow create: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && (getRol() == 'admin' || getRol() == 'propietario')
+        && request.resource.data.keys().hasAll(['email', 'rol', 'empresa_id', 'creado_por'])
+        && request.resource.data.empresa_id == getUserData().empresa_id
+        && request.resource.data.rol in ['admin', 'staff']
+        && request.resource.data.get('es_plataforma_admin', false) == false;
+
+      // Marcar como usada al aceptar la invitación
+      allow update: if esUsuarioReal()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usada', 'usado_por', 'fecha_uso', 'expira']);
+
+      allow delete: if false;
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -324,7 +342,6 @@ service cloud.firestore {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
-      // ── Rating historial (para gráfico de evolución) ─────────────────
       match /rating_historial/{mesId} {
         allow read, write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       }
@@ -359,9 +376,21 @@ service cloud.firestore {
         }
       }
 
+      // FIX productos: write también permitido a staff con módulo 'catalogo'
       match /productos/{productoId} {
         allow read: if true;
-        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if esAdminOPropietario(empresaId)
+          || esPlataformaAdmin()
+          || staffTieneModulo(empresaId, 'catalogo');
+      }
+
+      // FIX: colección 'catalogo' — el código usa esta ruta, no /productos/
+      // Mismos permisos que productos
+      match /catalogo/{productoId} {
+        allow read: if true;
+        allow write: if esAdminOPropietario(empresaId)
+          || esPlataformaAdmin()
+          || staffTieneModulo(empresaId, 'catalogo');
       }
 
       match /servicios/{servicioId} {
@@ -434,7 +463,6 @@ service cloud.firestore {
         allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
         allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
 
-        // ── Subcollections de equipos (miembros, tareas, etc.) ────────
         match /{subcol}/{subId} {
           allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
           allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -539,8 +567,6 @@ service cloud.firestore {
         allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow update, delete: if false;
       }
-
-      // ── PACK FISCAL IA ───────────────────────────────────────────────
 
       match /fiscal_documents/{docId} {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();

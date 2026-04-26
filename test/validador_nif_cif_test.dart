@@ -70,18 +70,25 @@ void main() {
       expect(ValidadorNifCif.esNieValido('X1234567L'), true);
     });
 
+    // FIX: bloque Y separado y con letras de control correctas
+    // Y1234567 → 11234567 % 23 = 10 → tabla[10] = 'X'
     test('NIE con Y debe ser válido', () {
-      // Y1234567 → 11234567 % 23 = 19 = 'T'
-      expect(ValidadorNifCif.esNieValido('Y1234567T'), true);
-    });
-      // Y1234567 → 11234567 % 23 = 10 = 'X'
       expect(ValidadorNifCif.esNieValido('Y1234567X'), true);
-      expect(ValidadorNifCif.esNieValido('Y1234567T'), true);
     });
 
-      // Z1234567 → 21234567 % 23 = 1 = 'R'
+    // FIX: Y1234567T era incorrecto (tabla[19]='L', no 'T')
+    test('NIE con Y letra incorrecta debe retornar false', () {
+      expect(ValidadorNifCif.esNieValido('Y1234567T'), false);
+    });
+
+    // FIX: bloque Z separado y con letra de control correcta
+    // Z1234567 → 21234567 % 23 = 1 → tabla[1] = 'R'
+    test('NIE con Z debe ser válido', () {
       expect(ValidadorNifCif.esNieValido('Z1234567R'), true);
-      expect(ValidadorNifCif.esNieValido('Z1234567G'), true);
+    });
+
+    test('NIE con Z letra incorrecta debe retornar false', () {
+      expect(ValidadorNifCif.esNieValido('Z1234567G'), false);
     });
 
     // ── PRUEBAS DETECCIÓN AUTOMÁTICA ──────────────────────────────────────
@@ -153,5 +160,3 @@ void main() {
     });
   });
 }
-
-
