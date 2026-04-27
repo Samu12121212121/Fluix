@@ -102,9 +102,10 @@ class NotificacionesService {
     // Guardar token del dispositivo en Firestore
     await _guardarTokenDispositivo();
 
-    // Escuchar renovación del token
-    _messaging.onTokenRefresh.listen((token) {
-      _actualizarTokenEnFirestore(token);
+    // Escuchar renovación del token → siempre actualizar en usuarios Y dispositivos
+    _messaging.onTokenRefresh.listen((token) async {
+      print('🔄 Token FCM renovado, actualizando Firestore...');
+      await _actualizarTokenEnFirestore(token);
     });
 
     _inicializado = true;
@@ -191,9 +192,12 @@ class NotificacionesService {
     );
 
     // Reproducir el sonido configurado por el usuario para este tipo
+    // (unawaited con catch para no crashear la app si falla el audio)
     final tipoStr = message.data['tipo'] as String? ?? 'general';
     final tipo = TipoNotificacionExt.fromId(tipoStr);
-    SonidoNotificacionService().reproducirParaTipo(tipo);
+    SonidoNotificacionService().reproducirParaTipo(tipo).catchError((e) {
+      print('⚠️ Error reproduciendo sonido de notificación: $e');
+    });
   }
 
   /// Manejar tap en notificación cuando la app estaba en background
@@ -221,8 +225,27 @@ class NotificacionesService {
   /// Obtener y guardar el token FCM en Firestore
   Future<void> _guardarTokenDispositivo() async {
     try {
+      // iOS: debe obtenerse el token APNs ANTES de poder pedir el token FCM.
+      // Sin APNs token, getToken() devuelve null silenciosamente en iOS.
+      if (Platform.isIOS) {
+        String? apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          print('⏳ APNs token aún no disponible, esperando 3s...');
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await _messaging.getAPNSToken();
+        }
+        if (apnsToken == null) {
+          print('⚠️ No se pudo obtener APNs token en iOS. Verifica que el certificado APNs esté subido a Firebase Console → Cloud Messaging → Apple app configuration.');
+          return;
+        }
+        print('✅ APNs token obtenido: $apnsToken');
+      }
+
       final token = await _messaging.getToken();
-      if (token == null) return;
+      if (token == null) {
+        print('⚠️ Token FCM null. En iOS verifica: Push Notifications capability en Xcode, certificado APNs en Firebase y que usas dispositivo físico.');
+        return;
+      }
       print('📱 Token FCM: $token');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
@@ -299,6 +322,19 @@ class NotificacionesService {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
+      // iOS: esperar APNs token antes de pedir FCM token
+      if (Platform.isIOS) {
+        String? apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await _messaging.getAPNSToken();
+        }
+        if (apnsToken == null) {
+          print('⚠️ iOS: APNs token no disponible en guardarTokenTrasLogin');
+          return;
+        }
+      }
+
       final token = await _messaging.getToken();
       if (token == null) return;
 
@@ -353,6 +389,22 @@ class NotificacionesService {
   /// Obtener el token actual del dispositivo
   Future<String?> obtenerToken() async {
     return await _messaging.getToken();
+  }
+
+  /// Forza re-registro del token FCM. Útil al volver al foreground o tras login.
+  /// Garantiza que el token esté actualizado en usuarios/ y empresas/.../dispositivos/
+  Future<void> refrescarToken() async {
+    try {
+      // Elimina el token actual para forzar uno nuevo
+      await _messaging.deleteToken();
+      final nuevoToken = await _messaging.getToken();
+      if (nuevoToken != null) {
+        print('🔄 Token FCM refrescado manualmente');
+        await _actualizarTokenEnFirestore(nuevoToken);
+      }
+    } catch (e) {
+      print('❌ Error refrescando token FCM: $e');
+    }
   }
 
   // ── NOTIFICACIONES LOCALES MANUALES ─────────────────────────────────────────

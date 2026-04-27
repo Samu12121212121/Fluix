@@ -433,30 +433,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-  Future<void> _restablecerPassword() async {
-    final correo = _correoController.text.trim();
-
-    if (correo.isEmpty) {
-      _mostrarError('Ingresa tu correo electrónico primero.');
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: correo);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Se ha enviado un enlace de restablecimiento a tu correo.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      _mostrarError(_mapearErrorFirebase(e));
-    } catch (e) {
-      _mostrarError('Error al enviar el correo: $e');
-    }
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BIOMETRÍA — oferta tras primer login
@@ -528,5 +504,41 @@ class _PantallaLoginState extends State<PantallaLogin> {
     if (telefono.length < 6) return telefono;
     final visible = telefono.substring(telefono.length - 2);
     return '${telefono.substring(0, 3)} *** *** $visible';
+  }
+
+  Future<void> _restablecerPassword() async {
+    if (_correoController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa tu correo electrónico primero'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _correoController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se ha enviado un enlace de restablecimiento a tu correo'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al enviar el correo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

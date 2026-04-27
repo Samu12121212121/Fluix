@@ -41,17 +41,16 @@
 	<string>Fluix CRM usa Face ID para proteger el acceso a datos sensibles de tu empresa.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Fluix CRM puede necesitar el micrófono para notas de voz en tareas.</string>
+	<!-- ═══ Background Modes: remote-notification obligatorio para FCM ═══ -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<!-- ═══ Google Sign-In URL Scheme (REVERSED_CLIENT_ID) ═══ -->
-	<!-- IMPORTANTE: Obtén el valor exacto de GoogleService-Info.plist → REVERSED_CLIENT_ID -->
-	<!-- Firebase Console → Configuración del proyecto → Tu app iOS → Descargar GoogleService-Info.plist -->
+	<!-- ═══ URL Schemes: Google Sign-In + Deep links (fusionados en una sola clave) ═══ -->
 	<key>CFBundleURLTypes</key>
 	<array>
-		<!-- Google Sign-In reversed client ID -->
+		<!-- Google Sign-In reversed client ID (REVERSED_CLIENT_ID de GoogleService-Info.plist) -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -59,32 +58,29 @@
 			<string>google-sign-in</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- ⚠️ Reemplaza este valor con REVERSED_CLIENT_ID de GoogleService-Info.plist -->
-				<!-- Ejemplo real: com.googleusercontent.apps.1085482191658-abcdefghijklmnop -->
 				<string>$(REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
+		<!-- Deep links fluixcrm:// -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.fluixtech.fluixcrm</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fluixcrm</string>
+			</array>
+		</dict>
 	</array>
+	<!-- ═══ Scene Manifest: MultipleScenes=false, SIN SceneDelegate ═══
+	     NOTA: Eliminar UISceneDelegateClassName es crítico para que
+	     firebase_messaging reciba correctamente los callbacks de APNs.
+	     FlutterAppDelegate (AppDelegate.swift) es el único delegado. -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
-		<key>UISceneConfigurations</key>
-		<dict>
-			<key>UIWindowSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneClassName</key>
-					<string>UIWindowScene</string>
-					<key>UISceneConfigurationName</key>
-					<string>flutter</string>
-					<key>UISceneDelegateClassName</key>
-					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
-				</dict>
-			</array>
-		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

@@ -331,12 +331,11 @@ class WidgetConfig {
       WidgetConfig(id: 'briefing_matutino',    nombre: 'Briefing Matutino',     descripcion: 'Resumen inteligente del día (visible de 6h a 12h)',           icono: Icons.wb_sunny,         activo: true,  orden: 1),
       WidgetConfig(id: 'proximos_dias',         nombre: 'Próximos 3 Días',       descripcion: 'Reservas y alertas de los próximos días',                     icono: Icons.event_note,       activo: true,  orden: 2),
       WidgetConfig(id: 'alertas_fiscales',      nombre: 'Alertas Fiscales',      descripcion: 'Alertas de obligaciones fiscales próximas',                   icono: Icons.account_balance,  activo: true,  orden: 3),
-      WidgetConfig(id: 'reservas_hoy',          nombre: 'Reservas de Hoy',       descripcion: 'Citas y reservas del día en curso',                           icono: Icons.calendar_today,   activo: true,  orden: 4),
+      WidgetConfig(id: 'reservas_hoy',          nombre: 'Reservas de Hoy',       descripcion: 'Reservas y citas del día en curso',                           icono: Icons.calendar_today,   activo: true,  orden: 4),
       WidgetConfig(id: 'valoraciones_recientes',nombre: 'Valoraciones Recientes',descripcion: 'Últimas reseñas y puntuaciones de clientes',                  icono: Icons.star,             activo: true,  orden: 5),
-      WidgetConfig(id: 'citas_resumen',         nombre: 'Citas del Día',         descripcion: 'Próximas citas del día con hora y cliente',                   icono: Icons.schedule,         activo: true,  orden: 6),
-      WidgetConfig(id: 'kpis_rapidos',          nombre: 'KPIs Rápidos',          descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',    icono: Icons.analytics,        activo: true,  orden: 7),
-      WidgetConfig(id: 'resumen_facturacion',   nombre: 'Resumen Facturación',   descripcion: 'Total facturado hoy y del mes, pendientes de cobro',          icono: Icons.receipt_long,     activo: true,  orden: 8),
-      WidgetConfig(id: 'resumen_pedidos',       nombre: 'Resumen Pedidos',       descripcion: 'Pedidos y ventas del día',                                    icono: Icons.shopping_bag,     activo: true,  orden: 9),
+      WidgetConfig(id: 'kpis_rapidos',          nombre: 'KPIs Rápidos',          descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',    icono: Icons.analytics,        activo: true,  orden: 6),
+      WidgetConfig(id: 'resumen_facturacion',   nombre: 'Resumen Facturación',   descripcion: 'Total facturado hoy y del mes, pendientes de cobro',          icono: Icons.receipt_long,     activo: true,  orden: 7),
+      WidgetConfig(id: 'resumen_pedidos',       nombre: 'Resumen Pedidos',       descripcion: 'Pedidos y ventas del día',                                    icono: Icons.shopping_bag,     activo: true,  orden: 8),
       WidgetConfig(id: 'ingresos_mes',          nombre: 'Ingresos del Mes',      descripcion: 'Gráfico de evolución de ingresos mensuales',                  icono: Icons.trending_up,      activo: false, orden: 10),
       WidgetConfig(id: 'clientes_nuevos',       nombre: 'Clientes Nuevos',       descripcion: 'Últimos clientes registrados en el sistema',                  icono: Icons.people,           activo: false, orden: 11),
       WidgetConfig(id: 'alertas_negocio',       nombre: 'Alertas del Negocio',   descripcion: 'Sugerencias y alertas automáticas del negocio',               icono: Icons.notifications,    activo: false, orden: 12),
@@ -344,20 +343,35 @@ class WidgetConfig {
     ];
   }
 
-  // Widgets completamente implementados y funcionales
+  // ── WIDGETS IMPLEMENTADOS ──────────────────────────────────────────────────
+  //
+  // ✅ LIBRES — sin restricción de pack:
+  //   briefing_matutino      → Resumen matutino inteligente (visible 6h-12h)
+  //   proximos_dias          → Reservas y alertas próximos 3 días
+  //   reservas_hoy           → Reservas y citas del día en curso (unificado)
+  //   alertas_fiscales       → Avisos AEAT / plazos tributarios
+  //   valoraciones_recientes → Últimas reseñas de clientes
+  //   kpis_rapidos           → Reservas hoy, ingresos semana, rating
+  //
+  // 🔒 REQUIEREN PACK (gestionado en configuracion_widgets_screen.dart):
+  //   resumen_facturacion    → Pack Gestión
+  //   resumen_pedidos        → Pack Tienda Online
+  //
+  // 🚧 PRÓXIMAMENTE (NO añadir aquí hasta estar implementados):
+  //   ingresos_mes, clientes_nuevos, alertas_negocio
+  //
+  // Última actualización: Abril 2026
   static const Set<String> implementados = {
     'briefing_matutino',
     'proximos_dias',
     'alertas_fiscales',
     'reservas_hoy',
     'valoraciones_recientes',
-    'citas_resumen',
     'kpis_rapidos',
     'resumen_facturacion',
     'resumen_pedidos',
     'kpis',
   };
 
-// Próximamente
-// 'ingresos_mes', 'clientes_nuevos', 'alertas_negocio'
+// 🚧 No incluidos (próximamente): 'ingresos_mes', 'clientes_nuevos', 'alertas_negocio'
 }

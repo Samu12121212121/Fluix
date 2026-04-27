@@ -2,7 +2,7 @@ name: planeag_flutter
 description: PlaneaGuada CRM para pymes
 publish_to: 'none'
 
-version: 1.0.13
+version: 1.0.13+1
 
 environment:
   sdk: ^3.11.1
@@ -59,6 +59,9 @@ dependencies:
 
   # Connectivity
   connectivity_plus: ^6.0.5
+
+  # Deep links (invitaciones y navegación desde email/WhatsApp)
+  # (moved later in file under security section to keep related deps together)
 
   # DI
   get_it: ^8.0.0

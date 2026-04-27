@@ -3,10 +3,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../services/estadisticas_cache_service.dart';
 import '../../../services/analytics_web_service.dart';
+import '../../../services/suscripcion_service.dart';
+import '../../../core/utils/permisos_service.dart';
+import 'package:flutter/foundation.dart';
 
 class ModuloEstadisticas extends StatefulWidget {
   final String empresaId;
-  const ModuloEstadisticas({super.key, required this.empresaId});
+  final SesionUsuario? sesion;
+
+  const ModuloEstadisticas({
+    super.key,
+    required this.empresaId,
+    this.sesion,
+  });
 
   @override
   State<ModuloEstadisticas> createState() => _ModuloEstadisticasState();
@@ -16,28 +25,30 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
   final EstadisticasCacheService _cacheService = EstadisticasCacheService();
   bool _calculandoCache = false;
   bool _tieneFacturacion = false;
+  bool _tieneTienda = false;
 
   @override
   void initState() {
     super.initState();
     _iniciarCacheAutomatico();
-    _verificarFacturacion();
+    _verificarPacks();
   }
 
-  /// Comprueba si la empresa tiene el módulo de facturación (finanzas) activo
-  Future<void> _verificarFacturacion() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .get();
-      if (!mounted) return;
-      final data = doc.data();
-      if (data == null) return;
-      final config = data['configuracion'] as Map<String, dynamic>? ?? {};
-      final modulos = config['modulos'] as Map<String, dynamic>? ?? {};
-      setState(() => _tieneFacturacion = modulos['finanzas'] == true);
-    } catch (_) {}
+  /// Verifica qué packs tiene activos la empresa
+  void _verificarPacks() {
+    final svc = SuscripcionService();
+
+    setState(() {
+      // Verificar Pack Gestión (para facturación)
+      _tieneFacturacion = svc.tieneModulo('facturacion') ||
+          (widget.sesion?.esPropietarioPlatforma ?? false);
+
+      // Verificar Pack Tienda (para pedidos)
+      _tieneTienda = svc.tieneModulo('pedidos') ||
+          (widget.sesion?.esPropietarioPlatforma ?? false);
+    });
+
+    debugPrint('📊 Packs verificados - Facturación: $_tieneFacturacion, Tienda: $_tieneTienda');
   }
 
   @override
@@ -68,18 +79,18 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
           final ultimaAct = DateTime.tryParse(fechaCalculo.length > 23 ? fechaCalculo.substring(0, 23) : fechaCalculo) ?? DateTime.now();
           final diferencia = DateTime.now().difference(ultimaAct);
           if (diferencia.inHours < 1) {
-            print('✅ Usando estadísticas desde cache (${diferencia.inMinutes} min)');
+            debugPrint('✅ Usando estadísticas desde cache (${diferencia.inMinutes} min)');
             return data;
           }
         }
         // Cache obsoleto — recalcular en background y devolver lo que hay
-        print('⚠️ Cache obsoleto, recalculando en background...');
+        debugPrint('⚠️ Cache obsoleto, recalculando en background...');
         _cacheService.recalcularEstadisticas(widget.empresaId);
         return data; // Devuelve datos aunque obsoletos mientras recalcula
       }
 
       // No hay cache — lanzar cálculo y devolver vacío (el stream emitirá de nuevo cuando acabe)
-      print('📊 Sin cache, calculando estadísticas reales por primera vez...');
+      debugPrint('📊 Sin cache, calculando estadísticas reales por primera vez...');
       _cacheService.recalcularEstadisticas(widget.empresaId);
       return <String, dynamic>{};
     });
@@ -165,7 +176,6 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     );
   }
 
-
   Widget _buildHeaderConControles([bool modoOffline = false]) {
     return Card(
       elevation: 1,
@@ -249,17 +259,17 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        modoOffline ? Icons.offline_bolt : Icons.sync,
-                        color: modoOffline ? Colors.orange : const Color(0xFF4CAF50),
-                        size: 12
+                          modoOffline ? Icons.offline_bolt : Icons.sync,
+                          color: modoOffline ? Colors.orange : const Color(0xFF4CAF50),
+                          size: 12
                       ),
                       const SizedBox(width: 4),
                       Text(
                         modoOffline ? 'Demo' : 'Sincronizado',
                         style: TextStyle(
-                          color: modoOffline ? Colors.orange : const Color(0xFF4CAF50),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600
+                            color: modoOffline ? Colors.orange : const Color(0xFF4CAF50),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600
                         ),
                       ),
                     ],
@@ -290,7 +300,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               context,
               'KPIs Principales',
               'Los KPIs (Indicadores Clave de Rendimiento) resumen el estado de tu negocio en tiempo real. '
-              'Se calculan automáticamente cada 5 minutos a partir de los datos reales de tu cuenta.',
+                  'Se calculan automáticamente cada hora a partir de los datos reales de tu cuenta.',
             ),
           ],
         ),
@@ -308,10 +318,10 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                 0.0,
                 'Ingresos: €${ingresosMes.toStringAsFixed(0)} | Gastos: €${gastosMes.toStringAsFixed(0)}',
                 '📊 Beneficio Neto = Ingresos por facturación PAGADA del mes − Gastos PAGADOS del mes.\n\n'
-                '• Ingresos: €${ingresosMes.toStringAsFixed(2)} (facturas con estado PAGADA, colección: facturas)\n'
-                '• Gastos: €${gastosMes.toStringAsFixed(2)} (gastos con estado pagado, colección: gastos)\n\n'
-                'Si el resultado es positivo (verde), estás ganando dinero. '
-                'Si es negativo (rojo), los gastos superan a los ingresos.',
+                    '• Ingresos: €${ingresosMes.toStringAsFixed(2)} (facturas con estado PAGADA, colección: facturas)\n'
+                    '• Gastos: €${gastosMes.toStringAsFixed(2)} (gastos con estado pagado, colección: gastos)\n\n'
+                    'Si el resultado es positivo (verde), estás ganando dinero. '
+                    'Si es negativo (rojo), los gastos superan a los ingresos.',
               ))
             else
               Expanded(child: _kpiFacturacionBloqueada(context)),
@@ -325,7 +335,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               _calcPct(data['reservas_mes'], data['reservas_mes_anterior']),
               'Total: ${data['reservas_mes'] ?? 0}',
               '📊 Origen: número de reservas con estado CONFIRMADA del mes actual '
-              '(colección: reservas). El total incluye todos los estados.',
+                  '(colección: reservas). El total incluye todos los estados.',
             )),
           ],
         ),
@@ -341,7 +351,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               _calcPct(data['nuevos_clientes_mes'], data['nuevos_clientes_mes_anterior']),
               'Total: ${data['total_clientes'] ?? 0}',
               '📊 Origen: clientes cuya fecha_registro está dentro del mes actual '
-              '(colección: clientes). El total muestra todos los clientes históricos.',
+                  '(colección: clientes). El total muestra todos los clientes históricos.',
             )),
             const SizedBox(width: 12),
             Expanded(child: _kpiCardGrandeConInfo(
@@ -353,7 +363,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               0.0,
               '${data['total_valoraciones'] ?? 0} reseñas',
               '📊 Origen: promedio de todas las valoraciones guardadas '
-              '(colección: valoraciones). Incluye reseñas de Google y manuales.',
+                  '(colección: valoraciones). Incluye reseñas de Google y manuales.',
             )),
           ],
         ),
@@ -415,17 +425,58 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     );
   }
 
+  /// KPI de pedidos bloqueado cuando no tiene Pack Tienda
+  Widget _kpiPedidosBloqueado() {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.grey.withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(Icons.shopping_cart, color: Colors.grey[400], size: 18),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock_outline, color: Colors.orange, size: 10),
+                      SizedBox(width: 2),
+                      Text('Pack Tienda', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text('—', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[400])),
+            const SizedBox(height: 2),
+            Text('Pedidos del Mes', style: TextStyle(fontSize: 10, color: Colors.grey[600]), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// KPI card con botón de info integrado
   Widget _kpiCardGrandeConInfo(
-    BuildContext context,
-    String titulo,
-    String valor,
-    IconData icono,
-    Color color,
-    double pct,
-    String subtitulo,
-    String infoTexto,
-  ) {
+      BuildContext context,
+      String titulo,
+      String valor,
+      IconData icono,
+      Color color,
+      double pct,
+      String subtitulo,
+      String infoTexto,
+      ) {
     final esPositivo = pct >= 0;
     final colorPct = esPositivo ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
 
@@ -515,7 +566,6 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     );
   }
 
-
   Widget _buildGraficoRendimiento(BuildContext context, Map<String, dynamic> data) {
     return Card(
       elevation: 1,
@@ -530,7 +580,7 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                 const Text('Rendimiento del Negocio', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                 const SizedBox(width: 6),
                 _infoBtn(context, 'Rendimiento',
-                  'Métricas calculadas a partir de tus reservas confirmadas, canceladas y completadas.'),
+                    'Métricas calculadas a partir de tus reservas confirmadas, canceladas y completadas.'),
               ],
             ),
             const SizedBox(height: 16),
@@ -543,8 +593,8 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                   Icons.trending_up,
                   const Color(0xFF4CAF50),
                   '✅ Reservas completadas ÷ Reservas totales × 100.\n\n'
-                  'Indica qué porcentaje de las reservas acaban en servicio real. '
-                  'Un valor alto (>70%) es positivo.',
+                      'Indica qué porcentaje de las reservas acaban en servicio real. '
+                      'Un valor alto (>70%) es positivo.',
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _metricaCardConInfo(
@@ -554,8 +604,8 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                   Icons.cancel,
                   const Color(0xFFF44336),
                   '❌ Reservas canceladas ÷ Reservas totales × 100.\n\n'
-                  'Indica el porcentaje de reservas que se cancelan antes de completarse. '
-                  'Un valor bajo (<15%) es deseable.',
+                      'Indica el porcentaje de reservas que se cancelan antes de completarse. '
+                      'Un valor bajo (<15%) es deseable.',
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _metricaCardConInfo(
@@ -565,8 +615,8 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                   Icons.euro,
                   const Color(0xFF1976D2),
                   '💶 Ingresos totales del mes ÷ Número de transacciones.\n\n'
-                  'Valor promedio que ingresa por cada operación. '
-                  'Calculado desde la colección: transacciones.',
+                      'Valor promedio que ingresa por cada operación. '
+                      'Calculado desde la colección: transacciones.',
                 )),
               ],
             ),
@@ -623,12 +673,17 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               const Color(0xFF388E3C),
             )),
             const SizedBox(width: 8),
-            Expanded(child: _metricaCompactaCard(
-              'Transacciones',
-              '${data['total_transacciones_mes'] ?? 0}',
-              Icons.payment,
-              const Color(0xFFF44336),
-            )),
+            // ── KPI Pedidos: bloqueado si no tiene Pack Tienda ──
+            Expanded(
+              child: !_tieneTienda
+                  ? _kpiPedidosBloqueado()
+                  : _metricaCompactaCard(
+                'Pedidos del Mes',
+                '${data['pedidos_mes'] ?? 0}',
+                Icons.shopping_bag_outlined,
+                const Color(0xFF1565C0),
+              ),
+            ),
           ],
         ),
       ],
@@ -663,24 +718,24 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
               const Text('Reservas por Servicio:', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
               const SizedBox(height: 8),
               ...reservasPorServicio.entries.take(4).map((entry) =>
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF7B1FA2),
-                          shape: BoxShape.circle,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF7B1FA2),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 12))),
-                      Text('${entry.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 12))),
+                        Text('${entry.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
-                ),
               ),
             ],
           ],
@@ -843,26 +898,26 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                   const Text('Actividad por Días', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                   const SizedBox(height: 12),
                   ...distribucionDias.entries.map((entry) =>
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 80,
-                            child: Text(entry.key.capitalize(), style: const TextStyle(fontSize: 12)),
-                          ),
-                          Expanded(
-                            child: LinearProgressIndicator(
-                              value: (entry.value as int) / (distribucionDias.values.fold<int>(0, (sum, v) => sum + (v as int))),
-                              backgroundColor: Colors.grey[200],
-                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 80,
+                              child: Text(entry.key.capitalize(), style: const TextStyle(fontSize: 12)),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('${entry.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
+                            Expanded(
+                              child: LinearProgressIndicator(
+                                value: (entry.value as int) / (distribucionDias.values.fold<int>(0, (sum, v) => sum + (v as int))),
+                                backgroundColor: Colors.grey[200],
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('${entry.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
-                    ),
                   ),
                 ],
               ),
@@ -1116,7 +1171,7 @@ class _SeccionTraficoWeb extends StatelessWidget {
                         .get(),
                     builder: (_, snap) {
                       final dominio = (snap.data?.data()
-                          as Map<String, dynamic>?)?['dominio_propio_url'] as String?;
+                      as Map<String, dynamic>?)?['dominio_propio_url'] as String?;
                       return Text(
                         dominio != null && dominio.isNotEmpty ? dominio : 'Sin dominio configurado',
                         style: const TextStyle(fontSize: 11, color: Colors.grey),
@@ -1158,7 +1213,7 @@ class _SeccionTraficoWeb extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'El script JavaScript del footer de tu web '
-                      'enviará los datos automáticamente. Cada visita se registra en tiempo real.',
+                          'enviará los datos automáticamente. Cada visita se registra en tiempo real.',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       textAlign: TextAlign.center,
                     ),
@@ -1206,13 +1261,13 @@ class _SeccionTraficoWeb extends StatelessWidget {
                                 ]),
                                 content: const Text(
                                   '🔴 ¿Qué es la Tasa de Rebote?\n\n'
-                                  'Es el porcentaje de visitas en las que el usuario entra a tu web '
-                                  'y se va sin hacer nada más (sin navegar a otra página, sin hacer clic, sin rellenar formularios).\n\n'
-                                  '📊 Cómo se interpreta:\n'
-                                  '• < 40% → Excelente: los usuarios se quedan y exploran\n'
-                                  '• 40–60% → Normal para webs de servicios\n'
-                                  '• > 60% → Alta: puede indicar que el contenido no engancha o la web carga lenta\n\n'
-                                  '💡 Origen: registrada por el script JS en el footer de tu web cuando un usuario visita una sola página y abandona.',
+                                      'Es el porcentaje de visitas en las que el usuario entra a tu web '
+                                      'y se va sin hacer nada más (sin navegar a otra página, sin hacer clic, sin rellenar formularios).\n\n'
+                                      '📊 Cómo se interpreta:\n'
+                                      '• < 40% → Excelente: los usuarios se quedan y exploran\n'
+                                      '• 40–60% → Normal para webs de servicios\n'
+                                      '• > 60% → Alta: puede indicar que el contenido no engancha o la web carga lenta\n\n'
+                                      '💡 Origen: registrada por el script JS en el footer de tu web cuando un usuario visita una sola página y abandona.',
                                   style: TextStyle(fontSize: 13, height: 1.6),
                                 ),
                                 actions: [
@@ -1474,6 +1529,3 @@ class _SeccionTraficoWeb extends StatelessWidget {
     ]);
   }
 }
-
-
-

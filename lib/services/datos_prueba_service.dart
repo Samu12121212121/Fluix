@@ -1,12 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class DatosPruebaService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Crear datos de prueba completos para una empresa
   Future<void> crearDatosPrueba(String empresaId) async {
+    if (!kDebugMode) {
+      debugPrint('⚠️ crearDatosPrueba solo disponible en modo debug');
+      return;
+    }
+
     try {
-      print('🎯 Creando datos de prueba para empresa: $empresaId');
+      debugPrint('🎯 Creando datos de prueba para empresa: $empresaId');
 
       // Crear servicios de ejemplo
       await _crearServicios(empresaId);
@@ -26,15 +32,17 @@ class DatosPruebaService {
       // Crear valoraciones de ejemplo
       await _crearValoraciones(empresaId);
 
-      print('✅ Datos de prueba creados correctamente');
+      debugPrint('✅ Datos de prueba creados correctamente');
     } catch (e) {
-      print('❌ Error creando datos de prueba: $e');
+      debugPrint('❌ Error creando datos de prueba: $e');
       rethrow;
     }
   }
 
   /// Crear servicios de ejemplo específicos para Dama Juana Guadalajara
   Future<void> _crearServicios(String empresaId) async {
+    if (!kDebugMode) return;
+
     final servicios = [
       {
         'id': 'servicio_1',
@@ -108,11 +116,13 @@ class DatosPruebaService {
       batch.set(docRef, servicio);
     }
     await batch.commit();
-    print('✅ Servicios de prueba creados');
+    debugPrint('✅ Servicios de prueba creados');
   }
 
   /// Crear clientes de ejemplo específicos para Dama Juana Guadalajara
   Future<void> _crearClientes(String empresaId) async {
+    if (!kDebugMode) return;
+
     final clientes = [
       {
         'id': 'cliente_1',
@@ -210,11 +220,13 @@ class DatosPruebaService {
       batch.set(docRef, cliente);
     }
     await batch.commit();
-    print('✅ Clientes de prueba creados');
+    debugPrint('✅ Clientes de prueba creados');
   }
 
   /// Crear empleados de ejemplo
   Future<void> _crearEmpleados(String empresaId) async {
+    if (!kDebugMode) return;
+
     final empleados = [
       {
         'id': 'empleado_1',
@@ -255,11 +267,13 @@ class DatosPruebaService {
       batch.set(docRef, empleado);
     }
     await batch.commit();
-    print('✅ Empleados de prueba creados');
+    debugPrint('✅ Empleados de prueba creados');
   }
 
   /// Crear reservas de ejemplo con datos recientes y realistas
   Future<void> _crearReservas(String empresaId) async {
+    if (!kDebugMode) return;
+
     final reservas = <Map<String, dynamic>>[];
     final serviciosIds = ['servicio_1', 'servicio_2', 'servicio_3', 'servicio_4', 'servicio_5'];
     final clientesIds = ['cliente_1', 'cliente_2', 'cliente_3', 'cliente_4', 'cliente_5', 'cliente_6'];
@@ -324,7 +338,7 @@ class DatosPruebaService {
       }
     }
 
-    print('📅 Creando ${reservas.length} reservas para Dama Juana Guadalajara...');
+    debugPrint('📅 Creando ${reservas.length} reservas para Dama Juana Guadalajara...');
 
     // Guardar en lotes
     final batchSize = 500;
@@ -343,14 +357,16 @@ class DatosPruebaService {
       }
 
       await batch.commit();
-      print('✅ Lote ${(i / batchSize).floor() + 1} de reservas de Dama Juana creado');
+      debugPrint('✅ Lote ${(i / batchSize).floor() + 1} de reservas de Dama Juana creado');
     }
 
-    print('✅ ${reservas.length} reservas de Dama Juana Guadalajara creadas');
+    debugPrint('✅ ${reservas.length} reservas de Dama Juana Guadalajara creadas');
   }
 
   /// Crear transacciones de ejemplo
   Future<void> _crearTransacciones(String empresaId) async {
+    if (!kDebugMode) return;
+
     final transacciones = <Map<String, dynamic>>[];
     final clientesIds = ['cliente_1', 'cliente_2', 'cliente_3', 'cliente_4', 'cliente_5'];
     final metodosPago = ['Efectivo', 'Tarjeta', 'Bizum', 'Transferencia'];
@@ -402,11 +418,13 @@ class DatosPruebaService {
       await batch.commit();
     }
 
-    print('✅ ${transacciones.length} transacciones de prueba creadas');
+    debugPrint('✅ ${transacciones.length} transacciones de prueba creadas');
   }
 
   /// Crear valoraciones de ejemplo
   Future<void> _crearValoraciones(String empresaId) async {
+    if (!kDebugMode) return;
+
     final valoraciones = [
       {
         'id': 'valoracion_1',
@@ -497,7 +515,7 @@ class DatosPruebaService {
       batch.set(docRef, valoracion);
     }
     await batch.commit();
-    print('✅ Valoraciones de prueba creadas');
+    debugPrint('✅ Valoraciones de prueba creadas');
   }
 
   /// Verificar si ya existen datos de prueba
@@ -518,6 +536,11 @@ class DatosPruebaService {
 
   /// Limpiar todos los datos de prueba
   Future<void> limpiarDatosPrueba(String empresaId) async {
+    if (!kDebugMode) {
+      debugPrint('⚠️ limpiarDatosPrueba solo disponible en modo debug');
+      return;
+    }
+
     try {
       final colecciones = ['reservas', 'clientes', 'servicios', 'empleados', 'transacciones', 'valoraciones'];
 
@@ -535,9 +558,9 @@ class DatosPruebaService {
         await batch.commit();
       }
 
-      print('✅ Datos de prueba limpiados');
+      debugPrint('✅ Datos de prueba limpiados');
     } catch (e) {
-      print('❌ Error limpiando datos de prueba: $e');
+      debugPrint('❌ Error limpiando datos de prueba: $e');
       rethrow;
     }
   }

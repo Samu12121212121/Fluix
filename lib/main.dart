@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:app_links/app_links.dart';
+import 'features/registro/pantallas/pantalla_registro_invitacion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -54,20 +57,67 @@ class FluixCrmApp extends StatefulWidget {
 class _FluixCrmAppState extends State<FluixCrmApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initDeepLinks();
     // No bloquea el arranque: se lanza tras el primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _intentarInicializarAdmin();
     });
   }
 
+  // ── Deep Links ──────────────────────────────────────────────────────────────
+
+  Future<void> _initDeepLinks() async {
+    _appLinks = AppLinks();
+
+    // Manejar deep link cuando la app estaba cerrada
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleDeepLink(initialUri);
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error leyendo initial deep link: $e');
+    }
+
+    // Escuchar deep links en background/foreground
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      _handleDeepLink,
+      onError: (e) => debugPrint('⚠️ Error en deep link stream: $e'),
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    debugPrint('🔗 Deep link recibido: $uri');
+    if (uri.scheme != 'fluixcrm') return;
+
+    final nav = _navigatorKey.currentState;
+    if (nav == null) return;
+
+    if (uri.host == 'invite') {
+      final token = uri.queryParameters['token'];
+      if (token != null && token.isNotEmpty) {
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => PantallaRegistroInvitacion(token: token),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _linkSubscription?.cancel();
     SesionService().detener();
     super.dispose();
   }
@@ -160,10 +210,10 @@ class PantallaCarga extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(60),
-              ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(60),
+                ),
               child: const Icon(
                 Icons.business_center_rounded,
                 size: 60,
@@ -180,13 +230,13 @@ class PantallaCarga extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.8),
+              Text(
+                'Cargando...',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withOpacity(0.8),
+                ),
               ),
-            ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(
               color: Colors.white,

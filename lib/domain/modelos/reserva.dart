@@ -20,6 +20,10 @@ class Reserva extends Equatable {
   final String? mesa;
   final String? origen; // 'web', 'manual', 'telefono'
 
+  // Campos de cancelación
+  final String? motivoCancelacion;
+  final DateTime? fechaCancelacion;
+
   const Reserva({
     required this.id,
     required this.fechaCreacion,
@@ -34,6 +38,8 @@ class Reserva extends Equatable {
     this.estado = 'pendiente',
     this.mesa,
     this.origen = 'web',
+    this.motivoCancelacion,
+    this.fechaCancelacion,
   });
 
   factory Reserva.fromMap(Map<String, dynamic> datos, String id) {
@@ -57,6 +63,12 @@ class Reserva extends Equatable {
       estado: datos['estado'] ?? 'pendiente',
       mesa: datos['mesa'],
       origen: datos['origen'] ?? 'web',
+
+      // Campos de cancelación
+      motivoCancelacion: datos['motivo_cancelacion'] as String?,
+      fechaCancelacion: datos['fecha_cancelacion'] != null
+          ? _parseDate(datos['fecha_cancelacion'])
+          : null,
     );
   }
 
@@ -97,6 +109,11 @@ class Reserva extends Equatable {
       'estado': estado,
       'mesa': mesa,
       'origen': origen,
+
+      // Campos de cancelación
+      if (motivoCancelacion != null) 'motivo_cancelacion': motivoCancelacion,
+      if (fechaCancelacion != null)
+        'fecha_cancelacion': Timestamp.fromDate(fechaCancelacion!),
     };
   }
 
@@ -115,6 +132,8 @@ class Reserva extends Equatable {
     String? estado,
     String? mesa,
     String? origen,
+    String? motivoCancelacion,
+    DateTime? fechaCancelacion,
   }) {
     return Reserva(
       id: id ?? this.id,
@@ -130,6 +149,8 @@ class Reserva extends Equatable {
       estado: estado ?? this.estado,
       mesa: mesa ?? this.mesa,
       origen: origen ?? this.origen,
+      motivoCancelacion: motivoCancelacion ?? this.motivoCancelacion,
+      fechaCancelacion: fechaCancelacion ?? this.fechaCancelacion,
     );
   }
 
@@ -170,5 +191,7 @@ class Reserva extends Equatable {
     estado,
     mesa,
     origen,
+    motivoCancelacion,
+    fechaCancelacion,
   ];
 }

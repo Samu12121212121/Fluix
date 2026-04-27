@@ -1,23 +1,6 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// PANTALLA DE LOGIN — Fluix CRM
-//
-// FLUJOS DE CREACIÓN DE CUENTAS:
-//
-// 1. REGISTRO EMAIL (botón "Registrar Nueva Empresa"):
-//    → PantallaRegistro → FormularioRegistro
-//    → Crea Auth user + empresa + usuario con rol 'admin'
-//    → Navega directamente al Dashboard
-//
-// 2. GOOGLE / APPLE SIGN-IN:
-//    → Si usuario nuevo: crea doc con rol 'admin' y empresa_id vacío
-//    → Redirige a PantallaRegistrarEmpresaSocial para completar empresa
-//    → Si ya existe con empresa: navega al Dashboard
-//
-// 3. INVITACIÓN EMPLEADO (deep link fluixcrm://invite?token=XXX):
-//    → PantallaRegistroInvitacion
-//    → Crea Auth + doc usuario con rol asignado por el admin
-//    → empresa_id del invitador, módulos limitados
-//
+// ARCHIVO ELIMINADO — limpieza pre-despliegue 27/04/2026.
+// El login real está en: pantalla_login.dart
+// ignore_for_file: unused_import
 // ROLES:
 //    - 'propietario': EXCLUSIVO de FluixTech (empresaPropietariaId)
 //    - 'admin': dueño de cualquier otra empresa (acceso total a su empresa)

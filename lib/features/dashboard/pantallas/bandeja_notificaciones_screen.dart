@@ -143,7 +143,8 @@ class _NotificacionItem extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
               // Datos del remitente
-              if (notif.remitenteNombre != null || notif.remitenteTelefono != null || notif.remitenteEmail != null) ...[
+              if (notif.remitenteNombre != null || notif.remitenteTelefono != null || notif.remitenteEmail != null ||
+                  notif.ubicacion != null || notif.personas != null || notif.alergenos == true) ...[
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -174,6 +175,38 @@ class _NotificacionItem extends StatelessWidget {
                           const SizedBox(width: 3),
                           Text(notif.remitenteEmail!,
                               style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        ]),
+                      // Campos extra de reserva
+                      if (notif.personas != null)
+                        Row(children: [
+                          const Icon(Icons.people_outline, size: 11, color: Colors.grey),
+                          const SizedBox(width: 3),
+                          Text('${notif.personas} personas',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        ]),
+                      if (notif.ubicacion != null)
+                        Row(children: [
+                          const Icon(Icons.place_outlined, size: 11, color: Colors.grey),
+                          const SizedBox(width: 3),
+                          Text(
+                            notif.ubicacion == 'terraza' ? '🌿 Terraza'
+                              : notif.ubicacion == 'salon' ? '🏠 Salón'
+                              : notif.ubicacion!,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                          ),
+                        ]),
+                      if (notif.alergenos == true)
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Icon(Icons.warning_amber_outlined, size: 11, color: Colors.orange),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              notif.alergenosDetalle != null && notif.alergenosDetalle!.isNotEmpty
+                                  ? '⚠ Alérgenos: ${notif.alergenosDetalle}'
+                                  : '⚠ Tiene alérgenos',
+                              style: const TextStyle(fontSize: 11, color: Colors.orange),
+                            ),
+                          ),
                         ]),
                     ],
                   ),

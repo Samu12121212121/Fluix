@@ -32,6 +32,13 @@
                 <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+            <!-- Intent filter para deep links: fluixcrm://invite?token=XXX -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="fluixcrm"/>
+            </intent-filter>
         </activity>
 
         <!-- Canal de notificaciones por defecto para FCM -->

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../domain/modelos/contabilidad.dart';
 
 /// Genera datos de prueba realistas para el módulo de contabilidad.
@@ -7,6 +8,11 @@ class DatosPruebaContabilidadService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Future<void> generarDatosDePrueba(String empresaId) async {
+    if (!kDebugMode) {
+      debugPrint('⚠️ generarDatosDePrueba solo disponible en modo debug');
+      return;
+    }
+
     await Future.wait([
       _crearProveedores(empresaId),
       _crearGastos(empresaId),
@@ -20,6 +26,8 @@ class DatosPruebaContabilidadService {
   // ── PROVEEDORES ───────────────────────────────────────────────────────────
 
   Future<void> _crearProveedores(String empresaId) async {
+    if (!kDebugMode) return;
+
     final ref = _db
         .collection('empresas')
         .doc(empresaId)
@@ -95,6 +103,8 @@ class DatosPruebaContabilidadService {
   // ── GASTOS ────────────────────────────────────────────────────────────────
 
   Future<void> _crearGastos(String empresaId) async {
+    if (!kDebugMode) return;
+
     final ref = _db
         .collection('empresas')
         .doc(empresaId)
@@ -312,6 +322,8 @@ class DatosPruebaContabilidadService {
   // ── FACTURAS EMITIDAS ─────────────────────────────────────────────────────
 
   Future<void> _crearFacturas(String empresaId) async {
+    if (!kDebugMode) return;
+
     final ref = _db
         .collection('empresas')
         .doc(empresaId)
@@ -471,12 +483,14 @@ class DatosPruebaContabilidadService {
       await batch.commit();
     }
 
-    print('✅ ${facturas.length} facturas de prueba creadas');
+    debugPrint('✅ ${facturas.length} facturas de prueba creadas');
   }
 
   // ── PEDIDOS ───────────────────────────────────────────────────────────────
 
   Future<void> _crearPedidos(String empresaId) async {
+    if (!kDebugMode) return;
+
     final ref = _db
         .collection('empresas')
         .doc(empresaId)
@@ -517,7 +531,7 @@ class DatosPruebaContabilidadService {
             10 + (i % 12), (i * 7) % 60);
 
         final estados = ['completado', 'completado', 'completado',
-            'pendiente', 'confirmado'];
+          'pendiente', 'confirmado'];
         final origen  = ['app', 'web', 'whatsapp', 'app'][i % 4];
 
         pedidos.add({
@@ -582,7 +596,7 @@ class DatosPruebaContabilidadService {
       await batch.commit();
     }
 
-    print('✅ ${pedidos.length} pedidos de prueba creados');
+    debugPrint('✅ ${pedidos.length} pedidos de prueba creados');
   }
 
   // ── ACTUALIZAR CACHÉ DE FACTURAS EMITIDAS ─────────────────────────────────
@@ -590,6 +604,8 @@ class DatosPruebaContabilidadService {
   // Aquí solo actualizamos el cache_contable para acelerar las consultas.
 
   Future<void> _actualizarCacheFacturas(String empresaId) async {
+    if (!kDebugMode) return;
+
     final ahora = DateTime.now();
     final anio = ahora.year;
 
@@ -599,10 +615,10 @@ class DatosPruebaContabilidadService {
         .doc(empresaId)
         .collection('facturas')
         .where('fecha_emision',
-            isGreaterThanOrEqualTo:
-                Timestamp.fromDate(DateTime(anio, 1, 1)))
+        isGreaterThanOrEqualTo:
+        Timestamp.fromDate(DateTime(anio, 1, 1)))
         .where('fecha_emision',
-            isLessThan: Timestamp.fromDate(DateTime(anio + 1, 1, 1)))
+        isLessThan: Timestamp.fromDate(DateTime(anio + 1, 1, 1)))
         .where('estado', isEqualTo: 'pagada')
         .get();
 
@@ -617,11 +633,11 @@ class DatosPruebaContabilidadService {
           '${fecha.year}-${fecha.month.toString().padLeft(2, '0')}';
 
       porMes.putIfAbsent(key, () => {
-            'ingresos_base': 0.0,
-            'iva_repercutido': 0.0,
-            'ingresos_total': 0.0,
-            'num_facturas': 0,
-          });
+        'ingresos_base': 0.0,
+        'iva_repercutido': 0.0,
+        'ingresos_total': 0.0,
+        'num_facturas': 0,
+      });
 
       porMes[key]!['ingresos_base'] =
           (porMes[key]!['ingresos_base'] as double) +
@@ -654,6 +670,11 @@ class DatosPruebaContabilidadService {
 
   /// Elimina TODOS los datos de prueba (gastos, proveedores, facturas y pedidos)
   Future<void> limpiarDatosDePrueba(String empresaId) async {
+    if (!kDebugMode) {
+      debugPrint('⚠️ limpiarDatosDePrueba solo disponible en modo debug');
+      return;
+    }
+
     final colecciones = ['gastos', 'proveedores', 'facturas', 'pedidos'];
 
     for (final col in colecciones) {
@@ -698,10 +719,6 @@ class DatosPruebaContabilidadService {
     }
     if (cacheSnap.docs.isNotEmpty) await batch.commit();
 
-    print('✅ Datos de prueba eliminados');
+    debugPrint('✅ Datos de prueba eliminados');
   }
 }
-
-
-
-

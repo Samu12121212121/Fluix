@@ -6,7 +6,7 @@ import {
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import Stripe from "stripe";
-import { enviarPdfGenerico } from "./resend_service";
+import { enviarPdfGenerico, enviarConfirmacionReserva, enviarCancelacionReserva } from "./resend_service";
 import { enviarRecordatoriosCitas } from "./recordatoriosCitas";
 import { onTareaAsignada } from "./notificacionesTareas";
 import {
@@ -35,6 +35,7 @@ export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
 export { verificarLoginIntento };
 export { onInvitacionCreada } from "./invitaciones";
+export { sendResetPasswordEmail } from "./resetPassword";
 
 
 if (!admin.apps.length) admin.initializeApp();
@@ -350,12 +351,40 @@ async function procesarNuevaReservaOCita(
   reserva: FirebaseFirestore.DocumentData,
   coleccion: "reservas" | "citas"
 ): Promise<void> {
-  const cliente = reserva.nombre_cliente || reserva.cliente || "Cliente";
-  const telefonoVal = reserva.telefono_cliente as string | undefined;
-  const emailVal    = reserva.email_cliente || reserva.correo_cliente || reserva.email || (null as string | null);
-  const telefono    = telefonoVal ? ` · ${telefonoVal}` : "";
-  const personas    = reserva.personas ? ` · ${reserva.personas} pers.` : "";
-  const servicio    = reserva.servicio || reserva.notas || "";
+  const cliente    = reserva.nombre_cliente || reserva.cliente || "Cliente";
+  const telefonoVal = (reserva.telefono_cliente || reserva.telefono) as string | undefined;
+  const emailVal   = reserva.email_cliente || reserva.correo_cliente || reserva.email || (null as string | null);
+  const telefono   = telefonoVal ? ` · ${telefonoVal}` : "";
+
+  // Personas / comensales
+  const personas    = reserva.numero_personas || reserva.comensales || reserva.personas;
+  const personasStr = personas ? ` · ${personas} pers.` : "";
+
+  // Ubicación / zona
+  const ubicacion    = reserva.ubicacion || reserva.zona || "";
+  const ubicacionStr = ubicacion
+    ? ` · ${ubicacion === "terraza" ? "🌿 Terraza" : ubicacion === "salon" ? "🏠 Salón" : ubicacion}`
+    : "";
+
+  // Alérgenos — acepta bool true o string "si"
+  const alergenosRaw  = reserva.alergenos;
+  const tieneAlergenos = alergenosRaw === true || alergenosRaw === "si";
+  const alergenosDetalle = (reserva.alergenos_detalle || reserva.detalle_alergenos || "") as string;
+  const alergenosStr = tieneAlergenos
+    ? ` · ⚠️ Alérgenos${alergenosDetalle ? ": " + alergenosDetalle : ""}`
+    : "";
+
+  const servicio = reserva.servicio || "";
+
+  // Campos adicionales genéricos: cualquier campo extra del documento
+  const extraCampos: string[] = [];
+  const camposGenericosCandidatos = ["zona_mesa", "tipo_menu", "ocasion", "habitacion", "preferencias"];
+  for (const c of camposGenericosCandidatos) {
+    const v = reserva[c];
+    if (v && typeof v === "string" && v.trim()) extraCampos.push(v.trim());
+  }
+  const extrasStr = extraCampos.length ? ` · ${extraCampos.join(" · ")}` : "";
+
   const fechaHoraRaw = reserva.fecha_hora;
   let fechaHora = "Fecha pendiente";
   if (fechaHoraRaw) {
@@ -373,9 +402,9 @@ async function procesarNuevaReservaOCita(
   const emoji = coleccion === "citas" ? "💈" : "📅";
   const label = coleccion === "citas" ? "Nueva Cita" : "Nueva Reserva";
   const titulo = `${emoji} ${label}`;
-  const cuerpo = `${cliente}${telefono}${personas} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
+  const cuerpo = `${cliente}${telefono}${personasStr}${ubicacionStr} — ${fechaHora}${servicio ? " · " + servicio : ""}${alergenosStr}${extrasStr}`;
 
-  // 1. Guardar en bandeja in-app
+  // 1. Guardar en bandeja in-app (con todos los campos extra)
   await db.collection("notificaciones").doc(empresaId).collection("items").add({
     titulo,
     cuerpo,
@@ -384,9 +413,14 @@ async function procesarNuevaReservaOCita(
     leida: false,
     modulo_destino: coleccion,
     entidad_id: entidadId,
-    remitente_nombre: cliente !== "Cliente" ? cliente : null,
-    remitente_telefono: telefonoVal || null,
-    remitente_email: emailVal,
+    remitente_nombre:    cliente !== "Cliente" ? cliente : null,
+    remitente_telefono:  telefonoVal || null,
+    remitente_email:     emailVal,
+    // Campos extra para la bandeja
+    ubicacion:           ubicacion || null,
+    personas:            personas !== undefined && personas !== null ? String(personas) : null,
+    alergenos:           tieneAlergenos,
+    alergenos_detalle:   tieneAlergenos && alergenosDetalle ? alergenosDetalle : null,
   });
 
   // 2. Enviar push FCM
@@ -434,8 +468,107 @@ export const onNuevaCita = onDocumentCreated(
   }
 );
 
+// ── HELPER: formatea fecha de reserva para emails ─────────────────────────────
+function _formatearFechaReserva(reserva: FirebaseFirestore.DocumentData): string {
+  const raw = reserva.fecha_hora || reserva.fecha;
+  if (!raw) return "Fecha pendiente";
+  if (typeof raw === "string") {
+    return raw.replace("T", " a las ").substring(0, 16);
+  }
+  if (typeof raw.toDate === "function") {
+    return raw.toDate().toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
+  }
+  if (raw._seconds !== undefined) {
+    return new Date(raw._seconds * 1000).toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
+  }
+  return "Fecha pendiente";
+}
+
+// ── HELPER: obtiene nombre e email de la empresa ───────────────────────────────
+async function _getDatosEmpresa(empresaId: string): Promise<{ nombre: string; email: string | null }> {
+  try {
+    const doc = await db.collection("empresas").doc(empresaId).get();
+    const d = doc.data() || {};
+    return {
+      nombre: (d.nombre as string) || "El establecimiento",
+      email: (d.email_notificaciones || d.correo || d.email || null) as string | null,
+    };
+  } catch (_) {
+    return { nombre: "El establecimiento", email: null };
+  }
+}
+
 /**
- * 2. RESERVA CANCELADA
+ * 2a. RESERVA CONFIRMADA — envía push a la empresa + email de confirmación al cliente
+ */
+export const onReservaConfirmada = onDocumentUpdated(
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
+  async (event) => {
+    const empresaId = event.params.empresaId;
+    const antes = event.data?.before.data();
+    const despues = event.data?.after.data();
+    if (!antes || !despues) return;
+
+    // Solo cuando cambia a CONFIRMADA
+    if (antes.estado === despues.estado || despues.estado !== "CONFIRMADA") return;
+
+    const cliente   = despues.nombre_cliente || despues.cliente || "Cliente";
+    const fechaHora = _formatearFechaReserva(despues);
+    const servicio  = despues.servicio || "";
+    const emailCliente = despues.email_cliente || despues.correo_cliente || despues.email || null;
+
+    // 1. Push a la empresa (confirmación interna)
+    const cuerpo = `${cliente} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+      titulo: "✅ Reserva Confirmada",
+      cuerpo,
+      tipo: "reservaConfirmada",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      leida: false,
+      modulo_destino: "reservas",
+      entidad_id: event.params.reservaId,
+      remitente_nombre: cliente !== "Cliente" ? cliente : null,
+      remitente_telefono: despues.telefono_cliente || null,
+      remitente_email: emailCliente,
+    });
+
+    await enviarNotificacionEmpresa(
+      empresaId,
+      "✅ Reserva Confirmada",
+      cuerpo,
+      { tipo: "reserva_confirmada", reserva_id: event.params.reservaId }
+    );
+
+    // 2. Email al cliente si tiene correo
+    if (emailCliente) {
+      try {
+        const empresa = await _getDatosEmpresa(empresaId);
+        const personas = despues.numero_personas || despues.personas;
+        const zona = despues.zona || "";
+
+        await enviarConfirmacionReserva({
+          to: emailCliente,
+          clienteNombre: cliente,
+          empresaNombre: empresa.nombre,
+          fechaHora,
+          personas: personas ? String(personas) : undefined,
+          servicio: servicio || undefined,
+          zona: zona || undefined,
+          notas: despues.notas || undefined,
+          fromEmail: empresa.email || undefined,
+        });
+        console.log(`✅ Email confirmación reserva enviado a ${emailCliente}`);
+      } catch (emailErr: any) {
+        console.error("❌ Error enviando email confirmación reserva:", emailErr.message);
+      }
+    } else {
+      console.log(`ℹ️ Reserva ${event.params.reservaId} confirmada sin email de cliente`);
+    }
+  }
+);
+
+/**
+ * 2b. RESERVA CANCELADA — notifica a la empresa + email de cancelación al cliente
  */
 export const onReservaCancelada = onDocumentUpdated(
   { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
@@ -449,22 +582,24 @@ export const onReservaCancelada = onDocumentUpdated(
       return;
     }
 
-    const cliente  = despues.nombre_cliente || despues.cliente || "Cliente";
-    const servicio = despues.servicio || despues.fecha_hora || "la reserva";
-    const cuerpo   = `${cliente} canceló la reserva de ${servicio}`;
+    const cliente   = despues.nombre_cliente || despues.cliente || "Cliente";
+    const servicio  = despues.servicio || "";
+    const fechaHora = _formatearFechaReserva(despues);
+    const cuerpo    = `${cliente} — ${fechaHora}${servicio ? " · " + servicio : ""}`;
+    const emailCliente = despues.email_cliente || despues.correo_cliente || despues.email || null;
 
-    // Guardar en bandeja in-app
+    // 1. Bandeja + push a la empresa
     await db.collection("notificaciones").doc(empresaId).collection("items").add({
       titulo: "❌ Reserva Cancelada",
       cuerpo,
-      tipo: "reservaNueva",
+      tipo: "reservaCancelada",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       leida: false,
       modulo_destino: "reservas",
       entidad_id: event.params.reservaId,
       remitente_nombre: cliente !== "Cliente" ? cliente : null,
       remitente_telefono: despues.telefono_cliente || null,
-      remitente_email: despues.email_cliente || null,
+      remitente_email: emailCliente,
     });
 
     await enviarNotificacionEmpresa(
@@ -473,6 +608,30 @@ export const onReservaCancelada = onDocumentUpdated(
       cuerpo,
       { tipo: "reserva_cancelada", reserva_id: event.params.reservaId }
     );
+
+    // 2. Email al cliente si tiene correo
+    if (emailCliente) {
+      try {
+        const empresa = await _getDatosEmpresa(empresaId);
+        const personas = despues.numero_personas || despues.personas;
+
+        await enviarCancelacionReserva({
+          to: emailCliente,
+          clienteNombre: cliente,
+          empresaNombre: empresa.nombre,
+          fechaHora,
+          personas: personas ? String(personas) : undefined,
+          servicio: servicio || undefined,
+          motivoCancelacion: despues.motivo_cancelacion || undefined,
+          fromEmail: empresa.email || undefined,
+        });
+        console.log(`✅ Email cancelación reserva enviado a ${emailCliente}`);
+      } catch (emailErr: any) {
+        console.error("❌ Error enviando email cancelación reserva:", emailErr.message);
+      }
+    } else {
+      console.log(`ℹ️ Reserva ${event.params.reservaId} cancelada sin email de cliente`);
+    }
   }
 );
 

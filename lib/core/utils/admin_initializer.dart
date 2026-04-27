@@ -21,7 +21,6 @@ class AdminInitializer {
     {'id': 'valoraciones', 'activo': true},
     {'id': 'estadisticas', 'activo': true},
     {'id': 'reservas',     'activo': true},
-    {'id': 'citas',        'activo': false},
     {'id': 'web',          'activo': true},
     {'id': 'whatsapp',     'activo': true},
     {'id': 'facturacion',  'activo': true},

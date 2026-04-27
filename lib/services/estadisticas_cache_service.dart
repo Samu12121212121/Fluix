@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // ← AÑADIDO
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EstadisticasCacheService {
@@ -17,25 +18,25 @@ class EstadisticasCacheService {
     // Calcular inmediatamente
     _calcularYGuardarEstadisticas(empresaId);
 
-    // Programar cálculo cada 5 minutos
-    _timers[empresaId] = Timer.periodic(const Duration(minutes: 5), (_) {
+    // Programar cálculo cada 1 hora (CAMBIADO de 5 minutos)
+    _timers[empresaId] = Timer.periodic(const Duration(hours: 1), (_) {
       _calcularYGuardarEstadisticas(empresaId);
     });
 
-    print('✅ Cache automático iniciado para empresa $empresaId');
+    debugPrint('✅ Cache automático iniciado para empresa $empresaId (TTL: 1h)');
   }
 
   /// Detener cálculo automático
   void detenerCacheAutomatico(String empresaId) {
     _timers[empresaId]?.cancel();
     _timers.remove(empresaId);
-    print('🛑 Cache automático detenido para empresa $empresaId');
+    debugPrint('🛑 Cache automático detenido para empresa $empresaId');
   }
 
   /// Calcular y guardar estadísticas en cache
   Future<void> _calcularYGuardarEstadisticas(String empresaId) async {
     try {
-      print('🔄 Calculando estadísticas en background para $empresaId...');
+      debugPrint('🔄 Calculando estadísticas en background para $empresaId...');
 
       // Obtener datos básicos
       final now = DateTime.now();
@@ -58,18 +59,18 @@ class EstadisticasCacheService {
         'version_cache': 1,
       }, SetOptions(merge: true));
 
-      print('✅ Estadísticas calculadas y guardadas en cache');
+      debugPrint('✅ Estadísticas calculadas y guardadas en cache');
     } catch (e) {
-      print('❌ Error calculando estadísticas en background: $e');
+      debugPrint('❌ Error calculando estadísticas en background: $e');
     }
   }
 
   /// Versión optimizada del cálculo de estadísticas (más rápida)
   Future<Map<String, dynamic>> _calcularEstadisticasOptimizadas(
-    String empresaId,
-    DateTime inicioMes,
-    DateTime inicioMesAnterior
-  ) async {
+      String empresaId,
+      DateTime inicioMes,
+      DateTime inicioMesAnterior
+      ) async {
     final futures = [
       _calcularKpisPrincipales(empresaId, inicioMes, inicioMesAnterior),
       _calcularMetricasBasicas(empresaId, inicioMes),
@@ -87,10 +88,10 @@ class EstadisticasCacheService {
 
   /// KPIs principales (solo los más importantes)
   Future<Map<String, dynamic>> _calcularKpisPrincipales(
-    String empresaId,
-    DateTime inicioMes,
-    DateTime inicioMesAnterior
-  ) async {
+      String empresaId,
+      DateTime inicioMes,
+      DateTime inicioMesAnterior
+      ) async {
     try {
       // Transacciones del mes actual
       final transaccionesMes = await _firestore
@@ -111,11 +112,11 @@ class EstadisticasCacheService {
 
       // Calcular ingresos
       final ingresosMes = transaccionesMes.docs.fold<double>(
-        0, (sum, doc) => sum + ((doc.data()['monto'] as num?) ?? 0).toDouble()
+          0, (sum, doc) => sum + ((doc.data()['monto'] as num?) ?? 0).toDouble()
       );
 
       final ingresosMesAnterior = transaccionesMesAnterior.docs.fold<double>(
-        0, (sum, doc) => sum + ((doc.data()['monto'] as num?) ?? 0).toDouble()
+          0, (sum, doc) => sum + ((doc.data()['monto'] as num?) ?? 0).toDouble()
       );
 
       // Reservas del mes
@@ -131,14 +132,14 @@ class EstadisticasCacheService {
       int resCompletadas = 0;
       int resPendientes = 0;
       int resCanceladas = 0;
-      
+
       final Map<String, int> serviciosCount = {};
       final Map<String, int> empleadosCount = {};
 
       for (var doc in reservasMes.docs) {
         final data = doc.data();
         final estado = (data['estado'] ?? '').toString().toUpperCase();
-        
+
         if (estado == 'CONFIRMADA') resConfirmadas++;
         else if (estado == 'COMPLETADA' || estado == 'FINALIZADA') resCompletadas++;
         else if (estado == 'PENDIENTE') resPendientes++;
@@ -147,7 +148,7 @@ class EstadisticasCacheService {
         // Servicio
         final servicio = data['servicio_nombre'] as String? ?? 'General';
         serviciosCount[servicio] = (serviciosCount[servicio] ?? 0) + 1;
-        
+
         // Empleado
         final empleado = data['empleado_nombre'] as String? ?? 'Sin asignar';
         empleadosCount[empleado] = (empleadosCount[empleado] ?? 0) + 1;
@@ -156,24 +157,24 @@ class EstadisticasCacheService {
       final totalReservas = reservasMes.docs.length;
       final tasaConversion = totalReservas > 0 ? (resCompletadas / totalReservas * 100) : 0.0;
       final tasaCancelacion = totalReservas > 0 ? (resCanceladas / totalReservas * 100) : 0.0;
-      
+
       final numTransacciones = transaccionesMes.docs.length;
       final valorMedioReserva = numTransacciones > 0 ? (ingresosMes / numTransacciones) : 0.0;
 
       // Ordenar mapas
       final serviciosSorted = Map.fromEntries(
-        serviciosCount.entries.toList()..sort((a,b) => b.value.compareTo(a.value))
+          serviciosCount.entries.toList()..sort((a,b) => b.value.compareTo(a.value))
       );
       final serviciosMapDynamic = <String, dynamic>{};
       serviciosSorted.forEach((k,v) => serviciosMapDynamic[k] = v);
 
       final empleadosSorted = Map.fromEntries(
-        empleadosCount.entries.toList()..sort((a,b) => b.value.compareTo(a.value))
+          empleadosCount.entries.toList()..sort((a,b) => b.value.compareTo(a.value))
       );
-      
+
       final servicioPopular = serviciosSorted.isNotEmpty ? serviciosSorted.keys.first : 'N/A';
       final empleadoActivo = empleadosSorted.isNotEmpty ? empleadosSorted.keys.first : 'N/A';
-      
+
       // Estructura para gráfica de empleados
       final rendimientoEmpleados = <String, dynamic>{};
       empleadosCount.forEach((k,v) => rendimientoEmpleados[k] = {'reservas': v});
@@ -201,7 +202,7 @@ class EstadisticasCacheService {
         'empleado_mas_activo': empleadoActivo,
       };
     } catch (e) {
-      print('❌ Error calculando KPIs: $e');
+      debugPrint('❌ Error calculando KPIs: $e');
       return {};
     }
   }
@@ -246,34 +247,34 @@ class EstadisticasCacheService {
         final d = doc.data() as Map;
         final rating = ((d['calificacion'] as num?) ?? 0).toDouble();
         sumaVal += rating;
-        
+
         if (rating >= 4.5) val5++;
         else if (rating >= 3.5) val4++;
         else if (rating >= 2.5) val3++;
         else if (rating >= 1.5) val2++;
         else val1++;
-        
+
         // Fecha para "este mes"
         final fecha = d['fecha'] ?? d['fecha_creacion'];
         if (fecha != null) {
-           DateTime? dt;
-           if (fecha is Timestamp) dt = fecha.toDate();
-           else if (fecha is String) dt = DateTime.tryParse(fecha);
-           
-           if (dt != null && dt.isAfter(inicioMes)) valMes++;
+          DateTime? dt;
+          if (fecha is Timestamp) dt = fecha.toDate();
+          else if (fecha is String) dt = DateTime.tryParse(fecha);
+
+          if (dt != null && dt.isAfter(inicioMes)) valMes++;
         }
       }
-      
+
       final valoracionPromedio = valoraciones.docs.isEmpty ? 0.0 : sumaVal / valoraciones.docs.length;
 
       // ANÁLISIS EMPLEADOS (Roles)
       int empProp = 0, empAdmin = 0, empStaff = 0;
       for (var doc in empleados.docs) {
-         final d = doc.data() as Map;
-         final rol = (d['rol'] ?? '').toString().toLowerCase();
-         if (rol.contains('prop') || rol.contains('dueño')) empProp++;
-         else if (rol.contains('admin') || rol.contains('encargado')) empAdmin++;
-         else empStaff++;
+        final d = doc.data() as Map;
+        final rol = (d['rol'] ?? '').toString().toLowerCase();
+        if (rol.contains('prop') || rol.contains('dueño')) empProp++;
+        else if (rol.contains('admin') || rol.contains('encargado')) empAdmin++;
+        else empStaff++;
       }
 
       // Clientes nuevos este mes
@@ -338,7 +339,7 @@ class EstadisticasCacheService {
         'total_resenas_google': totalResenasGoogle,
       };
     } catch (e) {
-      print('❌ Error calculando métricas básicas: $e');
+      debugPrint('❌ Error calculando métricas básicas: $e');
       return {};
     }
   }
@@ -368,7 +369,7 @@ class EstadisticasCacheService {
 
       // Día más activo
       final diaMasActivo = distribucionDias.entries.isEmpty ? 'N/A' :
-          distribucionDias.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+      distribucionDias.entries.reduce((a, b) => a.value > b.value ? a : b).key;
 
       return {
         'reservas_ultima_semana': reservasRecientes.docs.length,
@@ -376,7 +377,7 @@ class EstadisticasCacheService {
         'distribucion_dias': distribucionDias,
       };
     } catch (e) {
-      print('❌ Error calculando tendencias: $e');
+      debugPrint('❌ Error calculando tendencias: $e');
       return {};
     }
   }
@@ -413,7 +414,7 @@ class EstadisticasCacheService {
         // Si los datos tienen más de 1 hora, recalcular
         final diferencia = DateTime.now().difference(ultimaActualizacion);
         if (diferencia.inHours > 1) {
-          print('⚠️ Cache obsoleto (${diferencia.inMinutes} min), recalculando...');
+          debugPrint('⚠️ Cache obsoleto (${diferencia.inMinutes} min), recalculando...');
           _calcularYGuardarEstadisticas(empresaId);
         }
 
@@ -421,18 +422,18 @@ class EstadisticasCacheService {
       }
 
       // No hay cache, calcular por primera vez
-      print('📊 No hay cache, calculando estadísticas por primera vez...');
+      debugPrint('📊 No hay cache, calculando estadísticas por primera vez...');
       _calcularYGuardarEstadisticas(empresaId);
       return null;
     } catch (e) {
-      print('❌ Error obteniendo cache de estadísticas: $e');
+      debugPrint('❌ Error obteniendo cache de estadísticas: $e');
       return null;
     }
   }
 
   /// Forzar recálculo manual
   Future<void> recalcularEstadisticas(String empresaId) async {
-    print('🔄 Recálculo manual solicitado para $empresaId');
+    debugPrint('🔄 Recálculo manual solicitado para $empresaId');
     await _calcularYGuardarEstadisticas(empresaId);
   }
 
@@ -446,9 +447,9 @@ class EstadisticasCacheService {
           .doc('estadisticas')
           .delete();
 
-      print('🗑️ Cache limpiado para $empresaId');
+      debugPrint('🗑️ Cache limpiado para $empresaId');
     } catch (e) {
-      print('❌ Error limpiando cache: $e');
+      debugPrint('❌ Error limpiando cache: $e');
     }
   }
 

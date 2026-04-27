@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/permisos_service.dart';
+import 'detalle_reserva_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MÓDULO RESERVAS & CITAS — Estilo Booksy
@@ -43,14 +44,6 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () => _FormNuevaReserva.mostrar(
-                context: context, empresaId: widget.empresaId),
-            icon: const Icon(Icons.add),
-            tooltip: 'Nueva reserva',
-          ),
-        ],
         bottom: TabBar(
           controller: _tc,
           indicatorColor: Colors.white,
@@ -87,7 +80,7 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
 // Streams combinados reservas + citas
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BodyStreams extends StatelessWidget {
+class _BodyStreams extends StatefulWidget {
   final String empresaId;
   final TabController tc;
   final SesionUsuario? sesion;
@@ -99,10 +92,118 @@ class _BodyStreams extends StatelessWidget {
         required this.sesion,
         required this.onNueva});
 
+  @override
+  State<_BodyStreams> createState() => _BodyStreamsState();
+}
+
+class _BodyStreamsState extends State<_BodyStreams> {
+  String? _empleadoFiltro;
+  String? _servicioFiltro;
+
   static DateTime _ts(dynamic v) {
     if (v is Timestamp) return v.toDate();
     if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
     return DateTime.now();
+  }
+
+  List<QueryDocumentSnapshot> _aplicarFiltros(
+      List<QueryDocumentSnapshot> todos) {
+    return todos.where((doc) {
+      final data = (doc.data() as Map<String, dynamic>?) ?? {};
+      if (_empleadoFiltro != null) {
+        final prof =
+            (data['profesional'] ?? data['empleado'] ?? '').toString();
+        if (prof != _empleadoFiltro) return false;
+      }
+      if (_servicioFiltro != null) {
+        final serv = (data['servicio'] ?? data['tipo'] ?? '').toString();
+        if (serv != _servicioFiltro) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  Widget _buildChipsFiltro(List<QueryDocumentSnapshot> todos) {
+    final profesionales = todos
+        .map((d) {
+          final data = (d.data() as Map<String, dynamic>?) ?? {};
+          return (data['profesional'] ?? data['empleado'] ?? '').toString();
+        })
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    final servicios = todos
+        .map((d) {
+          final data = (d.data() as Map<String, dynamic>?) ?? {};
+          return (data['servicio'] ?? data['tipo'] ?? '').toString();
+        })
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    if (profesionales.isEmpty && servicios.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      height: 52,
+      color: Colors.white,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: [
+          FilterChip(
+            label: const Text('Todos'),
+            selected:
+                _empleadoFiltro == null && _servicioFiltro == null,
+            onSelected: (_) => setState(() {
+              _empleadoFiltro = null;
+              _servicioFiltro = null;
+            }),
+          ),
+          const SizedBox(width: 8),
+          ...profesionales.map((p) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  avatar: const Icon(Icons.person, size: 14),
+                  label: Text(p,
+                      style: const TextStyle(fontSize: 12)),
+                  selected: _empleadoFiltro == p,
+                  onSelected: (_) => setState(() {
+                    _empleadoFiltro =
+                        _empleadoFiltro == p ? null : p;
+                    _servicioFiltro = null;
+                  }),
+                ),
+              )),
+          if (profesionales.isNotEmpty && servicios.isNotEmpty)
+            const Padding(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: VerticalDivider(width: 1),
+            ),
+          ...servicios.map((s) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  avatar:
+                      const Icon(Icons.room_service, size: 14),
+                  label: Text(s,
+                      style: const TextStyle(fontSize: 12)),
+                  selected: _servicioFiltro == s,
+                  onSelected: (_) => setState(() {
+                    _servicioFiltro =
+                        _servicioFiltro == s ? null : s;
+                    _empleadoFiltro = null;
+                  }),
+                ),
+              )),
+        ],
+      ),
+    );
   }
 
   @override
@@ -113,7 +214,7 @@ class _BodyStreams extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('empresas')
-          .doc(empresaId)
+          .doc(widget.empresaId)
           .collection('reservas')
           .where('fecha_hora', isGreaterThanOrEqualTo: desde)
           .orderBy('fecha_hora')
@@ -121,7 +222,7 @@ class _BodyStreams extends StatelessWidget {
       builder: (ctx, snapR) => StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('empresas')
-            .doc(empresaId)
+            .doc(widget.empresaId)
             .collection('citas')
             .where('fecha_hora', isGreaterThanOrEqualTo: desde)
             .orderBy('fecha_hora')
@@ -134,14 +235,40 @@ class _BodyStreams extends StatelessWidget {
           final todos = <QueryDocumentSnapshot>[
             ...(snapR.data?.docs ?? []),
             ...(snapC.data?.docs ?? []),
-          ]..sort((a, b) => _ts(a['fecha_hora']).compareTo(_ts(b['fecha_hora'])));
+          ]..sort((a, b) =>
+              _ts(a['fecha_hora']).compareTo(_ts(b['fecha_hora'])));
 
-          return TabBarView(
-            controller: tc,
+          final filtrados = _aplicarFiltros(todos);
+
+          // Calcular si hay filtros disponibles
+          final tieneFiltros = todos.any((d) {
+            final data = (d.data() as Map<String, dynamic>?) ?? {};
+            return (data['profesional'] ?? data['empleado'] ?? '').toString().isNotEmpty ||
+                (data['servicio'] ?? data['tipo'] ?? '').toString().isNotEmpty;
+          });
+
+          return Column(
             children: [
-              _VistaHoy(todos: todos, empresaId: empresaId, onNueva: onNueva),
-              _VistaSemana(todos: todos, empresaId: empresaId, onNueva: onNueva),
-              _VistaEstados(todos: todos, empresaId: empresaId),
+              _buildChipsFiltro(todos),
+              if (tieneFiltros) const Divider(height: 1),
+              Expanded(
+                child: TabBarView(
+                  controller: widget.tc,
+                  children: [
+                    _VistaHoy(
+                        todos: filtrados,
+                        empresaId: widget.empresaId,
+                        onNueva: widget.onNueva),
+                    _VistaSemana(
+                        todos: filtrados,
+                        empresaId: widget.empresaId,
+                        onNueva: widget.onNueva),
+                    _VistaEstados(
+                        todos: filtrados,
+                        empresaId: widget.empresaId),
+                  ],
+                ),
+              ),
             ],
           );
         },
@@ -701,7 +828,17 @@ class _Tarjeta extends StatelessWidget {
     final fecha = _ts(_d['fecha_hora']);
     final precio = _d['precio'];
     final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
-    final comensales = _d['numero_personas'] as int?;
+    // personas puede ser int o string (formulario web lo manda como string)
+    final personasRaw = _d['numero_personas'] ?? _d['comensales'] ?? _d['personas'];
+    final comensales = personasRaw is int ? personasRaw
+        : personasRaw is String ? int.tryParse(personasRaw)
+        : null;
+    // ubicación: campo 'zona' (interno) o 'ubicacion' (formulario web)
+    final ubicacion = (_d['zona'] ?? _d['ubicacion'] ?? '') as String;
+    final ubicacionEmoji = ubicacion == 'terraza' ? '🌿' : ubicacion == 'salon' ? '🏠' : '';
+    // alérgenos: bool true o string 'si'
+    final alergenosRaw = _d['alergenos'];
+    final tieneAlergenos = alergenosRaw == true || alergenosRaw == 'si';
     final esCita = doc.reference.path.contains('citas');
 
     return Card(
@@ -804,6 +941,30 @@ class _Tarjeta extends StatelessWidget {
                               color: Color(0xFF607D8B),
                               fontWeight: FontWeight.w600)),
                     ]),
+                  if (!compact && ubicacionEmoji.isNotEmpty)
+                    Row(children: [
+                      Text(ubicacionEmoji,
+                          style: const TextStyle(fontSize: 11)),
+                      const SizedBox(width: 3),
+                      Text(
+                        ubicacion == 'terraza' ? 'Terraza' : 'Salón',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF607D8B),
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ]),
+                  if (!compact && tieneAlergenos)
+                    const Row(children: [
+                      Icon(Icons.warning_amber_rounded,
+                          size: 11, color: Colors.orange),
+                      SizedBox(width: 3),
+                      Text('Alérgenos',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.orange,
+                              fontWeight: FontWeight.w600)),
+                    ]),
                 ],
               ),
             ),
@@ -830,167 +991,15 @@ class _Tarjeta extends StatelessWidget {
   }
 
   void _detalle(BuildContext context) {
-    final cliente = '${_d['cliente'] ?? _d['nombre_cliente'] ?? 'Anónimo'}';
-    final servicio = '${_d['servicio'] ?? _d['tipo'] ?? ''}';
-    final telefono = '${_d['telefono'] ?? _d['telefono_cliente'] ?? ''}';
-    final fecha = _ts(_d['fecha_hora']);
-    final precio = _d['precio'];
-    final notas = '${_d['notas'] ?? _d['observaciones'] ?? ''}';
-    final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
-    final comensales = _d['numero_personas'] as int?;
-    final col = doc.reference.path.contains('citas') ? 'citas' : 'reservas';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        builder: (ctx, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ListView(
-            controller: ctrl,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            children: [
-              Center(
-                  child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 16),
-              Row(children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: _color.withValues(alpha: 0.15),
-                  child: Text(
-                    cliente.isNotEmpty ? cliente[0].toUpperCase() : '?',
-                    style: TextStyle(
-                        color: _color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(cliente,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 18)),
-                          if (telefono.isNotEmpty)
-                            Text(telefono,
-                                style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 13)),
-                        ])),
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: _color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Text(_estado,
-                      style: TextStyle(
-                          color: _color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12)),
-                ),
-              ]),
-              const Divider(height: 28),
-              _fila(Icons.spa, 'Servicio', servicio),
-              _fila(
-                  Icons.schedule,
-                  'Fecha y hora',
-                  DateFormat('EEEE d MMMM yyyy · HH:mm', 'es')
-                      .format(fecha)
-                      .capitalized),
-              if (precio != null)
-                _fila(Icons.euro, 'Precio',
-                    '€${(precio as num).toStringAsFixed(2)}'),
-              if (profesional.isNotEmpty)
-                _fila(Icons.person_pin, 'Profesional', profesional),
-              if (comensales != null && comensales > 0)
-                _fila(Icons.people, 'Comensales', '$comensales ${comensales == 1 ? "persona" : "personas"}'),
-              if (notas.isNotEmpty) _fila(Icons.notes, 'Notas', notas),
-              const SizedBox(height: 20),
-              if (_estado == 'PENDIENTE' ||
-                  _estado == 'SOLICITADA' ||
-                  _estado == 'POR_CONFIRMAR') ...[
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _setEst('CONFIRMADA', col);
-                    Navigator.pop(ctx);
-                  },
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Confirmar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 46),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (_estado != 'CANCELADA' && _estado != 'COMPLETADA')
-                OutlinedButton.icon(
-                  onPressed: () {
-                    _setEst('CANCELADA', col);
-                    Navigator.pop(ctx);
-                  },
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Cancelar reserva'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFD32F2F),
-                    side: const BorderSide(color: Color(0xFFD32F2F)),
-                    minimumSize: const Size(double.infinity, 46),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-            ],
-          ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetalleReservaScreen(
+          doc: doc,
+          empresaId: empresaId,
         ),
       ),
     );
-  }
-
-  Widget _fila(IconData icon, String label, String value) {
-    if (value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 18, color: Colors.grey[500]),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                  Text(value,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500)),
-                ])),
-      ]),
-    );
-  }
-
-  void _setEst(String nuevo, String col) {
-    FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(empresaId)
-        .collection(col)
-        .doc(doc.id)
-        .update({'estado': nuevo});
   }
 }
 

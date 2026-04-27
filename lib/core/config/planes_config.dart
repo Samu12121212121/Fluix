@@ -132,7 +132,6 @@ class PlanesConfig {
     modulosIncluidos: [
       'dashboard',
       'reservas',
-      'citas',
       'clientes',
       'servicios',
       'empleados',
@@ -140,7 +139,7 @@ class PlanesConfig {
       'estadisticas',
       'contenido_web', // alias 'web'
     ],
-    descripcion: 'Reservas, citas, clientes, servicios y estadísticas.',
+    descripcion: 'Reservas, clientes, servicios y estadísticas.',
     color: Color(0xFF1976D2),
     icono: Icons.star_outline,
   );

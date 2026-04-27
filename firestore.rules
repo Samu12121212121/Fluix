@@ -288,20 +288,53 @@ service cloud.firestore {
           || puedeVerModulo(empresaId, 'citas')
           || esAdminOPropietario(empresaId)
           || esPlataformaAdmin();
-        allow create: if isAuth()
-          && request.resource.data.estado == 'PENDIENTE'
-          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente', 'fecha_hora'])
+
+        // ── CREAR reserva ────────────────────────────────────────────────────
+        // 1) Desde el formulario web público (sin login): validación estricta
+        allow create: if request.resource.data.estado == 'PENDIENTE'
+          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
           && request.resource.data.nombre_cliente is string
           && request.resource.data.nombre_cliente.size() > 0
           && request.resource.data.nombre_cliente.size() <= 100
           && request.resource.data.telefono_cliente is string
           && request.resource.data.telefono_cliente.size() > 0
           && request.resource.data.telefono_cliente.size() <= 20
-          && request.resource.data.fecha_hora is timestamp
-          && request.resource.data.fecha_hora > request.time
-          && request.resource.data.fecha_hora < request.time + duration.value(365, 'd');
+          && (
+            // fecha_hora como Timestamp (formulario web) o como string (legacy)
+            request.resource.data.fecha_hora is timestamp
+            || request.resource.data.fecha is timestamp
+          );
+        // 2) Desde la app (usuario autenticado con acceso al módulo)
         allow create: if puedeVerModulo(empresaId, 'reservas')
           || puedeVerModulo(empresaId, 'citas')
+          || esPlataformaAdmin();
+      }
+
+      match /citas/{citaId} {
+        allow read: if puedeVerModulo(empresaId, 'citas')
+          || puedeVerModulo(empresaId, 'reservas')
+          || esPlataformaAdmin();
+        allow update, delete: if puedeVerModulo(empresaId, 'citas')
+          || puedeVerModulo(empresaId, 'reservas')
+          || esAdminOPropietario(empresaId)
+          || esPlataformaAdmin();
+
+        // 1) Desde formulario web público (sin login)
+        allow create: if request.resource.data.estado == 'PENDIENTE'
+          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
+          && request.resource.data.nombre_cliente is string
+          && request.resource.data.nombre_cliente.size() > 0
+          && request.resource.data.nombre_cliente.size() <= 100
+          && request.resource.data.telefono_cliente is string
+          && request.resource.data.telefono_cliente.size() > 0
+          && request.resource.data.telefono_cliente.size() <= 20
+          && (
+            request.resource.data.fecha_hora is timestamp
+            || request.resource.data.fecha is timestamp
+          );
+        // 2) Desde la app
+        allow create: if puedeVerModulo(empresaId, 'citas')
+          || puedeVerModulo(empresaId, 'reservas')
           || esPlataformaAdmin();
       }
 

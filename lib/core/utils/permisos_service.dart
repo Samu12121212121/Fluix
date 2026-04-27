@@ -83,7 +83,7 @@ class SesionUsuario {
   /// Puede crear/editar/cancelar reservas
   bool get puedeGestionarReservas => esAdmin;
 
-  /// Alias para reutilizar permisos del módulo de citas
+  /// Alias para acceso unificado a citas (ahora integradas en reservas)
   bool get puedeGestionarCitas => puedeGestionarReservas;
 
   /// Puede ver reservas
@@ -133,7 +133,6 @@ class SesionUsuario {
           'propietario',   // Panel exclusivo del dueño de la plataforma
           'dashboard',
           'reservas',
-          'citas',
           'clientes',
           'valoraciones',
           'estadisticas',
@@ -153,7 +152,6 @@ class SesionUsuario {
         return [
           'dashboard',
           'reservas',
-          'citas',
           'clientes',
           'valoraciones',
           'estadisticas',
@@ -173,13 +171,12 @@ class SesionUsuario {
         // Solo lo operativo básico: reservas, clientes y valoraciones
         return [
           'reservas',
-          'citas',
           'clientes',
           'valoraciones',
         ];
 
       default:
-        return ['reservas', 'citas'];
+        return ['reservas'];
     }
   }
 
@@ -193,7 +190,7 @@ class SesionUsuario {
 
   /// Lista de TODOS los módulos posibles (para la pantalla de configuración)
   static const todosLosModulos = [
-    'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
+    'dashboard', 'reservas', 'clientes', 'valoraciones',
     'estadisticas', 'servicios', 'pedidos', 'tpv', 'whatsapp', 'tareas',
     'empleados', 'facturacion', 'nominas', 'web',
   ];
@@ -443,6 +440,4 @@ enum ResultadoAccesoModulo {
   /// La suscripción está vencida o suspendida
   suscripcionInactiva,
 }
-
-
 

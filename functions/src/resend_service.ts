@@ -396,6 +396,86 @@ export async function enviarSuscripcionRenovada(opts: {
   });
 }
 
+/** Reset de contraseña con template personalizado */
+export async function enviarResetPassword(opts: {
+  to: string;
+  resetLink: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("reset_password", {
+    email: opts.to,
+    resetLink: opts.resetLink,
+  });
+
+  return enviar({
+    from: DEFAULT_FROM,
+    to: opts.to,
+    subject: "🔑 Restablecer tu contraseña — Fluix CRM",
+    html,
+  });
+}
+
+/** Confirmación de reserva al cliente (la empresa aceptó su reserva) */
+export async function enviarConfirmacionReserva(opts: {
+  to: string;
+  clienteNombre: string;
+  empresaNombre: string;
+  fechaHora: string;
+  personas?: string;
+  servicio?: string;
+  zona?: string;
+  notas?: string;
+  fromEmail?: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("confirmacion_reserva", {
+    clienteNombre: opts.clienteNombre,
+    empresaNombre: opts.empresaNombre,
+    fechaHora: opts.fechaHora,
+    personas: opts.personas || "",
+    servicio: opts.servicio || "",
+    zona: opts.zona || "",
+    notas: opts.notas || "",
+  });
+
+  return enviar({
+    from: opts.fromEmail
+      ? `${opts.empresaNombre} <${opts.fromEmail}>`
+      : `${opts.empresaNombre} <noreply@fluixtech.com>`,
+    to: opts.to,
+    subject: `✅ Reserva confirmada — ${opts.empresaNombre}`,
+    html,
+  });
+}
+
+/** Cancelación de reserva al cliente (la empresa no puede atenderle) */
+export async function enviarCancelacionReserva(opts: {
+  to: string;
+  clienteNombre: string;
+  empresaNombre: string;
+  fechaHora: string;
+  personas?: string;
+  servicio?: string;
+  motivoCancelacion?: string;
+  fromEmail?: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("cancelacion_reserva", {
+    clienteNombre: opts.clienteNombre,
+    empresaNombre: opts.empresaNombre,
+    fechaHora: opts.fechaHora,
+    personas: opts.personas || "",
+    servicio: opts.servicio || "",
+    motivoCancelacion: opts.motivoCancelacion || "",
+  });
+
+  return enviar({
+    from: opts.fromEmail
+      ? `${opts.empresaNombre} <${opts.fromEmail}>`
+      : `${opts.empresaNombre} <noreply@fluixtech.com>`,
+    to: opts.to,
+    subject: `❌ Reserva cancelada — ${opts.empresaNombre}`,
+    html,
+  });
+}
+
 /** PDF genérico con adjunto (para compatibilidad con enviarEmailConPdf) */
 export async function enviarPdfGenerico(opts: {
   from: string;

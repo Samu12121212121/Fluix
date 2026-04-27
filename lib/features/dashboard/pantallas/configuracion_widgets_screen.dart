@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/widget_config.dart' show WidgetConfig;
+import 'package:shimmer/shimmer.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/suscripcion_service.dart';
 
@@ -22,6 +23,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _guardandoCambios = false;
   List<String> _packsActivos = [];
+  bool _cargandoPacks = true; // Evita mostrar 🔒 mientras carga
 
   @override
   void initState() {
@@ -30,13 +32,21 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
   }
 
   Future<void> _cargarPacks() async {
+    if (!mounted) return;
+    setState(() => _cargandoPacks = true);
     try {
       final svc = SuscripcionService();
       final datos = await svc.cargarSuscripcion(widget.empresaId);
-      if (datos != null && mounted) {
-        setState(() => _packsActivos = datos.packsActivos);
+      if (mounted) {
+        setState(() {
+          _packsActivos = datos?.packsActivos ?? [];
+          _cargandoPacks = false;
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ Error cargando packs activos: $e');
+      if (mounted) setState(() => _cargandoPacks = false);
+    }
   }
 
   bool _widgetPermitido(String widgetId) {
@@ -99,21 +109,87 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
         children: [
           _buildHeader(),
           Expanded(
-            child: StreamBuilder<List<WidgetConfig>>(
-              stream: _widgetService.obtenerConfiguracionWidgets(widget.empresaId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEstadoVacio();
-                }
-                final widgets = snapshot.data!;
-                return _buildListaWidgets(widgets);
-              },
-            ),
+            child: _cargandoPacks
+                ? _buildSkeletonPacks()
+                : StreamBuilder<List<WidgetConfig>>(
+                    stream: _widgetService.obtenerConfiguracionWidgets(widget.empresaId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildSkeletonPacks();
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return _buildEstadoVacio();
+                      }
+                      final widgets = snapshot.data!;
+                      return _buildListaWidgets(widgets);
+                    },
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Skeleton shimmer que se muestra mientras se cargan los packs activos
+  /// (evita el flash de 🔒 en widgets que el usuario sí tiene disponibles).
+  Widget _buildSkeletonPacks() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 7,
+      itemBuilder: (context, index) => Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icono placeholder
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Texto placeholder
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(height: 14, width: 140, color: Colors.white),
+                      const SizedBox(height: 6),
+                      Container(height: 11, width: 200, color: Colors.white),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 18,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Switch placeholder
+                Container(
+                  width: 44,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/widget_config.dart';
 import 'package:planeag_flutter/features/dashboard/widgets/widget_proximos_dias.dart';
-import 'package:planeag_flutter/features/dashboard/widgets/widget_citas_resumen.dart';
 import 'package:planeag_flutter/features/dashboard/widgets/widgets_adicionales.dart';
 import 'package:planeag_flutter/features/dashboard/widgets/widgets_resumen_modulos.dart';
 import 'package:planeag_flutter/features/dashboard/widgets/briefing_card.dart';
@@ -28,8 +27,6 @@ class WidgetFactory {
         return WidgetKpisRapidos(empresaId: empresaId);
       case 'reservas_hoy':
         return WidgetReservasHoy(empresaId: empresaId);
-      case 'citas_resumen':
-        return WidgetCitasResumen(empresaId: empresaId);
       case 'valoraciones_recientes':
         return WidgetValoracionesRecientes(empresaId: empresaId);
       case 'resumen_facturacion':
@@ -98,7 +95,7 @@ class WidgetNoImplementado extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Text(

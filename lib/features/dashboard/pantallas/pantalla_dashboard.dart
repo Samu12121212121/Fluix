@@ -47,7 +47,7 @@ class PantallaDashboard extends StatefulWidget {
 }
 
 class _PantallaDashboardState extends State<PantallaDashboard>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   TabController? _tabController;
   final WidgetManagerService _widgetService = WidgetManagerService();
   final DemoCuentaService _demoService = DemoCuentaService();
@@ -83,11 +83,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // para detectar foreground
     _cargarDatosUsuario();
 
     // ── Inicializar el servicio completo de notificaciones ───────────────
-    // Se llama aquí (post-login) para que el permiso de notificaciones
-    // se pida cuando el usuario ya está dentro de la app y entiende por qué.
     NotificacionesService().inicializar();
     
     // Escuchar notificaciones
@@ -105,9 +104,19 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cuando la app vuelve al foreground, re-registrar el token FCM
+    // Esto garantiza que el token siempre esté actualizado en Firestore
+    if (state == AppLifecycleState.resumed && _empresaId != null) {
+      NotificacionesService().guardarTokenConEmpresa(_empresaId!);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController?.dispose();
-    _notifSubscription?.cancel(); // Cancel subscription
+    _notifSubscription?.cancel();
     super.dispose();
   }
 
@@ -286,7 +295,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   'Administrador';
               _cargando = false;
             });
-            debugPrint('✅ Usuario y empresa creados automáticamente');
+
+            // ✅ CRÍTICO: guardar token FCM también en el path de fallback
+            NotificacionesService().suscribirseATopic(fallbackEmpresaId);
+            NotificacionesService().guardarTokenConEmpresa(fallbackEmpresaId);
+            debugPrint('✅ Usuario y empresa creados automáticamente — token FCM guardado');
             return;
           }
         }
@@ -986,8 +999,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         );
     }
     if (widgetConfig.id == 'reservas_hoy' ||
-        widgetConfig.id == 'valoraciones_recientes' ||
-        widgetConfig.id == 'citas_resumen') {
+        widgetConfig.id == 'valoraciones_recientes') {
         return Container(
           height: 280,
           margin: const EdgeInsets.only(bottom: 16),
