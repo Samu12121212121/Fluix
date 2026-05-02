@@ -11,7 +11,7 @@ import 'sonido_notificacion_service.dart';
 /// Handler global para mensajes en background (debe ser función top-level)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('🔔 Notificación en background: ${message.notification?.title}');
+  print(' Notificación en background: ${message.notification?.title}');
 }
 
 /// Servicio de notificaciones push con Firebase Cloud Messaging
@@ -102,10 +102,9 @@ class NotificacionesService {
     // Guardar token del dispositivo en Firestore
     await _guardarTokenDispositivo();
 
-    // Escuchar renovación del token → siempre actualizar en usuarios Y dispositivos
-    _messaging.onTokenRefresh.listen((token) async {
-      print('🔄 Token FCM renovado, actualizando Firestore...');
-      await _actualizarTokenEnFirestore(token);
+    // Escuchar renovación del token
+    _messaging.onTokenRefresh.listen((token) {
+      _actualizarTokenEnFirestore(token);
     });
 
     _inicializado = true;
@@ -123,7 +122,7 @@ class NotificacionesService {
       provisional: false,
       sound: true,
     );
-    print('📱 Permisos notificaciones: ${settings.authorizationStatus}');
+    print(' Permisos notificaciones: ${settings.authorizationStatus}');
   }
 
   /// Configurar plugin de notificaciones locales
@@ -143,7 +142,7 @@ class NotificacionesService {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        print('🔔 Tap en notificación local: ${details.payload}');
+        print(' Tap en notificación local: ${details.payload}');
         _procesarPayload(details.payload);
       },
     );
@@ -151,7 +150,7 @@ class NotificacionesService {
 
   /// Manejar mensajes cuando la app está en primer plano
   void _manejarMensajePrimerPlano(RemoteMessage message) {
-    print('🔔 Notificación en primer plano: ${message.notification?.title}');
+    print(' Notificación en primer plano: ${message.notification?.title}');
     final notif = message.notification;
     if (notif == null) return;
 
@@ -192,17 +191,14 @@ class NotificacionesService {
     );
 
     // Reproducir el sonido configurado por el usuario para este tipo
-    // (unawaited con catch para no crashear la app si falla el audio)
     final tipoStr = message.data['tipo'] as String? ?? 'general';
     final tipo = TipoNotificacionExt.fromId(tipoStr);
-    SonidoNotificacionService().reproducirParaTipo(tipo).catchError((e) {
-      print('⚠️ Error reproduciendo sonido de notificación: $e');
-    });
+    SonidoNotificacionService().reproducirParaTipo(tipo);
   }
 
   /// Manejar tap en notificación cuando la app estaba en background
   void _manejarTapNotificacion(RemoteMessage message) {
-    print('🔔 Usuario tocó notificación: ${message.data}');
+    print(' Usuario tocó notificación: ${message.data}');
     _procesarPayload(jsonEncode(message.data));
     _tapStreamCtrl.add(message.data); // Agregar evento al stream
   }
@@ -213,7 +209,7 @@ class NotificacionesService {
     try {
       final data = jsonDecode(payload) as Map<String, dynamic>;
       final tipo = data['tipo'] as String?;
-      print('🔔 Procesando notificación tipo: $tipo, data: $data');
+      print(' Procesando notificación tipo: $tipo, data: $data');
 
       // Emitir al stream para que la UI pueda navegar
       _tapStreamCtrl.add(data);
@@ -225,28 +221,9 @@ class NotificacionesService {
   /// Obtener y guardar el token FCM en Firestore
   Future<void> _guardarTokenDispositivo() async {
     try {
-      // iOS: debe obtenerse el token APNs ANTES de poder pedir el token FCM.
-      // Sin APNs token, getToken() devuelve null silenciosamente en iOS.
-      if (Platform.isIOS) {
-        String? apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
-          print('⏳ APNs token aún no disponible, esperando 3s...');
-          await Future.delayed(const Duration(seconds: 3));
-          apnsToken = await _messaging.getAPNSToken();
-        }
-        if (apnsToken == null) {
-          print('⚠️ No se pudo obtener APNs token en iOS. Verifica que el certificado APNs esté subido a Firebase Console → Cloud Messaging → Apple app configuration.');
-          return;
-        }
-        print('✅ APNs token obtenido: $apnsToken');
-      }
-
       final token = await _messaging.getToken();
-      if (token == null) {
-        print('⚠️ Token FCM null. En iOS verifica: Push Notifications capability en Xcode, certificado APNs en Firebase y que usas dispositivo físico.');
-        return;
-      }
-      print('📱 Token FCM: $token');
+      if (token == null) return;
+      print(' Token FCM: $token');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
       print('❌ Error obteniendo token FCM: $e');
@@ -322,23 +299,10 @@ class NotificacionesService {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      // iOS: esperar APNs token antes de pedir FCM token
-      if (Platform.isIOS) {
-        String? apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
-          await Future.delayed(const Duration(seconds: 3));
-          apnsToken = await _messaging.getAPNSToken();
-        }
-        if (apnsToken == null) {
-          print('⚠️ iOS: APNs token no disponible en guardarTokenTrasLogin');
-          return;
-        }
-      }
-
       final token = await _messaging.getToken();
       if (token == null) return;
 
-      print('📱 Guardando token FCM tras login para UID: $uid');
+      print(' Guardando token FCM tras login para UID: $uid');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
       print('❌ Error guardando token tras login: $e');
@@ -391,22 +355,6 @@ class NotificacionesService {
     return await _messaging.getToken();
   }
 
-  /// Forza re-registro del token FCM. Útil al volver al foreground o tras login.
-  /// Garantiza que el token esté actualizado en usuarios/ y empresas/.../dispositivos/
-  Future<void> refrescarToken() async {
-    try {
-      // Elimina el token actual para forzar uno nuevo
-      await _messaging.deleteToken();
-      final nuevoToken = await _messaging.getToken();
-      if (nuevoToken != null) {
-        print('🔄 Token FCM refrescado manualmente');
-        await _actualizarTokenEnFirestore(nuevoToken);
-      }
-    } catch (e) {
-      print('❌ Error refrescando token FCM: $e');
-    }
-  }
-
   // ── NOTIFICACIONES LOCALES MANUALES ─────────────────────────────────────────
   // Útiles para notificaciones que se generan en el propio dispositivo
 
@@ -419,7 +367,7 @@ class NotificacionesService {
   }) async {
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      '📅 Nueva Reserva',
+      ' Nueva Reserva',
       '$clienteNombre — $servicio el $fecha',
       _detallesNotificacion(),
       payload: jsonEncode({
@@ -455,7 +403,7 @@ class NotificacionesService {
   }) async {
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      '🛒 Nuevo Pedido',
+      ' Nuevo Pedido',
       '$clienteNombre — €${total.toStringAsFixed(2)}',
       _detallesNotificacion(),
       payload: jsonEncode({

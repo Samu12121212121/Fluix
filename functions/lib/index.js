@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
-exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = void 0;
+exports.onNuevoMensajeContacto = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -2529,4 +2529,372 @@ function _formatearFecha(fecha) {
         year: "numeric",
     });
 }
+// ═════════════════════════════════════════════════════════════════════════════
+// BACKUP NOCTURNO AUTOMÁTICO — Datos fiscales a Cloud Storage
+// Ejecuta cada noche a las 02:00 hora española
+// Exporta: facturas emitidas + recibidas, gastos y libro registro IVA
+// Retención: 7 años (Art. 30 Código de Comercio + Art. 70 LIVA)
+// ═════════════════════════════════════════════════════════════════════════════
+exports.backupDatosFiscalesNocturno = (0, scheduler_1.onSchedule)({
+    schedule: "0 2 * * *",
+    timeZone: "Europe/Madrid",
+    region: REGION,
+    memory: "512MiB",
+    timeoutSeconds: 540,
+}, async (_event) => {
+    var _a, _b, _c;
+    const storage = admin.storage();
+    const bucket = storage.bucket();
+    const hoy = new Date();
+    const fechaStr = hoy.toISOString().split("T")[0];
+    const anio = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+    const empresasSnap = await db.collection("empresas").get();
+    let totalFacturas = 0;
+    let totalGastos = 0;
+    let empresasProcesadas = 0;
+    for (const empDoc of empresasSnap.docs) {
+        const empresaId = empDoc.id;
+        const perfil = (_a = empDoc.data().perfil) !== null && _a !== void 0 ? _a : {};
+        const nifEmpresa = (_b = perfil.nif) !== null && _b !== void 0 ? _b : empresaId;
+        const nombreEmpresa = (_c = perfil.nombre) !== null && _c !== void 0 ? _c : empresaId;
+        try {
+            // ── 1. Facturas emitidas ────────────────────────────────────────────
+            const facturasSnap = await db
+                .collection("empresas").doc(empresaId).collection("facturas")
+                .where("fecha", ">=", new Date(anio, 0, 1))
+                .get();
+            if (!facturasSnap.empty) {
+                const csvFacturas = _buildCsvFacturasEmitidas(facturasSnap.docs);
+                await bucket.file(`backups/${empresaId}/${anio}/facturas_emitidas_${fechaStr}.csv`)
+                    .save(csvFacturas, {
+                    contentType: "text/csv; charset=utf-8",
+                    metadata: { empresa: nombreEmpresa, nif: nifEmpresa, tipo: "facturas_emitidas" },
+                });
+                totalFacturas += facturasSnap.size;
+            }
+            // ── 2. Facturas recibidas ───────────────────────────────────────────
+            const recibidasSnap = await db
+                .collection("empresas").doc(empresaId).collection("facturas_recibidas")
+                .where("fecha", ">=", new Date(anio, 0, 1))
+                .get();
+            if (!recibidasSnap.empty) {
+                const csvRecibidas = _buildCsvFacturasRecibidas(recibidasSnap.docs);
+                await bucket.file(`backups/${empresaId}/${anio}/facturas_recibidas_${fechaStr}.csv`)
+                    .save(csvRecibidas, {
+                    contentType: "text/csv; charset=utf-8",
+                    metadata: { empresa: nombreEmpresa, nif: nifEmpresa, tipo: "facturas_recibidas" },
+                });
+            }
+            // ── 3. Gastos ───────────────────────────────────────────────────────
+            const gastosSnap = await db
+                .collection("empresas").doc(empresaId).collection("gastos")
+                .where("fecha", ">=", new Date(anio, 0, 1))
+                .get();
+            if (!gastosSnap.empty) {
+                const csvGastos = _buildCsvGastos(gastosSnap.docs);
+                await bucket.file(`backups/${empresaId}/${anio}/gastos_${fechaStr}.csv`)
+                    .save(csvGastos, {
+                    contentType: "text/csv; charset=utf-8",
+                    metadata: { empresa: nombreEmpresa, nif: nifEmpresa, tipo: "gastos" },
+                });
+                totalGastos += gastosSnap.size;
+            }
+            // ── 4. Libro registro IVA trimestral (primer día del trimestre) ─────
+            const mesesInicioTrimestre = [1, 4, 7, 10];
+            const esInicioTrimestre = hoy.getDate() === 1 && mesesInicioTrimestre.includes(hoy.getMonth() + 1);
+            if (esInicioTrimestre) {
+                const mesAnterior = hoy.getMonth() === 0 ? 12 : hoy.getMonth();
+                const anioLibro = hoy.getMonth() === 0 ? anio - 1 : anio;
+                const trimestreNum = Math.ceil(mesAnterior / 3);
+                const libroContent = await _buildLibroRegistroTrimestral(empresaId, nifEmpresa, trimestreNum, anioLibro);
+                if (libroContent) {
+                    await bucket
+                        .file(`backups/${empresaId}/${anioLibro}/libro_IVA_${anioLibro}_T${trimestreNum}.txt`)
+                        .save(libroContent, {
+                        contentType: "text/plain; charset=utf-8",
+                        metadata: { empresa: nombreEmpresa, nif: nifEmpresa, tipo: "libro_registro_IVA" },
+                    });
+                }
+            }
+            // ── 5. Log de ejecución ─────────────────────────────────────────────
+            await db.collection("empresas").doc(empresaId)
+                .collection("backups_fiscales").doc(fechaStr)
+                .set({
+                fecha: admin.firestore.FieldValue.serverTimestamp(),
+                facturas_emitidas: facturasSnap.size,
+                facturas_recibidas: recibidasSnap.size,
+                gastos: gastosSnap.size,
+                mes: `${anio}-${mes}`,
+                estado: "completado",
+            }, { merge: true });
+            empresasProcesadas++;
+        }
+        catch (err) {
+            console.error(`[Backup] Error empresa ${empresaId}:`, err);
+            await db.collection("empresas").doc(empresaId)
+                .collection("backups_fiscales").doc(fechaStr)
+                .set({
+                fecha: admin.firestore.FieldValue.serverTimestamp(),
+                estado: "error",
+                error: String(err),
+            }, { merge: true });
+        }
+    }
+    console.log(`[Backup Fiscal] ${empresasProcesadas} empresas · ` +
+        `${totalFacturas} facturas · ${totalGastos} gastos — ${fechaStr}`);
+});
+// ── Helpers CSV / texto ────────────────────────────────────────────────────────
+function _buildCsvFacturasEmitidas(docs) {
+    const hdr = [
+        "numero_factura", "serie", "fecha", "estado",
+        "nif_cliente", "nombre_cliente",
+        "base_imponible", "total_iva", "total_recargo_eq",
+        "retencion_irpf", "total",
+        "tipo_factura", "metodo_pago",
+    ].join(";");
+    const rows = docs.map((doc) => {
+        var _a, _b, _c, _d, _e;
+        const d = doc.data();
+        return [
+            _bcsv(d.numero_factura),
+            _bcsv(d.serie),
+            _bcsvFecha(d.fecha),
+            _bcsv(d.estado),
+            _bcsv((_a = d.datos_fiscales) === null || _a === void 0 ? void 0 : _a.nif),
+            _bcsv((_c = (_b = d.datos_fiscales) === null || _b === void 0 ? void 0 : _b.razon_social) !== null && _c !== void 0 ? _c : d.nombre_cliente),
+            _bcsvNum(d.base_imponible),
+            _bcsvNum(d.total_iva),
+            _bcsvNum((_d = d.total_recargo_equivalencia) !== null && _d !== void 0 ? _d : 0),
+            _bcsvNum((_e = d.retencion_irpf) !== null && _e !== void 0 ? _e : 0),
+            _bcsvNum(d.total),
+            _bcsv(d.tipo_factura),
+            _bcsv(d.metodo_pago),
+        ].join(";");
+    });
+    return "\uFEFF" + hdr + "\n" + rows.join("\n");
+}
+function _buildCsvFacturasRecibidas(docs) {
+    const hdr = [
+        "numero_factura_proveedor", "fecha_factura", "fecha_contabilizacion",
+        "nif_proveedor", "nombre_proveedor",
+        "base_imponible", "cuota_iva", "tipo_iva",
+        "total", "categoria", "deducible",
+    ].join(";");
+    const rows = docs.map((doc) => {
+        var _a, _b, _c, _d;
+        const d = doc.data();
+        return [
+            _bcsv(d.numero_factura),
+            _bcsvFecha((_a = d.fecha_factura) !== null && _a !== void 0 ? _a : d.fecha),
+            _bcsvFecha((_b = d.fecha_contabilizacion) !== null && _b !== void 0 ? _b : d.fecha),
+            _bcsv(d.nif_proveedor),
+            _bcsv(d.nombre_proveedor),
+            _bcsvNum(d.base_imponible),
+            _bcsvNum((_c = d.cuota_iva) !== null && _c !== void 0 ? _c : 0),
+            _bcsvNum((_d = d.tipo_iva) !== null && _d !== void 0 ? _d : 21),
+            _bcsvNum(d.total),
+            _bcsv(d.categoria),
+            _bcsv(d.deducible !== false ? "Sí" : "No"),
+        ].join(";");
+    });
+    return "\uFEFF" + hdr + "\n" + rows.join("\n");
+}
+function _buildCsvGastos(docs) {
+    const hdr = [
+        "id", "fecha", "concepto", "categoria",
+        "importe", "iva", "importe_iva",
+        "proveedor", "justificante", "deducible",
+    ].join(";");
+    const rows = docs.map((doc) => {
+        var _a, _b, _c;
+        const d = doc.data();
+        return [
+            _bcsv(doc.id),
+            _bcsvFecha(d.fecha),
+            _bcsv(d.concepto),
+            _bcsv(d.categoria),
+            _bcsvNum(d.importe),
+            _bcsvNum((_a = d.iva) !== null && _a !== void 0 ? _a : 0),
+            _bcsvNum((_b = d.importe_iva) !== null && _b !== void 0 ? _b : 0),
+            _bcsv((_c = d.proveedor) !== null && _c !== void 0 ? _c : d.nombre_proveedor),
+            _bcsv(d.url_justificante ? "Sí" : "No"),
+            _bcsv(d.deducible !== false ? "Sí" : "No"),
+        ].join(";");
+    });
+    return "\uFEFF" + hdr + "\n" + rows.join("\n");
+}
+async function _buildLibroRegistroTrimestral(empresaId, nifEmpresa, trimestre, anio) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    const mesInicio = (trimestre - 1) * 3 + 1;
+    const mesFin = mesInicio + 2;
+    const fechaIni = new Date(anio, mesInicio - 1, 1);
+    const fechaFin = new Date(anio, mesFin, 0, 23, 59, 59);
+    const snap = await db
+        .collection("empresas").doc(empresaId).collection("facturas")
+        .where("fecha", ">=", fechaIni)
+        .where("fecha", "<=", fechaFin)
+        .orderBy("fecha")
+        .get();
+    if (snap.empty)
+        return null;
+    const sep = "─".repeat(88);
+    const lines = [
+        `LIBRO REGISTRO FACTURAS EMITIDAS`,
+        `NIF Titular: ${nifEmpresa}   Ejercicio: ${anio}   Trimestre: T${trimestre}`,
+        sep,
+        "FACTURA        FECHA       NIF CLIENTE     RAZÓN SOCIAL                 BASE IMP    CUOTA IVA       TOTAL",
+        sep,
+    ];
+    let sumBase = 0, sumCuota = 0, sumTotal = 0;
+    for (const doc of snap.docs) {
+        const d = doc.data();
+        const base = (_a = d.base_imponible) !== null && _a !== void 0 ? _a : 0;
+        const cuota = (_b = d.total_iva) !== null && _b !== void 0 ? _b : 0;
+        const total = (_c = d.total) !== null && _c !== void 0 ? _c : 0;
+        sumBase += base;
+        sumCuota += cuota;
+        sumTotal += total;
+        lines.push(String((_d = d.numero_factura) !== null && _d !== void 0 ? _d : "").padEnd(15) +
+            _bcsvFecha(d.fecha).padEnd(12) +
+            String((_f = (_e = d.datos_fiscales) === null || _e === void 0 ? void 0 : _e.nif) !== null && _f !== void 0 ? _f : "").padEnd(16) +
+            String((_j = (_h = (_g = d.datos_fiscales) === null || _g === void 0 ? void 0 : _g.razon_social) !== null && _h !== void 0 ? _h : d.nombre_cliente) !== null && _j !== void 0 ? _j : "").substring(0, 28).padEnd(29) +
+            base.toFixed(2).padStart(11) +
+            cuota.toFixed(2).padStart(11) +
+            total.toFixed(2).padStart(12));
+    }
+    lines.push(sep);
+    lines.push("TOTALES".padEnd(15 + 12 + 16 + 29) +
+        sumBase.toFixed(2).padStart(11) +
+        sumCuota.toFixed(2).padStart(11) +
+        sumTotal.toFixed(2).padStart(12));
+    return lines.join("\n");
+}
+function _bcsv(val) {
+    if (val === null || val === undefined)
+        return "";
+    const str = String(val).replace(/"/g, '""');
+    return str.includes(";") || str.includes('"') || str.includes("\n") ? `"${str}"` : str;
+}
+function _bcsvNum(val) {
+    return Number(val !== null && val !== void 0 ? val : 0).toFixed(2).replace(".", ",");
+}
+function _bcsvFecha(val) {
+    if (!val)
+        return "";
+    try {
+        const d = (val === null || val === void 0 ? void 0 : val.toDate)
+            ? val.toDate()
+            : new Date(val);
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    }
+    catch (_a) {
+        return String(val);
+    }
+}
+// ═══════════════════════════════════════════════════════════════════════════════
+// FORMULARIO DE CONTACTO WEB — notificación push + email al admin al recibir msg
+// Trigger: empresas/{empresaId}/contacto_web/{mensajeId}  (onDocumentCreated)
+// ═══════════════════════════════════════════════════════════════════════════════
+exports.onNuevoMensajeContacto = (0, firestore_1.onDocumentCreated)({
+    document: "empresas/{empresaId}/contacto_web/{mensajeId}",
+    region: REGION,
+}, async (event) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    const empresaId = event.params.empresaId;
+    const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!data)
+        return;
+    const nombre = (_b = data.nombre) !== null && _b !== void 0 ? _b : "Desconocido";
+    const email = (_c = data.email) !== null && _c !== void 0 ? _c : "";
+    const mensaje = (_d = data.mensaje) !== null && _d !== void 0 ? _d : "";
+    const telefono = (_e = data.telefono) !== null && _e !== void 0 ? _e : "";
+    const fecha = new Date().toLocaleDateString("es-ES", {
+        day: "2-digit", month: "long", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+    });
+    // ── 1. Datos de la empresa ────────────────────────────────────────────
+    let empresaNombre = "Tu empresa";
+    let correoAdmin = null;
+    try {
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        const perfil = (_g = (_f = empresaDoc.data()) === null || _f === void 0 ? void 0 : _f.perfil) !== null && _g !== void 0 ? _g : {};
+        empresaNombre = (_h = perfil.nombre) !== null && _h !== void 0 ? _h : empresaNombre;
+        correoAdmin = (_j = perfil.correo) !== null && _j !== void 0 ? _j : null;
+    }
+    catch (e) {
+        console.warn("⚠️ No se pudo leer empresa:", e);
+    }
+    // ── 2. Push notifications a todos los dispositivos activos ────────────
+    try {
+        const devSnap = await db
+            .collection("empresas").doc(empresaId)
+            .collection("dispositivos")
+            .where("activo", "==", true)
+            .get();
+        const tokens = devSnap.docs
+            .map((d) => d.data().token)
+            .filter((t) => !!t);
+        if (tokens.length > 0) {
+            await admin.messaging().sendEachForMulticast({
+                tokens,
+                notification: {
+                    title: "✉️ Nuevo mensaje de contacto",
+                    body: `${nombre}: "${mensaje.substring(0, 80)}${mensaje.length > 80 ? "…" : ""}"`,
+                },
+                data: {
+                    tipo: "mensaje_contacto",
+                    empresa_id: empresaId,
+                },
+                android: {
+                    priority: "high",
+                    notification: { channelId: "fluixcrm_canal_principal" },
+                },
+                apns: { payload: { aps: { sound: "default", badge: 1 } } },
+            });
+            console.log(`✅ Push enviado a ${tokens.length} dispositivos (empresa: ${empresaId})`);
+        }
+    }
+    catch (e) {
+        console.error("❌ Error enviando push contacto:", e);
+    }
+    // ── 3. Email al admin/propietario via Resend ──────────────────────────
+    if (correoAdmin) {
+        try {
+            const apiKey = process.env.RESEND_API_KEY;
+            if (apiKey) {
+                const { Resend } = await Promise.resolve().then(() => __importStar(require("resend")));
+                const resend = new Resend(apiKey);
+                const fs = await Promise.resolve().then(() => __importStar(require("fs")));
+                const path = await Promise.resolve().then(() => __importStar(require("path")));
+                const tplPath = path.join(__dirname, "templates", "contacto_notificacion.html");
+                let html = fs.existsSync(tplPath) ? fs.readFileSync(tplPath, "utf-8") : "";
+                const vars = {
+                    nombre, email, mensaje, telefono, fecha, empresa_nombre: empresaNombre,
+                };
+                for (const [k, v] of Object.entries(vars)) {
+                    html = html.replace(new RegExp(`{{${k}}}`, "g"), v);
+                }
+                // Limpiar helpers condicionales y variables sobrantes
+                if (!telefono) {
+                    html = html.replace(/{{#telefono}}[\s\S]*?{{\/telefono}}/g, "");
+                }
+                else {
+                    html = html.replace(/{{#telefono}}|{{\/telefono}}/g, "");
+                }
+                html = html.replace(/{{[^}]+}}/g, "");
+                await resend.emails.send({
+                    from: "Fluix CRM <noreply@fluixtech.com>",
+                    to: correoAdmin,
+                    subject: `✉️ Nuevo mensaje de ${nombre} — ${empresaNombre}`,
+                    html: html || `<p>Nuevo mensaje de <b>${nombre}</b> (${email}):<br><br>${mensaje}</p>`,
+                });
+                console.log(`✅ Email de contacto enviado a ${correoAdmin}`);
+            }
+        }
+        catch (e) {
+            console.error("❌ Error enviando email contacto:", e);
+        }
+    }
+});
 //# sourceMappingURL=index.js.map

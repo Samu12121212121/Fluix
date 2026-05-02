@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/detalle_pedido_nuevo_screen.dart';
@@ -448,7 +449,11 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
                   children: _estadosSiguientes(p.estado).map((e) => Padding(
                     padding: const EdgeInsets.only(left: 6),
                     child: OutlinedButton(
-                      onPressed: () => _svc.cambiarEstado(widget.empresaId, p.id, e, '', 'Admin'),
+                      onPressed: () {
+                        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                        final nombre = FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
+                        _svc.cambiarEstado(widget.empresaId, p.id, e, uid, nombre);
+                      },
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: _colorEstado(e)),
                         foregroundColor: _colorEstado(e),

@@ -8,6 +8,7 @@ enum PlanModulo {
   gestion,
   tienda,
   nominas,
+  addon, // Add-on independiente (WhatsApp, Tareas, etc.)
 }
 
 extension PlanModuloExt on PlanModulo {
@@ -18,6 +19,7 @@ extension PlanModuloExt on PlanModulo {
       case PlanModulo.gestion: return 'Pack Gestión';
       case PlanModulo.tienda:  return 'Pack Tienda Online';
       case PlanModulo.nominas: return 'Add-on Nóminas';
+      case PlanModulo.addon:   return 'Add-on';
     }
   }
 
@@ -28,6 +30,7 @@ extension PlanModuloExt on PlanModulo {
       case PlanModulo.gestion: return '370€/año';
       case PlanModulo.tienda:  return '490€/año';
       case PlanModulo.nominas: return '310€/año';
+      case PlanModulo.addon:   return 'Precio variable';
     }
   }
 
@@ -38,6 +41,7 @@ extension PlanModuloExt on PlanModulo {
       case PlanModulo.gestion: return const Color(0xFF7B1FA2);
       case PlanModulo.tienda:  return const Color(0xFFE65100);
       case PlanModulo.nominas: return const Color(0xFF00897B);
+      case PlanModulo.addon:   return const Color(0xFF25D366);
     }
   }
 
@@ -48,6 +52,7 @@ extension PlanModuloExt on PlanModulo {
       case PlanModulo.gestion: return Icons.workspace_premium;
       case PlanModulo.tienda:  return Icons.storefront;
       case PlanModulo.nominas: return Icons.payments;
+      case PlanModulo.addon:   return Icons.extension;
     }
   }
 }
@@ -128,22 +133,6 @@ class ModulosDisponibles {
       plan: PlanModulo.basico,
     ),
     const ModuloConfig(
-      id: 'valoraciones',
-      nombre: 'Valoraciones',
-      descripcion: 'Gestión de las reseñas y valoraciones de los clientes',
-      icono: Icons.star,
-      activo: false,
-      plan: PlanModulo.basico,
-    ),
-    const ModuloConfig(
-      id: 'estadisticas',
-      nombre: 'Estadísticas',
-      descripcion: 'Métricas y KPIs del negocio en tiempo real',
-      icono: Icons.analytics,
-      activo: false,
-      plan: PlanModulo.basico,
-    ),
-    const ModuloConfig(
       id: 'reservas',
       nombre: 'Reservas',
       descripcion: 'Gestión de citas y reservas de clientes',
@@ -156,6 +145,22 @@ class ModulosDisponibles {
       nombre: 'Contenido Web',
       descripcion: 'Gestión del contenido dinámico de tu página web',
       icono: Icons.web,
+      activo: false,
+      plan: PlanModulo.basico,
+    ),
+    const ModuloConfig(
+      id: 'valoraciones',
+      nombre: 'Valoraciones',
+      descripcion: 'Gestión de las reseñas y valoraciones de los clientes',
+      icono: Icons.star,
+      activo: false,
+      plan: PlanModulo.basico,
+    ),
+    const ModuloConfig(
+      id: 'estadisticas',
+      nombre: 'Estadísticas',
+      descripcion: 'Métricas y KPIs del negocio en tiempo real',
+      icono: Icons.analytics,
       activo: false,
       plan: PlanModulo.basico,
     ),
@@ -198,14 +203,6 @@ class ModulosDisponibles {
 
     // ── PACK GESTIÓN ──────────────────────────────────────────────────────────
     const ModuloConfig(
-      id: 'whatsapp',
-      nombre: 'WhatsApp',
-      descripcion: 'Comunicación con clientes vía WhatsApp Business',
-      icono: Icons.chat,
-      activo: false,
-      plan: PlanModulo.gestion,
-    ),
-    const ModuloConfig(
       id: 'facturacion',
       nombre: 'Facturación',
       descripcion: 'Facturas completas con IVA, series y exportación PDF',
@@ -218,14 +215,6 @@ class ModulosDisponibles {
       nombre: 'TPV',
       descripcion: 'Terminal punto de venta para cobros presenciales',
       icono: Icons.point_of_sale,
-      activo: false,
-      plan: PlanModulo.gestion,
-    ),
-    const ModuloConfig(
-      id: 'nominas',
-      nombre: 'Nóminas',
-      descripcion: 'Gestión completa de nóminas y cotizaciones',
-      icono: Icons.payments,
       activo: false,
       plan: PlanModulo.gestion,
     ),
@@ -248,14 +237,34 @@ class ModulosDisponibles {
       plan: PlanModulo.tienda,
     ),
 
-    // ── ADD-ONS ───────────────────────────────────────────────────────────────
+    // ── ADD-ONS INDEPENDIENTES ────────────────────────────────────────────────
+    const ModuloConfig(
+      id: 'whatsapp',
+      nombre: 'WhatsApp',
+      descripcion: 'Comunicación con clientes vía WhatsApp Business',
+      icono: Icons.chat,
+      activo: false,
+      plan: PlanModulo.addon,          // Add-on independiente (+50€/año)
+      incluidoEnPlan: false,
+      precioAdicional: '+50€/año',
+    ),
+    const ModuloConfig(
+      id: 'nominas',
+      nombre: 'Nóminas',
+      descripcion: 'Gestión completa de nóminas y cotizaciones',
+      icono: Icons.payments,
+      activo: false,
+      plan: PlanModulo.nominas,        // Add-on independiente (+310€/año)
+      incluidoEnPlan: false,
+      precioAdicional: '+310€/año',
+    ),
     const ModuloConfig(
       id: 'tareas',
       nombre: 'Tareas',
       descripcion: 'Tareas de productividad por usuario',
       icono: Icons.task_alt,
       activo: false,
-      plan: PlanModulo.basico,
+      plan: PlanModulo.addon,          // Add-on independiente (precio variable)
       incluidoEnPlan: false,
       precioAdicional: 'Precio por usuario/mes',
     ),

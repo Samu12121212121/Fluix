@@ -531,6 +531,7 @@ class ContenidoWebService {
     buf.writeln('  function seedSeccion(seccionEl,seccionId){');
     buf.writeln('    var ref=db.collection("empresas").doc(EMPRESA).collection("contenido_web").doc(seccionId);');
     buf.writeln('    ref.get().then(function(doc){');
+    buf.writeln('      if(doc.exists){ return; }');
     buf.writeln('      if(doc.exists){ console.log("Fluix seed: "+seccionId+" ya existe"); return; }');
     buf.writeln('      var tituloEl=seccionEl.querySelector("[data-fluix-titulo]");');
     buf.writeln('      var items=[];');
@@ -561,7 +562,6 @@ class ContenidoWebService {
     buf.writeln('      }).catch(function(e){');
     buf.writeln('        console.error("Fluix seed error ("+seccionId+"): "+e.message);');
     buf.writeln('      });');
-    buf.writeln('    });');
     buf.writeln('  }');
     buf.writeln('');
     // ── Listener tiempo real: actualiza HTML cuando cambia Firestore ──

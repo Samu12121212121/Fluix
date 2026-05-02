@@ -275,6 +275,7 @@ class PedidosService {
               descripcion: l.productoNombre,
               precioUnitario: l.precioUnitario,
               cantidad: l.cantidad,
+              porcentajeIva: l.ivaPorcentaje,
             ))
         .toList();
 
@@ -315,7 +316,7 @@ class PedidosService {
     MetodoPago.paypal   => MetodoPagoFactura.paypal,
     MetodoPago.bizum    => MetodoPagoFactura.bizum,
     MetodoPago.efectivo => MetodoPagoFactura.efectivo,
-    MetodoPago.mixto    => null, // El mixto no mapea directo a un único método de factura
+    MetodoPago.mixto    => MetodoPagoFactura.transferencia, // mixto → transferencia como fallback
   };
 
   // ── ESTADÍSTICAS ──────────────────────────────────────────────────────────────

@@ -1,34 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// PANTALLA DE LOGIN — Fluix CRM
-//
-// FLUJOS DE CREACIÓN DE CUENTAS:
-//
-// 1. REGISTRO EMAIL (botón "Registrar Nueva Empresa"):
-//    → PantallaRegistro → FormularioRegistro
-//    → Crea Auth user + empresa + usuario con rol 'admin'
-//    → Navega directamente al Dashboard
-//
-// 2. GOOGLE / APPLE SIGN-IN:
-//    → Si usuario nuevo: crea doc con rol 'admin' y empresa_id vacío
-//    → Redirige a PantallaRegistrarEmpresaSocial para completar empresa
-//    → Si ya existe con empresa: navega al Dashboard
-//
-// 3. INVITACIÓN EMPLEADO (deep link fluixcrm://invite?token=XXX):
-//    → PantallaRegistroInvitacion
-//    → Crea Auth + doc usuario con rol asignado por el admin
-//    → empresa_id del invitador, módulos limitados
-//
-// ROLES:
-//    - 'propietario': EXCLUSIVO de FluixTech (empresaPropietariaId)
-//    - 'admin': dueño de cualquier otra empresa (acceso total a su empresa)
-//    - 'staff': empleado invitado (acceso limitado por módulos asignados)
-//
-// BIOMETRÍA (Face ID / Huella):
-//    - Tras primer login exitoso se ofrece activar biometría (diálogo bloqueante)
-//    - Si acepta → siguiente apertura muestra PantallaLoginBiometrico
-//    - NSFaceIDUsageDescription configurado en ios/Runner/Info.plist
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
@@ -65,12 +34,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
     super.dispose();
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   bool get _ocupado => _cargando || _cargandoDemo;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -104,10 +68,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // WIDGETS
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildLogo() {
     return Column(
@@ -160,7 +120,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       key: _formKey,
       child: Column(
         children: [
-          // ── Email ─────────────────────────────────────────
           TextFormField(
             controller: _correoController,
             keyboardType: TextInputType.emailAddress,
@@ -181,8 +140,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
             },
           ),
           const SizedBox(height: 16),
-
-          // ── Contraseña ────────────────────────────────────
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
@@ -204,8 +161,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
             },
           ),
           const SizedBox(height: 24),
-
-          // ── Botón iniciar sesión ─────────────────────────
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -219,13 +174,13 @@ class _PantallaLoginState extends State<PantallaLogin> {
               ),
               child: _cargando
                   ? const SizedBox(
-                      height: 20, width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
+                height: 20, width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
                   : const Text(
-                      'Iniciar Sesión',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
+                'Iniciar Sesión',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -236,7 +191,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
   Widget _buildFooterLinks() {
     return Column(
       children: [
-        // ── Registrar nueva empresa ─────────────────────────
         TextButton(
           onPressed: _ocupado ? null : () {
             Navigator.push(
@@ -254,18 +208,14 @@ class _PantallaLoginState extends State<PantallaLogin> {
           ),
         ),
         const SizedBox(height: 8),
-
-        // ── Olvidé mi contraseña ────────────────────────────
         TextButton(
-          onPressed: _ocupado ? null : _restablecerPassword,
+          onPressed: _ocupado ? null : _restablecerPassword, // FIX: método existe ahora
           child: Text(
             '¿Olvidaste tu contraseña?',
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ),
         const SizedBox(height: 16),
-
-        // ── Separador ──────────────────────────────────────
         Row(
           children: [
             Expanded(child: Divider(color: Colors.grey[300])),
@@ -277,8 +227,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
           ],
         ),
         const SizedBox(height: 16),
-
-        // ── Botón demo ─────────────────────────────────────
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -307,9 +255,65 @@ class _PantallaLoginState extends State<PantallaLogin> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MÉTODOS DE AUTENTICACIÓN
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ── FIX: método _restablecerPassword que faltaba ──────────────────────────
+  Future<void> _restablecerPassword() async {
+    final correo = _correoController.text.trim();
+
+    // Si el campo está vacío pedimos el correo en un diálogo
+    if (correo.isEmpty) {
+      final ctrl = TextEditingController();
+      final ingresado = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Restablecer contraseña'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Tu correo electrónico',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Enviar'),
+            ),
+          ],
+        ),
+      );
+      ctrl.dispose();
+      if (ingresado == null || ingresado.isEmpty) return;
+      await _enviarCorreoRestablecimiento(ingresado);
+    } else {
+      await _enviarCorreoRestablecimiento(correo);
+    }
+  }
+
+  Future<void> _enviarCorreoRestablecimiento(String correo) async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: correo);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Correo de restablecimiento enviado a $correo'),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      _mostrarError(_mapearErrorFirebase(e));
+    } catch (e) {
+      _mostrarError('Error al enviar correo: $e');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AUTENTICACIÓN
+  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _iniciarSesion() async {
     if (!_formKey.currentState!.validate()) return;
@@ -320,7 +324,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
     setState(() => _cargando = true);
 
     try {
-      // ── 1. Protección fuerza bruta ──────────────────────────────────────
       final estado = await FuerzaBrutaService().verificarEstado(correo);
       if (estado.bloqueado) {
         final min = estado.tiempoRestante.inMinutes;
@@ -328,20 +331,16 @@ class _PantallaLoginState extends State<PantallaLogin> {
         return;
       }
 
-      // ── 2. Inicializar admin en debug ───────────────────────────────────
       await AdminInitializer.crearUsuarioAdmin();
 
-      // ── 3. Firebase Auth ────────────────────────────────────────────────
       final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: correo,
         password: password,
       );
       final user = cred.user!;
 
-      // ── 4. Registrar intento exitoso ────────────────────────────────────
       await FuerzaBrutaService().registrarIntento(email: correo, exito: true);
 
-      // ── 5. Verificar 2FA ────────────────────────────────────────────────
       final config2fa = await DosFactoresService().obtenerConfig(user.uid);
       if (config2fa.activo && config2fa.telefono.isNotEmpty) {
         if (!mounted) return;
@@ -362,7 +361,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
         return;
       }
 
-      // ── 6. Post-login ───────────────────────────────────────────────────
       await _postLoginExitoso(user, MetodoAuth.email);
 
     } on FirebaseAuthException catch (e) {
@@ -381,15 +379,12 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-  /// Acciones tras cualquier login exitoso.
   Future<void> _postLoginExitoso(User user, MetodoAuth metodo) async {
-    // Cargar sesión + guardar token FCM en paralelo
     await Future.wait([
       PermisosService().cargarSesion(),
       NotificacionesService().guardarTokenTrasLogin(),
     ]);
 
-    // Auditoría
     final sesion = PermisosService().sesion;
     await AuditoriaService().registrar(
       tipo: TipoEventoAuditoria.loginOk,
@@ -400,7 +395,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       rol: sesion?.rol.name,
     );
 
-    // Ofrecer biometría si no está activa
     final bioActiva = await BiometriaService().estaActiva;
     if (!bioActiva && mounted) {
       await _ofrecerBiometria(user);
@@ -432,11 +426,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
       if (mounted) setState(() => _cargandoDemo = false);
     }
   }
-
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BIOMETRÍA — oferta tras primer login
-  // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _ofrecerBiometria(User user) async {
     final soporta = await BiometriaService().dispositivoSoportaBiometria();
@@ -474,10 +463,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════════════════════════════════════
-
   void _mostrarError(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -487,16 +472,16 @@ class _PantallaLoginState extends State<PantallaLogin> {
 
   String _mapearErrorFirebase(FirebaseAuthException e) {
     return switch (e.code) {
-      'user-not-found'           => 'No existe ninguna cuenta con ese correo.',
-      'wrong-password'           => 'Contraseña incorrecta.',
-      'invalid-credential'       => 'Correo o contraseña incorrectos.',
-      'invalid-email'            => 'El correo no tiene un formato válido.',
-      'user-disabled'            => 'Esta cuenta ha sido deshabilitada.',
-      'too-many-requests'        => 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
-      'network-request-failed'   => 'Sin conexión a internet. Comprueba tu red.',
-      'email-already-in-use'     => 'Ya existe una cuenta con este correo.',
-      'operation-not-allowed'    => 'Método de inicio de sesión no habilitado.',
-      _                          => 'Error: ${e.message ?? e.code}',
+      'user-not-found'         => 'No existe ninguna cuenta con ese correo.',
+      'wrong-password'         => 'Contraseña incorrecta.',
+      'invalid-credential'     => 'Correo o contraseña incorrectos.',
+      'invalid-email'          => 'El correo no tiene un formato válido.',
+      'user-disabled'          => 'Esta cuenta ha sido deshabilitada.',
+      'too-many-requests'      => 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+      'network-request-failed' => 'Sin conexión a internet. Comprueba tu red.',
+      'email-already-in-use'   => 'Ya existe una cuenta con este correo.',
+      'operation-not-allowed'  => 'Método de inicio de sesión no habilitado.',
+      _                        => 'Error: ${e.message ?? e.code}',
     };
   }
 
@@ -504,41 +489,5 @@ class _PantallaLoginState extends State<PantallaLogin> {
     if (telefono.length < 6) return telefono;
     final visible = telefono.substring(telefono.length - 2);
     return '${telefono.substring(0, 3)} *** *** $visible';
-  }
-
-  Future<void> _restablecerPassword() async {
-    if (_correoController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ingresa tu correo electrónico primero'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _correoController.text.trim(),
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Se ha enviado un enlace de restablecimiento a tu correo'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al enviar el correo: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 }

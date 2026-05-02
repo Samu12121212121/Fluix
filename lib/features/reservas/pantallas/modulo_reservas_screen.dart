@@ -338,148 +338,151 @@ class _VistaHoyState extends State<_VistaHoy> {
     final conf = reservas.where((d) => _estado(d) == 'CONFIRMADA').length;
     final pend = reservas.where((d) => _estado(d) == 'PENDIENTE').length;
 
-    return Column(children: [
-      // Strip días
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(children: [
-              Text(
-                DateFormat('MMMM yyyy', 'es').format(_sel).capitalized,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15, color: color),
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 88),
+      itemCount: reservas.isEmpty ? 3 : reservas.length + 2,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          // Strip días
+          return Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Row(children: [
+                  Text(
+                    DateFormat('MMMM yyyy', 'es').format(_sel).capitalized,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15, color: color),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() => _sel = hoy);
+                      _pc.animateToPage(_centro,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut);
+                    },
+                    icon: const Icon(Icons.today, size: 14),
+                    label: const Text('Hoy', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8)),
+                  ),
+                ]),
               ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () {
-                  setState(() => _sel = hoy);
-                  _pc.animateToPage(_centro,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut);
-                },
-                icon: const Icon(Icons.today, size: 14),
-                label: const Text('Hoy', style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8)),
-              ),
-            ]),
-          ),
-          SizedBox(
-            height: 70,
-            child: PageView.builder(
-              controller: _pc,
-              itemCount: _dias.length,
-              onPageChanged: (i) => setState(() => _sel = _dias[i]),
-              itemBuilder: (_, i) {
-                final dia = _dias[i];
-                final esSel = dia == _sel;
-                final esHoy = dia == hoy;
-                final rdias = _delDia(dia);
-                final tieneConf =
-                rdias.any((d) => _estado(d) == 'CONFIRMADA');
-                final tienePend =
-                rdias.any((d) => _estado(d) == 'PENDIENTE');
+              SizedBox(
+                height: 70,
+                child: PageView.builder(
+                  controller: _pc,
+                  itemCount: _dias.length,
+                  onPageChanged: (i) => setState(() => _sel = _dias[i]),
+                  itemBuilder: (_, i) {
+                    final dia = _dias[i];
+                    final esSel = dia == _sel;
+                    final esHoy = dia == hoy;
+                    final rdias = _delDia(dia);
+                    final tieneConf =
+                    rdias.any((d) => _estado(d) == 'CONFIRMADA');
+                    final tienePend =
+                    rdias.any((d) => _estado(d) == 'PENDIENTE');
 
-                return GestureDetector(
-                  onTap: () => setState(() => _sel = dia),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: esSel
-                          ? color
-                          : esHoy
-                          ? color.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: esHoy && !esSel
-                          ? Border.all(
-                          color: color.withValues(alpha: 0.4), width: 1.5)
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('EEE', 'es').format(dia)[0].toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: esSel ? Colors.white70 : Colors.grey[500],
-                          ),
+                    return GestureDetector(
+                      onTap: () => setState(() => _sel = dia),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: esSel
+                              ? color
+                              : esHoy
+                              ? color.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: esHoy && !esSel
+                              ? Border.all(
+                              color: color.withValues(alpha: 0.4), width: 1.5)
+                              : null,
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${dia.day}',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
-                            color: esSel ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (tieneConf)
-                              _punto(esSel
-                                  ? Colors.white
-                                  : const Color(0xFF4CAF50)),
-                            if (tienePend)
-                              _punto(esSel
-                                  ? Colors.white70
-                                  : const Color(0xFFF57C00)),
+                            Text(
+                              DateFormat('EEE', 'es').format(dia)[0].toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: esSel ? Colors.white70 : Colors.grey[500],
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${dia.day}',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: esSel ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (tieneConf)
+                                  _punto(esSel
+                                      ? Colors.white
+                                      : const Color(0xFF4CAF50)),
+                                if (tienePend)
+                                  _punto(esSel
+                                      ? Colors.white70
+                                      : const Color(0xFFF57C00)),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ]),
-      ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]),
+          );
+        }
 
-      // Sub-cabecera
-      Container(
-        color: const Color(0xFFF5F7FA),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(children: [
-          Expanded(
-            child: Text(
-              DateFormat('EEEE, d MMMM', 'es').format(_sel).capitalized,
-              style:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ),
-          if (conf > 0)
-            _Chip('$conf conf.', const Color(0xFF4CAF50)),
-          const SizedBox(width: 6),
-          if (pend > 0)
-            _Chip('$pend pend.', const Color(0xFFF57C00)),
-        ]),
-      ),
+        if (index == 1) {
+          // Sub-cabecera
+          return Container(
+            color: const Color(0xFFF5F7FA),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Row(children: [
+              Expanded(
+                child: Text(
+                  DateFormat('EEEE, d MMMM', 'es').format(_sel).capitalized,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+              if (conf > 0) _Chip('$conf conf.', const Color(0xFF4CAF50)),
+              const SizedBox(width: 6),
+              if (pend > 0) _Chip('$pend pend.', const Color(0xFFF57C00)),
+            ]),
+          );
+        }
 
-      // Lista
-      Expanded(
-        child: reservas.isEmpty
-            ? _Vacio(
-          icono: Icons.event_available,
-          msg: 'Sin reservas el ${DateFormat('d MMMM', 'es').format(_sel)}',
-          onNueva: widget.onNueva,
-        )
-            : ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-          itemCount: reservas.length,
-          itemBuilder: (_, i) =>
-              _Tarjeta(doc: reservas[i], empresaId: widget.empresaId),
-        ),
-      ),
-    ]);
+        if (reservas.isEmpty) {
+          return _Vacio(
+            icono: Icons.event_available,
+            msg: 'Sin reservas el ${DateFormat('d MMMM', 'es').format(_sel)}',
+            onNueva: widget.onNueva,
+          );
+        }
+
+        final i = index - 2;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, 4, 16, i == reservas.length - 1 ? 100 : 4),
+          child: _Tarjeta(doc: reservas[i], empresaId: widget.empresaId),
+        );
+      },
+    );
   }
 
   Widget _punto(Color c) => Container(
@@ -828,17 +831,7 @@ class _Tarjeta extends StatelessWidget {
     final fecha = _ts(_d['fecha_hora']);
     final precio = _d['precio'];
     final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
-    // personas puede ser int o string (formulario web lo manda como string)
-    final personasRaw = _d['numero_personas'] ?? _d['comensales'] ?? _d['personas'];
-    final comensales = personasRaw is int ? personasRaw
-        : personasRaw is String ? int.tryParse(personasRaw)
-        : null;
-    // ubicación: campo 'zona' (interno) o 'ubicacion' (formulario web)
-    final ubicacion = (_d['zona'] ?? _d['ubicacion'] ?? '') as String;
-    final ubicacionEmoji = ubicacion == 'terraza' ? '🌿' : ubicacion == 'salon' ? '🏠' : '';
-    // alérgenos: bool true o string 'si'
-    final alergenosRaw = _d['alergenos'];
-    final tieneAlergenos = alergenosRaw == true || alergenosRaw == 'si';
+    final comensales = _d['numero_personas'] as int?;
     final esCita = doc.reference.path.contains('citas');
 
     return Card(
@@ -939,30 +932,6 @@ class _Tarjeta extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF607D8B),
-                              fontWeight: FontWeight.w600)),
-                    ]),
-                  if (!compact && ubicacionEmoji.isNotEmpty)
-                    Row(children: [
-                      Text(ubicacionEmoji,
-                          style: const TextStyle(fontSize: 11)),
-                      const SizedBox(width: 3),
-                      Text(
-                        ubicacion == 'terraza' ? 'Terraza' : 'Salón',
-                        style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF607D8B),
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ]),
-                  if (!compact && tieneAlergenos)
-                    const Row(children: [
-                      Icon(Icons.warning_amber_rounded,
-                          size: 11, color: Colors.orange),
-                      SizedBox(width: 3),
-                      Text('Alérgenos',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.orange,
                               fontWeight: FontWeight.w600)),
                     ]),
                 ],

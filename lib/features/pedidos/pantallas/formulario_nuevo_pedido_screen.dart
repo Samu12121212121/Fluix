@@ -1049,7 +1049,7 @@ class _SelectorProductosSheetState extends State<_SelectorProductosSheet> {
                             children: [
                               const Text('Subtotal', style: TextStyle(fontSize: 11, color: Colors.grey)),
                               Text(
-                                '${((_seleccionado!.precio + (_varianteSeleccionada?.precioDiferencia ?? 0)) * _cantidad).toStringAsFixed(2)} €',
+                                '${((_varianteSeleccionada != null ? _varianteSeleccionada!.precioEfectivo(_seleccionado!.precio) : _seleccionado!.precio) * _cantidad).toStringAsFixed(2)} €',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1976D2)),
                               ),
                             ],
@@ -1096,12 +1096,15 @@ class _SelectorProductosSheetState extends State<_SelectorProductosSheet> {
 
   void _confirmarSeleccion() {
     final p = _seleccionado!;
-    final precioFinal = p.precio + (_varianteSeleccionada?.precioDiferencia ?? 0);
+    final precioFinal = _varianteSeleccionada != null
+        ? _varianteSeleccionada!.precioEfectivo(p.precio)
+        : p.precio;
     final linea = LineaPedido(
       productoId: p.id,
       productoNombre: p.nombre,
       precioUnitario: precioFinal,
       cantidad: _cantidad,
+      ivaPorcentaje: p.ivaPorcentaje,
       variante: _varianteSeleccionada,
     );
     widget.onSeleccionado(linea);

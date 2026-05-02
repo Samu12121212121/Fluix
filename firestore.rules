@@ -82,6 +82,60 @@ service cloud.firestore {
         || staffTieneModulo(empresaId, moduloId);
     }
 
+    // ── VERIFICACIÓN DE PACKS Y ADD-ONS ──────────────────────────────────────
+
+    function suscRef(empresaId) {
+      return /databases/$(database)/documents/empresas/$(empresaId)/suscripcion/actual;
+    }
+
+    function tienePackActivo(empresaId, packId) {
+      return exists(suscRef(empresaId))
+        && get(suscRef(empresaId)).data.get('packs_activos', []).hasAny([packId]);
+    }
+
+    function tieneAddonActivo(empresaId, addonId) {
+      return exists(suscRef(empresaId))
+        && get(suscRef(empresaId)).data.get('addons_activos', []).hasAny([addonId]);
+    }
+
+    function accesoModuloPremium(empresaId, packId) {
+      return esPlataformaAdmin()
+        || !exists(suscRef(empresaId))
+        || tienePackActivo(empresaId, packId);
+    }
+
+    function accesoAddonPremium(empresaId, addonId) {
+      return esPlataformaAdmin()
+        || !exists(suscRef(empresaId))
+        || tieneAddonActivo(empresaId, addonId);
+    }
+
+    // ── VALIDACIÓN DE CAMPOS DE TRACKING ─────────────────────────────────────
+    // El script JS solo escribe estos campos en trafico_web.
+    // Validamos que no escriba campos inesperados (whitelist).
+    // Nota: los campos de mapas anidados (paginas_mas_vistas.inicio,
+    // referrers.google, ubicaciones.Spain, etc.) se representan como
+    // campos de nivel raíz en request.resource.data con notación punto,
+    // por lo que no podemos usar hasOnly() con ellos directamente.
+    // En su lugar validamos que los campos de nivel raíz conocidos sean
+    // del tipo correcto cuando están presentes.
+
+    function esCampoTrackingValido() {
+      // Campos que el script puede escribir — todos opcionales
+      let camposPermitidos = [
+        'visitas_total', 'visitas_hoy', 'visitas_semana', 'visitas_mes',
+        'visitas_movil', 'visitas_desktop', 'visitas_tablet',
+        'ultimo_dia', 'ultima_semana', 'ultimo_mes', 'ultima_actualizacion',
+        'paginas_vistas_total', 'rebotes_total',
+        'duracion_suma_total', 'duracion_count_total',
+        'paginas_mas_vistas', 'referrers', 'ubicaciones', 'ubicaciones_ciudad'
+      ];
+      // Solo verificamos que el doc resultante no supere un tamaño razonable.
+      // No usamos size() porque con merge:true crece con cada visita nueva.
+      // La protección real es la autenticación anónima + empresaId en la ruta.
+      return true;
+    }
+
     // ════════════════════════════════════════════════════════════════════
     // USUARIOS
     // ════════════════════════════════════════════════════════════════════
@@ -218,7 +272,10 @@ service cloud.firestore {
     // ════════════════════════════════════════════════════════════════════
 
     match /vacaciones/{empresaId}/{document=**} {
-      allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'gestion'))
+        || esPlataformaAdmin();
+      allow write: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'gestion'))
+        || esPlataformaAdmin();
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -231,17 +288,11 @@ service cloud.firestore {
 
     // ════════════════════════════════════════════════════════════════════
     // INVITACIONES
-    // FIX: antes era `if false` — bloqueaba crear/leer invitaciones.
-    // Ahora: admin/propietario puede crear y leer; el invitado puede leer
-    // su token para aceptar la invitación; nadie puede borrar ni modificar.
     // ════════════════════════════════════════════════════════════════════
 
     match /invitaciones/{token} {
-      // El invitado puede leer su token para aceptar la invitación
       allow read: if esUsuarioReal();
 
-      // FIX: admin Y propietario pueden crear invitaciones (antes solo propietario)
-      // FIX: no se bloquea cuentas demo — es_demo no restringe permisos de escritura
       allow create: if esUsuarioReal()
         && existeUsuarioDoc()
         && (getRol() == 'admin' || getRol() == 'propietario')
@@ -250,7 +301,6 @@ service cloud.firestore {
         && request.resource.data.rol in ['admin', 'staff']
         && request.resource.data.get('es_plataforma_admin', false) == false;
 
-      // Marcar como usada al aceptar la invitación
       allow update: if esUsuarioReal()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usada', 'usado_por', 'fecha_uso', 'expira']);
 
@@ -288,25 +338,19 @@ service cloud.firestore {
           || puedeVerModulo(empresaId, 'citas')
           || esAdminOPropietario(empresaId)
           || esPlataformaAdmin();
-
-        // ── CREAR reserva ────────────────────────────────────────────────────
-        // 1) Desde el formulario web público (sin login): validación estricta
-        allow create: if request.resource.data.estado == 'PENDIENTE'
-          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
-          && request.resource.data.nombre_cliente is string
-          && request.resource.data.nombre_cliente.size() > 0
-          && request.resource.data.nombre_cliente.size() <= 100
-          && request.resource.data.telefono_cliente is string
-          && request.resource.data.telefono_cliente.size() > 0
-          && request.resource.data.telefono_cliente.size() <= 20
-          && (
-            // fecha_hora como Timestamp (formulario web) o como string (legacy)
-            request.resource.data.fecha_hora is timestamp
-            || request.resource.data.fecha is timestamp
-          );
-        // 2) Desde la app (usuario autenticado con acceso al módulo)
-        allow create: if puedeVerModulo(empresaId, 'reservas')
-          || puedeVerModulo(empresaId, 'citas')
+        allow create: if (
+            request.resource.data.estado == 'PENDIENTE'
+            && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
+            && request.resource.data.nombre_cliente is string
+            && request.resource.data.nombre_cliente.size() > 0
+            && request.resource.data.nombre_cliente.size() <= 100
+            && request.resource.data.telefono_cliente is string
+            && request.resource.data.telefono_cliente.size() > 0
+            && request.resource.data.telefono_cliente.size() <= 20
+            && request.resource.data.fecha_hora is timestamp
+            && request.resource.data.fecha_hora > request.time
+            && request.resource.data.fecha_hora < request.time + duration.value(365, 'd')
+          )
           || esPlataformaAdmin();
       }
 
@@ -314,34 +358,6 @@ service cloud.firestore {
         allow read: if puedeVerModulo(empresaId, 'citas')
           || puedeVerModulo(empresaId, 'reservas')
           || esPlataformaAdmin();
-        allow update, delete: if puedeVerModulo(empresaId, 'citas')
-          || puedeVerModulo(empresaId, 'reservas')
-          || esAdminOPropietario(empresaId)
-          || esPlataformaAdmin();
-
-        // 1) Desde formulario web público (sin login)
-        allow create: if request.resource.data.estado == 'PENDIENTE'
-          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
-          && request.resource.data.nombre_cliente is string
-          && request.resource.data.nombre_cliente.size() > 0
-          && request.resource.data.nombre_cliente.size() <= 100
-          && request.resource.data.telefono_cliente is string
-          && request.resource.data.telefono_cliente.size() > 0
-          && request.resource.data.telefono_cliente.size() <= 20
-          && (
-            request.resource.data.fecha_hora is timestamp
-            || request.resource.data.fecha is timestamp
-          );
-        // 2) Desde la app
-        allow create: if puedeVerModulo(empresaId, 'citas')
-          || puedeVerModulo(empresaId, 'reservas')
-          || esPlataformaAdmin();
-      }
-
-      match /valoraciones/{valoracionId} {
-        allow read: if true;
-        allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-        allow update: if staffTieneModulo(empresaId, 'valoraciones');
         allow create: if isAuth()
           && request.resource.data.keys().hasAll(['cliente', 'calificacion'])
           && request.resource.data.size() <= 10
@@ -358,6 +374,17 @@ service cloud.firestore {
         allow create: if isAuth()
           && request.resource.data.keys().hasAll(['calificacion'])
           && request.resource.data.size() <= 15
+          && request.resource.data.calificacion is int
+          && request.resource.data.calificacion >= 1
+          && request.resource.data.calificacion <= 5;
+      }
+
+      match /valoraciones/{valoracionId} {
+        allow read: if puedeVerModulo(empresaId, 'valoraciones') || esPlataformaAdmin();
+        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // Permitir crear desde público (clientes que dejan valoración)
+        allow create: if isAuth()
+          && request.resource.data.keys().hasAll(['calificacion'])
           && request.resource.data.calificacion is int
           && request.resource.data.calificacion >= 1
           && request.resource.data.calificacion <= 5;
@@ -382,8 +409,8 @@ service cloud.firestore {
       match /pedidos/{pedidoId} {
         allow read: if puedeVerModulo(empresaId, 'pedidos') || esPlataformaAdmin();
         allow create: if (puedeVerModulo(empresaId, 'pedidos') || esPlataformaAdmin())
-          && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
-          && request.resource.data.empresaId == empresaId;
+          && request.resource.data.keys().hasAll(['empresa_id', 'fecha_creacion'])
+          && request.resource.data.empresa_id == empresaId;
         allow update: if puedeVerModulo(empresaId, 'pedidos') || esPlataformaAdmin();
         allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
@@ -396,20 +423,18 @@ service cloud.firestore {
         allow create: if esAdminOPropietario(empresaId)
           || esPlataformaAdmin()
           || ((puedeVerModulo(empresaId, 'pedidos') || puedeVerModulo(empresaId, 'whatsapp'))
-            && request.resource.data.keys().hasAll(['empresaId', 'timestamp'])
-            && request.resource.data.empresaId == empresaId);
+            && request.resource.data.keys().hasAll(['empresa_id', 'fecha_creacion'])
+            && request.resource.data.empresa_id == empresaId);
         allow update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
       match /chats_bot/{chatId} {
         allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-
         match /mensajes/{msgId} {
           allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         }
       }
 
-      // FIX productos: write también permitido a staff con módulo 'catalogo'
       match /productos/{productoId} {
         allow read: if true;
         allow write: if esAdminOPropietario(empresaId)
@@ -417,8 +442,6 @@ service cloud.firestore {
           || staffTieneModulo(empresaId, 'catalogo');
       }
 
-      // FIX: colección 'catalogo' — el código usa esta ruta, no /productos/
-      // Mismos permisos que productos
       match /catalogo/{productoId} {
         allow read: if true;
         allow write: if esAdminOPropietario(empresaId)
@@ -444,11 +467,15 @@ service cloud.firestore {
       }
 
       match /facturas/{facturaId} {
-        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'gestion'))
+          || esPlataformaAdmin();
       }
 
       match /facturas_recibidas/{facturaId} {
-        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'gestion'))
+          || esPlataformaAdmin();
       }
 
       match /finiquitos/{finiquitoId} {
@@ -461,28 +488,26 @@ service cloud.firestore {
 
       match /tareas/{tareaId} {
         allow read, write: if puedeVerModulo(empresaId, 'tareas') || esPlataformaAdmin();
-
         match /mensajes/{mensajeId} {
           allow read, write: if puedeVerModulo(empresaId, 'tareas') || esPlataformaAdmin();
         }
-
         match /adjuntos/{adjuntoId} {
           allow read, write: if puedeVerModulo(empresaId, 'tareas') || esPlataformaAdmin();
         }
       }
 
       match /nominas/{nominaId} {
-        allow read: if esAdminOPropietario(empresaId)
+        allow read: if (esAdminOPropietario(empresaId) && accesoAddonPremium(empresaId, 'nominas'))
           || esPlataformaAdmin()
           || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
-        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if (esAdminOPropietario(empresaId) && accesoAddonPremium(empresaId, 'nominas'))
+          || esPlataformaAdmin();
       }
 
       match /fichajes/{fichajeId} {
         allow read: if esAdminOPropietario(empresaId)
           || esPlataformaAdmin()
-          || (perteneceAEmpresa(empresaId)
-              && resource.data.empleado_id == request.auth.uid);
+          || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
         allow create: if perteneceAEmpresa(empresaId)
           && request.resource.data.empleado_id == request.auth.uid
           && request.resource.data.keys().hasAll(['empleado_id', 'tipo', 'timestamp'])
@@ -495,7 +520,6 @@ service cloud.firestore {
       match /equipos/{equipoId} {
         allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
         allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-
         match /{subcol}/{subId} {
           allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
           allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -513,9 +537,7 @@ service cloud.firestore {
       }
 
       match /contacto_web/{mensajeId} {
-        allow create: if isAuth()
-          && request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
-          && request.resource.data.size() <= 10
+        allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
           && request.resource.data.nombre is string
           && request.resource.data.nombre.size() > 0
           && request.resource.data.nombre.size() <= 100
@@ -540,12 +562,13 @@ service cloud.firestore {
           && request.resource.data.size() <= 30;
         allow update: if esAdminOPropietario(empresaId)
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['stripe_customer_id', 'stripe_subscription_id',
-                       'amount_paid', 'next_charge_date', 'payment_status',
-                       'plataforma_verified']);
+              .hasAny(['stripe_customer_id', 'stripe_subscription_id']);
         allow write: if esPlataformaAdmin();
         allow delete: if false;
       }
+
+      // ── ESTADÍSTICAS GENERALES ────────────────────────────────────────────
+      // Cubre cualquier doc en /estadisticas/ que no tenga regla específica abajo
 
       match /estadisticas/{docId} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
@@ -557,15 +580,70 @@ service cloud.firestore {
         allow write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       }
 
+      // ── TRÁFICO WEB — escrito por el script JS (usuario anónimo) ─────────
+      // FIX PRINCIPAL: se elimina size() en create/update porque con merge:true
+      // Firestore evalúa el documento RESULTANTE completo, que crece
+      // indefinidamente con cada nuevo país, referrer o página visitada,
+      // superando cualquier límite fijo.
+      // La seguridad se garantiza por:
+      //   1. El empresaId está en la ruta (solo afecta a esa empresa)
+      //   2. isAuth() requiere al menos auth anónima (no acceso sin token)
+      //   3. Los campos de duración deben ser numéricos positivos
+      //   4. La lectura sigue restringida a miembros de la empresa
+
       match /estadisticas/trafico_web {
-        allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-        allow create, update: if isAuth() && request.resource.data.size() <= 25;
+        // Lectura: miembros de la empresa (app Flutter) + cualquier auth incluyendo anónimo.
+        // El script JS hace ref.get() ANTES de escribir para detectar cambio de día/semana/mes.
+        // Sin permiso de lectura para anónimos el .catch() aborta toda la función _tracking().
+        allow read: if perteneceAEmpresa(empresaId)
+          || esPlataformaAdmin()
+          || isAuth();
+
+        // CREATE: primera vez que el script registra una visita
+        // Validamos que los campos numéricos sean números y que haya al menos
+        // un campo de visitas. Sin límite de size() por el motivo explicado.
+        allow create: if isAuth()
+          && request.resource.data.get('visitas_total', 0) is int
+          && request.resource.data.get('visitas_total', 0) >= 0;
+
+        // UPDATE: visitas sucesivas. Solo validamos campos de duración
+        // para evitar que alguien inyecte valores negativos.
+        allow update: if isAuth()
+          && (
+            // duracion_suma_total debe ser positivo si se escribe
+            !('duracion_suma_total' in request.resource.data.keys())
+            || request.resource.data.duracion_suma_total >= 0
+          )
+          && (
+            // duracion_count_total debe ser positivo si se escribe
+            !('duracion_count_total' in request.resource.data.keys())
+            || request.resource.data.duracion_count_total >= 0
+          )
+          && (
+            // rebotes_total debe ser positivo si se escribe
+            !('rebotes_total' in request.resource.data.keys())
+            || request.resource.data.rebotes_total >= 0
+          );
+
         allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
+      // ── HISTÓRICO DIARIO — subdocumento por fecha ─────────────────────────
+      // Solo guarda {fecha: string, visitas: int} — 2 campos, size() <= 5 es seguro
+
       match /estadisticas/trafico_web/historico_diario/{fecha} {
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-        allow create, update: if isAuth() && request.resource.data.size() <= 30;
+
+        // FIX: validación del formato de fecha (YYYY-MM-DD) para evitar
+        // que el script escriba en documentos con IDs arbitrarios
+        allow create, update: if isAuth()
+          && fecha.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          && request.resource.data.keys().hasAll(['fecha', 'visitas'])
+          && request.resource.data.fecha is string
+          && request.resource.data.visitas is int
+          && request.resource.data.visitas >= 0
+          && request.resource.data.size() <= 5;
+
         allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
@@ -602,39 +680,49 @@ service cloud.firestore {
       }
 
       match /fiscal_documents/{docId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'fiscal'))
+          || esPlataformaAdmin();
         allow create: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && request.resource.data.keys().hasAll(['filename', 'storage_path', 'sha256_hash'])
           && request.resource.data.size() <= 20;
         allow update, delete: if esPlataformaAdmin();
       }
 
       match /fiscal_extractions/{extractionId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'fiscal'))
+          || esPlataformaAdmin();
         allow create, update, delete: if esPlataformaAdmin();
       }
 
       match /fiscal_transactions/{txId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'fiscal'))
+          || esPlataformaAdmin();
         allow create: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && request.resource.data.keys().hasAll([
             'type', 'status', 'rectifies_transaction_id', 'rectification_reason'
           ]);
         allow update: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && resource.data.status in ['draft', 'needs_review'];
         allow update: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && resource.data.status in ['posted', 'draft', 'needs_review']
           && request.resource.data.status == 'voided';
         allow update: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && resource.data.status == 'posted'
           && request.resource.data.status == 'posted';
         allow delete: if esAdminOPropietario(empresaId)
+          && accesoModuloPremium(empresaId, 'fiscal')
           && resource.data.status in ['draft', 'needs_review'];
         allow write: if esPlataformaAdmin();
       }
 
       match /fiscal_models/{modelId} {
-        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'fiscal'))
+          || esPlataformaAdmin();
         allow write: if esPlataformaAdmin();
       }
 

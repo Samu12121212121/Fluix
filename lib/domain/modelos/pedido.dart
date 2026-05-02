@@ -261,7 +261,7 @@ class Producto {
     variantes: variantes ?? this.variantes,
     etiquetas: etiquetas ?? this.etiquetas,
     fechaCreacion: fechaCreacion,
-    fechaActualizacion: DateTime.now(),
+    fechaActualizacion: this.fechaActualizacion,
   );
 }
 
@@ -273,6 +273,7 @@ class LineaPedido {
   final double precioUnitario;
   final double? costeUnitario;
   final int cantidad;
+  final double ivaPorcentaje;      // % IVA del producto (21, 10, 4, 0)
   final VarianteProducto? variante;
   final String? notasLinea;
 
@@ -282,6 +283,7 @@ class LineaPedido {
     required this.precioUnitario,
     this.costeUnitario,
     required this.cantidad,
+    this.ivaPorcentaje = 21.0,
     this.variante,
     this.notasLinea,
   });
@@ -294,6 +296,7 @@ class LineaPedido {
     precioUnitario: (d['precio_unitario'] as num?)?.toDouble() ?? 0,
     costeUnitario: (d['coste_unitario'] as num?)?.toDouble(),
     cantidad: (d['cantidad'] as num?)?.toInt() ?? 1,
+    ivaPorcentaje: (d['iva_porcentaje'] as num?)?.toDouble() ?? 21.0,
     variante: d['variante'] != null
         ? VarianteProducto.fromMap(d['variante'] as Map<String, dynamic>)
         : null,
@@ -306,6 +309,7 @@ class LineaPedido {
     'precio_unitario': precioUnitario,
     'coste_unitario': costeUnitario,
     'cantidad': cantidad,
+    'iva_porcentaje': ivaPorcentaje,
     'variante': variante?.toMap(),
     'notas_linea': notasLinea,
   };
@@ -443,6 +447,7 @@ class Pedido {
   Map<String, dynamic> toFirestore() => {
     'empresa_id': empresaId,
     'cliente_nombre': clienteNombre,
+    'cliente_telefono': clienteTelefono,
     'cliente_correo': clienteCorreo,
     'lineas': lineas.map((l) => l.toMap()).toList(),
     'total': total,

@@ -485,33 +485,52 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
 
       case 'anular':
         final ctrl = TextEditingController();
-        showDialog(
+        final confirmar = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Anular factura'),
             content: TextField(
               controller: ctrl,
-              decoration: const InputDecoration(labelText: 'Motivo'),
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Motivo (opcional)',
+                hintText: 'Ej: Error en los datos, duplicada…',
+              ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _service.anularFactura(
-                    empresaId: empresaId,
-                    facturaId: widget.factura.id,
-                    motivo: ctrl.text,
-                    usuarioId: _userId,
-                    usuarioNombre: _userName,
-                  );
-                },
+                onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 child: const Text('Anular', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
         );
+        if (confirmar != true) break;
+        try {
+          await _service.anularFactura(
+            empresaId: empresaId,
+            facturaId: widget.factura.id,
+            motivo: ctrl.text.trim().isEmpty ? 'Sin motivo especificado' : ctrl.text.trim(),
+            usuarioId: _userId,
+            usuarioNombre: _userName,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Factura anulada correctamente'),
+                backgroundColor: Colors.grey,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('❌ Error al anular: $e'), backgroundColor: Colors.red),
+            );
+          }
+        }
         break;
     }
   }

@@ -2032,6 +2032,340 @@ class _StatChip extends StatelessWidget {
   }
 }
 
+// ── TAB INTERACCIONES ─────────────────────────────────────────────────────────
+
+class _TabInteracciones extends StatefulWidget {
+  final String empresaId;
+  final String clienteId;
+  final String usuarioNombre;
+
+  const _TabInteracciones({
+    required this.empresaId,
+    required this.clienteId,
+    required this.usuarioNombre,
+  });
+
+  @override
+  State<_TabInteracciones> createState() => _TabInteraccionesState();
+}
+
+class _TabInteraccionesState extends State<_TabInteracciones>
+    with AutomaticKeepAliveClientMixin {
+  final _svc = ClientesService();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  static const _iconos = {
+    TipoInteraccion.llamada:  (icon: Icons.phone,         color: Color(0xFF2E7D32)),
+    TipoInteraccion.email:    (icon: Icons.email_outlined, color: Color(0xFF1976D2)),
+    TipoInteraccion.whatsapp: (icon: Icons.chat_bubble_outline, color: Color(0xFF25D366)),
+    TipoInteraccion.nota:     (icon: Icons.sticky_note_2_outlined, color: Color(0xFF607D8B)),
+    TipoInteraccion.reunion:  (icon: Icons.groups_outlined, color: Color(0xFF7B1FA2)),
+    TipoInteraccion.reserva:  (icon: Icons.event_outlined, color: Color(0xFFF57C00)),
+  };
+
+  String _formatFecha(DateTime fecha) {
+    final dif = DateTime.now().difference(fecha);
+    if (dif.inMinutes < 1) return 'Ahora';
+    if (dif.inMinutes < 60) return 'Hace ${dif.inMinutes}min';
+    if (dif.inHours < 24) return 'Hace ${dif.inHours}h';
+    if (dif.inDays == 1) return 'Ayer';
+    if (dif.inDays < 7) return 'Hace ${dif.inDays} días';
+    return DateFormat('dd/MM/yyyy').format(fecha);
+  }
+
+  Future<void> _abrirFormulario() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SheetNuevaInteraccion(
+        empresaId: widget.empresaId,
+        clienteId: widget.clienteId,
+        usuarioNombre: widget.usuarioNombre,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return StreamBuilder<List<InteraccionCliente>>(
+      stream: _svc.watchInteracciones(widget.empresaId, widget.clienteId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final items = snapshot.data ?? [];
+        return Stack(
+          children: [
+            if (items.isEmpty)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.forum_outlined, size: 60, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text('Sin interacciones registradas',
+                        style: TextStyle(color: Colors.grey[500])),
+                    const SizedBox(height: 4),
+                    Text('Pulsa + para registrar una llamada, nota...',
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                  ],
+                ),
+              )
+            else
+              ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final item = items[i];
+                  final meta = _iconos[item.tipo] ??
+                      (icon: Icons.label_outline, color: const Color(0xFF607D8B));
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 4),
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: meta.color.withValues(alpha: 0.12),
+                      child: Icon(meta.icon, color: meta.color, size: 18),
+                    ),
+                    title: Text(
+                      item.descripcion,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    subtitle: Row(
+                      children: [
+                        Text(_formatFecha(item.fecha),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                        if (item.usuarioNombre.isNotEmpty) ...[
+                          const Text(' · ',
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey)),
+                          Text(item.usuarioNombre,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.grey)),
+                        ],
+                      ],
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: meta.color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        item.tipo.label,
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: meta.color,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            // FAB
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: FloatingActionButton.small(
+                heroTag: 'fab_interaccion_${widget.clienteId}',
+                onPressed: _abrirFormulario,
+                backgroundColor: const Color(0xFF00796B),
+                foregroundColor: Colors.white,
+                tooltip: 'Registrar interacción',
+                child: const Icon(Icons.add),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── SHEET NUEVA INTERACCIÓN ───────────────────────────────────────────────────
+
+class _SheetNuevaInteraccion extends StatefulWidget {
+  final String empresaId;
+  final String clienteId;
+  final String usuarioNombre;
+
+  const _SheetNuevaInteraccion({
+    required this.empresaId,
+    required this.clienteId,
+    required this.usuarioNombre,
+  });
+
+  @override
+  State<_SheetNuevaInteraccion> createState() => _SheetNuevaInteraccionState();
+}
+
+class _SheetNuevaInteraccionState extends State<_SheetNuevaInteraccion> {
+  final _svc = ClientesService();
+  final _descCtrl = TextEditingController();
+  TipoInteraccion _tipo = TipoInteraccion.nota;
+  bool _guardando = false;
+
+  @override
+  void dispose() {
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    final desc = _descCtrl.text.trim();
+    if (desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe una descripción')),
+      );
+      return;
+    }
+    setState(() => _guardando = true);
+    try {
+      await _svc.agregarInteraccion(
+        widget.empresaId,
+        widget.clienteId,
+        InteraccionCliente(
+          id: '',
+          tipo: _tipo,
+          fecha: DateTime.now(),
+          descripcion: desc,
+          usuarioNombre: widget.usuarioNombre,
+        ),
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tipos = TipoInteraccion.values;
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Registrar interacción',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+
+            // Selector de tipo
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: tipos.map((t) {
+                  final sel = _tipo == t;
+                  const colors = {
+                    TipoInteraccion.llamada:  Color(0xFF2E7D32),
+                    TipoInteraccion.email:    Color(0xFF1976D2),
+                    TipoInteraccion.whatsapp: Color(0xFF25D366),
+                    TipoInteraccion.nota:     Color(0xFF607D8B),
+                    TipoInteraccion.reunion:  Color(0xFF7B1FA2),
+                    TipoInteraccion.reserva:  Color(0xFFF57C00),
+                  };
+                  final color = colors[t] ?? const Color(0xFF607D8B);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(t.label),
+                      selected: sel,
+                      onSelected: (_) => setState(() => _tipo = t),
+                      selectedColor: color.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: sel ? color : Colors.grey[700],
+                        fontWeight:
+                            sel ? FontWeight.w700 : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                      side: BorderSide(
+                          color: sel ? color : Colors.grey[300]!),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Campo descripción
+            TextField(
+              controller: _descCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Descripción...',
+                filled: true,
+                fillColor: const Color(0xFFF5F7FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Botón guardar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _guardando ? null : _guardar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00796B),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _guardando
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Guardar',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 
 

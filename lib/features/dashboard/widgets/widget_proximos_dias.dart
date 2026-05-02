@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../core/config/planes_config.dart';
+import '../../reservas/pantallas/detalle_reserva_screen.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────���
 // Módulos que puede mostrar el widget según el paquete contratado
 // ─────────────────────────────────────────────────────────────────────────────
 enum ModuloWidget {
-  reservas,   // todos los paquetes
-  pedidos,    // Plan Gestión+
-  tareas,     // Plan Gestión+
-  clientes,   // Plan Gestión+
-  facturacion,// Plan Completo
+  reservas,    // Plan Base — siempre
+  clientes,    // Plan Base — siempre
+  pedidos,     // Pack Tienda Online
+  tareas,      // Add-on Tareas
+  facturacion, // Pack Gestión
+  whatsapp,    // Add-on WhatsApp
 }
 
-// Qué módulos incluye cada paquete
-const Map<String, List<ModuloWidget>> _modulosPorPaquete = {
-  'base':     [ModuloWidget.reservas],
-  'gestion':  [ModuloWidget.reservas, ModuloWidget.pedidos, ModuloWidget.tareas, ModuloWidget.clientes],
-  'completo': [ModuloWidget.reservas, ModuloWidget.pedidos, ModuloWidget.tareas, ModuloWidget.clientes, ModuloWidget.facturacion],
-};
+/// Convierte la lista de IDs de módulos activos (de PlanesConfig) al enum interno.
+List<ModuloWidget> _modulosFromIds(List<String> moduloIds) {
+  final result = <ModuloWidget>[];
+  // Base: reservas y clientes siempre
+  result.add(ModuloWidget.reservas);
+  result.add(ModuloWidget.clientes);
+  if (moduloIds.contains('pedidos'))     result.add(ModuloWidget.pedidos);
+  if (moduloIds.contains('tareas'))      result.add(ModuloWidget.tareas);
+  if (moduloIds.contains('facturacion')) result.add(ModuloWidget.facturacion);
+  if (moduloIds.contains('whatsapp'))    result.add(ModuloWidget.whatsapp);
+  return result;
+}
 
 class WidgetProximosDias extends StatelessWidget {
   final String empresaId;
@@ -106,23 +115,49 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
     // Solo 3 días en el widget del dashboard
     final dias = List.generate(3, (i) => hoy.add(Duration(days: i)));
 
-    String paquete = 'completo';
+    // ── Leer suscripción V2 (packs_activos + addons_activos) ─────────────────
+    List<ModuloWidget> modulosActivos = [ModuloWidget.reservas, ModuloWidget.clientes];
     try {
       final suscDoc = await db
           .collection('empresas').doc(widget.empresaId)
           .collection('suscripcion').doc('actual').get();
       if (suscDoc.exists) {
-        paquete = suscDoc.data()?['paquete'] ?? 'completo';
+        final data = suscDoc.data()!;
+        List<String> packsActivos;
+        List<String> addonsActivos;
+
+        if (data.containsKey('packs_activos') || data.containsKey('plan_base')) {
+          // Formato V2
+          packsActivos  = (data['packs_activos']  as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+          addonsActivos = (data['addons_activos'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+        } else {
+          // Formato legacy: inferir packs/addons desde modulos_activos
+          final modLegacy = (data['modulos_activos'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+          packsActivos = [
+            if (modLegacy.contains('facturacion') || modLegacy.contains('vacaciones')) 'gestion',
+            if (modLegacy.contains('pedidos')) 'tienda',
+          ];
+          addonsActivos = [
+            if (modLegacy.contains('whatsapp')) 'whatsapp',
+            if (modLegacy.contains('tareas')) 'tareas',
+            if (modLegacy.contains('nominas')) 'nominas',
+          ];
+        }
+
+        final moduloIds = PlanesConfig.getModulosActivos(
+          packsActivos: packsActivos,
+          addonsActivos: addonsActivos,
+        );
+        modulosActivos = _modulosFromIds(moduloIds);
       }
     } catch (_) {}
 
-    final modulosActivos = _modulosPorPaquete[paquete] ?? ModuloWidget.values.toList();
     final resultados = await Future.wait(dias.map((fecha) => _cargarDia(fecha, modulosActivos)));
 
     return _DatosDashboard(
       dias: resultados,
       modulosActivos: modulosActivos,
-      paquete: paquete,
+      paquete: 'v2',
     );
   }
 
@@ -140,15 +175,17 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
     int tareasVencen = 0;
     int clientesNuevos = 0;
     double facturacionDia = 0;
+    int pedidosWhatsapp = 0;
     List<Map<String, dynamic>> reservasDetalle = [];
     List<Map<String, dynamic>> pedidosDetalle = [];
+    List<Map<String, dynamic>> whatsappDetalle = [];
 
     // ── RESERVAS (siempre) ──────────────────────────────────────────────────
     if (modulos.contains(ModuloWidget.reservas)) {
       try {
         final snap = await col('reservas')
-            .where('fecha', isGreaterThanOrEqualTo: inicio)
-            .where('fecha', isLessThan: fin)
+            .where('fecha_hora', isGreaterThanOrEqualTo: inicio)
+            .where('fecha_hora', isLessThan: fin)
             .get();
         for (final d in snap.docs) {
           final data = d.data();
@@ -156,7 +193,10 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
           if (estado == 'CONFIRMADA') reservasConfirmadas++;
           else if (estado == 'PENDIENTE') reservasPendientes++;
           else if (estado == 'CANCELADA') reservasCanceladas++;
-          if (estado != 'CANCELADA') reservasDetalle.add(data);
+          if (estado != 'CANCELADA') {
+            // Incluir el doc ID para navegar al detalle
+            reservasDetalle.add({...data, '_doc_id': d.id});
+          }
         }
       } catch (_) {}
     }
@@ -199,7 +239,25 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
       } catch (_) {}
     }
 
-    // ── TAREAS ──────────────────────────────────────────────────────────────
+    // ── PEDIDOS DE WHATSAPP ────────────────────────────────────────────────
+    if (modulos.contains(ModuloWidget.whatsapp)) {
+      try {
+        final snapWA = await col('pedidos_whatsapp')
+            .where('fecha', isGreaterThanOrEqualTo: inicio)
+            .where('fecha', isLessThan: fin)
+            .get();
+        for (final d in snapWA.docs) {
+          final data = d.data();
+          final estado = (data['estado'] as String? ?? '').toLowerCase();
+          if (estado != 'cancelado' && estado != 'completado') {
+            pedidosWhatsapp++;
+            whatsappDetalle.add({...data, '_doc_id': d.id});
+          }
+        }
+      } catch (_) {}
+    }
+
+    // ── TAREAS ──────────────────────────────────────���───────────────────────
     if (modulos.contains(ModuloWidget.tareas)) {
       try {
         final snap = await col('tareas')
@@ -246,8 +304,10 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
       tareasVencen: tareasVencen,
       clientesNuevos: clientesNuevos,
       facturacionDia: facturacionDia,
+      pedidosWhatsapp: pedidosWhatsapp,
       reservasDetalle: reservasDetalle,
       pedidosDetalle: pedidosDetalle,
+      whatsappDetalle: whatsappDetalle,
     );
   }
 
@@ -265,7 +325,7 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
         if (!snap.hasData) {
           return const _MensajeVacio();
         }
-        return _VistaResultado(datos: snap.data!);
+        return _VistaResultado(datos: snap.data!, empresaId: widget.empresaId);
       },
     );
   }
@@ -276,7 +336,8 @@ class _ContenidoProximosDiasState extends State<_ContenidoProximosDias> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _VistaResultado extends StatelessWidget {
   final _DatosDashboard datos;
-  const _VistaResultado({required this.datos});
+  final String empresaId;
+  const _VistaResultado({required this.datos, required this.empresaId});
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +349,7 @@ class _VistaResultado extends StatelessWidget {
         // ── 3 tarjetas principales (hoy, mañana, pasado) ────────────────
         Row(
           children: datos.dias
-              .map((d) => Expanded(child: _TarjetaDia(dia: d, modulos: datos.modulosActivos)))
+              .map((d) => Expanded(child: _TarjetaDia(dia: d, modulos: datos.modulosActivos, empresaId: empresaId)))
               .toList(),
         ),
 
@@ -388,12 +449,13 @@ class _VistaResultado extends StatelessWidget {
 class _TarjetaDia extends StatelessWidget {
   final _DatoDia dia;
   final List<ModuloWidget> modulos;
+  final String empresaId;
 
-  const _TarjetaDia({required this.dia, required this.modulos});
+  const _TarjetaDia({required this.dia, required this.modulos, required this.empresaId});
 
   int get _totalEventos =>
       dia.reservasConfirmadas + dia.reservasPendientes +
-      dia.pedidosNuevos + dia.tareasVencen;
+      dia.pedidosNuevos + dia.pedidosWhatsapp + dia.tareasVencen;
 
   @override
   Widget build(BuildContext context) {
@@ -460,6 +522,8 @@ class _TarjetaDia extends StatelessWidget {
                   _MiniChip(valor: '${dia.reservasPendientes}⏳', color: const Color(0xFFF57C00)),
                 if (modulos.contains(ModuloWidget.pedidos) && dia.pedidosNuevos > 0)
                   _MiniChip(valor: '${dia.pedidosNuevos}📦', color: const Color(0xFF7B1FA2)),
+                if (modulos.contains(ModuloWidget.whatsapp) && dia.pedidosWhatsapp > 0)
+                  _MiniChip(valor: '${dia.pedidosWhatsapp}💬', color: const Color(0xFF25D366)),
                 if (modulos.contains(ModuloWidget.tareas) && dia.tareasVencen > 0)
                   _MiniChip(valor: '${dia.tareasVencen}✅', color: const Color(0xFF1976D2)),
                 if (modulos.contains(ModuloWidget.facturacion) && dia.facturacionDia > 0)
@@ -480,7 +544,7 @@ class _TarjetaDia extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DetalleDiaSheet(dia: dia, modulos: modulos),
+      builder: (_) => _DetalleDiaSheet(dia: dia, modulos: modulos, empresaId: empresaId),
     );
   }
 }
@@ -503,6 +567,9 @@ class _ResumenModulos extends StatelessWidget {
     }
     if (modulos.contains(ModuloWidget.pedidos)) {
       items.add(_KpiItem('Pedidos', '${totales['pedidos']}', Icons.shopping_bag, const Color(0xFFAB47BC)));
+    }
+    if (modulos.contains(ModuloWidget.whatsapp)) {
+      items.add(_KpiItem('WhatsApp', '${totales['whatsapp']}', Icons.chat_bubble, const Color(0xFF25D366)));
     }
     if (modulos.contains(ModuloWidget.tareas)) {
       items.add(_KpiItem('Tareas', '${totales['tareas']}', Icons.task_alt, const Color(0xFF42A5F5)));
@@ -541,16 +608,24 @@ class _ResumenModulos extends StatelessWidget {
   }
 
   Map<String, dynamic> _calcularTotales() {
-    int reservas = 0, pedidos = 0, tareas = 0, clientes = 0;
+    int reservas = 0, pedidos = 0, tareas = 0, clientes = 0, whatsapp = 0;
     double facturacion = 0;
     for (final d in datos.dias) {
       reservas += d.reservasConfirmadas + d.reservasPendientes;
       pedidos += d.pedidosNuevos;
+      whatsapp += d.pedidosWhatsapp;
       tareas += d.tareasVencen;
       clientes += d.clientesNuevos;
       facturacion += d.facturacionDia;
     }
-    return {'reservas': reservas, 'pedidos': pedidos, 'tareas': tareas, 'clientes': clientes, 'facturacion': facturacion};
+    return {
+      'reservas': reservas,
+      'pedidos': pedidos,
+      'whatsapp': whatsapp,
+      'tareas': tareas,
+      'clientes': clientes,
+      'facturacion': facturacion
+    };
   }
 }
 
@@ -643,8 +718,9 @@ class _MensajeVacio extends StatelessWidget {
 class _DetalleDiaSheet extends StatelessWidget {
   final _DatoDia dia;
   final List<ModuloWidget> modulos;
+  final String empresaId;
 
-  const _DetalleDiaSheet({required this.dia, required this.modulos});
+  const _DetalleDiaSheet({required this.dia, required this.modulos, required this.empresaId});
 
   String get _nombreDia {
     final hoy = DateTime.now();
@@ -655,14 +731,15 @@ class _DetalleDiaSheet extends StatelessWidget {
 
   int get _totalEventos =>
       dia.reservasConfirmadas + dia.reservasPendientes +
-      dia.pedidosNuevos + dia.tareasVencen;
+      dia.pedidosNuevos + dia.pedidosWhatsapp + dia.tareasVencen;
 
   @override
   Widget build(BuildContext context) {
-    // Combinar reservas + pedidos ordenados por hora
+    // Combinar reservas + pedidos + whatsapp ordenados por hora
     final eventos = <_EventoDia>[
       ..._reservasComoEventos(),
       ..._pedidosComoEventos(),
+      ..._whatsappComoEventos(),
     ];
     eventos.sort((a, b) => a.hora.compareTo(b.hora));
 
@@ -726,7 +803,10 @@ class _DetalleDiaSheet extends StatelessWidget {
                 shrinkWrap: true,
                 itemCount: eventos.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => _tarjetaEvento(eventos[i]),
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: () => _navegarAEvento(context, eventos[i]),
+                  child: _tarjetaEvento(eventos[i]),
+                ),
               ),
             ),
 
@@ -764,7 +844,7 @@ class _DetalleDiaSheet extends StatelessWidget {
     return dia.reservasDetalle.map((data) {
       DateTime hora;
       try {
-        final raw = data['fecha'];
+        final raw = data['fecha_hora'] ?? data['fecha'];
         hora = raw is Timestamp ? raw.toDate() : DateTime.parse(raw.toString());
       } catch (_) {
         hora = dia.fecha;
@@ -796,8 +876,10 @@ class _DetalleDiaSheet extends StatelessWidget {
         badgeColor: color,
         telefono: telefono.isNotEmpty ? telefono : null,
         correo: correo.isNotEmpty ? correo : null,
-        comensales: personas as int?,
+        comensales: personas != null ? (personas as num).toInt() : null,
         numero: numero,
+        docId: data['_doc_id'] as String?,
+        esReserva: true,
       );
     }).toList();
   }
@@ -844,6 +926,35 @@ class _DetalleDiaSheet extends StatelessWidget {
         horaTexto: DateFormat('HH:mm').format(hora),
         badge: estado,
         badgeColor: estado == 'PENDIENTE' ? const Color(0xFFF57C00) : const Color(0xFF7B1FA2),
+      );
+    }).toList();
+  }
+
+  List<_EventoDia> _whatsappComoEventos() {
+    return dia.whatsappDetalle.map((data) {
+      DateTime hora;
+      try {
+        final raw = data['fecha'];
+        hora = raw is Timestamp ? raw.toDate() : DateTime.parse(raw.toString());
+      } catch (_) {
+        hora = dia.fecha;
+      }
+
+      final clienteNombre = data['cliente_nombre'] as String? ?? 'Sin nombre';
+      final clienteTelefono = data['cliente_telefono'] as String? ?? '';
+      final resumen = data['pedido_resumen'] as String? ?? 'Pedido por WhatsApp';
+      final estado = (data['estado'] as String? ?? '').toUpperCase();
+
+      return _EventoDia(
+        hora: hora,
+        icono: Icons.chat_bubble,
+        color: const Color(0xFF25D366),
+        titulo: clienteNombre,
+        subtitulo: '💬 $resumen',
+        horaTexto: DateFormat('HH:mm').format(hora),
+        badge: estado,
+        badgeColor: estado == 'PENDIENTE' ? const Color(0xFFF57C00) : const Color(0xFF25D366),
+        telefono: clienteTelefono.isNotEmpty ? clienteTelefono : null,
       );
     }).toList();
   }
@@ -904,6 +1015,11 @@ class _DetalleDiaSheet extends StatelessWidget {
                 child: Text(e.badge,
                     style: TextStyle(color: e.badgeColor, fontSize: 9, fontWeight: FontWeight.w700)),
               ),
+              // Flecha si es navegable
+              if (e.docId != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios, size: 12, color: e.color.withValues(alpha: 0.5)),
+              ],
             ],
           ),
           // Información adicional (teléfono, correo, comensales) si está disponible
@@ -967,6 +1083,33 @@ class _DetalleDiaSheet extends StatelessWidget {
     );
   }
 
+  void _navegarAEvento(BuildContext context, _EventoDia evento) async {
+    // Si es una reserva y tenemos docId, navegar a detalle
+    if (evento.docId != null && evento.esReserva) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('empresas')
+            .doc(empresaId)
+            .collection('reservas')
+            .doc(evento.docId!)
+            .get();
+        if (!context.mounted) return;
+        if (doc.exists) {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DetalleReservaScreen(
+                doc: doc as dynamic,
+                empresaId: empresaId,
+              ),
+            ),
+          );
+        }
+      } catch (_) {}
+    }
+  }
+
   Widget _filaVacia() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -1002,11 +1145,13 @@ class _DatoDia {
   final int reservasCanceladas;
   final int pedidosPendientes;
   final int pedidosNuevos;
+  final int pedidosWhatsapp;
   final int tareasVencen;
   final int clientesNuevos;
   final double facturacionDia;
   final List<Map<String, dynamic>> reservasDetalle;
   final List<Map<String, dynamic>> pedidosDetalle;
+  final List<Map<String, dynamic>> whatsappDetalle;
 
   _DatoDia({
     required this.fecha,
@@ -1015,11 +1160,13 @@ class _DatoDia {
     required this.reservasCanceladas,
     required this.pedidosPendientes,
     required this.pedidosNuevos,
+    required this.pedidosWhatsapp,
     required this.tareasVencen,
     required this.clientesNuevos,
     required this.facturacionDia,
     this.reservasDetalle = const [],
     this.pedidosDetalle = const [],
+    this.whatsappDetalle = const [],
   });
 }
 
@@ -1053,6 +1200,8 @@ class _EventoDia {
   final String? correo;
   final int? comensales;
   final String? numero;
+  final String? docId;
+  final bool esReserva;
 
   _EventoDia({
     required this.hora,
@@ -1067,5 +1216,7 @@ class _EventoDia {
     this.correo,
     this.comensales,
     this.numero,
+    this.docId,
+    this.esReserva = false,
   });
 }

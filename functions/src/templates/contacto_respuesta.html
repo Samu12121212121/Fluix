@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hemos recibido tu mensaje</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+    .container { max-width: 580px; margin: 32px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .header { background: #1976D2; padding: 28px 32px; text-align: center; }
+    .header .icon { font-size: 40px; margin-bottom: 10px; }
+    .header h1 { color: #fff; margin: 0; font-size: 20px; font-weight: 700; }
+    .header p { color: rgba(255,255,255,.8); margin: 6px 0 0; font-size: 13px; }
+    .body { padding: 32px 32px 24px; }
+    .saludo { font-size: 16px; color: #222; font-weight: 600; margin-bottom: 14px; }
+    .texto { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 16px; }
+    .resumen-box { background: #F3F8FF; border: 1px solid #C5D8F5; border-radius: 10px; padding: 16px 20px; margin: 20px 0; }
+    .resumen-box .label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .resumen-box .valor { font-size: 13px; color: #333; line-height: 1.5; }
+    .resumen-box .mensaje-preview { background: #fff; border-left: 3px solid #1976D2; padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; color: #555; line-height: 1.6; white-space: pre-wrap; margin-top: 8px; }
+    .divider { border: none; border-top: 1px solid #f0f0f0; margin: 24px 0; }
+    .cta { text-align: center; margin: 24px 0 8px; }
+    .cta a { display: inline-block; background: #1976D2; color: #fff !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+    .footer { background: #fafafa; border-top: 1px solid #f0f0f0; padding: 18px 32px; text-align: center; font-size: 12px; color: #bbb; }
+    .footer a { color: #1976D2; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">✅</div>
+      <h1>¡Hemos recibido tu mensaje!</h1>
+      <p>{{empresa_nombre}} &mdash; {{fecha}}</p>
+    </div>
+    <div class="body">
+      <div class="saludo">Hola, {{nombre}} 👋</div>
+      <p class="texto">
+        Gracias por contactar con nosotros. Hemos recibido tu mensaje correctamente
+        y nos pondremos en contacto contigo lo antes posible.
+      </p>
+
+      <div class="resumen-box">
+        <div class="label">Resumen de tu mensaje</div>
+        <div style="margin-top:10px">
+          <div class="label" style="margin-bottom:2px">Tu mensaje</div>
+          <div class="mensaje-preview">{{mensaje}}</div>
+        </div>
+        {{#telefono}}
+        <div style="margin-top:12px">
+          <div class="label">Teléfono de contacto</div>
+          <div class="valor">{{telefono}}</div>
+        </div>
+        {{/telefono}}
+      </div>
+
+      <hr class="divider" />
+
+      <p class="texto">
+        Si tienes alguna urgencia puedes escribirnos directamente a
+        <a href="mailto:{{email_empresa}}" style="color:#1976D2">{{email_empresa}}</a>
+        o llamarnos al <strong>{{telefono_empresa}}</strong>.
+      </p>
+
+      {{#url_web}}
+      <div class="cta">
+        <a href="{{url_web}}">Visitar nuestra web →</a>
+      </div>
+      {{/url_web}}
+    </div>
+    <div class="footer">
+      &copy; {{empresa_nombre}} &mdash; Este correo es una confirmación automática, no es necesario responder.<br/>
+      Gestión de comunicaciones con <a href="#">Fluix CRM</a>.
+    </div>
+  </div>
+</body>
+</html>
+

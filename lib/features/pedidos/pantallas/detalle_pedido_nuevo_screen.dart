@@ -269,40 +269,52 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.lock_outline, size: 18, color: Color(0xFF1976D2)),
+                      Icon(Icons.receipt_long, size: 18, color: Color(0xFF1976D2)),
                       SizedBox(width: 8),
-                      Text('Notas internas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      Text('Facturación', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text('Privadas — el cliente no las ve', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                   const Divider(height: 16),
-                  TextField(
-                    controller: _notasCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe notas internas del pedido...',
-                      border: OutlineInputBorder(),
+                  if (_pedido.facturaId != null && _pedido.facturaId!.isNotEmpty)
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Factura generada',
+                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _generarOVerFactura,
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Ver factura'),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    Text(
+                      'Genera una factura automáticamente a partir de este pedido.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
-                    maxLines: 6,
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await _svc.actualizarNotasInternas(
-                          widget.empresaId, _pedido.id, _notasCtrl.text.trim(), _uid, _nombre,
-                        );
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ Notas guardadas'), backgroundColor: Colors.green),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1976D2), foregroundColor: Colors.white,
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _generandoFactura ? null : _generarOVerFactura,
+                        icon: _generandoFactura
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.receipt_long, size: 18),
+                        label: Text(_generandoFactura ? 'Generando...' : 'Generar factura'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1976D2),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
-                      child: const Text('Guardar notas'),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

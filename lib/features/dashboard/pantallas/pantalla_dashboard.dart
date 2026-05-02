@@ -17,6 +17,7 @@ import '../../../services/notificaciones_service.dart';
 import '../../../services/debug_fcm_widget.dart';
 import '../../../services/bandeja_notificaciones_service.dart';
 import '../../../services/demo_cuenta_service.dart';
+import '../../../services/suscripcion_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_dashboard_screen.dart';
 import 'bandeja_notificaciones_screen.dart';
@@ -47,10 +48,11 @@ class PantallaDashboard extends StatefulWidget {
 }
 
 class _PantallaDashboardState extends State<PantallaDashboard>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin {
   TabController? _tabController;
   final WidgetManagerService _widgetService = WidgetManagerService();
   final DemoCuentaService _demoService = DemoCuentaService();
+  final SuscripcionService _suscripcionService = SuscripcionService();
   String? _empresaId;
   String _nombreUsuario = '';
   bool _cargando = true;
@@ -83,10 +85,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // para detectar foreground
     _cargarDatosUsuario();
 
     // ── Inicializar el servicio completo de notificaciones ───────────────
+    // Se llama aquí (post-login) para que el permiso de notificaciones
+    // se pida cuando el usuario ya está dentro de la app y entiende por qué.
     NotificacionesService().inicializar();
     
     // Escuchar notificaciones
@@ -104,54 +107,69 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Cuando la app vuelve al foreground, re-registrar el token FCM
-    // Esto garantiza que el token siempre esté actualizado en Firestore
-    if (state == AppLifecycleState.resumed && _empresaId != null) {
-      NotificacionesService().guardarTokenConEmpresa(_empresaId!);
-    }
-  }
-
-  @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _tabController?.dispose();
-    _notifSubscription?.cancel();
+    _notifSubscription?.cancel(); // Cancel subscription
     super.dispose();
   }
 
   Future<void> _manejarNavegacionNotificacion(Map<String, dynamic> data) async {
       final tipo = data['tipo'];
       final empresaId = data['empresa_id'];
-      
-      if (tipo == 'tarea_asignada' && empresaId != null && _empresaId != null) {
+
+      if (empresaId == null || _empresaId == null) return;
+
+      if (tipo == 'tarea_asignada') {
           final tareaId = data['tarea_id'];
           if (tareaId == null) return;
-          
           try {
-              // Fetch tarea
               final doc = await FirebaseFirestore.instance
                   .collection('empresas')
                   .doc(empresaId)
                   .collection('tareas')
                   .doc(tareaId)
                   .get();
-                  
               if (doc.exists && mounted) {
                   final tarea = Tarea.fromFirestore(doc);
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => DetalleTareaScreen(
-                              tarea: tarea,
-                              empresaId: empresaId,
-                              usuarioId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                          ),
+                  Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => DetalleTareaScreen(
+                          tarea: tarea,
+                          empresaId: empresaId,
+                          usuarioId: FirebaseAuth.instance.currentUser?.uid ?? '',
                       ),
-                  );
+                  ));
               }
           } catch (e) {
               debugPrint('❌ Error navegando a tarea: $e');
+          }
+
+      } else if (tipo == 'nueva_reserva' || tipo == 'reserva_confirmada' || tipo == 'reserva_cancelada') {
+          // Navegar al módulo de reservas — buscamos el tab correspondiente
+          if (!mounted) return;
+          final idx = _modulosActivos.indexOf('reservas');
+          if (idx >= 0 && _tabController != null) {
+              _tabController!.animateTo(idx);
+          } else {
+              // Fallback: empujar pantalla de reservas directamente
+              Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ModuloReservasScreen(
+                      empresaId: empresaId,
+                      sesion: _sesion,
+                  ),
+              ));
+          }
+
+      } else if (tipo == 'nuevo_pedido' || tipo == 'pedido_actualizado') {
+          if (!mounted) return;
+          final idx = _modulosActivos.indexOf('pedidos');
+          if (idx >= 0 && _tabController != null) {
+              _tabController!.animateTo(idx);
+          } else {
+              Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ModuloPedidosNuevoScreen(
+                      empresaId: empresaId,
+                  ),
+              ));
           }
       }
   }
@@ -182,7 +200,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     if (uid == null) return;
 
     try {
-      debugPrint('🔍 Cargando datos para UID: $uid');
+      debugPrint(' Cargando datos para UID: $uid');
 
       final userDoc = await FirebaseFirestore.instance
           .collection('usuarios')
@@ -201,7 +219,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           await FirebaseFirestore.instance
               .collection('usuarios').doc(uid)
               .update({'rol': 'propietario'});
-           debugPrint('👑 Rol forzado a propietario en _cargarDatosUsuario');
+           debugPrint(' Rol forzado a propietario en _cargarDatosUsuario');
         }
 
         // Si no hay admin/propietario en la empresa, promover al usuario actual.
@@ -228,7 +246,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               await FirebaseFirestore.instance
                   .collection('usuarios').doc(uid)
                   .update({'rol': rolFallback});
-              debugPrint('👑 Promovido a $rolFallback (empresa sin dueño) uid=$uid');
+              debugPrint(' Promovido a $rolFallback (empresa sin dueño) uid=$uid');
             }
           } catch (e) {
             debugPrint('ℹ️ Check admin/propietario omitido (permisos): $e');
@@ -237,7 +255,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
         // Cargar sesión con permisos
         final sesion = await PermisosService().cargarSesion();
-        debugPrint('👤 ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
+        debugPrint(' ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
         setState(() {
           _empresaId = empresaId;
           _sesion = sesion;
@@ -250,6 +268,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (empresaId != null) {
           NotificacionesService().suscribirseATopic(empresaId);
           NotificacionesService().guardarTokenConEmpresa(empresaId);
+          // Cargar suscripción (packs/addons) para gating de widgets y módulos
+          await _suscripcionService.cargarSuscripcion(empresaId);
         }
         debugPrint('✅ EmpresaId cargado: $_empresaId');
       } else {
@@ -295,11 +315,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   'Administrador';
               _cargando = false;
             });
-
-            // ✅ CRÍTICO: guardar token FCM también en el path de fallback
-            NotificacionesService().suscribirseATopic(fallbackEmpresaId);
-            NotificacionesService().guardarTokenConEmpresa(fallbackEmpresaId);
-            debugPrint('✅ Usuario y empresa creados automáticamente — token FCM guardado');
+            debugPrint('✅ Usuario y empresa creados automáticamente');
             return;
           }
         }
@@ -401,7 +417,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 final esPropietario = _sesion?.esPropietario == true ||
                     _empresaId == ConstantesApp.empresaPropietariaId;
 
-                debugPrint('🔍 Mostrando módulo propietario: $esPropietario | rol=${_sesion?.rol} | empresaId=$_empresaId');
+                debugPrint(' Mostrando módulo propietario: $esPropietario | rol=${_sesion?.rol} | empresaId=$_empresaId');
                 final modulosActivos = snapshot.data ??
                     ModulosDisponibles.todos
                         .where((m) => ModulosDisponibles.activosPorDefecto.contains(m.id))
@@ -624,21 +640,21 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               ),
               const SizedBox(width: 8),
               _chipVista(
-                label: '👑 Propietario',
+                label: ' Propietario',
                 activo: _rolVistaActual == null,
                 color: const Color(0xFF0D47A1),
                 onTap: () => setState(() => _rolVistaActual = null),
               ),
               const SizedBox(width: 6),
               _chipVista(
-                label: '🛡️ Admin',
+                label: '️ Admin',
                 activo: _rolVistaActual == RolApp.admin,
                 color: const Color(0xFF7B1FA2),
                 onTap: () => setState(() => _rolVistaActual = RolApp.admin),
               ),
               const SizedBox(width: 6),
               _chipVista(
-                label: '👤 Usuario',
+                label: ' Usuario',
                 activo: _rolVistaActual == RolApp.staff,
                 color: const Color(0xFF388E3C),
                 onTap: () => setState(() => _rolVistaActual = RolApp.staff),
@@ -853,6 +869,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             modulos.any((m) => m.id == 'facturacion' && m.activo);
         final pedidosActivos =
             modulos.any((m) => m.id == 'pedidos' && m.activo);
+        final fiscalActivo =
+            modulos.any((m) => m.id == 'fiscal' && m.activo);
 
         return StreamBuilder<List<WidgetConfig>>(
           stream: _widgetService.obtenerWidgetsActivos(_empresaId!),
@@ -867,6 +885,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
             // Widgets activados manualmente por el usuario
             var widgets = snapshot.data!;
+
+            // Filtrar alertas_fiscales si el pack fiscal no está activo
+            if (!fiscalActivo) {
+              widgets = widgets.where((w) => w.id != 'alertas_fiscales').toList();
+            }
 
             // Inyectar resumen_facturacion si módulo activo y widget no está ya
             if (facturacionActiva &&
@@ -898,6 +921,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   orden: 99,
                 ),
               ];
+            }
+
+            // Ocultar resumen_facturacion si el módulo no está activo
+            if (!facturacionActiva) {
+              widgets = widgets.where((w) => w.id != 'resumen_facturacion').toList();
+            }
+
+            // Ocultar resumen_pedidos si el módulo no está activo
+            if (!pedidosActivos) {
+              widgets = widgets.where((w) => w.id != 'resumen_pedidos').toList();
             }
 
             // Ordenar por orden
@@ -1021,6 +1054,26 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   Widget _safeBuildWidget(WidgetConfig widgetConfig) {
+    // Widget eliminado: citas_del_dia (no aplica en esta versión)
+    if (widgetConfig.id == 'citas_del_dia') return const SizedBox.shrink();
+
+    // ── Pack gating — usa SuscripcionService como fuente autoritativa ──────
+    final esPropietario = _sesionEfectiva?.esPropietarioPlatforma ?? false;
+    if (!esPropietario) {
+      if (widgetConfig.id == 'alertas_fiscales' &&
+          !_suscripcionService.tieneModulo('fiscal')) {
+        return _buildWidgetBloqueado(widgetConfig, 'Pack Fiscal AI');
+      }
+      if (widgetConfig.id == 'resumen_facturacion' &&
+          !_suscripcionService.tieneModulo('facturacion')) {
+        return _buildWidgetBloqueado(widgetConfig, 'Pack Gestión');
+      }
+      if (widgetConfig.id == 'resumen_pedidos' &&
+          !_suscripcionService.tieneModulo('pedidos')) {
+        return _buildWidgetBloqueado(widgetConfig, 'Pack Tienda Online');
+      }
+    }
+
     try {
       return WidgetFactory.buildWidget(widgetConfig, _empresaId!);
     } catch (e, st) {
@@ -1040,6 +1093,55 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         ),
       );
     }
+  }
+
+  Widget _buildWidgetBloqueado(WidgetConfig config, String nombrePack) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(config.icono, color: Colors.grey[400], size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(config.nombre,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text('Requiere $nombrePack',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.lock_outline, color: Colors.orange, size: 12),
+                SizedBox(width: 4),
+                Text('Bloqueado', style: TextStyle(
+                    color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Header del dashboard con botón de configuración
@@ -1468,8 +1570,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(!webActivo
-              ? '🌐 Contenido web activado'
-              : '📱 Contenido web desactivado'),
+              ? ' Contenido web activado'
+              : ' Contenido web desactivado'),
           backgroundColor:
               !webActivo ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
         ));

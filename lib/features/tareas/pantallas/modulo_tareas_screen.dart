@@ -270,8 +270,9 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen>
             ],
           ),
         ),
-        Flexible(
-          flex: 3,
+        // SizedBox con altura fija para evitar RenderFlex overflow en TableCalendar
+        SizedBox(
+          height: 360,
           child: TableCalendar<Tarea>(
           locale: 'es_ES',
           firstDay: DateTime.now().subtract(const Duration(days: 365)),

@@ -285,6 +285,11 @@ class _ImportarCsvScreenState extends State<ImportarCsvScreen> {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true), // Retorna true para refrescar
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00796B),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              ),
               child: const Text('Volver al listado'),
             ),
           ] else ...[

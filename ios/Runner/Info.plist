@@ -41,16 +41,20 @@
 	<string>Fluix CRM usa Face ID para proteger el acceso a datos sensibles de tu empresa.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Fluix CRM puede necesitar el micrófono para notas de voz en tareas.</string>
-	<!-- ═══ Background Modes: remote-notification obligatorio para FCM ═══ -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Fluix CRM usa Bluetooth para conectar con impresoras térmicas del TPV.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Fluix CRM usa Bluetooth para conectar con impresoras térmicas del TPV.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<!-- ═══ URL Schemes: Google Sign-In + Deep links (fusionados en una sola clave) ═══ -->
+	<!-- ═══ URL Schemes: Google Sign-In + Deep Links (fusionados en un solo bloque) ═══ -->
+	<!-- IMPORTANTE: Configura REVERSED_CLIENT_ID en Xcode > Build Settings > User-Defined -->
 	<key>CFBundleURLTypes</key>
 	<array>
-		<!-- Google Sign-In reversed client ID (REVERSED_CLIENT_ID de GoogleService-Info.plist) -->
+		<!-- Google Sign-In reversed client ID -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -61,7 +65,7 @@
 				<string>$(REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
-		<!-- Deep links fluixcrm:// -->
+		<!-- Deep links: fluixcrm://invite?token=XXX -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -73,14 +77,26 @@
 			</array>
 		</dict>
 	</array>
-	<!-- ═══ Scene Manifest: MultipleScenes=false, SIN SceneDelegate ═══
-	     NOTA: Eliminar UISceneDelegateClassName es crítico para que
-	     firebase_messaging reciba correctamente los callbacks de APNs.
-	     FlutterAppDelegate (AppDelegate.swift) es el único delegado. -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

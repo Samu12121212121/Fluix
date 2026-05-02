@@ -178,14 +178,19 @@ class SonidoNotificacionService {
   Future<void> reproducir(SonidoNotif sonido) async {
     if (sonido == SonidoNotif.sinSonido) return;
     try {
-      // stop() puede lanzar si el player está en estado IDLE; lo ignoramos
-      try { await _player.stop(); } catch (_) {}
-      // Reproducir desde assets (todos los archivos .wav están en assets/sounds/)
+      await _player.stop();
+      // Intentar reproducir desde assets
       await _player.play(AssetSource(sonido.nombreArchivo));
     } catch (e) {
-      // No hay fallback con UrlSource: en Android >=10 los URI content:// de
-      // system/notification_sound crashean el MediaPlayer. Simplemente logueamos.
-      print('⚠️ No se pudo reproducir sonido ${sonido.id}: $e');
+      // Si el archivo no existe, intentar con sonido URI del sistema
+      try {
+        await _player.play(
+          UrlSource('content://settings/system/notification_sound'),
+        );
+      } catch (_) {
+        // Silenciar error si no se puede reproducir ningún sonido
+        print('⚠️ No se pudo reproducir sonido ${sonido.id}: $e');
+      }
     }
   }
 
