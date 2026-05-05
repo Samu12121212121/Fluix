@@ -34,6 +34,21 @@ export const onTareaAsignada = onDocumentWritten(
       // Buscamos en 'empresas/{empresaId}/dispositivos/{usuarioId}' (según NotificacionesService)
       // O en 'usuarios/{usuarioId}'
 
+      // Verificar que el usuario sigue perteneciendo a esta empresa
+      const usuarioRef = db.collection("usuarios").doc(asignadoDespues);
+      const usuarioSnap = await usuarioRef.get();
+      const usuarioData = usuarioSnap.data();
+
+      if (!usuarioData) {
+        console.log(`⚠️ Usuario ${asignadoDespues} no encontrado.`);
+        return;
+      }
+
+      if (usuarioData.empresa_id !== empresaId) {
+        console.log(`⚠️ Usuario ${asignadoDespues} ya no pertenece a empresa ${empresaId} (empresa actual: ${usuarioData.empresa_id}). Notificación cancelada.`);
+        return;
+      }
+
       // Intentar primero en empresa/dispositivos para asegurar que está activo en esa empresa
       const dispositivoRef = db
         .collection("empresas")
@@ -46,9 +61,7 @@ export const onTareaAsignada = onDocumentWritten(
 
       // Si no, intentar en colección global usuarios (fallback)
       if (!token) {
-        const usuarioRef = db.collection("usuarios").doc(asignadoDespues);
-        const usuarioSnap = await usuarioRef.get();
-        token = usuarioSnap.data()?.token_dispositivo;
+        token = usuarioData.token_dispositivo;
       }
 
       if (!token) {

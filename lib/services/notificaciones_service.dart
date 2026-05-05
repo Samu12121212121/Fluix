@@ -11,7 +11,7 @@ import 'sonido_notificacion_service.dart';
 /// Handler global para mensajes en background (debe ser función top-level)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print(' Notificación en background: ${message.notification?.title}');
+  print('🔔 Notificación en background: ${message.notification?.title}');
 }
 
 /// Servicio de notificaciones push con Firebase Cloud Messaging
@@ -102,9 +102,10 @@ class NotificacionesService {
     // Guardar token del dispositivo en Firestore
     await _guardarTokenDispositivo();
 
-    // Escuchar renovación del token
-    _messaging.onTokenRefresh.listen((token) {
-      _actualizarTokenEnFirestore(token);
+    // Escuchar renovación del token → siempre actualizar en usuarios Y dispositivos
+    _messaging.onTokenRefresh.listen((token) async {
+      print('🔄 Token FCM renovado, actualizando Firestore...');
+      await _actualizarTokenEnFirestore(token);
     });
 
     _inicializado = true;
@@ -122,7 +123,7 @@ class NotificacionesService {
       provisional: false,
       sound: true,
     );
-    print(' Permisos notificaciones: ${settings.authorizationStatus}');
+    print('📱 Permisos notificaciones: ${settings.authorizationStatus}');
   }
 
   /// Configurar plugin de notificaciones locales
@@ -142,7 +143,7 @@ class NotificacionesService {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        print(' Tap en notificación local: ${details.payload}');
+        print('🔔 Tap en notificación local: ${details.payload}');
         _procesarPayload(details.payload);
       },
     );
@@ -150,7 +151,7 @@ class NotificacionesService {
 
   /// Manejar mensajes cuando la app está en primer plano
   void _manejarMensajePrimerPlano(RemoteMessage message) {
-    print(' Notificación en primer plano: ${message.notification?.title}');
+    print('🔔 Notificación en primer plano: ${message.notification?.title}');
     final notif = message.notification;
     if (notif == null) return;
 
@@ -198,7 +199,7 @@ class NotificacionesService {
 
   /// Manejar tap en notificación cuando la app estaba en background
   void _manejarTapNotificacion(RemoteMessage message) {
-    print(' Usuario tocó notificación: ${message.data}');
+    print('🔔 Usuario tocó notificación: ${message.data}');
     _procesarPayload(jsonEncode(message.data));
     _tapStreamCtrl.add(message.data); // Agregar evento al stream
   }
@@ -209,7 +210,7 @@ class NotificacionesService {
     try {
       final data = jsonDecode(payload) as Map<String, dynamic>;
       final tipo = data['tipo'] as String?;
-      print(' Procesando notificación tipo: $tipo, data: $data');
+      print('🔔 Procesando notificación tipo: $tipo, data: $data');
 
       // Emitir al stream para que la UI pueda navegar
       _tapStreamCtrl.add(data);
@@ -223,7 +224,7 @@ class NotificacionesService {
     try {
       final token = await _messaging.getToken();
       if (token == null) return;
-      print(' Token FCM: $token');
+      print('📱 Token FCM: $token');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
       print('❌ Error obteniendo token FCM: $e');
@@ -302,7 +303,7 @@ class NotificacionesService {
       final token = await _messaging.getToken();
       if (token == null) return;
 
-      print(' Guardando token FCM tras login para UID: $uid');
+      print('📱 Guardando token FCM tras login para UID: $uid');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
       print('❌ Error guardando token tras login: $e');
@@ -312,6 +313,33 @@ class NotificacionesService {
   /// Desuscribirse de un topic
   Future<void> desuscribirseDeTop(String empresaId) async {
     await _messaging.unsubscribeFromTopic('empresa_$empresaId');
+  }
+
+  /// Elimina (marca como inactivo) el token FCM del dispositivo actual
+  /// para la empresa indicada. Se llama al cerrar sesión.
+  Future<void> eliminarTokenDeEmpresa(String empresaId) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      // Marcar como inactivo en empresas/{id}/dispositivos/{uid}
+      await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('dispositivos')
+          .doc(uid)
+          .set({'activo': false}, SetOptions(merge: true));
+
+      // Limpiar token del documento de usuario
+      await _firestore.collection('usuarios').doc(uid).set(
+        {'token_dispositivo': FieldValue.delete()},
+        SetOptions(merge: true),
+      );
+
+      print('✅ Token FCM eliminado de empresas/$empresaId/dispositivos/$uid');
+    } catch (e) {
+      print('❌ Error eliminando token de empresa: $e');
+    }
   }
 
   /// Guardar token FCM asegurando que se vincula a la empresa correcta.
@@ -355,6 +383,22 @@ class NotificacionesService {
     return await _messaging.getToken();
   }
 
+  /// Forza re-registro del token FCM. Útil al volver al foreground o tras login.
+  /// Garantiza que el token esté actualizado en usuarios/ y empresas/.../dispositivos/
+  Future<void> refrescarToken() async {
+    try {
+      // Elimina el token actual para forzar uno nuevo
+      await _messaging.deleteToken();
+      final nuevoToken = await _messaging.getToken();
+      if (nuevoToken != null) {
+        print('🔄 Token FCM refrescado manualmente');
+        await _actualizarTokenEnFirestore(nuevoToken);
+      }
+    } catch (e) {
+      print('❌ Error refrescando token FCM: $e');
+    }
+  }
+
   // ── NOTIFICACIONES LOCALES MANUALES ─────────────────────────────────────────
   // Útiles para notificaciones que se generan en el propio dispositivo
 
@@ -367,7 +411,7 @@ class NotificacionesService {
   }) async {
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      ' Nueva Reserva',
+      '📅 Nueva Reserva',
       '$clienteNombre — $servicio el $fecha',
       _detallesNotificacion(),
       payload: jsonEncode({
@@ -403,7 +447,7 @@ class NotificacionesService {
   }) async {
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      ' Nuevo Pedido',
+      '🛒 Nuevo Pedido',
       '$clienteNombre — €${total.toStringAsFixed(2)}',
       _detallesNotificacion(),
       payload: jsonEncode({

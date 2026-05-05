@@ -137,6 +137,111 @@ extension MetodoRectificacionExt on MetodoRectificacion {
   }
 }
 
+// ── TIPO IVA ──────────────────────────────────────────────────────────────────
+// Art. 90-91 LIVA: tipos impositivos vigentes en España
+// Recargo equivalencia: Art. 154 LIVA (comerciantes minoristas en RE)
+
+/// Tipos de IVA aplicables en España con su correspondiente
+/// recargo de equivalencia (RD 1624/1992).
+enum TipoIVA {
+  /// 4% — Libros, pan, leche, medicamentos, prótesis
+  superreducido,
+
+  /// 10% — Hostelería, transporte, alimentos no esenciales, vivienda nueva
+  reducido,
+
+  /// 21% — Tipo general para el resto de bienes y servicios
+  general,
+
+  /// 0% — Operaciones exentas (educación, sanidad, seguros, Art. 20 LIVA)
+  exento,
+
+  /// 0% — Operaciones intracomunitarias (cliente con NIF-IVA UE)
+  /// Base imponible sujeta pero exenta — mención obligatoria en factura
+  intracomunitario,
+}
+
+extension TipoIVAExt on TipoIVA {
+  /// Porcentaje IVA aplicable
+  double get porcentaje {
+    switch (this) {
+      case TipoIVA.superreducido:     return 4.0;
+      case TipoIVA.reducido:          return 10.0;
+      case TipoIVA.general:           return 21.0;
+      case TipoIVA.exento:            return 0.0;
+      case TipoIVA.intracomunitario:  return 0.0;
+    }
+  }
+
+  /// Recargo de equivalencia correspondiente (Art. 154 LIVA)
+  double get recargoEquivalencia {
+    switch (this) {
+      case TipoIVA.superreducido:     return 0.5;
+      case TipoIVA.reducido:          return 1.4;
+      case TipoIVA.general:           return 5.2;
+      case TipoIVA.exento:            return 0.0;
+      case TipoIVA.intracomunitario:  return 0.0;
+    }
+  }
+
+  String get etiqueta {
+    switch (this) {
+      case TipoIVA.superreducido:     return 'Superreducido 4%';
+      case TipoIVA.reducido:          return 'Reducido 10%';
+      case TipoIVA.general:           return 'General 21%';
+      case TipoIVA.exento:            return 'Exento 0%';
+      case TipoIVA.intracomunitario:  return 'Intracomunitario 0%';
+    }
+  }
+
+  /// Descripción corta para facturas (p.ej. "IVA 21%")
+  String get etiquetaCorta {
+    switch (this) {
+      case TipoIVA.superreducido:     return 'IVA 4%';
+      case TipoIVA.reducido:          return 'IVA 10%';
+      case TipoIVA.general:           return 'IVA 21%';
+      case TipoIVA.exento:            return 'Exento';
+      case TipoIVA.intracomunitario:  return 'Intracom. 0%';
+    }
+  }
+
+  /// Categorías de ejemplo para la interfaz
+  String get ejemplos {
+    switch (this) {
+      case TipoIVA.superreducido:
+        return 'Pan, leche, huevos, libros, medicamentos, prótesis';
+      case TipoIVA.reducido:
+        return 'Hostelería, transporte, alimentación no básica, gimnasios';
+      case TipoIVA.general:
+        return 'Ropa, electrónica, servicios generales, vehículos';
+      case TipoIVA.exento:
+        return 'Educación, sanidad, seguros, servicios financieros';
+      case TipoIVA.intracomunitario:
+        return 'Ventas a empresas de la UE con NIF-IVA comunitario';
+    }
+  }
+
+  /// Mención legal obligatoria en factura para IVA 0%
+  String? get mencionFactura {
+    switch (this) {
+      case TipoIVA.exento:
+        return 'Operación exenta de IVA (Art. 20 LIVA)';
+      case TipoIVA.intracomunitario:
+        return 'Entrega intracomunitaria exenta de IVA (Art. 25 LIVA)';
+      default:
+        return null;
+    }
+  }
+
+  /// Obtiene el TipoIVA a partir de un porcentaje numérico
+  static TipoIVA fromPorcentaje(double pct) {
+    if (pct == 4.0)  return TipoIVA.superreducido;
+    if (pct == 10.0) return TipoIVA.reducido;
+    if (pct == 21.0) return TipoIVA.general;
+    return TipoIVA.exento;
+  }
+}
+
 // ── DATOS FISCALES DEL CLIENTE ────────────────────────────────────────────────
 
 class DatosFiscales {

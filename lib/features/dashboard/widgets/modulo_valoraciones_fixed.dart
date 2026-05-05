@@ -153,7 +153,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                               : OutlinedButton.icon(
                             onPressed: _cargarMas,
                             icon: const Icon(Icons.expand_more),
-                            label: Text('Load more (${_resenas.length} of max 50)'),
+                            label: Text('Cargar más (${_resenas.length} de máx. 50)'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF1976D2),
                               shape: RoundedRectangleBorder(
@@ -186,11 +186,11 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
 
   Widget _buildModoDemo(BuildContext context) {
     const resenasDemo = [
-      _DemoResena('Laura Martínez', 5, 'Amazing service, best place around. Will definitely come back.'),
-      _DemoResena('Carlos Gómez', 4, 'Great attention and fast service.'),
-      _DemoResena('Ana Ruiz', 5, 'Everything was perfect, the food was delicious.'),
-      _DemoResena('Pedro López', 3, 'Good overall, though we waited a bit to be attended.'),
-      _DemoResena('María García', 5, 'Very pleasant place and excellent treatment.'),
+      _DemoResena('Laura Martínez', 5, 'Servicio increíble, el mejor sitio de la zona. Sin duda volveré.'),
+      _DemoResena('Carlos Gómez', 4, 'Muy buena atención y servicio rápido.'),
+      _DemoResena('Ana Ruiz', 5, 'Todo fue perfecto, la comida estaba deliciosa.'),
+      _DemoResena('Pedro López', 3, 'Bien en general, aunque esperamos un poco para ser atendidos.'),
+      _DemoResena('María García', 5, 'Lugar muy agradable y trato excelente.'),
     ];
 
     return CustomScrollView(
@@ -211,17 +211,17 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                 Row(children: [
                   Icon(Icons.star, color: Color(0xFFFFC107), size: 20),
                   SizedBox(width: 8),
-                  Text('Reviews Module',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
+                    Text('Módulo Valoraciones',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16)),
                 ]),
                 SizedBox(height: 8),
                 Text(
-                  'Manage all your business reviews from one place. '
-                      'Connect your Google Business profile to sync real reviews, '
-                      'reply directly, and view satisfaction analytics.',
+                  'Gestiona todas las reseñas de tu negocio desde un solo lugar. '
+                      'Conecta tu perfil de Google Business para sincronizar reseñas reales '
+                      'y consulta analíticas de satisfacción de tus clientes.',
                   style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
                 ),
               ],
@@ -252,7 +252,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
                       i < 4 ? Icons.star : Icons.star_half,
                       color: const Color(0xFFF57C00), size: 20))),
                   const SizedBox(height: 4),
-                  Text('5 sample reviews',
+                  Text('5 reseñas de ejemplo',
                       style: TextStyle(color: Colors.grey[500], fontSize: 11)),
                 ]),
                 const SizedBox(width: 16),
@@ -279,7 +279,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('What can you do?',
+            child: Text('¿Qué puedes hacer?',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -290,10 +290,10 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(spacing: 8, runSpacing: 8, children: const [
-              _FuncionalidadChip(Icons.sync, 'Sync with Google', Color(0xFF4285F4)),
-              _FuncionalidadChip(Icons.reply, 'Reply to reviews', Color(0xFF34A853)),
-              _FuncionalidadChip(Icons.bar_chart, 'Rating analytics', Color(0xFFFBBC05)),
-              _FuncionalidadChip(Icons.trending_up, 'Historical evolution', Color(0xFF7B1FA2)),
+              _FuncionalidadChip(Icons.sync, 'Sincronizar con Google', Color(0xFF4285F4)),
+              _FuncionalidadChip(Icons.store, 'Google Business', Color(0xFF34A853)),
+              _FuncionalidadChip(Icons.bar_chart, 'Analíticas de rating', Color(0xFFFBBC05)),
+              _FuncionalidadChip(Icons.trending_up, 'Evolución histórica', Color(0xFF7B1FA2)),
             ]),
           ),
         ),
@@ -302,7 +302,7 @@ class _ModuloValoracionesState extends State<ModuloValoraciones> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
             child: Row(children: [
-              Text('Sample reviews',
+              Text('Reseñas de ejemplo',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -387,7 +387,7 @@ class _CabeceraCompleta extends StatelessWidget {
               const SizedBox(width: 14, height: 14,
                   child: CircularProgressIndicator(strokeWidth: 2)),
               const SizedBox(width: 6),
-              Text('Syncing...', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              Text('Sincronizando...', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
             ]),
           ),
 
@@ -408,7 +408,7 @@ class _CabeceraCompleta extends StatelessWidget {
                   color: const Color(0xFFF57C00), size: 20);
             })),
             const SizedBox(height: 4),
-            Text(total > 0 ? '$total reviews on Google' : 'No Google data',
+            Text(total > 0 ? '$total reseñas en Google' : 'Sin datos de Google',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11,
                     fontWeight: FontWeight.w500)),
           ]),
@@ -448,8 +448,8 @@ class _CabeceraCompleta extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.2))),
               child: Text(
-                  'Google only returns the 5 most recent reviews when syncing. '
-                      'They accumulate here up to a maximum of 50.',
+                  'Google solo devuelve las 5 reseñas más recientes al sincronizar. '
+                      'Aquí se van acumulando hasta un máximo de 50.',
                   style: TextStyle(fontSize: 10, color: Colors.grey[700], height: 1.5))),
         ],
 
@@ -464,7 +464,7 @@ class _CabeceraCompleta extends StatelessWidget {
               child: Row(children: [
                 Icon(Icons.error_outline, size: 13, color: Colors.red[700]),
                 const SizedBox(width: 6),
-                Expanded(child: Text('Sync error: $errorSync',
+                Expanded(child: Text('Error de sincronización: $errorSync',
                     style: const TextStyle(fontSize: 10, color: Colors.orange))),
               ])),
         ],
@@ -475,7 +475,7 @@ class _CabeceraCompleta extends StatelessWidget {
           TextButton.icon(
             onPressed: onToggleAnaliticas,
             icon: Icon(mostrarAnaliticas ? Icons.expand_less : Icons.bar_chart, size: 16),
-            label: Text(mostrarAnaliticas ? 'Hide' : 'View analytics',
+            label: Text(mostrarAnaliticas ? 'Ocultar' : 'Ver analíticas',
                 style: const TextStyle(fontSize: 12)),
             style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF1976D2),
@@ -524,19 +524,19 @@ class _EstadoVacio extends StatelessWidget {
           if (totalGoogle > 0) ...[
             Icon(Icons.cloud_download_outlined, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            Text('$totalGoogle reviews on Google',
+            Text('$totalGoogle reseñas en Google',
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 8),
-            Text('The 5 most recent are downloaded when syncing\nand accumulate here up to 50.',
+            Text('Las 5 más recientes se descargan al sincronizar\ny se acumulan aquí hasta 50.',
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 textAlign: TextAlign.center),
           ] else ...[
             Icon(Icons.star_border_outlined, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            const Text('No reviews yet',
+            const Text('Sin reseñas aún',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 6),
-            Text('Google reviews will appear here after syncing',
+            Text('Las reseñas de Google aparecerán aquí tras sincronizar',
                 style: TextStyle(color: Colors.grey[500], fontSize: 13),
                 textAlign: TextAlign.center),
           ],
@@ -565,7 +565,7 @@ class _TarjetaResena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cliente      = data['cliente']   as String? ?? 'Anonymous';
+    final cliente      = data['cliente']   as String? ?? 'Anónimo';
     final calificacion = ((data['calificacion'] ?? data['estrellas'] ?? 0) as num).toInt();
     final comentario   = data['comentario'] as String? ?? '';
     final respuesta    = data['respuesta']  as String?;
@@ -577,8 +577,8 @@ class _TarjetaResena extends StatelessWidget {
 
     final respuestaSubida = data['respuesta_subida_google'] as bool? ?? false;
     final respuestaEstado = respuestaSubida
-        ? 'published'
-        : (respuesta != null && respuesta.isNotEmpty ? 'saved' : null);
+        ? 'publicada'
+        : (respuesta != null && respuesta.isNotEmpty ? 'sin_conexion_gmb' : null);
 
     return Stack(children: [
       Card(
@@ -626,7 +626,7 @@ class _TarjetaResena extends StatelessWidget {
                         i < calificacion ? Icons.star : Icons.star_border,
                         color: const Color(0xFFF57C00), size: 14)),
                     const SizedBox(width: 6),
-                    Text(timeago.format(fecha, locale: 'en'),
+                    Text(timeago.format(fecha, locale: 'es'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 11)),
                   ]),
                 ])),
@@ -650,7 +650,7 @@ class _TarjetaResena extends StatelessWidget {
                         border: const Border(left: BorderSide(color: Color(0xFF1976D2), width: 3))),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        const Text('Your reply',
+                        const Text('Tu respuesta',
                             style: TextStyle(fontWeight: FontWeight.w600,
                                 fontSize: 12, color: Color(0xFF1976D2))),
                         const SizedBox(width: 8),
@@ -670,7 +670,7 @@ class _TarjetaResena extends StatelessWidget {
                   icon: Icon(respuesta != null && respuesta.isNotEmpty
                       ? Icons.edit_outlined : Icons.reply, size: 16),
                   label: Text(respuesta != null && respuesta.isNotEmpty
-                      ? 'Edit reply' : 'Reply',
+                      ? 'Editar respuesta' : 'Responder',
                       style: const TextStyle(fontSize: 13)),
                   style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF1976D2),
@@ -694,7 +694,7 @@ class _TarjetaResena extends StatelessWidget {
           const Icon(Icons.reply, color: Color(0xFF1976D2)),
           const SizedBox(width: 8),
           Expanded(child: Text(
-              actual != null && actual.isNotEmpty ? 'Edit reply' : 'Reply to review',
+              actual != null && actual.isNotEmpty ? 'Editar respuesta' : 'Responder a reseña',
               style: const TextStyle(fontSize: 17))),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -703,14 +703,14 @@ class _TarjetaResena extends StatelessWidget {
               maxLines: 5,
               autofocus: true,
               decoration: InputDecoration(
-                  hintText: 'Write your reply...',
+                  hintText: 'Escribe tu respuesta...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   filled: true, fillColor: Colors.grey[50])),
         ]),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+              child: const Text('Cancelar')),
           ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1976D2),
@@ -726,17 +726,17 @@ class _TarjetaResena extends StatelessWidget {
 
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
                       content: Row(children: [
                         Icon(Icons.save, color: Colors.white, size: 18),
                         SizedBox(width: 8),
-                        Text('Reply saved successfully'),
+                        Text('Respuesta guardada correctamente'),
                       ]),
                       backgroundColor: Color(0xFF1976D2),
                       duration: Duration(seconds: 3)));
                 }
               },
-              child: const Text('Save')),
+              child: const Text('Guardar')),
         ]));
   }
 
@@ -798,7 +798,7 @@ class _BadgeNegativaState extends State<_BadgeNegativa>
         child: const Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.priority_high, color: Colors.white, size: 10),
           SizedBox(width: 3),
-          Text('Reply needed!',
+          Text('¡Sin responder!',
               style: TextStyle(color: Colors.white, fontSize: 9,
                   fontWeight: FontWeight.bold)),
         ]),

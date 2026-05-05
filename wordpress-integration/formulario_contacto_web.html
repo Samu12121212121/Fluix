@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contacto - Fluix CRM</title>
+<style>
+  body { font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; margin: 0; }
+
+  .contacto-form {
+    max-width: 500px; margin: auto; background-color: #fff;
+    padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .contacto-form h2 { text-align: center; margin-bottom: 20px; color: #333; }
+
+  .contacto-form label {
+    display: block; margin-top: 15px; font-weight: bold; font-size: 14px; color: #444;
+  }
+  .contacto-form input,
+  .contacto-form textarea {
+    width: 100%; padding: 10px; margin-top: 5px;
+    border-radius: 6px; border: 1px solid #ccc;
+    box-sizing: border-box; font-size: 14px;
+  }
+  .contacto-form textarea { resize: vertical; }
+
+  .contacto-form button {
+    width: 100%; margin-top: 20px; padding: 12px;
+    background-color: #1976D2; color: #fff; font-size: 16px;
+    border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+  }
+  .contacto-form button:hover:not(:disabled) { background-color: #1565C0; }
+  .contacto-form button:disabled { background-color: #aaa; cursor: not-allowed; }
+
+  #mensaje-resultado {
+    display: none; margin-top: 20px; padding: 15px;
+    border-radius: 8px; text-align: center; font-size: 15px;
+  }
+  .exito { background: #e8f5e9; color: #2e7d32; }
+  .error { background: #ffebee; color: #c62828; }
+</style>
+</head>
+<body>
+
+<form class="contacto-form" id="form-contacto">
+  <h2>✉️ Contáctanos</h2>
+
+  <label for="nombre">Nombre *</label>
+  <input type="text" id="nombre" required maxlength="100">
+
+  <label for="email">Correo Electrónico *</label>
+  <input type="email" id="email" required maxlength="150">
+
+  <label for="telefono">Teléfono</label>
+  <input type="tel" id="telefono" maxlength="20" placeholder="+34 600 000 000">
+
+  <label for="asunto">Asunto *</label>
+  <input type="text" id="asunto" required maxlength="200">
+
+  <label for="mensaje">Mensaje *</label>
+  <textarea id="mensaje" required rows="5" maxlength="1000"></textarea>
+
+  <button type="submit" id="btn-submit" disabled>Cargando...</button>
+  <div id="mensaje-resultado"></div>
+</form>
+
+<!-- ════════════════════════════════════════════════════════
+     SDKs Firebase — NO mover, deben ir antes del script
+     ════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+(function () {
+
+  /* ══════════════════════════════════════════════════════
+     ⚙️  CONFIGURACIÓN — edita solo este bloque
+     ══════════════════════════════════════════════════════
+
+     EMPRESA_ID: ID del documento de la empresa en Firestore
+       → Consola Firebase → Firestore → colección "empresas" → copia el ID del doc
+
+     cfg: datos de tu proyecto Firebase
+       → Consola Firebase → Configuración del proyecto → Tu app web → Config SDK
+     ══════════════════════════════════════════════════════ */
+
+  var EMPRESA_ID = "TUz8GOnQ6OX8ejiov7c5GM9LFPl2";
+
+  var cfg = {
+    apiKey:     "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId:  "planeaapp-4bea4"
+  };
+
+  /* ══════════════════════════════════════════════════════
+     🔧  LÓGICA — no es necesario tocar nada de aquí abajo
+     ══════════════════════════════════════════════════════ */
+
+  // Instancia con nombre propio → nunca colisiona si hay otro initializeApp en la página
+  var app  = firebase.initializeApp(cfg, 'FluixContacto');
+  var db   = firebase.firestore(app);
+  var auth = firebase.auth(app);
+
+  var btn       = document.getElementById('btn-submit');
+  var resultDiv = document.getElementById('mensaje-resultado');
+
+  function mostrarMensaje(tipo, texto) {
+    resultDiv.className    = tipo;
+    resultDiv.textContent  = texto;
+    resultDiv.style.display = 'block';
+  }
+  function ocultarMensaje() { resultDiv.style.display = 'none'; }
+
+  // Auth anónima — requerida por las reglas de Firestore para poder escribir
+  auth.signInAnonymously()
+    .then(function () {
+      btn.disabled    = false;
+      btn.textContent = 'Enviar Mensaje';
+    })
+    .catch(function (error) {
+      console.error('[Fluix] Error auth:', error);
+      mostrarMensaje('error', 'No se pudo conectar. Recarga la página.');
+      btn.textContent = 'Error de conexión';
+    });
+
+  document.getElementById('form-contacto').addEventListener('submit', function (e) {
+    e.preventDefault();
+    ocultarMensaje();
+
+    var nombre       = document.getElementById('nombre').value.trim();
+    var email        = document.getElementById('email').value.trim();
+    var telefono     = document.getElementById('telefono').value.trim();
+    var asunto       = document.getElementById('asunto').value.trim();
+    var mensajeTexto = document.getElementById('mensaje').value.trim();
+
+    // Validaciones
+    if (!nombre || nombre.length < 2) {
+      mostrarMensaje('error', 'El nombre es obligatorio (mínimo 2 caracteres).');
+      return;
+    }
+    if (!email || !email.includes('@')) {
+      mostrarMensaje('error', 'Introduce un email válido.');
+      return;
+    }
+    if (!asunto || asunto.length < 3) {
+      mostrarMensaje('error', 'El asunto es obligatorio (mínimo 3 caracteres).');
+      return;
+    }
+    if (!mensajeTexto || mensajeTexto.length < 10) {
+      mostrarMensaje('error', 'El mensaje debe tener al menos 10 caracteres.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Enviando...';
+
+    // Documento que se guarda en:
+    // empresas/{EMPRESA_ID}/contacto_web/{autoId}
+    var contacto = {
+      nombre:          nombre,
+      email:           email,
+      asunto:          asunto,
+      mensaje:         mensajeTexto,
+      origen:          'web',
+      leido:           false,
+      respondido:      false,
+      respuesta:       null,
+      fecha_respuesta: null,
+      fecha_creacion:  firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (telefono && telefono.length > 0) {
+      contacto.telefono = telefono;
+    }
+
+    db.collection('empresas').doc(EMPRESA_ID)
+      .collection('contacto_web')
+      .add(contacto)
+      .then(function () {
+        mostrarMensaje('exito', '✓ Mensaje enviado correctamente. Te responderemos pronto.');
+        document.getElementById('form-contacto').reset();
+      })
+      .catch(function (err) {
+        console.error('[Fluix] Error Firestore:', err);
+        var textoError = 'No se pudo enviar el mensaje. Inténtalo de nuevo.';
+        if (err.code === 'permission-denied') {
+          textoError = 'Sin permisos para enviar. Contacta con soporte.';
+        } else if (err.code === 'unavailable') {
+          textoError = 'Sin conexión a internet. Inténtalo de nuevo.';
+        }
+        mostrarMensaje('error', textoError);
+      })
+      .finally(function () {
+        btn.disabled    = false;
+        btn.textContent = 'Enviar Mensaje';
+      });
+  });
+
+})();
+</script>
+
+</body>
+</html>
+

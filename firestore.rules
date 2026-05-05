@@ -98,16 +98,25 @@ service cloud.firestore {
         && get(suscRef(empresaId)).data.get('addons_activos', []).hasAny([addonId]);
     }
 
+    // Devuelve true si la empresa tiene el flag es_demo = true en suscripcion/actual.
+    // Permite a cuentas demo acceder a todos los módulos premium sin packs activos.
+    function esDemoSuscripcion(empresaId) {
+      return exists(suscRef(empresaId))
+        && get(suscRef(empresaId)).data.get('es_demo', false) == true;
+    }
+
     function accesoModuloPremium(empresaId, packId) {
       return esPlataformaAdmin()
         || !exists(suscRef(empresaId))
-        || tienePackActivo(empresaId, packId);
+        || tienePackActivo(empresaId, packId)
+        || esDemoSuscripcion(empresaId);
     }
 
     function accesoAddonPremium(empresaId, addonId) {
       return esPlataformaAdmin()
         || !exists(suscRef(empresaId))
-        || tieneAddonActivo(empresaId, addonId);
+        || tieneAddonActivo(empresaId, addonId)
+        || esDemoSuscripcion(empresaId);
     }
 
     // ── VALIDACIÓN DE CAMPOS DE TRACKING ─────────────────────────────────────
@@ -338,6 +347,9 @@ service cloud.firestore {
           || puedeVerModulo(empresaId, 'citas')
           || esAdminOPropietario(empresaId)
           || esPlataformaAdmin();
+        // Admin/propietario puede crear cualquier reserva (incluyendo datos de prueba)
+        allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // Clientes externos pueden crear reservas con campos mínimos estrictos
         allow create: if (
             request.resource.data.estado == 'PENDIENTE'
             && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono_cliente'])
@@ -350,8 +362,7 @@ service cloud.firestore {
             && request.resource.data.fecha_hora is timestamp
             && request.resource.data.fecha_hora > request.time
             && request.resource.data.fecha_hora < request.time + duration.value(365, 'd')
-          )
-          || esPlataformaAdmin();
+          );
       }
 
       match /citas/{citaId} {
@@ -487,6 +498,12 @@ service cloud.firestore {
       }
 
       match /tareas/{tareaId} {
+        // Permite crear tareas desde el formulario de contacto (sin autenticar)
+        // Solo en la empresa propietaria y con el campo origen='lead_contacto'
+        allow create: if !isAuth()
+            && empresaId == '37KyODVYpXYD04VwG3Vf'
+            && request.resource.data.get('origen', '') == 'lead_contacto'
+            && request.resource.data.get('solo_propietario', false) == true;
         allow read, write: if puedeVerModulo(empresaId, 'tareas') || esPlataformaAdmin();
         match /mensajes/{mensajeId} {
           allow read, write: if puedeVerModulo(empresaId, 'tareas') || esPlataformaAdmin();
@@ -668,6 +685,8 @@ service cloud.firestore {
       }
 
       match /configuracion/{docId} {
+        // La config de reservas es pública para que el formulario web pueda consultarla
+        allow read: if docId == 'reservas';
         allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
         allow read: if docId == 'web_avanzada';
         allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -816,6 +835,22 @@ service cloud.firestore {
     match /currency_rates/{rateId} {
       allow read: if esUsuarioReal();
       allow write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // CONTACTOS INTERESADOS (Formulario público en login)
+    // ════════════════════════════════════════════════════════════════════
+
+    match /contactos_interesados/{contactoId} {
+      // Permitir crear sin autenticación (formulario público)
+      allow create: if !isAuth()
+        && request.resource.data.keys().hasAll([
+          'nombre', 'correo', 'nombre_empresa', 'actividad', 'timestamp', 'estado'
+        ])
+        && request.resource.data.estado == 'nuevo';
+
+      // Solo admin de plataforma puede leer/modificar
+      allow read, update, delete: if esPlataformaAdmin();
     }
 
     // ════════════════════════════════════════════════════════════════════

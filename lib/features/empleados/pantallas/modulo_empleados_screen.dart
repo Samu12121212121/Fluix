@@ -31,22 +31,37 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   final _firestore = FirebaseFirestore.instance;
   Timer? _tokenRefreshTimer;
   final _convenioService = ConvenioFirestoreService();
+  // Clave para forzar la reconstrucción del StreamBuilder tras token refresh
+  Key _streamKey = UniqueKey();
 
   // Admin y propietario pueden gestionar empleados
   bool get _esPropietario =>
       widget.sesion?.esAdmin ??
       (PermisosService().sesion?.esAdmin ?? false);
+
   Future<void> _refreshToken() async {
     try {
       await FirebaseAuth.instance.currentUser?.getIdToken(true);
-    } catch (_) {}
+      debugPrint('🔑 Token renovado en ModuloEmpleados');
+    } catch (e) {
+      debugPrint('⚠️ Error renovando token en empleados: $e');
+    }
   }
 
+  /// Renueva el token y reconstruye el StreamBuilder para reconectarse a Firestore
+  Future<void> _refreshTokenYRecargar() async {
+    await _refreshToken();
+    if (mounted) {
+      setState(() => _streamKey = UniqueKey());
+    }
+  }
 
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     super.initState();
+    // Refrescar token inmediatamente al entrar
+    _refreshToken();
     // Refrescar token cada 4 minutos para evitar expiración silenciosa
     _tokenRefreshTimer = Timer.periodic(const Duration(minutes: 4), (_) {
       _refreshToken();
@@ -57,7 +72,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Forzar refresh cuando la app vuelve al primer plano
     if (state == AppLifecycleState.resumed) {
-      _refreshToken();
+      _refreshTokenYRecargar();
     }
   }
 
@@ -118,6 +133,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: StreamBuilder<QuerySnapshot>(
+        key: _streamKey,
         stream: _firestore
             .collection('usuarios')
             .where('empresa_id', isEqualTo: widget.empresaId)
@@ -127,7 +143,38 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            final esPermission = snapshot.error.toString().contains('permission-denied') ||
+                snapshot.error.toString().contains('PERMISSION_DENIED');
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(esPermission ? Icons.lock_clock : Icons.error_outline,
+                        size: 56, color: Colors.orange),
+                    const SizedBox(height: 16),
+                    Text(
+                      esPermission
+                          ? 'Token expirado. Pulsa "Actualizar" para reconectarte.'
+                          : 'Error: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _refreshTokenYRecargar,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Actualizar sesión'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D47A1),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           final empleados = snapshot.data?.docs ?? [];
           if (empleados.isEmpty) return _buildVacio();

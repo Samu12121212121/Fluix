@@ -232,7 +232,7 @@ class WidgetContenidoWeb extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _editarContenido();
+              _navegarAEditor(context);
             },
             child: const Text('Ir a Editar'),
           ),
@@ -318,17 +318,6 @@ class WidgetContenidoWeb extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cerrar'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: codigo));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Código copiado al portapapeles')),
-              );
-              Navigator.pop(ctx);
-            },
-            icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copiar'),
           ),
         ],
       ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
-import '../../../features/registro/pantallas/pantalla_registro.dart';
 import '../../../services/notificaciones_service.dart';
+import 'form_contacto_interes.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../core/utils/admin_initializer.dart';
 import '../../../services/auth/auditoria_service.dart';
@@ -84,7 +84,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF43A047).withOpacity(0.3),
+                color: const Color(0xFF43A047).withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -192,19 +192,15 @@ class _PantallaLoginState extends State<PantallaLogin> {
     return Column(
       children: [
         TextButton(
-          onPressed: _ocupado ? null : () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PantallaRegistro()),
-            );
-          },
+          onPressed: _ocupado ? null : () => mostrarFormContactoInteres(context),
           child: const Text(
-            'Registrar Nueva Empresa',
+            '¿Estás interesado en trabajar con nosotros?',
             style: TextStyle(
               color: Color(0xFF43A047),
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
+            textAlign: TextAlign.center,
           ),
         ),
         const SizedBox(height: 8),

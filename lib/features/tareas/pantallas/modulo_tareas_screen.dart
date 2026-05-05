@@ -234,7 +234,6 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen>
   }
 
   Widget _buildCalendario(List<Tarea> tareas) {
-    // Aplicar filtro por estado
     final tareasFiltradas = _filtroCalendario == null
         ? tareas
         : tareas.where((t) => t.estado == _filtroCalendario).toList();
@@ -248,142 +247,143 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen>
 
     final tareasHoy = _tareasDelDia(_diaSeleccionado);
 
-    return Column(
-      children: [
-        // ── Chips de filtro por estado ─────────────────────────────
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              _chipFiltro(null, 'Todas', Colors.blueGrey),
-              const SizedBox(width: 6),
-              _chipFiltro(EstadoTarea.pendiente, 'Pendiente', Colors.orange),
-              const SizedBox(width: 6),
-              _chipFiltro(EstadoTarea.enProgreso, 'En progreso', Colors.blue),
-              const SizedBox(width: 6),
-              _chipFiltro(EstadoTarea.enRevision, 'Revisión', Colors.purple),
-              const SizedBox(width: 6),
-              _chipFiltro(EstadoTarea.completada, 'Completada', Colors.green),
-              const SizedBox(width: 6),
-              _chipFiltro(EstadoTarea.cancelada, 'Cancelada', Colors.grey),
-            ],
-          ),
-        ),
-        // SizedBox con altura fija para evitar RenderFlex overflow en TableCalendar
-        SizedBox(
-          height: 360,
-          child: TableCalendar<Tarea>(
-          locale: 'es_ES',
-          firstDay: DateTime.now().subtract(const Duration(days: 365)),
-          lastDay: DateTime.now().add(const Duration(days: 365)),
-          focusedDay: _focusedDay,
-          selectedDayPredicate: (day) => isSameDay(_diaSeleccionado, day),
-          eventLoader: (day) => _tareasDelDia(day),
-          startingDayOfWeek: StartingDayOfWeek.monday,
-          calendarFormat: CalendarFormat.month,
-          availableCalendarFormats: const {
-            CalendarFormat.month: 'Mes',
-            CalendarFormat.week: 'Semana',
-          },
-          onDaySelected: (selected, focused) {
-            setState(() {
-              _diaSeleccionado = selected;
-              _focusedDay      = focused;
-            });
-          },
-          onPageChanged: (focused) => setState(() => _focusedDay = focused),
-          calendarStyle: CalendarStyle(
-            todayDecoration: BoxDecoration(
-              color: const Color(0xFF1976D2).withValues(alpha: 0.25),
-              shape: BoxShape.circle,
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // ── Chips de filtro por estado ─────────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                _chipFiltro(null, 'Todas', Colors.blueGrey),
+                const SizedBox(width: 6),
+                _chipFiltro(EstadoTarea.pendiente, 'Pendiente', Colors.orange),
+                const SizedBox(width: 6),
+                _chipFiltro(EstadoTarea.enProgreso, 'En progreso', Colors.blue),
+                const SizedBox(width: 6),
+                _chipFiltro(EstadoTarea.enRevision, 'Revisión', Colors.purple),
+                const SizedBox(width: 6),
+                _chipFiltro(EstadoTarea.completada, 'Completada', Colors.green),
+                const SizedBox(width: 6),
+                _chipFiltro(EstadoTarea.cancelada, 'Cancelada', Colors.grey),
+              ],
             ),
-            selectedDecoration: const BoxDecoration(
-              color: Color(0xFF1976D2),
-              shape: BoxShape.circle,
-            ),
-            markerDecoration: const BoxDecoration(
-              color: Color(0xFF1976D2),
-              shape: BoxShape.circle,
-            ),
-            outsideDaysVisible: false,
           ),
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: true,
-            titleCentered: true,
-            formatButtonShowsNext: false,
-            titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          // Puntos de colores según estado de cada tarea
-          calendarBuilders: CalendarBuilders<Tarea>(
-            markerBuilder: (context, day, events) {
-              if (events.isEmpty) return const SizedBox.shrink();
-              return Positioned(
-                bottom: 4,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: events.take(4).map((t) => Container(
-                    width: 5, height: 5,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      color: _colorEvento(t),
-                      shape: BoxShape.circle,
+          // Calendario con altura fija
+          SizedBox(
+            height: 360,
+            child: TableCalendar<Tarea>(
+              locale: 'es_ES',
+              firstDay: DateTime.now().subtract(const Duration(days: 365)),
+              lastDay: DateTime.now().add(const Duration(days: 365)),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_diaSeleccionado, day),
+              eventLoader: (day) => _tareasDelDia(day),
+              startingDayOfWeek: StartingDayOfWeek.monday,
+              calendarFormat: CalendarFormat.month,
+              availableCalendarFormats: const {
+                CalendarFormat.month: 'Mes',
+                CalendarFormat.week: 'Semana',
+              },
+              onDaySelected: (selected, focused) {
+                setState(() {
+                  _diaSeleccionado = selected;
+                  _focusedDay      = focused;
+                });
+              },
+              onPageChanged: (focused) => setState(() => _focusedDay = focused),
+              calendarStyle: CalendarStyle(
+                todayDecoration: BoxDecoration(
+                  color: const Color(0xFF1976D2).withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                selectedDecoration: const BoxDecoration(
+                  color: Color(0xFF1976D2),
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: const BoxDecoration(
+                  color: Color(0xFF1976D2),
+                  shape: BoxShape.circle,
+                ),
+                outsideDaysVisible: false,
+              ),
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: true,
+                titleCentered: true,
+                formatButtonShowsNext: false,
+                titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              calendarBuilders: CalendarBuilders<Tarea>(
+                markerBuilder: (context, day, events) {
+                  if (events.isEmpty) return const SizedBox.shrink();
+                  return Positioned(
+                    bottom: 4,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: events.take(4).map((t) => Container(
+                        width: 5, height: 5,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: _colorEvento(t),
+                          shape: BoxShape.circle,
+                        ),
+                      )).toList(),
                     ),
-                  )).toList(),
-                ),
-              );
-            },
-          ),
-        ),
-        ),
-
-        // ── Cabecera día seleccionado ──────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Text(
-                DateFormat('EEEE d MMMM', 'es_ES').format(_diaSeleccionado),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  );
+                },
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1976D2).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${tareasHoy.length} tarea${tareasHoy.length == 1 ? '' : 's'}',
-                  style: const TextStyle(color: Color(0xFF1976D2), fontWeight: FontWeight.w600, fontSize: 12),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
 
-        // ── Lista de tareas del día ────────────────────────────────
-        Flexible(
-          flex: 2,
-          child: tareasHoy.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.event_available, size: 48, color: Colors.grey[300]),
-                      const SizedBox(height: 12),
-                      Text('Sin tareas para este día',
-                          style: TextStyle(color: Colors.grey[500])),
-                    ],
+          // ── Cabecera día seleccionado ──────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Text(
+                  DateFormat('EEEE d MMMM', 'es_ES').format(_diaSeleccionado),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1976D2).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
-                  itemCount: tareasHoy.length,
-                  itemBuilder: (_, i) => _tarjetaLista(tareasHoy[i]),
+                  child: Text(
+                    '${tareasHoy.length} tarea${tareasHoy.length == 1 ? '' : 's'}',
+                    style: const TextStyle(color: Color(0xFF1976D2), fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
                 ),
-        ),
-      ],
+              ],
+            ),
+          ),
+
+          // ── Lista de tareas del día (sin scroll propio) ────────────
+          if (tareasHoy.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(Icons.event_available, size: 48, color: Colors.grey[300]),
+                  const SizedBox(height: 12),
+                  Text('Sin tareas para este día',
+                      style: TextStyle(color: Colors.grey[500])),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+              itemCount: tareasHoy.length,
+              itemBuilder: (_, i) => _tarjetaLista(tareasHoy[i]),
+            ),
+        ],
+      ),
     );
   }
 
@@ -723,4 +723,5 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen>
     EstadoTarea.cancelada   => Colors.grey,
   };
 }
+
 

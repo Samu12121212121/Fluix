@@ -150,8 +150,8 @@ class PlanesConfig {
     id: 'gestion',
     nombre: 'Pack Gestión',
     precioAnual: 370,
-    modulosAdicionales: ['facturacion', 'vacaciones', 'tpv'],
-    descripcion: 'Facturación completa, gestión de vacaciones y TPV.',
+    modulosAdicionales: ['facturacion', 'vacaciones', 'tpv', 'fichaje'],
+    descripcion: 'Facturación completa, gestión de vacaciones, TPV y fichaje.',
     color: Color(0xFF7B1FA2),
     icono: Icons.workspace_premium,
   );

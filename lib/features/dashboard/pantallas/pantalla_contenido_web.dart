@@ -6,9 +6,9 @@ import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
-import 'package:planeag_flutter/features/dashboard/pantallas/tab_config_web.dart';
-import 'package:planeag_flutter/features/dashboard/pantallas/tab_mensajes_contacto.dart';
-import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_items_seccion.dart';
+import 'tab_config_web.dart';
+import 'tab_mensajes_contacto.dart';
+import 'pantalla_items_seccion.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL — Gestión de Contenido Web
@@ -62,8 +62,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.web, size: 17), text: 'Secciones'),
-            Tab(icon: Icon(Icons.mail_outline, size: 17), text: 'Mensajes'),
             Tab(icon: Icon(Icons.settings, size: 17), text: 'Config'),
+            Tab(icon: Icon(Icons.mail_outline, size: 17), text: 'Mensajes'),
           ],
         ),
       ),
@@ -71,8 +71,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         controller: _tab,
         children: [
           _TabSecciones(empresaId: widget.empresaId, svc: _svc, color: color),
-          TabMensajesContacto(empresaId: widget.empresaId),
           TabConfigWeb(empresaId: widget.empresaId, svc: _svc),
+          TabMensajesContacto(empresaId: widget.empresaId, color: color),
         ],
       ),
     );
@@ -264,26 +264,41 @@ class _TabSecciones extends StatelessWidget {
       stream: svc.obtenerSecciones(empresaId),
       builder: (context, snap) {
         final secciones = snap.data ?? [];
-        return CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(secciones, color)),
-            if (secciones.isEmpty)
-              SliverToBoxAdapter(child: _buildVacio(context, color))
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _TarjetaSeccion(
-                    seccion: secciones[i],
-                    empresaId: empresaId,
-                    svc: svc,
-                    color: color,
+        return Stack(children: [
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                  child: _buildHeader(secciones, color)),
+              if (secciones.isEmpty)
+                SliverToBoxAdapter(child: _buildVacio(context, color))
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _TarjetaSeccion(
+                      seccion: secciones[i],
+                      empresaId: empresaId,
+                      svc: svc,
+                      color: color,
+                    ),
+                    childCount: secciones.length,
                   ),
-                  childCount: secciones.length,
                 ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
-        );
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              heroTag: 'fab_nueva_seccion',
+              onPressed: () => _abrirEditor(context, null),
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva sección'),
+            ),
+          ),
+        ]);
       },
     );
   }
@@ -346,9 +361,23 @@ class _TabSecciones extends StatelessWidget {
                   color: Colors.grey[600])),
           const SizedBox(height: 8),
           Text(
-            'Las secciones aparecerán aquí cuando estén configuradas',
+            'Añade secciones para que se muestren en tu web',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _abrirEditor(context, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Crear primera sección'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ]),
       ),
@@ -356,6 +385,18 @@ class _TabSecciones extends StatelessWidget {
   }
 
 
+  void _abrirEditor(BuildContext context, SeccionWeb? seccion) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PantallaEditorSeccion(
+          empresaId: empresaId,
+          seccion: seccion,
+          svc: svc,
+        ),
+      ),
+    );
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

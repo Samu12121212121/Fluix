@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nueva solicitud de contacto — Fluix CRM</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f5f7fa; }
+    .container { max-width: 650px; margin: 32px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #D32F2F, #F44336); padding: 32px 24px; text-align: center; position: relative; }
+    .header::before { content: '🔥'; font-size: 52px; display: block; margin-bottom: 12px; }
+    .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 700; }
+    .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px; }
+    .badge { background: #FFEB3B; color: #D32F2F; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; margin-top: 12px; }
+    .body { padding: 32px 28px; }
+    .alert { background: #FFEBEE; border-left: 4px solid #D32F2F; padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
+    .alert p { margin: 0; color: #C62828; font-weight: 600; font-size: 14px; }
+    .section { margin-bottom: 28px; }
+    .section-title { color: #D32F2F; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .data-table { width: 100%; border-collapse: collapse; background: #FAFAFA; border-radius: 8px; overflow: hidden; }
+    .data-table td { padding: 12px 16px; border-bottom: 1px solid #EEEEEE; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-label { color: #666; font-size: 13px; font-weight: 500; width: 140px; }
+    .data-value { color: #1a1a1a; font-size: 14px; font-weight: 600; }
+    .highlight { background: #FFF3E0; padding: 20px 24px; border-radius: 12px; border: 2px solid #FFB74D; margin-bottom: 24px; }
+    .highlight h3 { color: #E65100; margin: 0 0 12px; font-size: 15px; }
+    .highlight p { color: #555; margin: 0; line-height: 1.7; font-size: 14px; white-space: pre-wrap; }
+    .cta-box { background: #E3F2FD; padding: 20px 24px; border-radius: 12px; text-align: center; margin: 24px 0; }
+    .cta-box p { margin: 0 0 16px; color: #1565C0; font-weight: 600; }
+    .cta-button { background: #1976D2; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px; }
+    .meta { background: #F5F5F5; padding: 16px 20px; border-radius: 8px; margin-bottom: 24px; }
+    .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta-label { color: #888; }
+    .meta-value { color: #333; font-weight: 600; }
+    .footer { background: #FAFAFA; padding: 24px 28px; text-align: center; border-top: 1px solid #E0E0E0; }
+    .footer p { margin: 4px 0; font-size: 12px; color: #999; }
+    .footer .logo { font-size: 16px; font-weight: 700; color: #D32F2F; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 Nueva Solicitud de Contacto</h1>
+      <p>Formulario público — Login de Fluix CRM</p>
+      <span class="badge">⚡ Acción requerida</span>
+    </div>
+
+    <div class="body">
+      <div class="alert">
+        <p>🚨 Un potencial cliente ha mostrado interés en trabajar con Fluix CRM</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          <span>👤</span>
+          <span>Datos del Contacto</span>
+        </div>
+        <table class="data-table">
+          <tr>
+            <td class="data-label">Nombre</td>
+            <td class="data-value">{{nombre}}</td>
+          </tr>
+          <tr>
+            <td class="data-label">Correo electrónico</td>
+            <td class="data-value">{{correo}}</td>
+          </tr>
+          {{#telefono}}
+          <tr>
+            <td class="data-label">Teléfono</td>
+            <td class="data-value">{{telefono}}</td>
+          </tr>
+          {{/telefono}}
+          <tr>
+            <td class="data-label">Empresa</td>
+            <td class="data-value">{{nombreEmpresa}}</td>
+          </tr>
+          {{#numTrabajadores}}
+          <tr>
+            <td class="data-label">Nº Trabajadores</td>
+            <td class="data-value">{{numTrabajadores}}</td>
+          </tr>
+          {{/numTrabajadores}}
+        </table>
+      </div>
+
+      <div class="highlight">
+        <h3>💼 Actividad de la empresa</h3>
+        <p>{{actividad}}</p>
+      </div>
+
+      <div class="meta">
+        <div class="meta-row">
+          <span class="meta-label">📅 Fecha de solicitud</span>
+          <span class="meta-value">{{fechaSolicitud}}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">🆔 ID del Lead</span>
+          <span class="meta-value">{{leadId}}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">📧 Email de confirmación</span>
+          <span class="meta-value">✅ Enviado a {{correo}}</span>
+        </div>
+      </div>
+
+      <div class="cta-box">
+        <p>📋 Se ha creado automáticamente una tarea de alta prioridad en tu panel</p>
+        <a href="https://app.fluixcrm.com" class="cta-button">Abrir Fluix CRM</a>
+      </div>
+
+      <div style="background: #FFF9C4; padding: 16px 20px; border-radius: 8px; border-left: 4px solid #FBC02D;">
+        <p style="margin: 0; color: #F57F17; font-size: 13px; font-weight: 600;">
+          ⏱️ <strong>Acción recomendada:</strong> Contactar en menos de 24h para maximizar conversión
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="logo">🚀 Fluix CRM</div>
+      <p>Sistema de gestión empresarial</p>
+      <p style="margin-top: 12px; color: #BBB;">
+        Este es un correo automático generado por el formulario de contacto público
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+

@@ -38,7 +38,7 @@ const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const REGION = "europe-west1";
 exports.onTareaAsignada = (0, firestore_1.onDocumentWritten)({ document: "empresas/{empresaId}/tareas/{tareaId}", region: REGION }, async (event) => {
-    var _a, _b;
+    var _a;
     const change = event.data;
     if (!change)
         return; // Deleted or invalid
@@ -61,6 +61,18 @@ exports.onTareaAsignada = (0, firestore_1.onDocumentWritten)({ document: "empres
         // 1. Obtener token del usuario asignado
         // Buscamos en 'empresas/{empresaId}/dispositivos/{usuarioId}' (según NotificacionesService)
         // O en 'usuarios/{usuarioId}'
+        // Verificar que el usuario sigue perteneciendo a esta empresa
+        const usuarioRef = db.collection("usuarios").doc(asignadoDespues);
+        const usuarioSnap = await usuarioRef.get();
+        const usuarioData = usuarioSnap.data();
+        if (!usuarioData) {
+            console.log(`⚠️ Usuario ${asignadoDespues} no encontrado.`);
+            return;
+        }
+        if (usuarioData.empresa_id !== empresaId) {
+            console.log(`⚠️ Usuario ${asignadoDespues} ya no pertenece a empresa ${empresaId} (empresa actual: ${usuarioData.empresa_id}). Notificación cancelada.`);
+            return;
+        }
         // Intentar primero en empresa/dispositivos para asegurar que está activo en esa empresa
         const dispositivoRef = db
             .collection("empresas")
@@ -71,9 +83,7 @@ exports.onTareaAsignada = (0, firestore_1.onDocumentWritten)({ document: "empres
         let token = (_a = dispositivoSnap.data()) === null || _a === void 0 ? void 0 : _a.token;
         // Si no, intentar en colección global usuarios (fallback)
         if (!token) {
-            const usuarioRef = db.collection("usuarios").doc(asignadoDespues);
-            const usuarioSnap = await usuarioRef.get();
-            token = (_b = usuarioSnap.data()) === null || _b === void 0 ? void 0 : _b.token_dispositivo;
+            token = usuarioData.token_dispositivo;
         }
         if (!token) {
             console.log(`⚠️ Usuario ${asignadoDespues} no tiene token FCM registrado.`);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constantes/constantes_app.dart';
+import '../../../core/config/planes_config.dart';
 import '../../../services/datos_prueba_fluixtech_service.dart';
 
 /// Módulo exclusivo para la cuenta propietaria (FluxTech).
@@ -61,6 +62,8 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                   _seccionIngresos(),
                   const SizedBox(height: 16),
                   _seccionActividad(),
+                  const SizedBox(height: 16),
+                  _seccionFichajes(),
                   const SizedBox(height: 16),
                   _seccionWeb(),
                   const SizedBox(height: 16),
@@ -198,15 +201,15 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
         const SizedBox(height: 10),
         Row(children: [
           Expanded(child: _tarjetaKPI(
-            '€${_datos.ingresosTotal.toStringAsFixed(0)}',
-            'Total histórico',
+            '€${_datos.mrr.toStringAsFixed(0)}/mes',
+            'MRR (recurrente)',
             Icons.account_balance_wallet,
             const Color(0xFF7B1FA2),
           )),
           const SizedBox(width: 10),
           Expanded(child: _tarjetaKPI(
-            '€${_datos.ingresosMes.toStringAsFixed(0)}',
-            'Este mes',
+            '€${(_datos.mrr * 12).toStringAsFixed(0)}',
+            'ARR (anual)',
             Icons.trending_up,
             const Color(0xFFE65100),
           )),
@@ -321,8 +324,120 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
             const Color(0xFFE65100),
           )),
         ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _tarjetaKPI(
+            '${_datos.totalReservas}',
+            'Reservas totales',
+            Icons.event_available,
+            const Color(0xFF00838F),
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _tarjetaKPI(
+            '${_datos.totalUsuarios}',
+            'Empleados totales',
+            Icons.badge,
+            const Color(0xFF388E3C),
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _tarjetaKPI(
+            _datos.totalEmpresas > 0
+                ? '${(_datos.totalReservas / _datos.totalEmpresas).toStringAsFixed(0)}'
+                : '0',
+            'Reservas / empresa',
+            Icons.bar_chart,
+            const Color(0xFF7B1FA2),
+          )),
+        ]),
       ],
     );
+  }
+
+  // ── SECCIÓN FICHAJES ───────────────────────────────────────────────────────
+
+  Widget _seccionFichajes() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _tituloSeccion(Icons.access_time_filled, 'Control horario (global plataforma)'),
+        const SizedBox(height: 10),
+        StreamBuilder<QuerySnapshot>(
+          stream: _db
+              .collection('empresas')
+              .snapshots(),
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            // Sumamos empleados activos con fichaje via cache de cada empresa
+            return FutureBuilder<Map<String, int>>(
+              future: _calcularFichajesGlobal(snap.data!.docs),
+              builder: (ctx, fSnap) {
+                final activos = fSnap.data?['activos'] ?? 0;
+                final fichadosHoy = fSnap.data?['fichados_hoy'] ?? 0;
+                final totalFichajesMes = fSnap.data?['fichajes_mes'] ?? 0;
+                return Row(children: [
+                  Expanded(child: _tarjetaKPI(
+                    '$activos',
+                    'Activos ahora',
+                    Icons.person_pin_circle,
+                    activos > 0 ? const Color(0xFF2E7D32) : const Color(0xFF9E9E9E),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _tarjetaKPI(
+                    '$fichadosHoy',
+                    'Fichados hoy',
+                    Icons.how_to_reg,
+                    const Color(0xFF0288D1),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _tarjetaKPI(
+                    '$totalFichajesMes',
+                    'Fichajes del mes',
+                    Icons.fingerprint,
+                    const Color(0xFF1565C0),
+                  )),
+                ]);
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<Map<String, int>> _calcularFichajesGlobal(
+      List<QueryDocumentSnapshot> empresas) async {
+    int activos = 0;
+    int fichadosHoy = 0;
+    int fichajesMes = 0;
+
+    final ahora = DateTime.now();
+    final inicioHoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final inicioMes = DateTime(ahora.year, ahora.month, 1);
+
+    // Lee cache de estadísticas (ya calculado) en paralelo
+    final futures = empresas.map((doc) async {
+      try {
+        final cacheDoc = await doc.reference
+            .collection('cache')
+            .doc('estadisticas')
+            .get();
+        if (cacheDoc.exists) {
+          final d = cacheDoc.data()!;
+          activos       += (d['empleados_con_fichaje_activo'] as int? ?? 0);
+          fichadosHoy   += (d['empleados_fichados_hoy'] as int? ?? 0);
+          fichajesMes   += (d['fichajes_mes'] as int? ?? 0);
+        }
+      } catch (_) {}
+    });
+    await Future.wait(futures);
+
+    return {
+      'activos': activos,
+      'fichados_hoy': fichadosHoy,
+      'fichajes_mes': fichajesMes,
+    };
   }
 
   // ── SECCIÓN WEB ────────────────────────────────────────────────────────────
@@ -640,13 +755,13 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
   Future<void> _limpiarDatosDePrueba() async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dlgCtx) => AlertDialog(
         title: const Text('¿Limpiar todos los datos de prueba?'),
         content: const Text('Se eliminarán clientes, empleados, nóminas, facturas, gastos, reservas y valoraciones de prueba.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dlgCtx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Eliminar todo', style: TextStyle(color: Colors.white)),
           ),
@@ -685,12 +800,15 @@ class _DatosPropietario {
   final int suscripcionesActivas;
   final int suscripcionesVencen7;
   final int suscripcionesVencidas;
+  final double mrr; // Monthly Recurring Revenue calculado desde suscripciones activas
   final double ingresosTotal;
   final double ingresosMes;
   final int facturasPendientes;
   final int totalPedidos;
   final int totalFacturas;
   final int totalValoraciones;
+  final int totalReservas;
+  final int totalUsuarios;
   final List<Map<String, dynamic>> ultimasVentas;
 
   const _DatosPropietario({
@@ -699,12 +817,15 @@ class _DatosPropietario {
     required this.suscripcionesActivas,
     required this.suscripcionesVencen7,
     required this.suscripcionesVencidas,
+    required this.mrr,
     required this.ingresosTotal,
     required this.ingresosMes,
     required this.facturasPendientes,
     required this.totalPedidos,
     required this.totalFacturas,
     required this.totalValoraciones,
+    required this.totalReservas,
+    required this.totalUsuarios,
     required this.ultimasVentas,
   });
 
@@ -714,12 +835,15 @@ class _DatosPropietario {
     suscripcionesActivas: 0,
     suscripcionesVencen7: 0,
     suscripcionesVencidas: 0,
+    mrr: 0,
     ingresosTotal: 0,
     ingresosMes: 0,
     facturasPendientes: 0,
     totalPedidos: 0,
     totalFacturas: 0,
     totalValoraciones: 0,
+    totalReservas: 0,
+    totalUsuarios: 0,
     ultimasVentas: [],
   );
 
@@ -728,89 +852,110 @@ class _DatosPropietario {
     final inicioMes = DateTime(ahora.year, ahora.month, 1);
     final en7Dias = ahora.add(const Duration(days: 7));
 
-    // 1. Total empresas
-    final empresasSnap = await db.collection('empresas').get();
+    // ── Carga paralelizada: todas las empresas + facturas del propietario ─────
+    final topLevel = await Future.wait([
+      db.collection('empresas').get(),
+      db
+          .collection('empresas')
+          .doc(ConstantesApp.empresaPropietariaId)
+          .collection('facturas')
+          .get(),
+    ]);
+
+    final empresasSnap = topLevel[0] as QuerySnapshot<Map<String, dynamic>>;
+    final facturasSnap = topLevel[1] as QuerySnapshot<Map<String, dynamic>>;
     final totalEmpresas = empresasSnap.docs.length;
 
-    // 2. Empresas nuevas este mes
-    int empresasNuevasMes = 0;
-    int suscripcionesActivas = 0;
-    int suscripcionesVencen7 = 0;
+    // ── Variables acumuladas (seguras en Dart single-thread) ─────────────────
+    int empresasNuevasMes     = 0;
+    int suscripcionesActivas  = 0;
+    int suscripcionesVencen7  = 0;
     int suscripcionesVencidas = 0;
-    int totalPedidosAll = 0;
-    int totalFacturasAll = 0;
-    int totalValoracionesAll = 0;
+    int totalPedidosAll       = 0;
+    int totalFacturasAll      = 0;
+    int totalValoracionesAll  = 0;
+    int totalReservasAll      = 0;
+    int totalUsuariosAll      = 0;
+    double mrrCalc            = 0;
 
-    for (final doc in empresasSnap.docs) {
-      // Fecha creación empresa
+    // ── Procesar TODAS las empresas en PARALELO ───────────────────────────────
+    await Future.wait(empresasSnap.docs.map((doc) async {
       final data = doc.data();
+
+      // Fecha de creación
       final fechaCreacion = data['fecha_creacion'];
-      if (fechaCreacion is Timestamp) {
-        if (fechaCreacion.toDate().isAfter(inicioMes)) empresasNuevasMes++;
+      if (fechaCreacion is Timestamp &&
+          fechaCreacion.toDate().isAfter(inicioMes)) {
+        empresasNuevasMes++;
       }
 
-      // Suscripciones
+      // Suscripción + 5 counts en paralelo por empresa
       try {
-        final suscDoc = await doc.reference
-            .collection('suscripcion')
-            .doc('actual')
-            .get();
-        if (suscDoc.exists) {
-          final estado = suscDoc.data()?['estado'] as String? ?? '';
-          final fechaFin = suscDoc.data()?['fecha_fin'] as Timestamp?;
+        final subResults = await Future.wait([
+          doc.reference.collection('suscripcion').doc('actual').get(),
+          doc.reference.collection('pedidos').count().get(),
+          doc.reference.collection('facturas').count().get(),
+          doc.reference.collection('valoraciones').count().get(),
+          doc.reference.collection('reservas').count().get(),
+          doc.reference.collection('empleados').count().get(),
+        ]);
+
+        // Suscripción
+        final suscSnap = subResults[0] as DocumentSnapshot<Map<String, dynamic>>;
+        if (suscSnap.exists) {
+          final sd     = suscSnap.data()!;
+          final estado = (sd['estado'] as String? ?? '').toUpperCase();
+          final fechaFin = sd['fecha_fin'] as Timestamp?;
+
           if (estado == 'ACTIVA') {
             suscripcionesActivas++;
             if (fechaFin != null && fechaFin.toDate().isBefore(en7Dias)) {
               suscripcionesVencen7++;
             }
+            // Calcular precio de esta suscripción desde PlanesConfig
+            final packsActivos  = List<String>.from(sd['packs_activos']  ?? []);
+            final addonsActivos = List<String>.from(sd['addons_activos'] ?? []);
+            final precioAnual = PlanesConfig.calcularPrecioTotal(
+              packsActivos: packsActivos,
+              addonsActivos: addonsActivos,
+            );
+            mrrCalc += precioAnual / 12;
           } else if (estado == 'VENCIDA') {
             suscripcionesVencidas++;
           }
         }
+
+        // Counts de actividad
+        totalPedidosAll      += (subResults[1] as AggregateQuerySnapshot).count ?? 0;
+        totalFacturasAll     += (subResults[2] as AggregateQuerySnapshot).count ?? 0;
+        totalValoracionesAll += (subResults[3] as AggregateQuerySnapshot).count ?? 0;
+        totalReservasAll     += (subResults[4] as AggregateQuerySnapshot).count ?? 0;
+        totalUsuariosAll     += (subResults[5] as AggregateQuerySnapshot).count ?? 0;
       } catch (_) {}
+    }));
 
-      // Conteo actividad (pedidos, facturas, valoraciones) — solo conteo estimado
-      try {
-        final pedidos = await doc.reference.collection('pedidos').count().get();
-        totalPedidosAll += pedidos.count ?? 0;
-      } catch (_) {}
-      try {
-        final facturas = await doc.reference.collection('facturas').count().get();
-        totalFacturasAll += facturas.count ?? 0;
-      } catch (_) {}
-      try {
-        final vals = await doc.reference.collection('valoraciones').count().get();
-        totalValoracionesAll += vals.count ?? 0;
-      } catch (_) {}
-    }
+    // ── Ingresos históricos desde facturas del propietario ────────────────────
+    double ingresosTotal    = 0;
+    double ingresosMes      = 0;
+    int    facturasPendientes = 0;
 
-    // 3. Ingresos de fluixtech (facturas pagadas y pendientes)
-    double ingresosTotal = 0;
-    double ingresosMes = 0;
-    int facturasPendientes = 0;
+    for (final f in facturasSnap.docs) {
+      final fd    = f.data();
+      final total = (fd['total'] as num?)?.toDouble() ?? 0;
+      final estado = (fd['estado'] as String? ?? '').toLowerCase();
+      final fecha = fd['fecha_emision'] as Timestamp?;
+      final esPagada = estado == 'pagada' || estado == 'cobrada';
 
-    try {
-      final facturasSnap = await db
-          .collection('empresas')
-          .doc(ConstantesApp.empresaPropietariaId)
-          .collection('facturas')
-          .get();
-
-      for (final f in facturasSnap.docs) {
-        final fd = f.data();
-        final total = (fd['total'] as num?)?.toDouble() ?? 0;
-        final estado = fd['estado'] as String? ?? '';
-        final fecha = fd['fecha_emision'] as Timestamp?;
-
-        if (estado == 'pendiente') facturasPendientes++;
+      if (estado == 'pendiente') facturasPendientes++;
+      if (esPagada) {
         ingresosTotal += total;
         if (fecha != null && fecha.toDate().isAfter(inicioMes)) {
           ingresosMes += total;
         }
       }
-    } catch (_) {}
+    }
 
-    // 4. Últimas ventas (pedidos con stripe_session_id)
+    // ── Últimas ventas (pedidos Stripe del propietario) ───────────────────────
     List<Map<String, dynamic>> ultimasVentas = [];
     try {
       final pedidosSnap = await db
@@ -821,10 +966,8 @@ class _DatosPropietario {
           .orderBy('fecha_pedido', descending: true)
           .limit(5)
           .get();
-
       ultimasVentas = pedidosSnap.docs.map((d) => d.data()).toList();
     } catch (_) {
-      // Si no hay índice aún, cargamos sin filtro Stripe
       try {
         final pedidosSnap = await db
             .collection('empresas')
@@ -843,14 +986,20 @@ class _DatosPropietario {
       suscripcionesActivas: suscripcionesActivas,
       suscripcionesVencen7: suscripcionesVencen7,
       suscripcionesVencidas: suscripcionesVencidas,
+      mrr: mrrCalc,
       ingresosTotal: ingresosTotal,
       ingresosMes: ingresosMes,
       facturasPendientes: facturasPendientes,
       totalPedidos: totalPedidosAll,
       totalFacturas: totalFacturasAll,
       totalValoraciones: totalValoracionesAll,
+      totalReservas: totalReservasAll,
+      totalUsuarios: totalUsuariosAll,
       ultimasVentas: ultimasVentas,
     );
   }
 }
+
+
+
 

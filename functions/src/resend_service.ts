@@ -494,3 +494,122 @@ export async function enviarPdfGenerico(opts: {
   });
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// CONTACTO DE INTERÉS — Formulario público en login
+// ───────────────────────────────────────────────────────────────────���──────────
+
+/** Email de confirmación al usuario que llena el formulario de contacto */
+export async function enviarConfirmacionContactoInteres(opts: {
+  to: string;
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  nombreEmpresa: string;
+  actividad: string;
+  numTrabajadores?: string;
+}): Promise<EmailResult> {
+  const year = new Date().getFullYear().toString();
+  const html = buildTemplate("contacto_interes_confirmacion", {
+    nombre: opts.nombre,
+    correo: opts.correo,
+    telefono: opts.telefono || "",
+    nombreEmpresa: opts.nombreEmpresa,
+    actividad: opts.actividad,
+    numTrabajadores: opts.numTrabajadores || "",
+    year,
+  });
+
+  return enviar({
+    from: "Fluix CRM <hola@fluixtech.com>",
+    to: opts.to,
+    subject: "¡Gracias por tu interés en Fluix CRM! 🚀",
+    html,
+  });
+}
+
+/** Email de notificación al propietario con los datos del lead */
+export async function enviarNotificacionContactoInteres(opts: {
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  nombreEmpresa: string;
+  actividad: string;
+  numTrabajadores?: string;
+  leadId: string;
+  fechaSolicitud: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("contacto_interes_notificacion", {
+    nombre: opts.nombre,
+    correo: opts.correo,
+    telefono: opts.telefono || "",
+    nombreEmpresa: opts.nombreEmpresa,
+    actividad: opts.actividad,
+    numTrabajadores: opts.numTrabajadores || "",
+    leadId: opts.leadId,
+    fechaSolicitud: opts.fechaSolicitud,
+  });
+
+  return enviar({
+    from: "Fluix CRM Leads <leads@fluixtech.com>",
+    to: "sacoor80@gmail.com",
+    subject: `🎯 Nuevo Lead: ${opts.nombreEmpresa} — ${opts.nombre}`,
+    html,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CONTACTO WEB — Formulario de contacto en sitio web de cliente
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Notificación al empresario de nuevo mensaje de contacto web */
+export async function enviarNotificacionContactoWeb(opts: {
+  emailEmpresario: string;
+  empresaNombre: string;
+  nombreRemitente: string;
+  emailRemitente: string;
+  telefonoRemitente: string;
+  asunto: string;
+  mensajeTexto: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("contacto_notificacion", {
+    empresaNombre: opts.empresaNombre,
+    nombreRemitente: opts.nombreRemitente,
+    emailRemitente: opts.emailRemitente,
+    telefonoRemitente: opts.telefonoRemitente,
+    asunto: opts.asunto,
+    mensajeTexto: opts.mensajeTexto,
+  });
+
+  return enviar({
+    from: "Fluix CRM <noreply@fluixtech.com>",
+    to: opts.emailEmpresario,
+    subject: `📬 Nuevo mensaje de contacto: ${opts.nombreRemitente}`,
+    html,
+  });
+}
+
+/** Respuesta del empresario al visitante que envió mensaje de contacto */
+export async function enviarRespuestaContactoWeb(opts: {
+  emailRemitente: string;
+  nombreRemitente: string;
+  empresaNombre: string;
+  asunto: string;
+  mensajeOriginal: string;
+  respuestaTexto: string;
+}): Promise<EmailResult> {
+  const html = buildTemplate("contacto_respuesta", {
+    nombreRemitente: opts.nombreRemitente,
+    empresaNombre: opts.empresaNombre,
+    asunto: opts.asunto,
+    mensajeOriginal: opts.mensajeOriginal,
+    respuestaTexto: opts.respuestaTexto,
+  });
+
+  return enviar({
+    from: `${opts.empresaNombre} <noreply@fluixtech.com>`,
+    to: opts.emailRemitente,
+    subject: `Re: ${opts.asunto}`,
+    html,
+  });
+}
+

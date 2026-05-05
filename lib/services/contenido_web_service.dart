@@ -404,16 +404,26 @@ class ContenidoWebService {
 
     // RESERVAS WEB
     // Inyectar en #fluixcrm_reservas
-    buf.writeln('  // Formulario de Reserva Web');
+    buf.writeln('  // Formulario de Reserva Web con Empleados');
     buf.writeln('  (function(){');
     buf.writeln('    const el=document.getElementById("fluixcrm_reservas");');
     buf.writeln('    if(!el) return;');
-    buf.writeln('    el.innerHTML=`<div style="max-width:480px;border:1px solid #eee;padding:24px;border-radius:12px"><h3>📅 Reservar Mesa / Cita</h3><form onsubmit="fluixReserva(event)" style="display:flex;flex-direction:column;gap:14px"><input name="nombre" placeholder="Tu nombre" required style="padding:12px;border:1px solid #ddd;border-radius:8px"><input name="telefono" type="tel" placeholder="Tu teléfono" required style="padding:12px;border:1px solid #ddd;border-radius:8px"><div style="display:flex;gap:10px"><input name="fecha" type="date" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1"><input name="hora" type="time" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1"></div><input name="personas" type="number" min="1" placeholder="Nº Personas" style="padding:12px;border:1px solid #ddd;border-radius:8px"><button type="submit" style="background:#1976D2;color:#fff;padding:14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px">Solicitar Reserva</button></form></div>`;');
+    buf.writeln('    var empleados=[];var empleadoSel=null;');
+    buf.writeln('    db.collection("empresas").doc(EMPRESA).collection("empleados").where("activo","==",true).get().then(function(snap){');
+    buf.writeln('      empleados=snap.docs.map(function(d){return{id:d.id,nombre:d.data().nombre||"Sin nombre"};});');
+    buf.writeln('      renderFormulario();');
+    buf.writeln('    }).catch(function(){renderFormulario();});');
+    buf.writeln('    function renderFormulario(){');
+    buf.writeln('      var empleadosHTML=empleados.length>0?"<label style=\\"font-size:13px;color:#555;margin:8px 0 4px;display:block\\">Empleado preferido (opcional)</label><select name=\\"empleado\\" style=\\"padding:12px;border:1px solid #ddd;border-radius:8px;width:100%\\"><option value=\\"\\">Sin preferencia</option>"+empleados.map(function(e){return"<option value=\\""+e.id+"\\">"+e.nombre+"</option>";}).join("")+"</select>":"";');
+    buf.writeln('      el.innerHTML="<div style=\\"max-width:480px;border:1px solid #eee;padding:24px;border-radius:12px\\"><h3>📅 Reservar Mesa / Cita</h3><form onsubmit=\\"fluixReserva(event)\\" style=\\"display:flex;flex-direction:column;gap:14px\\"><input name=\\"nombre\\" placeholder=\\"Tu nombre\\" required style=\\"padding:12px;border:1px solid #ddd;border-radius:8px\\"><input name=\\"telefono\\" type=\\"tel\\" placeholder=\\"Tu teléfono\\" required style=\\"padding:12px;border:1px solid #ddd;border-radius:8px\\"><div style=\\"display:flex;gap:10px\\"><input name=\\"fecha\\" type=\\"date\\" required style=\\"padding:12px;border:1px solid #ddd;border-radius:8px;flex:1\\"><input name=\\"hora\\" type=\\"time\\" required style=\\"padding:12px;border:1px solid #ddd;border-radius:8px;flex:1\\"></div><input name=\\"personas\\" type=\\"number\\" min=\\"1\\" placeholder=\\"Nº Personas\\" style=\\"padding:12px;border:1px solid #ddd;border-radius:8px\\">"+empleadosHTML+"<button type=\\"submit\\" style=\\"background:#1976D2;color:#fff;padding:14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px\\">Solicitar Reserva</button></form></div>";');
+    buf.writeln('    }');
     buf.writeln('    window.fluixReserva=function(e){');
     buf.writeln('      e.preventDefault();');
     buf.writeln('      const fd=new FormData(e.target);');
     buf.writeln('      const fechaStr = fd.get("fecha") + "T" + fd.get("hora") + ":00";');
     buf.writeln('      const fecha = new Date(fechaStr);');
+    buf.writeln('      const empleadoId=fd.get("empleado")||null;');
+    buf.writeln('      const empleadoNombre=empleadoId?empleados.find(function(e){return e.id===empleadoId;})?.nombre:null;');
     buf.writeln('      db.collection("empresas").doc(EMPRESA).collection("reservas").add({');
     buf.writeln('        nombre_cliente: fd.get("nombre"),');
     buf.writeln('        telefono_cliente: fd.get("telefono"),');
@@ -422,8 +432,15 @@ class ContenidoWebService {
     buf.writeln('        fecha_hora: fecha.toISOString(),');
     buf.writeln('        estado: "PENDIENTE",');
     buf.writeln('        origen: "web",');
+    buf.writeln('        empleado_asignado: empleadoId,');
+    buf.writeln('        empleado_nombre: empleadoNombre,');
     buf.writeln('        fecha_creacion: firebase.firestore.FieldValue.serverTimestamp()');
-    buf.writeln('      }).then(()=>{');
+    buf.writeln('      }).then(function(){');
+    buf.writeln('        if(empleadoId&&empleadoNombre){');
+    buf.writeln('          db.collection("empresas").doc(EMPRESA).collection("estadisticas").doc("empleados_rendimiento").set({');
+    buf.writeln('            empleados:{[empleadoNombre]:{empleado_id:empleadoId,total_reservas:firebase.firestore.FieldValue.increment(1),ultima_actualizacion:firebase.firestore.FieldValue.serverTimestamp()}}');
+    buf.writeln('          },{merge:true}).catch(function(e){console.warn("Stats update error:",e);});');
+    buf.writeln('        }');
     buf.writeln('        e.target.innerHTML="<div style=\'text-align:center;padding:20px\'><h3 style=\'color:green\'>✅ ¡Solicitud enviada!</h3><p>Te confirmaremos pronto.</p></div>";');
     buf.writeln('      }).catch(err=>{alert("Error: "+err.message);});');
     buf.writeln('    };');
@@ -527,41 +544,18 @@ class ContenidoWebService {
     buf.writeln('    el.textContent=valor;');
     buf.writeln('  }');
     buf.writeln('');
-    // ── Seed: lee HTML → crea doc en Firestore si no existe ──
+    // ── Seed: comprueba si el doc existe; si no, avisa al admin (NO escribe) ──
+    // La sección nueva debe crearse desde la app PlaneaGuada, no desde el script.
     buf.writeln('  function seedSeccion(seccionEl,seccionId){');
     buf.writeln('    var ref=db.collection("empresas").doc(EMPRESA).collection("contenido_web").doc(seccionId);');
     buf.writeln('    ref.get().then(function(doc){');
     buf.writeln('      if(doc.exists){ return; }');
-    buf.writeln('      if(doc.exists){ console.log("Fluix seed: "+seccionId+" ya existe"); return; }');
-    buf.writeln('      var tituloEl=seccionEl.querySelector("[data-fluix-titulo]");');
-    buf.writeln('      var items=[];');
-    buf.writeln('      seccionEl.querySelectorAll("[data-fluix-item]").forEach(function(itemEl){');
-    buf.writeln('        var itemId=itemEl.getAttribute("data-fluix-item");');
-    buf.writeln('        var item={id:itemId,disponible:true};');
-    buf.writeln('        itemEl.querySelectorAll("[data-fluix-campo]").forEach(function(campoEl){');
-    buf.writeln('          var campo=campoEl.getAttribute("data-fluix-campo");');
-    buf.writeln('          var val=leerCampo(campoEl);');
-    buf.writeln('          if(!val) return;');
-    buf.writeln('          if(campo==="precio"){');
-    buf.writeln('            var limpio=val.replace(/[^0-9.,]/g,"").replace(",",".");');
-    buf.writeln('            var num=parseFloat(limpio);');
-    buf.writeln('            item[campo]=isNaN(num)?val:num;');
-    buf.writeln('          }else{');
-    buf.writeln('            item[campo]=val;');
-    buf.writeln('          }');
-    buf.writeln('        });');
-    buf.writeln('        items.push(item);');
-    buf.writeln('      });');
-    buf.writeln('      ref.set({');
-    buf.writeln('        tipo:"generico",');
-    buf.writeln('        activa:true,');
-    buf.writeln('        nombre:tituloEl?tituloEl.textContent.trim():seccionId,');
-    buf.writeln('        contenido:{items:items}');
-    buf.writeln('      }).then(function(){');
-    buf.writeln('        console.log("Fluix seed: "+seccionId+" creada con "+items.length+" items");');
-    buf.writeln('      }).catch(function(e){');
-    buf.writeln('        console.error("Fluix seed error ("+seccionId+"): "+e.message);');
-    buf.writeln('      });');
+    buf.writeln('      // La sección aún no existe en Firestore.');
+    buf.writeln('      // Crea la sección desde la app PlaneaGuada → Contenido Web.');
+    buf.writeln('      console.info("Fluix: sección \'"+seccionId+"\' pendiente de activar en la app");');
+    buf.writeln('    }).catch(function(){');
+    buf.writeln('      // Sin permisos de lectura: ignorar silenciosamente.');
+    buf.writeln('    });');
     buf.writeln('  }');
     buf.writeln('');
     // ── Listener tiempo real: actualiza HTML cuando cambia Firestore ──

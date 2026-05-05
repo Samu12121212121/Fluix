@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/cliente.dart';
 import '../../../domain/modelos/factura.dart';
+import '../../../domain/modelos/interaccion_cliente.dart';
 import '../../../services/clientes_service.dart';
 import '../../../services/facturacion_service.dart';
 import '../../../services/bulk_actions_service.dart';

@@ -8,7 +8,7 @@ enum PlanModulo {
   gestion,
   tienda,
   nominas,
-  addon, // Add-on independiente (WhatsApp, Tareas, etc.)
+   addon, // Add-on independiente (WhatsApp, Tareas, etc.)
 }
 
 extension PlanModuloExt on PlanModulo {
@@ -223,6 +223,14 @@ class ModulosDisponibles {
       nombre: 'Vacaciones',
       descripcion: 'Control de vacaciones, ausencias y calendario del equipo',
       icono: Icons.beach_access,
+      activo: false,
+      plan: PlanModulo.gestion,
+    ),
+    const ModuloConfig(
+      id: 'fichaje',
+      nombre: 'Fichaje',
+      descripcion: 'Control de entrada y salida del equipo con geolocalización',
+      icono: Icons.access_time,
       activo: false,
       plan: PlanModulo.gestion,
     ),

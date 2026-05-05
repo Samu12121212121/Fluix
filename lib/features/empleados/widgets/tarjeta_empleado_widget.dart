@@ -61,6 +61,147 @@ class TarjetaEmpleado extends StatelessWidget {
     return nombre.isNotEmpty ? nombre[0].toUpperCase() : 'E';
   }
 
+  void _mostrarOpciones(BuildContext context) {
+    final activo = data['activo'] ?? true;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(data['nombre'] ?? 'Empleado',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _colorRol.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(_nombreRol,
+                          style: TextStyle(color: _colorRol, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              _opcionItem(ctx, Icons.edit, 'Editar empleado', Colors.blue, () => onEditar()),
+              _opcionItem(ctx, Icons.add_a_photo, 'Foto de perfil', const Color(0xFF00796B), () => onFoto?.call()),
+              _opcionItem(ctx, Icons.apps, 'Configurar módulos', const Color(0xFF1976D2), () {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ConfigurarModulosEmpleadoScreen(
+                    empresaId: empresaId,
+                    empleadoUid: id,
+                    empleadoNombre: data['nombre'] ?? 'Empleado',
+                  ),
+                ));
+              }),
+              _opcionItem(ctx, Icons.description, 'Generar finiquito', Colors.deepOrange, () {
+                Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => NuevoFiniquitoForm(
+                        empresaId: empresaId, empleadoIdPreseleccionado: id)));
+              }),
+              _opcionItem(ctx, Icons.folder_open, 'Ver finiquitos', Colors.orange, () {
+                Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => FiniquitosScreen(empresaId: empresaId, empleadoIdFiltro: id)));
+              }),
+              _opcionItem(ctx, Icons.beach_access, 'Solicitar vacaciones', const Color(0xFF00796B), () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  useSafeArea: true,
+                  builder: (_) => NuevaSolicitudForm(empresaId: empresaId, empleadoIdFijo: id),
+                );
+              }),
+              _opcionItem(ctx, Icons.calendar_month, 'Saldo vacaciones', const Color(0xFF26A69A), () {
+                showDialog(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: Text('Vacaciones — ${data['nombre'] ?? ''}'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: SaldoVacacionesWidget(
+                          empresaId: empresaId, empleadoId: id, anio: DateTime.now().year),
+                    ),
+                    actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cerrar'))],
+                  ),
+                );
+              }),
+              _opcionItem(ctx, Icons.workspace_premium, 'Ver antigüedad', const Color(0xFF5D4037),
+                  () => _mostrarDialogoAntiguedad(context, id, data)),
+              _opcionItem(
+                ctx,
+                activo ? Icons.block : Icons.check_circle,
+                activo ? 'Desactivar empleado' : 'Activar empleado',
+                activo ? Colors.red : Colors.green,
+                () => onToggleActivo(),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _opcionItem(BuildContext ctx, IconData icono, String titulo, Color color, VoidCallback accion) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icono, color: color, size: 20),
+      ),
+      title: Text(titulo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      onTap: () {
+        Navigator.pop(ctx);
+        try {
+          accion();
+        } catch (e) {
+          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+          ));
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activo  = data['activo'] ?? true;
@@ -70,173 +211,69 @@ class TarjetaEmpleado extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: esPropietario ? onFoto : null,
-              child: AvatarEmpleado(
-                fotoUrl: fotoUrl,
-                iniciales: _iniciales,
-                color: _colorRol,
-                size: 50,
-                mostrarBotonCamara: esPropietario,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(
-                    child: Text(data['nombre'] ?? 'Sin nombre',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (!activo) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red[200]!),
-                      ),
-                      child: Text('Inactivo', style: TextStyle(fontSize: 10, color: Colors.red[700])),
-                    ),
-                  ],
-                ]),
-                const SizedBox(height: 2),
-                if (data['correo'] != null)
-                  Text(data['correo'],
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      overflow: TextOverflow.ellipsis),
-                if (data['telefono'] != null && data['telefono'] != '')
-                  Text(data['telefono'], style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _colorRol.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(_nombreRol,
-                      style: TextStyle(color: _colorRol, fontSize: 11, fontWeight: FontWeight.w600)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: esPropietario ? () => _mostrarOpciones(context) : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: esPropietario ? onFoto : null,
+                child: AvatarEmpleado(
+                  fotoUrl: fotoUrl,
+                  iniciales: _iniciales,
+                  color: _colorRol,
+                  size: 50,
+                  mostrarBotonCamara: esPropietario,
                 ),
-              ]),
-            ),
-            if (esPropietario)
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.grey),
-                onSelected: (v) {
-                  try {
-                    switch (v) {
-                      case 'editar':
-                        onEditar();
-                        break;
-                      case 'toggle':
-                        onToggleActivo();
-                        break;
-                      case 'nomina':
-                        onDatosNomina?.call();
-                        break;
-                      case 'embargos':
-                        onEmbargos?.call();
-                        break;
-                      case 'foto':
-                        onFoto?.call();
-                        break;
-                      case 'finiquito':
-                        Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => NuevoFiniquitoForm(
-                                empresaId: empresaId, empleadoIdPreseleccionado: id)));
-                        break;
-                      case 'ver_finiquitos':
-                        Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => FiniquitosScreen(empresaId: empresaId, empleadoIdFiltro: id)));
-                        break;
-                      case 'vacaciones':
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          useSafeArea: true,
-                          builder: (_) => NuevaSolicitudForm(empresaId: empresaId, empleadoIdFijo: id),
-                        );
-                        break;
-                      case 'ver_saldo_vacaciones':
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: Text('Vacaciones — ${data['nombre'] ?? ''}'),
-                            content: SizedBox(
-                              width: double.maxFinite,
-                              child: SaldoVacacionesWidget(
-                                  empresaId: empresaId, empleadoId: id, anio: DateTime.now().year),
-                            ),
-                            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
-                          ),
-                        );
-                        break;
-                      case 'ver_antiguedad':
-                        _mostrarDialogoAntiguedad(context, id, data);
-                        break;
-                      case 'modulos':
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => ConfigurarModulosEmpleadoScreen(
-                            empresaId: empresaId,
-                            empleadoUid: id,
-                            empleadoNombre: data['nombre'] ?? 'Empleado',
-                          ),
-                        ));
-                        break;
-                    }
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('❌ Error al ejecutar acción: $e'),
-                      backgroundColor: Colors.red,
-                    ));
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'editar',
-                      child: ListTile(leading: Icon(Icons.edit), title: Text('Editar'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'foto',
-                      child: ListTile(leading: Icon(Icons.add_a_photo, color: Color(0xFF00796B)),
-                          title: Text('Foto de perfil'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'modulos',
-                      child: ListTile(leading: Icon(Icons.apps, color: Color(0xFF1976D2)),
-                          title: Text('Configurar módulos'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'nomina',
-                      child: ListTile(leading: Icon(Icons.payments, color: Color(0xFF0D47A1)),
-                          title: Text('Datos nómina'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'embargos',
-                      child: ListTile(leading: Icon(Icons.gavel, color: Color(0xFFB71C1C)),
-                          title: Text('Embargos judiciales'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'finiquito',
-                      child: ListTile(leading: Icon(Icons.description, color: Colors.deepOrange),
-                          title: Text('Generar finiquito'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'ver_finiquitos',
-                      child: ListTile(leading: Icon(Icons.folder_open, color: Colors.orange),
-                          title: Text('Ver finiquitos'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'vacaciones',
-                      child: ListTile(leading: Icon(Icons.beach_access, color: Color(0xFF00796B)),
-                          title: Text('Solicitar vacaciones'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'ver_saldo_vacaciones',
-                      child: ListTile(leading: Icon(Icons.calendar_month, color: Color(0xFF26A69A)),
-                          title: Text('Saldo vacaciones'), contentPadding: EdgeInsets.zero)),
-                  const PopupMenuItem(value: 'ver_antiguedad',
-                      child: ListTile(leading: Icon(Icons.workspace_premium, color: Color(0xFF5D4037)),
-                          title: Text('Ver antigüedad'), contentPadding: EdgeInsets.zero)),
-                  PopupMenuItem(value: 'toggle',
-                      child: ListTile(
-                          leading: Icon(activo ? Icons.block : Icons.check_circle,
-                              color: activo ? Colors.red : Colors.green),
-                          title: Text(activo ? 'Desactivar' : 'Activar'),
-                          contentPadding: EdgeInsets.zero)),
-                ],
               ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(data['nombre'] ?? 'Sin nombre',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (!activo) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.red[200]!),
+                        ),
+                        child: Text('Inactivo', style: TextStyle(fontSize: 10, color: Colors.red[700])),
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: 2),
+                  if (data['correo'] != null)
+                    Text(data['correo'],
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        overflow: TextOverflow.ellipsis),
+                  if (data['telefono'] != null && data['telefono'] != '')
+                    Text(data['telefono'], style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _colorRol.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(_nombreRol,
+                        style: TextStyle(color: _colorRol, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              ),
+              if (esPropietario)
+                Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+            ],
+          ),
         ),
       ),
     );

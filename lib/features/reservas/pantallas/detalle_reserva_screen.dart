@@ -2,6 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PANTALLA DE DETALLE EXPANDIDO DE RESERVA/CITA
+// ─────────────────────────────────────────────────────────────────────────────
+
 class DetalleReservaScreen extends StatefulWidget {
   final QueryDocumentSnapshot doc;
   final String empresaId;
@@ -47,45 +51,40 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
       widget.doc.reference.path.contains('citas') ? 'citas' : 'reservas';
   String get _emailCliente =>
       (_data['email_cliente'] ?? _data['correo_cliente'] ?? _data['email'] ?? '').toString();
-
-  bool get _tieneAlergenos {
-    final v = _data['alergenos'];
-    return v == true || v == 'si';
-  }
-
+  bool get _tieneAlergenos => _data['alergenos'] == true;
   String get _detalleAlergenos =>
-      (_data['alergenos_detalle'] ?? _data['detalle_alergenos'] ?? _data['alergias_detalle'] ?? '').toString();
-
-  String get _zona =>
-      (_data['zona'] ?? _data['ubicacion'] ?? '').toString();
-
-  // FIX: comensales acepta int o String (formulario web envía string)
-  int? get _comensales {
-    final raw = _data['numero_personas'] ?? _data['comensales'] ?? _data['personas'];
-    if (raw is int) return raw;
-    if (raw is String) return int.tryParse(raw);
-    return null;
-  }
+      (_data['detalle_alergenos'] ?? _data['alergias_detalle'] ?? '').toString();
+  String get _zona => (_data['zona'] ?? '').toString();
 
   Color get _colorEstado {
     switch (_estado) {
-      case 'CONFIRMADA':    return const Color(0xFF4CAF50);
-      case 'CANCELADA':     return const Color(0xFFD32F2F);
-      case 'COMPLETADA':    return const Color(0xFF607D8B);
+      case 'CONFIRMADA':
+        return const Color(0xFF4CAF50);
+      case 'CANCELADA':
+        return const Color(0xFFD32F2F);
+      case 'COMPLETADA':
+        return const Color(0xFF607D8B);
       case 'POR_CONFIRMAR':
-      case 'SOLICITADA':    return const Color(0xFF1976D2);
-      default:              return const Color(0xFFF57C00);
+      case 'SOLICITADA':
+        return const Color(0xFF1976D2);
+      default:
+        return const Color(0xFFF57C00);
     }
   }
 
   IconData get _iconoEstado {
     switch (_estado) {
-      case 'CONFIRMADA':    return Icons.check_circle;
-      case 'CANCELADA':     return Icons.cancel;
-      case 'COMPLETADA':    return Icons.task_alt;
+      case 'CONFIRMADA':
+        return Icons.check_circle;
+      case 'CANCELADA':
+        return Icons.cancel;
+      case 'COMPLETADA':
+        return Icons.task_alt;
       case 'POR_CONFIRMAR':
-      case 'SOLICITADA':    return Icons.schedule;
-      default:              return Icons.pending;
+      case 'SOLICITADA':
+        return Icons.schedule;
+      default:
+        return Icons.pending;
     }
   }
 
@@ -101,79 +100,11 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
         'fecha_modificacion': FieldValue.serverTimestamp(),
       });
       if (mounted) setState(() => _data['estado'] = nuevoEstado);
-
-      // Al confirmar: crear o actualizar cliente por teléfono
-      if (nuevoEstado == 'CONFIRMADA') {
-        await _upsertClienteDesdeReserva();
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    }
-  }
-
-  /// Crea o actualiza un cliente en la colección 'clientes' a partir de los
-  /// datos de esta reserva. Usa el teléfono como clave de deduplicación.
-  /// Si no hay teléfono, usa el nombre.
-  Future<void> _upsertClienteDesdeReserva() async {
-    final db = FirebaseFirestore.instance;
-    final clientesRef = db
-        .collection('empresas')
-        .doc(widget.empresaId)
-        .collection('clientes');
-
-    final telefono = _telefono.trim();
-    final nombre   = _cliente.trim();
-    final email    = _emailCliente.trim();
-    final ahora    = FieldValue.serverTimestamp();
-
-    // Intentar encontrar cliente existente por teléfono (o por nombre si no hay tel.)
-    QuerySnapshot? snap;
-    if (telefono.isNotEmpty) {
-      snap = await clientesRef
-          .where('telefono', isEqualTo: telefono)
-          .limit(1)
-          .get();
-    }
-
-    if (snap != null && snap.docs.isNotEmpty) {
-      // ── CLIENTE EXISTENTE: actualizar estadísticas ──────────────────────────
-      final docRef = snap.docs.first.reference;
-      final existing = snap.docs.first.data() as Map<String, dynamic>;
-
-      final update = <String, dynamic>{
-        'total_reservas':  FieldValue.increment(1),
-        'ultima_visita':   ahora,
-        'ultima_actividad': ahora,
-      };
-
-      // Refrescar nombre y email solo si llegaban vacíos
-      if ((existing['nombre'] ?? '').toString().isEmpty && nombre.isNotEmpty) {
-        update['nombre'] = nombre;
-      }
-      if ((existing['correo'] ?? existing['email'] ?? '').toString().isEmpty &&
-          email.isNotEmpty) {
-        update['correo'] = email;
-      }
-
-      await docRef.update(update);
-    } else {
-      // ── CLIENTE NUEVO: solo si hay nombre o teléfono ────────────────────────
-      if (nombre.isEmpty && telefono.isEmpty) return;
-
-      await clientesRef.add({
-        'nombre':           nombre.isNotEmpty ? nombre : 'Sin nombre',
-        'telefono':         telefono,
-        'correo':           email,
-        'total_reservas':   1,
-        'ultima_visita':    ahora,
-        'ultima_actividad': ahora,
-        'fecha_alta':       ahora,
-        'etiquetas':        <String>[],
-        'origen':           'reserva',
-      });
     }
   }
 
@@ -219,7 +150,7 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () async {  // FIX: bloque correcto, sin código suelto
+            onPressed: () async {
               final motivo = motivoCtrl.text.trim().isEmpty
                   ? 'Sin motivo especificado'
                   : motivoCtrl.text.trim();
@@ -253,7 +184,7 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
                 }
               }
             },
-            child: const Text('Cancelar reserva'),  // FIX: child obligatorio
+            child: const Text('Cancelar reserva'),
           ),
         ],
       ),
@@ -279,9 +210,9 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fecha = _parseTs(_data['fecha_hora'] ?? _data['fecha']);  // FIX: fallback a 'fecha'
+    final fecha = _parseTs(_data['fecha_hora'] ?? _data['fecha']);
     final precio = _data['precio'];
-    final comensales = _comensales;  // FIX: usar getter que maneja int y String
+    final comensales = (_data['numero_personas'] ?? _data['comensales'] ?? _data['personas']) as int?;
     final motivoCancelacion = _data['motivo_cancelacion'] as String?;
     final color = Theme.of(context).colorScheme.primary;
 
@@ -305,7 +236,8 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
           children: [
             // Badge de estado
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _colorEstado.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -329,15 +261,16 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Cliente
+            // Información del cliente
             _buildSeccion('👤 Cliente', [
               _buildFila('Nombre', _cliente),
               if (_telefono.isNotEmpty) _buildFila('Teléfono', _telefono),
               if (_emailCliente.isNotEmpty) _buildFila('Email', _emailCliente),
             ]),
+
             const Divider(height: 32),
 
-            // Reserva
+            // Información de la reserva
             _buildSeccion('📅 Reserva', [
               _buildFila(
                 'Fecha y hora',
@@ -346,23 +279,21 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
                     ._cap(),
               ),
               if (_servicio.isNotEmpty) _buildFila('Servicio', _servicio),
-              if (_profesional.isNotEmpty) _buildFila('Profesional', _profesional),
+              if (_profesional.isNotEmpty)
+                _buildFila('Profesional', _profesional),
               if (comensales != null && comensales > 0)
-                _buildFila('Comensales', '$comensales'),
-              if (_zona.isNotEmpty) _buildFila('Zona', _zona.toUpperCase()),
-              // FIX: created_at / fecha_creacion como fila normal sin código suelto
-              if (_data['created_at'] != null || _data['fecha_creacion'] != null)
                 _buildFila(
-                  'Fecha creación',
-                  DateFormat('dd/MM/yyyy HH:mm')
-                      .format(_parseTs(_data['created_at'] ?? _data['fecha_creacion'])),
+                  'Comensales',
+                  '$comensales ${comensales == 1 ? "persona" : "personas"}',
                 ),
+              if (_zona.isNotEmpty) _buildFila('Zona', _zona.toUpperCase()),
               if (precio != null)
-                _buildFila('Precio', '€${(precio as num).toStringAsFixed(2)}'),
+                _buildFila(
+                    'Precio', '€${(precio as num).toStringAsFixed(2)}'),
               if (_notas.isNotEmpty) _buildFila('Notas', _notas),
             ]),
 
-            // Alérgenos
+            // Alérgenos (campos extra Damajuana)
             if (_tieneAlergenos || _detalleAlergenos.isNotEmpty) ...[
               const Divider(height: 32),
               _buildSeccion('🌾 Alérgenos', [
@@ -387,14 +318,14 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
 
             const Divider(height: 32),
 
-            // Sistema
+            // Metadatos
             _buildSeccion('ℹ️ Sistema', [
               _buildFila('ID', widget.doc.id),
-              if (_data['fecha_creacion'] != null)
+              if (_data['created_at'] != null || _data['fecha_creacion'] != null)
                 _buildFila(
                   'Creada',
                   DateFormat('dd/MM/yyyy HH:mm')
-                      .format(_parseTs(_data['fecha_creacion'])),
+                      .format(_parseTs(_data['created_at'] ?? _data['fecha_creacion'])),
                 ),
               if (_data['fecha_modificacion'] != null)
                 _buildFila(
@@ -406,7 +337,7 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
 
             const SizedBox(height: 32),
 
-            // Confirmar
+            // Botón Confirmar (si toca)
             if (_estado == 'PENDIENTE' ||
                 _estado == 'SOLICITADA' ||
                 _estado == 'POR_CONFIRMAR') ...[
@@ -428,7 +359,7 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
               const SizedBox(height: 12),
             ],
 
-            // Cancelar
+            // Botón Cancelar
             if (_estado != 'CANCELADA' && _estado != 'COMPLETADA')
               SizedBox(
                 width: double.infinity,
@@ -458,7 +389,8 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(titulo,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         ...filas,
       ],
@@ -498,7 +430,7 @@ extension _CapStr on String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FORMULARIO DE EDICIÓN
+// FORMULARIO DE EDICIÓN DE RESERVA
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EditarReservaSheet extends StatefulWidget {
@@ -530,7 +462,7 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
   late TimeOfDay _hora;
   late String _estadoSel;
   late bool _alergenos;
-  late String _zonaSel;
+  late String _zonaSel; // 'terraza' | 'salon' | ''
 
   static DateTime _parseTs(dynamic v) {
     if (v is Timestamp) return v.toDate();
@@ -542,7 +474,7 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
   void initState() {
     super.initState();
     final d = (widget.doc.data() as Map<String, dynamic>?) ?? {};
-    final fechaHora = _parseTs(d['fecha_hora'] ?? d['fecha']);
+    final fechaHora = _parseTs(d['fecha_hora']);
 
     _clienteCtrl = TextEditingController(
         text: (d['cliente'] ?? d['nombre_cliente'] ?? '').toString());
@@ -580,8 +512,8 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
 
   Future<void> _guardar() async {
     if (_clienteCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El nombre del cliente es obligatorio')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('El nombre del cliente es obligatorio')));
       return;
     }
     final dt = DateTime(
@@ -611,9 +543,23 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
       if (!mounted) return;
       Navigator.pop(context);
 
-      final datosActuales = Map<String, dynamic>.from(
-          (widget.doc.data() as Map<String, dynamic>?) ?? {});
-      datosActuales.addAll(nuevosDatos);
+      // Merge datos actualizados con los existentes para refrescar la pantalla
+      final datosActuales =
+          Map<String, dynamic>.from(
+              (widget.doc.data() as Map<String, dynamic>?) ?? {});
+      datosActuales.addAll({
+        'cliente': _clienteCtrl.text.trim(),
+        'telefono': _telefonoCtrl.text.trim(),
+        'servicio': _servicioCtrl.text.trim(),
+        'precio': double.tryParse(_precioCtrl.text.trim()),
+        'numero_personas': int.tryParse(_comensalesCtrl.text.trim()) ?? 1,
+        'notas': _notasCtrl.text.trim(),
+        'estado': _estadoSel,
+        'fecha_hora': Timestamp.fromDate(dt),
+        'alergenos': _alergenos,
+        'detalle_alergenos': _alergenos ? _detalleAlergenosCtrl.text.trim() : '',
+        'zona': _zonaSel,
+      });
       widget.onActualizado(datosActuales);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -630,7 +576,7 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         height: MediaQuery.of(context).size.height * 0.88,
         decoration: const BoxDecoration(
@@ -685,6 +631,7 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                       ),
                     ],
                   ),
+                  // Selector de fecha y hora
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.schedule_outlined,
@@ -692,7 +639,7 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                     title: Text(
                       DateFormat('EEEE d MMMM · HH:mm', 'es')
                           .format(DateTime(_fecha.year, _fecha.month,
-                          _fecha.day, _hora.hour, _hora.minute))
+                              _fecha.day, _hora.hour, _hora.minute))
                           ._cap(),
                       style: const TextStyle(fontSize: 14),
                     ),
@@ -726,7 +673,8 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                   ),
                   const SizedBox(height: 4),
                   const Text('Estado',
-                      style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 8,
@@ -738,17 +686,20 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                       'CANCELADA',
                     ]
                         .map((e) => ChoiceChip(
-                      label: Text(e,
-                          style: const TextStyle(fontSize: 12)),
-                      selected: _estadoSel == e,
-                      onSelected: (_) =>
-                          setState(() => _estadoSel = e),
-                    ))
+                              label: Text(e,
+                                  style:
+                                      const TextStyle(fontSize: 12)),
+                              selected: _estadoSel == e,
+                              onSelected: (_) =>
+                                  setState(() => _estadoSel = e),
+                            ))
                         .toList(),
                   ),
                   const SizedBox(height: 8),
                   _campo(_notasCtrl, 'Notas', Icons.notes_outlined,
                       maxLines: 3),
+
+                  // ── Campos extra Damajuana ──────────────────────────────
                   const SizedBox(height: 8),
                   const Text('Zona',
                       style: TextStyle(fontSize: 13, color: Colors.grey)),
@@ -757,16 +708,13 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                     spacing: 8,
                     children: ['terraza', 'salon', '']
                         .map((z) => ChoiceChip(
-                      label: Text(
-                        z.isEmpty
-                            ? 'Sin especificar'
-                            : z[0].toUpperCase() + z.substring(1),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      selected: _zonaSel == z,
-                      onSelected: (_) =>
-                          setState(() => _zonaSel = z),
-                    ))
+                              label: Text(
+                                z.isEmpty ? 'Sin especificar' : z[0].toUpperCase() + z.substring(1),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              selected: _zonaSel == z,
+                              onSelected: (_) => setState(() => _zonaSel = z),
+                            ))
                         .toList(),
                   ),
                   const SizedBox(height: 12),
@@ -780,10 +728,11 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                       if (!v) _detalleAlergenosCtrl.clear();
                     }),
                   ),
-                  if (_alergenos)
+                  if (_alergenos) ...[
                     _campo(_detalleAlergenosCtrl, 'Detalle de alérgenos',
                         Icons.warning_amber_outlined,
                         maxLines: 2),
+                  ],
                 ],
               ),
             ),
@@ -809,12 +758,12 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
   }
 
   Widget _campo(
-      TextEditingController c,
-      String label,
-      IconData icon, {
-        TextInputType keyboard = TextInputType.text,
-        int maxLines = 1,
-      }) =>
+    TextEditingController c,
+    String label,
+    IconData icon, {
+    TextInputType keyboard = TextInputType.text,
+    int maxLines = 1,
+  }) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
@@ -832,3 +781,4 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
         ),
       );
 }
+

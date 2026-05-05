@@ -4,19 +4,10 @@ import 'package:shimmer/shimmer.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/suscripcion_service.dart';
 
-/// IDs de widgets que NO se muestran en el catálogo de configuración.
-const Set<String> _widgetsOcultos = {
-  'kpi_rapidos',
-  'kpi',
-  'alertas_negocio',
-  'clientes_nuevos',
-  'citas_del_dia',
-};
-
 /// Mapa de widget ID → pack requerido ('gestion', 'tienda', o null = siempre disponible)
 const Map<String, String?> _packRequeridoPorWidget = {
   'resumen_facturacion': 'gestion',
-  'resumen_pedidos':     'tienda',
+  'resumen_pedidos': 'tienda',
 };
 
 class ConfiguracionWidgetsScreen extends StatefulWidget {
@@ -25,16 +16,14 @@ class ConfiguracionWidgetsScreen extends StatefulWidget {
   const ConfiguracionWidgetsScreen({super.key, required this.empresaId});
 
   @override
-  State<ConfiguracionWidgetsScreen> createState() =>
-      _ConfiguracionWidgetsScreenState();
+  State<ConfiguracionWidgetsScreen> createState() => _ConfiguracionWidgetsScreenState();
 }
 
-class _ConfiguracionWidgetsScreenState
-    extends State<ConfiguracionWidgetsScreen> {
+class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen> {
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _guardandoCambios = false;
-  List<String> _packsActivos  = [];
-  bool _cargandoPacks = true;
+  List<String> _packsActivos = [];
+  bool _cargandoPacks = true; // Evita mostrar 🔒 mientras carga
 
   @override
   void initState() {
@@ -46,11 +35,11 @@ class _ConfiguracionWidgetsScreenState
     if (!mounted) return;
     setState(() => _cargandoPacks = true);
     try {
-      final svc   = SuscripcionService();
+      final svc = SuscripcionService();
       final datos = await svc.cargarSuscripcion(widget.empresaId);
       if (mounted) {
         setState(() {
-          _packsActivos  = datos?.packsActivos ?? [];
+          _packsActivos = datos?.packsActivos ?? [];
           _cargandoPacks = false;
         });
       }
@@ -82,26 +71,36 @@ class _ConfiguracionWidgetsScreenState
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'reset',
-                child: Row(children: [
-                  Icon(Icons.refresh, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Text('Resetear por defecto'),
-                ]),
+                child: const Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Resetear por defecto'),
+                  ],
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'stats',
-                child: Row(children: [
-                  Icon(Icons.analytics, color: Color(0xFF1976D2)),
-                  SizedBox(width: 8),
-                  Text('Ver estadísticas'),
-                ]),
+                child: const Row(
+                  children: [
+                    Icon(Icons.analytics, color: Color(0xFF1976D2)),
+                    SizedBox(width: 8),
+                    Text('Ver estadísticas'),
+                  ],
+                ),
               ),
             ],
             onSelected: (value) {
-              if (value == 'reset') _resetearWidgets();
-              if (value == 'stats') _mostrarEstadisticas();
+              switch (value) {
+                case 'reset':
+                  _resetearWidgets();
+                  break;
+                case 'stats':
+                  _mostrarEstadisticas();
+                  break;
+              }
             },
           ),
         ],
@@ -113,48 +112,41 @@ class _ConfiguracionWidgetsScreenState
             child: _cargandoPacks
                 ? _buildSkeletonPacks()
                 : StreamBuilder<List<WidgetConfig>>(
-              stream: _widgetService
-                  .obtenerConfiguracionWidgets(widget.empresaId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return _buildSkeletonPacks();
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEstadoVacio();
-                }
-
-                // ── Filtrar widgets ocultos ──────────────────────
-                final widgets = snapshot.data!
-                    .where((w) => !_widgetsOcultos.contains(w.id))
-                    .toList();
-
-                if (widgets.isEmpty) return _buildEstadoVacio();
-                return _buildListaWidgets(widgets);
-              },
-            ),
+                    stream: _widgetService.obtenerConfiguracionWidgets(widget.empresaId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildSkeletonPacks();
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return _buildEstadoVacio();
+                      }
+                      final widgets = snapshot.data!;
+                      return _buildListaWidgets(widgets);
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  /// Skeleton shimmer mientras se cargan los packs activos.
+  /// Skeleton shimmer que se muestra mientras se cargan los packs activos
+  /// (evita el flash de 🔒 en widgets que el usuario sí tiene disponibles).
   Widget _buildSkeletonPacks() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 7,
       itemBuilder: (context, index) => Shimmer.fromColors(
-        baseColor:     Colors.grey[300]!,
+        baseColor: Colors.grey[300]!,
         highlightColor: Colors.grey[100]!,
         child: Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
+                // Icono placeholder
                 Container(
                   width: 48,
                   height: 48,
@@ -164,6 +156,7 @@ class _ConfiguracionWidgetsScreenState
                   ),
                 ),
                 const SizedBox(width: 16),
+                // Texto placeholder
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +177,7 @@ class _ConfiguracionWidgetsScreenState
                   ),
                 ),
                 const SizedBox(width: 12),
+                // Switch placeholder
                 Container(
                   width: 44,
                   height: 26,
@@ -221,8 +215,7 @@ class _ConfiguracionWidgetsScreenState
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child:
-                  const Icon(Icons.widgets, color: Colors.white, size: 24),
+                  child: const Icon(Icons.widgets, color: Colors.white, size: 24),
                 ),
                 const SizedBox(width: 16),
                 const Expanded(
@@ -230,13 +223,9 @@ class _ConfiguracionWidgetsScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Personaliza tu Dashboard',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold)),
+                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       Text('Elige qué widgets quieres ver y en qué orden',
-                          style:
-                          TextStyle(color: Colors.white70, fontSize: 14)),
+                          style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -255,8 +244,7 @@ class _ConfiguracionWidgetsScreenState
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Activa los widgets que te sean útiles. '
-                          'Puedes reordenarlos manteniendo presionado y arrastrando.',
+                      'Activa los widgets que te sean útiles. Puedes reordenarlos manteniendo presionado y arrastrando.',
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ),
@@ -273,32 +261,33 @@ class _ConfiguracionWidgetsScreenState
     return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: widgets.length,
-      itemBuilder: (context, index) => _buildWidgetCard(widgets[index]),
+      itemBuilder: (context, index) {
+        final widget = widgets[index];
+        return _buildWidgetCard(widget);
+      },
       onReorder: (oldIndex, newIndex) {
         setState(() {
           if (newIndex > oldIndex) newIndex--;
           final item = widgets.removeAt(oldIndex);
           widgets.insert(newIndex, item);
         });
-        _widgetService.reordenarWidgets(widget.empresaId, widgets);
+        _widgetService.reordenarWidgets(this.widget.empresaId, widgets);
       },
     );
   }
 
   Widget _buildWidgetCard(WidgetConfig widgetConfig) {
-    final implementado  = WidgetConfig.implementados.contains(widgetConfig.id);
+    final implementado = WidgetConfig.implementados.contains(widgetConfig.id);
     final packPermitido = _widgetPermitido(widgetConfig.id);
-    final disponible    = implementado && packPermitido;
-    const colorActivo   = Color(0xFF4CAF50);
-    final colorBorde    =
-    widgetConfig.activo && disponible ? colorActivo : Colors.transparent;
+    final disponible = implementado && packPermitido;
+    const colorActivo = Color(0xFF4CAF50);
+    final colorBorde = widgetConfig.activo && disponible ? colorActivo : Colors.transparent;
 
     return Card(
       key: ValueKey(widgetConfig.id),
       margin: const EdgeInsets.only(bottom: 12),
       elevation: widgetConfig.activo && disponible ? 3 : 1,
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
@@ -308,7 +297,6 @@ class _ConfiguracionWidgetsScreenState
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Icono
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -319,15 +307,11 @@ class _ConfiguracionWidgetsScreenState
                 ),
                 child: Icon(
                   widgetConfig.icono,
-                  color: widgetConfig.activo && disponible
-                      ? colorActivo
-                      : Colors.grey[500],
+                  color: widgetConfig.activo && disponible ? colorActivo : Colors.grey[500],
                   size: 24,
                 ),
               ),
               const SizedBox(width: 16),
-
-              // Textos y badges
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,35 +326,28 @@ class _ConfiguracionWidgetsScreenState
                     ),
                     const SizedBox(height: 3),
                     Text(widgetConfig.descripcion,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey[600])),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     const SizedBox(height: 6),
+                    // ── Badges — envueltos en Flexible para evitar overflow ──
                     Row(
                       children: [
                         Flexible(
                           child: !packPermitido
                               ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color:
-                              Colors.red.withValues(alpha: 0.1),
+                              color: Colors.red.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.lock,
-                                    size: 10, color: Colors.red[700]),
+                                Icon(Icons.lock, size: 10, color: Colors.red[700]),
                                 const SizedBox(width: 3),
                                 Flexible(
                                   child: Text(
-                                    'Requiere Pack '
-                                        '${_packRequeridoPorWidget[widgetConfig.id] == 'gestion' ? 'Gestión' : 'Tienda'}',
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.red[700]),
+                                    'Requiere Pack ${_packRequeridoPorWidget[widgetConfig.id] == 'gestion' ? 'Gestión' : 'Tienda'}',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red[700]),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -378,25 +355,19 @@ class _ConfiguracionWidgetsScreenState
                             ),
                           )
                               : Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: implementado
-                                  ? const Color(0xFF1976D2)
-                                  .withValues(alpha: 0.1)
+                                  ? const Color(0xFF1976D2).withValues(alpha: 0.1)
                                   : Colors.orange.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              implementado
-                                  ? '✅ Disponible'
-                                  : '🚧 Próximamente',
+                              implementado ? '✅ Disponible' : '🚧 Próximamente',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: implementado
-                                    ? const Color(0xFF1976D2)
-                                    : Colors.orange[800],
+                                color: implementado ? const Color(0xFF1976D2) : Colors.orange[800],
                               ),
                             ),
                           ),
@@ -404,17 +375,13 @@ class _ConfiguracionWidgetsScreenState
                         if (widgetConfig.activo && disponible) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: colorActivo.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text('Activo',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF4CAF50))),
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF4CAF50))),
                           ),
                         ],
                       ],
@@ -422,8 +389,6 @@ class _ConfiguracionWidgetsScreenState
                   ],
                 ),
               ),
-
-              // Switch + handle
               Column(
                 children: [
                   Switch(
@@ -434,10 +399,7 @@ class _ConfiguracionWidgetsScreenState
                     activeThumbColor: colorActivo,
                   ),
                   Icon(Icons.drag_handle,
-                      color: disponible
-                          ? Colors.grey[400]
-                          : Colors.grey[300],
-                      size: 20),
+                      color: disponible ? Colors.grey[400] : Colors.grey[300], size: 20),
                 ],
               ),
             ],
@@ -456,25 +418,19 @@ class _ConfiguracionWidgetsScreenState
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                  color: Colors.grey[100], shape: BoxShape.circle),
+              decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
               child: Icon(Icons.widgets, size: 64, color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),
             Text('No hay widgets configurados',
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700])),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey[700])),
             const SizedBox(height: 8),
             Text('Los widgets se configurarán automáticamente',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                textAlign: TextAlign.center),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _widgetService.resetearWidgets(widget.empresaId),
-              icon:  const Icon(Icons.refresh),
+              onPressed: () => _widgetService.resetearWidgets(widget.empresaId),
+              icon: const Icon(Icons.refresh),
               label: const Text('Inicializar Widgets'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1976D2),
@@ -487,15 +443,13 @@ class _ConfiguracionWidgetsScreenState
     );
   }
 
-  Future<void> _toggleWidget(WidgetConfig widgetConfig, bool value) async {
+  void _toggleWidget(WidgetConfig widgetConfig, bool value) async {
     setState(() => _guardandoCambios = true);
     try {
-      await _widgetService.toggleWidget(
-          widget.empresaId, widgetConfig.id, value);
+      await _widgetService.toggleWidget(widget.empresaId, widgetConfig.id, value);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Widget ${widgetConfig.nombre} ${value ? 'activado' : 'desactivado'}'),
+          content: Text('Widget ${widgetConfig.nombre} ${value ? 'activado' : 'desactivado'}'),
           backgroundColor: const Color(0xFF4CAF50),
           duration: const Duration(seconds: 2),
         ));
@@ -522,12 +476,9 @@ class _ConfiguracionWidgetsScreenState
           Text('Resetear Configuración'),
         ]),
         content: const Text(
-            '¿Estás seguro de que quieres resetear la configuración de '
-                'widgets a los valores por defecto?\n\nEsta acción no se puede deshacer.'),
+            '¿Estás seguro de que quieres resetear la configuración de widgets a los valores por defecto?\n\nEsta acción no se puede deshacer.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -539,8 +490,7 @@ class _ConfiguracionWidgetsScreenState
                 ));
               }
             },
-            style:
-            ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Resetear'),
           ),
         ],
@@ -549,8 +499,7 @@ class _ConfiguracionWidgetsScreenState
   }
 
   void _mostrarEstadisticas() async {
-    final stats =
-    await _widgetService.obtenerEstadisticasUso(widget.empresaId);
+    final stats = await _widgetService.obtenerEstadisticasUso(widget.empresaId);
     if (mounted) {
       showDialog(
         context: context,
@@ -563,21 +512,14 @@ class _ConfiguracionWidgetsScreenState
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStatRow(
-                  'Total widgets', '${stats['total_widgets'] ?? 0}'),
-              _buildStatRow(
-                  'Widgets activos', '${stats['widgets_activos'] ?? 0}'),
-              _buildStatRow('Widgets inactivos',
-                  '${stats['widgets_inactivos'] ?? 0}'),
-              _buildStatRow(
-                  'Porcentaje de uso',
-                  '${(stats['porcentaje_uso'] ?? 0).toStringAsFixed(1)}%'),
+              _buildStatRow('Total widgets', '${stats['total_widgets'] ?? 0}'),
+              _buildStatRow('Widgets activos', '${stats['widgets_activos'] ?? 0}'),
+              _buildStatRow('Widgets inactivos', '${stats['widgets_inactivos'] ?? 0}'),
+              _buildStatRow('Porcentaje de uso', '${(stats['porcentaje_uso'] ?? 0).toStringAsFixed(1)}%'),
             ],
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cerrar')),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
           ],
         ),
       );
@@ -591,9 +533,7 @@ class _ConfiguracionWidgetsScreenState
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(fontSize: 14)),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -613,8 +553,7 @@ class _ConfiguracionWidgetsScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Personalización del Dashboard',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Personalización del Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
               Text(
                 '• Activa los widgets que te sean útiles con el switch\n'
@@ -628,9 +567,7 @@ class _ConfiguracionWidgetsScreenState
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Entendido')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido')),
         ],
       ),
     );

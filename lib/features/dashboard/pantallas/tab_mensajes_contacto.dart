@@ -1,333 +1,156 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../services/contacto_web_service.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TAB MENSAJES CONTACTO — Bandeja de mensajes del formulario web
+// TAB MENSAJES DE CONTACTO WEB
+// Lista mensajes recibidos desde el formulario web + permite responder.
+// La respuesta dispara onMensajeContactoRespondido (Cloud Function) que
+// envía automáticamente un email al visitante con Resend.
 // ═════════════════════════════════════════════════════════════════════════════
 
 class TabMensajesContacto extends StatelessWidget {
   final String empresaId;
-  const TabMensajesContacto({super.key, required this.empresaId});
+  final Color color;
+
+  const TabMensajesContacto({
+    super.key,
+    required this.empresaId,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('contacto_web')
-          .orderBy('fecha_creacion', descending: true)
-          .limit(50)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+    final svc = ContactoWebService();
+    return StreamBuilder<List<MensajeContactoWeb>>(
+      stream: svc.obtenerMensajes(empresaId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-
-        final docs = snap.data?.docs ?? [];
-
-        if (docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.mail_outline, size: 72, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text('Sin mensajes todavía',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[600])),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Cuando alguien envíe un mensaje desde el formulario de contacto de tu web, aparecerá aquí.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-          );
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
         }
-
+        final mensajes = snapshot.data ?? [];
+        if (mensajes.isEmpty) {
+          return _buildVacio();
+        }
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+          itemCount: mensajes.length,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
-            final data = docs[i].data() as Map<String, dynamic>;
-            final leido = data['leido'] as bool? ?? false;
+            final msg = mensajes[i];
             return _TarjetaMensaje(
-              docId: docs[i].id,
-              empresaId: empresaId,
-              data: data,
-              leido: leido,
+              mensaje: msg,
+              color: color,
+              onTap: () => _abrirDetalle(context, msg),
             );
           },
         );
       },
     );
   }
-}
 
-class _TarjetaMensaje extends StatelessWidget {
-  final String docId;
-  final String empresaId;
-  final Map<String, dynamic> data;
-  final bool leido;
-
-  const _TarjetaMensaje({
-    required this.docId,
-    required this.empresaId,
-    required this.data,
-    required this.leido,
-  });
-
-  String _formatFecha(dynamic raw) {
-    if (raw == null) return '';
-    DateTime? dt;
-    if (raw is Timestamp) dt = raw.toDate();
-    if (raw is String) dt = DateTime.tryParse(raw);
-    if (dt == null) return '';
-    return DateFormat('dd/MM/yyyy HH:mm', 'es').format(dt);
-  }
-
-  Future<void> _marcarLeido() async {
-    if (leido) return;
-    await FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(empresaId)
-        .collection('contacto_web')
-        .doc(docId)
-        .update({'leido': true});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final nombre = data['nombre'] as String? ?? 'Sin nombre';
-    final email = data['email'] as String? ?? '';
-    final mensaje = data['mensaje'] as String? ?? '';
-    final telefono = data['telefono'] as String? ?? '';
-    final fecha = _formatFecha(data['fecha_creacion'] ?? data['fecha']);
-
-    return GestureDetector(
-      onTap: () {
-        _marcarLeido();
-        _abrirDetalle(context, nombre, email, telefono, mensaje, fecha);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: leido ? null : Border.all(color: const Color(0xFF1976D2).withValues(alpha: 0.4), width: 1.5),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Avatar
-            Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(
-                color: leido
-                    ? Colors.grey[100]
-                    : const Color(0xFF1976D2).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: leido ? Colors.grey[500] : const Color(0xFF1976D2),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Contenido
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Expanded(
-                      child: Text(nombre,
-                          style: TextStyle(
-                            fontWeight: leido ? FontWeight.w500 : FontWeight.bold,
-                            fontSize: 14,
-                          )),
-                    ),
-                    if (!leido)
-                      Container(
-                        width: 8, height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1976D2),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    const SizedBox(width: 4),
-                    Text(fecha, style: TextStyle(color: Colors.grey[500], fontSize: 10)),
-                  ]),
-                  if (email.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      const Icon(Icons.email_outlined, size: 12, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(email, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    ]),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(mensaje,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: leido ? Colors.grey[500] : Colors.grey[700],
-                        fontSize: 13,
-                        height: 1.4,
-                      )),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Icono responder
-            Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _abrirDetalle(BuildContext context, String nombre, String email,
-      String telefono, String mensaje, String fecha) {
+  void _abrirDetalle(BuildContext context, MensajeContactoWeb msg) {
+    // Marcar como leído
+    if (!msg.leido) {
+      ContactoWebService().marcarComoLeido(empresaId, msg.id);
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DetalleMensajeSheet(
-        docId: docId,
+      builder: (_) => _SheetDetalleMensaje(
         empresaId: empresaId,
-        nombre: nombre,
-        email: email,
-        telefono: telefono,
-        mensaje: mensaje,
-        fecha: fecha,
-        data: data,
+        mensaje: msg,
+        color: color,
+      ),
+    );
+  }
+
+  Widget _buildVacio() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.mark_email_unread_outlined, size: 72, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Sin mensajes de contacto',
+            style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Los mensajes del formulario web aparecerán aquí',
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _DetalleMensajeSheet extends StatelessWidget {
-  final String docId;
-  final String empresaId;
-  final String nombre;
-  final String email;
-  final String telefono;
-  final String mensaje;
-  final String fecha;
-  final Map<String, dynamic> data;
+// ─────────────────────────────────────────────────────────────────────────────
+// TARJETA MENSAJE
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const _DetalleMensajeSheet({
-    required this.docId,
-    required this.empresaId,
-    required this.nombre,
-    required this.email,
-    required this.telefono,
+class _TarjetaMensaje extends StatelessWidget {
+  final MensajeContactoWeb mensaje;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _TarjetaMensaje({
     required this.mensaje,
-    required this.fecha,
-    required this.data,
+    required this.color,
+    required this.onTap,
   });
-
-  Future<void> _responderEmail() async {
-    if (email.isEmpty) return;
-    final uri = Uri(
-      scheme: 'mailto',
-      path: email,
-      queryParameters: {
-        'subject': 'Respuesta a tu mensaje',
-        'body': 'Hola $nombre,\n\n',
-      },
-    );
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
-  }
-
-  Future<void> _eliminar(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Eliminar mensaje'),
-        content: const Text('¿Eliminar este mensaje permanentemente?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(empresaId)
-        .collection('contacto_web')
-        .doc(docId)
-        .delete();
-    if (context.mounted) Navigator.pop(context);
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20,
-          20 + MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+    final noLeido = !mensaje.leido;
+    final respondido = mensaje.respondido;
 
-            // Cabecera
-            Row(children: [
+    return Card(
+      elevation: noLeido ? 3 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: noLeido
+            ? BorderSide(color: color.withValues(alpha: 0.5), width: 1.5)
+            : BorderSide.none,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avatar
               Container(
-                width: 48, height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1976D2).withValues(alpha: 0.1),
+                  color: noLeido
+                      ? color.withValues(alpha: 0.12)
+                      : Colors.grey[100],
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Text(
-                    nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: Color(0xFF1976D2)),
+                    mensaje.nombre.isNotEmpty
+                        ? mensaje.nombre[0].toUpperCase()
+                        : 'C',
+                    style: TextStyle(
+                      color: noLeido ? color : Colors.grey[500],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
               ),
@@ -336,111 +159,437 @@ class _DetalleMensajeSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(nombre,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    if (fecha.isNotEmpty)
-                      Text(fecha,
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            mensaje.nombre,
+                            style: TextStyle(
+                              fontWeight: noLeido
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatFecha(mensaje.fechaCreacion),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      mensaje.asunto,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: noLeido
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        color: noLeido ? Colors.black87 : Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      mensaje.mensaje,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (noLeido)
+                          _Badge('NUEVO', color, color.withValues(alpha: 0.12)),
+                        if (respondido)
+                          _Badge('RESPONDIDO', Colors.green[700]!,
+                              Colors.green[50]!),
+                        if (!respondido && mensaje.leido)
+                          _Badge('PENDIENTE', Colors.orange[700]!,
+                              Colors.orange[50]!),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                tooltip: 'Eliminar',
-                onPressed: () => _eliminar(context),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-
-            // Info de contacto
-            if (email.isNotEmpty) ...[
-              _infoFila(Icons.email_outlined, 'Email', email),
-              const SizedBox(height: 8),
+              const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
             ],
-            if (telefono.isNotEmpty) ...[
-              _infoFila(Icons.phone_outlined, 'Teléfono', telefono),
-              const SizedBox(height: 8),
-            ],
-
-            // Mensaje
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Mensaje',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.grey)),
-                  const SizedBox(height: 6),
-                  Text(mensaje,
-                      style: const TextStyle(fontSize: 14, height: 1.5)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Botón responder
-            if (email.isNotEmpty)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _responderEmail,
-                  icon: const Icon(Icons.reply),
-                  label: const Text('Responder por email'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1976D2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Cerrar'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoFila(IconData icono, String label, String valor) {
-    return Row(children: [
-      Icon(icono, size: 16, color: Colors.grey[600]),
-      const SizedBox(width: 8),
-      Text('$label: ',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      Expanded(
-        child: Text(valor,
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-            overflow: TextOverflow.ellipsis),
-      ),
-    ]);
+  String _formatFecha(DateTime fecha) {
+    final dif = DateTime.now().difference(fecha);
+    if (dif.inMinutes < 60) return '${dif.inMinutes}min';
+    if (dif.inHours < 24) return '${dif.inHours}h';
+    if (dif.inDays < 7) return '${dif.inDays}d';
+    return DateFormat('dd/MM').format(fecha);
   }
 }
 
+Widget _Badge(String label, Color textColor, Color bgColor) {
+  return Container(
+    margin: const EdgeInsets.only(right: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+          fontSize: 10, color: textColor, fontWeight: FontWeight.w700),
+    ),
+  );
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SHEET DETALLE + RESPUESTA
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SheetDetalleMensaje extends StatefulWidget {
+  final String empresaId;
+  final MensajeContactoWeb mensaje;
+  final Color color;
+
+  const _SheetDetalleMensaje({
+    required this.empresaId,
+    required this.mensaje,
+    required this.color,
+  });
+
+  @override
+  State<_SheetDetalleMensaje> createState() => _SheetDetalleMensajeState();
+}
+
+class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
+  final _respCtrl = TextEditingController();
+  bool _enviando = false;
+  bool _respondido = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _respondido = widget.mensaje.respondido;
+    if (widget.mensaje.respuesta != null) {
+      _respCtrl.text = widget.mensaje.respuesta!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _respCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviarRespuesta() async {
+    final texto = _respCtrl.text.trim();
+    if (texto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe una respuesta')),
+      );
+      return;
+    }
+    setState(() => _enviando = true);
+    try {
+      await ContactoWebService().responderMensaje(
+        widget.empresaId,
+        widget.mensaje.id,
+        texto,
+      );
+      if (!mounted) return;
+      setState(() {
+        _respondido = true;
+        _enviando = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '✅ Respuesta enviada a ${widget.mensaje.email}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _eliminar() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar mensaje'),
+        content: const Text('¿Seguro que quieres eliminar este mensaje?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Eliminar',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await ContactoWebService()
+          .eliminarMensaje(widget.empresaId, widget.mensaje.id);
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = DateFormat('dd/MM/yyyy HH:mm');
+    final msg = widget.mensaje;
+
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.92,
+          maxChildSize: 0.97,
+          minChildSize: 0.5,
+          expand: false,
+          builder: (_, scrollCtrl) => ListView(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Cabecera
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      msg.asunto,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _eliminar,
+                    icon:
+                        const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: 'Eliminar',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                fmt.format(msg.fechaCreacion),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+
+              // Datos del remitente
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F7FA),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _FilaDato(Icons.person_outline, 'Nombre', msg.nombre),
+                    const Divider(height: 16),
+                    _FilaDato(Icons.email_outlined, 'Email', msg.email),
+                    if (msg.telefono != null &&
+                        msg.telefono!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _FilaDato(
+                          Icons.phone_outlined, 'Teléfono', msg.telefono!),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Mensaje original
+              const Text('Mensaje',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey)),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F7FA),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  msg.mensaje,
+                  style: const TextStyle(fontSize: 15, height: 1.6),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Sección respuesta
+              Row(
+                children: [
+                  const Icon(Icons.reply, size: 16, color: Color(0xFF00796B)),
+                  const SizedBox(width: 6),
+                  Text(
+                    _respondido ? 'Respuesta enviada' : 'Responder',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF00796B)),
+                  ),
+                  const Spacer(),
+                  if (_respondido && msg.fechaRespuesta != null)
+                    Text(
+                      fmt.format(msg.fechaRespuesta!),
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey[500]),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Campo de respuesta
+              TextField(
+                controller: _respCtrl,
+                maxLines: 5,
+                readOnly: _respondido,
+                decoration: InputDecoration(
+                  hintText: _respondido
+                      ? 'Ya se respondió este mensaje'
+                      : 'Escribe tu respuesta... Se enviará por email a ${msg.email}',
+                  filled: true,
+                  fillColor: _respondido
+                      ? Colors.green[50]
+                      : const Color(0xFFF5F7FA),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: _respondido
+                        ? const BorderSide(color: Colors.green, width: 1)
+                        : BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: _respondido
+                        ? const BorderSide(color: Colors.green, width: 1)
+                        : BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              if (!_respondido)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _enviando ? null : _enviarRespuesta,
+                    icon: _enviando
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.send),
+                    label: Text(_enviando
+                        ? 'Enviando...'
+                        : 'Enviar respuesta por email'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00796B),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle,
+                          color: Colors.green, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Respuesta enviada a ${msg.email}',
+                          style: const TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FilaDato extends StatelessWidget {
+  final IconData icono;
+  final String label;
+  final String valor;
+
+  const _FilaDato(this.icono, this.label, this.valor);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icono, size: 16, color: Colors.grey[500]),
+        const SizedBox(width: 8),
+        Text('$label: ',
+            style: const TextStyle(
+                fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Text(
+            valor,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
 

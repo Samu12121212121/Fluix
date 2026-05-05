@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Banner que aparece en el dashboard cuando la suscripción
 /// vence en 7 días o menos. Solo visible para el propietario.
@@ -110,34 +111,41 @@ class BannerSuscripcion extends StatelessWidget {
     return '${fecha.day.toString().padLeft(2, '0')}/${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
   }
 
-  void _mostrarRenovacion(BuildContext context, Color color) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.refresh, color: color),
-            const SizedBox(width: 8),
-            const Text('Renovar Suscripción'),
+  void _mostrarRenovacion(BuildContext context, Color color) async {
+    final uri = Uri.parse('https://fluixtech.com');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback: mostrar datos de contacto
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.refresh, color: color),
+              const SizedBox(width: 8),
+              const Text('Renovar Suscripción'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Visita nuestra web o contacta con nosotros:'),
+              SizedBox(height: 12),
+              Row(children: [Icon(Icons.language, size: 16), SizedBox(width: 8), Text('fluixtech.com')]),
+              SizedBox(height: 6),
+              Row(children: [Icon(Icons.email, size: 16), SizedBox(width: 8), Text('soporte@fluixtech.com')]),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
           ],
         ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Contacta con nosotros para renovar:'),
-            SizedBox(height: 12),
-            Row(children: [Icon(Icons.email, size: 16), SizedBox(width: 8), Text('soporte@fluixtech.com')]),
-            SizedBox(height: 6),
-            Row(children: [Icon(Icons.phone, size: 16), SizedBox(width: 8), Text('+34 900 123 456')]),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
-        ],
-      ),
-    );
+      );
+    }
   }
 }
 

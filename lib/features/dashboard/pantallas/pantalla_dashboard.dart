@@ -34,6 +34,7 @@ import '../../servicios/pantallas/modulo_servicios_screen.dart';
 import '../../nominas/pantallas/modulo_nominas_screen.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import '../../tpv/pantallas/modulo_tpv_screen.dart';
+import '../../fichaje/pantalla_fichaje/pantalla_fichaje.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
@@ -118,6 +119,14 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       final empresaId = data['empresa_id'];
 
       if (empresaId == null || _empresaId == null) return;
+
+      // ── Guardia: ignorar notificaciones de otras empresas ──────────────
+      // Evita que al tener múltiples cuentas las notificaciones de empresa A
+      // naveguen en la sesión activa de empresa B.
+      if (empresaId != _empresaId) {
+        debugPrint('⚠️ Notificación de empresa $empresaId ignorada — sesión activa: $_empresaId');
+        return;
+      }
 
       if (tipo == 'tarea_asignada') {
           final tareaId = data['tarea_id'];
@@ -378,8 +387,19 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
+            tooltip: 'Actualizar sesión',
+            onPressed: () async {
               setState(() => _cargando = true);
+              // Forzar renovación del token Firebase Auth para evitar
+              // errores de permiso en Firestore tras inactividad prolongada
+              try {
+                await FirebaseAuth.instance.currentUser?.getIdToken(true);
+                debugPrint('🔑 Token renovado manualmente desde botón refresh');
+                // Re-guardar token FCM por si se quedó desactualizado
+                await NotificacionesService().guardarTokenTrasLogin();
+              } catch (e) {
+                debugPrint('⚠️ Error renovando token: $e');
+              }
               _cargarDatosUsuario();
             },
           ),
@@ -426,8 +446,12 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 // El módulo 'propietario' solo es visible para fluixtech
                 // Las demás empresas nunca lo ven
                 // Asegurar que el módulo propietario siempre esté presente para fluixtech
+                final esDemo = _demoService.esDemo(
+                    FirebaseAuth.instance.currentUser?.email);
                 var modulosFiltrados = modulosActivos.where((m) {
                   if (m.id == 'propietario') return esPropietario;
+                  // Ocultar nóminas — no disponible de momento
+                  if (m.id == 'nominas') return false;
                   return true;
                 }).toList();
                 if (esPropietario && !modulosFiltrados.any((m) => m.id == 'propietario')) {
@@ -572,7 +596,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'empleados':       return ModuloEmpleadosScreen(empresaId: id, sesion: sesionActiva);
       case 'clientes':        return ModuloClientesScreen(empresaId: id, sesion: sesionActiva);
       case 'servicios':       return ModuloServiciosScreen(empresaId: id, sesion: sesionActiva);
-      case 'nominas':         return ModuloNominasScreen(empresaId: id, sesion: sesionActiva);
+      case 'nominas':         return const Center(child: Text('Módulo no disponible'));
+      case 'fichaje':         return PantallaFichaje();
       case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
       case 'web':             return _buildVistaWeb();
       default:                return Center(child: Text('Módulo "$moduloId" no disponible', style: TextStyle(color: Colors.red)));
@@ -1422,6 +1447,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(ctx);
+                      // Limpiar token FCM de la empresa activa para no recibir
+                      // notificaciones de esta empresa en futuras sesiones de otra cuenta
+                      if (_empresaId != null) {
+                        await NotificacionesService().eliminarTokenDeEmpresa(_empresaId!);
+                      }
                       PermisosService().limpiarSesion();
                       await FirebaseAuth.instance.signOut();
                     },

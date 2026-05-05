@@ -228,20 +228,43 @@
     var pageKey = (pagina === '/' || pagina === '') ? 'inicio'
       : pagina.replace(/^\//, '').replace(/\//g, '_').split('?')[0] || 'inicio';
 
-    var updates = {
-      visitas_total: inc, visitas_hoy: inc, visitas_semana: inc, visitas_mes: inc,
-      ultima_actualizacion: new Date()
-    };
-    updates['paginas_mas_vistas.' + pageKey] = inc;
-    updates['referrers.' + fuente.replace(/\./g, '_')] = inc;
-    updates['visitas_' + dispositivo] = inc;
-
     var ref = db.collection('empresas').doc(emp).collection('estadisticas').doc('trafico_web');
-    ref.set(updates, { merge: true })
-      .then(function() { console.log('📊 Fluix tracking: visita registrada [' + pageKey + '] ' + dispositivo + ' / ' + fuente); })
-      .catch(function (e) { console.warn('Fluix tracking error:', e.message); });
+
+    // 🔥 PRIMERO: obtener datos actuales para verificar si cambió el día
+    ref.get().then(function(snap) {
+      var updates = {
+        visitas_total: inc, visitas_semana: inc, visitas_mes: inc,
+        ultima_actualizacion: new Date()
+      };
+
+      // ✅ VERIFICAR SI CAMBIÓ EL DÍA para resetear visitas_hoy
+      var fechaAnterior = snap.exists ? (snap.data().fecha_ultimo_reseteo || '') : '';
+      if (fechaAnterior !== hoy) {
+        // Es un día nuevo → resetear visitas_hoy en lugar de incrementar
+        updates.visitas_hoy = 1;
+        updates.fecha_ultimo_reseteo = hoy;
+        console.log('📅 Nuevo día detectado: reseteo visitas_hoy');
+      } else {
+        // Mismo día → incrementar normalmente
+        updates.visitas_hoy = inc;
+      }
+
+      updates['paginas_mas_vistas.' + pageKey] = inc;
+      updates['referrers.' + fuente.replace(/\./g, '_')] = inc;
+      updates['visitas_' + dispositivo] = inc;
+
+      return ref.set(updates, { merge: true });
+    }).then(function() {
+      console.log('📊 Fluix tracking: visita registrada [' + pageKey + '] ' + dispositivo + ' / ' + fuente);
+    }).catch(function (e) {
+      console.warn('Fluix tracking error:', e.message);
+    });
+
+    // Historial diario (como antes)
+    var histUpdates = { fecha: hoy, visitas: inc };
+    histUpdates['paginas.' + pageKey] = inc;  // ✅ Registrar qué página visitaron
     ref.collection('historico_diario').doc(hoy)
-      .set({ fecha: hoy, visitas: inc }, { merge: true })
+      .set(histUpdates, { merge: true })
       .catch(function () {});
   }
 

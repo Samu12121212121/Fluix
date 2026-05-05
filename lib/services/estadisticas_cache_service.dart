@@ -109,6 +109,7 @@ class EstadisticasCacheService {
         _calcularKpisPrincipales(empresaId, inicioMes, inicioMesAnterior),
         _calcularMetricasBasicas(empresaId, inicioMes, inicioMesAnterior),
         _calcularTendencias(empresaId),
+        _calcularFichajes(empresaId, inicioMes),
       ]);
 
       await _firestore
@@ -120,9 +121,10 @@ class EstadisticasCacheService {
         ...results[0],
         ...results[1],
         ...results[2],
+        ...results[3],
         'ultima_actualizacion': FieldValue.serverTimestamp(),
         'fecha_calculo': now.toIso8601String(),
-        'version_cache': 2,
+        'version_cache': 3,
       }, SetOptions(merge: true));
 
       debugPrint('✅ Estadísticas guardadas en cache');
@@ -613,6 +615,143 @@ class EstadisticasCacheService {
       };
     } catch (e) {
       debugPrint('❌ Error calculando tendencias: $e');
+      return {};
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FICHAJES — Control horario
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> _calcularFichajes(
+      String empresaId, DateTime inicioMes) async {
+    try {
+      final ahora = DateTime.now();
+      final inicioHoy = DateTime(ahora.year, ahora.month, ahora.day);
+
+      // Todos los fichajes del mes
+      final fichajesMesSnap = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('fichajes')
+          .where('timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
+          .get();
+
+      // Fichajes de hoy (para calcular activos y únicos de hoy)
+      final fichajesHoySnap = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('fichajes')
+          .where('timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .orderBy('timestamp')
+          .get();
+
+      // ── Horas trabajadas este mes ─────────────────────────────────────
+      // Agrupar entrada/salida por empleado (pares consecutivos)
+      final Map<String, List<Map<String, dynamic>>> porEmpleado = {};
+      for (final doc in fichajesMesSnap.docs) {
+        final d  = doc.data();
+        final id = d['empleado_id'] as String? ?? 'desconocido';
+        porEmpleado.putIfAbsent(id, () => []).add(d);
+      }
+
+      double horasTrabajadasMes = 0;
+      int fichajesConSalida = 0;
+
+      for (final registros in porEmpleado.values) {
+        // Ordenar por timestamp
+        registros.sort((a, b) {
+          final ta = _tsToDate(a['timestamp'])?? DateTime(2000);
+          final tb = _tsToDate(b['timestamp'])?? DateTime(2000);
+          return ta.compareTo(tb);
+        });
+
+        DateTime? entrada;
+        for (final r in registros) {
+          final tipo = r['tipo'] as String? ?? '';
+          final ts   = _tsToDate(r['timestamp']);
+          if (ts == null) continue;
+
+          if (tipo == 'entrada') {
+            entrada = ts;
+          } else if (tipo == 'salida' && entrada != null) {
+            horasTrabajadasMes += ts.difference(entrada).inMinutes / 60.0;
+            fichajesConSalida++;
+            entrada = null;
+          }
+        }
+      }
+
+      // ── Empleados con fichaje activo AHORA (entrada sin salida hoy) ──
+      final Map<String, String?> ultimoTipoHoy = {};
+      for (final doc in fichajesHoySnap.docs) {
+        final d    = doc.data();
+        final id   = d['empleado_id'] as String? ?? '';
+        final tipo = d['tipo'] as String? ?? '';
+        if (id.isNotEmpty) ultimoTipoHoy[id] = tipo;
+      }
+
+      final empleadosActivos = ultimoTipoHoy.values
+          .where((t) => t == 'entrada' || t == 'pausa_fin')
+          .length;
+
+      // ── Empleados únicos que ficharon hoy ────────────────────────────
+      final empleadosFichadosHoy = ultimoTipoHoy.keys.length;
+
+      // ── Empleado con más horas este mes ──────────────────────────────
+      final Map<String, double> horasPorEmpleadoNombre = {};
+      final Map<String, double> horasPorEmpleadoId = {};
+      for (final entry in porEmpleado.entries) {
+        final registros = entry.value;
+        registros.sort((a, b) {
+          final ta = _tsToDate(a['timestamp']) ?? DateTime(2000);
+          final tb = _tsToDate(b['timestamp']) ?? DateTime(2000);
+          return ta.compareTo(tb);
+        });
+        double horas = 0;
+        String nombre = 'Desconocido';
+        DateTime? entrada;
+        for (final r in registros) {
+          final tipo = r['tipo'] as String? ?? '';
+          final ts   = _tsToDate(r['timestamp']);
+          nombre = r['empleado_nombre'] as String? ?? nombre;
+          if (ts == null) continue;
+          if (tipo == 'entrada') {
+            entrada = ts;
+          } else if (tipo == 'salida' && entrada != null) {
+            horas += ts.difference(entrada).inMinutes / 60.0;
+            entrada = null;
+          }
+        }
+        horasPorEmpleadoNombre[nombre] = (horasPorEmpleadoNombre[nombre] ?? 0) + horas;
+        horasPorEmpleadoId[entry.key] = horas;
+      }
+
+      final empleadoMasHoras = horasPorEmpleadoNombre.entries.isEmpty
+          ? 'N/A'
+          : (horasPorEmpleadoNombre.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value)))
+              .first
+              .key;
+
+      final horasPromedioEmpleado = horasPorEmpleadoId.isEmpty
+          ? 0.0
+          : horasPorEmpleadoId.values.fold(0.0, (s, v) => s + v) /
+              horasPorEmpleadoId.length;
+
+      return {
+        'fichajes_mes':                fichajesMesSnap.docs.length,
+        'horas_trabajadas_mes':        double.parse(horasTrabajadasMes.toStringAsFixed(1)),
+        'empleados_con_fichaje_activo': empleadosActivos,
+        'empleados_fichados_hoy':      empleadosFichadosHoy,
+        'empleado_mas_horas_mes':      empleadoMasHoras,
+        'horas_promedio_empleado_mes': double.parse(horasPromedioEmpleado.toStringAsFixed(1)),
+        'fichajes_con_salida_mes':     fichajesConSalida,
+      };
+    } catch (e) {
+      debugPrint('❌ Error calculando fichajes: $e');
       return {};
     }
   }

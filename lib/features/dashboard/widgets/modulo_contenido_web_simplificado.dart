@@ -380,19 +380,6 @@ class _ModuloContenidoWebSimplificadoState extends State<ModuloContenidoWebSimpl
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: codigo));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Código copiado al portapapeles'),
-                    backgroundColor: Color(0xFF4CAF50),
-                  ),
-                );
-                Navigator.pop(context);
-              },
-              child: const Text('📋 Copiar Código'),
-            ),
-            TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cerrar'),
             ),

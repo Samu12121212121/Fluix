@@ -6,7 +6,7 @@ import {
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import Stripe from "stripe";
-import { enviarPdfGenerico, enviarConfirmacionReserva, enviarCancelacionReserva } from "./resend_service";
+import { enviarPdfGenerico, enviarConfirmacionReserva, enviarCancelacionReserva, enviarNotificacionContactoWeb, enviarRespuestaContactoWeb } from "./resend_service";
 import { enviarRecordatoriosCitas } from "./recordatoriosCitas";
 import { onTareaAsignada } from "./notificacionesTareas";
 import {
@@ -484,9 +484,125 @@ function _formatearFechaReserva(reserva: FirebaseFirestore.DocumentData): string
   return "Fecha pendiente";
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULARIO DE CONTACTO WEB
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * NUEVO MENSAJE DE CONTACTO WEB
+ * - Envía push notification a todos los dispositivos de la empresa
+ * - Envía email al empresario si tiene email_notificaciones configurado
+ */
+export const onNuevoMensajeContacto = onDocumentCreated(
+  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION },
+  async (event) => {
+    const empresaId = event.params.empresaId;
+    const msg = event.data?.data();
+    if (!msg) return;
+
+    const empresa = await _getDatosEmpresa(empresaId);
+    const nombre  = msg.nombre || "Visitante";
+    const asunto  = msg.asunto || "Sin asunto";
+    const cuerpo  = `De: ${nombre} — ${asunto}`;
+
+    // ── 1. Push notification ──────────────────────────────────────────────────
+    try {
+      const tokensDocs = await db
+        .collection(`empresas/${empresaId}/dispositivos`)
+        .get();
+      const tokens: string[] = tokensDocs.docs
+        .map((d) => d.data().token as string)
+        .filter((t) => !!t);
+
+      if (tokens.length > 0) {
+        await messaging.sendEachForMulticast({
+          tokens,
+          notification: {
+            title: "💬 Nuevo mensaje de contacto",
+            body: cuerpo,
+          },
+          data: {
+            tipo: "contacto_web",
+            empresaId,
+            mensajeId: event.params.mensajeId,
+          },
+          apns: {
+            payload: { aps: { sound: "default", badge: 1 } },
+          },
+          android: {
+            notification: { sound: "default", channelId: "fluix_general" },
+          },
+        });
+      }
+    } catch (e) {
+      console.error("onNuevoMensajeContacto push error:", e);
+    }
+
+    // ── 2. Email al empresario ────────────────────────────────────────────────
+    if (empresa.email) {
+      try {
+        await enviarNotificacionContactoWeb({
+          emailEmpresario: empresa.email,
+          empresaNombre: empresa.nombre,
+          nombreRemitente: nombre,
+          emailRemitente: msg.email || "",
+          telefonoRemitente: msg.telefono || "",
+          asunto,
+          mensajeTexto: msg.mensaje || "",
+        });
+      } catch (e) {
+        console.error("onNuevoMensajeContacto email error:", e);
+      }
+    }
+  }
+);
+
+/**
+ * MENSAJE RESPONDIDO
+ * Cuando el empresario escribe su respuesta en la app, se envía un email
+ * automáticamente al visitante usando Resend.
+ * Trigger: campos `respondido` (false→true) y `respuesta` (nuevo) en el doc.
+ */
+export const onMensajeContactoRespondido = onDocumentUpdated(
+  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION },
+  async (event) => {
+    const empresaId = event.params.empresaId;
+    const antes   = event.data?.before.data();
+    const despues = event.data?.after.data();
+    if (!antes || !despues) return;
+
+    // Solo disparar cuando pasa de no-respondido a respondido y hay respuesta
+    if (antes.respondido === true) return;
+    if (despues.respondido !== true) return;
+    const respuesta = (despues.respuesta || "").trim();
+    if (!respuesta) return;
+
+    const emailRemitente = despues.email;
+    if (!emailRemitente) {
+      console.log("onMensajeContactoRespondido: sin email del remitente, omitiendo");
+      return;
+    }
+
+    const empresa = await _getDatosEmpresa(empresaId);
+
+    try {
+      await enviarRespuestaContactoWeb({
+        emailRemitente,
+        nombreRemitente: despues.nombre || "Visitante",
+        empresaNombre: empresa.nombre,
+        asunto: despues.asunto || "Tu consulta",
+        mensajeOriginal: despues.mensaje || "",
+        respuestaTexto: respuesta,
+      });
+      console.log(`✅ Respuesta enviada a ${emailRemitente}`);
+    } catch (e) {
+      console.error("onMensajeContactoRespondido email error:", e);
+    }
+  }
+);
+
 // ── HELPER: obtiene nombre e email de la empresa ───────────────────────────────
-async function _getDatosEmpresa(empresaId: string): Promise<{ nombre: string; email: string | null }> {
-  try {
+async function _getDatosEmpresa(empresaId: string): Promise<{ nombre: string; email: string | null }> {  try {
     const doc = await db.collection("empresas").doc(empresaId).get();
     const d = doc.data() || {};
     return {
@@ -3235,113 +3351,58 @@ function _bcsvFecha(val: unknown): string {
   } catch { return String(val); }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FORMULARIO DE CONTACTO WEB — notificación push + email al admin al recibir msg
-// Trigger: empresas/{empresaId}/contacto_web/{mensajeId}  (onDocumentCreated)
-// ═══════════════════════════════════════════════════════════════════════════════
+// ──────────────────────────────────────────────────────────────────────────────
+// CLOUD FUNCTION: Enviar emails de contacto de interés (login público)
+// ──────────────────────────────────────────────────────────────────────────────
 
-export const onNuevoMensajeContacto = onDocumentCreated(
-  {
-    document: "empresas/{empresaId}/contacto_web/{mensajeId}",
-    region: REGION,
-  },
-  async (event) => {
-    const empresaId = event.params.empresaId;
-    const data = event.data?.data();
-    if (!data) return;
+export const enviarEmailsContactoInteres = onCall(
+  { region: REGION },
+  async (request) => {
+    const data = request.data;
 
-    const nombre  = (data.nombre  as string) ?? "Desconocido";
-    const email   = (data.email   as string) ?? "";
-    const mensaje = (data.mensaje as string) ?? "";
-    const telefono = (data.telefono as string | undefined) ?? "";
-    const fecha = new Date().toLocaleDateString("es-ES", {
-      day: "2-digit", month: "long", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
+    // Importar funciones de Resend
+    const {
+      enviarConfirmacionContactoInteres,
+      enviarNotificacionContactoInteres,
+    } = await import("./resend_service");
 
-    // ── 1. Datos de la empresa ────────────────────────────────────────────
-    let empresaNombre = "Tu empresa";
-    let correoAdmin: string | null = null;
     try {
-      const empresaDoc = await db.collection("empresas").doc(empresaId).get();
-      const perfil = empresaDoc.data()?.perfil ?? {};
-      empresaNombre = (perfil.nombre as string) ?? empresaNombre;
-      correoAdmin   = (perfil.correo as string) ?? null;
-    } catch (e) {
-      console.warn("⚠️ No se pudo leer empresa:", e);
-    }
+      // 1. Email de confirmación al usuario
+      const resultadoConfirmacion = await enviarConfirmacionContactoInteres({
+        to: data.correo,
+        nombre: data.nombre,
+        correo: data.correo,
+        telefono: data.telefono,
+        nombreEmpresa: data.nombreEmpresa,
+        actividad: data.actividad,
+        numTrabajadores: data.numTrabajadores,
+      });
 
-    // ── 2. Push notifications a todos los dispositivos activos ────────────
-    try {
-      const devSnap = await db
-        .collection("empresas").doc(empresaId)
-        .collection("dispositivos")
-        .where("activo", "==", true)
-        .get();
-      const tokens = devSnap.docs
-        .map((d) => d.data().token as string | undefined)
-        .filter((t): t is string => !!t);
+      // 2. Email de notificación al propietario
+      const resultadoNotificacion = await enviarNotificacionContactoInteres({
+        nombre: data.nombre,
+        correo: data.correo,
+        telefono: data.telefono,
+        nombreEmpresa: data.nombreEmpresa,
+        actividad: data.actividad,
+        numTrabajadores: data.numTrabajadores,
+        leadId: data.leadId,
+        fechaSolicitud: data.fechaSolicitud,
+      });
 
-      if (tokens.length > 0) {
-        await admin.messaging().sendEachForMulticast({
-          tokens,
-          notification: {
-            title: "✉️ Nuevo mensaje de contacto",
-            body: `${nombre}: "${mensaje.substring(0, 80)}${mensaje.length > 80 ? "…" : ""}"`,
-          },
-          data: {
-            tipo: "mensaje_contacto",
-            empresa_id: empresaId,
-          },
-          android: {
-            priority: "high",
-            notification: { channelId: "fluixcrm_canal_principal" },
-          },
-          apns: { payload: { aps: { sound: "default", badge: 1 } } },
-        });
-        console.log(`✅ Push enviado a ${tokens.length} dispositivos (empresa: ${empresaId})`);
-      }
-    } catch (e) {
-      console.error("❌ Error enviando push contacto:", e);
-    }
+      console.log("✅ Emails de contacto enviados:", {
+        confirmacion: resultadoConfirmacion.exito,
+        notificacion: resultadoNotificacion.exito,
+      });
 
-    // ── 3. Email al admin/propietario via Resend ──────────────────────────
-    if (correoAdmin) {
-      try {
-        const apiKey = process.env.RESEND_API_KEY;
-        if (apiKey) {
-          const { Resend } = await import("resend");
-          const resend = new Resend(apiKey);
-          const fs = await import("fs");
-          const path = await import("path");
-
-          const tplPath = path.join(__dirname, "templates", "contacto_notificacion.html");
-          let html = fs.existsSync(tplPath) ? fs.readFileSync(tplPath, "utf-8") : "";
-          const vars: Record<string, string> = {
-            nombre, email, mensaje, telefono, fecha, empresa_nombre: empresaNombre,
-          };
-          for (const [k, v] of Object.entries(vars)) {
-            html = html.replace(new RegExp(`{{${k}}}`, "g"), v);
-          }
-          // Limpiar helpers condicionales y variables sobrantes
-          if (!telefono) {
-            html = html.replace(/{{#telefono}}[\s\S]*?{{\/telefono}}/g, "");
-          } else {
-            html = html.replace(/{{#telefono}}|{{\/telefono}}/g, "");
-          }
-          html = html.replace(/{{[^}]+}}/g, "");
-
-          await resend.emails.send({
-            from: "Fluix CRM <noreply@fluixtech.com>",
-            to: correoAdmin,
-            subject: `✉️ Nuevo mensaje de ${nombre} — ${empresaNombre}`,
-            html: html || `<p>Nuevo mensaje de <b>${nombre}</b> (${email}):<br><br>${mensaje}</p>`,
-          });
-          console.log(`✅ Email de contacto enviado a ${correoAdmin}`);
-        }
-      } catch (e) {
-        console.error("❌ Error enviando email contacto:", e);
-      }
+      return {
+        exito: true,
+        confirmacionEnviada: resultadoConfirmacion.exito,
+        notificacionEnviada: resultadoNotificacion.exito,
+      };
+    } catch (error: any) {
+      console.error("❌ Error enviando emails de contacto:", error);
+      throw new HttpsError("internal", `Error enviando emails: ${error.message}`);
     }
   }
 );

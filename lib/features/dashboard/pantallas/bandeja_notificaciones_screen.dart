@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../services/bandeja_notificaciones_service.dart';
+import '../../tareas/pantallas/modulo_tareas_screen.dart';
+import '../../reservas/pantallas/modulo_reservas_screen.dart';
+import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA — Bandeja de notificaciones in-app
@@ -70,7 +73,8 @@ class BandejaNotificacionesScreen extends StatelessWidget {
               empresaId: empresaId,
               onTap: () async {
                 await svc.marcarLeida(empresaId, items[i].id);
-                // Aquí se podría navegar al módulo destino
+                if (!ctx.mounted) return;
+                _navegarAModulo(ctx, items[i], empresaId);
               },
               onDismiss: () => svc.eliminar(empresaId, items[i].id),
             ),
@@ -78,6 +82,29 @@ class BandejaNotificacionesScreen extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empresaId) {
+  switch (notif.moduloDestino) {
+    case 'reservas':
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ModuloReservasScreen(empresaId: empresaId),
+      ));
+      break;
+    case 'tareas':
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ModuloTareasScreen(empresaId: empresaId),
+      ));
+      break;
+    case 'facturacion':
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ModuloFacturacionScreen(empresaId: empresaId),
+      ));
+      break;
+    default:
+      // Sin destino conocido: no navegar
+      break;
   }
 }
 

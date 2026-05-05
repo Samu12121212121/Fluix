@@ -70,7 +70,36 @@ class DemoCuentaService {
     final now        = DateTime.now();
     final empresaRef = _db.collection('empresas').doc(demoEmpresaId);
 
-    // ── Empresa ──────────────────────────────────────────────────
+    // ── 1. USUARIO PRIMERO — las reglas de suscripción/configuración necesitan
+    //    que usuarios/{uid} exista con empresa_id y rol correcto. ───────────
+    await _db.collection('usuarios').doc(uid).set({
+      'nombre':         'Usuario Demo',
+      'correo':         demoEmail,
+      'telefono':       '',
+      'rol':            'admin',
+      'empresa_id':     demoEmpresaId,
+      'activo':         true,
+      'permisos':       [],
+      'fecha_creacion': now.toIso8601String(),
+      'es_demo':        true,
+      'datos_nomina': {
+        'salario_bruto_anual':  24000.0,
+        'tipo_contrato':        'indefinido',
+        'num_pagas':            14,
+        'horas_semanales':      40.0,
+        'complemento_fijo':     0.0,
+        'nif':                  '00000000T',
+        'nss':                  '280000000000',
+        'situacion_familiar':   'soltero',
+        'num_hijos':            0,
+        'num_hijos_menores_3':  0,
+        'discapacidad':         false,
+        'sector_empresa':       'hosteleria',
+        'pagas_prorrateadas':   false,
+      },
+    }, SetOptions(merge: true));
+
+    // ── 2. Empresa ──────────────────────────────────────────────────
     await empresaRef.set({
       'nombre':                'Empresa Demo Fluix',
       'correo':                demoEmail,
@@ -84,7 +113,7 @@ class DemoCuentaService {
       'es_demo':               true,
     }, SetOptions(merge: true));
 
-    // ── Módulos ───────────────────────────────────────────────────
+    // ── 3. Módulos ───────────────────────────────────────────────────
     await empresaRef.collection('configuracion').doc('modulos').set({
       'modulos': [
         {'id': 'dashboard',    'activo': true},
@@ -103,48 +132,25 @@ class DemoCuentaService {
       'ultima_actualizacion': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // ── Suscripción ───────────────────────────────────────────────
+    // ── 4. Suscripción — es_demo:true + packs_activos para bypass de reglas ──
     await empresaRef.collection('suscripcion').doc('actual').set({
-      'estado':        'ACTIVA',
-      'plan':          'enterprise',
-      'fecha_inicio':  Timestamp.fromDate(now),
-      'fecha_fin':     Timestamp.fromDate(now.add(const Duration(days: 365))),
-      'aviso_enviado': false,
-      'ultimo_aviso':  null,
+      'estado':         'ACTIVA',
+      'plan':           'enterprise',
+      'plan_base':      'basico',
+      'packs_activos':  ['gestion', 'tienda', 'fiscal'],
+      'addons_activos': ['whatsapp', 'tareas', 'nominas'],
+      'es_demo':        true,   // ← permite acceder a todos los módulos premium
+      'precio_total':   0,
+      'fecha_inicio':   Timestamp.fromDate(now),
+      'fecha_fin':      Timestamp.fromDate(now.add(const Duration(days: 365))),
+      'aviso_enviado':  false,
+      'ultimo_aviso':   null,
     }, SetOptions(merge: true));
 
-    // ── Config facturación ────────────────────────────────────────
+    // ── 5. Config facturación ────────────────────────────────────────
     await empresaRef.collection('configuracion').doc('facturacion').set(
       {'ultimo_numero_factura': 0}, SetOptions(merge: true));
 
-    // ── Usuario ───────────────────────────────────────────────────
-    await _db.collection('usuarios').doc(uid).set({
-      'nombre':         'Usuario Demo',
-      'correo':         demoEmail,
-      'telefono':       '',
-      'rol':            'admin',
-      'empresa_id':     demoEmpresaId,
-      'activo':         true,
-      'permisos':       [],
-      'fecha_creacion': now.toIso8601String(),
-      'es_demo':        true,
-      // datos_nomina del administrador demo (necesario para generarNominasMasivas)
-      'datos_nomina': {
-        'salario_bruto_anual':  24000.0,
-        'tipo_contrato':        'indefinido',
-        'num_pagas':            14,
-        'horas_semanales':      40.0,
-        'complemento_fijo':     0.0,
-        'nif':                  '00000000T',
-        'nss':                  '280000000000',
-        'situacion_familiar':   'soltero',
-        'num_hijos':            0,
-        'num_hijos_menores_3':  0,
-        'discapacidad':         false,
-        'sector_empresa':       'hosteleria',
-        'pagas_prorrateadas':   false,
-      },
-    }, SetOptions(merge: true));
 
     // ── Empleados demo en la coleccion usuarios (para generarNominasMasivas) ──
     // generarNominasMasivas lee de usuarios/{uid} donde empresa_id == demoEmpresaId
@@ -932,11 +938,11 @@ class DemoCuentaService {
     final precios = [12.50, 45.00, 150.00];
 
     final reservas = [
-      {'dias': 2, 'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
-      {'dias': 5, 'estado': 'CONFIRMADA', 'servicio_idx': 1, 'cliente_idx': 1},
-      {'dias': 7, 'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
+      {'dias': 2,  'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
+      {'dias': 5,  'estado': 'PENDIENTE', 'servicio_idx': 1, 'cliente_idx': 1},
+      {'dias': 7,  'estado': 'PENDIENTE', 'servicio_idx': 0, 'cliente_idx': 0},
       {'dias': 10, 'estado': 'PENDIENTE', 'servicio_idx': 2, 'cliente_idx': 2},
-      {'dias': 15, 'estado': 'CONFIRMADA', 'servicio_idx': 1, 'cliente_idx': 1},
+      {'dias': 15, 'estado': 'PENDIENTE', 'servicio_idx': 1, 'cliente_idx': 1},
     ];
 
     for (final reserva in reservas) {

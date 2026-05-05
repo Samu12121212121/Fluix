@@ -219,6 +219,26 @@ class TabAnalyticsWeb extends StatelessWidget {
                 return BarChart(
                   BarChartData(
                     maxY: maxV <= 0 ? 10 : maxV * 1.25,
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => Colors.black87,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final fecha = hist[group.x]['fecha']?.toString() ?? '';
+                          final visitas = rod.toY.toInt();
+                          return BarTooltipItem(
+                            '$fecha\n$visitas visitas\n(toca para ver páginas)',
+                            const TextStyle(color: Colors.white, fontSize: 10),
+                          );
+                        },
+                      ),
+                      touchCallback: (event, response) {
+                        if (event is FlTapUpEvent && response?.spot != null) {
+                          final fecha = hist[response!.spot!.touchedBarGroup.x]['fecha']?.toString() ?? '';
+                          _mostrarPaginasDelDia(context, fecha);
+                        }
+                      },
+                    ),
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
@@ -733,5 +753,138 @@ class TabAnalyticsWeb extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)
         ],
       );
+
+  Future<void> _mostrarPaginasDelDia(BuildContext context, String fecha) async {
+    try {
+      final historial = await AnalyticsWebService().obtenerHistorialDiario(empresaId);
+      final dia = historial.firstWhere(
+        (h) => h['fecha']?.toString() == fecha,
+        orElse: () => {},
+      );
+      
+      if (dia.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No hay datos para este día')),
+          );
+        }
+        return;
+      }
+
+      final paginas = dia['paginas'] as Map<String, dynamic>? ?? {};
+      final visitas = dia['visitas'] as int? ?? 0;
+      
+      if (!context.mounted) return;
+      
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today, color: Colors.blue, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Páginas visitadas el $fecha',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$visitas visitas totales',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const Divider(height: 24),
+              if (paginas.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(
+                      'No hay detalles de páginas para este día',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: paginas.entries.map((e) {
+                      final count = e.value as int;
+                      final maxCount = paginas.values.fold<int>(0, (a, b) => a > b ? a : b);
+                      final pct = maxCount > 0 ? count / maxCount : 0.0;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    e.key.replaceAll('https://', '').replaceAll('http://', ''),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: pct,
+                                backgroundColor: Colors.grey[200],
+                                valueColor: const AlwaysStoppedAnimation(Colors.blue),
+                                minHeight: 6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cerrar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al obtener páginas: $e')),
+        );
+      }
+    }
+  }
 }
 

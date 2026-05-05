@@ -658,9 +658,23 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
                   ),
                 ),
               ),
-              const Text(
-                'Crear nueva cuenta',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              // Cabecera con botón cerrar
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Crear nueva cuenta',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Cerrar',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               const Text(

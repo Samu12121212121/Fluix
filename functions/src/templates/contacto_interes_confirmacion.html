@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gracias por tu interés en Fluix CRM</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f5f7fa; }
+    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #43A047, #66BB6A); padding: 40px 32px; text-align: center; }
+    .header h1 { color: #fff; margin: 0; font-size: 26px; font-weight: 700; }
+    .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 15px; }
+    .icon { font-size: 48px; margin-bottom: 12px; }
+    .body { padding: 32px; }
+    .greeting { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 16px; }
+    .intro { color: #555; line-height: 1.7; margin-bottom: 24px; font-size: 15px; }
+    .data-box { background: #E8F5E9; border: 1px solid #C8E6C9; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .data-box h3 { color: #2E7D32; font-size: 14px; text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 16px; }
+    .data-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+    .data-label { color: #666; font-size: 13px; min-width: 140px; font-weight: 500; }
+    .data-value { color: #1a1a1a; font-size: 13px; font-weight: 600; flex: 1; }
+    .promise-box { background: #FFF3E0; border-left: 4px solid #FF9800; padding: 20px 24px; border-radius: 0 8px 8px 0; margin-bottom: 24px; }
+    .promise-box p { color: #555; line-height: 1.7; margin: 0; font-size: 14px; }
+    .promise-box strong { color: #E65100; }
+    .next-steps { background: #f9f9f9; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .next-steps h3 { color: #1976D2; font-size: 15px; margin: 0 0 12px; }
+    .next-steps ul { margin: 0; padding-left: 20px; color: #555; line-height: 1.8; }
+    .next-steps li { margin-bottom: 8px; }
+    .footer { background: #f5f7fa; padding: 24px 32px; text-align: center; border-top: 1px solid #e0e0e0; }
+    .footer .logo { font-size: 18px; font-weight: 700; color: #43A047; margin-bottom: 8px; }
+    .footer p { color: #aaa; font-size: 12px; margin: 4px 0; }
+    .cta { background: #43A047; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; display: inline-block; font-weight: 600; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🚀</div>
+      <h1>¡Gracias por tu interés!</h1>
+      <p>Fluix CRM — Gestiona tu negocio de forma inteligente</p>
+    </div>
+
+    <div class="body">
+      <p class="greeting">¡Hola, {{nombre}}! 👋</p>
+
+      <p class="intro">
+        Muchas gracias por haberte interesado en <strong>Fluix CRM</strong>. Hemos recibido correctamente
+        tu solicitud y estamos emocionados de ayudarte a llevar <strong>{{nombreEmpresa}}</strong> al siguiente nivel.
+      </p>
+
+      <div class="data-box">
+        <h3>📋 Datos que nos enviaste</h3>
+        <div class="data-row">
+          <span class="data-label">👤 Nombre</span>
+          <span class="data-value">{{nombre}}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">📧 Correo</span>
+          <span class="data-value">{{correo}}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">🏢 Empresa</span>
+          <span class="data-value">{{nombreEmpresa}}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">💼 Actividad</span>
+          <span class="data-value">{{actividad}}</span>
+        </div>
+        {{#telefono}}
+        <div class="data-row">
+          <span class="data-label">📞 Teléfono</span>
+          <span class="data-value">{{telefono}}</span>
+        </div>
+        {{/telefono}}
+        {{#numTrabajadores}}
+        <div class="data-row">
+          <span class="data-label">👥 Trabajadores</span>
+          <span class="data-value">{{numTrabajadores}}</span>
+        </div>
+        {{/numTrabajadores}}
+      </div>
+
+      <div class="promise-box">
+        <p>
+          ⏱️ <strong>Nos pondremos en contacto contigo en breve</strong>, normalmente en menos de 24 horas
+          (laborables), para ofrecerte una demo personalizada de Fluix CRM y resolver todas tus dudas.
+        </p>
+      </div>
+
+      <div class="next-steps">
+        <h3>📌 Próximos pasos</h3>
+        <ul>
+          <li>Revisaremos tu solicitud y analizaremos las necesidades de tu negocio</li>
+          <li>Te contactaremos para agendar una <strong>demo personalizada</strong></li>
+          <li>Te mostraremos cómo Fluix CRM puede ayudarte a optimizar tu gestión</li>
+          <li>Responderemos todas tus preguntas y te ayudaremos a elegir el plan ideal</li>
+        </ul>
+      </div>
+
+      <p style="color:#555; line-height:1.7; font-size:14px; margin-bottom: 20px;">
+        Mientras tanto, si tienes alguna pregunta urgente, puedes responder directamente a este correo
+        o contactarnos en <strong>soporte@fluixtech.com</strong>.
+      </p>
+
+      <p style="color:#555; line-height:1.7; font-size:15px;">
+        ¡Hasta pronto! 🎉<br>
+        <strong style="color: #43A047;">El equipo de Fluix CRM</strong>
+      </p>
+    </div>
+
+    <div class="footer">
+      <div class="logo">Fluix CRM</div>
+      <p>© {{year}} Fluix Tech · Todos los derechos reservados</p>
+      <p style="margin-top: 12px; color: #999;">
+        🔒 Tus datos están seguros y no serán compartidos con terceros
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+

@@ -303,14 +303,8 @@ class _ConfiguracionDashboardScreenState
                     .toList(),
               ),
               const SizedBox(height: 16),
-              _buildSeccionPlan(
-                plan:    PlanModulo.fiscal,
-                modulos: modulosVisibles
-                    .where((m) =>
-                m.plan == PlanModulo.fiscal && m.incluidoEnPlan)
-                    .toList(),
-              ),
-              const SizedBox(height: 16),
+              // Pack Fiscal AI — oculto temporalmente
+              // _buildSeccionPlan(plan: PlanModulo.fiscal, ...),
               _buildSeccionPlan(
                 plan:    PlanModulo.gestion,
                 modulos: modulosVisibles
@@ -328,7 +322,9 @@ class _ConfiguracionDashboardScreenState
               ),
               const SizedBox(height: 16),
               _buildSeccionAddOns(
-                modulosVisibles.where((m) => !m.incluidoEnPlan).toList(),
+                modulosVisibles
+                    .where((m) => !m.incluidoEnPlan && m.id != 'nominas')
+                    .toList(),
               ),
               const SizedBox(height: 16),
               _buildSeccionOtras(),
@@ -893,14 +889,9 @@ class _ConfiguracionDashboardScreenState
                 'Catálogo de servicios y precios',
               ]),
               const SizedBox(height: 12),
-              _buildInfoPlan(PlanModulo.fiscal, [
-                'Automatización fiscal con IA',
-                'Generación de modelos 303 y 130',
-                'Cálculo automático de IVA',
-                'Detección de deducciones',
-                'Informes fiscales trimestrales',
-              ]),
-              const SizedBox(height: 12),
+              // Pack Fiscal AI — oculto temporalmente de los planes visibles
+              // _buildInfoPlan(PlanModulo.fiscal, [...]),
+              const SizedBox(height: 0),
               _buildInfoPlan(PlanModulo.gestion, [
                 'WhatsApp Business integrado',
                 'Facturación completa con IVA',
@@ -939,42 +930,8 @@ class _ConfiguracionDashboardScreenState
                               fontSize: 14)),
                     ]),
                     const SizedBox(height: 8),
-                    // Nóminas — precio dinámico
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.payments,
-                            size: 14, color: Color(0xFF00897B)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                  height: 1.5),
-                              children: [
-                                const TextSpan(
-                                    text: 'Nóminas: ',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                const TextSpan(
-                                    text:
-                                    '5 € por usuario y empleado / mes\n'),
-                                TextSpan(
-                                  text:
-                                  'Tu empresa: $totalPersonas personas'
-                                      ' → $precioNominasMes €/mes',
-                                  style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Nóminas — oculto temporalmente
+                    const SizedBox(height: 0),
                     const SizedBox(height: 6),
                     const Text(
                       '• Tareas: sistema de productividad por usuario/mes\n'

@@ -356,8 +356,7 @@ class _TabPerfilState extends State<_TabPerfil> {
             const SizedBox(height: 20),
 
             // ── Seguridad adicional ──────────────────────────────────────
-            _SeccionSeguridad2FA(uid: FirebaseAuth.instance.currentUser?.uid ?? ''),
-            const SizedBox(height: 12),
+            // TODO: verificación en 2 pasos — se habilitará próximamente
             _ToggleBiometria(),
             const SizedBox(height: 12),
 

@@ -144,6 +144,8 @@ class SesionUsuario {
           'empleados',
           'facturacion',
           'nominas',
+          'vacaciones',
+          'fichaje',
           'web',
         ];
 
@@ -164,15 +166,17 @@ class SesionUsuario {
           'facturacion',
           'nominas',
           'vacaciones',
+          'fichaje',
           'web',
         ];
 
       case RolApp.staff:
-        // Solo lo operativo básico: reservas, clientes y valoraciones
+        // Solo lo operativo básico: reservas, clientes, valoraciones y fichaje
         return [
           'reservas',
           'clientes',
           'valoraciones',
+          'fichaje',
         ];
 
       default:
@@ -181,7 +185,14 @@ class SesionUsuario {
   }
 
   /// Módulos visibles: personalizados si el admin los configuró, o los del rol.
+  /// NOTA: los módulos personalizados solo se aplican a staff.
+  /// Admin y propietario siempre ven todos los módulos de su rol.
   List<String> get modulosVisibles {
+    // Admin y propietario siempre tienen acceso completo según su rol
+    if (rol == RolApp.propietario || rol == RolApp.admin) {
+      return _modulosPorRol;
+    }
+    // Staff: respetar módulos personalizados asignados por el admin
     if (modulosPersonalizados != null && modulosPersonalizados!.isNotEmpty) {
       return modulosPersonalizados!;
     }
@@ -192,7 +203,7 @@ class SesionUsuario {
   static const todosLosModulos = [
     'dashboard', 'reservas', 'clientes', 'valoraciones',
     'estadisticas', 'servicios', 'pedidos', 'tpv', 'whatsapp', 'tareas',
-    'empleados', 'facturacion', 'nominas', 'web',
+    'empleados', 'facturacion', 'nominas', 'vacaciones', 'fichaje', 'web',
   ];
 
   String get rolNombre {

@@ -2,17 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:app_links/app_links.dart';
+import 'features/registro/pantallas/pantalla_registro_invitacion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:app_links/app_links.dart';              // FIX: import AppLinks
-import 'dart:async';                                     // FIX: import StreamSubscription
 
 import 'core/providers/app_config_provider.dart';
 import 'core/utils/admin_initializer.dart';
 import 'features/autenticacion/pantallas/pantalla_login.dart';
-import 'features/registro/pantallas/pantalla_registro_invitacion.dart'; // FIX: import pantalla invitación
 import 'features/dashboard/pantallas/pantalla_dashboard.dart';
 import 'features/onboarding/pantallas/pantalla_onboarding.dart';
 import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
@@ -27,6 +27,7 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Activar persistencia offline de Firestore
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -34,7 +35,7 @@ Future<void> main() async {
 
   await FirebaseAppCheck.instance.activate(
     androidProvider:
-    kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
     appleProvider: AppleProvider.deviceCheck,
   );
 
@@ -56,22 +57,26 @@ class FluixCrmApp extends StatefulWidget {
 class _FluixCrmAppState extends State<FluixCrmApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  late final AppLinks _appLinks;                        // FIX: tipo correcto
-  StreamSubscription<Uri>? _linkSubscription;           // FIX: tipo correcto
+  late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initDeepLinks();
+    // No bloquea el arranque: se lanza tras el primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _intentarInicializarAdmin();
     });
   }
 
-  Future<void> _initDeepLinks() async {
-    _appLinks = AppLinks();                             // FIX: constructor correcto
+  // ── Deep Links ──────────────────────────────────────────────────────────────
 
+  Future<void> _initDeepLinks() async {
+    _appLinks = AppLinks();
+
+    // Manejar deep link cuando la app estaba cerrada
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
@@ -83,6 +88,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
       debugPrint('⚠️ Error leyendo initial deep link: $e');
     }
 
+    // Escuchar deep links en background/foreground
     _linkSubscription = _appLinks.uriLinkStream.listen(
       _handleDeepLink,
       onError: (e) => debugPrint('⚠️ Error en deep link stream: $e'),
@@ -90,7 +96,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   }
 
   void _handleDeepLink(Uri uri) {
-    debugPrint('Deep link recibido: $uri');
+    debugPrint('🔗 Deep link recibido: $uri');
     if (uri.scheme != 'fluixcrm') return;
 
     final nav = _navigatorKey.currentState;
@@ -101,7 +107,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
       if (token != null && token.isNotEmpty) {
         nav.push(
           MaterialPageRoute(
-            builder: (_) => PantallaRegistroInvitacion(token: token), // FIX: importado
+            builder: (_) => PantallaRegistroInvitacion(token: token),
           ),
         );
       }
@@ -136,7 +142,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     if (nav == null) return;
     nav.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const PantallaLogin()),
-          (_) => false,
+      (_) => false,
     );
   }
 
@@ -166,7 +172,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
           ],
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges().distinct(
-                  (a, b) => a?.uid == b?.uid,
+              (a, b) => a?.uid == b?.uid,
             ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -178,6 +184,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
                 );
                 return const _PantallaRuta();
               }
+              // Sin sesión → detener el servicio
               TokenRefreshService().detener();
               SesionService().detener();
               return const PantallaLogin();
@@ -203,10 +210,10 @@ class PantallaCarga extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(60),
-              ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(60),
+                ),
               child: const Icon(
                 Icons.business_center_rounded,
                 size: 60,
@@ -223,13 +230,13 @@ class PantallaCarga extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.8),
+              Text(
+                'Cargando...',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withOpacity(0.8),
+                ),
               ),
-            ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(
               color: Colors.white,
@@ -242,6 +249,8 @@ class PantallaCarga extends StatelessWidget {
   }
 }
 
+/// Decide si mostrar onboarding, pantalla de suscripción vencida o dashboard
+/// según el estado de Firestore.
 class _PantallaRuta extends StatefulWidget {
   const _PantallaRuta();
 
@@ -283,6 +292,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
         final userData = snap.data?.data() as Map<String, dynamic>?;
         final empresaId = userData?['empresa_id'] as String?;
 
+        // Sin empresa → ir al dashboard (lo crea automáticamente)
         if (empresaId == null) return const PantallaDashboard();
 
         if (_empresaId != empresaId || _futureEmpresa == null) {
@@ -307,7 +317,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
             }
 
             final empresaData =
-            snapEmpresa.data?.data() as Map<String, dynamic>?;
+                snapEmpresa.data?.data() as Map<String, dynamic>?;
             final onboardingCompletado =
                 empresaData?['onboarding_completado'] as bool? ?? false;
 
@@ -329,7 +339,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
                 }
 
                 final suscData =
-                snapSuscripcion.data!.data() as Map<String, dynamic>;
+                    snapSuscripcion.data!.data() as Map<String, dynamic>;
                 final estado = suscData['estado'] as String? ?? 'ACTIVA';
                 final fechaFinTs = suscData['fecha_fin'] as Timestamp?;
                 final fechaFin = fechaFinTs?.toDate();
@@ -363,6 +373,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
   }
 }
 
+/// Se ejecuta en background para no bloquear el arranque de la app.
 void _intentarInicializarAdmin() {
   Future(() async {
     try {

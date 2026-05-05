@@ -37,11 +37,11 @@ extension TipoNotificacionX on TipoNotificacion {
 
   String get emoji {
     switch (this) {
-      case TipoNotificacion.tareaAsignada:   return '';
-      case TipoNotificacion.facturaVencida:  return '';
-      case TipoNotificacion.reservaNueva:    return '';
-      case TipoNotificacion.alertaFiscal:    return '';
-      case TipoNotificacion.nominaPendiente: return '';
+      case TipoNotificacion.tareaAsignada:   return '📌';
+      case TipoNotificacion.facturaVencida:  return '💰';
+      case TipoNotificacion.reservaNueva:    return '📅';
+      case TipoNotificacion.alertaFiscal:    return '📋';
+      case TipoNotificacion.nominaPendiente: return '💼';
     }
   }
 }
@@ -59,6 +59,11 @@ class NotificacionInApp {
   final String? remitenteNombre;
   final String? remitenteTelefono;
   final String? remitenteEmail;
+  // Campos extra de reserva (web form + genéricos)
+  final String? ubicacion;
+  final String? personas;
+  final bool? alergenos;
+  final String? alergenosDetalle;
 
   const NotificacionInApp({
     required this.id,
@@ -72,6 +77,10 @@ class NotificacionInApp {
     this.remitenteNombre,
     this.remitenteTelefono,
     this.remitenteEmail,
+    this.ubicacion,
+    this.personas,
+    this.alergenos,
+    this.alergenosDetalle,
   });
 
   factory NotificacionInApp.fromFirestore(DocumentSnapshot doc) {
@@ -88,6 +97,10 @@ class NotificacionInApp {
       remitenteNombre: data['remitente_nombre'] as String?,
       remitenteTelefono: data['remitente_telefono'] as String?,
       remitenteEmail: data['remitente_email'] as String?,
+      ubicacion: data['ubicacion'] as String?,
+      personas: data['personas'] as String?,
+      alergenos: data['alergenos'] as bool?,
+      alergenosDetalle: data['alergenos_detalle'] as String?,
     );
   }
 
