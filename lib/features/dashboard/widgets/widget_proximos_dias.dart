@@ -851,11 +851,21 @@ class _DetalleDiaSheet extends StatelessWidget {
       }
       final cliente = data['nombre_cliente'] as String? ?? 'Sin nombre';
       final servicio = data['servicio'] as String? ?? '';
-      final personas = data['personas'] ?? data['num_personas'];
+      final personasRaw = data['personas'] ?? data['num_personas'];
       final estado = (data['estado'] as String? ?? '').toUpperCase();
       final telefono = data['telefono_cliente'] as String? ?? '';
       final correo = data['correo_cliente'] as String? ?? '';
       final numero = data['numero'] as String?;
+
+      // Convertir personas a int de forma segura
+      int? personas;
+      if (personasRaw != null) {
+        if (personasRaw is num) {
+          personas = personasRaw.toInt();
+        } else if (personasRaw is String) {
+          personas = int.tryParse(personasRaw);
+        }
+      }
 
       String descripcion = servicio.isNotEmpty ? servicio : 'Reserva';
       if (personas != null) descripcion += ' para $personas personas';
@@ -876,7 +886,7 @@ class _DetalleDiaSheet extends StatelessWidget {
         badgeColor: color,
         telefono: telefono.isNotEmpty ? telefono : null,
         correo: correo.isNotEmpty ? correo : null,
-        comensales: personas != null ? (personas as num).toInt() : null,
+        comensales: personas,
         numero: numero,
         docId: data['_doc_id'] as String?,
         esReserva: true,
@@ -1084,29 +1094,53 @@ class _DetalleDiaSheet extends StatelessWidget {
   }
 
   void _navegarAEvento(BuildContext context, _EventoDia evento) async {
-    // Si es una reserva y tenemos docId, navegar a detalle
+    // Si es una reserva/cita y tenemos docId, navegar a detalle
     if (evento.docId != null && evento.esReserva) {
       try {
-        final doc = await FirebaseFirestore.instance
+        debugPrint('🔍 Navegando a evento: ${evento.docId}');
+        debugPrint('   Título: ${evento.titulo}');
+        debugPrint('   Es reserva: ${evento.esReserva}');
+        
+        // Verificar primero en 'reservas'
+        var doc = await FirebaseFirestore.instance
             .collection('empresas')
             .doc(empresaId)
             .collection('reservas')
             .doc(evento.docId!)
             .get();
+        
+        // Si no existe, intentar en 'citas'
+        if (!doc.exists) {
+          debugPrint('⚠️ No encontrado en reservas, intentando en citas...');
+          doc = await FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(empresaId)
+              .collection('citas')
+              .doc(evento.docId!)
+              .get();
+        }
+        
         if (!context.mounted) return;
         if (doc.exists) {
+          debugPrint('✅ Documento encontrado, navegando a DetalleReservaScreen');
           Navigator.pop(context);
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => DetalleReservaScreen(
-                doc: doc as dynamic,
+                doc: doc,
                 empresaId: empresaId,
               ),
             ),
           );
+        } else {
+          debugPrint('❌ Documento no encontrado en reservas ni citas');
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('❌ Error navegando a evento: $e');
+      }
+    } else {
+      debugPrint('⚠️ No se puede navegar: docId=${evento.docId}, esReserva=${evento.esReserva}');
     }
   }
 

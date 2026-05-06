@@ -29,6 +29,7 @@ import '../../pedidos/pantallas/modulo_whatsapp_screen.dart';
 import '../../empleados/pantallas/modulo_empleados_screen.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
 import '../../reservas/pantallas/modulo_reservas_screen.dart';
+import '../../reservas/pantallas/detalle_reserva_screen.dart';
 import '../../clientes/pantallas/modulo_clientes_screen.dart';
 import '../../servicios/pantallas/modulo_servicios_screen.dart';
 import '../../nominas/pantallas/modulo_nominas_screen.dart';
@@ -61,6 +62,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   List<String> _modulosActivos = [];
   SesionUsuario? _sesion;
   StreamSubscription? _notifSubscription;
+  int _mensajesSinLeer = 0; // Contador de mensajes sin leer en módulo web
 
   // ── Modo edición dashboard (reordenar widgets) ────────────────────────────
   bool _editandoDashboard = false;
@@ -104,6 +106,25 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (message != null) {
             _manejarNavegacionNotificacion(message.data);
         }
+    });
+  }
+
+  /// Escuchar cambios en mensajes de contacto web sin leer
+  void _escucharMensajesSinLeer() {
+    if (_empresaId == null) return;
+    
+    FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(_empresaId)
+        .collection('contacto_web')
+        .where('leido', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _mensajesSinLeer = snapshot.docs.length;
+        });
+      }
     });
   }
 
@@ -153,13 +174,50 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           }
 
       } else if (tipo == 'nueva_reserva' || tipo == 'reserva_confirmada' || tipo == 'reserva_cancelada') {
-          // Navegar al módulo de reservas — buscamos el tab correspondiente
+          // Intentar múltiples nombres de campo para el ID de reserva
+          final reservaId = data['reserva_id'] ?? data['id'] ?? data['reservaId'] ?? data['docId'];
+          
+          debugPrint('🔔 Notificación de reserva recibida');
+          debugPrint('   tipo: $tipo');
+          debugPrint('   reserva_id: $reservaId');
+          debugPrint('   data completo: $data');
+          
+          if (reservaId != null && mounted) {
+              try {
+                  debugPrint('🔍 Buscando reserva en Firestore: $reservaId');
+                  final doc = await FirebaseFirestore.instance
+                      .collection('empresas')
+                      .doc(empresaId)
+                      .collection('reservas')
+                      .doc(reservaId)
+                      .get();
+                  
+                  if (doc.exists && mounted) {
+                      debugPrint('✅ Reserva encontrada, navegando a detalle');
+                      Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => DetalleReservaScreen(
+                              doc: doc,
+                              empresaId: empresaId,
+                          ),
+                      ));
+                      return;
+                  } else {
+                      debugPrint('❌ Reserva no existe o widget no montado');
+                  }
+              } catch (e) {
+                  debugPrint('❌ Error navegando a reserva: $e');
+              }
+          } else {
+              debugPrint('⚠️ No hay reserva_id en el payload o widget no montado');
+          }
+          
+          // Fallback: navegar al módulo de reservas
+          debugPrint('🔙 Fallback: abriendo módulo de reservas');
           if (!mounted) return;
           final idx = _modulosActivos.indexOf('reservas');
           if (idx >= 0 && _tabController != null) {
               _tabController!.animateTo(idx);
           } else {
-              // Fallback: empujar pantalla de reservas directamente
               Navigator.push(context, MaterialPageRoute(
                   builder: (_) => ModuloReservasScreen(
                       empresaId: empresaId,
@@ -167,6 +225,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   ),
               ));
           }
+
 
       } else if (tipo == 'nuevo_pedido' || tipo == 'pedido_actualizado') {
           if (!mounted) return;
@@ -279,6 +338,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           NotificacionesService().guardarTokenConEmpresa(empresaId);
           // Cargar suscripción (packs/addons) para gating de widgets y módulos
           await _suscripcionService.cargarSuscripcion(empresaId);
+          // Escuchar mensajes sin leer del módulo web
+          _escucharMensajesSinLeer();
         }
         debugPrint('✅ EmpresaId cargado: $_empresaId');
       } else {
@@ -536,9 +597,27 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                         padding: EdgeInsets.zero,
                         labelStyle: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 13),
-                        tabs: modulosVisibles
-                            .map((m) => Tab(icon: Icon(m.icono, size: 20), text: m.nombre))
-                            .toList(),
+                        tabs: modulosVisibles.map((m) {
+                          // Badge rojo para módulo web con mensajes sin leer
+                          if (m.id == 'web' && _mensajesSinLeer > 0) {
+                            return Tab(
+                              child: Badge(
+                                label: Text(_mensajesSinLeer.toString()),
+                                backgroundColor: Colors.red,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(m.icono, size: 20),
+                                    const SizedBox(height: 4),
+                                    Text(m.nombre),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          // Tabs normales para el resto de módulos
+                          return Tab(icon: Icon(m.icono, size: 20), text: m.nombre);
+                        }).toList(),
                       ),
                     ),
                     Expanded(

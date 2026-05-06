@@ -623,6 +623,135 @@ class EstadisticasService {
     }
   }
 
+  /// Calcular estadísticas de tienda online
+  Future<Map<String, dynamic>> _calcularEstadisticasTiendaOnline(
+    String empresaId,
+    DateTime inicioMes,
+    DateTime hace30Dias
+  ) async {
+    try {
+      // Verificar si tiene Stripe conectado
+      final integracion = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('integraciones')
+          .doc('stripe')
+          .get();
+
+      if (!integracion.exists || integracion.data()?['connected'] != true) {
+        return {
+          'tienda_online_activa': false,
+        };
+      }
+
+      // Pedidos del mes
+      final pedidosMesQuery = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('pedidos')
+          .where('origen', isEqualTo: 'tienda_online')
+          .where('fecha_creacion', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
+          .get();
+
+      // Pedidos últimos 30 días
+      final pedidos30DiasQuery = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('pedidos')
+          .where('origen', isEqualTo: 'tienda_online')
+          .where('fecha_creacion', isGreaterThanOrEqualTo: Timestamp.fromDate(hace30Dias))
+          .get();
+
+      final pedidosMes = pedidosMesQuery.docs.map((doc) => doc.data()).toList();
+      final pedidos30Dias = pedidos30DiasQuery.docs.map((doc) => doc.data()).toList();
+
+      // Calcular ingresos
+      final ingresosMesTienda = pedidosMes.fold<double>(
+        0,
+        (sum, p) => sum + ((p['monto'] as num?)?.toDouble() ?? 0),
+      );
+
+      final ingresos30DiasTienda = pedidos30Dias.fold<double>(
+        0,
+        (sum, p) => sum + ((p['monto'] as num?)?.toDouble() ?? 0),
+      );
+
+      // Ticket promedio
+      final ticketPromedio = pedidosMes.isEmpty 
+          ? 0.0 
+          : ingresosMesTienda / pedidosMes.length;
+
+      // Productos más vendidos
+      final productosCantidad = <String, int>{};
+      final productosIngresos = <String, double>{};
+      final productosNombres = <String, String>{};
+
+      for (final pedido in pedidos30Dias) {
+        final items = pedido['items'] as List<dynamic>? ?? [];
+        for (final item in items) {
+          final itemMap = item as Map<String, dynamic>;
+          final productoId = itemMap['producto_id']?.toString() ?? '';
+          final nombre = itemMap['nombre']?.toString() ?? 'Producto';
+          final cantidad = (itemMap['cantidad'] as num?)?.toInt() ?? 0;
+          final precioUnitario = (itemMap['precio_unitario'] as num?)?.toDouble() ?? 0.0;
+
+          if (productoId.isNotEmpty) {
+            productosCantidad[productoId] = (productosCantidad[productoId] ?? 0) + cantidad;
+            productosIngresos[productoId] = (productosIngresos[productoId] ?? 0) + (cantidad * precioUnitario);
+            productosNombres[productoId] = nombre;
+          }
+        }
+      }
+
+      // Producto más vendido (por cantidad)
+      String? productoMasVendido;
+      int maxCantidad = 0;
+      productosCantidad.forEach((id, cantidad) {
+        if (cantidad > maxCantidad) {
+          maxCantidad = cantidad;
+          productoMasVendido = productosNombres[id];
+        }
+      });
+
+      // Producto más rentable (por ingresos)
+      String? productoMasRentable;
+      double maxIngresos = 0.0;
+      productosIngresos.forEach((id, ingresos) {
+        if (ingresos > maxIngresos) {
+          maxIngresos = ingresos;
+          productoMasRentable = productosNombres[id];
+        }
+      });
+
+      // Estados de pedidos
+      final pedidosPagados = pedidosMes.where((p) => p['estado'] == 'pagado').length;
+      final pedidosEnviados = pedidosMes.where((p) => p['estado'] == 'enviado').length;
+      final pedidosCompletados = pedidosMes.where((p) => p['estado'] == 'completado').length;
+
+      return {
+        'tienda_online_activa': true,
+        'pedidos_tienda_mes': pedidosMes.length,
+        'pedidos_tienda_30dias': pedidos30Dias.length,
+        'ingresos_tienda_mes': ingresosMesTienda,
+        'ingresos_tienda_30dias': ingresos30DiasTienda,
+        'ticket_promedio_tienda': ticketPromedio,
+        'producto_mas_vendido': productoMasVendido ?? 'N/A',
+        'producto_mas_rentable': productoMasRentable ?? 'N/A',
+        'productos_vendidos_cantidad': productosCantidad,
+        'productos_ingresos': productosIngresos,
+        'pedidos_pagados': pedidosPagados,
+        'pedidos_enviados': pedidosEnviados,
+        'pedidos_completados': pedidosCompletados,
+      };
+    } catch (e) {
+      print('❌ Error calculando estadísticas de tienda online: $e');
+      return {
+        'tienda_online_activa': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
   /// Programar actualización automática de estadísticas
   void programarActualizacionAutomatica(String empresaId) {
     // Actualizar estadísticas cada hora

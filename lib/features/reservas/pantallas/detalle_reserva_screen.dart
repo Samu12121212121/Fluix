@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class DetalleReservaScreen extends StatefulWidget {
-  final QueryDocumentSnapshot doc;
+  final DocumentSnapshot doc;
   final String empresaId;
 
   const DetalleReservaScreen({
@@ -212,7 +212,18 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
   Widget build(BuildContext context) {
     final fecha = _parseTs(_data['fecha_hora'] ?? _data['fecha']);
     final precio = _data['precio'];
-    final comensales = (_data['numero_personas'] ?? _data['comensales'] ?? _data['personas']) as int?;
+    
+    // Convertir comensales a int de forma segura
+    final comensalesRaw = _data['numero_personas'] ?? _data['comensales'] ?? _data['personas'];
+    int? comensales;
+    if (comensalesRaw != null) {
+      if (comensalesRaw is num) {
+        comensales = comensalesRaw.toInt();
+      } else if (comensalesRaw is String) {
+        comensales = int.tryParse(comensalesRaw);
+      }
+    }
+    
     final motivoCancelacion = _data['motivo_cancelacion'] as String?;
     final color = Theme.of(context).colorScheme.primary;
 
@@ -434,7 +445,7 @@ extension _CapStr on String {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EditarReservaSheet extends StatefulWidget {
-  final QueryDocumentSnapshot doc;
+  final DocumentSnapshot doc;
   final String empresaId;
   final String coleccion;
   final void Function(Map<String, dynamic>) onActualizado;

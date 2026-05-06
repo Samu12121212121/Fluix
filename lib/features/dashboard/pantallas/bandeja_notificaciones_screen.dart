@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
+ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/bandeja_notificaciones_service.dart';
 import '../../tareas/pantallas/modulo_tareas_screen.dart';
 import '../../reservas/pantallas/modulo_reservas_screen.dart';
+import '../../reservas/pantallas/detalle_reserva_screen.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,9 +87,68 @@ class BandejaNotificacionesScreen extends StatelessWidget {
   }
 }
 
-void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empresaId) {
+void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empresaId) async {
+  debugPrint('🔍 Navegando - Módulo: ${notif.moduloDestino}, EntidadId: ${notif.entidadId}');
+  
+  // Si es una notificación de reserva o cita Y tiene entidadId, ir al detalle
+  if ((notif.moduloDestino == 'reservas' || notif.moduloDestino == 'citas') && 
+      notif.entidadId != null && 
+      notif.entidadId!.isNotEmpty) {
+    debugPrint('✅ Tiene entidadId, buscando documento: ${notif.entidadId}');
+    try {
+      // Buscar primero en 'reservas'
+      var doc = await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('reservas')
+          .doc(notif.entidadId!)
+          .get();
+      
+      debugPrint('📄 Buscado en reservas - Existe: ${doc.exists}');
+      
+      // Si no existe, intentar en 'citas'
+      if (!doc.exists) {
+        debugPrint('🔄 No encontrado en reservas, buscando en citas...');
+        doc = await FirebaseFirestore.instance
+            .collection('empresas')
+            .doc(empresaId)
+            .collection('citas')
+            .doc(notif.entidadId!)
+            .get();
+        debugPrint('📄 Buscado en citas - Existe: ${doc.exists}');
+      }
+      
+      if (!context.mounted) return;
+      
+      if (doc.exists) {
+        debugPrint('✅ Documento encontrado, navegando a DetalleReservaScreen');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetalleReservaScreen(
+              doc: doc,
+              empresaId: empresaId,
+            ),
+          ),
+        );
+        return; // Salir aquí para no ejecutar el resto del código
+      } else {
+        debugPrint('❌ Documento no encontrado en ninguna colección');
+        // Continuar al módulo como fallback
+      }
+    } catch (e) {
+      debugPrint('❌ Error navegando a detalle de reserva: $e');
+      // Continuar al módulo como fallback
+    }
+  }
+  
+  // Si no es reserva/cita con entidadId, navegar según el módulo
+  if (!context.mounted) return;
+  
   switch (notif.moduloDestino) {
     case 'reservas':
+    case 'citas':
+      debugPrint('➡️ Navegando al módulo completo de reservas');
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ModuloReservasScreen(empresaId: empresaId),
       ));
@@ -103,6 +164,7 @@ void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empre
       ));
       break;
     default:
+      debugPrint('⚠️ Módulo desconocido: ${notif.moduloDestino}');
       // Sin destino conocido: no navegar
       break;
   }

@@ -51,8 +51,8 @@ class Reserva extends Equatable {
           ? _parseDate(datos['fecha_modificacion'])
           : null,
 
-      // Datos del cliente y reserva
-      comensales: datos['comensales'] ?? datos['num_comensales'] ?? 1,
+      // Datos del cliente y reserva - conversión segura de comensales
+      comensales: _parseIntSafe(datos['comensales'] ?? datos['num_comensales']) ?? 1,
       clienteNombre: datos['cliente_nombre'] ?? datos['nombre'] ?? '',
       clienteEmail: datos['cliente_email'] ?? datos['email'] ?? datos['correo'] ?? '',
       clienteTelefono: datos['cliente_telefono'] ?? datos['telefono'] ?? datos['phone'] ?? '',
@@ -89,6 +89,21 @@ class Reserva extends Equatable {
     }
 
     return DateTime.now();
+  }
+
+  /// Método auxiliar para parsear enteros de forma segura
+  static int? _parseIntSafe(dynamic value) {
+    if (value == null) return null;
+    
+    if (value is num) {
+      return value.toInt();
+    }
+    
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    
+    return null;
   }
 
   Map<String, dynamic> toMap() {
@@ -193,5 +208,7 @@ class Reserva extends Equatable {
     origen,
     motivoCancelacion,
     fechaCancelacion,
+    servicioId,
+    empleadoAsignado,
   ];
 }

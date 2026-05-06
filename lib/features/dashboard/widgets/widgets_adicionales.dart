@@ -204,6 +204,7 @@ class WidgetReservasHoy extends StatelessWidget {
                     Timestamp.fromDate(inicioHoy))
                     .where('fecha_hora',
                     isLessThan: Timestamp.fromDate(finHoy))
+                    .where('estado', isEqualTo: 'CONFIRMADA') // Solo mostrar aceptadas
                     .orderBy('fecha_hora')
                     .limit(10)
                     .snapshots(),
@@ -243,7 +244,18 @@ class WidgetReservasHoy extends StatelessWidget {
                       final cliente =
                           data['cliente'] as String? ?? data['nombre_cliente'] as String? ?? 'Cliente';
                       final servicio = data['servicio'] as String?;
-                      final comensales = data['numero_personas'] as int?;
+                      
+                      // Convertir comensales a int de forma segura
+                      final comensalesRaw = data['numero_personas'];
+                      int? comensales;
+                      if (comensalesRaw != null) {
+                        if (comensalesRaw is num) {
+                          comensales = comensalesRaw.toInt();
+                        } else if (comensalesRaw is String) {
+                          comensales = int.tryParse(comensalesRaw);
+                        }
+                      }
+                      
                       final estado =
                       (data['estado'] as String? ?? 'PENDIENTE')
                           .toUpperCase();

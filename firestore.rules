@@ -1,5 +1,21 @@
-rules_version = '2';
-service cloud.firestore {
+
+
+      // ── TRÁFICO WEB — escrito por el script JS (usuario anónimo) ─────────
+    function suscRef(empresaId) {
+    function accesoAddonPremium(empresaId, addonId) {
+      return esPlataformaAdmin()
+        || !exists(suscRef(empresaId))
+        || tieneAddonActivo(empresaId, addonId);
+    // ── VALIDACIÓN DE CAMPOS DE TRACKING ─────────────────────────────────────
+    // El script JS solo escribe estos campos en trafico_web.
+    // Validamos que no escriba campos inesperados (whitelist).
+    // Nota: los campos de mapas anidados (paginas_mas_vistas.inicio,
+      // superando cualquier límite fijo.
+      // La seguridad se garantiza por:
+        allow read: if (esAdminOPropietario(empresaId) && accesoModuloPremium(empresaId, 'fiscal'))
+          || esPlataformaAdmin();
+      //   2. isAuth() requiere al menos auth anónima (no acceso sin token)
+    // ── VERIFICACIÓN DE PACKS Y ADD-ONS ──────────────────────────────────────
   match /databases/{database}/documents {
 
     function isAuth() {
@@ -582,6 +598,39 @@ service cloud.firestore {
               .hasAny(['stripe_customer_id', 'stripe_subscription_id']);
         allow write: if esPlataformaAdmin();
         allow delete: if false;
+      }
+
+      // ── SERVICIOS ──────────────────────────────────────────────────────────
+      // Lectura pública para formularios web, escritura para admin/propietario
+
+      match /servicios/{servicioId} {
+        allow read: if true; // Lectura pública para formularios web
+        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      // ── CONFIGURACIÓN DE RESERVAS ──────────────────────────────────────────
+      // Lectura pública para formularios web, escritura para admin/propietario
+
+      match /configuracion/reservas {
+        allow read: if true; // Lectura pública para formularios web
+        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
+
+      // ── INTEGRACIONES (Stripe, Google, etc.) ───────────────────────────────
+
+      match /integraciones/{integracionId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        // Permitir escribir desde Cloud Functions (OAuth callback)
+        allow write: if !isAuth() && integracionId == 'stripe';
+      }
+
+      // ── PRODUCTOS DE TIENDA ONLINE ─────────────────────────────────────────
+      // Lectura pública para formularios web/tienda, escritura para admin
+
+      match /productos_tienda/{productoId} {
+        allow read: if true; // Lectura pública para tienda online
+        allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       }
 
       // ── ESTADÍSTICAS GENERALES ────────────────────────────────────────────

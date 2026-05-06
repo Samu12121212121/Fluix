@@ -1,0 +1,17 @@
+nombre,descripcion,precio,duracion_minutos,categoria
+Manicura completa,Manicura con esmaltado semipermanente,35.00,60,Uñas
+Pedicura spa,Pedicura con masaje y exfoliación,45.00,75,Uñas
+Corte de cabello,Corte y peinado profesional,25.00,45,Cabello
+Coloración completa,Tinte completo con tratamiento,85.00,120,Cabello
+Masaje relajante,Masaje corporal de 60 minutos,50.00,60,Masajes
+Tratamiento facial,Limpieza facial profunda,40.00,50,Estética
+Depilación piernas,Depilación completa de piernas,30.00,40,Depilación
+Mechas californianas,Mechas naturales con decoloración,95.00,150,Cabello
+Extensiones de pestañas,Aplicación de extensiones pelo a pelo,70.00,90,Pestañas
+Maquillaje profesional,Maquillaje para eventos,55.00,45,Maquillaje
+Alisado de keratina,Tratamiento alisador con keratina,120.00,180,Cabello
+Manicura francesa,Manicura clásica francesa,28.00,45,Uñas
+Pedicura básica,Pedicura con esmaltado simple,32.00,50,Uñas
+Depilación cejas,Depilación y diseño de cejas,12.00,15,Depilación
+Masaje deportivo,Masaje para recuperación muscular,60.00,60,Masajes
+

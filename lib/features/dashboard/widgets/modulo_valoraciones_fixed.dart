@@ -661,22 +661,7 @@ class _TarjetaResena extends StatelessWidget {
                     ])),
               ],
 
-              // ── Reply button ──────────────────────────────────────────────
-              const SizedBox(height: 4),
-              Row(children: [
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _dialogoResponder(context, respuesta),
-                  icon: Icon(respuesta != null && respuesta.isNotEmpty
-                      ? Icons.edit_outlined : Icons.reply, size: 16),
-                  label: Text(respuesta != null && respuesta.isNotEmpty
-                      ? 'Editar respuesta' : 'Responder',
-                      style: const TextStyle(fontSize: 13)),
-                  style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF1976D2),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
-                ),
-              ]),
+              // ── Reply button removed (por solicitud del usuario) ──────────
             ])),
       ),
 

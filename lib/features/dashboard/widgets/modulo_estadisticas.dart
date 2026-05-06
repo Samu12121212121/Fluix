@@ -1063,15 +1063,17 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     if (diferencia.inMinutes < 5) {
       color = const Color(0xFF4CAF50);
       icono = Icons.check_circle;
-      mensaje = 'Datos actualizados hace ${diferencia.inMinutes} min';
+      mensaje = 'Calculadas hace ${diferencia.inMinutes} minuto${diferencia.inMinutes == 1 ? '' : 's'}';
     } else if (diferencia.inMinutes < 30) {
       color = Colors.orange;
       icono = Icons.schedule;
-      mensaje = 'Datos de hace ${diferencia.inMinutes} min';
+      mensaje = 'Calculadas hace ${diferencia.inMinutes} minuto${diferencia.inMinutes == 1 ? '' : 's'}';
     } else {
       color = Colors.red;
       icono = Icons.warning;
-      mensaje = 'Datos de hace ${diferencia.inHours}h ${diferencia.inMinutes % 60}min';
+      final horas = diferencia.inHours;
+      final minutos = diferencia.inMinutes % 60;
+      mensaje = 'Calculadas hace ${horas}h ${minutos}min';
     }
 
     return Container(

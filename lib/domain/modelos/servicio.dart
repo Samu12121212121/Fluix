@@ -120,6 +120,7 @@ class Servicio extends Equatable {
     precio,
     duracion,
     empleadoAsignado,
+    empleadosAsignados,
     categoria,
     activo,
     imagenes,

@@ -383,6 +383,11 @@ class _FormularioServicioState extends State<_FormularioServicio> {
   late TextEditingController _duracionCtrl;
   late TextEditingController _categoriaCtrl;
   bool _guardando = false;
+  
+  // Variables para gestión de empleados
+  bool _cargandoEmpleados = true;
+  List<Map<String, dynamic>> _empleadosDisponibles = [];
+  Set<String> _empleadosSeleccionados = {};
 
   bool get _esEdicion => widget.id != null;
 
@@ -394,6 +399,39 @@ class _FormularioServicioState extends State<_FormularioServicio> {
     _precioCtrl = TextEditingController(text: (widget.data?['precio'] ?? '').toString());
     _duracionCtrl = TextEditingController(text: (widget.data?['duracion_minutos'] ?? 60).toString());
     _categoriaCtrl = TextEditingController(text: widget.data?['categoria'] ?? '');
+    
+    // Cargar empleados disponibles
+    _cargarEmpleados();
+  }
+  
+  Future<void> _cargarEmpleados() async {
+    try {
+      final empleadosSnap = await _firestore
+          .collection('usuarios')
+          .where('empresa_id', isEqualTo: widget.empresaId)
+          .where('activo', isEqualTo: true)
+          .get();
+      
+      if (mounted) {
+        setState(() {
+          _empleadosDisponibles = empleadosSnap.docs
+              .map((doc) => {'id': doc.id, 'nombre': doc.data()['nombre'] ?? 'Sin nombre'})
+              .toList();
+          
+          // Si es edición, cargar empleados ya asignados
+          if (widget.data != null && widget.data!['empleados_ids'] != null) {
+            _empleadosSeleccionados = Set<String>.from(widget.data!['empleados_ids'] as List? ?? []);
+          }
+          
+          _cargandoEmpleados = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando empleados: $e');
+      if (mounted) {
+        setState(() => _cargandoEmpleados = false);
+      }
+    }
   }
 
   @override
@@ -419,6 +457,7 @@ class _FormularioServicioState extends State<_FormularioServicio> {
         'categoria': _categoriaCtrl.text.trim().isEmpty ? 'General' : _categoriaCtrl.text.trim(),
         'activo': true,
         'imagenes': [],
+        'empleados_ids': _empleadosSeleccionados.toList(),
         'fecha_modificacion': DateTime.now().toIso8601String(),
       };
 
@@ -525,6 +564,44 @@ class _FormularioServicioState extends State<_FormularioServicio> {
                 controller: _categoriaCtrl,
                 decoration: _inputDeco('Categoría (ej: Cabello, Masajes...)', Icons.category),
               ),
+              const SizedBox(height: 16),
+              
+              // Selector de empleados
+              if (_cargandoEmpleados)
+                const Center(child: CircularProgressIndicator())
+              else if (_empleadosDisponibles.isNotEmpty) ...[
+                const Text('Empleados asignados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _empleadosDisponibles.map((emp) {
+                    final seleccionado = _empleadosSeleccionados.contains(emp['id']);
+                    return FilterChip(
+                      label: Text(emp['nombre']),
+                      selected: seleccionado,
+                      onSelected: (value) {
+                        setState(() {
+                          if (value) {
+                            _empleadosSeleccionados.add(emp['id']);
+                          } else {
+                            _empleadosSeleccionados.remove(emp['id']);
+                          }
+                        });
+                      },
+                      selectedColor: const Color(0xFF7B1FA2).withValues(alpha: 0.2),
+                      checkmarkColor: const Color(0xFF7B1FA2),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _empleadosSeleccionados.isEmpty
+                      ? 'Cualquier empleado puede realizar este servicio'
+                      : '${_empleadosSeleccionados.length} empleado(s) asignado(s)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
               const SizedBox(height: 24),
 
               SizedBox(

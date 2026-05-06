@@ -65,6 +65,7 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
             context: context, empresaId: widget.empresaId),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_reservas',
         onPressed: () => _FormNuevaReserva.mostrar(
             context: context, empresaId: widget.empresaId),
         icon: const Icon(Icons.add),
@@ -828,7 +829,18 @@ class _Tarjeta extends StatelessWidget {
     final fecha = _ts(_d['fecha_hora']);
     final precio = _d['precio'];
     final profesional = '${_d['profesional'] ?? _d['empleado'] ?? ''}';
-    final comensales = _d['numero_personas'] as int?;
+    
+    // Convertir comensales a int de forma segura
+    final comensalesRaw = _d['numero_personas'];
+    int? comensales;
+    if (comensalesRaw != null) {
+      if (comensalesRaw is num) {
+        comensales = comensalesRaw.toInt();
+      } else if (comensalesRaw is String) {
+        comensales = int.tryParse(comensalesRaw);
+      }
+    }
+    
     final esCita = doc.reference.path.contains('citas');
 
     return Card(
@@ -1011,20 +1023,7 @@ class _Vacio extends StatelessWidget {
         Text(msg,
             style: TextStyle(color: Colors.grey[500], fontSize: 15),
             textAlign: TextAlign.center),
-        if (onNueva != null) ...[
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onNueva,
-            icon: const Icon(Icons.add),
-            label: const Text('Añadir reserva'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
+        // Botón quitado - solo usar el FAB principal
       ]),
     );
   }
