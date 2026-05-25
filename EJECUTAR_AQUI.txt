@@ -1,0 +1,98 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║              ✅ SOLUCIÓN DEFINITIVA CMAKE                    ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+🎯 EL PROBLEMA
+
+Firebase SDK para Windows tiene:
+  cmake_minimum_required(VERSION 2.8.12)
+
+CMake moderno (tu versión) requiere:
+  Mínimo VERSION 3.10
+
+❌ NO SE PUEDE EVITAR desde CMakeLists.txt del proyecto
+❌ Las políticas antiguas (CMP0000) ya no funcionan
+❌ No hay configuración que lo solucione
+
+
+══════════════════════════════════════════════════════════════
+
+✅ LA UNICA SOLUCIÓN QUE FUNCIONA
+
+Parchear el archivo de Firebase DESPUÉS de descargarlo.
+
+
+══════════════════════════════════════════════════════════════
+
+🚀 EJECUTA ESTO AHORA:
+
+   ejecutar_windows_fix.bat
+
+
+══════════════════════════════════════════════════════════════
+
+📊 LO QUE HACE EL SCRIPT:
+
+[1/5] Limpia proyecto
+[2/5] Obtiene dependencias
+[3/5] Descarga Firebase SDK (5-10 min)
+      ↳ El build fallará, pero eso es NORMAL
+[4/5] Encuentra CMakeLists.txt de Firebase
+      ↳ Cambia VERSION 2.8.12 → 3.10
+[5/5] Ejecuta app (ahora SÍ compilará)
+
+
+══════════════════════════════════════════════════════════════
+
+⏱️ TIEMPO ESTIMADO:
+
+Primera vez: 5-10 minutos (descarga Firebase SDK)
+Siguientes:  2-3 minutos
+
+
+══════════════════════════════════════════════════════════════
+
+✅ DESPUÉS DE EJECUTARLO:
+
+- La app se ejecutará en Windows
+- navigación con NavigationRail lateral
+- Todos los módulos funcionando
+- Firebase conectado
+
+
+══════════════════════════════════════════════════════════════
+
+🐛 SI FALLA:
+
+1. Verifica Flutter Doctor:
+   flutter doctor -v
+
+2. Debe salir:
+   ✓ Visual Studio 2022 (Desktop development with C++)
+   ✓ Windows SDK
+
+3. Si falta algo, instálalo y vuelve a ejecutar
+
+
+══════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANTE:
+
+- NO uses "ejecutar_windows_simple.bat"
+- NO ejecutes "flutter run" directamente sin parche
+- USA: ejecutar_windows_fix.bat
+
+
+══════════════════════════════════════════════════════════════
+
+🎉 ¡EJECUTA AHORA!
+
+   Doble clic en: ejecutar_windows_fix.bat
+
+   O desde terminal: ejecutar_windows_fix.bat
+
+
+══════════════════════════════════════════════════════════════
+

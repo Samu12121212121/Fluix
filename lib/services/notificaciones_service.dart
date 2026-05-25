@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async'; // Add import
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +15,14 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('🔔 Notificación en background: ${message.notification?.title}');
 }
 
+/// Devuelve true si la plataforma actual NO soporta Firebase Messaging.
+/// Windows, Linux y macOS (desktop) no tienen implementación nativa de FCM.
+bool get _plataformaNoSoportaFCM =>
+    !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
 /// Servicio de notificaciones push con Firebase Cloud Messaging
 class NotificacionesService {
   static final NotificacionesService _instance = NotificacionesService._internal();
@@ -22,12 +31,12 @@ class NotificacionesService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Stream para eventos de navegación
   final StreamController<Map<String, dynamic>> _tapStreamCtrl =
-      StreamController.broadcast();
+  StreamController.broadcast();
   Stream<Map<String, dynamic>> get onTap => _tapStreamCtrl.stream;
 
   bool _inicializado = false;
@@ -43,25 +52,21 @@ class NotificacionesService {
     showBadge: true,
   );
 
-  /// Canal de alta prioridad para reseñas negativas
   static const AndroidNotificationChannel _canalResenasNegativas =
-      AndroidNotificationChannel(
+  AndroidNotificationChannel(
     'fluixcrm_resenas_negativas',
     'Alertas de reseñas negativas',
-    description:
-        'Alertas urgentes cuando recibes reseñas de 1, 2 o 3 estrellas',
+    description: 'Alertas urgentes cuando recibes reseñas de 1, 2 o 3 estrellas',
     importance: Importance.max,
     playSound: true,
     enableVibration: true,
   );
 
-  /// Canal para alertas fiscales (certificados, vencimientos, AEAT)
   static const AndroidNotificationChannel _canalFiscal =
-      AndroidNotificationChannel(
+  AndroidNotificationChannel(
     'fluixcrm_fiscal',
     'Alertas Fiscales',
-    description:
-        'Alertas de certificados digitales, vencimientos y avisos de la AEAT',
+    description: 'Alertas de certificados digitales, vencimientos y avisos de la AEAT',
     importance: Importance.max,
     playSound: true,
     enableVibration: true,
@@ -70,6 +75,13 @@ class NotificacionesService {
   /// Inicializar el servicio completo de notificaciones
   Future<void> inicializar() async {
     if (_inicializado) return;
+
+    // FCM no disponible en Windows/Linux/macOS — salir sin error
+    if (_plataformaNoSoportaFCM) {
+      _inicializado = true;
+      print('ℹ️ NotificacionesService: FCM no disponible en esta plataforma, se omite.');
+      return;
+    }
 
     // Registrar handler de background
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -82,15 +94,10 @@ class NotificacionesService {
 
     final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+        AndroidFlutterLocalNotificationsPlugin>();
 
-    // Crear canal principal
     await androidPlugin?.createNotificationChannel(_canal);
-
-    // Crear canal de reseñas negativas (alta prioridad)
     await androidPlugin?.createNotificationChannel(_canalResenasNegativas);
-
-    // Crear canal fiscal (certificados, AEAT)
     await androidPlugin?.createNotificationChannel(_canalFiscal);
 
     // Escuchar mensajes en primer plano
@@ -102,7 +109,7 @@ class NotificacionesService {
     // Guardar token del dispositivo en Firestore
     await _guardarTokenDispositivo();
 
-    // Escuchar renovación del token → siempre actualizar en usuarios Y dispositivos
+    // Escuchar renovación del token
     _messaging.onTokenRefresh.listen((token) async {
       print('🔄 Token FCM renovado, actualizando Firestore...');
       await _actualizarTokenEnFirestore(token);
@@ -112,8 +119,8 @@ class NotificacionesService {
     print('✅ Servicio de notificaciones inicializado');
   }
 
-  /// Solicitar permisos de notificaciones
   Future<void> _solicitarPermisos() async {
+    if (_plataformaNoSoportaFCM) return;
     final settings = await _messaging.requestPermission(
       alert: true,
       announcement: false,
@@ -126,10 +133,9 @@ class NotificacionesService {
     print('📱 Permisos notificaciones: ${settings.authorizationStatus}');
   }
 
-  /// Configurar plugin de notificaciones locales
   Future<void> _configurarNotificacionesLocales() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    if (_plataformaNoSoportaFCM) return;
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -139,7 +145,6 @@ class NotificacionesService {
       android: androidSettings,
       iOS: iosSettings,
     );
-
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
@@ -149,8 +154,8 @@ class NotificacionesService {
     );
   }
 
-  /// Manejar mensajes cuando la app está en primer plano
   void _manejarMensajePrimerPlano(RemoteMessage message) {
+    if (_plataformaNoSoportaFCM) return;
     print('🔔 Notificación en primer plano: ${message.notification?.title}');
     final notif = message.notification;
     if (notif == null) return;
@@ -171,10 +176,8 @@ class NotificacionesService {
           playSound: true,
           enableVibration: true,
           enableLights: true,
-          // fullScreenIntent muestra como banner incluso con pantalla bloqueada
           fullScreenIntent: true,
           visibility: NotificationVisibility.public,
-          // Cabecera (heads-up) siempre visible
           styleInformation: BigTextStyleInformation(
             notif.body ?? '',
             htmlFormatBigText: false,
@@ -191,36 +194,32 @@ class NotificacionesService {
       payload: jsonEncode(message.data),
     );
 
-    // Reproducir el sonido configurado por el usuario para este tipo
     final tipoStr = message.data['tipo'] as String? ?? 'general';
     final tipo = TipoNotificacionExt.fromId(tipoStr);
     SonidoNotificacionService().reproducirParaTipo(tipo);
   }
 
-  /// Manejar tap en notificación cuando la app estaba en background
   void _manejarTapNotificacion(RemoteMessage message) {
+    if (_plataformaNoSoportaFCM) return;
     print('🔔 Usuario tocó notificación: ${message.data}');
     _procesarPayload(jsonEncode(message.data));
-    _tapStreamCtrl.add(message.data); // Agregar evento al stream
+    _tapStreamCtrl.add(message.data);
   }
 
-  /// Procesar el payload de una notificación (navegación)
   void _procesarPayload(String? payload) {
     if (payload == null) return;
     try {
       final data = jsonDecode(payload) as Map<String, dynamic>;
       final tipo = data['tipo'] as String?;
       print('🔔 Procesando notificación tipo: $tipo, data: $data');
-
-      // Emitir al stream para que la UI pueda navegar
       _tapStreamCtrl.add(data);
     } catch (e) {
       print('❌ Error procesando payload: $e');
     }
   }
 
-  /// Obtener y guardar el token FCM en Firestore
   Future<void> _guardarTokenDispositivo() async {
+    if (_plataformaNoSoportaFCM) return;
     try {
       final token = await _messaging.getToken();
       if (token == null) return;
@@ -231,15 +230,14 @@ class NotificacionesService {
     }
   }
 
-  /// Actualizar token en Firestore para el usuario actual
   Future<void> _actualizarTokenEnFirestore(String token) async {
+    if (_plataformaNoSoportaFCM) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       print('⚠️ No hay usuario autenticado para guardar token FCM');
       return;
     }
 
-    // 1. Guardar en documento del usuario (usar set+merge para evitar errores si no existe el campo)
     try {
       await _firestore.collection('usuarios').doc(uid).set({
         'token_dispositivo': token,
@@ -251,7 +249,6 @@ class NotificacionesService {
       print('❌ Error guardando token en usuarios/$uid: $e');
     }
 
-    // 2. También guardar en la empresa (si existe)
     try {
       final userDoc = await _firestore.collection('usuarios').doc(uid).get();
       final empresaId = userDoc.data()?['empresa_id'] as String?;
@@ -289,20 +286,22 @@ class NotificacionesService {
 
   /// Suscribirse a un topic (para notificaciones por empresa)
   Future<void> suscribirseATopic(String empresaId) async {
-    await _messaging.subscribeToTopic('empresa_$empresaId');
-    print('✅ Suscrito al topic: empresa_$empresaId');
+    if (_plataformaNoSoportaFCM) return;
+    try {
+      await _messaging.subscribeToTopic('empresa_$empresaId');
+      print('✅ Suscrito al topic: empresa_$empresaId');
+    } catch (e) {
+      print('❌ Error suscribiéndose al topic: $e');
+    }
   }
 
-  /// Llamar explícitamente tras el login para garantizar que el token se guarda
-  /// con el UID correcto (el usuario ya está autenticado en este punto)
   Future<void> guardarTokenTrasLogin() async {
+    if (_plataformaNoSoportaFCM) return;
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
-
       final token = await _messaging.getToken();
       if (token == null) return;
-
       print('📱 Guardando token FCM tras login para UID: $uid');
       await _actualizarTokenEnFirestore(token);
     } catch (e) {
@@ -310,19 +309,16 @@ class NotificacionesService {
     }
   }
 
-  /// Desuscribirse de un topic
   Future<void> desuscribirseDeTop(String empresaId) async {
+    if (_plataformaNoSoportaFCM) return;
     await _messaging.unsubscribeFromTopic('empresa_$empresaId');
   }
 
-  /// Elimina (marca como inactivo) el token FCM del dispositivo actual
-  /// para la empresa indicada. Se llama al cerrar sesión.
   Future<void> eliminarTokenDeEmpresa(String empresaId) async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      // Marcar como inactivo en empresas/{id}/dispositivos/{uid}
       await _firestore
           .collection('empresas')
           .doc(empresaId)
@@ -330,7 +326,6 @@ class NotificacionesService {
           .doc(uid)
           .set({'activo': false}, SetOptions(merge: true));
 
-      // Limpiar token del documento de usuario
       await _firestore.collection('usuarios').doc(uid).set(
         {'token_dispositivo': FieldValue.delete()},
         SetOptions(merge: true),
@@ -342,9 +337,8 @@ class NotificacionesService {
     }
   }
 
-  /// Guardar token FCM asegurando que se vincula a la empresa correcta.
-  /// Llamar desde el dashboard cuando empresa_id ya está disponible.
   Future<void> guardarTokenConEmpresa(String empresaId) async {
+    if (_plataformaNoSoportaFCM) return;
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
@@ -352,14 +346,12 @@ class NotificacionesService {
       final token = await _messaging.getToken();
       if (token == null) return;
 
-      // Guardar en usuarios (por si acaso)
       await _firestore.collection('usuarios').doc(uid).set({
         'token_dispositivo': token,
         'token_actualizado': FieldValue.serverTimestamp(),
         'plataforma': _obtenerPlataforma(),
       }, SetOptions(merge: true));
 
-      // Guardar en dispositivos de la empresa
       await _firestore
           .collection('empresas')
           .doc(empresaId)
@@ -378,16 +370,14 @@ class NotificacionesService {
     }
   }
 
-  /// Obtener el token actual del dispositivo
   Future<String?> obtenerToken() async {
+    if (_plataformaNoSoportaFCM) return null;
     return await _messaging.getToken();
   }
 
-  /// Forza re-registro del token FCM. Útil al volver al foreground o tras login.
-  /// Garantiza que el token esté actualizado en usuarios/ y empresas/.../dispositivos/
   Future<void> refrescarToken() async {
+    if (_plataformaNoSoportaFCM) return;
     try {
-      // Elimina el token actual para forzar uno nuevo
       await _messaging.deleteToken();
       final nuevoToken = await _messaging.getToken();
       if (nuevoToken != null) {
@@ -399,69 +389,59 @@ class NotificacionesService {
     }
   }
 
-  // ── NOTIFICACIONES LOCALES MANUALES ─────────────────────────────────────────
-  // Útiles para notificaciones que se generan en el propio dispositivo
+  // ── NOTIFICACIONES LOCALES MANUALES ──────────────────────────────────────
 
-  /// Mostrar notificación local de nueva reserva
   Future<void> notificarNuevaReserva({
     required String clienteNombre,
     required String servicio,
     required String fecha,
     required String empresaId,
   }) async {
+    if (_plataformaNoSoportaFCM) return;
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       '📅 Nueva Reserva',
       '$clienteNombre — $servicio el $fecha',
       _detallesNotificacion(),
-      payload: jsonEncode({
-        'tipo': 'nueva_reserva',
-        'empresa_id': empresaId,
-      }),
+      payload: jsonEncode({'tipo': 'nueva_reserva', 'empresa_id': empresaId}),
     );
   }
 
-  /// Mostrar notificación local de nueva valoración
   Future<void> notificarNuevaValoracion({
     required String clienteNombre,
     required int estrellas,
     required String empresaId,
   }) async {
+    if (_plataformaNoSoportaFCM) return;
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       '⭐ Nueva Valoración',
       '$clienteNombre te ha dejado $estrellas estrellas',
       _detallesNotificacion(),
-      payload: jsonEncode({
-        'tipo': 'nueva_valoracion',
-        'empresa_id': empresaId,
-      }),
+      payload: jsonEncode({'tipo': 'nueva_valoracion', 'empresa_id': empresaId}),
     );
   }
 
-  /// Mostrar notificación local de nuevo pedido
   Future<void> notificarNuevoPedido({
     required String clienteNombre,
     required double total,
     required String empresaId,
   }) async {
+    if (_plataformaNoSoportaFCM) return;
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       '🛒 Nuevo Pedido',
       '$clienteNombre — €${total.toStringAsFixed(2)}',
       _detallesNotificacion(),
-      payload: jsonEncode({
-        'tipo': 'nuevo_pedido',
-        'empresa_id': empresaId,
-      }),
+      payload: jsonEncode({'tipo': 'nuevo_pedido', 'empresa_id': empresaId}),
     );
   }
 
-  /// Mostrar notificación de suscripción próxima a vencer
   Future<void> notificarSuscripcionPorVencer({
     required int diasRestantes,
     required String empresaId,
   }) async {
+    if (_plataformaNoSoportaFCM) return;
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       '⚠️ Suscripción por Vencer',
@@ -497,6 +477,3 @@ class NotificacionesService {
     );
   }
 }
-
-
-

@@ -57,4 +57,3 @@ Write-Host "Ahora ejecuta: " -ForegroundColor Cyan
 Write-Host "  desplegar_contacto.bat" -ForegroundColor White
 Write-Host ""
 pause
-

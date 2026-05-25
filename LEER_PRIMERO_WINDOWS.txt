@@ -1,0 +1,167 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║     FLUIXCRM WINDOWS - EJECUTAR AHORA (ERROR CMAKE FIXED)    ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+✨ ¡SOLUCION COMPLETA PARA ERRORES DE CMAKE Y SYMLINKS! ✨
+
+
+══ PROBLEMA DETECTADO ══
+
+Hay 2 problemas comunes en Windows:
+1. Firebase SDK con VERSION antigua de CMake
+2. Symlinks de plugins no se crean correctamente
+
+NO se puede evitar desde configuración del proyecto.
+
+LA UNICA SOLUCION: Script automatico que:
+- Limpia completamente
+- Regenera symlinks
+- Parchea Firebase
+
+
+══ SOLUCION 1: SCRIPT AUTOMATICO (RECOMENDADA) ══
+
+Doble clic en:
+
+   ejecutar_windows_completo.bat
+
+Este script:
+1. ✓ Cierra procesos de Flutter/Dart
+2. ✓ Limpia TODO (build, ephemeral, dart_tool)
+3. ✓ Regenera dependencias y symlinks
+4. ✓ Descarga Firebase SDK
+5. ✓ Parchea CMakeLists.txt (VERSION → 3.10)
+6. ✓ Ejecuta la app
+
+Tiempo: ~5-10 minutos (primera vez)
+
+
+══ SOLUCION 2: MODO ADMINISTRADOR (SI FALLA LA 1) ══
+
+Si el script anterior falla con error de symlinks:
+
+1. Click derecho en PowerShell
+2. "Ejecutar como Administrador"
+3. cd C:\Users\Samu\AndroidStudioProjects\PlaneaG\planeag_flutter
+4. .\ejecutar_windows_admin.ps1
+
+Este script tiene permisos administrativos para:
+- Habilitar modo desarrollador de Windows
+- Crear symlinks sin restricciones
+- Reparar cache de Flutter
+
+
+══ SOLUCION 3: MANUAL ══
+
+Si prefieres hacerlo paso a paso:
+
+1. Cerrar procesos:
+   taskkill /F /IM dart.exe
+   taskkill /F /IM flutter.exe
+
+2. Limpiar COMPLETAMENTE:
+   rmdir /s /q build
+   rmdir /s /q windows\flutter\ephemeral
+   rmdir /s /q .dart_tool
+   del .flutter-plugins
+   del .flutter-plugins-dependencies
+   flutter clean
+
+3. Regenerar dependencias:
+   flutter pub get
+   (Esto crea los symlinks en windows\flutter\ephemeral\.plugin_symlinks)
+
+4. Verificar symlinks:
+   dir windows\flutter\ephemeral\.plugin_symlinks\firebase_core
+   (Debe existir)
+
+5. Descargar Firebase SDK:
+   flutter build windows --debug
+   (Fallará, pero descarga el SDK)
+
+6. Parchear Firebase:
+   Editar: build\windows\x64\extracted\firebase_cpp_sdk_windows\CMakeLists.txt
+   Linea 17: cambiar VERSION 2.8.12 por VERSION 3.10
+
+7. Ejecutar:
+   flutter run -d windows
+
+
+══════════════════════════════════════════════════════════════
+
+⚠️ ERRORES COMUNES Y SOLUCIONES ⚠️
+
+ERROR: "file cannot be read" (pubspec.yaml)
+CAUSA: Symlinks no creados
+SOLUCION: Ejecutar como administrador (Solución 2)
+
+ERROR: "plugin_version.h.in does not exist"
+CAUSA: Symlinks rotos o incompletos
+SOLUCION: Borrar windows\flutter\ephemeral y hacer pub get
+
+ERROR: "cmake_minimum_required VERSION < 3.5"
+CAUSA: Firebase SDK desactualizado
+SOLUCION: El script lo parchea automáticamente
+
+
+══════════════════════════════════════════════════════════════
+
+🎯 COMANDO RAPIDO
+
+   ejecutar_windows_completo.bat
+
+Este script lo hace TODO automáticamente.
+Si falla, usar: ejecutar_windows_admin.ps1
+
+
+══════════════════════════════════════════════════════════════
+
+📊 ¿POR QUE FALLA EN WINDOWS?
+
+1. SYMLINKS: Windows requiere permisos especiales para crear
+   enlaces simbólicos (Developer Mode o Admin)
+
+2. FIREBASE SDK: Google no ha actualizado el CMakeLists.txt
+   del SDK pre-compilado para Windows
+
+3. EPHEMERAL: Flutter regenera plugins en cada build, pero
+   si el build falla a medias, quedan archivos corruptos
+
+
+══════════════════════════════════════════════════════════════
+
+🐛 SI SIGUE FALLANDO
+
+1. Verifica Flutter Doctor:
+   flutter doctor -v
+
+2. Debe mostrar:
+   ✓ Flutter (Channel stable)
+   ✓ Visual Studio 2022 (Desktop development with C++)
+   ✓ Windows SDK
+
+3. Si falta algo, instalalo y vuelve a ejecutar:
+   ejecutar_windows_completo.bat
+
+
+══════════════════════════════════════════════════════════════
+
+📖 MAS INFO
+
+DESKTOP_RESUMEN_FINAL.md — Guia completa adaptacion
+DESKTOP_ADAPTACION_COMPLETA.md — Documentacion tecnica
+SOLUCIONES_CMAKE_FIREBASE.md — Explicacion de errores
+
+
+══════════════════════════════════════════════════════════════
+
+🚀 ¡EJECUTA AHORA!
+
+   ejecutar_windows_completo.bat
+
+══════════════════════════════════════════════════════════════
+
+
+

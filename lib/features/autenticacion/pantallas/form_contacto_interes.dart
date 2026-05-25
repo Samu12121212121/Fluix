@@ -3,8 +3,16 @@ import '../../../services/contacto_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMULARIO — ¿Estás interesado en trabajar con nosotros?
-// Aparece en la pantalla de login al pulsar el botón correspondiente.
+// Estilo dark igual que el login principal
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Paleta dark (misma que login)
+const _kBgForm     = Color(0xFF0A0F23);
+const _kSurfaceF   = Color(0xFF1E2139);
+const _kBorderF    = Color(0xFF2A2E45);
+const _kAccentF    = Color(0xFF00FFC8);
+const _kTextoF     = Color(0xFFFFFFFF);
+const _kMutedF     = Color(0xFFB0B3C1);
 
 void mostrarFormContactoInteres(BuildContext context) {
   showModalBottomSheet(
@@ -58,7 +66,6 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
     setState(() => _enviando = true);
 
     try {
-      print('📋 Enviando formulario de contacto...');
       await ContactoService().enviarContactoInteres(
         nombre:          _nombreCtrl.text.trim(),
         correo:          _correoCtrl.text.trim(),
@@ -67,19 +74,15 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
         actividad:       _actividadCtrl.text.trim(),
         numTrabajadores: _numTrabajadores,
       );
-      print('✅ Formulario enviado correctamente');
       if (mounted) {
         setState(() { _enviando = false; _enviado = true; });
-        // Mostrar confirmación adicional
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('✅ Solicitud enviada. Revisa tu correo.'),
-          backgroundColor: Color(0xFF43A047),
+          backgroundColor: Color(0xFF00C48C),
           duration: Duration(seconds: 3),
         ));
       }
-    } catch (e, stack) {
-      print('❌ Error al enviar formulario: $e');
-      print('Stack: $stack');
+    } catch (e) {
       if (!mounted) return;
       setState(() => _enviando = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -96,26 +99,29 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: _kBgForm,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: _kAccentF, width: 2)),
       ),
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 20),
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: _kBorderF,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
-          // Contenido: pantalla de éxito o formulario
-          _enviado ? _buildExito() : _buildFormulario(),
-        ],
+            // Contenido: pantalla de éxito o formulario
+            _enviado ? _buildExito() : _buildFormulario(),
+          ],
+        ),
       ),
     );
   }
@@ -128,22 +134,23 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
         children: [
           Container(
             width: 72, height: 72,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8F5E9),
+            decoration: BoxDecoration(
+              color: _kAccentF.withValues(alpha: 0.15),
               shape: BoxShape.circle,
+              border: Border.all(color: _kAccentF, width: 2),
             ),
-            child: const Icon(Icons.check_circle, color: Color(0xFF43A047), size: 44),
+            child: const Icon(Icons.check_circle, color: _kAccentF, size: 44),
           ),
           const SizedBox(height: 20),
           const Text(
             '¡Solicitud enviada! 🎉',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: _kTextoF),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             'Hemos recibido tus datos y te hemos enviado un correo de confirmación.\n\nNos pondremos en contacto contigo en breve.',
-            style: TextStyle(fontSize: 15, color: Colors.grey[600], height: 1.5),
+            style: TextStyle(fontSize: 15, color: _kMutedF, height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),
@@ -152,8 +159,8 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF43A047),
-                foregroundColor: Colors.white,
+                backgroundColor: _kAccentF,
+                foregroundColor: _kBgForm,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -181,99 +188,84 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
                   children: [
                     const Text(
                       '¿Interesado en trabajar\ncon nosotros? 🤝',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.3),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.3, color: _kTextoF),
                     ),
                     const SizedBox(height: 6),
-                    Text(
+                    const Text(
                       'Rellena el formulario y te contactaremos en breve',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 13, color: _kMutedF),
                     ),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, color: _kMutedF),
                 onPressed: () => Navigator.pop(context),
-                color: Colors.grey[500],
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Campo: Nombre completo
-          _campo(
-            controller: _nombreCtrl,
-            label:       'Nombre completo',
-            icono:       Icons.person_outline,
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null,
-          ),
+          _campo(controller: _nombreCtrl, label: 'Nombre completo', icono: Icons.person_outline,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null),
           const SizedBox(height: 12),
-
-          // Campo: Correo
           _campo(
-            controller:  _correoCtrl,
-            label:       'Correo electrónico',
-            icono:       Icons.email_outlined,
-            tipo:        TextInputType.emailAddress,
+            controller: _correoCtrl, label: 'Correo electrónico', icono: Icons.email_outlined,
+            tipo: TextInputType.emailAddress,
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Campo obligatorio';
-              if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
-                return 'Correo no válido';
-              }
+              if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) return 'Correo no válido';
               return null;
             },
           ),
           const SizedBox(height: 12),
-
-          // Campo: Teléfono (opcional)
-          _campo(
-            controller:  _telefonoCtrl,
-            label:       'Teléfono (opcional)',
-            icono:       Icons.phone_outlined,
-            tipo:        TextInputType.phone,
-            required:    false,
-          ),
+          _campo(controller: _telefonoCtrl, label: 'Teléfono (opcional)', icono: Icons.phone_outlined,
+              tipo: TextInputType.phone, required: false),
+          const SizedBox(height: 12),
+          _campo(controller: _empresaCtrl, label: 'Nombre de la empresa', icono: Icons.business_outlined,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null),
           const SizedBox(height: 12),
 
-          // Campo: Nombre empresa
-          _campo(
-            controller:  _empresaCtrl,
-            label:       'Nombre de la empresa',
-            icono:       Icons.business_outlined,
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null,
-          ),
-          const SizedBox(height: 12),
-
-          // Campo: ¿A qué se dedica? (textarea)
+          // Textarea actividad
           TextFormField(
             controller: _actividadCtrl,
             maxLines: 3,
             textInputAction: TextInputAction.newline,
+            style: const TextStyle(color: _kTextoF),
             decoration: InputDecoration(
               labelText: '¿A qué se dedica tu empresa?',
-              hintText: 'Ej: Peluquería canina, restaurante, clínica dental...',
+              hintText: 'Ej: Peluquería canina, restaurante…',
+              labelStyle: const TextStyle(color: _kMutedF),
+              hintStyle: const TextStyle(color: Color(0xFF6B6E82)),
               prefixIcon: const Padding(
                 padding: EdgeInsets.only(bottom: 44),
-                child: Icon(Icons.work_outline),
+                child: Icon(Icons.work_outline, color: _kAccentF),
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kAccentF, width: 2)),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: _kSurfaceF,
               alignLabelWithHint: true,
             ),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null,
           ),
           const SizedBox(height: 12),
 
-          // Dropdown: Número de empleados
+          // Dropdown empleados
           DropdownButtonFormField<String>(
             value: _numTrabajadores,
+            dropdownColor: _kSurfaceF,
+            style: const TextStyle(color: _kTextoF),
             decoration: InputDecoration(
               labelText: 'Número de trabajadores (opcional)',
-              prefixIcon: const Icon(Icons.people_outline),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: const TextStyle(color: _kMutedF),
+              prefixIcon: const Icon(Icons.people_outline, color: _kAccentF),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kAccentF, width: 2)),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: _kSurfaceF,
             ),
             items: _opcionesEmpleados
                 .map((o) => DropdownMenuItem(value: o, child: Text(o)))
@@ -289,27 +281,21 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
             child: ElevatedButton(
               onPressed: _enviando ? null : _enviar,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF43A047),
-                foregroundColor: Colors.white,
+                backgroundColor: _kAccentF,
+                foregroundColor: _kBgForm,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
+                elevation: 0,
               ),
               child: _enviando
-                  ? const SizedBox(
-                      width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text(
-                      'Enviar solicitud',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
+                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _kBgForm))
+                  : const Text('Enviar solicitud', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
           const SizedBox(height: 8),
-          Center(
+          const Center(
             child: Text(
               '🔒 Tus datos están seguros y no serán compartidos',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 11, color: Color(0xFF6B6E82)),
             ),
           ),
         ],
@@ -317,7 +303,7 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
     );
   }
 
-  // ── Helper: campo de texto estándar ──────────────────────────────────────
+  // ── Helper: campo de texto estándar oscuro ────────────────────────────────
   Widget _campo({
     required TextEditingController controller,
     required String                label,
@@ -329,12 +315,16 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
     return TextFormField(
       controller:   controller,
       keyboardType: tipo,
+      style: const TextStyle(color: _kTextoF),
       decoration: InputDecoration(
         labelText:  label,
-        prefixIcon: Icon(icono),
-        border:     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        labelStyle: const TextStyle(color: _kMutedF),
+        prefixIcon: Icon(icono, color: _kAccentF),
+        border:     OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorderF)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kAccentF, width: 2)),
         filled:     true,
-        fillColor:  Colors.grey[50],
+        fillColor:  _kSurfaceF,
       ),
       validator: validator ?? (required
           ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null
@@ -342,5 +332,3 @@ class _FormContactoInteresState extends State<_FormContactoInteres> {
     );
   }
 }
-
-

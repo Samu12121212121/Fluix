@@ -1,12 +1,12 @@
 # ✅ Implementación Completa: Empleados en Reservas + Estadísticas
 
-## 📋 Resumen de Cambios
+##  Resumen de Cambios
 
 Se ha implementado un sistema completo de asignación de empleados a reservas con actualización automática de estadísticas en tiempo real.
 
 ---
 
-## 🎯 Funcionalidades Implementadas
+##  Funcionalidades Implementadas
 
 ### 1️⃣ **Selector de Empleados en Formulario de Nueva Reserva**
 - ✅ Se agregó selector de empleados activos al crear nueva reserva
@@ -42,18 +42,18 @@ Asignar a empleado (opcional)
 
 #### En el Listado de Reservas:
 ```
-🕐 14:30
+ 14:30
 │ Cliente: Ana García
 │ Servicio: Corte de pelo
-│ 👤 Juan Pérez (empleado asignado)
+│  Juan Pérez (empleado asignado)
 ```
 
 #### En el Detalle de Reserva:
 ```
-📅 Reserva
+ Reserva
 Fecha y hora: Miércoles, 30 abril 2026 · 14:30
 Servicio: Corte de pelo
-👤 Empleado asignado: Juan Pérez
+ Empleado asignado: Juan Pérez
 ```
 
 ---
@@ -98,17 +98,17 @@ Se creó un nuevo servicio: `ReservasEmpleadosService`
 
 ---
 
-## 📊 Visualización en Dashboard
+##  Visualización en Dashboard
 
 ### "Rendimiento del Equipo"
 
 Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 **Muestra:**
-- 👷 Total de empleados activos
+-  Total de empleados activos
 - ⭐ Empleado más activo (el que tiene más reservas)
-- 📊 Desglose por roles (PROPIETARIO, ADMIN, STAFF)
-- 📋 Top 3 empleados con más reservas:
+-  Desglose por roles (PROPIETARIO, ADMIN, STAFF)
+-  Top 3 empleados con más reservas:
   ```
   Reservas por Empleado:
   • María López    23
@@ -118,7 +118,7 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 ---
 
-## 🔄 Flujo Completo de Ejemplo
+##  Flujo Completo de Ejemplo
 
 ### Caso: Llega una reserva para Juan
 
@@ -139,13 +139,13 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
    - Si no lo era, podría convertirse en el más activo
 
 4. **El empresario puede ver:**
-   - En el listado de reservas: "👤 Juan Pérez"
+   - En el listado de reservas: " Juan Pérez"
    - En las estadísticas: "Juan Pérez - 16 reservas"
    - En el dashboard: "Empleado más activo: Juan Pérez"
 
 ---
 
-## 🎮 Modo de Uso
+##  Modo de Uso
 
 ### Para el Empresario:
 
@@ -169,7 +169,7 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 ---
 
-## 🗂️ Estructura de Datos en Firestore
+## ️ Estructura de Datos en Firestore
 
 ### Reserva Individual:
 ```javascript
@@ -205,19 +205,19 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 ---
 
-## 🎨 Iconografía Usada
+##  Iconografía Usada
 
-- 👤 / 👷 - Empleado
-- 🔧 / 🛠️ - Badge de empleado
+-  /  - Empleado
+-  / ️ - Badge de empleado
 - ⭐ - Empleado destacado
-- 📊 - Estadísticas
+-  - Estadísticas
 - ✅ - Confirmado/Guardado
 - ➕ - Incremento
 - ➖ - Decremento
 
 ---
 
-## 🔧 Archivos Modificados
+##  Archivos Modificados
 
 1. ✏️ `lib/features/reservas/pantallas/modulo_reservas_screen.dart`
    - Agregado import de servicio
@@ -238,7 +238,7 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 ---
 
-## 🚀 Próximos Pasos (Opcional)
+##  Próximos Pasos (Opcional)
 
 ### Mejoras Futuras Sugeridas:
 
@@ -272,7 +272,7 @@ Ya existe en: `lib/features/dashboard/widgets/modulo_estadisticas.dart`
 
 ---
 
-## 📞 Soporte
+##  Soporte
 
 Si necesitas ayuda con:
 - Personalizar los colores o iconos
@@ -280,5 +280,4 @@ Si necesitas ayuda con:
 - Optimizar las consultas a Firestore
 - Implementar las mejoras sugeridas
 
-¡Todo está listo para usar! 🎉
-
+¡Todo está listo para usar! 

@@ -218,6 +218,9 @@ class DemoCuentaService {
       debugPrint('Demo: empleado2 creado');
     }
 
+    // ── Configurar TPV con datos de muestra ─────────────────────────────────
+    await configurarDemoTpv(demoEmpresaId);
+
     debugPrint('Demo Firestore configurado para $uid / $demoEmpresaId');
   } // _configurarFirestoreDemo
 
@@ -979,5 +982,136 @@ class DemoCuentaService {
     }
 
     debugPrint('✅ ${reservas.length} reservas creadas');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATOS DEMO PARA TPV (Productos y Mesas)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Crea productos de muestra para el catálogo del TPV (Bar/Restaurante)
+  Future<void> crearProductosDemo(String empresaId) async {
+    debugPrint('🍽️ Creando productos demo para TPV...');
+
+    final now = DateTime.now();
+    final ref = _db.collection('empresas').doc(empresaId);
+
+    // Limpiar productos demo anteriores
+    final productosDemoSnap = await ref.collection('catalogo')
+        .where('es_demo', isEqualTo: true)
+        .get();
+    for (final doc in productosDemoSnap.docs) {
+      await doc.reference.delete();
+    }
+
+    final productos = [
+      // Bebidas
+      {'nombre': 'Coca-Cola', 'categoria': 'Bebidas', 'precio': 2.50, 'iva': 10.0},
+      {'nombre': 'Agua Mineral', 'categoria': 'Bebidas', 'precio': 1.50, 'iva': 10.0},
+      {'nombre': 'Cerveza', 'categoria': 'Bebidas', 'precio': 2.80, 'iva': 10.0},
+      {'nombre': 'Vino Tinto Copa', 'categoria': 'Bebidas', 'precio': 3.50, 'iva': 10.0},
+      {'nombre': 'Café Solo', 'categoria': 'Cafetería', 'precio': 1.20, 'iva': 10.0},
+      {'nombre': 'Café con Leche', 'categoria': 'Cafetería', 'precio': 1.50, 'iva': 10.0},
+      
+      // Tapas
+      {'nombre': 'Patatas Bravas', 'categoria': 'Tapas', 'precio': 4.50, 'iva': 10.0},
+      {'nombre': 'Croquetas Caseras', 'categoria': 'Tapas', 'precio': 5.00, 'iva': 10.0},
+      {'nombre': 'Jamón Serrano', 'categoria': 'Tapas', 'precio': 8.50, 'iva': 10.0},
+      {'nombre': 'Tortilla Española', 'categoria': 'Tapas', 'precio': 6.00, 'iva': 10.0},
+      
+      // Principales
+      {'nombre': 'Hamburguesa Completa', 'categoria': 'Principales', 'precio': 12.50, 'iva': 10.0},
+      {'nombre': 'Pizza Margarita', 'categoria': 'Principales', 'precio': 11.00, 'iva': 10.0},
+      {'nombre': 'Ensalada César', 'categoria': 'Principales', 'precio': 9.50, 'iva': 10.0},
+      {'nombre': 'Menú del Día', 'categoria': 'Principales', 'precio': 13.50, 'iva': 10.0},
+      
+      // Postres
+      {'nombre': 'Tarta de Queso', 'categoria': 'Postres', 'precio': 5.50, 'iva': 10.0},
+      {'nombre': 'Flan Casero', 'categoria': 'Postres', 'precio': 4.00, 'iva': 10.0},
+      {'nombre': 'Helado', 'categoria': 'Postres', 'precio': 4.50, 'iva': 10.0},
+    ];
+
+    for (final producto in productos) {
+      await ref.collection('catalogo').add({
+        'nombre': producto['nombre'],
+        'categoria': producto['categoria'],
+        'precio': producto['precio'],
+        'iva_porcentaje': producto['iva'],
+        'activo': true,
+        'tiene_variantes': false,
+        'variantes': [],
+        'es_demo': true,
+        'fecha_creacion': Timestamp.fromDate(now),
+      });
+    }
+
+    debugPrint('✅ ${productos.length} productos demo creados');
+  }
+
+  /// Crea mesas de muestra para el TPV de bar/restaurante
+  Future<void> crearMesasDemo(String empresaId) async {
+    debugPrint('🪑 Creando mesas demo para TPV...');
+
+    final now = DateTime.now();
+    final ref = _db.collection('empresas').doc(empresaId);
+
+    // Limpiar mesas demo anteriores
+    final mesasDemoSnap = await ref.collection('mesas')
+        .where('es_demo', isEqualTo: true)
+        .get();
+    for (final doc in mesasDemoSnap.docs) {
+      await doc.reference.delete();
+    }
+
+    final mesas = [
+      // Terraza
+      {'numero': 1, 'zona': 'Terraza', 'capacidad': 4, 'estado': 'libre'},
+      {'numero': 2, 'zona': 'Terraza', 'capacidad': 2, 'estado': 'libre'},
+      {'numero': 3, 'zona': 'Terraza', 'capacidad': 6, 'estado': 'libre'},
+      {'numero': 4, 'zona': 'Terraza', 'capacidad': 4, 'estado': 'libre'},
+      
+      // Salón
+      {'numero': 5, 'zona': 'Salón', 'capacidad': 4, 'estado': 'libre'},
+      {'numero': 6, 'zona': 'Salón', 'capacidad': 2, 'estado': 'libre'},
+      {'numero': 7, 'zona': 'Salón', 'capacidad': 6, 'estado': 'libre'},
+      {'numero': 8, 'zona': 'Salón', 'capacidad': 4, 'estado': 'libre'},
+      {'numero': 9, 'zona': 'Salón', 'capacidad': 8, 'estado': 'libre'},
+      
+      // Barra
+      {'numero': 10, 'zona': 'Barra', 'capacidad': 2, 'estado': 'libre'},
+      {'numero': 11, 'zona': 'Barra', 'capacidad': 2, 'estado': 'libre'},
+      {'numero': 12, 'zona': 'Barra', 'capacidad': 2, 'estado': 'libre'},
+    ];
+
+    for (final mesa in mesas) {
+      await ref.collection('mesas').add({
+        'numero': mesa['numero'],
+        'nombre': 'Mesa ${mesa['numero']}',
+        'zona': mesa['zona'],
+        'capacidad': mesa['capacidad'],
+        'estado': mesa['estado'],
+        'comanda_id': null,
+        'camarero_uid': null,
+        'fecha_apertura': null,
+        'es_demo': true,
+        'fecha_creacion': Timestamp.fromDate(now),
+      });
+    }
+
+    debugPrint('✅ ${mesas.length} mesas demo creadas');
+  }
+
+  /// Crea todos los datos necesarios para demo del TPV
+  Future<void> configurarDemoTpv(String empresaId) async {
+    debugPrint('🏪 Configurando TPV demo completo...');
+    
+    await crearProductosDemo(empresaId);
+    await crearMesasDemo(empresaId);
+    
+    // Configurar tipo de TPV como bar
+    await _db.collection('empresas').doc(empresaId).update({
+      'tipo_tpv': 'bar',
+    });
+    
+    debugPrint('✅ TPV demo configurado completamente');
   }
 }

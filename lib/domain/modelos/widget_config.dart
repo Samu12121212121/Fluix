@@ -149,6 +149,14 @@ class ModulosDisponibles {
       plan: PlanModulo.basico,
     ),
     const ModuloConfig(
+      id: 'app',
+      nombre: 'Mi App',
+      descripcion: 'Personaliza el perfil público de tu negocio: lo que ven los clientes en la app B2C',
+      icono: Icons.phone_android,
+      activo: true,
+      plan: PlanModulo.basico,
+    ),
+    const ModuloConfig(
       id: 'valoraciones',
       nombre: 'Valoraciones',
       descripcion: 'Gestión de las reseñas y valoraciones de los clientes',
@@ -212,8 +220,11 @@ class ModulosDisponibles {
     ),
     const ModuloConfig(
       id: 'tpv',
-      nombre: 'TPV',
-      descripcion: 'Terminal punto de venta para cobros presenciales',
+      nombre: 'TPV / Comandas',
+      descripcion:
+          'Terminal de ventas para gestionar pedidos, cobros y caja. '
+          'Organiza tus productos o servicios por categorías, '
+          'registra ventas y genera tickets al instante.',
       icono: Icons.point_of_sale,
       activo: false,
       plan: PlanModulo.gestion,
@@ -245,7 +256,17 @@ class ModulosDisponibles {
       plan: PlanModulo.tienda,
     ),
 
-    // ── ADD-ONS INDEPENDIENTES ────────────────────────────────────────────────
+    // ── MÓDULO B2C — EXPLORAR NEGOCIOS ────────────────────────────────────────
+    const ModuloConfig(
+      id: 'explorar',
+      nombre: 'Explorar',
+      descripcion: 'Catálogo público de negocios para usuarios finales (B2C)',
+      icono: Icons.explore,
+      activo: true,
+      plan: PlanModulo.basico,
+    ),
+
+    // ── ADD-ONS INDEPENDIENTES ────────────��───────────────────────────────────
     const ModuloConfig(
       id: 'whatsapp',
       nombre: 'WhatsApp',
@@ -283,7 +304,7 @@ class ModulosDisponibles {
       .toList();
 
   static const List<String> siempreActivos = ['dashboard'];
-  static List<String> get activosPorDefecto => ['dashboard'];
+  static List<String> get activosPorDefecto => ['dashboard', 'app'];
 }
 
 // ── WIDGET CONFIG ─────────────────────────────────────────────────────────────

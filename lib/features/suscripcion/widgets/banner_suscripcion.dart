@@ -42,6 +42,10 @@ class BannerSuscripcion extends StatelessWidget {
         DateTime fechaFin;
         if (fechaFinRaw is Timestamp) {
           fechaFin = fechaFinRaw.toDate();
+        } else if (fechaFinRaw is String) {
+          final parsed = DateTime.tryParse(fechaFinRaw);
+          if (parsed == null) return const SizedBox.shrink();
+          fechaFin = parsed;
         } else {
           return const SizedBox.shrink();
         }

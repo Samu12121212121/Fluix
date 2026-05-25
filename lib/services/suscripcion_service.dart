@@ -249,6 +249,10 @@ class SuscripcionService {
     if (modulosLegacy.contains('whatsapp')) addons.add('whatsapp');
     if (modulosLegacy.contains('tareas')) addons.add('tareas');
     if (modulosLegacy.contains('nominas')) addons.add('nominas');
+    // Módulo comandas (TPV bares) — activable directamente desde Firebase
+    if (modulosLegacy.contains('comandas') || modulosLegacy.contains('tpv')) {
+      addons.add('comandas');
+    }
 
     final precioTotal = PlanesConfig.calcularPrecioTotal(
       packsActivos: packs,

@@ -7,10 +7,7 @@ import '../../vacaciones/pantallas/nueva_solicitud_form.dart';
 import '../../../widgets/saldo_vacaciones_widget.dart';
 import '../pantallas/configurar_modulos_empleado_screen.dart';
 import 'avatar_empleado_widget.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TARJETA EMPLEADO
-// ─────────────────────────────────────────────────────────────────────────────
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TarjetaEmpleado extends StatelessWidget {
   final String id;
@@ -117,8 +114,11 @@ class TarjetaEmpleado extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              _opcionItem(ctx, Icons.edit, 'Editar empleado', Colors.blue, () => onEditar()),
-              _opcionItem(ctx, Icons.add_a_photo, 'Foto de perfil', const Color(0xFF00796B), () => onFoto?.call()),
+              _opcionItem(ctx, Icons.edit, 'Editar empleado', Colors.blue, () => onEditar(), parentCtx: context),
+              _opcionItem(ctx, Icons.badge_outlined, 'Editar DNI/NIE', const Color(0xFF455A64), () {
+                _mostrarDialogoDni(context);
+              }, parentCtx: context),
+              _opcionItem(ctx, Icons.add_a_photo, 'Foto de perfil', const Color(0xFF00796B), () => onFoto?.call(), parentCtx: context),
               _opcionItem(ctx, Icons.apps, 'Configurar módulos', const Color(0xFF1976D2), () {
                 Navigator.push(context, MaterialPageRoute(
                   builder: (_) => ConfigurarModulosEmpleadoScreen(
@@ -127,16 +127,16 @@ class TarjetaEmpleado extends StatelessWidget {
                     empleadoNombre: data['nombre'] ?? 'Empleado',
                   ),
                 ));
-              }),
+              }, parentCtx: context),
               _opcionItem(ctx, Icons.description, 'Generar finiquito', Colors.deepOrange, () {
                 Navigator.push(context, MaterialPageRoute(
                     builder: (_) => NuevoFiniquitoForm(
                         empresaId: empresaId, empleadoIdPreseleccionado: id)));
-              }),
+              }, parentCtx: context),
               _opcionItem(ctx, Icons.folder_open, 'Ver finiquitos', Colors.orange, () {
                 Navigator.push(context, MaterialPageRoute(
                     builder: (_) => FiniquitosScreen(empresaId: empresaId, empleadoIdFiltro: id)));
-              }),
+              }, parentCtx: context),
               _opcionItem(ctx, Icons.beach_access, 'Solicitar vacaciones', const Color(0xFF00796B), () {
                 showModalBottomSheet(
                   context: context,
@@ -145,7 +145,7 @@ class TarjetaEmpleado extends StatelessWidget {
                   useSafeArea: true,
                   builder: (_) => NuevaSolicitudForm(empresaId: empresaId, empleadoIdFijo: id),
                 );
-              }),
+              }, parentCtx: context),
               _opcionItem(ctx, Icons.calendar_month, 'Saldo vacaciones', const Color(0xFF26A69A), () {
                 showDialog(
                   context: context,
@@ -159,15 +159,16 @@ class TarjetaEmpleado extends StatelessWidget {
                     actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cerrar'))],
                   ),
                 );
-              }),
+              }, parentCtx: context),
               _opcionItem(ctx, Icons.workspace_premium, 'Ver antigüedad', const Color(0xFF5D4037),
-                  () => _mostrarDialogoAntiguedad(context, id, data)),
+                      () => _mostrarDialogoAntiguedad(context, id, data), parentCtx: context),
               _opcionItem(
                 ctx,
                 activo ? Icons.block : Icons.check_circle,
                 activo ? 'Desactivar empleado' : 'Activar empleado',
                 activo ? Colors.red : Colors.green,
-                () => onToggleActivo(),
+                    () => onToggleActivo(),
+                parentCtx: context,
               ),
               const SizedBox(height: 8),
             ],
@@ -177,7 +178,7 @@ class TarjetaEmpleado extends StatelessWidget {
     );
   }
 
-  Widget _opcionItem(BuildContext ctx, IconData icono, String titulo, Color color, VoidCallback accion) {
+  Widget _opcionItem(BuildContext ctx, IconData icono, String titulo, Color color, VoidCallback accion, {BuildContext? parentCtx}) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
@@ -188,12 +189,16 @@ class TarjetaEmpleado extends StatelessWidget {
         child: Icon(icono, color: color, size: 20),
       ),
       title: Text(titulo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      onTap: () {
+      onTap: () async {
         Navigator.pop(ctx);
+        await Future.delayed(const Duration(milliseconds: 50));
         try {
           accion();
         } catch (e) {
-          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+          final sc = parentCtx != null && parentCtx.mounted
+              ? ScaffoldMessenger.of(parentCtx)
+              : null;
+          sc?.showSnackBar(SnackBar(
             content: Text('❌ Error: $e'),
             backgroundColor: Colors.red,
           ));
@@ -258,6 +263,13 @@ class TarjetaEmpleado extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                   if (data['telefono'] != null && data['telefono'] != '')
                     Text(data['telefono'], style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  if (data['dni'] != null && data['dni'] != '')
+                    Row(children: [
+                      Icon(Icons.badge_outlined, size: 11, color: Colors.grey[400]),
+                      const SizedBox(width: 3),
+                      Text(data['dni'],
+                          style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                    ]),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -277,6 +289,107 @@ class TarjetaEmpleado extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _mostrarDialogoDni(BuildContext context) {
+    final ctrl = TextEditingController(
+      text: data['dni'] as String? ?? '',
+    );
+    String? errorTexto;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.badge_outlined, color: Color(0xFF455A64)),
+            SizedBox(width: 8),
+            Text('DNI / NIE'),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Necesario para el CSV de Inspección de Trabajo.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 9,
+                decoration: InputDecoration(
+                  labelText: 'DNI o NIE',
+                  hintText: '12345678A',
+                  prefixIcon: const Icon(Icons.badge_outlined),
+                  counterText: '',
+                  errorText: errorTexto,
+                ),
+                onChanged: (_) {
+                  if (errorTexto != null) setS(() => errorTexto = null);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx2),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final dni = ctrl.text.trim().toUpperCase();
+                if (dni.isEmpty) {
+                  setS(() => errorTexto = 'El DNI no puede estar vacío');
+                  return;
+                }
+                if (!_validarDni(dni)) {
+                  setS(() => errorTexto = 'Formato no válido (ej: 12345678A)');
+                  return;
+                }
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('usuarios')
+                      .doc(id)
+                      .update({'dni': dni});
+                  if (ctx2.mounted) Navigator.pop(ctx2);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('DNI guardado correctamente'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  setS(() => errorTexto = 'Error al guardar: $e');
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _validarDni(String dni) {
+    final letras = 'TRWAGMYFPDXBNJZSQVHLCKE';
+    final regexDni = RegExp(r'^[0-9]{8}[A-Z]$');
+    final regexNie = RegExp(r'^[XYZ][0-9]{7}[A-Z]$');
+
+    if (regexDni.hasMatch(dni)) {
+      final numero = int.parse(dni.substring(0, 8));
+      return dni[8] == letras[numero % 23];
+    }
+
+    if (regexNie.hasMatch(dni)) {
+      final prefijo = {'X': '0', 'Y': '1', 'Z': '2'}[dni[0]]!;
+      final numero = int.parse('$prefijo${dni.substring(1, 8)}');
+      return dni[8] == letras[numero % 23];
+    }
+
+    return false;
   }
 
   void _mostrarDialogoAntiguedad(
@@ -334,7 +447,7 @@ class TarjetaEmpleado extends StatelessWidget {
             const Divider(),
             Text(
               convenio == AntiguedadCalculator.convPeluqueria ||
-                      convenio == AntiguedadCalculator.convVeterinarios
+                  convenio == AntiguedadCalculator.convVeterinarios
                   ? 'Este convenio no tiene plus de antigüedad automático.'
                   : 'Aún no se han cumplido tramos de antigüedad.',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -406,7 +519,3 @@ class EmpleadosStatChip extends StatelessWidget {
     ]);
   }
 }
-
-
-
-

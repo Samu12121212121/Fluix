@@ -1,0 +1,35 @@
+CORRECCIONES TPV - 19 MAYO 2026
+================================
+
+✅ COMPLETADO:
+
+1. BOTONES UNIFICADOS
+   - Los 3 TPVs ahora tienen exactamente los mismos botones
+   - Todos en el mismo orden y posición
+
+2. BLUETOOTH FUNCIONAL
+   - Botón de impresora ahora es clickeable en los 3 TPVs
+   - Abre diálogo para conectar/probar impresora
+   - Muestra estado de conexión
+
+3. CONFIGURACIÓN TPV
+   - Agregado botón en Peluquería y Tienda
+   - Solo visible para admin/propietario
+
+4. ALINEACIÓN RESTAURANTE
+   - Botones del AppBar pegados a la derecha
+   - Aspecto más limpio y profesional
+
+5. IMAGE_PICKER
+   - Está en pubspec.yaml (OK)
+   - Ejecutar: limpiar_cache_flutter.bat
+
+EJECUTAR AHORA:
+1. Hacer doble clic en: limpiar_cache_flutter.bat
+2. Ejecutar: flutter run
+
+ESTADÍSTICAS:
+- Los empleados YA están vinculados al TPV
+- Cada venta guarda el empleado activo
+- Verificar que el módulo Estadísticas filtre por empleado
+

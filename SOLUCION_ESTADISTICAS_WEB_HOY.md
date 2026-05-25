@@ -1,6 +1,6 @@
 # ✅ SOLUCIÓN: Estadísticas Web - Visitas de Hoy
 
-## 🔴 PROBLEMA IDENTIFICADO
+##  PROBLEMA IDENTIFICADO
 
 En el módulo "Estadísticas Web", la sección "Hoy" mostraba las **visitas totales** en lugar de las **visitas del día actual**.
 
@@ -29,7 +29,7 @@ Modificado `analytics_web_service.dart` para que lea dinámicamente las visitas 
 
 ---
 
-## 🔧 Cómo Funciona Ahora
+##  Cómo Funciona Ahora
 
 ### Antes:
 ```dart
@@ -53,7 +53,7 @@ final visitasHoy = (docHoy.data()?['visitas'] as num?)?.toInt() ?? 0;
 
 ---
 
-## 📊 Estructura de Datos en Firestore
+##  Estructura de Datos en Firestore
 
 ### Documentos que crea el script JavaScript:
 
@@ -74,7 +74,7 @@ empresas/{empresaId}/estadisticas/
 
 ```
 ┌────────────────────────────────────────┐
-│ 📊 Tráfico Web                         │
+│  Tráfico Web                         │
 ├────────────────────────────────────────┤
 │ Visitantes:                             │
 │                                         │
@@ -87,7 +87,7 @@ empresas/{empresaId}/estadisticas/
 
 ---
 
-## 🎯 Beneficios de la Solución
+##  Beneficios de la Solución
 
 ### 1. **Precisión Absoluta**
 - ✅ "Hoy" siempre muestra visitas del día actual
@@ -110,7 +110,7 @@ empresas/{empresaId}/estadisticas/
 
 ---
 
-## 🚀 Testing Recomendado
+##  Testing Recomendado
 
 ### 1. Verificar Contador de Hoy:
 ```
@@ -137,7 +137,7 @@ Mañana (1 de mayo):
 
 ---
 
-## 📝 Notas Técnicas
+##  Notas Técnicas
 
 ### Formato de Fecha:
 - Se usa `YYYY-MM-DD` (ISO 8601)
@@ -156,7 +156,7 @@ Mañana (1 de mayo):
 
 ---
 
-## 🔍 Diagnóstico de Problemas
+##  Diagnóstico de Problemas
 
 ### Si "Hoy" sigue mostrando total:
 
@@ -194,5 +194,4 @@ Mañana (1 de mayo):
 **Archivos nuevos:** 1  
 **Impacto:** Solo mejora, sin efectos secundarios  
 
-¡Problema resuelto! 🎉
-
+¡Problema resuelto! 

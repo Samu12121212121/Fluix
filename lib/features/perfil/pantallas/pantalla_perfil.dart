@@ -14,6 +14,7 @@ import '../../../services/auth/biometria_service.dart';
 import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
 import 'gestionar_cuentas_screen.dart';
+import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA PRINCIPAL
@@ -384,6 +385,50 @@ class _TabPerfilState extends State<_TabPerfil> {
                 ),
               ),
             ],
+            const SizedBox(height: 32),
+
+            // ── Switch a vista usuario ────────────────────────────────────
+            _seccion('Acceso de cliente'),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 0,
+              color: const Color(0xFF00FFC8).withValues(alpha: 0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: const Color(0xFF00FFC8).withValues(alpha: 0.3)),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FFC8).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.storefront_rounded, color: Color(0xFF00FFC8)),
+                ),
+                title: const Text('Explorar como usuario',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text('Cambia a la vista de cliente para explorar negocios',
+                    style: TextStyle(fontSize: 12)),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FFC8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('Cambiar', style: TextStyle(
+                    color: Color(0xFF0A0F23), fontWeight: FontWeight.w700, fontSize: 12,
+                  )),
+                ),
+                onTap: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+                    (route) => false,
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 32),
 
             // ── Zona de peligro: Eliminar cuenta ────────────────────────

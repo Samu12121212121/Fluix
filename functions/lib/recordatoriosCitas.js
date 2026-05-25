@@ -44,8 +44,9 @@ exports.enviarRecordatoriosCitas = (0, scheduler_1.onSchedule)("every 1 hours", 
     // Rango de búsqueda: citas entre 23h y 25h desde ahora
     const start = new Date(now.getTime() + 23 * 60 * 60 * 1000);
     const end = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-    console.log(`Buscando citas para recordar entre ${start.toISOString()} y ${end.toISOString()}`);
-    const snapshot = await db.collectionGroup("citas")
+    console.log(`Buscando reservas/citas para recordar entre ${start.toISOString()} y ${end.toISOString()}`);
+    // ✅ ACTUALIZADO: leer de reservas/ (colección unificada)
+    const snapshot = await db.collectionGroup("reservas")
         .where("fecha_hora", ">=", start.toISOString())
         .where("fecha_hora", "<=", end.toISOString())
         .get();
@@ -56,7 +57,7 @@ exports.enviarRecordatoriosCitas = (0, scheduler_1.onSchedule)("every 1 hours", 
     const promises = [];
     snapshot.docs.forEach(doc => {
         const cita = doc.data();
-        if (cita.recordatorioEnviado === true)
+        if (cita.recordatorioEnviado === true || cita.recordatorio_enviado === true)
             return;
         const empresaRef = doc.ref.parent.parent;
         if (!empresaRef)
@@ -64,7 +65,7 @@ exports.enviarRecordatoriosCitas = (0, scheduler_1.onSchedule)("every 1 hours", 
         const empresaId = empresaRef.id;
         const p = (async () => {
             try {
-                const nombreCliente = cita.nombre_cliente || cita.cliente || "Cliente";
+                const nombreCliente = cita.cliente_nombre || cita.nombre_cliente || "Cliente";
                 const horaStr = new Date(cita.fecha_hora).toLocaleTimeString("es-ES", {
                     hour: "2-digit", minute: "2-digit"
                 });
@@ -112,12 +113,12 @@ exports.enviarRecordatoriosCitas = (0, scheduler_1.onSchedule)("every 1 hours", 
                     modulo_destino: "reservas",
                     entidad_id: doc.id,
                     remitente_nombre: nombreCliente,
-                    remitente_telefono: cita.telefono_cliente || null,
+                    remitente_telefono: cita.cliente_telefono || cita.telefono_cliente || null,
                     remitente_email: cita.email_cliente || null,
                 });
                 // Marcar como enviada
                 await doc.ref.update({
-                    recordatorioEnviado: true,
+                    recordatorio_enviado: true,
                     fechaRecordatorio: admin.firestore.FieldValue.serverTimestamp()
                 });
             }

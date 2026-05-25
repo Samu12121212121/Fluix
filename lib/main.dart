@@ -14,6 +14,7 @@ import 'core/providers/app_config_provider.dart';
 import 'core/utils/admin_initializer.dart';
 import 'features/autenticacion/pantallas/pantalla_login.dart';
 import 'features/dashboard/pantallas/pantalla_dashboard.dart';
+import 'features/explorar_negocios/pantallas/pantalla_explorar.dart';
 import 'features/onboarding/pantallas/pantalla_onboarding.dart';
 import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 import 'firebase_options.dart';
@@ -33,11 +34,16 @@ Future<void> main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  await FirebaseAppCheck.instance.activate(
-    androidProvider:
-        kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.deviceCheck,
-  );
+  if (!kIsWeb &&
+      defaultTargetPlatform != TargetPlatform.windows &&
+      defaultTargetPlatform != TargetPlatform.linux &&
+      defaultTargetPlatform != TargetPlatform.macOS) {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider:
+      kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider: AppleProvider.deviceCheck,
+    );
+  }
 
   runApp(
     ChangeNotifierProvider(
@@ -142,7 +148,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     if (nav == null) return;
     nav.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const PantallaLogin()),
-      (_) => false,
+          (_) => false,
     );
   }
 
@@ -172,7 +178,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
           ],
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges().distinct(
-              (a, b) => a?.uid == b?.uid,
+                  (a, b) => a?.uid == b?.uid,
             ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -210,10 +216,10 @@ class PantallaCarga extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(60),
-                ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(60),
+              ),
               child: const Icon(
                 Icons.business_center_rounded,
                 size: 60,
@@ -230,13 +236,13 @@ class PantallaCarga extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-              Text(
-                'Cargando...',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white.withOpacity(0.8),
-                ),
+            Text(
+              'Cargando...',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white.withOpacity(0.8),
               ),
+            ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(
               color: Colors.white,
@@ -290,6 +296,15 @@ class _PantallaRutaState extends State<_PantallaRuta> {
         }
 
         final userData = snap.data?.data() as Map<String, dynamic>?;
+
+        // Si es cliente final, ir a la pantalla de explorar
+        if (userData != null) {
+          final rolString = userData['role'] as String?;
+          if (rolString == 'clienteFinal') {
+            return const PantallaExplorar();
+          }
+        }
+
         final empresaId = userData?['empresa_id'] as String?;
 
         // Sin empresa → ir al dashboard (lo crea automáticamente)
@@ -317,7 +332,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
             }
 
             final empresaData =
-                snapEmpresa.data?.data() as Map<String, dynamic>?;
+            snapEmpresa.data?.data() as Map<String, dynamic>?;
             final onboardingCompletado =
                 empresaData?['onboarding_completado'] as bool? ?? false;
 
@@ -339,7 +354,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
                 }
 
                 final suscData =
-                    snapSuscripcion.data!.data() as Map<String, dynamic>;
+                snapSuscripcion.data!.data() as Map<String, dynamic>;
                 final estado = suscData['estado'] as String? ?? 'ACTIVA';
                 final fechaFinTs = suscData['fecha_fin'] as Timestamp?;
                 final fechaFin = fechaFinTs?.toDate();

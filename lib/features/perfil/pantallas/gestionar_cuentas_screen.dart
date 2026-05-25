@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
 import 'package:planeag_flutter/services/contenido_web_service.dart';
@@ -52,20 +53,21 @@ class _CuentaCliente {
       planNombre: m['planNombre'] as String? ?? 'Sin plan',
       estado: m['estado'] as String? ?? 'DESCONOCIDO',
       fechaFin: m['fechaFin'] != null
-          ? DateTime.tryParse(m['fechaFin'] as String)
+          ? DateTime.tryParse(m['fechaFin'].toString())
           : null,
       activa: m['activa'] as bool? ?? false,
-      packsActivos: (m['packsActivos'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      addonsActivos: (m['addonsActivos'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      packsActivos: _parseStringList(m['packsActivos']),
+      addonsActivos: _parseStringList(m['addonsActivos']),
       empleadosNomina: (m['empleadosNomina'] as num?)?.toInt() ?? 0,
       precioTotal: (m['precioTotal'] as num?)?.toDouble() ?? 0,
     );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return value.map((e) => e.toString()).toList();
+    if (value is String && value.isNotEmpty) return [value];
+    return [];
   }
 }
 
@@ -104,13 +106,21 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
     try {
       final result = await _functions
           .httpsCallable('listarCuentasClientes')
-          .call<Map<String, dynamic>>();
+          .call<dynamic>();
 
-      final data = result.data;
-      final raw = data['cuentas'] as List<dynamic>? ?? [];
+      final data = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : <String, dynamic>{};
+      final rawList = data['cuentas'];
+      List<dynamic> raw;
+      if (rawList is List) {
+        raw = rawList;
+      } else {
+        raw = [];
+      }
       setState(() {
-        _cuentas =
-            raw.map((e) => _CuentaCliente.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+        _cuentas = raw
+            .whereType<Map>()
+            .map((e) => _CuentaCliente.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
         _cargando = false;
       });
     } catch (e) {
@@ -149,55 +159,84 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
-          children: [
-            // ── Banner informativo ──────────────────────────────────────────
-            _BannerInfoPago(),
-            // ── Barra de acciones ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.manage_accounts,
-                      color: Color(0xFF0D47A1), size: 28),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Gestión de Cuentas',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0D47A1),
+    return DefaultTabController(
+      length: 2,
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // ── Barra de acciones ───────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.manage_accounts,
+                        color: Color(0xFF0D47A1), size: 28),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Gestión de Cuentas',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0D47A1),
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
-                    onPressed: _cargarCuentas,
-                    tooltip: 'Recargar',
-                  ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
+                      onPressed: _cargarCuentas,
+                      tooltip: 'Recargar',
+                    ),
+                  ],
+                ),
+              ),
+              // ── Tabs ──────────────────────────────────────────────────────
+              const TabBar(
+                labelColor: Color(0xFF0D47A1),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Color(0xFF0D47A1),
+                labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                tabs: [
+                  Tab(icon: Icon(Icons.bar_chart, size: 18), text: 'Estadísticas'),
+                  Tab(icon: Icon(Icons.business, size: 18), text: 'Cuentas'),
                 ],
               ),
-            ),
-            // ── Lista de cuentas ────────────────────────────────────────────
-            Expanded(child: _buildBody()),
-          ],
-        ),
-        // ── FAB ─────────────────────────────────────────────────────────────
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton.extended(
-            heroTag: 'fab_nueva_cuenta',
-            onPressed: _abrirFormNuevaCuenta,
-            backgroundColor: const Color(0xFF0D47A1),
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.person_add),
-            label: const Text('Nueva cuenta'),
+              // ── Contenido ────────────────────────────────────────────────
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _PanelEstadisticas(cuentas: _cuentas, cargando: _cargando),
+                    _buildBody(),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          // ── FAB (solo en tab Cuentas) ─────────────────────────────────────
+          Builder(
+            builder: (ctx) {
+              final tabController = DefaultTabController.of(ctx);
+              return AnimatedBuilder(
+                animation: tabController,
+                builder: (_, __) => tabController.index == 1
+                    ? Positioned(
+                        bottom: 16,
+                        right: 16,
+                        child: FloatingActionButton.extended(
+                          heroTag: 'fab_nueva_cuenta',
+                          onPressed: _abrirFormNuevaCuenta,
+                          backgroundColor: const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Nueva cuenta'),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -244,45 +283,6 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
 // WIDGET: Banner info pago web
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BannerInfoPago extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE3F2FD), Color(0xFFF3E5F5)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF90CAF9)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline, color: Color(0xFF1565C0), size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: const TextSpan(
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF1a1a2e)),
-                children: [
-                  TextSpan(
-                    text: 'Las suscripciones se pagan en tu web ',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  TextSpan(
-                    text:
-                        '(evitando el 30% de Apple). Cuando alguien compra, recibes una notificación push y puedes crear la cuenta aquí.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET: Tarjeta de cuenta
@@ -389,19 +389,24 @@ class _TarjetaCuenta extends StatelessWidget {
                   ),
                 ),
                 // Badge plan
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _colorPlan.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _colorPlan.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    _planLabel,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: _colorPlan),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _colorPlan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _colorPlan.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      _planLabel,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _colorPlan),
+                    ),
                   ),
                 ),
               ],
@@ -1695,5 +1700,503 @@ InputDecoration _deco(String label, IconData icono) {
     ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PANEL DE ESTADÍSTICAS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PanelEstadisticas extends StatefulWidget {
+  final List<_CuentaCliente> cuentas;
+  final bool cargando;
+
+  const _PanelEstadisticas({required this.cuentas, required this.cargando});
+
+  @override
+  State<_PanelEstadisticas> createState() => _PanelEstadisticasState();
+}
+
+class _PanelEstadisticasState extends State<_PanelEstadisticas> {
+  int? _totalUsuarios;
+  int? _totalReservas;
+  int? _totalValoraciones;
+  int? _totalPedidos;
+  int? _totalClientes;
+  bool _cargandoExtras = true;
+  String? _errorExtras;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarExtras();
+  }
+
+  Future<void> _cargarExtras() async {
+    setState(() { _cargandoExtras = true; _errorExtras = null; });
+    try {
+      final db = FirebaseFirestore.instance;
+      final resultados = await Future.wait([
+        db.collection('usuarios').count().get(),
+        db.collectionGroup('reservas').count().get(),
+        db.collectionGroup('valoraciones').count().get(),
+        db.collectionGroup('pedidos').count().get(),
+        db.collectionGroup('clientes').count().get(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _totalUsuarios     = resultados[0].count;
+          _totalReservas     = resultados[1].count;
+          _totalValoraciones = resultados[2].count;
+          _totalPedidos      = resultados[3].count;
+          _totalClientes     = resultados[4].count;
+          _cargandoExtras    = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorExtras = e.toString();
+          _cargandoExtras = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final cuentas = widget.cuentas;
+
+    // ── Calcular métricas desde la lista de cuentas ───────────────────────
+    final total    = cuentas.length;
+    final activas  = cuentas.where((c) => c.activa).length;
+    final vencidas = cuentas.where((c) => c.estado == 'VENCIDA').length;
+    final sinActivar = total - activas - vencidas;
+
+    final mrr         = cuentas.where((c) => c.activa).fold(0.0, (d, c) => d + c.precioTotal);
+    final arr         = mrr * 12;
+    final ticketMedio = activas > 0 ? mrr / activas : 0.0;
+
+    // Distribución por plan
+    final planCount = <String, int>{};
+    for (final c in cuentas) {
+      final key = c.planNombre.isEmpty ? 'Sin plan' : c.planNombre;
+      planCount[key] = (planCount[key] ?? 0) + 1;
+    }
+
+    // Top 5 empresas por precio
+    final top5 = [...cuentas.where((c) => c.activa)]
+      ..sort((a, b) => b.precioTotal.compareTo(a.precioTotal));
+    final topEmpresas = top5.take(5).toList();
+
+    final fmt = NumberFormat('#,##0.00', 'es_ES');
+
+    return RefreshIndicator(
+      onRefresh: _cargarExtras,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+
+          // ── SECCIÓN: Empresas ─────────────────────────────────────────────
+          _SeccionTitulo(emoji: '🏢', titulo: 'Empresas'),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(titulo: 'Total', valor: '$total',
+                icono: Icons.business_outlined, color: const Color(0xFF0D47A1))),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(titulo: 'Activas', valor: '$activas',
+                icono: Icons.check_circle_outline, color: const Color(0xFF2E7D32))),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(titulo: 'Vencidas', valor: '$vencidas',
+                icono: Icons.cancel_outlined, color: Colors.red[700]!)),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(titulo: 'Sin activar', valor: '$sinActivar',
+                icono: Icons.hourglass_empty, color: Colors.orange[700]!)),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // ── SECCIÓN: Ingresos ─────────────────────────────────────────────
+          _SeccionTitulo(emoji: '💰', titulo: 'Ingresos recurrentes'),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(titulo: 'MRR', valor: '${fmt.format(mrr)} €',
+                icono: Icons.euro_outlined, color: const Color(0xFF1B5E20),
+                subtitulo: 'Mensual')),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(titulo: 'ARR', valor: '${fmt.format(arr)} €',
+                icono: Icons.trending_up, color: const Color(0xFF2E7D32),
+                subtitulo: 'Anual')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(titulo: 'Ticket medio', valor: '${fmt.format(ticketMedio)} €',
+                icono: Icons.receipt_long_outlined, color: const Color(0xFF4CAF50))),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(titulo: 'Empresas pagando', valor: '$activas',
+                icono: Icons.payments_outlined, color: const Color(0xFF388E3C))),
+          ]),
+
+          // ── Gráfico por plan ──────────────────────────────────────────────
+          if (planCount.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _SeccionTitulo(emoji: '📋', titulo: 'Distribución por plan'),
+            const SizedBox(height: 10),
+            _PlanPieChart(planCount: planCount),
+          ],
+
+          const SizedBox(height: 24),
+
+          // ── SECCIÓN: Plataforma (Firestore) ──────────────────────────────
+          _SeccionTitulo(emoji: '🔢', titulo: 'Actividad de la plataforma'),
+          const SizedBox(height: 10),
+          if (_errorExtras != null)
+            _ErrorChip(mensaje: _errorExtras!, onReintentar: _cargarExtras),
+          Row(children: [
+            Expanded(child: _KpiCard(
+                titulo: 'Usuarios', icono: Icons.people_outline,
+                color: const Color(0xFF7B1FA2),
+                valor: _cargandoExtras ? '…' : '${_totalUsuarios ?? '?'}')),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(
+                titulo: 'Clientes', icono: Icons.person_pin_outlined,
+                color: const Color(0xFF00838F),
+                valor: _cargandoExtras ? '…' : '${_totalClientes ?? '?'}')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(
+                titulo: 'Reservas', icono: Icons.event_available_outlined,
+                color: const Color(0xFF1565C0),
+                valor: _cargandoExtras ? '…' : '${_totalReservas ?? '?'}')),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(
+                titulo: 'Pedidos', icono: Icons.shopping_bag_outlined,
+                color: const Color(0xFF37474F),
+                valor: _cargandoExtras ? '…' : '${_totalPedidos ?? '?'}')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _KpiCard(
+                titulo: 'Valoraciones', icono: Icons.star_outline,
+                color: const Color(0xFFE65100),
+                valor: _cargandoExtras ? '…' : '${_totalValoraciones ?? '?'}')),
+            const SizedBox(width: 10),
+            const Expanded(child: SizedBox()),
+          ]),
+
+          // ── Top empresas ──────────────────────────────────────────────────
+          if (topEmpresas.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _SeccionTitulo(emoji: '🏆', titulo: 'Top 5 empresas por facturación'),
+            const SizedBox(height: 10),
+            ...topEmpresas.asMap().entries.map((e) =>
+              _TopEmpresaRow(rank: e.key + 1, empresa: e.value)),
+          ],
+
+          const SizedBox(height: 24),
+
+          // ── Módulos (calculado desde cuentas) ────────────────────────────
+          _SeccionTitulo(emoji: '📦', titulo: 'Adopción de packs/add-ons'),
+          const SizedBox(height: 10),
+          _ModulosAdopcion(cuentas: cuentas),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGETS DE APOYO
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SeccionTitulo extends StatelessWidget {
+  final String emoji;
+  final String titulo;
+  const _SeccionTitulo({required this.emoji, required this.titulo});
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Text(emoji, style: const TextStyle(fontSize: 16)),
+      const SizedBox(width: 6),
+      Text(titulo,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+              color: Color(0xFF263238))),
+    ]);
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  final String titulo;
+  final String valor;
+  final String? subtitulo;
+  final IconData icono;
+  final Color color;
+
+  const _KpiCard({
+    required this.titulo,
+    required this.valor,
+    required this.icono,
+    required this.color,
+    this.subtitulo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icono, color: color, size: 18),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            Text(valor,
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A1A2E))),
+            const SizedBox(height: 2),
+            Text(titulo,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            if (subtitulo != null)
+              Text(subtitulo!,
+                  style: TextStyle(fontSize: 10, color: Colors.grey[400])),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanPieChart extends StatelessWidget {
+  final Map<String, int> planCount;
+
+  static const _colores = [
+    Color(0xFF0D47A1), Color(0xFF2E7D32), Color(0xFF7B1FA2),
+    Color(0xFFE65100), Color(0xFF00838F), Color(0xFF37474F),
+    Color(0xFFC62828), Color(0xFF558B2F),
+  ];
+
+  const _PlanPieChart({required this.planCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = planCount.entries.toList();
+    final total = entries.fold(0, (sum, e) => sum + e.value);
+
+    final sections = entries.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final e   = entry.value;
+      final pct = total > 0 ? e.value / total * 100 : 0.0;
+      return PieChartSectionData(
+        value: e.value.toDouble(),
+        color: _colores[idx % _colores.length],
+        title: '${pct.toStringAsFixed(0)}%',
+        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+            color: Colors.white),
+        radius: 60,
+      );
+    }).toList();
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(children: [
+          SizedBox(
+            height: 160,
+            child: PieChart(PieChartData(
+              sections: sections,
+              centerSpaceRadius: 36,
+              sectionsSpace: 3,
+            )),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: entries.asMap().entries.map((entry) {
+              final idx   = entry.key;
+              final e     = entry.value;
+              final color = _colores[idx % _colores.length];
+              return Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(width: 10, height: 10,
+                    decoration: BoxDecoration(color: color,
+                        borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 4),
+                Text('${e.key} (${e.value})',
+                    style: const TextStyle(fontSize: 11)),
+              ]);
+            }).toList(),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _TopEmpresaRow extends StatelessWidget {
+  final int rank;
+  final _CuentaCliente empresa;
+
+  const _TopEmpresaRow({required this.rank, required this.empresa});
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat('#,##0.00', 'es_ES');
+    final medal = rank == 1 ? '🥇' : rank == 2 ? '🥈' : rank == 3 ? '🥉' : '$rank.';
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Text(medal, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(empresa.nombre,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  overflow: TextOverflow.ellipsis),
+              Text(empresa.planNombre,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ],
+          )),
+          Text('${fmt.format(empresa.precioTotal)} €/mes',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                  color: Color(0xFF1B5E20))),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ModulosAdopcion extends StatelessWidget {
+  final List<_CuentaCliente> cuentas;
+  const _ModulosAdopcion({required this.cuentas});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = cuentas.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    // Contar cuántas empresas tienen cada pack/addon
+    final adopcion = <String, int>{};
+    for (final c in cuentas) {
+      for (final p in c.packsActivos)  adopcion[p] = (adopcion[p] ?? 0) + 1;
+      for (final a in c.addonsActivos) adopcion[a] = (adopcion[a] ?? 0) + 1;
+    }
+
+    if (adopcion.isEmpty) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.grey[200]!),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Ninguna empresa tiene packs o add-ons activados.',
+              style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    final entries = adopcion.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(children: entries.map((e) {
+          final pct = total > 0 ? e.value / total : 0.0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(child: Text(e.key,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  Text('${e.value}/${total}  (${(pct * 100).toStringAsFixed(0)}%)',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ]),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList()),
+      ),
+    );
+  }
+}
+
+class _ErrorChip extends StatelessWidget {
+  final String mensaje;
+  final VoidCallback onReintentar;
+  const _ErrorChip({required this.mensaje, required this.onReintentar});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.red[200]!),
+      ),
+      child: Row(children: [
+        const Icon(Icons.warning_amber, color: Colors.red, size: 16),
+        const SizedBox(width: 6),
+        Expanded(child: Text('Error cargando stats de plataforma',
+            style: const TextStyle(fontSize: 11, color: Colors.red))),
+        TextButton(onPressed: onReintentar,
+            child: const Text('Reintentar', style: TextStyle(fontSize: 11))),
+      ]),
+    );
+  }
 }
 

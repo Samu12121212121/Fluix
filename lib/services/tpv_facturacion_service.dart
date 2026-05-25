@@ -189,7 +189,8 @@ class TpvFacturacionService {
         descripcion: l.productoNombre,
         precioUnitario: l.precioUnitario,
         cantidad: l.cantidad,
-        porcentajeIva: 10.0,
+        porcentajeIva: l.ivaPorcentaje,
+        descuento: 0,  // LineaPedido no tiene campo descuento, usar 0 por defecto
       )).toList();
 
   MetodoPagoFactura? _convertirMetodo(MetodoPago m) => switch (m) {

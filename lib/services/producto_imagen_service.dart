@@ -75,7 +75,10 @@ class ProductoImagenService {
         .doc(empresaId)
         .collection('catalogo')
         .doc(productoId)
-        .update({'imagen_url': url});
+        .update({
+      'imagen_url': url,
+      'thumbnail_url': url,  // mismo hasta que Cloud Function genere thumb real
+    });
 
     return url;
   }

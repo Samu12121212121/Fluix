@@ -1,4 +1,4 @@
-# 🧪 GUÍA DE PRUEBAS - Navegación de Notificaciones y Eventos
+#  GUÍA DE PRUEBAS - Navegación de Notificaciones y Eventos
 
 ## ✅ CAMBIOS IMPLEMENTADOS
 
@@ -21,7 +21,7 @@ He mejorado el código con **logging detallado** para verificar qué está pasan
 
 ---
 
-## 🧪 PRUEBA 1: Notificaciones Push
+##  PRUEBA 1: Notificaciones Push
 
 ### Paso 1: Ejecuta la app en modo debug
 ```powershell
@@ -42,7 +42,7 @@ flutter logs
 ### Paso 4: Verificar que llegó la notificación
 Busca en los logs:
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: ABC123...
    data completo: {...}
@@ -51,19 +51,19 @@ Busca en los logs:
 ### Paso 5: Tocar la notificación
 **Si funciona**, verás en logs:
 ```
-🔍 Buscando reserva en Firestore: ABC123...
+ Buscando reserva en Firestore: ABC123...
 ✅ Reserva encontrada, navegando a detalle
 ```
 
 **Si NO funciona**, verás:
 ```
 ⚠️ No hay reserva_id en el payload o widget no montado
-🔙 Fallback: abriendo módulo de reservas
+ Fallback: abriendo módulo de reservas
 ```
 
 ---
 
-## 🧪 PRUEBA 2: Widget "Próximos 3 Días"
+##  PRUEBA 2: Widget "Próximos 3 Días"
 
 ### Paso 1: Asegúrate de tener reservas HOY o MAÑANA
 Crea reservas para hoy o mañana en la app.
@@ -77,7 +77,7 @@ Se abrirá un modal con la lista detallada.
 ### Paso 4: Toca cualquier evento en la lista
 **Si funciona**, verás en logs:
 ```
-🔍 Navegando a evento: ABC123...
+ Navegando a evento: ABC123...
    Título: Juan Pérez
    Es reserva: true
 ✅ Documento encontrado, navegando a DetalleReservaScreen
@@ -94,16 +94,16 @@ o
 
 ---
 
-## 🔍 DEBUGGING - Qué significan los logs
+##  DEBUGGING - Qué significan los logs
 
 ### ✅ LOGS DE ÉXITO:
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: XYZ789
    data completo: {tipo: nueva_reserva, empresa_id: demo_empresa_fluix2026, reserva_id: XYZ789}
-🔍 Buscando reserva en Firestore: XYZ789
+ Buscando reserva en Firestore: XYZ789
 ✅ Reserva encontrada, navegando a detalle
 ```
 
@@ -114,12 +114,12 @@ o
 ### ⚠️ LOGS DE PROBLEMA 1: No hay reserva_id
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: null
    data completo: {tipo: nueva_reserva, empresa_id: demo_empresa_fluix2026}
 ⚠️ No hay reserva_id en el payload o widget no montado
-🔙 Fallback: abriendo módulo de reservas
+ Fallback: abriendo módulo de reservas
 ```
 
 **Causa**: La Cloud Function NO está enviando `reserva_id` en el payload
@@ -136,13 +136,13 @@ firebase deploy --only functions
 ### ⚠️ LOGS DE PROBLEMA 2: Reserva no existe
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: ABC123
    data completo: {...}
-🔍 Buscando reserva en Firestore: ABC123
+ Buscando reserva en Firestore: ABC123
 ❌ Reserva no existe o widget no montado
-🔙 Fallback: abriendo módulo de reservas
+ Fallback: abriendo módulo de reservas
 ```
 
 **Causa**: El ID de reserva en la notificación NO coincide con el documento en Firestore
@@ -154,7 +154,7 @@ firebase deploy --only functions
 ### ⚠️ LOGS DE PROBLEMA 3: Widget no montado
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: ABC123
    data completo: {...}
@@ -167,7 +167,7 @@ firebase deploy --only functions
 
 ---
 
-## 📱 TESTING MANUAL CON FIREBASE CONSOLE
+##  TESTING MANUAL CON FIREBASE CONSOLE
 
 ### Enviar notificación de prueba:
 
@@ -193,7 +193,7 @@ firebase deploy --only functions
 
 ---
 
-## 🔧 SI AÚN NO FUNCIONA
+##  SI AÚN NO FUNCIONA
 
 ### Verifica que las Cloud Functions están desplegadas:
 
@@ -228,7 +228,7 @@ Debe contener:
 
 ---
 
-## 📋 CHECKLIST DE VERIFICACIÓN
+##  CHECKLIST DE VERIFICACIÓN
 
 ### Backend (Cloud Functions):
 - [ ] Functions compiladas: `cd functions && npm run build`
@@ -248,7 +248,7 @@ Debe contener:
 
 ---
 
-## 🎯 COMANDOS RÁPIDOS
+##  COMANDOS RÁPIDOS
 
 ### Setup inicial:
 ```powershell
@@ -273,20 +273,20 @@ firebase deploy --only functions
 flutter run
 
 # Terminal 2:
-flutter logs | findstr "🔔"
+flutter logs | findstr ""
 ```
 
 ---
 
-## 📊 RESULTADOS ESPERADOS
+##  RESULTADOS ESPERADOS
 
 ### ✅ FLUJO CORRECTO:
 
 1. **Usuario crea reserva** → Cloud Function se ejecuta
 2. **Cloud Function envía notificación** con `reserva_id`
 3. **App recibe notificación** → Guarda en stream
-4. **Usuario toca notificación** → Logs muestran "🔔 Notificación recibida"
-5. **App busca reserva** → Logs muestran "🔍 Buscando reserva..."
+4. **Usuario toca notificación** → Logs muestran " Notificación recibida"
+5. **App busca reserva** → Logs muestran " Buscando reserva..."
 6. **App encuentra documento** → Logs muestran "✅ Reserva encontrada"
 7. **App navega** → Se abre `DetalleReservaScreen`
 8. **Usuario ve los detalles** de esa reserva específica ✅
@@ -294,6 +294,5 @@ flutter logs | findstr "🔔"
 ---
 
 **Última actualización**: 5 Mayo 2026, 16:00  
-**Estado**: 🔍 TESTING - Con logging mejorado
+**Estado**:  TESTING - Con logging mejorado
 **Siguiente paso**: Ejecutar pruebas y verificar logs
-

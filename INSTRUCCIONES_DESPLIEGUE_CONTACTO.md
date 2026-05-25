@@ -1,4 +1,4 @@
-# 📧 Instrucciones para Desplegar Sistema de Contacto
+#  Instrucciones para Desplegar Sistema de Contacto
 
 ## ✅ CORRECCIONES REALIZADAS
 
@@ -11,7 +11,7 @@ También actualicé el import en `index.ts` para incluir estas funciones.
 
 ---
 
-## 🚀 COMANDOS PARA DESPLEGAR
+##  COMANDOS PARA DESPLEGAR
 
 ### **Paso 1: Compilar las Cloud Functions**
 
@@ -44,7 +44,7 @@ firebase deploy --only functions:enviarEmailsContactoInteres
 
 ---
 
-## 📋 QUÉ HACE EL SISTEMA COMPLETO
+##  QUÉ HACE EL SISTEMA COMPLETO
 
 Cuando alguien llena el formulario **"¿Estás interesado en trabajar con nosotros?"**:
 
@@ -53,8 +53,8 @@ Cuando alguien llena el formulario **"¿Estás interesado en trabajar con nosotr
 1. **Guarda el lead** en Firestore (`contactos_interesados`)
 
 2. **Envía 2 emails vía Cloud Function**:
-   - 📧 **Email 1** → Al usuario (confirmación verde profesional)
-   - 📧 **Email 2** → A `sacoor80@gmail.com` (notificación roja urgente)
+   -  **Email 1** → Al usuario (confirmación verde profesional)
+   -  **Email 2** → A `sacoor80@gmail.com` (notificación roja urgente)
 
 3. **Crea tarea** de alta prioridad en el módulo propietario
 
@@ -67,14 +67,14 @@ Cuando alguien llena el formulario **"¿Estás interesado en trabajar con nosotr
 
 ### ✅ En consola (para debugging):
 
-- `📋 Enviando formulario de contacto...`
-- `📧 Enviando emails de contacto...`
+- ` Enviando formulario de contacto...`
+- ` Enviando emails de contacto...`
 - `✅ Emails enviados correctamente: {data}`
 - `✅ Formulario enviado correctamente`
 
 ---
 
-## 🔍 VERIFICACIÓN POST-DESPLIEGUE
+##  VERIFICACIÓN POST-DESPLIEGUE
 
 Después de desplegar, verifica:
 
@@ -115,7 +115,7 @@ Prueba el formulario desde la app y revisa:
 
 ---
 
-## 📝 RESUMEN DE ARCHIVOS MODIFICADOS
+##  RESUMEN DE ARCHIVOS MODIFICADOS
 
 ### ✅ Backend (Cloud Functions):
 
@@ -136,11 +136,10 @@ Prueba el formulario desde la app y revisa:
 
 ---
 
-## 🎯 ESTADO ACTUAL
+##  ESTADO ACTUAL
 
 - ✅ Código corregido (sin errores de compilación)
 - ✅ Templates HTML listos
 - ✅ Cloud Function implementada
 - ⏳ **PENDIENTE**: Compilar y desplegar (ejecuta los comandos arriba)
-
 

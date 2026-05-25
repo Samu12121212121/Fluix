@@ -27,6 +27,20 @@ class _TabConfigWebState extends State<TabConfigWeb> {
   bool _cargado = false;
   bool _guardando = false;
 
+  // ── Configuración de reservas web ─────────────────────────────────────────
+  ConfigReservasWeb _cfgReservas = const ConfigReservasWeb();
+  bool _reservasActivo = true;
+  int _aforoMaximo = 2;
+  final List<String> _horasBloqueadas = [];
+  final List<String> _fechasBloqueadas = [];
+  final _msgSlotCtrl = TextEditingController();
+
+  // Todas las franjas horarias posibles (se pueden personalizar)
+  static const _todasLasHoras = [
+    '13:00','13:30','14:00','14:30','15:00','15:30',
+    '20:00','20:30','21:00','21:30','22:00','22:30',
+  ];
+
   // Dominio
   final _dominioCtrl = TextEditingController();
 
@@ -69,6 +83,21 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         _cargado = true;
       });
     });
+    widget.svc.obtenerConfigReservasWeb(widget.empresaId).first.then((r) {
+      if (!mounted) return;
+      setState(() {
+        _cfgReservas = r;
+        _reservasActivo = r.activo;
+        _aforoMaximo = r.aforoMaximoPorFranja;
+        _horasBloqueadas
+          ..clear()
+          ..addAll(r.horasBloqueadas);
+        _fechasBloqueadas
+          ..clear()
+          ..addAll(r.fechasBloqueadas);
+        _msgSlotCtrl.text = r.mensajeSlotLleno ?? '';
+      });
+    });
   }
 
   @override
@@ -80,6 +109,7 @@ class _TabConfigWebState extends State<TabConfigWeb> {
     _popupBtnUrlCtrl.dispose();
     _bannerTextoCtrl.dispose();
     _bannerUrlCtrl.dispose();
+    _msgSlotCtrl.dispose();
     super.dispose();
   }
 
@@ -294,6 +324,213 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         ),
         const SizedBox(height: 20),
 
+        // ── Formulario de Reservas Web ────────────────────────────────────
+        _buildSeccion(
+          color: color,
+          icono: Icons.calendar_month_outlined,
+          titulo: 'Formulario de reservas web',
+          subtitulo: 'Controla qué horas y días se pueden reservar',
+          headerWidget: Switch(
+            value: _reservasActivo,
+            onChanged: (v) => setState(() => _reservasActivo = v),
+            activeThumbColor: color,
+          ),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: _reservasActivo
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+                      // Aforo máximo por franja
+                      Row(children: [
+                        const Icon(Icons.people_outline,
+                            size: 16, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        const Text('Aforo máximo por franja:',
+                            style: TextStyle(fontSize: 13)),
+                        Expanded(
+                          child: Slider(
+                            value: _aforoMaximo.toDouble(),
+                            min: 1,
+                            max: 20,
+                            divisions: 19,
+                            label: '$_aforoMaximo',
+                            onChanged: (v) =>
+                                setState(() => _aforoMaximo = v.toInt()),
+                            activeColor: color,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('$_aforoMaximo',
+                              style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ]),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      // Horas bloqueadas
+                      Row(children: [
+                        const Icon(Icons.block, size: 14, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text('Horas bloqueadas:',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[700])),
+                      ]),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _todasLasHoras.map((h) {
+                          final bloqueada = _horasBloqueadas.contains(h);
+                          return GestureDetector(
+                            onTap: () => setState(() => bloqueada
+                                ? _horasBloqueadas.remove(h)
+                                : _horasBloqueadas.add(h)),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: bloqueada
+                                    ? Colors.red[50]
+                                    : color.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: bloqueada
+                                        ? Colors.red[300]!
+                                        : color.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (bloqueada)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 4),
+                                      child: Icon(Icons.block,
+                                          size: 12, color: Colors.red),
+                                    ),
+                                  Text(h,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: bloqueada
+                                              ? Colors.red[700]
+                                              : color)),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      // Fechas bloqueadas
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(children: [
+                            const Icon(Icons.event_busy,
+                                size: 14, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Text('Fechas bloqueadas:',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey[700])),
+                          ]),
+                          TextButton.icon(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now()
+                                    .add(const Duration(days: 365)),
+                                locale: const Locale('es'),
+                              );
+                              if (picked != null) {
+                                final iso =
+                                    picked.toIso8601String().split('T').first;
+                                if (!_fechasBloqueadas.contains(iso)) {
+                                  setState(
+                                      () => _fechasBloqueadas.add(iso));
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.add, size: 14),
+                            label: const Text('Añadir',
+                                style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(
+                                foregroundColor: color,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4)),
+                          ),
+                        ],
+                      ),
+                      if (_fechasBloqueadas.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text('Sin fechas bloqueadas',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[400],
+                                  fontStyle: FontStyle.italic)),
+                        )
+                      else
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _fechasBloqueadas.map((f) {
+                            return Chip(
+                              label: Text(f,
+                                  style: const TextStyle(fontSize: 12)),
+                              backgroundColor: Colors.red[50],
+                              side: BorderSide(color: Colors.red[200]!),
+                              labelStyle:
+                                  TextStyle(color: Colors.red[700]),
+                              deleteIconColor: Colors.red[400],
+                              onDeleted: () => setState(
+                                  () => _fechasBloqueadas.remove(f)),
+                            );
+                          }).toList(),
+                        ),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      // Mensaje slot lleno
+                      TextFormField(
+                        controller: _msgSlotCtrl,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          labelText: 'Mensaje cuando la franja está llena',
+                          hintText:
+                              '⚠ Esta franja ya no tiene disponibilidad',
+                          prefixIcon:
+                              Icon(Icons.warning_amber_outlined),
+                        ),
+                      ),
+                    ],
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      'El formulario de reservas web está desactivado. Los visitantes verán un aviso en lugar del formulario.',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
         // Botón guardar
         SizedBox(
           width: double.infinity,
@@ -324,7 +561,6 @@ class _TabConfigWebState extends State<TabConfigWeb> {
       ],
     );
   }
-
   // ─────────────────────────────────────────────────────────────────────────
   // SECCIÓN REUTILIZABLE
   // ─────────────────────────────────────────────────────────────────────────
@@ -527,6 +763,16 @@ class _TabConfigWebState extends State<TabConfigWeb> {
 
     try {
       await widget.svc.guardarConfigAvanzada(widget.empresaId, cfg);
+      final cfgReservas = ConfigReservasWeb(
+        activo: _reservasActivo,
+        aforoMaximoPorFranja: _aforoMaximo,
+        horasBloqueadas: List.from(_horasBloqueadas),
+        fechasBloqueadas: List.from(_fechasBloqueadas),
+        mensajeSlotLleno: _msgSlotCtrl.text.trim().isEmpty
+            ? null
+            : _msgSlotCtrl.text.trim(),
+      );
+      await widget.svc.guardarConfigReservasWeb(widget.empresaId, cfgReservas);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('✅ Configuración guardada'),

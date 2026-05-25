@@ -195,7 +195,70 @@ class ClientesService {
     );
   }
 
-  // ── UTILIDADES VISUALES ───────────────────────────────────────────────────────
+  // ── UPSERT DESDE RESERVA ─────────────────────────────────────────────────────
+
+  /// Crea o actualiza un cliente a partir de los datos de una reserva aceptada.
+  /// Busca por teléfono; si ya existe actualiza la última visita.
+  /// Si no existe, lo crea con los datos de la reserva.
+  Future<void> upsertClienteDesdeReserva(
+    String empresaId,
+    Map<String, dynamic> reservaData,
+  ) async {
+    try {
+      final nombre = (reservaData['cliente'] ??
+          reservaData['nombre_cliente'] ??
+          '').toString().trim();
+      final telefono = (reservaData['telefono'] ??
+          reservaData['telefono_cliente'] ??
+          '').toString().trim();
+      final email = (reservaData['email_cliente'] ??
+          reservaData['correo_cliente'] ??
+          reservaData['email'] ??
+          '').toString().trim();
+
+      if (nombre.isEmpty && telefono.isEmpty) return; // sin datos útiles
+
+      // Buscar cliente por teléfono
+      QuerySnapshot? existente;
+      if (telefono.isNotEmpty) {
+        existente = await _clientes(empresaId)
+            .where('telefono', isEqualTo: telefono)
+            .limit(1)
+            .get();
+      }
+
+      if (existente != null && existente.docs.isNotEmpty) {
+        // Actualizar cliente existente
+        final docRef = existente.docs.first.reference;
+        final updates = <String, dynamic>{
+          'ultima_visita': FieldValue.serverTimestamp(),
+          'num_reservas': FieldValue.increment(1),
+        };
+        if (nombre.isNotEmpty) updates['nombre'] = nombre;
+        if (email.isNotEmpty) updates['correo'] = email;
+        await docRef.update(updates);
+      } else {
+        // Crear nuevo cliente
+        await _clientes(empresaId).add({
+          'nombre': nombre.isNotEmpty ? nombre : 'Sin nombre',
+          'telefono': telefono,
+          if (email.isNotEmpty) 'correo': email,
+          'etiquetas': <String>[],
+          'notas': '',
+          'total_gastado': 0.0,
+          'num_reservas': 1,
+          'fecha_registro': FieldValue.serverTimestamp(),
+          'ultima_visita': FieldValue.serverTimestamp(),
+          'activo': true,
+          'origen': 'reserva',
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error creando/actualizando cliente desde reserva: $e');
+    }
+  }
+
+  // ── UTILIDADES VISUALES ─────────────────────────────────────────────��─────────
 
   /// Color asociado a cada etiqueta (predefinida o personalizada).
   static Color colorEtiqueta(String tag) {

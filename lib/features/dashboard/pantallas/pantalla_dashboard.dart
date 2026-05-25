@@ -12,6 +12,7 @@ import '../widgets/widget_factory.dart';
 import '../widgets/badge_icon.dart';
 import '../widgets/offline_banner.dart';
 import '../../../core/constantes/constantes_app.dart';
+import '../../../core/utils/platform_helper.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/notificaciones_service.dart';
 import '../../../services/debug_fcm_widget.dart';
@@ -35,15 +36,26 @@ import '../../servicios/pantallas/modulo_servicios_screen.dart';
 import '../../nominas/pantallas/modulo_nominas_screen.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import '../../tpv/pantallas/modulo_tpv_screen.dart';
-import '../../fichaje/pantalla_fichaje/pantalla_fichaje.dart';
+import '../../tpv/pantallas/tpv_root_screen.dart';
+import '../../tpv/pantallas/tpv_peluqueria_screen.dart';
+import '../../tpv/pantallas/tpv_tienda_screen.dart';
+import '../../tpv/pantallas/tpv_selector_negocio_screen.dart';
+import '../../fichajes/pantallas/pantalla_fichaje_empleado.dart';
+import '../../fichajes/pantallas/gestion_fichajes_screen.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
 import 'pantalla_contenido_web.dart';
+import '../../negocio_publico/pantallas/modulo_app_screen.dart';
+import '../../../services/stock_service.dart';
 import '../../../services/auth/token_refresh_service.dart';
+import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
+import '../../../core/enums/enums.dart';
+import 'package:flutter/foundation.dart';
 
 class PantallaDashboard extends StatefulWidget {
-  const PantallaDashboard({super.key});
+  final VistaActiva vistaInicial;
+  const PantallaDashboard({super.key, this.vistaInicial = VistaActiva.empresa});
 
   @override
   State<PantallaDashboard> createState() => _PantallaDashboardState();
@@ -63,9 +75,13 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   SesionUsuario? _sesion;
   StreamSubscription? _notifSubscription;
   int _mensajesSinLeer = 0; // Contador de mensajes sin leer en módulo web
+  int _indiceSeleccionado = 0; // Para NavigationRail en desktop
 
   // ── Modo edición dashboard (reordenar widgets) ────────────────────────────
   bool _editandoDashboard = false;
+
+  // ── Vista dual empresa/usuario ────────────────────────────────────────────
+  late VistaActiva _vistaActual;
 
   // ── Vista simulada (solo Propietario) ─────────────────────────────────────
   /// Rol que el Propietario está simulando. null = vista real de Propietario.
@@ -88,6 +104,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   @override
   void initState() {
     super.initState();
+    _vistaActual = widget.vistaInicial;
     _cargarDatosUsuario();
 
     // ── Inicializar el servicio completo de notificaciones ───────────────
@@ -101,12 +118,15 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       _manejarNavegacionNotificacion(data);
     });
     
+
     // Check initial message (app opened from terminated state)
+    if (defaultTargetPlatform != TargetPlatform.windows) {
     FirebaseMessaging.instance.getInitialMessage().then((message) {
         if (message != null) {
             _manejarNavegacionNotificacion(message.data);
         }
     });
+  }
   }
 
   /// Escuchar cambios en mensajes de contacto web sin leer
@@ -252,10 +272,12 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
     setState(() {
       _modulosActivos = List.from(nuevosIds);
+      final nuevoIndice = prevIndex.clamp(0, (nuevosIds.length - 1).clamp(0, 99));
+      _indiceSeleccionado = nuevoIndice;
       _tabController = TabController(
         length: nuevosIds.isEmpty ? 1 : nuevosIds.length,
         vsync: this,
-        initialIndex: prevIndex.clamp(0, (nuevosIds.length - 1).clamp(0, 99)),
+        initialIndex: nuevoIndice,
       );
     });
 
@@ -467,9 +489,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: _manejarMenu,
-            itemBuilder: (context) =>
-            const [
-              PopupMenuItem(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
                 value: 'perfil',
                 child: ListTile(
                   leading: Icon(Icons.person),
@@ -477,8 +498,18 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              PopupMenuDivider(),
-              PopupMenuItem(
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'vista_usuario',
+                child: ListTile(
+                  leading: Icon(Icons.storefront_rounded, color: Color(0xFF00ACC1)),
+                  title: Text('Explorar como usuario',
+                      style: TextStyle(color: Color(0xFF00ACC1))),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
                 value: 'cerrar_sesion',
                 child: ListTile(
                   leading: Icon(Icons.logout, color: Colors.red),
@@ -491,14 +522,15 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           ),
         ],
       ),
-      body: _empresaId != null
+      body: _rolVistaActual == RolApp.clienteFinal
+          ? _buildVistaClienteFinalCompleta()
+          : _empresaId != null
           ? StreamBuilder<List<ModuloConfig>>(
               stream: _widgetService.obtenerModulosActivos(_empresaId!),
               builder: (context, snapshot) {
                 final esPropietario = _sesion?.esPropietario == true ||
                     _empresaId == ConstantesApp.empresaPropietariaId;
 
-                debugPrint(' Mostrando módulo propietario: $esPropietario | rol=${_sesion?.rol} | empresaId=$_empresaId');
                 final modulosActivos = snapshot.data ??
                     ModulosDisponibles.todos
                         .where((m) => ModulosDisponibles.activosPorDefecto.contains(m.id))
@@ -507,14 +539,24 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 // El módulo 'propietario' solo es visible para fluixtech
                 // Las demás empresas nunca lo ven
                 // Asegurar que el módulo propietario siempre esté presente para fluixtech
-                final esDemo = _demoService.esDemo(
-                    FirebaseAuth.instance.currentUser?.email);
                 var modulosFiltrados = modulosActivos.where((m) {
                   if (m.id == 'propietario') return esPropietario;
                   // Ocultar nóminas — no disponible de momento
                   if (m.id == 'nominas') return false;
+                  // Ocultar explorar — es solo para clienteFinal, no para empresarios
+                  if (m.id == 'explorar') return false;
                   return true;
                 }).toList();
+
+                // ── PROPIETARIO: mostrar SIEMPRE todos los módulos ────────────
+                // El propietario de la plataforma debe ver todos los módulos en el tab bar,
+                // independientemente de lo que esté guardado en Firestore.
+                if (esPropietario && _rolVistaActual == null) {
+                  modulosFiltrados = ModulosDisponibles.todos
+                      .where((m) => m.id != 'nominas' && m.id != 'explorar') // nóminas y explorar ocultos
+                      .map((m) => m.copyWith(activo: true))
+                      .toList();
+                }
                 if (esPropietario && !modulosFiltrados.any((m) => m.id == 'propietario')) {
                   final propMod = ModulosDisponibles.todos.where((m) => m.id == 'propietario').firstOrNull;
                   if (propMod != null) {
@@ -538,11 +580,18 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 }
 
                 // Filtrar por permisos del rol efectivo (real o simulado)
+                // El propietario en su vista real ve todos los módulos sin restricción.
                 final sesionActiva = _sesionEfectiva;
-                final modulosVisibles = sesionActiva != null
-                    ? modulosFiltrados.where((m) =>
-                        m.id == 'propietario' || sesionActiva.modulosVisibles.contains(m.id)).toList()
-                    : modulosFiltrados;
+                final List<ModuloConfig> modulosVisibles;
+                if (esPropietario && _rolVistaActual == null) {
+                  // Propietario real: usa modulosFiltrados directamente (ya son todos)
+                  modulosVisibles = modulosFiltrados.toList();
+                } else {
+                  modulosVisibles = sesionActiva != null
+                      ? modulosFiltrados.where((m) =>
+                          m.id == 'propietario' || sesionActiva.modulosVisibles.contains(m.id)).toList()
+                      : modulosFiltrados.toList();
+                }
 
                 // Forzar visibilidad del módulo 'dashboard' en la vista final
                 if (!modulosVisibles.any((m) => m.id == 'dashboard') && dashMod != null) {
@@ -572,64 +621,162 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                return Column(
-                  children: [
-                    _buildTarjetaBienvenida(),
-                    // Banner de aviso si la suscripción vence pronto
-                    if (_empresaId != null)
-                      BannerSuscripcion(
-                        empresaId: _empresaId!,
-                        esPropietario: _sesion?.esPropietario ?? false,
-                      ),
-                    // Botones de cambio de vista: solo visibles para el Propietario (FluixTech)
-                    if (_sesion?.esPropietario == true)
-                      _buildBotonesVistaPropietario(),
-                    Container(
-                      color: Colors.white,
-                      child: TabBar(
-                        controller: _tabController!,
-                        labelColor: const Color(0xFF0D47A1),
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: const Color(0xFF0D47A1),
-                        indicatorWeight: 3,
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        padding: EdgeInsets.zero,
-                        labelStyle: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13),
-                        tabs: modulosVisibles.map((m) {
-                          // Badge rojo para módulo web con mensajes sin leer
-                          if (m.id == 'web' && _mensajesSinLeer > 0) {
-                            return Tab(
-                              child: Badge(
-                                label: Text(_mensajesSinLeer.toString()),
-                                backgroundColor: Colors.red,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(m.icono, size: 20),
-                                    const SizedBox(height: 4),
-                                    Text(m.nombre),
-                                  ],
+                // Detectar si debemos usar NavigationRail (desktop) o TabBar (móvil)
+                final useNavigationRail = PlatformHelper.shouldUseNavigationRail(context);
+
+                if (useNavigationRail) {
+                  // DESKTOP LAYOUT - NavigationRail
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        child: SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: MediaQuery.of(context).size.height,
+                            ),
+                            child: IntrinsicHeight(
+                              child: NavigationRail(
+                                selectedIndex: _indiceSeleccionado.clamp(0, modulosVisibles.length - 1),
+                                onDestinationSelected: (index) {
+                                  setState(() {
+                                    _indiceSeleccionado = index;
+                                    _tabController?.animateTo(index);
+                                  });
+                                },
+                                labelType: NavigationRailLabelType.all,
+                                backgroundColor: Colors.white,
+                                minWidth: 120,
+                                selectedIconTheme: const IconThemeData(
+                                  color: Color(0xFF0D47A1),
+                                  size: 28,
                                 ),
+                                unselectedIconTheme: IconThemeData(
+                                  color: Colors.grey[600],
+                                  size: 24,
+                                ),
+                                selectedLabelTextStyle: const TextStyle(
+                                  color: Color(0xFF0D47A1),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                unselectedLabelTextStyle: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                                destinations: modulosVisibles.map((m) {
+                                  if (m.id == 'web' && _mensajesSinLeer > 0) {
+                                    return NavigationRailDestination(
+                                      icon: Badge(
+                                        label: Text(_mensajesSinLeer.toString()),
+                                        backgroundColor: Colors.red,
+                                        child: Icon(m.icono),
+                                      ),
+                                      label: Text(m.nombre),
+                                    );
+                                  }
+                                  return NavigationRailDestination(
+                                    icon: Icon(m.icono),
+                                    label: Text(m.nombre),
+                                  );
+                                }).toList(),
                               ),
-                            );
-                          }
-                          // Tabs normales para el resto de módulos
-                          return Tab(icon: Icon(m.icono, size: 20), text: m.nombre);
-                        }).toList(),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController!,
-                                children: modulosVisibles
-                                            .map((m) => _safeBuildContenidoModulo(m.id))
-                                            .toList(),
+                      const VerticalDivider(thickness: 1, width: 1),
+                      // Contenido principal
+                      Expanded(
+                        child: Column(
+                          children: [
+                            if (_esBienvenidaVisible(modulosVisibles)) _buildTarjetaBienvenida(),
+                            if (_empresaId != null)
+                              BannerSuscripcion(
+                                empresaId: _empresaId!,
+                                esPropietario: _sesion?.esPropietario ?? false,
+                              ),
+                            if (_sesion?.esPropietario == true)
+                              _buildBotonesVistaPropietario(),
+                            Expanded(
+                              child: _safeBuildContenidoModulo(
+                                  modulosVisibles[_indiceSeleccionado.clamp(0, modulosVisibles.length - 1)].id
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                );
+                    ],
+                  );
+                } else {
+                  // MOBILE LAYOUT - TabBar
+                  return Column(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _tabController!,
+                        builder: (context, _) {
+                          final idx = _tabController!.index.clamp(0, modulosVisibles.length - 1);
+                          final modId = modulosVisibles[idx].id;
+                          if (modId != 'dashboard' && modId != 'propietario') return const SizedBox.shrink();
+                          return _buildTarjetaBienvenida();
+                        },
+                      ),
+                      // Banner de aviso si la suscripción vence pronto
+                      if (_empresaId != null)
+                        BannerSuscripcion(
+                          empresaId: _empresaId!,
+                          esPropietario: _sesion?.esPropietario ?? false,
+                        ),
+                      // Botones de cambio de vista: solo visibles para el Propietario (FluixTech)
+                      if (_sesion?.esPropietario == true)
+                        _buildBotonesVistaPropietario(),
+                      Container(
+                        color: Colors.white,
+                        child: TabBar(
+                          controller: _tabController!,
+                          labelColor: const Color(0xFF0D47A1),
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: const Color(0xFF0D47A1),
+                          indicatorWeight: 3,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.zero,
+                          labelStyle: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13),
+                          tabs: modulosVisibles.map((m) {
+                            // Badge rojo para módulo web con mensajes sin leer
+                            if (m.id == 'web' && _mensajesSinLeer > 0) {
+                              return Tab(
+                                child: Badge(
+                                  label: Text(_mensajesSinLeer.toString()),
+                                  backgroundColor: Colors.red,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(m.icono, size: 20),
+                                      const SizedBox(height: 4),
+                                      Text(m.nombre),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            // Tabs normales para el resto de módulos
+                            return Tab(icon: Icon(m.icono, size: 20), text: m.nombre);
+                          }).toList(),
+                        ),
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController!,
+                          children: modulosVisibles
+                                      .map((m) => _safeBuildContenidoModulo(m.id))
+                                      .toList(),
+                        ),
+                      ),
+                    ],
+                  );
+                }
               },
             )
           : Column(
@@ -669,16 +816,23 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'estadisticas':    return ModuloEstadisticas(empresaId: id);
       case 'tareas':          return ModuloTareasScreen(empresaId: id);
       case 'pedidos':         return ModuloPedidosNuevoScreen(empresaId: id);
-      case 'tpv':             return ModuloTpvScreen(empresaId: id, esAdmin: sesionActiva?.esAdmin ?? false);
+      case 'tpv':             return _LanzadorTpv(
+                                empresaId: id,
+                                esAdmin: sesionActiva?.esAdmin ?? false,
+                                esPropietario: sesionActiva?.esPropietario ?? false,
+                                esPropietarioPlatforma: sesionActiva?.esPropietarioPlatforma ?? false,
+                                propietarioUid: _sesion?.uid ?? '',
+                              );
       case 'whatsapp':        return ModuloWhatsAppScreen(empresaId: id);
       case 'facturacion':     return ModuloFacturacionScreen(empresaId: id);
       case 'empleados':       return ModuloEmpleadosScreen(empresaId: id, sesion: sesionActiva);
       case 'clientes':        return ModuloClientesScreen(empresaId: id, sesion: sesionActiva);
       case 'servicios':       return ModuloServiciosScreen(empresaId: id, sesion: sesionActiva);
       case 'nominas':         return const Center(child: Text('Módulo no disponible'));
-      case 'fichaje':         return PantallaFichaje();
+      case 'fichaje':         return _construirPantallaFichaje();
       case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
       case 'web':             return _buildVistaWeb();
+      case 'app':             return ModuloAppScreen(empresaId: id);
       default:                return Center(child: Text('Módulo "$moduloId" no disponible', style: TextStyle(color: Colors.red)));
     }
   }
@@ -709,15 +863,25 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (simulando)
           Container(
             width: double.infinity,
-            color: Colors.amber[700],
+            color: _rolVistaActual == RolApp.clienteFinal 
+                ? Colors.green[700] 
+                : Colors.amber[700],
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               children: [
-                const Icon(Icons.preview, color: Colors.white, size: 16),
+                Icon(
+                  _rolVistaActual == RolApp.clienteFinal 
+                      ? Icons.phone_android 
+                      : Icons.preview, 
+                  color: Colors.white, 
+                  size: 16
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Vista de ${_rolVistaActual == RolApp.admin ? 'Administrador' : 'Usuario/Staff'}  —  no ves lo que ven los propietarios',
+                    _rolVistaActual == RolApp.clienteFinal
+                        ? 'Vista de Cliente Final — viendo como un usuario B2C'
+                        : 'Vista de ${_rolVistaActual == RolApp.admin ? 'Administrador' : 'Usuario/Staff'}  —  no ves lo que ven los propietarios',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -730,40 +894,50 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           ),
         Container(
           color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Vista:',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Vista:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _chipVista(
-                label: ' Propietario',
-                activo: _rolVistaActual == null,
-                color: const Color(0xFF0D47A1),
-                onTap: () => setState(() => _rolVistaActual = null),
-              ),
-              const SizedBox(width: 6),
-              _chipVista(
-                label: '️ Admin',
-                activo: _rolVistaActual == RolApp.admin,
-                color: const Color(0xFF7B1FA2),
-                onTap: () => setState(() => _rolVistaActual = RolApp.admin),
-              ),
-              const SizedBox(width: 6),
-              _chipVista(
-                label: ' Usuario',
-                activo: _rolVistaActual == RolApp.staff,
-                color: const Color(0xFF388E3C),
-                onTap: () => setState(() => _rolVistaActual = RolApp.staff),
-              ),
-            ],
+                const SizedBox(width: 8),
+                _chipVista(
+                  label: '👑 Propietario',
+                  activo: _rolVistaActual == null,
+                  color: const Color(0xFF0D47A1),
+                  onTap: () => setState(() => _rolVistaActual = null),
+                ),
+                const SizedBox(width: 6),
+                _chipVista(
+                  label: '🛡️ Admin',
+                  activo: _rolVistaActual == RolApp.admin,
+                  color: const Color(0xFF7B1FA2),
+                  onTap: () => setState(() => _rolVistaActual = RolApp.admin),
+                ),
+                const SizedBox(width: 6),
+                _chipVista(
+                  label: '👤 Staff',
+                  activo: _rolVistaActual == RolApp.staff,
+                  color: const Color(0xFF388E3C),
+                  onTap: () => setState(() => _rolVistaActual = RolApp.staff),
+                ),
+                const SizedBox(width: 6),
+                _chipVista(
+                  label: '📱 Usuario',
+                  activo: _rolVistaActual == RolApp.clienteFinal,
+                  color: const Color(0xFF00ACC1),
+                  onTap: () => setState(() => _rolVistaActual = RolApp.clienteFinal),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -798,6 +972,25 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         ),
       ),
     );
+  }
+
+  /// Vista completa del cliente final (B2C) — se muestra cuando el propietario
+  /// simula la vista 📱 Usuario desde el panel de control.
+  Widget _buildVistaClienteFinalCompleta() {
+    return Column(
+      children: [
+        // Banner "Vista de Cliente Final" + botones de rol
+        _buildBotonesVistaPropietario(),
+        // Pantalla explorar ocupa el resto del espacio
+        Expanded(child: PantallaExplorar(soloContenido: true)),
+      ],
+    );
+  }
+
+  bool _esBienvenidaVisible(List<ModuloConfig> modulosVisibles) {
+    final idx = _indiceSeleccionado.clamp(0, modulosVisibles.length - 1);
+    final id = modulosVisibles[idx].id;
+    return id == 'dashboard' || id == 'propietario';
   }
 
   Widget _buildTarjetaBienvenida() {
@@ -1056,6 +1249,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               slivers: [
                 const SliverToBoxAdapter(child: OfflineBanner()),
                 SliverToBoxAdapter(child: _buildHeaderDashboard()),
+                SliverToBoxAdapter(child: _buildAlertaStockBajo()),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                   sliver: SliverList(
@@ -1502,6 +1696,23 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
   }
 
+  /// Construye la pantalla de fichaje según el rol del usuario
+  Widget _construirPantallaFichaje() {
+    // Si es admin o propietario, muestra el dashboard de gestión
+    if (_sesion?.esAdmin == true || _sesion?.esPropietario == true) {
+      return GestionFichajesScreen(
+        empresaId: _empresaId ?? '',
+        usuarioActualUid: _sesion?.uid ?? '',
+      );
+    }
+    
+    // Si es empleado normal, muestra la pantalla de fichaje con PIN
+    return PantallaFichajeEmpleado(
+      empresaId: _empresaId ?? '',
+      dispositivoId: 'tablet_dashboard', // Puedes cambiar esto según el dispositivo
+    );
+  }
+
   void _manejarMenu(String accion) {
     switch (accion) {
       case 'perfil':
@@ -1510,6 +1721,12 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           MaterialPageRoute(
             builder: (_) => PantallaPerfil(sesion: _sesion),
           ),
+        );
+        break;
+      case 'vista_usuario':
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+          (route) => false,
         );
         break;
       case 'cerrar_sesion':
@@ -1694,7 +1911,181 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       }
     }
   }
+
+  /// Banner de alerta de stock bajo
+  Widget _buildAlertaStockBajo() {
+    if (_empresaId == null) return const SizedBox.shrink();
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: StockService().productosConStockBajo(_empresaId!),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final productos = snapshot.data!;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: MaterialBanner(
+            backgroundColor: Colors.orange.shade50,
+            leading: Icon(Icons.inventory_2_outlined,
+                color: Colors.orange.shade700, size: 28),
+            content: Text(
+              '⚠️ ${productos.length} producto(s) con stock bajo: '
+              '${productos.take(3).map((p) => p['nombre']).join(', ')}'
+              '${productos.length > 3 ? '...' : ''}',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.orange.shade900),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // TODO: Navegar al catálogo filtrado por stock bajo
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        productos
+                            .map((p) =>
+                                '${p['nombre']}: ${p['stock']} uds (mín: ${p['stock_minimo']})')
+                            .join('\n'),
+                      ),
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                },
+                child: const Text('Ver detalles'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  // Ocultar el banner temporalmente (la próxima vez que
+                  // se recargue el dashboard volverá a aparecer)
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _LanzadorTpv
+// Widget que sirve de placeholder para el módulo TPV en el TabBarView.
+// En cuanto se monta, lanza TpvRootScreen como ruta completa (con apaisado).
+// Si el usuario es Propietario, lanza primero el selector de negocio.
+// ─────────────────────────────────────────────────────────────────────────────
+class _LanzadorTpv extends StatefulWidget {
+  final String empresaId;
+  final bool esAdmin;
+  final bool esPropietario;
+  final bool esPropietarioPlatforma;
+  final String propietarioUid;
+
+  const _LanzadorTpv({
+    required this.empresaId,
+    this.esAdmin = false,
+    this.esPropietario = false,
+    this.esPropietarioPlatforma = false,
+    this.propietarioUid = '',
+  });
+
+  @override
+  State<_LanzadorTpv> createState() => _LanzadorTpvState();
+}
+
+class _LanzadorTpvState extends State<_LanzadorTpv> {
+  bool _haLanzado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Esperar a que el frame esté listo antes de hacer push
+    WidgetsBinding.instance.addPostFrameCallback((_) => _abrirTpv());
+  }
+
+  Future<void> _abrirTpv() async {
+    if (!mounted || _haLanzado) return;
+    _haLanzado = true;
+
+    // Si el usuario es propietario, abrir primero el selector de negocio
+    if (widget.esPropietario || widget.esPropietarioPlatforma) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TpvSelectorNegocioScreen(
+            propietarioUid: widget.propietarioUid.isNotEmpty
+                ? widget.propietarioUid
+                : FirebaseAuth.instance.currentUser?.uid ?? '',
+            empresaIdPropia: widget.empresaId,
+            esPropietarioPlatforma: widget.esPropietarioPlatforma,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Para admin/staff: Leer tipoTpv desde Firestore para enrutar al TPV correcto
+    String tipoTpv = 'bar';
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .get();
+      tipoTpv = snap.data()?['tipo_tpv'] as String? ?? 'bar';
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    Widget tpvScreen;
+    switch (tipoTpv) {
+      case 'peluqueria_estetica':
+        tpvScreen = TpvPeluqueriaScreen(
+            empresaId: widget.empresaId,
+            esAdmin: widget.esAdmin,
+            esPropietario: widget.esPropietario);
+        break;
+      case 'tienda':
+        tpvScreen = TpvTiendaScreen(
+            empresaId: widget.empresaId, esAdmin: widget.esAdmin);
+        break;
+      default:
+        tpvScreen = TpvRootScreen(
+            empresaId: widget.empresaId,
+            esAdmin: widget.esAdmin,
+            esPropietario: widget.esPropietario || widget.esPropietarioPlatforma,
+        );
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => tpvScreen,
+      ),
+    );
+    // Al volver del TPV restaurar orientación vertical
+    if (mounted) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Placeholder minimalista - el TPV se empuja sobre este tab inmediatamente
+    return const SizedBox.expand(
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+
+
 
 
 

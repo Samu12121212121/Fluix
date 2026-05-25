@@ -1,10 +1,10 @@
-# 📋 Guía: Formulario de Contacto Web → Firebase → Notificaciones en App
+#  Guía: Formulario de Contacto Web → Firebase → Notificaciones en App
 
 > **Stack**: WordPress / HTML estático · Firebase (Firestore + Auth anónima) · Cloud Functions · Flutter (Fluix CRM)
 
 ---
 
-## 📌 Índice
+##  Índice
 
 1. [Cómo funciona el flujo completo](#1-cómo-funciona-el-flujo-completo)
 2. [Estructura en Firestore](#2-estructura-en-firestore)
@@ -261,15 +261,15 @@ Las siguientes Cloud Functions ya están implementadas en `functions/src/index.t
 Se dispara cuando se crea un nuevo documento en `empresas/{empresaId}/contacto_web/{mensajeId}`.
 
 **Acciones automáticas:**
-- 🔔 Envía **push notification** a todos los dispositivos del empresario.
-- 📧 Envía **email al empresario** con los datos del mensaje (vía Resend).
+-  Envía **push notification** a todos los dispositivos del empresario.
+-  Envía **email al empresario** con los datos del mensaje (vía Resend).
 
 ### `onMensajeContactoRespondido`
 
 Se dispara cuando `respondido` cambia de `false` a `true`.
 
 **Acciones automáticas:**
-- 📧 Envía **email al visitante** con la respuesta del empresario (vía Resend).
+-  Envía **email al visitante** con la respuesta del empresario (vía Resend).
 
 ### Despliegue
 
@@ -403,7 +403,7 @@ if (!firebase.apps.length) {
 
 ---
 
-## 📁 Archivos relacionados en el proyecto
+##  Archivos relacionados en el proyecto
 
 | Archivo | Descripción |
 |---|---|
@@ -419,5 +419,4 @@ if (!firebase.apps.length) {
 ---
 
 *Última actualización: Abril 2026 — Fluix CRM v1.0.13*
-
 

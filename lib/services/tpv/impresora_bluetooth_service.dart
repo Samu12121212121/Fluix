@@ -2,6 +2,14 @@ import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/modelos/cierre_caja.dart';
+import 'package:flutter/foundation.dart';
+
+// ── HELPER ─────────────────────────────────────────────────────────────────────
+bool get _btNoDisponible =>
+    !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS);
 
 // ── MODELOS LOCALES ────────────────────────────────────────────────────────────
 
@@ -50,6 +58,7 @@ class ImpressoraBluetooth {
   // ── Escanear ────────────────────────────────────────────────────────────────
 
   Future<List<BluetoothDevice>> escanearImpresoras() async {
+    if (_btNoDisponible) return [];
     final bool? on = await _bt.isOn;
     if (on != true) {
       throw Exception('Bluetooth desactivado. Actívalo y vuelve a intentarlo.');
@@ -60,12 +69,10 @@ class ImpressoraBluetooth {
   // ── Conectar ────────────────────────────────────────────────────────────────
 
   Future<void> conectar(BluetoothDevice device) async {
+    if (_btNoDisponible) return;
     final bool? connected = await _bt.isConnected;
     if (connected == true) await _bt.disconnect();
-
     await _bt.connect(device);
-
-    // Guardar última usada
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, '${device.address}|${device.name}');
   }
@@ -73,6 +80,7 @@ class ImpressoraBluetooth {
   // ── Obtener última guardada ─────────────────────────────────────────────────
 
   Future<Map<String, String>?> obtenerUltimaGuardada() async {
+    if (_btNoDisponible) return null;
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsKey);
     if (raw == null) return null;
@@ -84,12 +92,14 @@ class ImpressoraBluetooth {
   // ── Estado de conexión ──────────────────────────────────────────────────────
 
   Future<bool> estaConectada() async {
+    if (_btNoDisponible) return false;
     return (await _bt.isConnected) == true;
   }
 
   // ── Limpiar última guardada ─────────────────────────────────────────────────
 
   Future<void> olvidarImpresora() async {
+    if (_btNoDisponible) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefsKey);
   }
@@ -97,6 +107,7 @@ class ImpressoraBluetooth {
   // ── Imprimir Ticket ─────────────────────────────────────────────────────────
 
   Future<void> imprimirTicket(TicketData ticket) async {
+    if (_btNoDisponible) return;
     await _verificarConexion();
 
     final fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
@@ -111,11 +122,7 @@ class ImpressoraBluetooth {
     _bt.printCustom('--------------------------------', 1, 1);
 
     for (final linea in ticket.lineas) {
-      _bt.printCustom(
-        '${linea.nombre}',
-        1,
-        0,
-      );
+      _bt.printCustom(linea.nombre, 1, 0);
       _bt.printCustom(
         '  ${linea.cantidad} x ${fmt.format(linea.precioUnitario)} = ${fmt.format(linea.subtotal)}',
         1,
@@ -136,6 +143,7 @@ class ImpressoraBluetooth {
   // ── Imprimir Cierre de Caja ─────────────────────────────────────────────────
 
   Future<void> imprimirCierreCaja(CierreCaja cierre) async {
+    if (_btNoDisponible) return;
     await _verificarConexion();
 
     final fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
@@ -164,6 +172,7 @@ class ImpressoraBluetooth {
   // ── PRIVADO ─────────────────────────────────────────────────────────────────
 
   Future<void> _verificarConexion() async {
+    if (_btNoDisponible) return;
     final bool? connected = await _bt.isConnected;
     if (connected != true) {
       throw Exception(
@@ -171,4 +180,3 @@ class ImpressoraBluetooth {
     }
   }
 }
-

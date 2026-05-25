@@ -50,8 +50,7 @@ echo   1. Email de confirmacion al usuario
 echo   2. Email de notificacion a sacoor80@gmail.com
 echo   3. Tarea de alta prioridad en modulo propietario
 echo.
-echo 📄 Lee INSTRUCCIONES_DESPLIEGUE_CONTACTO.md para mas detalles
+echo  Lee INSTRUCCIONES_DESPLIEGUE_CONTACTO.md para mas detalles
 echo.
 pause
-
 

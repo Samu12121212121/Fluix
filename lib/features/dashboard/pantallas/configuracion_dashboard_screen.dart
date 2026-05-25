@@ -25,9 +25,12 @@ class _ConfiguracionDashboardScreenState
   Set<PlanModulo> _packsContratados  = {};
   Set<PlanModulo> _addOnsContratados = {};
 
-  // Número de usuarios y empleados activos para calcular precio dinámico de nóminas
   int _numUsuarios  = 1;
   int _numEmpleados = 0;
+
+  // ── Estado local optimista ────────────────────────────────────────────────
+  final Set<String> _modulosActivosLocal = {};
+  bool _estadoLocalInicializado = false;
 
   @override
   void initState() {
@@ -60,8 +63,6 @@ class _ConfiguracionDashboardScreenState
     }
   }
 
-  /// Precio para cabeceras de sección y diálogo de info.
-  /// Nóminas usa precio dinámico: 5 € × (usuarios + empleados) / mes.
   String _planPrecio(PlanModulo? plan) {
     switch (plan) {
       case PlanModulo.fiscal:  return '430 €/año';
@@ -86,7 +87,7 @@ class _ConfiguracionDashboardScreenState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CARGA DE PERSONAS (para precio dinámico de nóminas)
+  // CARGA DE PERSONAS
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _cargarPersonas() async {
@@ -116,7 +117,7 @@ class _ConfiguracionDashboardScreenState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CARGA DEL PLAN DESDE FIRESTORE
+  // CARGA DEL PLAN
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _cargarPlan() async {
@@ -179,7 +180,7 @@ class _ConfiguracionDashboardScreenState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // LÓGICA DE PERMISOS
+  // PERMISOS
   // ═══════════════════════════════════════════════════════════════════════════
 
   bool _moduloPermitido(ModuloConfig modulo) {
@@ -190,10 +191,21 @@ class _ConfiguracionDashboardScreenState
     return _packsContratados.contains(modulo.plan);
   }
 
+  // ── Valor activo con estado local optimista ───────────────────────────────
+  bool _estaActivo(ModuloConfig modulo) {
+    if (_estadoLocalInicializado) {
+      return _modulosActivosLocal.contains(modulo.id);
+    }
+    return modulo.activo;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildFilaModulo(ModuloConfig modulo, PlanModulo plan) {
     final permitido  = _moduloPermitido(modulo);
+    final activo     = _estaActivo(modulo);
     final planColor  = _planColor(plan);
     final planNombre = _planNombre(plan);
 
@@ -201,7 +213,7 @@ class _ConfiguracionDashboardScreenState
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: modulo.activo && permitido
+          color: activo && permitido
               ? planColor.withValues(alpha: 0.1)
               : Colors.grey.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
@@ -209,7 +221,7 @@ class _ConfiguracionDashboardScreenState
         child: ListTile(
           leading: Icon(
             modulo.icono,
-            color: modulo.activo && permitido ? planColor : Colors.grey[400],
+            color: activo && permitido ? planColor : Colors.grey[400],
           ),
           title: Text(
             modulo.nombre,
@@ -242,9 +254,17 @@ class _ConfiguracionDashboardScreenState
           ),
           trailing: permitido
               ? Checkbox(
-            value: modulo.activo,
+            value: activo,
             onChanged: (bool? value) {
               if (value != null) {
+                // Actualización optimista inmediata
+                setState(() {
+                  if (value) {
+                    _modulosActivosLocal.add(modulo.id);
+                  } else {
+                    _modulosActivosLocal.remove(modulo.id);
+                  }
+                });
                 _toggleModulo(modulo.id, value, modulo.nombre);
               }
             },
@@ -279,14 +299,26 @@ class _ConfiguracionDashboardScreenState
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final modulos         = snapshot.data ?? [];
-          // IDs que nunca deben aparecer en la configuración de módulos
-          const _modulosOcultos = {
-            'propietario',
-            'citas_del_dia',
-          };
+          final modulos = snapshot.data ?? [];
+
+          // Inicializar estado local la primera vez que llegan datos de Firestore
+          if (!_estadoLocalInicializado && modulos.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _modulosActivosLocal.clear();
+                  _modulosActivosLocal.addAll(
+                    modulos.where((m) => m.activo).map((m) => m.id),
+                  );
+                  _estadoLocalInicializado = true;
+                });
+              }
+            });
+          }
+
+          const modulosOcultos = {'propietario', 'citas_del_dia'};
           final modulosVisibles =
-          modulos.where((m) => !_modulosOcultos.contains(m.id)).toList();
+          modulos.where((m) => !modulosOcultos.contains(m.id)).toList();
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -296,17 +328,15 @@ class _ConfiguracionDashboardScreenState
               _buildSeccionWidgetsDashboard(),
               const SizedBox(height: 20),
               _buildSeccionPlan(
-                plan:    PlanModulo.basico,
+                plan: PlanModulo.basico,
                 modulos: modulosVisibles
                     .where((m) =>
                 m.plan == PlanModulo.basico && m.incluidoEnPlan)
                     .toList(),
               ),
               const SizedBox(height: 16),
-              // Pack Fiscal AI — oculto temporalmente
-              // _buildSeccionPlan(plan: PlanModulo.fiscal, ...),
               _buildSeccionPlan(
-                plan:    PlanModulo.gestion,
+                plan: PlanModulo.gestion,
                 modulos: modulosVisibles
                     .where((m) =>
                 m.plan == PlanModulo.gestion && m.incluidoEnPlan)
@@ -314,7 +344,7 @@ class _ConfiguracionDashboardScreenState
               ),
               const SizedBox(height: 16),
               _buildSeccionPlan(
-                plan:    PlanModulo.tienda,
+                plan: PlanModulo.tienda,
                 modulos: modulosVisibles
                     .where((m) =>
                 m.plan == PlanModulo.tienda && m.incluidoEnPlan)
@@ -348,7 +378,7 @@ class _ConfiguracionDashboardScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color:  const Color(0xFF0D47A1).withValues(alpha: 0.3),
+            color: const Color(0xFF0D47A1).withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -391,10 +421,11 @@ class _ConfiguracionDashboardScreenState
 
   Widget _buildSeccionWidgetsDashboard() {
     return _buildCard(
-      icono:       Icons.widgets,
-      iconColor:   const Color(0xFF4CAF50),
-      titulo:      'Widgets del Dashboard',
-      descripcion: 'Personaliza qué elementos aparecen en tu pantalla principal',
+      icono: Icons.widgets,
+      iconColor: const Color(0xFF4CAF50),
+      titulo: 'Widgets del Dashboard',
+      descripcion:
+      'Personaliza qué elementos aparecen en tu pantalla principal',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -413,11 +444,11 @@ class _ConfiguracionDashboardScreenState
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ConfiguracionWidgetsScreen(
-                      empresaId: widget.empresaId),
+                  builder: (_) =>
+                      ConfiguracionWidgetsScreen(empresaId: widget.empresaId),
                 ),
               ),
-              icon:  const Icon(Icons.tune, size: 18),
+              icon: const Icon(Icons.tune, size: 18),
               label: const Text('Personalizar Widgets'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
@@ -434,15 +465,17 @@ class _ConfiguracionDashboardScreenState
   }
 
   Widget _buildSeccionPlan({
-    required PlanModulo       plan,
+    required PlanModulo plan,
     required List<ModuloConfig> modulos,
   }) {
-    final activosCount = modulos.where((m) => m.activo).length;
-    final planColor    = _planColor(plan);
-    final planNombre   = _planNombre(plan);
-    final planPrecio   = _planPrecio(plan);
-    final planIcono    = _planIcono(plan);
-    final contratado   =
+    // Contar activos usando estado local
+    final activosCount =
+        modulos.where((m) => _estaActivo(m)).length;
+    final planColor  = _planColor(plan);
+    final planNombre = _planNombre(plan);
+    final planPrecio = _planPrecio(plan);
+    final planIcono  = _planIcono(plan);
+    final contratado =
         plan == PlanModulo.basico || _packsContratados.contains(plan);
 
     return Container(
@@ -451,7 +484,7 @@ class _ConfiguracionDashboardScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color:  Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -494,8 +527,8 @@ class _ConfiguracionDashboardScreenState
                   ),
                 ),
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: contratado
                         ? planColor.withValues(alpha: 0.1)
@@ -532,7 +565,7 @@ class _ConfiguracionDashboardScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color:  Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -547,7 +580,8 @@ class _ConfiguracionDashboardScreenState
               const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(
                   bottom: BorderSide(
-                      color: const Color(0xFF00897B).withValues(alpha: 0.2),
+                      color:
+                      const Color(0xFF00897B).withValues(alpha: 0.2),
                       width: 1)),
             ),
             child: Row(
@@ -555,7 +589,8 @@ class _ConfiguracionDashboardScreenState
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00897B).withValues(alpha: 0.15),
+                    color:
+                    const Color(0xFF00897B).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.add_circle_outline,
@@ -591,8 +626,8 @@ class _ConfiguracionDashboardScreenState
 
   Widget _buildFilaModuloAddOn(ModuloConfig modulo) {
     final permitido = _moduloPermitido(modulo);
+    final activo    = _estaActivo(modulo);
 
-    // Precio dinámico para nóminas
     String? precio = modulo.precioAdicional;
     if (modulo.plan == PlanModulo.nominas || modulo.id == 'nominas') {
       final total     = _numUsuarios + _numEmpleados;
@@ -608,14 +643,14 @@ class _ConfiguracionDashboardScreenState
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: permitido && modulo.activo
+              color: permitido && activo
                   ? const Color(0xFF00897B).withValues(alpha: 0.1)
                   : Colors.grey.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               modulo.icono,
-              color: permitido && modulo.activo
+              color: permitido && activo
                   ? const Color(0xFF00897B)
                   : Colors.grey,
               size: 20,
@@ -645,15 +680,25 @@ class _ConfiguracionDashboardScreenState
           ),
           permitido
               ? Switch(
-            value: modulo.activo,
-            onChanged: (v) =>
-                _toggleModulo(modulo.id, v, modulo.nombre),
+            value: activo,
+            onChanged: (v) {
+              // Actualización optimista inmediata
+              setState(() {
+                if (v) {
+                  _modulosActivosLocal.add(modulo.id);
+                } else {
+                  _modulosActivosLocal.remove(modulo.id);
+                }
+              });
+              _toggleModulo(modulo.id, v, modulo.nombre);
+            },
             activeThumbColor: const Color(0xFF00897B),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           )
               : Tooltip(
             message: 'Add-on no contratado',
-            child: Icon(Icons.lock, color: Colors.grey[400], size: 22),
+            child:
+            Icon(Icons.lock, color: Colors.grey[400], size: 22),
           ),
         ],
       ),
@@ -662,15 +707,15 @@ class _ConfiguracionDashboardScreenState
 
   Widget _buildSeccionOtras() {
     return _buildCard(
-      icono:       Icons.settings,
-      iconColor:   const Color(0xFF9C27B0),
-      titulo:      'Otras Configuraciones',
+      icono: Icons.settings,
+      iconColor: const Color(0xFF9C27B0),
+      titulo: 'Otras Configuraciones',
       descripcion: 'Ajustes adicionales de la aplicación',
       child: Column(
         children: [
           _buildItemOpciones(
-            icono:       Icons.notifications,
-            titulo:      'Notificaciones',
+            icono: Icons.notifications,
+            titulo: 'Notificaciones',
             descripcion: 'Activa o desactiva alertas y avisos push',
             onTap: () => Navigator.push(
                 context,
@@ -679,8 +724,8 @@ class _ConfiguracionDashboardScreenState
           ),
           const Divider(height: 1),
           _buildItemOpciones(
-            icono:       Icons.color_lens,
-            titulo:      'Tema y Colores',
+            icono: Icons.color_lens,
+            titulo: 'Tema y Colores',
             descripcion: 'Modo oscuro y color principal de la app',
             onTap: () => Navigator.push(
                 context,
@@ -689,8 +734,8 @@ class _ConfiguracionDashboardScreenState
           ),
           const Divider(height: 1),
           _buildItemOpciones(
-            icono:       Icons.backup,
-            titulo:      'Copia de Seguridad',
+            icono: Icons.backup,
+            titulo: 'Copia de Seguridad',
             descripcion: 'Respalda tus datos en la nube',
             onTap: () => Navigator.push(
                 context,
@@ -700,10 +745,10 @@ class _ConfiguracionDashboardScreenState
           ),
           const Divider(height: 1),
           _buildItemOpciones(
-            icono:       Icons.info_outline,
-            titulo:      'Acerca de los Planes',
+            icono: Icons.info_outline,
+            titulo: 'Acerca de los Planes',
             descripcion: 'Ver detalles y precios',
-            onTap:       _mostrarInfoPlanes,
+            onTap: _mostrarInfoPlanes,
           ),
         ],
       ),
@@ -712,10 +757,10 @@ class _ConfiguracionDashboardScreenState
 
   Widget _buildCard({
     required IconData icono,
-    required Color    iconColor,
-    required String   titulo,
-    required String   descripcion,
-    required Widget   child,
+    required Color iconColor,
+    required String titulo,
+    required String descripcion,
+    required Widget child,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -723,7 +768,7 @@ class _ConfiguracionDashboardScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color:  Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -769,8 +814,7 @@ class _ConfiguracionDashboardScreenState
 
   Widget _buildEstadoBadge(String texto, Color color) {
     return Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
@@ -781,17 +825,17 @@ class _ConfiguracionDashboardScreenState
           Icon(Icons.check_circle, color: color, size: 16),
           const SizedBox(width: 6),
           Text(texto,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600)),
+              style:
+              TextStyle(color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
   Widget _buildItemOpciones({
-    required IconData     icono,
-    required String       titulo,
-    required String       descripcion,
+    required IconData icono,
+    required String titulo,
+    required String descripcion,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -807,7 +851,8 @@ class _ConfiguracionDashboardScreenState
                 color: Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icono, color: const Color(0xFF9C27B0), size: 18),
+              child:
+              Icon(icono, color: const Color(0xFF9C27B0), size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -847,7 +892,15 @@ class _ConfiguracionDashboardScreenState
         ));
       }
     } catch (e) {
+      // Revertir estado local si falla la escritura en Firestore
       if (mounted) {
+        setState(() {
+          if (activo) {
+            _modulosActivosLocal.remove(moduloId);
+          } else {
+            _modulosActivosLocal.add(moduloId);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('❌ Error: $e'),
             backgroundColor: Colors.red));
@@ -856,13 +909,10 @@ class _ConfiguracionDashboardScreenState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DIÁLOGO INFO PLANES — nóminas con precio dinámico
+  // DIÁLOGO INFO PLANES
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _mostrarInfoPlanes() {
-    final totalPersonas    = _numUsuarios + _numEmpleados;
-    final precioNominasMes = totalPersonas * 5;
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -889,9 +939,6 @@ class _ConfiguracionDashboardScreenState
                 'Catálogo de servicios y precios',
               ]),
               const SizedBox(height: 12),
-              // Pack Fiscal AI — oculto temporalmente de los planes visibles
-              // _buildInfoPlan(PlanModulo.fiscal, [...]),
-              const SizedBox(height: 0),
               _buildInfoPlan(PlanModulo.gestion, [
                 'WhatsApp Business integrado',
                 'Facturación completa con IVA',
@@ -905,21 +952,19 @@ class _ConfiguracionDashboardScreenState
                 'Sincronización app ↔ web en tiempo real',
               ]),
               const SizedBox(height: 16),
-              // ── Add-ons con precio dinámico de nóminas ───────────────
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color:
-                  const Color(0xFF00897B).withValues(alpha: 0.1),
+                  color: const Color(0xFF00897B).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                       color: const Color(0xFF00897B)
                           .withValues(alpha: 0.3)),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(children: [
+                    Row(children: [
                       Icon(Icons.add_circle_outline,
                           color: Color(0xFF00897B), size: 18),
                       SizedBox(width: 6),
@@ -929,11 +974,8 @@ class _ConfiguracionDashboardScreenState
                               color: Color(0xFF00897B),
                               fontSize: 14)),
                     ]),
-                    const SizedBox(height: 8),
-                    // Nóminas — oculto temporalmente
-                    const SizedBox(height: 0),
-                    const SizedBox(height: 6),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       '• Tareas: sistema de productividad por usuario/mes\n'
                           '• Módulos personalizados bajo consulta',
                       style: TextStyle(fontSize: 12, height: 1.4),

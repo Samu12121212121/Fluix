@@ -110,6 +110,7 @@ class EstadisticasCacheService {
         _calcularMetricasBasicas(empresaId, inicioMes, inicioMesAnterior),
         _calcularTendencias(empresaId),
         _calcularFichajes(empresaId, inicioMes),
+        _calcularMetricasB2C(empresaId, inicioMes),
       ]);
 
       await _firestore
@@ -122,9 +123,10 @@ class EstadisticasCacheService {
         ...results[1],
         ...results[2],
         ...results[3],
+        ...results[4],
         'ultima_actualizacion': FieldValue.serverTimestamp(),
         'fecha_calculo': now.toIso8601String(),
-        'version_cache': 3,
+        'version_cache': 4,
       }, SetOptions(merge: true));
 
       debugPrint('✅ Estadísticas guardadas en cache');
@@ -135,9 +137,10 @@ class EstadisticasCacheService {
 
   // ─────────────────────────────────────────────────────────────────────────
   // KPIs PRINCIPALES
-  // FIX: valor_medio_reserva calculado desde reservas (no transacciones)
-  //      servicio_mas_rentable calculado por ingresos reales por servicio
-  //      reservas_mes_anterior añadido para mostrar % de cambio en UI
+  // FIX: usa 'fecha_hora' (nombre real del campo en Firestore)
+  //      FIX: también consulta colección 'citas'
+  //      FIX: tasa_conversion = (confirmadas + completadas) / total
+  //      FIX: tasaCancelacion correcta
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> _calcularKpisPrincipales(
@@ -146,91 +149,92 @@ class EstadisticasCacheService {
       DateTime inicioMesAnterior,
       ) async {
     try {
-      // Reservas mes actual
+      // ── Reservas del mes actual ─────────────────────────────────────────
       final reservasMesSnap = await _firestore
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('reservas')
-          .where('fecha',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
+          .collection('empresas').doc(empresaId).collection('reservas')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
           .get();
 
-      // Reservas mes anterior (para calcular % cambio en UI)
+      final citasMesSnap = await _firestore
+          .collection('empresas').doc(empresaId).collection('citas')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
+          .get();
+
+      // Unir reservas + citas en una sola lista
+      final todosMesSnap = [...reservasMesSnap.docs, ...citasMesSnap.docs];
+
+      // ── Mes anterior (solo count para % tendencia) ─────────────────────
       final reservasMesAnteriorSnap = await _firestore
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('reservas')
-          .where('fecha',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMesAnterior))
-          .where('fecha', isLessThan: Timestamp.fromDate(inicioMes))
+          .collection('empresas').doc(empresaId).collection('reservas')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMesAnterior))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(inicioMes))
           .get();
 
+      final citasMesAnteriorSnap = await _firestore
+          .collection('empresas').doc(empresaId).collection('citas')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMesAnterior))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(inicioMes))
+          .get();
+
+      final totalMesAnterior =
+          reservasMesAnteriorSnap.docs.length + citasMesAnteriorSnap.docs.length;
+
+      // ── Contadores ────────────────────────────────────────────────────
       int resConfirmadas = 0;
       int resCompletadas = 0;
       int resPendientes  = 0;
       int resCanceladas  = 0;
 
-      // Mapas para popularidad e ingresos por servicio
       final Map<String, int>    serviciosConteo   = {};
       final Map<String, double> serviciosIngresos = {};
+      final Map<String, int>    empleadosConteo   = {};
 
-      // Mapas para empleados
-      final Map<String, int> empleadosConteo = {};
-
-      // Acumuladores para valor medio y horas pico
       double ingresosTotalReservas = 0;
       int    reservasConPrecio     = 0;
-      final Map<String, int> horasConteo = {};
-
-      // Métodos de pago
+      final Map<String, int> horasConteo      = {};
       final Map<String, int> metodoPagoConteo = {};
-
-      // Clientes y su valor
       final Map<String, double> clientesValor = {};
 
-      for (final doc in reservasMesSnap.docs) {
-        final d     = doc.data();
+      for (final doc in todosMesSnap) {
+        final d      = doc.data() as Map<String, dynamic>;
         final estado = (d['estado'] ?? '').toString().toUpperCase();
 
-        if (estado == 'CONFIRMADA')                     resConfirmadas++;
-        else if (estado == 'COMPLETADA' ||
-            estado == 'FINALIZADA')                resCompletadas++;
-        else if (estado == 'PENDIENTE')                 resPendientes++;
-        else if (estado == 'CANCELADA')                 resCanceladas++;
+        if (estado == 'CONFIRMADA' || estado == 'ACEPTADA')         resConfirmadas++;
+        else if (estado == 'COMPLETADA' || estado == 'FINALIZADA')  resCompletadas++;
+        else if (estado == 'PENDIENTE' ||
+                 estado == 'POR_CONFIRMAR' ||
+                 estado == 'SOLICITADA')                            resPendientes++;
+        else if (estado == 'CANCELADA')                             resCanceladas++;
 
-        // Servicio
+        // Servicio — varios campos posibles
         final servNombre = (d['servicio_nombre'] as String?) ??
-            (d['servicio']     as String?) ?? 'General';
-        serviciosConteo[servNombre] =
-            (serviciosConteo[servNombre] ?? 0) + 1;
+            (d['servicio'] as String?) ??
+            (d['tipo']     as String?) ?? 'General';
+        serviciosConteo[servNombre] = (serviciosConteo[servNombre] ?? 0) + 1;
 
-        // Precio de la reserva — FIX: varios nombres de campo posibles
-        final precio = ((d['precio']        as num?) ??
-            (d['total']         as num?) ??
-            (d['importe']       as num?) ??
-            (d['precio_total']  as num?) ?? 0).toDouble();
+        // Precio
+        final precio = ((d['precio']       as num?) ??
+            (d['total']        as num?) ??
+            (d['importe']      as num?) ??
+            (d['precio_total'] as num?) ?? 0).toDouble();
         if (precio > 0) {
-          serviciosIngresos[servNombre] =
-              (serviciosIngresos[servNombre] ?? 0) + precio;
+          serviciosIngresos[servNombre] = (serviciosIngresos[servNombre] ?? 0) + precio;
           ingresosTotalReservas += precio;
           reservasConPrecio++;
         }
 
         // Empleado
         final empNombre = (d['empleado_nombre'] as String?) ??
-            (d['empleado']     as String?) ?? 'Sin asignar';
-        empleadosConteo[empNombre] =
-            (empleadosConteo[empNombre] ?? 0) + 1;
+            (d['empleado'] as String?) ?? 'Sin asignar';
+        empleadosConteo[empNombre] = (empleadosConteo[empNombre] ?? 0) + 1;
 
-        // Hora pico — saca la hora de inicio si existe
-        final horaStr = d['hora_inicio'] as String? ??
-            d['hora']          as String?;
+        // Hora pico
+        final horaStr = d['hora_inicio'] as String? ?? d['hora'] as String?;
         if (horaStr != null && horaStr.contains(':')) {
           final hora = horaStr.split(':').first;
           horasConteo[hora] = (horasConteo[hora] ?? 0) + 1;
         } else {
-          // Intentar sacar de Timestamp fecha
-          final fechaTs = d['fecha'];
+          final fechaTs = d['fecha_hora'] ?? d['fecha'];
           DateTime? dt;
           if (fechaTs is Timestamp) dt = fechaTs.toDate();
           if (dt != null) {
@@ -241,122 +245,102 @@ class EstadisticasCacheService {
 
         // Método de pago
         final metodo = (d['metodo_pago'] as String?) ??
-            (d['forma_pago']  as String?) ?? 'Efectivo';
-        metodoPagoConteo[metodo] =
-            (metodoPagoConteo[metodo] ?? 0) + 1;
+            (d['forma_pago'] as String?) ?? 'Efectivo';
+        metodoPagoConteo[metodo] = (metodoPagoConteo[metodo] ?? 0) + 1;
 
         // Valor por cliente
         final clienteId = (d['cliente_id'] as String?) ??
-            (d['cliente_nombre'] as String?) ?? '';
+            (d['cliente_nombre'] as String?) ??
+            (d['cliente'] as String?) ?? '';
         if (clienteId.isNotEmpty && precio > 0) {
-          clientesValor[clienteId] =
-              (clientesValor[clienteId] ?? 0) + precio;
+          clientesValor[clienteId] = (clientesValor[clienteId] ?? 0) + precio;
         }
       }
 
-      final totalReservas = reservasMesSnap.docs.length;
+      final totalReservas = todosMesSnap.length;
 
-      // Tasas
+      // ── Tasas ────────────────────────────────────────────────────────────
+      // Conversión = reservas "útiles" (confirmadas + completadas) / total
       final tasaConversion  = totalReservas > 0
-          ? resCompletadas / totalReservas * 100
+          ? (resConfirmadas + resCompletadas) / totalReservas * 100
           : 0.0;
       final tasaCancelacion = totalReservas > 0
-          ? resCanceladas  / totalReservas * 100
+          ? resCanceladas / totalReservas * 100
           : 0.0;
 
-      // FIX: valor_medio_reserva desde reservas con precio, no /transacciones
       final valorMedioReserva = reservasConPrecio > 0
           ? ingresosTotalReservas / reservasConPrecio
           : 0.0;
 
-      // Servicio más popular (por número de reservas)
+      // Servicios
       final serviciosSortedConteo = serviciosConteo.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final servicioPopular = serviciosSortedConteo.isNotEmpty
-          ? serviciosSortedConteo.first.key
-          : 'N/A';
+          ? serviciosSortedConteo.first.key : 'N/A';
 
-      // FIX: servicio más rentable (por ingresos reales)
       final serviciosSortedIngresos = serviciosIngresos.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final servicioRentable = serviciosSortedIngresos.isNotEmpty
-          ? serviciosSortedIngresos.first.key
-          : servicioPopular; // fallback al popular si no hay precios
+          ? serviciosSortedIngresos.first.key : servicioPopular;
 
-      // Empleado más activo
+      // Empleados
       final empleadosSorted = empleadosConteo.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final empleadoActivo = empleadosSorted.isNotEmpty
-          ? empleadosSorted.first.key
-          : 'N/A';
+          ? empleadosSorted.first.key : 'N/A';
 
       // Horas pico — top 3
       final horasSorted = horasConteo.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
-      final horasPico = horasSorted
-          .take(3)
-          .map((e) => '${e.key}:00h')
-          .toList();
+      final horasPico = horasSorted.take(3).map((e) => '${e.key}:00h').toList();
 
       // Método de pago preferido
       final metodoPagoSorted = metodoPagoConteo.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final metodoPagoPreferido = metodoPagoSorted.isNotEmpty
-          ? metodoPagoSorted.first.key
-          : 'Efectivo';
+          ? metodoPagoSorted.first.key : 'Efectivo';
 
       // Cliente más valioso
       final clientesSorted = clientesValor.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final clienteMasValioso = clientesSorted.isNotEmpty
-          ? clientesSorted.first.key
-          : 'N/A';
+          ? clientesSorted.first.key : 'N/A';
       final valorPromedioCliente = clientesValor.isNotEmpty
-          ? clientesValor.values.fold(0.0, (a, b) => a + b) /
-          clientesValor.length
+          ? clientesValor.values.fold(0.0, (a, b) => a + b) / clientesValor.length
           : 0.0;
 
-      // Map para UI de reservas por servicio
+      // Map para UI reservas por servicio
       final reservasPorServicio = <String, dynamic>{};
       for (final e in serviciosSortedConteo) {
         reservasPorServicio[e.key] = e.value;
       }
 
-      // Map para UI de rendimiento empleados
+      // Map para UI rendimiento empleados
       final rendimientoEmpleados = <String, dynamic>{};
       for (final e in empleadosConteo.entries) {
-        rendimientoEmpleados[e.key] = {
-          'reservas': e.value,
-          'ingresos': 0, // se podría cruzar si reservas tienen precio+empleado
-        };
+        rendimientoEmpleados[e.key] = {'reservas': e.value, 'ingresos': 0};
       }
 
       return {
-        // Reservas mes actual
-        'reservas_mes':           totalReservas,
-        'reservas_confirmadas':   resConfirmadas,
-        'reservas_completadas':   resCompletadas,
-        'reservas_pendientes':    resPendientes,
-        'reservas_canceladas':    resCanceladas,
-        // Reservas mes anterior — para % cambio en UI
-        'reservas_mes_anterior':  reservasMesAnteriorSnap.docs.length,
-        // Rendimiento
-        'tasa_conversion':        tasaConversion,
-        'tasa_cancelacion':       tasaCancelacion,
-        'valor_medio_reserva':    valorMedioReserva,
-        'ingresos_reservas_mes':  ingresosTotalReservas,
-        // Servicios
-        'reservas_por_servicio':  reservasPorServicio,
-        'servicio_mas_popular':   servicioPopular,
-        'servicio_mas_rentable':  servicioRentable,   // FIX: calculado por ingresos
-        // Empleados
-        'rendimiento_empleados':  rendimientoEmpleados,
-        'empleado_mas_activo':    empleadoActivo,
-        // Comportamiento
-        'horas_pico':             horasPico,
-        'metodo_pago_preferido':  metodoPagoPreferido,
-        'cliente_mas_valioso':    clienteMasValioso,
-        'valor_promedio_cliente': valorPromedioCliente,
+        'reservas_mes':            totalReservas,
+        'reservas_confirmadas':    resConfirmadas,
+        'reservas_completadas':    resCompletadas,
+        'reservas_pendientes':     resPendientes,
+        'reservas_canceladas':     resCanceladas,
+        'reservas_mes_anterior':   totalMesAnterior,
+        'tasa_conversion':         tasaConversion,
+        'tasa_cancelacion':        tasaCancelacion,
+        'valor_medio_reserva':     valorMedioReserva,
+        'ingresos_reservas_mes':   ingresosTotalReservas,
+        'reservas_por_servicio':   reservasPorServicio,
+        'servicio_mas_popular':    servicioPopular,
+        'servicio_mas_rentable':   servicioRentable,
+        'rendimiento_empleados':   rendimientoEmpleados,
+        'empleado_mas_activo':     empleadoActivo,
+        'horas_pico':              horasPico,
+        'metodo_pago_preferido':   metodoPagoPreferido,
+        'cliente_mas_valioso':     clienteMasValioso,
+        'valor_promedio_cliente':  valorPromedioCliente,
       };
     } catch (e) {
       debugPrint('❌ Error calculando KPIs: $e');
@@ -584,17 +568,28 @@ class EstadisticasCacheService {
     try {
       final hace7Dias = DateTime.now().subtract(const Duration(days: 7));
 
+      // Consultar reservas y citas usando campo 'fecha_hora' (nombre real)
       final reservasSnap = await _firestore
           .collection('empresas')
           .doc(empresaId)
           .collection('reservas')
-          .where('fecha',
+          .where('fecha_hora',
           isGreaterThanOrEqualTo: Timestamp.fromDate(hace7Dias))
           .get();
 
+      final citasSnap = await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('citas')
+          .where('fecha_hora',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(hace7Dias))
+          .get();
+
+      final todosDocs = [...reservasSnap.docs, ...citasSnap.docs];
+
       final distribucionDias = <String, int>{};
-      for (final doc in reservasSnap.docs) {
-        final fecha = _tsToDate((doc.data())['fecha']);
+      for (final doc in todosDocs) {
+        final fecha = _tsToDate((doc.data())['fecha_hora'] ?? (doc.data())['fecha']);
         if (fecha != null) {
           final dia = _diaSemana(fecha.weekday);
           distribucionDias[dia] = (distribucionDias[dia] ?? 0) + 1;
@@ -609,7 +604,7 @@ class EstadisticasCacheService {
           .key;
 
       return {
-        'reservas_ultima_semana': reservasSnap.docs.length,
+        'reservas_ultima_semana': todosDocs.length,
         'dia_mas_activo':         diaMasActivo,
         'distribucion_dias':      distribucionDias,
       };
@@ -757,6 +752,186 @@ class EstadisticasCacheService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // MÉTRICAS B2C (CLIENTES APP EXPLORAR)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> _calcularMetricasB2C(
+      String empresaId,
+      DateTime inicioMes,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final haceUnaSemana = now.subtract(const Duration(days: 7));
+      final hace30Dias = now.subtract(const Duration(days: 30));
+      final haceUnDia = now.subtract(const Duration(days: 1));
+
+      // 1. USUARIOS REGISTRADOS EN APP EXPLORAR (B2C)
+      // Buscar usuarios con rol 'clienteFinal' o cualquier indicador B2C
+      final usuariosB2CSnap = await _firestore
+          .collection('usuarios')
+          .where('rol', isEqualTo: 'clienteFinal')
+          .get();
+
+      final int totalUsuariosB2C = usuariosB2CSnap.docs.length;
+
+      // Nuevos este mes
+      final nuevosEsteMes = usuariosB2CSnap.docs.where((doc) {
+        final fechaRegistro = _tsToDate((doc.data() as Map<String, dynamic>)['fecha_registro']);
+        return fechaRegistro != null && fechaRegistro.isAfter(inicioMes);
+      }).length;
+
+      // Nuevos esta semana
+      final nuevosEstaSemana = usuariosB2CSnap.docs.where((doc) {
+        final fechaRegistro = _tsToDate((doc.data() as Map<String, dynamic>)['fecha_registro']);
+        return fechaRegistro != null && fechaRegistro.isAfter(haceUnaSemana);
+      }).length;
+
+      // 2. USUARIOS ACTIVOS (DAU / MAU)
+      final usuariosActivosHoy = usuariosB2CSnap.docs.where((doc) {
+        final ultimoAcceso = _tsToDate((doc.data() as Map<String, dynamic>)['ultimo_acceso']);
+        return ultimoAcceso != null && ultimoAcceso.isAfter(haceUnDia);
+      }).length;
+
+      final usuariosActivosMes = usuariosB2CSnap.docs.where((doc) {
+        final ultimoAcceso = _tsToDate((doc.data() as Map<String, dynamic>)['ultimo_acceso']);
+        return ultimoAcceso != null && ultimoAcceso.isAfter(hace30Dias);
+      }).length;
+
+      // Calcular ratio DAU/MAU
+      final ratioDAUMAU = usuariosActivosMes > 0
+          ? (usuariosActivosHoy / usuariosActivosMes * 100)
+          : 0.0;
+
+      // 3. RESERVAS B2C (colección reservas WHERE origen == 'app_cliente' o similar)
+      // Buscar en negocios_publicos las reservas
+      final negociosPublicosSnap = await _firestore
+          .collectionGroup('negocios_publicos')
+          .get();
+
+      int reservasB2CHoy = 0;
+      int reservasB2CSemana = 0;
+      int reservasB2CMes = 0;
+
+      for (final negocioDoc in negociosPublicosSnap.docs) {
+        final reservasSnap = await _firestore
+            .doc(negocioDoc.reference.path)
+            .collection('reservas')
+            .where('origen', isEqualTo: 'app_cliente')
+            .get();
+
+        for (final reservaDoc in reservasSnap.docs) {
+          final fechaReserva = _tsToDate((reservaDoc.data())['fecha_hora']);
+          if (fechaReserva != null) {
+            if (fechaReserva.isAfter(haceUnDia)) reservasB2CHoy++;
+            if (fechaReserva.isAfter(haceUnaSemana)) reservasB2CSemana++;
+            if (fechaReserva.isAfter(inicioMes)) reservasB2CMes++;
+          }
+        }
+      }
+
+      // 4. VALORACIONES B2C
+      int totalValoracionesB2C = 0;
+      double sumaEstrellas = 0.0;
+      int valoracionesEstaSemana = 0;
+
+      for (final negocioDoc in negociosPublicosSnap.docs) {
+        final valoracionesSnap = await _firestore
+            .doc(negocioDoc.reference.path)
+            .collection('valoraciones')
+            .get();
+
+        for (final valoracionDoc in valoracionesSnap.docs) {
+          final data = valoracionDoc.data();
+          final estrellas = (data['estrellas'] ?? 0.0) as num;
+          final fechaValoracion = _tsToDate(data['fecha']);
+
+          totalValoracionesB2C++;
+          sumaEstrellas += estrellas.toDouble();
+
+          if (fechaValoracion != null && fechaValoracion.isAfter(haceUnaSemana)) {
+            valoracionesEstaSemana++;
+          }
+        }
+      }
+
+      final mediaEstrellas = totalValoracionesB2C > 0
+          ? sumaEstrellas / totalValoracionesB2C
+          : 0.0;
+
+      // 5. FLASH SLOTS
+      int flashSlotsCreados = 0;
+      int flashSlotsReservados = 0;
+
+      for (final negocioDoc in negociosPublicosSnap.docs) {
+        final flashSlotsSnap = await _firestore
+            .doc(negocioDoc.reference.path)
+            .collection('flash_slots')
+            .where('fecha_creacion', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioMes))
+            .get();
+
+        flashSlotsCreados += flashSlotsSnap.docs.length;
+        flashSlotsReservados += flashSlotsSnap.docs.where((doc) {
+          final data = doc.data();
+          return (data['estado'] ?? '') == 'reservado';
+        }).length;
+      }
+
+      final tasaOcupacionFlashSlots = flashSlotsCreados > 0
+          ? (flashSlotsReservados / flashSlotsCreados * 100)
+          : 0.0;
+
+      // 6. NEGOCIOS CON RESERVAS ONLINE ACTIVAS
+      int negociosConReservasActivas = 0;
+      int negociosSinReservasActivas = 0;
+
+      for (final negocioDoc in negociosPublicosSnap.docs) {
+        final data = negocioDoc.data() as Map<String, dynamic>;
+        final reservasOnline = data['reservas_online'] ?? false;
+
+        if (reservasOnline) {
+          negociosConReservasActivas++;
+        } else {
+          negociosSinReservasActivas++;
+        }
+      }
+
+      return {
+        // Usuarios B2C registrados
+        'b2c_usuarios_total': totalUsuariosB2C,
+        'b2c_usuarios_nuevos_mes': nuevosEsteMes,
+        'b2c_usuarios_nuevos_semana': nuevosEstaSemana,
+
+        // Usuarios activos
+        'b2c_usuarios_activos_hoy': usuariosActivosHoy,
+        'b2c_usuarios_activos_mes': usuariosActivosMes,
+        'b2c_ratio_dau_mau': double.parse(ratioDAUMAU.toStringAsFixed(1)),
+
+        // Reservas B2C
+        'b2c_reservas_hoy': reservasB2CHoy,
+        'b2c_reservas_semana': reservasB2CSemana,
+        'b2c_reservas_mes': reservasB2CMes,
+
+        // Valoraciones B2C
+        'b2c_valoraciones_total': totalValoracionesB2C,
+        'b2c_valoraciones_media': double.parse(mediaEstrellas.toStringAsFixed(1)),
+        'b2c_valoraciones_semana': valoracionesEstaSemana,
+
+        // Flash Slots
+        'b2c_flash_slots_creados': flashSlotsCreados,
+        'b2c_flash_slots_reservados': flashSlotsReservados,
+        'b2c_flash_slots_tasa_ocupacion': double.parse(tasaOcupacionFlashSlots.toStringAsFixed(1)),
+
+        // Negocios con reservas online
+        'b2c_negocios_con_reservas_activas': negociosConReservasActivas,
+        'b2c_negocios_sin_reservas_activas': negociosSinReservasActivas,
+      };
+    } catch (e) {
+      debugPrint('❌ Error calculando métricas B2C: $e');
+      return {};
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // HELPERS
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -782,3 +957,4 @@ class EstadisticasCacheService {
     }
   }
 }
+

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../services/clientes_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE DETALLE EXPANDIDO DE RESERVA/CITA
@@ -100,6 +101,11 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
         'fecha_modificacion': FieldValue.serverTimestamp(),
       });
       if (mounted) setState(() => _data['estado'] = nuevoEstado);
+
+      // Auto-crear/actualizar cliente al aceptar la reserva
+      if (nuevoEstado == 'CONFIRMADA' || nuevoEstado == 'ACEPTADA') {
+        ClientesService().upsertClienteDesdeReserva(widget.empresaId, _data);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

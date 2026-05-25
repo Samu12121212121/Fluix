@@ -358,6 +358,8 @@ class Empresa {
   final RegimenFiscal regimenFiscal;
   final String estado;
   final String? createdBy;
+  /// Tipo de TPV: "bar" | "peluqueria_estetica" | "tienda"
+  final String tipoTpv;
 
   const Empresa({
     required this.id,
@@ -374,6 +376,7 @@ class Empresa {
     this.regimenFiscal = const RegimenFiscal(),
     this.estado = 'activa',
     this.createdBy,
+    this.tipoTpv = 'bar',
   });
 
   factory Empresa.fromFirestore(String id, Map<String, dynamic> datos) {
@@ -394,6 +397,7 @@ class Empresa {
       ),
       estado: datos['estado'] as String? ?? 'activa',
       createdBy: datos['created_by'] as String?,
+      tipoTpv: datos['tipo_tpv'] as String? ?? 'bar',
     );
   }
 
@@ -412,6 +416,7 @@ class Empresa {
       'regimen_fiscal': regimenFiscal.toFirestore(),
       'estado': estado,
       'created_by': createdBy,
+      'tipo_tpv': tipoTpv,
     };
   }
 
@@ -430,6 +435,7 @@ class Empresa {
     RegimenFiscal? regimenFiscal,
     String? estado,
     String? createdBy,
+    String? tipoTpv,
   }) {
     return Empresa(
       id: id ?? this.id,
@@ -446,6 +452,7 @@ class Empresa {
       regimenFiscal: regimenFiscal ?? this.regimenFiscal,
       estado: estado ?? this.estado,
       createdBy: createdBy ?? this.createdBy,
+      tipoTpv: tipoTpv ?? this.tipoTpv,
     );
   }
 

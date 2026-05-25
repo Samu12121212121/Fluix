@@ -31,6 +31,7 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
   // Estado de carga de cada botón
   bool _cargandoEntrada = false;
   bool _cargandoSalida = false;
+  bool _cargandoPausa = false;
 
   @override
   void initState() {
@@ -161,6 +162,52 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
     }
   }
 
+  Future<void> _ficharPausa(bool esInicio) async {
+    final empresaId = _empresaId;
+    final uid = _uid;
+    if (empresaId == null || uid == null) return;
+
+    setState(() => _cargandoPausa = true);
+    try {
+      final pos = await _obtenerUbicacion();
+      if (esInicio) {
+        await _svc.ficharPausaInicio(
+          empresaId: empresaId,
+          empleadoId: uid,
+          empleadoNombre: _nombreEmpleado ?? '',
+          latitud: pos?.latitude,
+          longitud: pos?.longitude,
+        );
+      } else {
+        await _svc.ficharPausaFin(
+          empresaId: empresaId,
+          empleadoId: uid,
+          empleadoNombre: _nombreEmpleado ?? '',
+          latitud: pos?.latitude,
+          longitud: pos?.longitude,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(esInicio
+            ? 'Pausa iniciada'
+            : 'Vuelta de pausa registrada'),
+        backgroundColor: Colors.orange[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red[700],
+      ));
+    } finally {
+      if (mounted) setState(() => _cargandoPausa = false);
+    }
+  }
+
   // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -193,7 +240,8 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
               _cargandoEntrada ||
                   _cargandoSalida ||
                   !hayFichajes ||
-                  ultimo?.tipo == TipoFichaje.salida;
+                  ultimo?.tipo == TipoFichaje.salida ||
+                  ultimo?.tipo == TipoFichaje.pausaInicio;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -205,6 +253,7 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
                 const SizedBox(height: 20),
 
                 // Botón Entrada
+                // Botón Entrada
                 _BotonFichar(
                   label: 'Fichar Entrada',
                   icono: Icons.login_rounded,
@@ -214,9 +263,85 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
                   cargando: _cargandoEntrada,
                   onTap: () => _fichar(TipoFichaje.entrada),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
-                // Botón Salida
+// Botón Pausa — pequeño, naranja
+                Builder(builder: (context) {
+                  final enPausa = ultimo?.tipo == TipoFichaje.pausaInicio;
+                  final puedeIniciarPausa = estaEnEntrada &&
+                      !enPausa &&
+                      !_cargandoPausa;
+                  final puedevolverPausa = enPausa && !_cargandoPausa;
+                  final mostrarPausa = estaEnEntrada || enPausa;
+
+                  if (!mostrarPausa) return const SizedBox.shrink();
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: AnimatedOpacity(
+                      opacity: (puedeIniciarPausa || puedevolverPausa) ? 1.0 : 0.4,
+                      duration: const Duration(milliseconds: 200),
+                      child: GestureDetector(
+                        onTap: (puedeIniciarPausa || puedevolverPausa)
+                            ? () => _ficharPausa(!enPausa)
+                            : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: _cargandoPausa
+                              ? Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                          )
+                              : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  enPausa
+                                      ? Icons.play_arrow_rounded
+                                      : Icons.pause_rounded,
+                                  color: Colors.orange[700],
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                enPausa ? 'Volver de pausa' : 'Iniciar pausa',
+                                style: TextStyle(
+                                  color: Colors.orange[700],
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
                 _BotonFichar(
                   label: 'Fichar Salida',
                   icono: Icons.logout_rounded,

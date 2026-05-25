@@ -1,0 +1,95 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║         CÓMO EJECUTAR FLUIXCRM EN WINDOWS DESKTOP           ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+✨ ¡TODO ESTÁ LISTO! ✨
+
+
+══ OPCIÓN 1: DESDE EL EXPLORADOR (MÁS FÁCIL) ══
+
+1. Hacer doble clic en:
+
+   ejecutar_windows.bat
+
+2. Esperar a que compile y se abra la app
+
+3. ¡Listo!
+
+
+══ OPCIÓN 2: DESDE LA TERMINAL ══
+
+1. Abrir PowerShell o CMD
+
+2. Ejecutar:
+
+   cd C:\Users\Samu\AndroidStudioProjects\PlaneaG\planeag_flutter
+   flutter run -d windows
+
+3. ¡Listo!
+
+
+══ OPCIÓN 3: DESDE TU IDE (VS CODE / JETBRAINS) ══
+
+1. Abrir el proyecto
+
+2. En la barra superior, seleccionar dispositivo:
+   "Windows (desktop)"
+
+3. Presionar F5 o click en "Run"
+
+4. ¡Listo!
+
+
+══════════════════════════════════════════════════════════════
+
+📊 LO QUE VERÁS:
+
+- Ventana grande (>800px):
+  • NavigationRail a la izquierda
+  • Iconos grandes y etiquetas
+  • Contenido a la derecha
+
+- Ventana pequeña (<800px):
+  • TabBar arriba (como en móvil)
+  • Contenido abajo
+
+⚡ REDIMENSIONABLE EN TIEMPO REAL
+
+Puedes cambiar el tamaño de la ventana y la UI se adapta
+automáticamente entre NavigationRail y TabBar.
+
+
+══════════════════════════════════════════════════════════════
+
+✅ TODO FUNCIONA:
+
+✓ Login y autenticación
+✓ Dashboard con widgets
+✓ Reservas, clientes, pedidos
+✓ Facturación VeriFactu
+✓ TPV (excepto impresora BT)
+✓ Estadísticas y gráficos
+✓ Configuración y perfil
+✓ Firestore en tiempo real
+
+
+══════════════════════════════════════════════════════════════
+
+📖 DOCUMENTACIÓN COMPLETA:
+
+• DESKTOP_RESUMEN_FINAL.md — Este archivo
+• DESKTOP_ADAPTACION_COMPLETA.md — Guía técnica detallada
+• README_DESKTOP.md — Guía rápida
+• ANALISIS_EXPANSION_B2C_Y_DESKTOP.md — Análisis previo
+
+
+══════════════════════════════════════════════════════════════
+
+🚀 ¡EMPIEZA AHORA!
+
+   ejecutar_windows.bat
+
+══════════════════════════════════════════════════════════════
+

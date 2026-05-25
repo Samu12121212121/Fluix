@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/permisos_service.dart';
 import 'detalle_reserva_screen.dart';
+import 'configuracion_reservas_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MÓDULO RESERVAS & CITAS — Estilo Booksy
@@ -33,6 +34,65 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
     super.dispose();
   }
 
+  Future<void> _confirmarBorrarPasadas(BuildContext context) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.delete_forever, color: Colors.red),
+          SizedBox(width: 8),
+          Text('Borrar reservas pasadas'),
+        ]),
+        content: const Text(
+          'Se eliminarán todas las reservas y citas cuya fecha ya ha pasado.\n\n'
+          'Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    if (!context.mounted) return;
+
+    final db = FirebaseFirestore.instance;
+    final ahora = Timestamp.fromDate(DateTime.now());
+    int total = 0;
+    try {
+      for (final col in ['reservas', 'citas']) {
+        final snap = await db
+            .collection('empresas')
+            .doc(widget.empresaId)
+            .collection(col)
+            .where('fecha_hora', isLessThan: ahora)
+            .get();
+        for (final doc in snap.docs) {
+          await doc.reference.delete();
+          total++;
+        }
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🗑️ $total reservas pasadas eliminadas'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
@@ -44,6 +104,26 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          // ⚙️ Configuración de reservas
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configuración de reservas',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ConfiguracionReservasScreen(
+                    empresaId: widget.empresaId),
+              ),
+            ),
+          ),
+          // 🗑️ Borrar reservas pasadas
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Borrar reservas pasadas',
+            onPressed: () => _confirmarBorrarPasadas(context),
+          ),
+        ],
         bottom: TabBar(
           controller: _tc,
           indicatorColor: Colors.white,
@@ -70,7 +150,7 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
             context: context, empresaId: widget.empresaId),
         icon: const Icon(Icons.add),
         label: const Text('Nueva reserva'),
-        backgroundColor: color,
+        backgroundColor: const Color(0xFF1976D2),
         foregroundColor: Colors.white,
       ),
     );
@@ -429,10 +509,10 @@ class _VistaHoyState extends State<_VistaHoy> {
                               _punto(esSel
                                   ? Colors.white
                                   : const Color(0xFF4CAF50)),
-                            if (tienePend)
+                             if (tienePend)
                               _punto(esSel
                                   ? Colors.white70
-                                  : const Color(0xFFF57C00)),
+                                  : const Color(0xFF1976D2)),
                           ],
                         ),
                       ],
@@ -461,7 +541,7 @@ class _VistaHoyState extends State<_VistaHoy> {
             _Chip('$conf conf.', const Color(0xFF4CAF50)),
           const SizedBox(width: 6),
           if (pend > 0)
-            _Chip('$pend pend.', const Color(0xFFF57C00)),
+            _Chip('$pend pend.', const Color(0xFF1976D2)),
         ]),
       ),
 
@@ -626,7 +706,7 @@ class _VistaSemanaState extends State<_VistaSemana> {
                     const SizedBox(width: 4),
                     if (pend > 0)
                       _Chip('$pend pend.',
-                          esHoy ? Colors.white70 : const Color(0xFFF57C00),
+                          esHoy ? Colors.white70 : const Color(0xFF1976D2),
                           textColor: esHoy ? color : Colors.white),
                     if (reservas.isEmpty)
                       Text('Libre',
@@ -704,7 +784,7 @@ class _VistaEstadosState extends State<_VistaEstados>
             _tabBadge('Confirmadas', conf.length, const Color(0xFF4CAF50)),
             _tabBadge(
                 'Por confirmar', porConf.length, const Color(0xFF1976D2)),
-            _tabBadge('Pendientes', pend.length, const Color(0xFFF57C00)),
+            _tabBadge('Pendientes', pend.length, const Color(0xFF1976D2)),
             _tabBadge('Canceladas', canc.length, const Color(0xFFD32F2F)),
           ],
         ),
@@ -797,12 +877,12 @@ class _Tarjeta extends StatelessWidget {
       case 'CANCELADA':
         return const Color(0xFFD32F2F);
       case 'COMPLETADA':
-        return const Color(0xFF607D8B);
+        return const Color(0xFF1976D2);
       case 'POR_CONFIRMAR':
       case 'SOLICITADA':
         return const Color(0xFF1976D2);
-      default:
-        return const Color(0xFFF57C00);
+      default: // PENDIENTE
+        return const Color(0xFF1976D2);
     }
   }
 
@@ -921,28 +1001,28 @@ class _Tarjeta extends StatelessWidget {
                         TextStyle(color: Colors.grey[600], fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
-                  if (!compact && profesional.isNotEmpty)
-                    Row(children: [
-                      const Icon(Icons.person_pin,
-                          size: 11, color: Color(0xFF5C6BC0)),
-                      const SizedBox(width: 3),
-                      Text(profesional,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF5C6BC0),
-                              fontWeight: FontWeight.w600)),
-                    ]),
-                  if (!compact && comensales != null && comensales > 0)
-                    Row(children: [
-                      const Icon(Icons.people,
-                          size: 11, color: Color(0xFF607D8B)),
-                      const SizedBox(width: 3),
-                      Text('$comensales ${comensales == 1 ? "comensal" : "comensales"}',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF607D8B),
-                              fontWeight: FontWeight.w600)),
-                    ]),
+                    if (!compact && profesional.isNotEmpty)
+                      Row(children: [
+                        const Icon(Icons.person_pin,
+                            size: 11, color: Color(0xFF1976D2)),
+                        const SizedBox(width: 3),
+                        Text(profesional,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF1976D2),
+                                fontWeight: FontWeight.w600)),
+                      ]),
+                    if (!compact && comensales != null && comensales > 0)
+                      Row(children: [
+                        const Icon(Icons.people,
+                            size: 11, color: Color(0xFF1976D2)),
+                        const SizedBox(width: 3),
+                        Text('$comensales ${comensales == 1 ? "comensal" : "comensales"}',
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF1976D2),
+                                fontWeight: FontWeight.w600)),
+                      ]),
                 ],
               ),
             ),

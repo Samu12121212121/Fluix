@@ -46,7 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.PLANES_CONFIG = void 0;
+exports.webhookPagoWeb = exports.obtenerStatsPlataforma = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.PLANES_CONFIG = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 // Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
@@ -474,6 +474,157 @@ exports.listarCuentasClientes = (0, https_1.onCall)({ region: REGION }, async (r
         });
     }
     return { ok: true, cuentas: result };
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN 5: obtenerStatsPlataforma
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Callable. Devuelve estadísticas globales de toda la plataforma para el módulo
+ * propietario del dashboard. Ejecuta todos los conteos en el servidor (Admin SDK),
+ * evitando problemas de permisos de Firestore en el cliente.
+ */
+exports.obtenerStatsPlataforma = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a, _b, _c;
+    const callerUid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    if (!callerUid)
+        throw new https_1.HttpsError("unauthenticated", "Debes estar autenticado.");
+    await verificarPropietarioPlatforma(callerUid);
+    const ahora = new Date();
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const en7Dias = new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // ── Carga paralela: lista de empresas + facturas del propietario ─────────
+    const [empresasSnap, facturasSnap] = await Promise.all([
+        db.collection("empresas").get(),
+        db.collection("empresas").doc("fluixtech").collection("facturas").get(),
+    ]);
+    const totalEmpresas = empresasSnap.docs.length;
+    let empresasNuevasMes = 0;
+    let suscripcionesActivas = 0;
+    let suscripcionesVencen7 = 0;
+    let suscripcionesVencidas = 0;
+    let mrrCalc = 0;
+    let totalPedidos = 0;
+    let totalFacturasAll = 0;
+    let totalValoraciones = 0;
+    let totalReservas = 0;
+    let totalEmpleados = 0;
+    // ── Procesar cada empresa en paralelo ────────────────────────────────────
+    await Promise.all(empresasSnap.docs.map(async (doc) => {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        const data = doc.data();
+        // Fecha de creación
+        const fechaCreacion = data.fecha_creacion;
+        if (fechaCreacion && typeof fechaCreacion.toDate === "function") {
+            if (fechaCreacion.toDate() >= inicioMes)
+                empresasNuevasMes++;
+        }
+        try {
+            const [suscSnap, pedidosCount, facturasCount, valoracionesCount, reservasCount, empleadosCount] = await Promise.all([
+                doc.ref.collection("suscripcion").doc("actual").get(),
+                doc.ref.collection("pedidos").count().get(),
+                doc.ref.collection("facturas").count().get(),
+                doc.ref.collection("valoraciones").count().get(),
+                doc.ref.collection("reservas").count().get(),
+                doc.ref.collection("empleados").count().get(),
+            ]);
+            if (suscSnap.exists) {
+                const sd = suscSnap.data();
+                const estado = ((_a = sd.estado) !== null && _a !== void 0 ? _a : "").toUpperCase();
+                const fechaFinRaw = sd.fecha_fin;
+                let fechaFinDt = null;
+                if (fechaFinRaw && typeof fechaFinRaw.toDate === "function") {
+                    fechaFinDt = fechaFinRaw.toDate();
+                }
+                else if (typeof fechaFinRaw === "string") {
+                    fechaFinDt = new Date(fechaFinRaw);
+                }
+                if (estado === "ACTIVA") {
+                    suscripcionesActivas++;
+                    if (fechaFinDt && fechaFinDt <= en7Dias)
+                        suscripcionesVencen7++;
+                    const planId = (_b = sd.plan) !== null && _b !== void 0 ? _b : "";
+                    const plan = exports.PLANES_CONFIG[planId];
+                    if (plan) {
+                        mrrCalc += plan.precioAnual / 12;
+                    }
+                    else {
+                        const precioTotal = (_c = sd.precio_total) !== null && _c !== void 0 ? _c : 0;
+                        if (precioTotal > 0)
+                            mrrCalc += precioTotal / 12;
+                    }
+                }
+                else if (estado === "VENCIDA") {
+                    suscripcionesVencidas++;
+                }
+            }
+            totalPedidos += (_d = pedidosCount.data().count) !== null && _d !== void 0 ? _d : 0;
+            totalFacturasAll += (_e = facturasCount.data().count) !== null && _e !== void 0 ? _e : 0;
+            totalValoraciones += (_f = valoracionesCount.data().count) !== null && _f !== void 0 ? _f : 0;
+            totalReservas += (_g = reservasCount.data().count) !== null && _g !== void 0 ? _g : 0;
+            totalEmpleados += (_h = empleadosCount.data().count) !== null && _h !== void 0 ? _h : 0;
+        }
+        catch (_) { /* continuar con las demás */ }
+    }));
+    // ── Ingresos desde facturas del propietario ──────────────────────────────
+    let ingresosTotal = 0;
+    let ingresosMes = 0;
+    let facturasPendientes = 0;
+    for (const f of facturasSnap.docs) {
+        const fd = f.data();
+        const total = (_b = fd.total) !== null && _b !== void 0 ? _b : 0;
+        const estado = ((_c = fd.estado) !== null && _c !== void 0 ? _c : "").toLowerCase();
+        const fecha = fd.fecha_emision;
+        const esPagada = estado === "pagada" || estado === "cobrada";
+        if (estado === "pendiente")
+            facturasPendientes++;
+        if (esPagada) {
+            ingresosTotal += total;
+            if (fecha && typeof fecha.toDate === "function") {
+                if (fecha.toDate() >= inicioMes)
+                    ingresosMes += total;
+            }
+        }
+    }
+    // ── Últimas ventas (pedidos de fluixtech) ────────────────────────────────
+    let ultimasVentas = [];
+    try {
+        const pedidosSnap = await db
+            .collection("empresas").doc("fluixtech")
+            .collection("pedidos")
+            .orderBy("fecha_pedido", "desc")
+            .limit(5)
+            .get();
+        ultimasVentas = pedidosSnap.docs.map((d) => {
+            var _a, _b, _c, _d, _e, _f, _g;
+            const pd = d.data();
+            return {
+                id: d.id,
+                clienteNombre: (_a = pd.cliente_nombre) !== null && _a !== void 0 ? _a : "—",
+                total: (_b = pd.total) !== null && _b !== void 0 ? _b : 0,
+                estado: (_c = pd.estado) !== null && _c !== void 0 ? _c : "—",
+                fechaPedido: (_g = (_f = (_e = (_d = pd.fecha_pedido) === null || _d === void 0 ? void 0 : _d.toDate) === null || _e === void 0 ? void 0 : _e.call(_d)) === null || _f === void 0 ? void 0 : _f.toISOString()) !== null && _g !== void 0 ? _g : null,
+            };
+        });
+    }
+    catch (_) { /* no bloquear */ }
+    return {
+        ok: true,
+        totalEmpresas,
+        empresasNuevasMes,
+        suscripcionesActivas,
+        suscripcionesVencen7,
+        suscripcionesVencidas,
+        mrr: Math.round(mrrCalc * 100) / 100,
+        totalPedidos,
+        totalFacturas: totalFacturasAll,
+        totalValoraciones,
+        totalReservas,
+        totalEmpleados,
+        ingresosTotal: Math.round(ingresosTotal * 100) / 100,
+        ingresosMes: Math.round(ingresosMes * 100) / 100,
+        facturasPendientes,
+        ultimasVentas,
+    };
 });
 // ─────────────────────────────────────────────────────────────────────────────
 // FUNCIÓN 4: webhookPagoWeb

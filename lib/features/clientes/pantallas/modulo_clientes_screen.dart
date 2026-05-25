@@ -759,14 +759,21 @@ class _TabInfoCliente extends StatelessWidget {
   final Map<String, dynamic> data;
   const _TabInfoCliente({required this.data});
 
+  /// Parsea un campo de fecha que puede ser Timestamp, String o null
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString());
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalGastado = ((data['total_gastado'] ?? 0.0) as num).toDouble();
     final reservas = data['numero_reservas'] ?? 0;
     final fmt = DateFormat('dd/MM/yyyy');
-    final ultimaVisita = data['ultima_visita'] != null
-        ? fmt.format(DateTime.parse(data['ultima_visita'].toString()))
-        : 'Sin visitas';
+    final _dtVisita = _parseDate(data['ultima_visita']);
+    final ultimaVisita = _dtVisita != null ? fmt.format(_dtVisita) : 'Sin visitas';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),

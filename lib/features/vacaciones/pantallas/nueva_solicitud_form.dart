@@ -419,7 +419,7 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_empleadoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecciona un empleado')),

@@ -86,7 +86,9 @@ class _ModuloReservasState extends State<ModuloReservas> {
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
+                          colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -99,7 +101,7 @@ class _ModuloReservasState extends State<ModuloReservas> {
                           _divider(),
                           _miniKpi('Canceladas',  '${canceladas.length}',  const Color(0xFFD32F2F)),
                           _divider(),
-                          _miniKpi('Total',       '${docs.length}',        const Color(0xFF1976D2)),
+                          _miniKpi('Total',       '${docs.length}',        Colors.white),
                         ],
                       ),
                     ),
@@ -251,11 +253,11 @@ class _ModuloReservasState extends State<ModuloReservas> {
   Widget _miniKpi(String label, String valor, Color color) => Column(
     children: [
       Text(valor, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[700])),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.white70)),
     ],
   );
 
-  Widget _divider() => Container(width: 1, height: 30, color: Colors.grey[300]);
+  Widget _divider() => Container(width: 1, height: 30, color: Colors.white24);
 
   Tab _tab(String label, int count, Color color) => Tab(
     child: Row(

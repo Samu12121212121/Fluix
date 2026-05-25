@@ -215,7 +215,18 @@ class FacturacionService {
       verifactuOk = true;
       mensajeVerifactu = '✅ Factura registrada en VeriFactu correctamente';
     } catch (e) {
-      _log.d('Verifactu no configurado o deshabilitado: $e');
+      final msg = e.toString();
+      if (msg.contains('no configurado') ||
+          msg.contains('deshabilitado') ||
+          msg.contains('habilitado')) {
+        // VeriFactu desactivado para esta empresa — no es un error
+        _log.d('VeriFactu desactivado: $e');
+      } else {
+        // Error real — registrar y notificar
+        _log.e('ERROR VeriFactu: $e');
+        verifactuError = true;
+        mensajeVerifactu = '⚠️ Error al registrar en VeriFactu: $e';
+      }
     }
 
     return ResultadoCrearFactura(

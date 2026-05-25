@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
+import '../../../features/explorar_negocios/pantallas/pantalla_explorar.dart';
 import '../../../services/notificaciones_service.dart';
 import 'form_contacto_interes.dart';
+import 'form_registro_modal.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../core/utils/admin_initializer.dart';
 import '../../../services/auth/auditoria_service.dart';
@@ -39,7 +41,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0A0F23), // Mismo fondo que pantalla explorar
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -77,14 +79,14 @@ class _PantallaLoginState extends State<PantallaLogin> {
           height: 120,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF43A047), Color(0xFF66BB6A)],
+              colors: [Color(0xFF00FFC8), Color(0xFFFF3296)], // Cian a magenta
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF43A047).withValues(alpha: 0.3),
+                color: const Color(0xFF00FFC8).withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -92,23 +94,23 @@ class _PantallaLoginState extends State<PantallaLogin> {
           ),
           child: const Icon(
             Icons.business_center_rounded,
-            color: Colors.white,
+            color: Color(0xFF0A0F23),
             size: 60,
           ),
         ),
         const SizedBox(height: 24),
         const Text(
-          'Fluix CRM',
+          'Fluix',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1B5E20),
+            color: Color(0xFF00FFC8), // Cian brillante
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Gestiona tu negocio de forma inteligente',
-          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+        const Text(
+          'Descubre y planea en tu ciudad',
+          style: TextStyle(fontSize: 16, color: Color(0xFFB0B3C1)), // Gris claro
           textAlign: TextAlign.center,
         ),
       ],
@@ -124,12 +126,25 @@ class _PantallaLoginState extends State<PantallaLogin> {
             controller: _correoController,
             keyboardType: TextInputType.emailAddress,
             enabled: !_ocupado,
+            style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               labelText: 'Correo electrónico',
-              prefixIcon: const Icon(Icons.email_outlined),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: const TextStyle(color: Color(0xFFB0B3C1)),
+              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF00FFC8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF00FFC8), width: 2),
+              ),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: const Color(0xFF1E2139),
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) return 'Por favor ingresa tu correo';
@@ -144,16 +159,29 @@ class _PantallaLoginState extends State<PantallaLogin> {
             controller: _passwordController,
             obscureText: _obscurePassword,
             enabled: !_ocupado,
+            style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               labelText: 'Contraseña',
-              prefixIcon: const Icon(Icons.lock_outline),
+              labelStyle: const TextStyle(color: Color(0xFFB0B3C1)),
+              prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF00FFC8)),
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off, color: Color(0xFFB0B3C1)),
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF00FFC8), width: 2),
+              ),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: const Color(0xFF1E2139),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Por favor ingresa tu contraseña';
@@ -167,19 +195,19 @@ class _PantallaLoginState extends State<PantallaLogin> {
             child: ElevatedButton(
               onPressed: _ocupado ? null : _iniciarSesion,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF43A047),
-                foregroundColor: Colors.white,
+                backgroundColor: const Color(0xFF00FFC8), // Cian brillante
+                foregroundColor: const Color(0xFF0A0F23), // Texto oscuro
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
+                elevation: 0,
               ),
               child: _cargando
                   ? const SizedBox(
                 height: 20, width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0A0F23)),
               )
                   : const Text(
                 'Iniciar Sesión',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -192,34 +220,21 @@ class _PantallaLoginState extends State<PantallaLogin> {
     return Column(
       children: [
         TextButton(
-          onPressed: _ocupado ? null : () => mostrarFormContactoInteres(context),
+          onPressed: _ocupado ? null : _restablecerPassword,
           child: const Text(
-            '¿Estás interesado en trabajar con nosotros?',
-            style: TextStyle(
-              color: Color(0xFF43A047),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: _ocupado ? null : _restablecerPassword, // FIX: método existe ahora
-          child: Text(
             '¿Olvidaste tu contraseña?',
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            style: TextStyle(color: Color(0xFF6B6E82), fontSize: 14), // Gris muted
           ),
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: Divider(color: Colors.grey[300])),
+            const Expanded(child: Divider(color: Color(0xFF2A2E45))),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('o prueba la demo', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              child: const Text('o prueba la demo', style: TextStyle(color: Color(0xFF6B6E82), fontSize: 12)),
             ),
-            Expanded(child: Divider(color: Colors.grey[300])),
+            const Expanded(child: Divider(color: Color(0xFF2A2E45))),
           ],
         ),
         const SizedBox(height: 16),
@@ -228,24 +243,65 @@ class _PantallaLoginState extends State<PantallaLogin> {
           height: 50,
           child: OutlinedButton.icon(
             onPressed: _ocupado ? null : _iniciarSesionDemo,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF00FFC8)),
+              foregroundColor: const Color(0xFF00FFC8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             icon: _cargandoDemo
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.play_circle_outline, color: Color(0xFF1565C0)),
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FFC8)))
+                : const Icon(Icons.play_circle_outline, color: Color(0xFF00FFC8)),
             label: Text(
               _cargandoDemo ? 'Cargando demo...' : 'Probar cuenta demo',
-              style: const TextStyle(color: Color(0xFF1565C0), fontWeight: FontWeight.w600),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF1565C0)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              style: const TextStyle(color: Color(0xFF00FFC8), fontWeight: FontWeight.w600),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
+        const Text(
           'Sin registro · Datos de ejemplo · Solo lectura',
-          style: TextStyle(color: Colors.grey[400], fontSize: 11),
+          style: TextStyle(color: Color(0xFF6B6E82), fontSize: 11), // Texto hint
           textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        // ── Botones pequeños de registro ────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: _ocupado
+                  ? null
+                  : () => mostrarFormRegistro(context),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFFF3296),
+                side: const BorderSide(color: Color(0xFFFF3296)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text(
+                'Regístrate',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+            Container(
+              width: 1, height: 16,
+              color: const Color(0xFF2A2E45),
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            TextButton(
+              onPressed: _ocupado ? null : () => mostrarFormContactoInteres(context),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF00FFC8),
+                side: const BorderSide(color: Color(0xFF00FFC8)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text(
+                'Trabaja con nosotros',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -397,10 +453,18 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
 
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-    );
+    // Redirigir según rol
+    if (sesion?.rol == RolApp.clienteFinal) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+      );
+    }
   }
 
   Future<void> _iniciarSesionDemo() async {

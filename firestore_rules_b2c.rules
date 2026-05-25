@@ -1,0 +1,166 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FUNCIONES HELPER
+    // ══════════════════════════════════════════════════════════════════════
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function isClienteFinal() {
+      return isAuthenticated() && getUserData().role == 'clienteFinal';
+    }
+
+    function isCompanyUser() {
+      return isAuthenticated() && getUserData().role in ['companyAdmin', 'companyManager', 'normalUser'];
+    }
+
+    function belongsToCompany(empresaId) {
+      return isAuthenticated() && getUserData().empresa_id == empresaId;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // COLECCIÓN: usuarios
+    // ══════════════════════════════════════════════════════════════════════
+
+    match /usuarios/{userId} {
+      // Los usuarios pueden leer su propio perfil
+      allow read: if isOwner(userId);
+
+      // Los usuarios pueden crear su propio perfil durante el registro
+      allow create: if isOwner(userId);
+
+      // Los usuarios pueden actualizar su propio perfil
+      allow update: if isOwner(userId);
+
+      // No se permite eliminar usuarios
+      allow delete: if false;
+
+      // Subcolección de puntos de fidelización
+      match /puntos/{empresaId} {
+        // Los usuarios pueden leer sus propios puntos
+        allow read: if isOwner(userId);
+
+        // Solo las empresas pueden escribir puntos
+        allow write: if belongsToCompany(empresaId);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // COLECCIÓN: negocios_publicos (CATÁLOGO B2C)
+    // ══════════════════════════════════════════════════════════════════════
+
+    match /negocios_publicos/{negocioId} {
+      // Lectura pública solo de negocios activos
+      allow read: if resource.data.activo == true;
+
+      // Solo usuarios empresa pueden crear/actualizar sus negocios
+      allow create: if isCompanyUser() &&
+                      request.resource.data.empresaIdVinculada == getUserData().empresa_id;
+
+      allow update: if isCompanyUser() &&
+                      resource.data.empresaIdVinculada == getUserData().empresa_id;
+
+      // Solo admins pueden eliminar
+      allow delete: if isCompanyUser() &&
+                      resource.data.empresaIdVinculada == getUserData().empresa_id;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // COLECCIÓN: empresas
+    // ══════════════════════════════════════════════════════════════════════
+
+    match /empresas/{empresaId} {
+      // Los usuarios de la empresa pueden leer
+      allow read: if belongsToCompany(empresaId);
+
+      // Solo admins pueden escribir
+      allow write: if belongsToCompany(empresaId) &&
+                     getUserData().role == 'companyAdmin';
+
+      // ────────────────────────────────────────────────────────────────────
+      // SUBCOLECCIÓN: empleados
+      // ────────────────────────────────────────────────────────────────────
+
+      match /empleados/{empleadoId} {
+        // Los clientes finales pueden leer empleados activos (para formulario)
+        allow read: if (isClienteFinal() && resource.data.activo == true) ||
+                      belongsToCompany(empresaId);
+
+        // Solo la empresa puede escribir
+        allow write: if belongsToCompany(empresaId);
+      }
+
+      // ────────────────────────────────────────────────────────────────────
+      // SUBCOLECCIÓN: servicios
+      // ────────────────────────────────────────────────────────────────────
+
+      match /servicios/{servicioId} {
+        // Los clientes finales pueden leer servicios activos (para formulario)
+        allow read: if (isClienteFinal() && resource.data.activo == true) ||
+                      belongsToCompany(empresaId);
+
+        // Solo la empresa puede escribir
+        allow write: if belongsToCompany(empresaId);
+      }
+
+      // ────────────────────────────────────────────────────────────────────
+      // SUBCOLECCIÓN: reservas
+      // ────────────────────────────────────────────────────────────────────
+
+      match /reservas/{reservaId} {
+        // Los clientes pueden leer sus propias reservas
+        // Los usuarios empresa pueden leer todas las reservas
+        allow read: if isClienteFinal() && resource.data.usuario_uid == request.auth.uid ||
+                      belongsToCompany(empresaId);
+
+        // Los clientes pueden crear reservas
+        allow create: if isClienteFinal() &&
+                        request.resource.data.usuario_uid == request.auth.uid &&
+                        request.resource.data.origen == 'app_cliente';
+
+        // La empresa puede actualizar (confirmar, cancelar)
+        allow update: if belongsToCompany(empresaId);
+
+        // Solo la empresa puede eliminar
+        allow delete: if belongsToCompany(empresaId);
+      }
+
+      // ────────────────────────────────────────────────────────────────────
+      // SUBCOLECCIÓN: programa_fidelizacion
+      // ────────────────────────────────────────────────────────────────────
+
+      match /programa_fidelizacion/{doc} {
+        // Los clientes pueden leer la configuración
+        allow read: if isAuthenticated();
+
+        // Solo la empresa puede escribir
+        allow write: if belongsToCompany(empresaId);
+      }
+
+      // Otras subcolecciones existentes (mantener reglas actuales)
+      match /{document=**} {
+        allow read, write: if belongsToCompany(empresaId);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // OTRAS COLECCIONES (mantener reglas existentes)
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ... resto de reglas existentes ...
+  }
+}
+

@@ -366,24 +366,64 @@ export const onNuevaSugerencia = onDocumentCreated(
     const sugerencia = event.data?.data();
     if (!sugerencia) return;
 
-    const texto = (sugerencia.texto as string ?? "").substring(0, 100);
+    const textoCompleto = (sugerencia.texto as string) ?? "";
+    const textoCorto = textoCompleto.length > 100 ? `${textoCompleto.substring(0, 100)}...` : textoCompleto;
 
-    // Obtener tokens de la empresa (propietario recibirá la notificación)
-    const tokens = await obtenerTokensEmpresa(empresaId);
-    if (tokens.length === 0) return;
+    // ── 1. Obtener nombre de la empresa que envía la sugerencia ──────────────
+    let nombreEmpresa = empresaId;
+    try {
+      const empSnap = await admin.firestore().collection("empresas").doc(empresaId).get();
+      nombreEmpresa = (empSnap.data()?.nombre as string) || empresaId;
+    } catch (_) { /* continuar */ }
 
-    await enviarPush(
-      tokens,
-      "💡 Nueva sugerencia de mejora",
-      texto.length < (sugerencia.texto as string ?? "").length ? `${texto}...` : texto,
-      {
-        tipo: "nueva_sugerencia",
-        empresa_id: empresaId,
-        sugerencia_id: event.params.sugerenciaId,
-      }
-    );
+    // ── 2. Buscar los admins de la plataforma para enviarles la notificación ──
+    const adminsSnap = await admin.firestore()
+      .collection("usuarios")
+      .where("es_plataforma_admin", "==", true)
+      .get();
 
-    console.log(`✅ Notificación sugerencia enviada (empresa: ${empresaId})`);
+    const tokensPropietario: string[] = [];
+    for (const adminDoc of adminsSnap.docs) {
+      const adminEmpresaId = adminDoc.data().empresa_id as string | undefined;
+      if (!adminEmpresaId) continue;
+      const tokens = await obtenerTokensEmpresa(adminEmpresaId);
+      tokensPropietario.push(...tokens);
+
+      // ── 3. Guardar notificación in-app en la bandeja del propietario ────────
+      try {
+        await admin.firestore()
+          .collection("notificaciones")
+          .doc(adminEmpresaId)
+          .collection("items")
+          .add({
+            titulo: `💡 Nueva sugerencia de ${nombreEmpresa}`,
+            cuerpo: textoCorto,
+            tipo: "tareaAsignada",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            modulo_destino: "tareas",
+            entidad_id: event.params.sugerenciaId,
+            remitente_nombre: nombreEmpresa,
+            empresa_origen_id: empresaId,
+          });
+      } catch (_) { /* la bandeja no es crítica */ }
+    }
+
+    // ── 4. Push FCM al propietario ───────────────────────────────────────────
+    if (tokensPropietario.length > 0) {
+      await enviarPush(
+        tokensPropietario,
+        `💡 Nueva sugerencia de ${nombreEmpresa}`,
+        textoCorto,
+        {
+          tipo: "nueva_sugerencia",
+          empresa_id: empresaId,
+          sugerencia_id: event.params.sugerenciaId,
+        }
+      );
+    }
+
+    console.log(`✅ Notificación sugerencia enviada al propietario (origen empresa: ${empresaId})`);
   }
 );
 

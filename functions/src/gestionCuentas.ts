@@ -556,6 +556,166 @@ export const listarCuentasClientes = onCall(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN 5: obtenerStatsPlataforma
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Callable. Devuelve estadísticas globales de toda la plataforma para el módulo
+ * propietario del dashboard. Ejecuta todos los conteos en el servidor (Admin SDK),
+ * evitando problemas de permisos de Firestore en el cliente.
+ */
+export const obtenerStatsPlataforma = onCall(
+  { region: REGION },
+  async (request) => {
+    const callerUid = request.auth?.uid;
+    if (!callerUid)
+      throw new HttpsError("unauthenticated", "Debes estar autenticado.");
+
+    await verificarPropietarioPlatforma(callerUid);
+
+    const ahora = new Date();
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const en7Dias   = new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // ── Carga paralela: lista de empresas + facturas del propietario ─────────
+    const [empresasSnap, facturasSnap] = await Promise.all([
+      db.collection("empresas").get(),
+      db.collection("empresas").doc("fluixtech").collection("facturas").get(),
+    ]);
+
+    const totalEmpresas = empresasSnap.docs.length;
+
+    let empresasNuevasMes    = 0;
+    let suscripcionesActivas  = 0;
+    let suscripcionesVencen7  = 0;
+    let suscripcionesVencidas = 0;
+    let mrrCalc               = 0;
+    let totalPedidos          = 0;
+    let totalFacturasAll      = 0;
+    let totalValoraciones     = 0;
+    let totalReservas         = 0;
+    let totalEmpleados        = 0;
+
+    // ── Procesar cada empresa en paralelo ────────────────────────────────────
+    await Promise.all(
+      empresasSnap.docs.map(async (doc) => {
+        const data = doc.data();
+
+        // Fecha de creación
+        const fechaCreacion = data.fecha_creacion;
+        if (fechaCreacion && typeof fechaCreacion.toDate === "function") {
+          if (fechaCreacion.toDate() >= inicioMes) empresasNuevasMes++;
+        }
+
+        try {
+          const [suscSnap, pedidosCount, facturasCount, valoracionesCount, reservasCount, empleadosCount] =
+            await Promise.all([
+              doc.ref.collection("suscripcion").doc("actual").get(),
+              doc.ref.collection("pedidos").count().get(),
+              doc.ref.collection("facturas").count().get(),
+              doc.ref.collection("valoraciones").count().get(),
+              doc.ref.collection("reservas").count().get(),
+              doc.ref.collection("empleados").count().get(),
+            ]);
+
+          if (suscSnap.exists) {
+            const sd = suscSnap.data()!;
+            const estado = ((sd.estado as string) ?? "").toUpperCase();
+            const fechaFinRaw = sd.fecha_fin;
+            let fechaFinDt: Date | null = null;
+            if (fechaFinRaw && typeof fechaFinRaw.toDate === "function") {
+              fechaFinDt = fechaFinRaw.toDate();
+            } else if (typeof fechaFinRaw === "string") {
+              fechaFinDt = new Date(fechaFinRaw);
+            }
+
+            if (estado === "ACTIVA") {
+              suscripcionesActivas++;
+              if (fechaFinDt && fechaFinDt <= en7Dias) suscripcionesVencen7++;
+              const planId = (sd.plan as string) ?? "";
+              const plan = PLANES_CONFIG[planId];
+              if (plan) {
+                mrrCalc += plan.precioAnual / 12;
+              } else {
+                const precioTotal = (sd.precio_total as number) ?? 0;
+                if (precioTotal > 0) mrrCalc += precioTotal / 12;
+              }
+            } else if (estado === "VENCIDA") {
+              suscripcionesVencidas++;
+            }
+          }
+
+          totalPedidos      += pedidosCount.data().count ?? 0;
+          totalFacturasAll  += facturasCount.data().count ?? 0;
+          totalValoraciones += valoracionesCount.data().count ?? 0;
+          totalReservas     += reservasCount.data().count ?? 0;
+          totalEmpleados    += empleadosCount.data().count ?? 0;
+        } catch (_) { /* continuar con las demás */ }
+      })
+    );
+
+    // ── Ingresos desde facturas del propietario ──────────────────────────────
+    let ingresosTotal      = 0;
+    let ingresosMes        = 0;
+    let facturasPendientes = 0;
+
+    for (const f of facturasSnap.docs) {
+      const fd    = f.data();
+      const total  = (fd.total as number) ?? 0;
+      const estado = ((fd.estado as string) ?? "").toLowerCase();
+      const fecha  = fd.fecha_emision;
+      const esPagada = estado === "pagada" || estado === "cobrada";
+      if (estado === "pendiente") facturasPendientes++;
+      if (esPagada) {
+        ingresosTotal += total;
+        if (fecha && typeof fecha.toDate === "function") {
+          if (fecha.toDate() >= inicioMes) ingresosMes += total;
+        }
+      }
+    }
+
+    // ── Últimas ventas (pedidos de fluixtech) ────────────────────────────────
+    let ultimasVentas: Record<string, unknown>[] = [];
+    try {
+      const pedidosSnap = await db
+        .collection("empresas").doc("fluixtech")
+        .collection("pedidos")
+        .orderBy("fecha_pedido", "desc")
+        .limit(5)
+        .get();
+      ultimasVentas = pedidosSnap.docs.map((d) => {
+        const pd = d.data();
+        return {
+          id: d.id,
+          clienteNombre: pd.cliente_nombre ?? "—",
+          total: pd.total ?? 0,
+          estado: pd.estado ?? "—",
+          fechaPedido: pd.fecha_pedido?.toDate?.()?.toISOString() ?? null,
+        };
+      });
+    } catch (_) { /* no bloquear */ }
+
+    return {
+      ok: true,
+      totalEmpresas,
+      empresasNuevasMes,
+      suscripcionesActivas,
+      suscripcionesVencen7,
+      suscripcionesVencidas,
+      mrr:               Math.round(mrrCalc * 100) / 100,
+      totalPedidos,
+      totalFacturas:     totalFacturasAll,
+      totalValoraciones,
+      totalReservas,
+      totalEmpleados,
+      ingresosTotal:     Math.round(ingresosTotal * 100) / 100,
+      ingresosMes:       Math.round(ingresosMes * 100) / 100,
+      facturasPendientes,
+      ultimasVentas,
+    };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FUNCIÓN 4: webhookPagoWeb
 // ─────────────────────────────────────────────────────────────────────────────
 /**

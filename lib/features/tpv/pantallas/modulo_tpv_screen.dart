@@ -3,6 +3,7 @@ import '../../../domain/modelos/configuracion_facturacion_tpv.dart';
 import '../../../services/tpv_facturacion_service.dart';
 import 'caja_rapida_screen.dart';
 import 'importar_ventas_csv_screen.dart';
+import 'importar_catalogo_csv_screen.dart';
 import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
@@ -53,7 +54,19 @@ class ModuloTpvScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // ── Importar CSV ─────────────────────────────────────────────────
+          // ── Importar catálogo CSV ────────────────────────────────────
+          _TarjetaAccionTpv(
+            icono: Icons.inventory_2,
+            titulo: 'Importar catálogo de productos',
+            descripcion: 'Sube un CSV con tus productos, precios, categorías y fotos automáticas',
+            color: const Color(0xFF7B1FA2),
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => ImportarCatalogoCsvScreen(empresaId: empresaId),
+            )),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Importar ventas CSV ──────────────────────────────────────
           _TarjetaAccionTpv(
             icono: Icons.upload_file,
             titulo: 'Importar ventas CSV',
@@ -92,7 +105,10 @@ class ModuloTpvScreen extends StatelessWidget {
               descripcion: 'Configura el modo de facturación y otros ajustes del TPV',
               color: Colors.grey[700]!,
               onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => ConfiguracionFacturacionTpvScreen(empresaId: empresaId),
+                builder: (_) => ConfiguracionFacturacionTpvScreen(
+                  empresaId: empresaId,
+                  esPropietario: esAdmin, // Admin tiene permisos similares
+                ),
               )),
             ),
         ],

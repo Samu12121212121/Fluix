@@ -20,6 +20,11 @@ class Reserva extends Equatable {
   final String? mesa;
   final String? origen; // 'web', 'manual', 'telefono'
 
+  // Campos formulario web
+  final String? ubicacion;       // 'salon' / 'terraza'
+  final String? alergenos;       // 'si' / 'no'
+  final String? alergenosDetalle;
+
   // Campos de cancelación
   final String? motivoCancelacion;
   final DateTime? fechaCancelacion;
@@ -38,6 +43,9 @@ class Reserva extends Equatable {
     this.estado = 'pendiente',
     this.mesa,
     this.origen = 'web',
+    this.ubicacion,
+    this.alergenos,
+    this.alergenosDetalle,
     this.motivoCancelacion,
     this.fechaCancelacion,
   });
@@ -51,11 +59,27 @@ class Reserva extends Equatable {
           ? _parseDate(datos['fecha_modificacion'])
           : null,
 
-      // Datos del cliente y reserva - conversión segura de comensales
-      comensales: _parseIntSafe(datos['comensales'] ?? datos['num_comensales']) ?? 1,
-      clienteNombre: datos['cliente_nombre'] ?? datos['nombre'] ?? '',
-      clienteEmail: datos['cliente_email'] ?? datos['email'] ?? datos['correo'] ?? '',
-      clienteTelefono: datos['cliente_telefono'] ?? datos['telefono'] ?? datos['phone'] ?? '',
+      // Datos del cliente — fallbacks para formulario web y app manual
+      comensales: _parseIntSafe(
+        datos['personas'] ??         // formulario web
+            datos['comensales'] ??       // app manual
+            datos['num_comensales'],     // legacy
+      ) ?? 1,
+
+      clienteNombre: datos['nombre_cliente'] ??   // formulario web
+          datos['cliente_nombre'] ??   // app manual
+          datos['nombre'] ?? '',
+
+      clienteEmail: datos['email_cliente'] ??     // formulario web
+          datos['cliente_email'] ??     // app manual
+          datos['email'] ??
+          datos['correo'] ?? '',
+
+      clienteTelefono: datos['telefono_cliente'] ?? // formulario web
+          datos['cliente_telefono'] ?? // app manual
+          datos['telefono'] ??
+          datos['phone'] ?? '',
+
       comentarios: datos['comentarios'] ?? datos['notas'],
       servicio: datos['servicio'] ?? 'almuerzo',
 
@@ -63,6 +87,11 @@ class Reserva extends Equatable {
       estado: datos['estado'] ?? 'pendiente',
       mesa: datos['mesa'],
       origen: datos['origen'] ?? 'web',
+
+      // Campos formulario web
+      ubicacion: datos['ubicacion'] as String?,
+      alergenos: datos['alergenos'] as String?,
+      alergenosDetalle: datos['alergenos_detalle'] as String?,
 
       // Campos de cancelación
       motivoCancelacion: datos['motivo_cancelacion'] as String?,
@@ -94,15 +123,15 @@ class Reserva extends Equatable {
   /// Método auxiliar para parsear enteros de forma segura
   static int? _parseIntSafe(dynamic value) {
     if (value == null) return null;
-    
+
     if (value is num) {
       return value.toInt();
     }
-    
+
     if (value is String) {
       return int.tryParse(value);
     }
-    
+
     return null;
   }
 
@@ -124,6 +153,11 @@ class Reserva extends Equatable {
       'estado': estado,
       'mesa': mesa,
       'origen': origen,
+
+      // Campos formulario web
+      if (ubicacion != null) 'ubicacion': ubicacion,
+      if (alergenos != null) 'alergenos': alergenos,
+      if (alergenosDetalle != null) 'alergenos_detalle': alergenosDetalle,
 
       // Campos de cancelación
       if (motivoCancelacion != null) 'motivo_cancelacion': motivoCancelacion,
@@ -147,6 +181,9 @@ class Reserva extends Equatable {
     String? estado,
     String? mesa,
     String? origen,
+    String? ubicacion,
+    String? alergenos,
+    String? alergenosDetalle,
     String? motivoCancelacion,
     DateTime? fechaCancelacion,
   }) {
@@ -164,6 +201,9 @@ class Reserva extends Equatable {
       estado: estado ?? this.estado,
       mesa: mesa ?? this.mesa,
       origen: origen ?? this.origen,
+      ubicacion: ubicacion ?? this.ubicacion,
+      alergenos: alergenos ?? this.alergenos,
+      alergenosDetalle: alergenosDetalle ?? this.alergenosDetalle,
       motivoCancelacion: motivoCancelacion ?? this.motivoCancelacion,
       fechaCancelacion: fechaCancelacion ?? this.fechaCancelacion,
     );
@@ -191,6 +231,16 @@ class Reserva extends Equatable {
     return '$comensales personas';
   }
 
+  /// Texto de ubicación legible
+  String get ubicacionTexto {
+    if (ubicacion == 'terraza') return 'Terraza';
+    if (ubicacion == 'salon') return 'Salón';
+    return ubicacion ?? '';
+  }
+
+  /// Tiene alérgenos
+  bool get tieneAlergenos => alergenos == 'si';
+
   @override
   List<Object?> get props => [
     id,
@@ -206,9 +256,10 @@ class Reserva extends Equatable {
     estado,
     mesa,
     origen,
+    ubicacion,
+    alergenos,
+    alergenosDetalle,
     motivoCancelacion,
     fechaCancelacion,
-    servicioId,
-    empleadoAsignado,
   ];
 }

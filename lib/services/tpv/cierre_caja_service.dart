@@ -53,9 +53,18 @@ class CierreCajaService {
           totalTarjeta += total;
           break;
         case 'mixto':
-          // En mixto repartir equitativamente
-          totalEfectivo += total / 2;
-          totalTarjeta += total / 2;
+          final efectivoMixto =
+              (data['importe_efectivo'] as num?)?.toDouble() ?? 0.0;
+          final tarjetaMixto =
+              (data['importe_tarjeta'] as num?)?.toDouble() ?? 0.0;
+          // Si por algún motivo los campos no existen, repartir por total
+          if (efectivoMixto == 0 && tarjetaMixto == 0) {
+            totalEfectivo += total / 2;
+            totalTarjeta += total / 2;
+          } else {
+            totalEfectivo += efectivoMixto;
+            totalTarjeta += tarjetaMixto;
+          }
           break;
         default:
           totalTransferencia += total;

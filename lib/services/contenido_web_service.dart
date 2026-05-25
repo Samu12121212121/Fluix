@@ -677,4 +677,31 @@ class ContenidoWebService {
         {...config.toMap(), 'actualizado': FieldValue.serverTimestamp()},
         SetOptions(merge: true));
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONFIGURACIÓN FORMULARIO DE RESERVAS WEB
+  // Guarda en: empresas/{id}/configuracion/reservas_web
+  // El formulario HTML la lee en tiempo real para bloquear horas/fechas
+  // ══════════════════════════════���════════════════════════════════════════════
+
+  DocumentReference<Map<String, dynamic>> _configReservasWebDoc(String empresaId) =>
+      _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('configuracion')
+          .doc('reservas_web');
+
+  Stream<ConfigReservasWeb> obtenerConfigReservasWeb(String empresaId) {
+    return _configReservasWebDoc(empresaId).snapshots().map((doc) =>
+        doc.exists
+            ? ConfigReservasWeb.fromMap(doc.data()!)
+            : const ConfigReservasWeb());
+  }
+
+  Future<void> guardarConfigReservasWeb(
+      String empresaId, ConfigReservasWeb config) async {
+    await _configReservasWebDoc(empresaId).set(
+        {...config.toMap(), 'actualizado': FieldValue.serverTimestamp()},
+        SetOptions(merge: true));
+  }
 }

@@ -1,6 +1,6 @@
-# 📱 App Store Review - Mayo 2026
+#  App Store Review - Mayo 2026
 
-## 📋 Información de la Revisión
+##  Información de la Revisión
 
 | Campo | Valor |
 |-------|-------|
@@ -46,7 +46,7 @@
 
 ---
 
-## 📝 RESPUESTA PREPARADA PARA APPLE
+##  RESPUESTA PREPARADA PARA APPLE
 
 ### Modelo de Negocio - Fluix CRM
 
@@ -142,7 +142,7 @@ Cada contrato es **por empresa**, con facturación directa B2B.
 
 ---
 
-## 🐛 CORRECCIÓN DEL BUG REPORTADO
+##  CORRECCIÓN DEL BUG REPORTADO
 
 ### Problema: Error al registrar nueva cuenta
 
@@ -162,7 +162,7 @@ Proporcionar a Apple credenciales de prueba de una cuenta ya creada para que pue
 
 ---
 
-## 🔐 Credenciales de Prueba para Apple
+##  Credenciales de Prueba para Apple
 
 **Cuenta de Prueba Propietario:**
 ```
@@ -191,7 +191,7 @@ Rol: Staff
 
 ---
 
-## 📧 Mensaje Sugerido para App Store Connect
+##  Mensaje Sugerido para App Store Connect
 
 ```
 Dear App Review Team,
@@ -271,7 +271,7 @@ Fluix Tech Team
 
 ---
 
-## 📚 Referencias
+##  Referencias
 
 - **Sitio Web:** https://fluixtech.com
 - **Documentación:** [Plan de precios público]
@@ -281,4 +281,3 @@ Fluix Tech Team
 ---
 
 **Última actualización:** 5 de Mayo de 2026
-

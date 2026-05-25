@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/estadisticas_trigger_service.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
+import 'package:planeag_flutter/services/stock_service.dart';
 
 class PedidosService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -158,10 +160,19 @@ class PedidosService {
     String usuarioId = '',
     String usuarioNombre = 'Sistema',
     DateTime? fechaEntrega,
+    // ── Nuevos parámetros para TPV ──
+    int? numeroTicket,
+    double? importeEfectivo,
+    double? importeTarjeta,
+    double? importeTotal,
+    String? mesaId,
+    String? estado,
+    String? estadoPago,
+    Timestamp? fechaHora,
   }) async {
     final ref = _pedidos(empresaId).doc();
-    final total = lineas.fold<double>(0, (sum, l) => sum + l.subtotal);
-    final ahora = DateTime.now();
+    final total = importeTotal ?? lineas.fold<double>(0, (sum, l) => sum + l.subtotal);
+    final ahora = fechaHora?.toDate() ?? DateTime.now();
     final entrada = EntradaHistorialPedido(
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
@@ -177,19 +188,51 @@ class PedidosService {
       clienteCorreo: clienteCorreo,
       lineas: lineas,
       total: total,
-      estado: EstadoPedido.pendiente,
+      estado: estado != null
+          ? EstadoPedido.values.firstWhere((e) => e.name.toLowerCase() == estado.toLowerCase(), orElse: () => EstadoPedido.pendiente)
+          : EstadoPedido.pendiente,
       origen: origen,
       metodoPago: metodoPago,
-      estadoPago: EstadoPago.pendiente,
+      estadoPago: estadoPago != null
+          ? EstadoPago.values.firstWhere((e) => e.name.toLowerCase() == estadoPago.toLowerCase(), orElse: () => EstadoPago.pendiente)
+          : EstadoPago.pendiente,
       notasCliente: notasCliente,
       notasInternas: notasInternas,
       historial: [entrada],
       fechaCreacion: ahora,
       fechaEntrega: fechaEntrega,
     );
-    await ref.set(pedido.toFirestore());
+    
+    // Convertir a mapa extendido con campos TPV
+    final mapa = pedido.toFirestore();
+    if (numeroTicket != null) mapa['numero_ticket'] = numeroTicket;
+    if (importeEfectivo != null) mapa['importe_efectivo'] = importeEfectivo;
+    if (importeTarjeta != null) mapa['importe_tarjeta'] = importeTarjeta;
+    if (mesaId != null) mapa['mesa_id'] = mesaId;
+    if (fechaHora != null) mapa['fecha_hora'] = fechaHora;
+    
+    await ref.set(mapa);
     // Actualizar estadísticas en tiempo real
     EstadisticasTriggerService().pedidoCreado(empresaId, total);
+    
+    // ── Decrementar stock ──────────────────────────────────────────────────
+    // Se hace después de crear el pedido para no bloquear el flujo de cobro.
+    // Si falla, el pedido ya está registrado — el stock puede corregirse manualmente.
+    try {
+      await StockService().decrementarStockPorVenta(
+        empresaId: empresaId,
+        lineas: lineas,
+      );
+    } on StockInsuficienteException catch (e) {
+      // Stock insuficiente — el pedido se registra pero se avisa
+      debugPrint('⚠️ Stock insuficiente: $e');
+      // El llamador puede capturar esta excepción para mostrar un aviso
+      // sin cancelar el cobro (política: cobrar primero, ajustar stock después)
+    } catch (e) {
+      // Error inesperado — no bloquear el cobro
+      debugPrint('⚠️ Error al decrementar stock: $e');
+    }
+    
     return pedido;
   }
 

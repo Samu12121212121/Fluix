@@ -1,6 +1,6 @@
-# 🔧 Cambios Realizados el 30 de Abril de 2026  
+#  Cambios Realizados el 30 de Abril de 2026  
 
-## 📋 Resumen de Problemas Resueltos
+##  Resumen de Problemas Resueltos
 
 Se resolvieron 5 problemas importantes reportados por el usuario:
 
@@ -61,7 +61,7 @@ Se resolvieron 5 problemas importantes reportados por el usuario:
 
 ---
 
-## 🔧 Implementación Técnica
+##  Implementación Técnica
 
 ### Archivos Modificados:
 
@@ -80,7 +80,7 @@ Se resolvieron 5 problemas importantes reportados por el usuario:
 
 ---
 
-## 📝 Notas
+##  Notas
 
 - Todos los cambios son retrocompatibles
 - Las reservas existentes no se ven afectadas
@@ -97,9 +97,8 @@ Se resolvieron 5 problemas importantes reportados por el usuario:
 
 --- 
 
-## 🚀 Próximos Pasos
+##  Próximos Pasos
 
 - Implementar formulario web con selector de empleados
 - Crear Cloud Function para estadísticas en tiempo real
 - Documentar para cliente final
-

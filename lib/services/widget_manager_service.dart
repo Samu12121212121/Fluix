@@ -329,6 +329,14 @@ class WidgetManagerService {
         if (data == null) return [];
 
         final saved = _obtenerModulosGuardados(data);
+       // ── Migración automática: módulos nuevos no guardados aún ──────────
+        final savedIds = saved.map((s) => s['id'] as String).toSet();
+        final nuevos = todosModulos
+            .where((m) => !savedIds.contains(m.id) && _esActivoPorDefecto(m))
+            .toList();
+        if (nuevos.isNotEmpty) {
+          _migrarNuevosModulos(empresaId, saved, nuevos);
+        }
 
         return todosModulos.map((base) {
           final guardado = saved.firstWhere(
@@ -345,6 +353,32 @@ class WidgetManagerService {
         return <ModuloConfig>[];
       }
     });
+  }
+
+  /// Añade al doc de Firestore los módulos nuevos que no estaban guardados.
+  Future<void> _migrarNuevosModulos(
+    String empresaId,
+    List<Map<String, dynamic>> saved,
+    List<ModuloConfig> nuevos,
+  ) async {
+    try {
+      final actualizados = [
+        ...saved,
+        ...nuevos.map((m) => {'id': m.id, 'activo': true}),
+      ];
+      await _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('configuracion')
+          .doc('modulos')
+          .set({
+        'modulos': actualizados,
+        'ultima_actualizacion': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('✅ Migración módulos nuevos: ${nuevos.map((m) => m.id).join(', ')}');
+    } catch (e) {
+      debugPrint('⚠️ Error migrando módulos nuevos: $e');
+    }
   }
 
   Stream<List<ModuloConfig>> obtenerTodosModulos(String empresaId) {
@@ -421,7 +455,7 @@ class WidgetManagerService {
           .set({
         'modulos': modulos,
         'ultima_actualizacion': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
     } catch (e) {
       debugPrint('❌ Error toggle modulo: $e');
       rethrow;

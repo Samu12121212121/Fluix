@@ -10,6 +10,10 @@ set(BINARY_NAME "planeag_flutter")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Workaround para Firebase SDK: suprimir warnings de versiones antiguas
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)

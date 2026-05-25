@@ -42,6 +42,7 @@ class ConfiguracionFacturacionTpv {
   final String serieFactura;
   final bool aplicarVeriFactu;
   final int diasVencimiento;
+  final bool facturacionAutomatica;
 
   const ConfiguracionFacturacionTpv({
     this.modo = ModoFacturacionTpv.resumenDiario,
@@ -54,6 +55,7 @@ class ConfiguracionFacturacionTpv {
     this.serieFactura = 'TPV-',
     this.aplicarVeriFactu = true,
     this.diasVencimiento = 0,
+    this.facturacionAutomatica = false,
   });
 
   factory ConfiguracionFacturacionTpv.fromMap(Map<String, dynamic> d) {
@@ -76,6 +78,7 @@ class ConfiguracionFacturacionTpv {
       serieFactura: d['serie_factura'] as String? ?? 'TPV-',
       aplicarVeriFactu: d['aplicar_verifactu'] as bool? ?? true,
       diasVencimiento: (d['dias_vencimiento'] as num?)?.toInt() ?? 0,
+      facturacionAutomatica: d['facturacion_automatica'] as bool? ?? false,
     );
   }
 
@@ -90,6 +93,7 @@ class ConfiguracionFacturacionTpv {
     'serie_factura': serieFactura,
     'aplicar_verifactu': aplicarVeriFactu,
     'dias_vencimiento': diasVencimiento,
+    'facturacion_automatica': facturacionAutomatica,
   };
 
   ConfiguracionFacturacionTpv copyWith({
@@ -103,6 +107,7 @@ class ConfiguracionFacturacionTpv {
     String? serieFactura,
     bool? aplicarVeriFactu,
     int? diasVencimiento,
+    bool? facturacionAutomatica,
   }) => ConfiguracionFacturacionTpv(
     modo: modo ?? this.modo,
     horaGeneracion: horaGeneracion ?? this.horaGeneracion,
@@ -114,7 +119,6 @@ class ConfiguracionFacturacionTpv {
     serieFactura: serieFactura ?? this.serieFactura,
     aplicarVeriFactu: aplicarVeriFactu ?? this.aplicarVeriFactu,
     diasVencimiento: diasVencimiento ?? this.diasVencimiento,
+    facturacionAutomatica: facturacionAutomatica ?? this.facturacionAutomatica,
   );
 }
-
-

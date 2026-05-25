@@ -225,10 +225,29 @@ class PlanesConfig {
     etiquetaPrecioVariable: null,
   );
 
+  /// Módulo Comandas — TPV para bares y restaurantes.
+  /// Al incluir 'comandas' en addons_activos en Firestore, se desbloquea
+  /// el módulo TPV (comandas de mesa, pedidos en sala, cobros, cierre de caja).
+  static const addonComandas = AddonConfig(
+    id: 'comandas',
+    nombre: 'Módulo Comandas (TPV Bar)',
+    precioAnual: null,
+    modulosAdicionales: ['tpv'],
+    descripcion:
+        'Terminal de ventas para gestionar pedidos, cobros y caja. '
+        'Organiza tus productos o servicios por categorías, '
+        'registra ventas y genera tickets al instante.',
+    color: Color(0xFFFF6F00),
+    icono: Icons.receipt_long,
+    precioVariable: true,
+    etiquetaPrecioVariable: 'Precio por definir',
+  );
+
   static const List<AddonConfig> todosAddons = [
     addonWhatsapp,
     addonTareas,
     addonNominas,
+    addonComandas,
   ];
 
   // ═════════════════════════════════════════════════════════════════════════════
@@ -356,6 +375,22 @@ class PlanesConfig {
     final addon = addonQueIncluyeModulo(moduloId);
     if (addon != null) return addon.nombre;
     return null; // Es del plan base
+  }
+
+  /// Verifica si la empresa tiene facturación automática habilitada.
+  /// Retorna true si tiene el addon 'tpv_profesional' O el pack 'gestion'
+  /// que incluye el módulo de facturación.
+  static bool tieneFacturacionAutomatica({
+    List<String> packsActivos = const [],
+    List<String> addonsActivos = const [],
+  }) {
+    // Opción 1: Tiene TPV Profesional (incluye facturación automática)
+    if (addonsActivos.contains('tpv_profesional')) return true;
+    
+    // Opción 2: Tiene Pack Gestión (incluye módulo de facturación)
+    if (packsActivos.contains('gestion')) return true;
+    
+    return false;
   }
 
   // ── PRIVADOS ───────────────────────────────────────────────────────────────

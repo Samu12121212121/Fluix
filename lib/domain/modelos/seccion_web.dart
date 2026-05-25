@@ -667,3 +667,125 @@ class ConfigWebAvanzada {
     bannerUrlDestino:  bannerUrlDestino ?? this.bannerUrlDestino,
   );
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN DEL FORMULARIO WEB DE RESERVAS
+// Firestore: empresas/{id}/configuracion/reservas_web
+// El formulario HTML lee este documento en tiempo real para bloquear
+// horas, fechas y limitar el aforo por franja.
+// ═════════════════════════════════════════════════════════════════════════════
+
+class ConfigReservasWeb {
+  /// Fechas completamente bloqueadas en formato "YYYY-MM-DD"
+  final List<String> fechasBloqueadas;
+
+  /// Motivos de cierre por fecha: "YYYY-MM-DD" → "Vacaciones de verano"
+  /// Este mensaje se muestra en el formulario web cuando la fecha está bloqueada
+  final Map<String, String> motivosCierre;
+
+  /// Días de la semana recurrentes cerrados (1=Lunes, 2=Martes, etc.)
+  /// Ej: [2, 6] = todos los martes y sábados cerrados
+  final List<int> diasRecurrentesCerrados;
+
+  /// Intervalos de fechas cerradas con motivo
+  /// Ej: [{inicio: "2026-08-01", fin: "2026-08-31", motivo: "Vacaciones de verano"}]
+  final List<Map<String, String>> intervalosCerrados;
+
+  /// Duración de cada slot en minutos (usado para generar horarios disponibles)
+  final int duracionSlotMinutos;
+
+  /// Horario de apertura/cierre por día de la semana
+  /// Ej: {"1": {"apertura": "09:00", "cierre": "20:00"}}
+  final Map<String, Map<String, String>> horarioPorDia;
+
+  /// Horarios de reserva específicos por día (si están definidos)
+  /// Ej: {"1": ["09:00", "09:30", "10:00", ...]}
+  final Map<String, List<String>> horariosReservaPorDia;
+
+  /// Horas desactivadas globalmente (ya no se usa mucho, usar fechasBloqueadas)
+  final List<String> horasBloqueadas;
+
+  /// Máximo de reservas por franja horaria (0 = sin límite)
+  final int aforoMaximoPorFranja;
+
+  /// Mensaje personalizado cuando la franja está llena
+  final String? mensajeSlotLleno;
+
+  /// El formulario acepta reservas (false = formulario desactivado)
+  final bool activo;
+
+  const ConfigReservasWeb({
+    this.fechasBloqueadas = const [],
+    this.motivosCierre = const {},
+    this.diasRecurrentesCerrados = const [],
+    this.intervalosCerrados = const [],
+    this.duracionSlotMinutos = 30,
+    this.horarioPorDia = const {},
+    this.horariosReservaPorDia = const {},
+    this.horasBloqueadas = const [],
+    this.aforoMaximoPorFranja = 2,
+    this.mensajeSlotLleno,
+    this.activo = true,
+  });
+
+  factory ConfigReservasWeb.fromMap(Map<String, dynamic> m) => ConfigReservasWeb(
+    fechasBloqueadas: (m['fechas_bloqueadas'] as List<dynamic>? ?? [])
+        .map((e) => e.toString()).toList(),
+    motivosCierre: (m['motivos_cierre'] as Map<String, dynamic>? ?? {})
+        .map((k, v) => MapEntry(k.toString(), v.toString())),
+    diasRecurrentesCerrados: (m['dias_recurrentes_cerrados'] as List<dynamic>? ?? [])
+        .map((e) => (e as num).toInt()).toList(),
+    intervalosCerrados: (m['intervalos_cerrados'] as List<dynamic>? ?? [])
+        .map((e) => Map<String, String>.from(e as Map)).toList(),
+    duracionSlotMinutos: (m['duracion_slot_minutos'] as num?)?.toInt() ?? 30,
+    horarioPorDia: (m['horario_por_dia'] as Map<String, dynamic>? ?? {})
+        .map((k, v) => MapEntry(k, Map<String, String>.from(v as Map))),
+    horariosReservaPorDia: (m['horarios_reserva_por_dia'] as Map<String, dynamic>? ?? {})
+        .map((k, v) => MapEntry(k, List<String>.from(v as List))),
+    horasBloqueadas: (m['horas_bloqueadas'] as List<dynamic>? ?? [])
+        .map((e) => e.toString()).toList(),
+    aforoMaximoPorFranja: (m['aforo_maximo_por_franja'] as num?)?.toInt() ?? 2,
+    mensajeSlotLleno: m['mensaje_slot_lleno'] as String?,
+    activo: m['activo'] as bool? ?? true,
+  );
+
+  Map<String, dynamic> toMap() => {
+    'fechas_bloqueadas':        fechasBloqueadas,
+    'motivos_cierre':           motivosCierre,
+    'dias_recurrentes_cerrados': diasRecurrentesCerrados,
+    'intervalos_cerrados':      intervalosCerrados,
+    'duracion_slot_minutos':    duracionSlotMinutos,
+    'horario_por_dia':          horarioPorDia,
+    'horarios_reserva_por_dia': horariosReservaPorDia,
+    'horas_bloqueadas':         horasBloqueadas,
+    'aforo_maximo_por_franja':  aforoMaximoPorFranja,
+    if (mensajeSlotLleno != null) 'mensaje_slot_lleno': mensajeSlotLleno,
+    'activo':                   activo,
+  };
+
+  ConfigReservasWeb copyWith({
+    List<String>? fechasBloqueadas,
+    Map<String, String>? motivosCierre,
+    List<int>? diasRecurrentesCerrados,
+    List<Map<String, String>>? intervalosCerrados,
+    int? duracionSlotMinutos,
+    Map<String, Map<String, String>>? horarioPorDia,
+    Map<String, List<String>>? horariosReservaPorDia,
+    List<String>? horasBloqueadas,
+    int? aforoMaximoPorFranja,
+    String? mensajeSlotLleno,
+    bool? activo,
+  }) => ConfigReservasWeb(
+    fechasBloqueadas:        fechasBloqueadas ?? this.fechasBloqueadas,
+    motivosCierre:           motivosCierre ?? this.motivosCierre,
+    diasRecurrentesCerrados: diasRecurrentesCerrados ?? this.diasRecurrentesCerrados,
+    intervalosCerrados:      intervalosCerrados ?? this.intervalosCerrados,
+    duracionSlotMinutos:     duracionSlotMinutos ?? this.duracionSlotMinutos,
+    horarioPorDia:           horarioPorDia ?? this.horarioPorDia,
+    horariosReservaPorDia:   horariosReservaPorDia ?? this.horariosReservaPorDia,
+    horasBloqueadas:         horasBloqueadas ?? this.horasBloqueadas,
+    aforoMaximoPorFranja:    aforoMaximoPorFranja ?? this.aforoMaximoPorFranja,
+    mensajeSlotLleno:        mensajeSlotLleno ?? this.mensajeSlotLleno,
+    activo:                  activo ?? this.activo,
+  );
+}

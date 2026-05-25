@@ -1,6 +1,6 @@
 # Script para desplegar Cloud Function de emails de contacto
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "DESPLEGAR CLOUD FUNCTION" -ForegroundColor Cyan
+Write-Host "DESPLEGAR CLOUD FUNCTION" -ForegroundColor Cyan  
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -31,4 +31,3 @@ Write-Host "  2. Email de notificación → sacoor80@gmail.com" -ForegroundColor
 Write-Host "  3. Tarea de alta prioridad → módulo propietario" -ForegroundColor White
 Write-Host ""
 pause
-

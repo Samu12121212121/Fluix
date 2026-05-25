@@ -18,6 +18,7 @@ import {
 import { scheduledAlertaCertificado } from "./alertaCertificado";
 import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } from "./utils/authGuard";
 import { verificarLoginIntento } from "./auth/fuerzaBruta";
+import { expirarFlashSlots, onNuevoFlashSlot } from "./flashSlots";
 import fetch from "node-fetch";
 export { processInvoice } from "./fiscal/processInvoice";
 export { calculateFiscalModel } from "./fiscal/models/calculateModel";
@@ -33,9 +34,39 @@ export {
 // export { generarThumbnailCatalogo } from "./catalogoFunciones";
 export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
+export { expirarFlashSlots, onNuevoFlashSlot };
 export { verificarLoginIntento };
 export { onInvitacionCreada } from "./invitaciones";
 export { sendResetPasswordEmail } from "./resetPassword";
+export {
+  onNuevaReservaEmail,
+  onNuevaNotificacionReserva,
+  confirmarReserva,
+  rechazarReserva,
+} from "./notificacionesReservas";
+export {
+  onReservaCompletada,
+  onValoracionWrite,
+  onValoracionBaja,
+  eliminarValoracion,
+} from "./valoraciones";
+export {
+  onCheckinFidelizacion,
+  onCanjeRecompensa,
+  marcarQRsExpirados,
+  verificarCaducidadSellos,
+} from "./fidelizacion";
+export {
+  onReservaConfirmadaCliente,
+  onReservaCanceladaCliente,
+  recordatorioReservaCliente,
+  onFlashSlotClienteNotif,
+  onPromocionClienteNotif,
+  onReservaCompletadaValoracion,
+  procesarSolicitudesValoracion,
+  onSelloFidelizacionInApp,
+  onBienvenidaClienteNuevo,
+} from "./notificaciones_cliente";
 
 
 if (!admin.apps.length) admin.initializeApp();
@@ -435,38 +466,27 @@ async function procesarNuevaReservaOCita(
 }
 
 /**
- * 1. NUEVA RESERVA
+ * 1. NUEVA RESERVA — Unificada (cubre tanto citas TPV como reservas B2C)
  */
 export const onNuevaReserva = onDocumentCreated(
   { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
   async (event) => {
     const reserva = event.data?.data();
     if (!reserva) return;
+
+    // Determinar el tipo de notificación según el origen
+    const coleccion = reserva.origen === 'tpv_peluqueria' ? 'citas' : 'reservas';
+
     await procesarNuevaReservaOCita(
       event.params.empresaId,
       event.params.reservaId,
       reserva,
-      "reservas"
+      coleccion
     );
   }
 );
 
-/**
- * 1b. NUEVA CITA (mismo flujo, colección distinta)
- */
-export const onNuevaCita = onDocumentCreated(
-  { document: "empresas/{empresaId}/citas/{citaId}", region: REGION },
-  async (event) => {
-    const cita = event.data?.data();
-    if (!cita) return;
-    await procesarNuevaReservaOCita(
-      event.params.empresaId,
-      event.params.citaId,
-      cita,
-      "citas"
-    );
-  }
-);
+// ⛔ onNuevaCita ELIMINADA — ahora todo se maneja en reservas/ unificadas
 
 // ── HELPER: formatea fecha de reserva para emails ─────────────────────────────
 function _formatearFechaReserva(reserva: FirebaseFirestore.DocumentData): string {

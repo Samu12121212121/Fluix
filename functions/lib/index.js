@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaCita = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.verificarLoginIntento = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
-exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = void 0;
+exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = void 0;
+exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -58,6 +58,9 @@ Object.defineProperty(exports, "scheduledAlertaCertificado", { enumerable: true,
 const authGuard_1 = require("./utils/authGuard");
 const fuerzaBruta_1 = require("./auth/fuerzaBruta");
 Object.defineProperty(exports, "verificarLoginIntento", { enumerable: true, get: function () { return fuerzaBruta_1.verificarLoginIntento; } });
+const flashSlots_1 = require("./flashSlots");
+Object.defineProperty(exports, "expirarFlashSlots", { enumerable: true, get: function () { return flashSlots_1.expirarFlashSlots; } });
+Object.defineProperty(exports, "onNuevoFlashSlot", { enumerable: true, get: function () { return flashSlots_1.onNuevoFlashSlot; } });
 const node_fetch_1 = __importDefault(require("node-fetch"));
 var processInvoice_1 = require("./fiscal/processInvoice");
 Object.defineProperty(exports, "processInvoice", { enumerable: true, get: function () { return processInvoice_1.processInvoice; } });
@@ -77,6 +80,31 @@ var invitaciones_1 = require("./invitaciones");
 Object.defineProperty(exports, "onInvitacionCreada", { enumerable: true, get: function () { return invitaciones_1.onInvitacionCreada; } });
 var resetPassword_1 = require("./resetPassword");
 Object.defineProperty(exports, "sendResetPasswordEmail", { enumerable: true, get: function () { return resetPassword_1.sendResetPasswordEmail; } });
+var notificacionesReservas_1 = require("./notificacionesReservas");
+Object.defineProperty(exports, "onNuevaReservaEmail", { enumerable: true, get: function () { return notificacionesReservas_1.onNuevaReservaEmail; } });
+Object.defineProperty(exports, "onNuevaNotificacionReserva", { enumerable: true, get: function () { return notificacionesReservas_1.onNuevaNotificacionReserva; } });
+Object.defineProperty(exports, "confirmarReserva", { enumerable: true, get: function () { return notificacionesReservas_1.confirmarReserva; } });
+Object.defineProperty(exports, "rechazarReserva", { enumerable: true, get: function () { return notificacionesReservas_1.rechazarReserva; } });
+var valoraciones_1 = require("./valoraciones");
+Object.defineProperty(exports, "onReservaCompletada", { enumerable: true, get: function () { return valoraciones_1.onReservaCompletada; } });
+Object.defineProperty(exports, "onValoracionWrite", { enumerable: true, get: function () { return valoraciones_1.onValoracionWrite; } });
+Object.defineProperty(exports, "onValoracionBaja", { enumerable: true, get: function () { return valoraciones_1.onValoracionBaja; } });
+Object.defineProperty(exports, "eliminarValoracion", { enumerable: true, get: function () { return valoraciones_1.eliminarValoracion; } });
+var fidelizacion_1 = require("./fidelizacion");
+Object.defineProperty(exports, "onCheckinFidelizacion", { enumerable: true, get: function () { return fidelizacion_1.onCheckinFidelizacion; } });
+Object.defineProperty(exports, "onCanjeRecompensa", { enumerable: true, get: function () { return fidelizacion_1.onCanjeRecompensa; } });
+Object.defineProperty(exports, "marcarQRsExpirados", { enumerable: true, get: function () { return fidelizacion_1.marcarQRsExpirados; } });
+Object.defineProperty(exports, "verificarCaducidadSellos", { enumerable: true, get: function () { return fidelizacion_1.verificarCaducidadSellos; } });
+var notificaciones_cliente_1 = require("./notificaciones_cliente");
+Object.defineProperty(exports, "onReservaConfirmadaCliente", { enumerable: true, get: function () { return notificaciones_cliente_1.onReservaConfirmadaCliente; } });
+Object.defineProperty(exports, "onReservaCanceladaCliente", { enumerable: true, get: function () { return notificaciones_cliente_1.onReservaCanceladaCliente; } });
+Object.defineProperty(exports, "recordatorioReservaCliente", { enumerable: true, get: function () { return notificaciones_cliente_1.recordatorioReservaCliente; } });
+Object.defineProperty(exports, "onFlashSlotClienteNotif", { enumerable: true, get: function () { return notificaciones_cliente_1.onFlashSlotClienteNotif; } });
+Object.defineProperty(exports, "onPromocionClienteNotif", { enumerable: true, get: function () { return notificaciones_cliente_1.onPromocionClienteNotif; } });
+Object.defineProperty(exports, "onReservaCompletadaValoracion", { enumerable: true, get: function () { return notificaciones_cliente_1.onReservaCompletadaValoracion; } });
+Object.defineProperty(exports, "procesarSolicitudesValoracion", { enumerable: true, get: function () { return notificaciones_cliente_1.procesarSolicitudesValoracion; } });
+Object.defineProperty(exports, "onSelloFidelizacionInApp", { enumerable: true, get: function () { return notificaciones_cliente_1.onSelloFidelizacionInApp; } });
+Object.defineProperty(exports, "onBienvenidaClienteNuevo", { enumerable: true, get: function () { return notificaciones_cliente_1.onBienvenidaClienteNuevo; } });
 if (!admin.apps.length)
     admin.initializeApp();
 const db = admin.firestore();
@@ -412,25 +440,18 @@ async function procesarNuevaReservaOCita(empresaId, entidadId, reserva, coleccio
     console.log(`✅ ${label} guardada en bandeja y push enviado — empresa ${empresaId}`);
 }
 /**
- * 1. NUEVA RESERVA
+ * 1. NUEVA RESERVA — Unificada (cubre tanto citas TPV como reservas B2C)
  */
 exports.onNuevaReserva = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION }, async (event) => {
     var _a;
     const reserva = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!reserva)
         return;
-    await procesarNuevaReservaOCita(event.params.empresaId, event.params.reservaId, reserva, "reservas");
+    // Determinar el tipo de notificación según el origen
+    const coleccion = reserva.origen === 'tpv_peluqueria' ? 'citas' : 'reservas';
+    await procesarNuevaReservaOCita(event.params.empresaId, event.params.reservaId, reserva, coleccion);
 });
-/**
- * 1b. NUEVA CITA (mismo flujo, colección distinta)
- */
-exports.onNuevaCita = (0, firestore_1.onDocumentCreated)({ document: "empresas/{empresaId}/citas/{citaId}", region: REGION }, async (event) => {
-    var _a;
-    const cita = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
-    if (!cita)
-        return;
-    await procesarNuevaReservaOCita(event.params.empresaId, event.params.citaId, cita, "citas");
-});
+// ⛔ onNuevaCita ELIMINADA — ahora todo se maneja en reservas/ unificadas
 // ── HELPER: formatea fecha de reserva para emails ─────────────────────────────
 function _formatearFechaReserva(reserva) {
     const raw = reserva.fecha_hora || reserva.fecha;

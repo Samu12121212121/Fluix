@@ -545,10 +545,10 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
                   '${(data['tasa_conversion'] ?? 0).toStringAsFixed(1)}%',
                   Icons.trending_up,
                   const Color(0xFF4CAF50),
-                  '✅ Reservas completadas ÷ Reservas totales del mes × 100.\n\n'
-                      'Indica qué porcentaje de las reservas acaban en servicio real. '
+                  '✅ Reservas aceptadas ÷ Reservas totales del mes × 100.\n\n'
+                      'Indica qué porcentaje de las reservas son aceptadas. '
                       'Un valor alto (>70%) es positivo.\n\n'
-                      'Estados contados: COMPLETADA, FINALIZADA.',
+                      'Estados contados: CONFIRMADA.',
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _metricaCardConInfo(
@@ -590,8 +590,8 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
         Row(
           children: [
             Expanded(child: _metricaCompactaCard(
-              'Reservas Completadas',
-              '${data['reservas_completadas'] ?? 0}',
+              'Reservas Aceptadas',
+              '${data['reservas_confirmadas'] ?? 0}',
               Icons.check_circle,
               const Color(0xFF4CAF50),
             )),

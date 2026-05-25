@@ -154,6 +154,30 @@ service firebase.storage {
       allow read, write: if false;
     }
 
+    // ── NEGOCIOS PÚBLICOS (galería de fotos del perfil B2C) ─────────────────
+    match /negocios_publicos/{negocioId}/galeria/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Foto de perfil/avatar de negocio B2C
+    match /negocios_publicos/{negocioId}/foto_perfil.jpg {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Avatares de usuarios (clientes)
+    match /usuarios/{userId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // ── REGLA POR DEFECTO: denegar todo lo demás ────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

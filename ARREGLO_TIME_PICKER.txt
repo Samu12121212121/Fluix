@@ -1,0 +1,89 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║                                                                       ║
+║     ✅  TIME PICKER ARREGLADO - 19 MAYO 2026                         ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+🔧 PROBLEMA RESUELTO:
+───────────────────────────────────────────────────────────────────────
+
+❌ ANTES: No se podía hacer scroll en el selector de horas (9→10)
+✅ AHORA: Ambos selectores (horas y minutos) funcionan correctamente
+
+
+📝 QUÉ SE CAMBIÓ:
+───────────────────────────────────────────────────────────────────────
+
+Archivo: lib/features/reservas/pantallas/configuracion_reservas_screen.dart
+Línea:   1417
+
+ANTES:
+  physics: const FixedExtentScrollPhysics(),  ❌ Bloqueaba el scroll
+
+DESPUÉS:
+  physics: const BouncingScrollPhysics(),     ✅ Permite scroll suave
+
+
+🧪 CÓMO PROBARLO:
+───────────────────────────────────────────────────────────────────────
+
+1. Ejecuta la app:
+   flutter run
+
+2. Ve a: Configuración → Reservas → Tab "Horarios"
+
+3. Toca el chip verde "09:00" (hora de apertura del lunes)
+
+4. ✅ Desliza el dedo ARRIBA o ABAJO sobre las horas
+
+5. Las horas deben cambiar: 09 → 10 → 11 → 12...
+
+6. Toca "Confirmar" para guardar
+
+
+💡 TAMBIÉN FUNCIONA EN:
+───────────────────────────────────────────────────────────────────────
+
+✅ Hora de cierre (chip rojo "20:00")
+✅ Todos los días de la semana (lunes a domingo)
+✅ Selector de minutos (00, 05, 10, 15...)
+
+
+🎯 RESULTADO ESPERADO:
+───────────────────────────────────────────────────────────────────────
+
+Cuando deslizas:
+┌─────────────────┐
+│       08        │  ← Gris claro (no seleccionado)
+│      「09」     │  ← Verde/Rojo GRANDE (seleccionado)
+│       10        │  ← Gris claro
+│       11        │
+└─────────────────┘
+
+Al mover el dedo:
+- El número cambia de tamaño
+- El color cambia (gris → verde/rojo)
+- La hora de abajo se actualiza: "09:00" → "10:00"
+
+
+═══════════════════════════════════════════════════════════════════════
+
+🎉 ¡LISTO! Ahora puedes cambiar las horas de apertura y cierre
+   sin problemas.
+
+═══════════════════════════════════════════════════════════════════════
+
+
+📱 SI SIGUES TENIENDO PROBLEMAS:
+───────────────────────────────────────────────────────────────────────
+
+1. Cierra completamente la app
+2. flutter clean
+3. flutter run
+4. Prueba de nuevo
+
+Si aún no funciona, puede ser un problema de caché del emulador.
+
+
+Documentado el 19 de mayo de 2026
+

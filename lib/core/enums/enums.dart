@@ -1,4 +1,8 @@
 // Enums principales del sistema
+
+/// Vista dual empresa/usuario en el Dashboard
+enum VistaActiva { empresa, usuario }
+
 enum RolUsuario {
   propietario,
   admin,

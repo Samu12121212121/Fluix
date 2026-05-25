@@ -1,0 +1,126 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║                                                                       ║
+║     ✅  SOLUCIÓN CONFIGURACIÓN DE RESERVAS - 19 MAYO 2026            ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+🎯 PROBLEMAS RESUELTOS:
+───────────────────────────────────────────────────────────────────────
+
+✅ Horarios editables (toca el chip de hora verde/rojo)
+✅ Slots calculados automáticamente según duración de cita
+✅ Motivos de cierre visibles en web ("Falta de personal", etc.)
+✅ Sincronización automática App ↔ Web
+
+
+📝 QUÉ HACER AHORA (3 PASOS):
+───────────────────────────────────────────────────────────────────────
+
+1️⃣  LIMPIAR Y COMPILAR:
+
+   Opción A (Automático):
+   ► Haz doble clic en: actualizar_reservas.bat
+
+   Opción B (Manual):
+   ► Abre terminal y ejecuta:
+     cd C:\Users\Samu\AndroidStudioProjects\PlaneaG\planeag_flutter
+     flutter clean
+     flutter pub get
+     flutter run
+
+
+2️⃣  SINCRONIZAR CONFIGURACIÓN EXISTENTE:
+
+   ► Abre la app
+   ► Ve a: Configuración → Reservas
+   ► Haz un cambio mínimo (ej: cambiar duración de 30 a 45 y volver a 30)
+   ► Toca GUARDAR
+   ► Verás: "✅ Configuración guardada y sincronizada con web"
+
+   ⚠️ IMPORTANTE: Esto sincroniza tus días cerrados (como el 29 mayo)
+      con el formulario web para que aparezca el motivo.
+
+
+3️⃣  ACTUALIZAR FORMULARIO WEB:
+
+   ► Reemplaza el HTML de tu formulario de reservas de Lamajona
+   ► Usa el archivo: public_web_visor/formulario_reservas_dinamico.html
+   ► O copia solo el bloque <script> (líneas 260-750)
+
+
+🧪 CÓMO PROBAR:
+───────────────────────────────────────────────────────────────────────
+
+APP:
+► Configuración → Reservas → Tab "Horarios"
+► Toca el chip de hora (10:00 verde o 22:00 rojo)
+► Debería abrirse selector tipo ruleta ✅
+
+► Cambia "Duración de cita" a 15 minutos
+► Ve al Tab "Slots"
+► Deberías ver horarios cada 15 minutos ✅
+
+► Tab "Vacaciones" → Añadir día cerrado
+► Selecciona fecha → Escribe motivo: "Festivo local"
+► Guarda → Motivo debe aparecer bajo la fecha ✅
+
+WEB:
+► Abre formulario_reservas_dinamico.html
+► Abre consola (F12)
+► Busca: "✅ Configuración cargada:"
+► Selecciona una fecha normal → Horarios según tu config ✅
+► Selecciona 29 mayo → Debe aparecer: "⛔ Falta de personal" ✅
+
+
+📚 DOCUMENTACIÓN COMPLETA:
+───────────────────────────────────────────────────────────────────────
+
+📄 RESUMEN_CAMBIOS_RESERVAS_COMPLETO.md   ← Documentación técnica completa
+📄 SOLUCION_CONFIGURACION_RESERVAS.md     ← Guía de usuario
+📄 formulario_reservas_dinamico.html      ← Formulario web mejorado
+
+
+🔧 ARCHIVOS MODIFICADOS:
+───────────────────────────────────────────────────────────────────────
+
+✏️  lib/domain/modelos/seccion_web.dart
+    ├─ + motivosCierre
+    ├─ + duracionSlotMinutos
+    ├─ + horarioPorDia
+    └─ + horariosReservaPorDia
+
+✏️  lib/features/reservas/pantallas/configuracion_reservas_screen.dart
+    ├─ + _sincronizarConfigWeb()
+    └─ ✏️ _guardar() modificado
+
+📄 public_web_visor/formulario_reservas_dinamico.html (NUEVO)
+    ├─ Horarios dinámicos desde Firestore
+    ├─ Motivos de cierre visibles
+    └─ Cálculo automático de slots
+
+
+🐛 SI ALGO NO FUNCIONA:
+───────────────────────────────────────────────────────────────────────
+
+❌ "No aparecen horarios en el select"
+   → Abre la app → Configuración → Guarda una vez
+   → Verifica en Firebase Console: empresas/.../reservas_web
+
+❌ "El motivo no aparece"
+   → Re-guarda la configuración desde la app (Paso 2 arriba)
+   → Verifica que la fecha esté en fechas_bloqueadas
+
+❌ "Error al compilar"
+   → flutter clean
+   → flutter pub get
+   → flutter run
+
+
+═══════════════════════════════════════════════════════════════════════
+
+🎉 ¡LISTO! Ahora todo está sincronizado entre app y web.
+
+   App configura → Firestore actualiza → Web lee configuración
+
+═══════════════════════════════════════════════════════════════════════
+

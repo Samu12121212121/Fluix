@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/constantes/constantes_app.dart';
 import '../domain/modelos/sugerencia_empresa.dart';
 import '../domain/modelos/tarea.dart';
+import 'bandeja_notificaciones_service.dart';
 import 'tareas_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +90,21 @@ class SugerenciasService {
 
       // ── 3. Enlazar la tarea a la sugerencia ────────────────────────────
       await ref.update({'tarea_id': tarea.id});
+
+      // ── 4. Notificación in-app al propietario de plataforma ────────────
+      try {
+        await BandejaNotificacionesService().crear(
+          empresaId: ConstantesApp.empresaPropietariaId,
+          titulo: '💡 Nueva sugerencia de $nombreEmpresa',
+          cuerpo: texto.length > 120 ? '${texto.substring(0, 120)}…' : texto,
+          tipo: TipoNotificacion.tareaAsignada,
+          entidadId: tarea.id,
+          remitenteNombre: nombreEmpresa,
+        );
+      } catch (_) {
+        // La notificación no es crítica; continuar igualmente.
+      }
+
       return sugerencia.copyWith(tareaId: tarea.id);
     } catch (e) {
       // Si la tarea no se puede crear, la sugerencia sigue guardada.

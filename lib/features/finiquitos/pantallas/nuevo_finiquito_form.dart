@@ -175,7 +175,7 @@ class _NuevoFiniquitoFormState extends State<NuevoFiniquitoForm> {
       );
       return;
     }
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final datosN = _empleadoData!['datos_nomina'] as Map<String, dynamic>? ?? {};
     final config = DatosNominaEmpleado.fromMap(datosN);

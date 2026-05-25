@@ -14,11 +14,6 @@ class AnalyticsWebService {
 
   /// Stream en tiempo real de las métricas de tráfico web guardadas por el script JS.
   Stream<MetricasTraficoWeb> streamMetricas(String empresaId) {
-    // Obtener fecha de hoy
-    final hoy = DateTime.now();
-    final fechaHoyStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
-    
-    // Combinar stream del resumen general + visitas de hoy
     return _db
         .collection('empresas')
         .doc(empresaId)
@@ -26,23 +21,55 @@ class AnalyticsWebService {
         .doc('trafico_web')
         .snapshots()
         .asyncMap((docResumen) async {
-      // Leer las visitas específicas de HOY desde su documento diario
+      final hoy = DateTime.now();
+      final fechaHoyStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+
+      // ── Leer visitas de HOY ──────────────────────────────────────────────
       final docHoy = await _db
           .collection('empresas')
           .doc(empresaId)
           .collection('estadisticas')
           .doc('visitas_$fechaHoyStr')
           .get();
-      
       final visitasHoy = (docHoy.data()?['visitas'] as num?)?.toInt() ?? 0;
-      
+
+      // ── Leer historico_diario (hasta 30 días) para calcular semana/mes ──
+      final histSnap = await _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('estadisticas')
+          .doc('trafico_web')
+          .collection('historico_diario')
+          .orderBy('fecha', descending: true)
+          .limit(30)
+          .get();
+
+      int visitasSemanaCalculado = 0;
+      int visitasMesCalculado = 0;
+      final cortesSemana = hoy.subtract(const Duration(days: 7));
+      for (final d in histSnap.docs) {
+        final data = d.data();
+        final count = (data['visitas'] as num?)?.toInt() ?? 0;
+        visitasMesCalculado += count;
+        final fechaStr = data['fecha']?.toString() ?? '';
+        final fechaD = DateTime.tryParse(fechaStr);
+        if (fechaD != null && fechaD.isAfter(cortesSemana)) {
+          visitasSemanaCalculado += count;
+        }
+      }
+      // Sumar hoy si no está en historico
+      final hoySteEnHistorico = histSnap.docs.any((d) => d.data()['fecha']?.toString() == fechaHoyStr);
+      if (!hoySteEnHistorico && visitasHoy > 0) {
+        visitasSemanaCalculado += visitasHoy;
+        visitasMesCalculado += visitasHoy;
+      }
+
       if (!docResumen.exists || docResumen.data() == null) {
-        // Si no hay datos generales, solo mostrar las de hoy
         return MetricasTraficoWeb(
           visitasHoy: visitasHoy,
-          visitasSemana: visitasHoy,
-          visitasMes: visitasHoy,
-          visitasTotal: visitasHoy,
+          visitasSemana: visitasSemanaCalculado,
+          visitasMes: visitasMesCalculado,
+          visitasTotal: visitasMesCalculado,
           paginasMasVistas: {},
           duracionMediaSegundos: 0,
           tasaRebote: 0,
@@ -53,21 +80,25 @@ class AnalyticsWebService {
           referrers: {},
           eventos: {},
           paises: {},
-          ultimaActualizacion: docHoy.exists ? DateTime.now() : null,
-          tieneDatos: visitasHoy > 0,
+          ultimaActualizacion: histSnap.docs.isNotEmpty ? DateTime.now() : null,
+          tieneDatos: visitasHoy > 0 || visitasMesCalculado > 0,
         );
       }
-      
-      // Combinar datos del resumen con visitas reales de hoy
+
       final dataResumen = docResumen.data()!;
       final metricas = MetricasTraficoWeb.fromMap(dataResumen);
-      
-      // IMPORTANTE: Sobrescribir visitasHoy con el valor real del documento de hoy
+
+      // visitasTotal = el más alto entre el campo almacenado y el mes calculado
+      // (el total acumulado siempre debe ser >= al parcial del mes)
+      final totalFinal = metricas.visitasTotal >= visitasMesCalculado
+          ? metricas.visitasTotal
+          : visitasMesCalculado;
+
       return MetricasTraficoWeb(
-        visitasHoy: visitasHoy, // ✅ VALOR CORRECTO DE HOY
-        visitasSemana: metricas.visitasSemana,
-        visitasMes: metricas.visitasMes,
-        visitasTotal: metricas.visitasTotal,
+        visitasHoy: visitasHoy,
+        visitasSemana: visitasSemanaCalculado > 0 ? visitasSemanaCalculado : metricas.visitasSemana,
+        visitasMes: visitasMesCalculado > 0 ? visitasMesCalculado : metricas.visitasMes,
+        visitasTotal: totalFinal,
         paginasMasVistas: metricas.paginasMasVistas,
         duracionMediaSegundos: metricas.duracionMediaSegundos,
         tasaRebote: metricas.tasaRebote,
@@ -79,7 +110,7 @@ class AnalyticsWebService {
         eventos: metricas.eventos,
         paises: metricas.paises,
         ultimaActualizacion: metricas.ultimaActualizacion ?? DateTime.now(),
-        tieneDatos: visitasHoy > 0 || metricas.tieneDatos,
+        tieneDatos: visitasHoy > 0 || visitasMesCalculado > 0 || metricas.tieneDatos,
       );
     });
   }

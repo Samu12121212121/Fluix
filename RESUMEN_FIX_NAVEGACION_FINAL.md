@@ -1,6 +1,6 @@
-# 📱 FIX FINAL - Navegación desde Notificaciones y Próximos 3 Días
+#  FIX FINAL - Navegación desde Notificaciones y Próximos 3 Días
 
-## 🎯 PROBLEMA REPORTADO
+##  PROBLEMA REPORTADO
 
 - ❌ Notificaciones de reserva **NO** abren el detalle específico
 - ❌ Solo abren el módulo general de reservas
@@ -40,7 +40,7 @@ Las funciones **YA ENVÍAN** `reserva_id` en el payload:
 
 ---
 
-## 🧪 CÓMO PROBAR
+##  CÓMO PROBAR
 
 ### Opción 1: Script Automático (RECOMENDADO)
 ```cmd
@@ -76,16 +76,16 @@ flutter logs
 
 ---
 
-## 🔍 LOGS A BUSCAR
+##  LOGS A BUSCAR
 
 ### ✅ FUNCIONANDO CORRECTAMENTE:
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: ABC123XYZ789
    data completo: {tipo: nueva_reserva, empresa_id: ..., reserva_id: ABC123XYZ789}
-🔍 Buscando reserva en Firestore: ABC123XYZ789
+ Buscando reserva en Firestore: ABC123XYZ789
 ✅ Reserva encontrada, navegando a detalle
 ```
 
@@ -96,12 +96,12 @@ flutter logs
 ### ❌ PROBLEMA: No hay reserva_id
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: null
    data completo: {tipo: nueva_reserva, empresa_id: ...}
 ⚠️ No hay reserva_id en el payload o widget no montado
-🔙 Fallback: abriendo módulo de reservas
+ Fallback: abriendo módulo de reservas
 ```
 
 **Causa**: Cloud Functions NO desplegadas o versión antigua
@@ -118,13 +118,13 @@ firebase deploy --only functions
 ### ❌ PROBLEMA: Reserva no existe
 
 ```
-🔔 Notificación de reserva recibida
+ Notificación de reserva recibida
    tipo: nueva_reserva
    reserva_id: ABC123
    data completo: {...}
-🔍 Buscando reserva en Firestore: ABC123
+ Buscando reserva en Firestore: ABC123
 ❌ Reserva no existe o widget no montado
-🔙 Fallback: abriendo módulo de reservas
+ Fallback: abriendo módulo de reservas
 ```
 
 **Causa**: El ID no corresponde a ninguna reserva en Firestore
@@ -133,7 +133,7 @@ firebase deploy --only functions
 
 ---
 
-## 📋 CHECKLIST DE VERIFICACIÓN
+##  CHECKLIST DE VERIFICACIÓN
 
 ### Backend:
 - [ ] Cloud Functions compiladas: `cd functions && npm run build`
@@ -162,7 +162,7 @@ firebase deploy --only functions
 
 ---
 
-## 🎯 ARCHIVOS MODIFICADOS
+##  ARCHIVOS MODIFICADOS
 
 1. ✅ `lib/features/dashboard/pantallas/pantalla_dashboard.dart`
    - Logging detallado
@@ -179,7 +179,7 @@ firebase deploy --only functions
 
 ---
 
-## 🛠️ TROUBLESHOOTING
+## ️ TROUBLESHOOTING
 
 ### App cierra al tocar notificación
 **Logs:**
@@ -201,7 +201,7 @@ F/libc: Fatal signal 11 (SIGSEGV)
 
 ---
 
-## 📚 DOCUMENTACIÓN CREADA
+##  DOCUMENTACIÓN CREADA
 
 1. **`GUIA_PRUEBAS_NAVEGACION.md`** ← Guía completa de testing
 2. **`FIX_NAVEGACION_NOTIFICACIONES.md`** ← Detalles técnicos
@@ -210,7 +210,7 @@ F/libc: Fatal signal 11 (SIGSEGV)
 
 ---
 
-## 🚀 PRÓXIMOS PASOS
+##  PRÓXIMOS PASOS
 
 1. **Ejecuta el script de testing:**
    ```cmd
@@ -226,7 +226,7 @@ F/libc: Fatal signal 11 (SIGSEGV)
    - Dashboard → Próximos 3 Días → toca evento → verifica detalle
 
 4. **Revisa los logs:**
-   - Busca emojis: 🔔 ✅ ❌ ⚠️
+   - Busca emojis:  ✅ ❌ ⚠️
    - Verifica que aparece `reserva_id`
    - Confirma navegación a DetalleReservaScreen
 
@@ -259,4 +259,3 @@ F/libc: Fatal signal 11 (SIGSEGV)
 **Fecha**: 5 Mayo 2026  
 **Estado**: ✅ CÓDIGO CORREGIDO + LOGGING AÑADIDO  
 **Acción requerida**: Ejecutar `test_navegacion.bat` y verificar logs
-
