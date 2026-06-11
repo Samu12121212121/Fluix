@@ -9,6 +9,7 @@ class CierreCajaService {
     final inicio = DateTime(fecha.year, fecha.month, fecha.day);
     final fin = inicio.add(const Duration(days: 1));
 
+    // Filtramos estado_pago client-side para evitar índice compuesto Firestore
     final snap = await FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
@@ -16,7 +17,6 @@ class CierreCajaService {
         .where('fecha_hora',
             isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
         .where('fecha_hora', isLessThan: Timestamp.fromDate(fin))
-        .where('estado_pago', isEqualTo: 'pagado')
         .get();
 
     double efectivo = 0, tarjeta = 0;
@@ -24,6 +24,7 @@ class CierreCajaService {
 
     for (final d in snap.docs) {
       final m = d.data();
+      if (m['estado_pago'] != 'pagado') continue;
       final metodo = m['metodo_pago'] as String? ?? 'efectivo';
       if (metodo == 'efectivo') {
         efectivo += (m['importe_efectivo'] as num?)?.toDouble() ??
@@ -70,6 +71,23 @@ class CierreCajaService {
         .collection('cierres_caja')
         .doc(fechaStr)
         .set(cierre, SetOptions(merge: true));
+  }
+
+  /// Devuelve true si existe una apertura de caja para [fecha] (default: hoy).
+  /// Usado para bloquear ventas cuando la caja no ha sido abierta.
+  Future<bool> hayCajaAbiertaHoy(String empresaId, {DateTime? fecha}) async {
+    final dia = fecha ?? DateTime.now();
+    final inicio = DateTime(dia.year, dia.month, dia.day);
+    final fin = inicio.add(const Duration(days: 1));
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('aperturas_caja')
+        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha', isLessThan: Timestamp.fromDate(fin))
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
   }
 
   Stream<List<Map<String, dynamic>>> obtenerCierres(String empresaId) {

@@ -19,7 +19,7 @@ const DEMO_EMAIL      = 'demoFluix2026@gmail.com';
 const DEMO_PASSWORD   = 'FlFluix26';
 const DEMO_EMPRESA_ID = 'demo_empresa_fluix2026';
 const TODOS_MODULOS   = [
-  'dashboard','valoraciones','estadisticas','reservas','citas','web',
+  'dashboard','valoraciones','estadisticas','reservas','web',
   'whatsapp','facturacion','pedidos','tareas','clientes','empleados',
   'nominas','vacaciones','servicios',
 ];

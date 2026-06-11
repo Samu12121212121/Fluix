@@ -20,6 +20,7 @@ import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } 
 import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import { expirarFlashSlots, onNuevoFlashSlot } from "./flashSlots";
 import fetch from "node-fetch";
+export { cerrarCaja } from "./cerrarCaja";
 export { processInvoice } from "./fiscal/processInvoice";
 export { calculateFiscalModel } from "./fiscal/models/calculateModel";
 export {
@@ -44,6 +45,11 @@ export {
   confirmarReserva,
   rechazarReserva,
 } from "./notificacionesReservas";
+export {
+  onReservaPublicaCreada,
+  gestionarReservaPublica,
+  expirarReservasPublicas,
+} from "./reservasPublicas";
 export {
   onReservaCompletada,
   onValoracionWrite,

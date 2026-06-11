@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import 'package:planeag_flutter/domain/modelos/pedido_whatsapp.dart';
 import 'package:planeag_flutter/services/pedidos_whatsapp_service.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/detalle_pedido_screen.dart';
@@ -15,7 +16,7 @@ class ModuloWhatsAppScreen extends StatefulWidget {
 }
 
 class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tabs;
   final PedidosWhatsAppService _svc = PedidosWhatsAppService();
   bool _creandoPrueba = false;

@@ -24,25 +24,21 @@ class ValidadorFiscalIntegral {
 
     if (facturasPorSerie.isEmpty) return errores;
 
+    // Solo comparar facturas con número secuencial válido (ignorar fallbacks como F-SN-XXXXX)
     final facturasSortedByNumero =
-        facturasPorSerie.where((f) => f.estado != EstadoFactura.anulada).toList()
+        facturasPorSerie
+            .where((f) => f.estado != EstadoFactura.anulada)
+            .where((f) => int.tryParse(f.numeroFactura.split('-').last) != null)
+            .toList()
           ..sort((a, b) {
-            final numA =
-                int.tryParse(a.numeroFactura.split('-').last) ?? 0;
-            final numB =
-                int.tryParse(b.numeroFactura.split('-').last) ?? 0;
+            final numA = int.parse(a.numeroFactura.split('-').last);
+            final numB = int.parse(b.numeroFactura.split('-').last);
             return numA.compareTo(numB);
           });
 
     for (int i = 0; i < facturasSortedByNumero.length - 1; i++) {
-      final numA = int.tryParse(
-            facturasSortedByNumero[i].numeroFactura.split('-').last,
-          ) ??
-          0;
-      final numB = int.tryParse(
-            facturasSortedByNumero[i + 1].numeroFactura.split('-').last,
-          ) ??
-          0;
+      final numA = int.parse(facturasSortedByNumero[i].numeroFactura.split('-').last);
+      final numB = int.parse(facturasSortedByNumero[i + 1].numeroFactura.split('-').last);
 
       if (numB - numA > 1) {
         errores.add(
@@ -77,14 +73,16 @@ class ValidadorFiscalIntegral {
       );
     }
 
-    // Para facturas completas B2B
-    if (factura.datosFiscales?.nif == null || factura.datosFiscales!.nif!.isEmpty) {
-      if (factura.lineas.isNotEmpty && factura.total > 0) {
-        errores.add(
-          'R4-NIF-DESTINATARIO: Factura completa requiere NIF del '
-          'destinatario. Falta en factura ${factura.numeroFactura}.',
-        );
-      }
+    // NIF destinatario: solo obligatorio en facturas B2B (cuando el cliente
+    // tiene datos fiscales configurados pero el NIF está vacío).
+    // En B2C (TPV, venta directa a particulares) no es requerido por ley.
+    final tieneDatosFiscales = factura.datosFiscales != null;
+    final nifVacio = factura.datosFiscales?.nif == null || factura.datosFiscales!.nif!.isEmpty;
+    if (tieneDatosFiscales && nifVacio && factura.total > 400) {
+      errores.add(
+        'R4-NIF-DESTINATARIO: Factura con datos fiscales sin NIF del '
+        'destinatario. Falta en factura ${factura.numeroFactura}.',
+      );
     }
 
     return errores;
@@ -232,9 +230,9 @@ class ValidadorFiscalIntegral {
     todasLasAdvertencias.addAll(validarTiempoGeneracion(factura));
     todasLasAdvertencias.addAll(validarDesgloseIva(factura));
 
-    // R1: Correlatividad (solo si hay facturas del período)
+    // R1: Correlatividad — advertencia, no error (un hueco no impide emitir la siguiente)
     if (facturasDelPeriodo.isNotEmpty) {
-      todosLosErrores.addAll(validarCorrelatividad(facturasDelPeriodo));
+      todasLasAdvertencias.addAll(validarCorrelatividad(facturasDelPeriodo));
     }
 
     // R9: Series separadas (solo si hay facturas del período)

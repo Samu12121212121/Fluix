@@ -1,0 +1,96 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║   ✅ ACCESO AL SISTEMA DE PLANTILLAS PDF                      ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🚀 GUÍA RÁPIDA - 3 PASOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: Activar el módulo (solo la primera vez)
+─────────────────────────────────────────────────
+cd scripts
+node agregar_modulo_plantillas_pdf.js
+
+
+PASO 2: Abrir la aplicación
+─────────────────────────────────────────────────
+→ Login como PROPIETARIO o ADMIN
+
+
+PASO 3: Buscar "Plantillas PDF" en el dashboard
+─────────────────────────────────────────────────
+Desktop: Icono 📄 en el NavigationRail lateral
+Mobile: Tab 📄 en la barra superior
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📍 UBICACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El módulo "Plantillas PDF" aparece junto con:
+• Dashboard
+• Facturación
+• Clientes
+• Empleados
+• etc.
+
+Busca el icono: 📄
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚙️ FUNCIONES DISPONIBLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Ver todas las plantillas
+✓ Crear nueva plantilla
+✓ Editar plantilla
+✓ Activar/Desactivar
+✓ Eliminar plantilla
+✓ Filtrar por tipo (Factura, Presupuesto, etc.)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔒 PERMISOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Propietario → Acceso completo
+✅ Admin → Acceso completo
+❌ Staff → Sin acceso
+❌ Cliente → Sin acceso
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🆘 SI NO APARECE EL MÓDULO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Ejecutar script de activación:
+   cd scripts
+   node agregar_modulo_plantillas_pdf.js
+
+2. Reiniciar la app
+
+3. Si persiste el problema:
+   - Verificar rol de usuario (debe ser admin/propietario)
+   - Ejecutar: .\verificar_pdf_dinamico.bat
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📚 MÁS INFORMACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ver documentación completa:
+→ COMO_ACCEDER_PLANTILLAS_PDF.md
+→ INTEGRACION_DASHBOARD_COMPLETADA.md
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Estado: INTEGRADO Y FUNCIONAL
+📅 Fecha: 2026-05-25
+🔖 Versión: 1.0.0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

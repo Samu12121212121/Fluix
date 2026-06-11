@@ -26,6 +26,10 @@ class DatosSuscripcion {
   final String? planLegacy; // campo 'plan' viejo
   final String? planNombre;
 
+  /// Cuando no está vacío, reemplaza los módulos calculados desde packs/addons.
+  /// El propietario puede establecerlo directamente sin modificar el plan.
+  final List<String> modulosOverride;
+
   const DatosSuscripcion({
     required this.planBase,
     required this.packsActivos,
@@ -38,6 +42,7 @@ class DatosSuscripcion {
     this.fechaActualizacion,
     this.planLegacy,
     this.planNombre,
+    this.modulosOverride = const [],
   });
 
   factory DatosSuscripcion.fromMap(Map<String, dynamic> data) {
@@ -53,6 +58,7 @@ class DatosSuscripcion {
       fechaActualizacion: _toDateTime(data['fecha_actualizacion']),
       planLegacy: data['plan'] as String?,
       planNombre: data['plan_nombre'] as String?,
+      modulosOverride: _toStringList(data['modulos_override']),
     );
   }
 
@@ -68,11 +74,14 @@ class DatosSuscripcion {
     return fechaFin!.difference(DateTime.now()).inDays;
   }
 
-  /// Módulos activos calculados dinámicamente
-  List<String> get modulosActivos => PlanesConfig.getModulosActivos(
-        packsActivos: packsActivos,
-        addonsActivos: addonsActivos,
-      );
+  /// Módulos activos: usa override si está definido, si no calcula desde packs/addons
+  List<String> get modulosActivos {
+    if (modulosOverride.isNotEmpty) return modulosOverride;
+    return PlanesConfig.getModulosActivos(
+      packsActivos: packsActivos,
+      addonsActivos: addonsActivos,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
         'plan_base': planBase,
@@ -140,9 +149,10 @@ class SuscripcionService {
 
       final data = doc.data()!;
 
-      // ¿Tiene el formato nuevo (V2)?
+      // ¿Tiene el formato nuevo (V2) o modulos_override directos?
       if (data.containsKey('packs_activos') ||
-          data.containsKey('plan_base')) {
+          data.containsKey('plan_base') ||
+          data.containsKey('modulos_override')) {
         _cache = DatosSuscripcion.fromMap(data);
       } else {
         // Formato legacy: inferir packs/addons desde modulos_activos
@@ -169,7 +179,8 @@ class SuscripcionService {
       if (!doc.exists) return null;
       final data = doc.data()!;
       if (data.containsKey('packs_activos') ||
-          data.containsKey('plan_base')) {
+          data.containsKey('plan_base') ||
+          data.containsKey('modulos_override')) {
         _cache = DatosSuscripcion.fromMap(data);
       } else {
         _cache = _convertirDesdeFormatoLegacy(data);

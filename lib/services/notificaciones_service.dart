@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'sonido_notificacion_service.dart';
+import 'notificaciones_windows_service.dart';
 
 /// Handler global para mensajes en background (debe ser función top-level)
 @pragma('vm:entry-point')
@@ -221,7 +222,8 @@ class NotificacionesService {
   Future<void> _guardarTokenDispositivo() async {
     if (_plataformaNoSoportaFCM) return;
     try {
-      final token = await _messaging.getToken();
+      final token = await _messaging.getToken()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
       if (token == null) return;
       print('📱 Token FCM: $token');
       await _actualizarTokenEnFirestore(token);
@@ -243,14 +245,16 @@ class NotificacionesService {
         'token_dispositivo': token,
         'token_actualizado': FieldValue.serverTimestamp(),
         'plataforma': _obtenerPlataforma(),
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5), onTimeout: () {});
       print('✅ Token FCM guardado en usuarios/$uid');
     } catch (e) {
       print('❌ Error guardando token en usuarios/$uid: $e');
     }
 
     try {
-      final userDoc = await _firestore.collection('usuarios').doc(uid).get();
+      final userDoc = await _firestore.collection('usuarios').doc(uid).get()
+          .timeout(const Duration(seconds: 5), onTimeout: () => throw TimeoutException('getUser'));
       final empresaId = userDoc.data()?['empresa_id'] as String?;
       if (empresaId != null) {
         await _firestore
@@ -264,7 +268,8 @@ class NotificacionesService {
           'plataforma': _obtenerPlataforma(),
           'ultima_actualizacion': FieldValue.serverTimestamp(),
           'activo': true,
-        }, SetOptions(merge: true));
+        }, SetOptions(merge: true))
+            .timeout(const Duration(seconds: 5), onTimeout: () {});
         print('✅ Token FCM guardado en empresas/$empresaId/dispositivos/$uid');
       } else {
         print('⚠️ Usuario $uid no tiene empresa_id asignado');
@@ -300,7 +305,8 @@ class NotificacionesService {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
-      final token = await _messaging.getToken();
+      final token = await _messaging.getToken()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
       if (token == null) return;
       print('📱 Guardando token FCM tras login para UID: $uid');
       await _actualizarTokenEnFirestore(token);
@@ -316,20 +322,28 @@ class NotificacionesService {
 
   Future<void> eliminarTokenDeEmpresa(String empresaId) async {
     try {
+      if (!kIsWeb && Platform.isWindows) {
+        NotificacionesWindowsService().detener();
+        NotificacionesWindowsService().limpiarCache();
+      }
+
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
+      // Timeout de 3s: en Android, firestore.set espera confirmación del
+      // servidor; sin red devuelve inmediatamente gracias al timeout.
       await _firestore
           .collection('empresas')
           .doc(empresaId)
           .collection('dispositivos')
           .doc(uid)
-          .set({'activo': false}, SetOptions(merge: true));
+          .set({'activo': false}, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
 
       await _firestore.collection('usuarios').doc(uid).set(
         {'token_dispositivo': FieldValue.delete()},
         SetOptions(merge: true),
-      );
+      ).timeout(const Duration(seconds: 3), onTimeout: () {});
 
       print('✅ Token FCM eliminado de empresas/$empresaId/dispositivos/$uid');
     } catch (e) {

@@ -202,6 +202,7 @@ class EmpleadoFichaje {
   final String pin; // 4 dígitos
   final String empresaId;
   final bool activo;
+  final int jornadaDiaria; // minutos por día, por defecto 480 (8h)
 
   const EmpleadoFichaje({
     required this.uid,
@@ -209,6 +210,7 @@ class EmpleadoFichaje {
     required this.pin,
     required this.empresaId,
     this.activo = true,
+    this.jornadaDiaria = 480,
   });
 
   factory EmpleadoFichaje.fromFirestore(DocumentSnapshot doc) {
@@ -219,6 +221,7 @@ class EmpleadoFichaje {
       pin: data['pin'] as String? ?? '',
       empresaId: data['empresa_id'] as String? ?? '',
       activo: data['activo'] as bool? ?? true,
+      jornadaDiaria: data['jornada_diaria'] as int? ?? 480,
     );
   }
 
@@ -227,6 +230,7 @@ class EmpleadoFichaje {
     'pin': pin,
     'empresa_id': empresaId,
     'activo': activo,
+    'jornada_diaria': jornadaDiaria,
   };
 }
 

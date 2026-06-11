@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../services/demo_cuenta_service.dart';
@@ -23,7 +24,7 @@ class PantallaContenidoWeb extends StatefulWidget {
 }
 
 class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tab;
   final ContenidoWebService _svc = ContenidoWebService();
 
@@ -285,18 +286,6 @@ class _TabSecciones extends StatelessWidget {
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-              heroTag: 'fab_nueva_seccion',
-              onPressed: () => _abrirEditor(context, null),
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nueva sección'),
-            ),
           ),
         ]);
       },
@@ -1349,18 +1338,7 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
           ));
         }),
         const SizedBox(height: 8),
-        SizedBox(width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _editarOferta(context, null, c),
-            icon: Icon(Icons.add, color: c),
-            label: Text('Añadir oferta', style: TextStyle(color: c)),
-            style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: c.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
-          ),
-        ),
+        // Botón "Añadir oferta" ELIMINADO - Las ofertas las añade el administrador
       ],
     );
   }

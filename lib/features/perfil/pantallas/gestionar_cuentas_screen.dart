@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
@@ -87,8 +89,6 @@ class GestionarCuentasScreen extends StatefulWidget {
 }
 
 class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
-  final _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
-
   List<_CuentaCliente> _cuentas = [];
   bool _cargando = true;
   String? _error;
@@ -104,23 +104,9 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
   Future<void> _cargarCuentas() async {
     setState(() { _cargando = true; _error = null; });
     try {
-      final result = await _functions
-          .httpsCallable('listarCuentasClientes')
-          .call<dynamic>();
-
-      final data = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : <String, dynamic>{};
-      final rawList = data['cuentas'];
-      List<dynamic> raw;
-      if (rawList is List) {
-        raw = rawList;
-      } else {
-        raw = [];
-      }
+      final cuentas = await _cargarCuentasDesdeFirestore();
       setState(() {
-        _cuentas = raw
-            .whereType<Map>()
-            .map((e) => _CuentaCliente.fromMap(Map<String, dynamic>.from(e)))
-            .toList();
+        _cuentas = cuentas;
         _cargando = false;
       });
     } catch (e) {
@@ -128,6 +114,90 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
         _error = 'Error al cargar cuentas: $e';
         _cargando = false;
       });
+    }
+  }
+
+  // ── Cargar directamente desde Firestore (fallback universal) ──────────────
+
+  Future<List<_CuentaCliente>> _cargarCuentasDesdeFirestore() async {
+    try {
+      final List<_CuentaCliente> cuentas = [];
+
+      // Leer todas las empresas
+      final empresasSnap = await FirebaseFirestore.instance
+          .collection('empresas')
+          .get();
+
+      for (final empresaDoc in empresasSnap.docs) {
+        try {
+          final empresaData = empresaDoc.data();
+          final empresaId = empresaDoc.id;
+
+          // Leer suscripción desde suscripcion/actual
+          final suscripcionDoc = await FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(empresaId)
+              .collection('suscripcion')
+              .doc('actual')
+              .get();
+
+          DateTime? fechaFin;
+          String planId = 'free';
+          String planNombre = 'Plan Gratuito';
+          String estado = 'activa';
+          bool activa = true;
+          List<String> packsActivos = [];
+          List<String> addonsActivos = [];
+          double precioTotal = 0;
+
+          if (suscripcionDoc.exists) {
+            final subData = suscripcionDoc.data()!;
+            planId = subData['plan'] as String? ?? subData['plan_id'] as String? ?? 'free';
+            planNombre = subData['plan_nombre'] as String? ?? 'Plan Gratuito';
+            estado = subData['estado'] as String? ?? 'activa';
+            activa = estado.toUpperCase() == 'ACTIVA';
+            final fechaFinTs = subData['fecha_fin'] as Timestamp?;
+            fechaFin = fechaFinTs?.toDate();
+            packsActivos = (subData['packs_activos'] as List?)?.cast<String>() ?? [];
+            addonsActivos = (subData['addons_activos'] as List?)?.cast<String>() ?? [];
+            precioTotal = (subData['precio_total'] as num?)?.toDouble() ?? 0;
+          }
+
+          // Calcular empleados en nómina (si existe el addon)
+          int empleadosNomina = 0;
+          if (addonsActivos.contains('addon_nominas') || addonsActivos.contains('nominas')) {
+            final empSnap = await FirebaseFirestore.instance
+                .collection('empresas')
+                .doc(empresaId)
+                .collection('empleados')
+                .get();
+            empleadosNomina = empSnap.docs.length;
+          }
+
+          cuentas.add(_CuentaCliente(
+            empresaId: empresaId,
+            nombre: empresaData['nombre'] as String? ?? 'Sin nombre',
+            email: empresaData['email'] as String? ?? '',
+            tipoNegocio: empresaData['tipo_negocio'] as String? ?? '',
+            planId: planId,
+            planNombre: planNombre,
+            estado: estado,
+            fechaFin: fechaFin,
+            activa: activa,
+            packsActivos: packsActivos,
+            addonsActivos: addonsActivos,
+            empleadosNomina: empleadosNomina,
+            precioTotal: precioTotal,
+          ));
+        } catch (e) {
+          debugPrint('⚠️ Error procesando empresa ${empresaDoc.id}: $e');
+        }
+      }
+
+      return cuentas;
+    } catch (e) {
+      debugPrint('⚠️ Error en _cargarCuentasDesdeFirestore: $e');
+      rethrow;
     }
   }
 
@@ -139,18 +209,6 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _FormNuevaCuenta(),
-    );
-    if (resultado == true) _cargarCuentas();
-  }
-
-  // ── Abrir diálogo upgrade ──────────────────────────────────────────────────
-
-  Future<void> _abrirUpgrade(_CuentaCliente cuenta) async {
-    final resultado = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _FormUpgradePlan(cuenta: cuenta),
     );
     if (resultado == true) _cargarCuentas();
   }
@@ -271,10 +329,7 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _cuentas.length,
-      itemBuilder: (_, i) => _TarjetaCuenta(
-        cuenta: _cuentas[i],
-        onUpgrade: () => _abrirUpgrade(_cuentas[i]),
-      ),
+      itemBuilder: (_, i) => _TarjetaCuenta(cuenta: _cuentas[i]),
     );
   }
 }
@@ -290,9 +345,8 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
 
 class _TarjetaCuenta extends StatelessWidget {
   final _CuentaCliente cuenta;
-  final VoidCallback onUpgrade;
 
-  const _TarjetaCuenta({required this.cuenta, required this.onUpgrade});
+  const _TarjetaCuenta({required this.cuenta});
 
   Color get _colorPlan {
     if (cuenta.packsActivos.isNotEmpty || cuenta.addonsActivos.isNotEmpty) {
@@ -449,6 +503,25 @@ class _TarjetaCuenta extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 6),
+            // Botón selector de módulos
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _abrirSelectorModulos(context),
+                icon: const Icon(Icons.extension_outlined, size: 16, color: Color(0xFF1565C0)),
+                label: const Text('Módulos activos'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1565C0),
+                  side: const BorderSide(color: Color(0xFF1565C0)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 10),
@@ -472,25 +545,6 @@ class _TarjetaCuenta extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            // Botón upgrade
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onUpgrade,
-                icon: const Icon(Icons.upgrade, size: 16),
-                label: const Text('Cambiar plan / Renovar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0D47A1),
-                  side: const BorderSide(color: Color(0xFF0D47A1)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  textStyle: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ),
             ),
           ],
         ),
@@ -517,6 +571,15 @@ class _TarjetaCuenta extends StatelessWidget {
       context: context,
       builder: (_) => _DialogGoogleReviews(
           empresaId: cuenta.empresaId, nombreEmpresa: cuenta.nombre),
+    );
+  }
+
+  void _abrirSelectorModulos(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FormSelectorModulos(cuenta: cuenta),
     );
   }
 
@@ -550,16 +613,19 @@ class _FormNuevaCuenta extends StatefulWidget {
 class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _propietarioCtrl = TextEditingController();
   final _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
 
-  // V2: packs y addons
-  final Set<String> _packsSeleccionados = {};
-  final Set<String> _addonsSeleccionados = {};
+  final Set<String> _modulosSeleccionados = {
+    'dashboard', 'reservas', 'clientes', 'servicios',
+    'empleados', 'valoraciones', 'estadisticas', 'contenido_web', 'app',
+  };
 
   String _tipoNegocio = 'Peluquería / Estética';
   bool _creando = false;
+  bool _passwordVisible = false;
 
   final _tiposNegocio = [
     'Peluquería / Estética',
@@ -573,14 +639,22 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
     'Otro',
   ];
 
-  double get _precioTotal => PlanesConfig.calcularPrecioTotal(
-        packsActivos: _packsSeleccionados.toList(),
-        addonsActivos: _addonsSeleccionados.toList(),
-      );
+  /// Si no hay email, genera uno técnico único para Firebase Auth.
+  String _resolverEmail(String nombre) {
+    final raw = _emailCtrl.text.trim().toLowerCase();
+    if (raw.isNotEmpty) return raw;
+    final sanitized = nombre
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .substring(0, nombre.length.clamp(0, 12));
+    final ts = DateTime.now().millisecondsSinceEpoch % 100000;
+    return '${sanitized.isEmpty ? 'cuenta' : sanitized}$ts@fluixcrm.app';
+  }
 
   @override
   void dispose() {
     _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     _nombreCtrl.dispose();
     _propietarioCtrl.dispose();
     super.dispose();
@@ -591,37 +665,53 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
     setState(() => _creando = true);
 
     try {
-      final result = await _functions
-          .httpsCallable('crearCuentaConPlan')
-          .call<Map<String, dynamic>>({
-        'email': _emailCtrl.text.trim().toLowerCase(),
-        'planId': 'basico',
-        'nombreEmpresa': _nombreCtrl.text.trim(),
-        'tipoNegocio': _tipoNegocio,
-        'nombrePropietario': _propietarioCtrl.text.trim(),
-        'packsActivos': _packsSeleccionados.toList(),
-        'addonsActivos': _addonsSeleccionados.toList(),
-      });
+      final nombre = _nombreCtrl.text.trim();
+      String email = _resolverEmail(nombre);
+      final password = _passwordCtrl.text.trim();
+      final propietario = _propietarioCtrl.text.trim();
+      final emailEsAutoGenerado = _emailCtrl.text.trim().isEmpty;
 
-      final data = result.data;
-      final tempPassword = data['tempPassword'] as String? ?? '';
-      final planNombre = data['planNombre'] as String? ?? 'Plan Base';
+      // Cloud Functions no funciona en Windows — crear directamente con Firebase SDK
+      String uid;
+      try {
+        uid = await _crearCuentaDirecta(
+            email: email, password: password, nombre: nombre,
+            tipoNegocio: _tipoNegocio, propietario: propietario);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'email-already-in-use' && emailEsAutoGenerado) {
+          // Reintento con email diferente si era auto-generado
+          email = _resolverEmail('$nombre${DateTime.now().millisecondsSinceEpoch % 9999}');
+          uid = await _crearCuentaDirecta(
+              email: email, password: password, nombre: nombre,
+              tipoNegocio: _tipoNegocio, propietario: propietario);
+        } else {
+          rethrow;
+        }
+      }
+
+      // Guardar módulos
+      await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(uid)
+          .collection('suscripcion')
+          .doc('actual')
+          .set({'modulos_override': _modulosSeleccionados.toList()},
+              SetOptions(merge: true));
 
       if (mounted) {
         Navigator.pop(context);
-        // Mostrar contraseña temporal
         await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (_) => _DialogCredenciales(
-            email: _emailCtrl.text.trim(),
-            tempPassword: tempPassword,
-            planNombre: planNombre,
+            email: email,
+            tempPassword: password,
+            planNombre: 'Plan Base',
           ),
         );
       }
-    } on FirebaseFunctionsException catch (e) {
-      _mostrarError(e.message ?? e.code);
+    } on FirebaseAuthException catch (e) {
+      _mostrarError(_mensajeAuth(e.code));
     } catch (e) {
       _mostrarError('Error inesperado: $e');
     } finally {
@@ -629,10 +719,171 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
     }
   }
 
+  /// Crea el usuario en Firebase Auth (app secundaria para no cerrar sesión actual)
+  /// y los documentos en Firestore.
+  Future<String> _crearCuentaDirecta({
+    required String email,
+    required String password,
+    required String nombre,
+    required String tipoNegocio,
+    required String propietario,
+  }) async {
+    // App secundaria → no cierra la sesión del propietario actual
+    final appName = 'crear_${DateTime.now().millisecondsSinceEpoch}';
+    final secondaryApp = await Firebase.initializeApp(
+      name: appName,
+      options: Firebase.app().options,
+    );
+
+    late final String uid;
+    try {
+      final auth = FirebaseAuth.instanceFor(app: secondaryApp);
+      final cred = await auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      uid = cred.user!.uid;
+      await auth.signOut();
+    } finally {
+      await secondaryApp.delete();
+    }
+
+    final db = FirebaseFirestore.instance;
+    final batch = db.batch();
+
+    // Documento empresa — incluye módulos activos para filtrado eficiente en selectores
+    batch.set(db.collection('empresas').doc(uid), {
+      'nombre': nombre,
+      'email': email,
+      'tipo_negocio': tipoNegocio,
+      'propietario_nombre': propietario,
+      'tipo_tpv': 'bar',
+      'creado': FieldValue.serverTimestamp(),
+      'activo': true,
+      'modulos_activos': _modulosSeleccionados.toList(),
+    });
+
+    // Suscripción
+    batch.set(
+      db.collection('empresas').doc(uid).collection('suscripcion').doc('actual'),
+      {
+        'plan': 'basico',
+        'plan_nombre': 'Plan Base',
+        'estado': 'ACTIVA',
+        'fecha_inicio': FieldValue.serverTimestamp(),
+        'fecha_fin': Timestamp.fromDate(
+            DateTime.now().add(const Duration(days: 365))),
+        'packs_activos': <String>[],
+        'addons_activos': <String>[],
+      },
+    );
+
+    // Documento usuario
+    batch.set(db.collection('usuarios').doc(uid), {
+      'uid': uid,
+      'email': email,
+      'empresa_id': uid,
+      'rol': 'admin',
+      'nombre': propietario.isNotEmpty ? propietario : nombre,
+      'creado': FieldValue.serverTimestamp(),
+      'activo': true,
+    });
+
+    await batch.commit();
+
+    // Inicializar configuracion/modulos con los módulos seleccionados
+    // (fuente de verdad para el dashboard) — separado del batch porque
+    // es una subcolección diferente
+    final modulosList = _modulosSeleccionados.map((id) => {
+      'id': id,
+      'activo': true,
+    }).toList();
+    await db
+        .collection('empresas')
+        .doc(uid)
+        .collection('configuracion')
+        .doc('modulos')
+        .set({
+      'modulos': modulosList,
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    });
+
+    return uid;
+  }
+
+  String _mensajeAuth(String code) {
+    switch (code) {
+      case 'email-already-in-use': return 'Este email ya está registrado';
+      case 'invalid-email':        return 'El email no es válido';
+      case 'weak-password':        return 'La contraseña es demasiado débil (mín. 6 caracteres)';
+      case 'operation-not-allowed': return 'Operación no permitida';
+      default:                     return 'Error de autenticación: $code';
+    }
+  }
+
   void _mostrarError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('❌ $msg'), backgroundColor: Colors.red),
     );
+  }
+
+  void _seleccionarTodos() =>
+      setState(() => _modulosSeleccionados.addAll(_todosModulos.map((m) => m.id)));
+
+  void _deseleccionarTodos() =>
+      setState(() => _modulosSeleccionados.clear());
+
+  List<Widget> _buildSelectorModulos() {
+    final grupos = <String>[];
+    for (final m in _todosModulos) {
+      if (!grupos.contains(m.grupo)) grupos.add(m.grupo);
+    }
+    final widgets = <Widget>[];
+    for (final grupo in grupos) {
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 4),
+        child: Text(grupo,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                color: Color(0xFF455A64), letterSpacing: 0.5)),
+      ));
+      for (final mod in _todosModulos.where((m) => m.grupo == grupo)) {
+        final activo = _modulosSeleccionados.contains(mod.id);
+        widgets.add(GestureDetector(
+          onTap: () => setState(() {
+            if (activo) _modulosSeleccionados.remove(mod.id);
+            else _modulosSeleccionados.add(mod.id);
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: activo ? mod.color.withValues(alpha: 0.08) : const Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: activo ? mod.color : Colors.grey[200]!,
+                width: activo ? 1.5 : 1,
+              ),
+            ),
+            child: Row(children: [
+              Icon(
+                activo ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 20,
+                color: activo ? mod.color : Colors.grey[400],
+              ),
+              const SizedBox(width: 10),
+              Icon(mod.icono, size: 16,
+                  color: activo ? mod.color : Colors.grey[500]),
+              const SizedBox(width: 8),
+              Text(mod.nombre,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                      color: activo ? mod.color : Colors.black87)),
+            ]),
+          ),
+        ));
+      }
+    }
+    return widgets;
   }
 
   @override
@@ -683,92 +934,94 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Se enviará un email con las credenciales al cliente.',
+                'El cliente podrá iniciar sesión con el email y contraseña que indiques.',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 20),
 
-              // Plan base (siempre incluido)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: PlanesConfig.planBase.color.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: PlanesConfig.planBase.color.withValues(alpha: 0.3)),
+              // Cabecera módulos
+              Row(children: [
+                const Icon(Icons.extension_outlined, color: Color(0xFF0D47A1), size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text('Módulos activos',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Color(0xFF0D47A1))),
                 ),
-                child: Row(children: [
-                  Icon(Icons.check_circle, color: PlanesConfig.planBase.color, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('${PlanesConfig.planBase.nombre} — ${PlanesConfig.planBase.precioAnual.toStringAsFixed(0)}€/año',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: PlanesConfig.planBase.color)),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 12),
-
-              // Packs
-              const Text('Packs opcionales',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-              const SizedBox(height: 6),
-              ...PlanesConfig.todosPacks.map((pack) => _CheckboxItem(
-                titulo: pack.nombre,
-                subtitulo: pack.descripcion,
-                precio: '+${pack.precioAnual.toStringAsFixed(0)}€/año',
-                color: pack.color,
-                icono: pack.icono,
-                seleccionado: _packsSeleccionados.contains(pack.id),
-                onChanged: (v) => setState(() {
-                  if (v) _packsSeleccionados.add(pack.id);
-                  else _packsSeleccionados.remove(pack.id);
-                }),
-              )),
-
-              // Add-ons
-              const Text('Add-ons opcionales',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-              const SizedBox(height: 6),
-              ...PlanesConfig.todosAddons.map((addon) => _CheckboxItem(
-                titulo: addon.nombre,
-                subtitulo: addon.descripcion,
-                precio: addon.precioLabel,
-                color: addon.color,
-                icono: addon.icono,
-                seleccionado: _addonsSeleccionados.contains(addon.id),
-                onChanged: (v) => setState(() {
-                  if (v) _addonsSeleccionados.add(addon.id);
-                  else _addonsSeleccionados.remove(addon.id);
-                }),
-              )),
-
-              // Precio total
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFE3F2FD), Color(0xFFF3E5F5)]),
-                  borderRadius: BorderRadius.circular(10),
+                TextButton(
+                  onPressed: _seleccionarTodos,
+                  style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero, minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: const Text('Todos', style: TextStyle(fontSize: 12)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.euro, color: Color(0xFF0D47A1), size: 18),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('Precio total', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-                  Text('${_precioTotal.toStringAsFixed(0)}€/año',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0D47A1))),
-                ]),
-              ),
-
+                const SizedBox(width: 10),
+                TextButton(
+                  onPressed: _deseleccionarTodos,
+                  style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero, minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: Colors.grey),
+                  child: const Text('Ninguno', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                Text('${_modulosSeleccionados.length}/${_todosModulos.length}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey,
+                        fontWeight: FontWeight.w600)),
+              ]),
+              const SizedBox(height: 8),
+              ..._buildSelectorModulos(),
               const SizedBox(height: 16),
 
-              // Email
+              // Email (opcional)
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _deco('Email del cliente *', Icons.email_outlined),
+                decoration: _deco('Email de inicio de sesión (opcional)', Icons.email_outlined),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Obligatorio';
-                  if (!RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(v)) {
+                  if (v != null && v.isNotEmpty &&
+                      !RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(v)) {
                     return 'Email no válido';
                   }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Contraseña de inicio de sesión
+              TextFormField(
+                controller: _passwordCtrl,
+                obscureText: !_passwordVisible,
+                decoration: InputDecoration(
+                  labelText: 'Contraseña de inicio de sesión *',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(_passwordVisible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined),
+                    onPressed: () =>
+                        setState(() => _passwordVisible = !_passwordVisible),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F7FA),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF0D47A1), width: 2),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Obligatorio';
+                  if (v.trim().length < 6) return 'Mínimo 6 caracteres';
                   return null;
                 },
               ),
@@ -799,11 +1052,6 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
                     .toList(),
                 onChanged: (v) => setState(() => _tipoNegocio = v ?? 'Otro'),
               ),
-              const SizedBox(height: 8),
-
-              // Info staff email
-              _InfoStaffEmail(),
-
               const SizedBox(height: 20),
 
               // Botón crear
@@ -826,7 +1074,7 @@ class _FormNuevaCuentaState extends State<_FormNuevaCuenta> {
                               color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.person_add),
                   label: Text(
-                    _creando ? 'Creando cuenta...' : 'Crear cuenta y enviar email',
+                    _creando ? 'Creando cuenta...' : 'Crear cuenta',
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600),
                   ),
@@ -2171,6 +2419,353 @@ class _ModulosAdopcion extends StatelessWidget {
         }).toList()),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET: Selector de módulos activos por empresa
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ModInfo {
+  final String id;
+  final String nombre;
+  final String grupo;
+  final IconData icono;
+  final Color color;
+  const _ModInfo(this.id, this.nombre, this.grupo, this.icono, this.color);
+}
+
+const _todosModulos = [
+  _ModInfo('dashboard',      'Dashboard',          'Base',          Icons.dashboard_outlined,       Color(0xFF1976D2)),
+  _ModInfo('reservas',       'Reservas / Citas',   'Base',          Icons.calendar_today_outlined,  Color(0xFF1976D2)),
+  _ModInfo('clientes',       'Clientes',           'Base',          Icons.people_outline,           Color(0xFF1976D2)),
+  _ModInfo('servicios',      'Servicios',          'Base',          Icons.spa_outlined,             Color(0xFF1976D2)),
+  _ModInfo('empleados',      'Empleados',          'Base',          Icons.badge_outlined,           Color(0xFF1976D2)),
+  _ModInfo('valoraciones',   'Valoraciones',       'Base',          Icons.star_outline,             Color(0xFF1976D2)),
+  _ModInfo('estadisticas',   'Estadísticas',       'Base',          Icons.bar_chart,                Color(0xFF1976D2)),
+  _ModInfo('contenido_web',  'Contenido Web',      'Base',          Icons.web_outlined,             Color(0xFF1976D2)),
+  _ModInfo('app',            'Mi App',             'Base',          Icons.store_outlined,           Color(0xFF1976D2)),
+  _ModInfo('facturacion',    'Facturación',        'Gestión',       Icons.receipt_long_outlined,    Color(0xFF7B1FA2)),
+  _ModInfo('vacaciones',     'Vacaciones',         'Gestión',       Icons.beach_access_outlined,    Color(0xFF7B1FA2)),
+  _ModInfo('tpv',            'TPV / Cobros',       'Gestión',       Icons.point_of_sale_outlined,   Color(0xFF7B1FA2)),
+  _ModInfo('fichaje',        'Fichaje',            'Gestión',       Icons.fingerprint,              Color(0xFF7B1FA2)),
+  _ModInfo('fiscal',         'Fiscal AI',          'Fiscal',        Icons.account_balance_outlined, Color(0xFF0288D1)),
+  _ModInfo('contabilidad',   'Contabilidad',       'Fiscal',        Icons.calculate_outlined,       Color(0xFF0288D1)),
+  _ModInfo('verifactu',      'VeriFactu',          'Fiscal',        Icons.verified_outlined,        Color(0xFF0288D1)),
+  _ModInfo('pedidos',        'Pedidos / Tienda',   'Tienda',        Icons.storefront_outlined,      Color(0xFFE65100)),
+  _ModInfo('whatsapp',       'WhatsApp',           'Add-ons',       Icons.chat_bubble_outline,      Color(0xFF25D366)),
+  _ModInfo('tareas',         'Tareas',             'Add-ons',       Icons.task_alt_outlined,        Color(0xFF00ACC1)),
+  _ModInfo('nominas',        'Nóminas',            'Add-ons',       Icons.payments_outlined,        Color(0xFFFF7043)),
+  _ModInfo('plantillas_pdf', 'Plantillas PDF',     'Add-ons',       Icons.picture_as_pdf_outlined,  Color(0xFFFF7043)),
+];
+
+class _FormSelectorModulos extends StatefulWidget {
+  final _CuentaCliente cuenta;
+  const _FormSelectorModulos({required this.cuenta});
+
+  @override
+  State<_FormSelectorModulos> createState() => _FormSelectorModulosState();
+}
+
+class _FormSelectorModulosState extends State<_FormSelectorModulos> {
+  final _db = FirebaseFirestore.instance;
+  Set<String> _seleccionados = {};
+  bool _cargando = true;
+  bool _guardando = false;
+  bool _usandoOverride = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstadoActual();
+  }
+
+  Future<void> _cargarEstadoActual() async {
+    try {
+      final doc = await _db
+          .collection('empresas')
+          .doc(widget.cuenta.empresaId)
+          .collection('suscripcion')
+          .doc('actual')
+          .get();
+
+      final data = doc.data() ?? {};
+      final override = (data['modulos_override'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+
+      if (override.isNotEmpty) {
+        setState(() {
+          _seleccionados = Set.from(override);
+          _usandoOverride = true;
+          _cargando = false;
+        });
+      } else {
+        // Calcular desde packs/addons actuales
+        final packs = (data['packs_activos'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+        final addons = (data['addons_activos'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+        final modulos = PlanesConfig.getModulosActivos(packsActivos: packs, addonsActivos: addons);
+        setState(() {
+          _seleccionados = Set.from(modulos);
+          _usandoOverride = false;
+          _cargando = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _guardar() async {
+    setState(() => _guardando = true);
+    try {
+      await _db
+          .collection('empresas')
+          .doc(widget.cuenta.empresaId)
+          .collection('suscripcion')
+          .doc('actual')
+          .update({'modulos_override': _seleccionados.toList()});
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Módulos actualizados'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _resetearAPlan() async {
+    setState(() => _guardando = true);
+    try {
+      await _db
+          .collection('empresas')
+          .doc(widget.cuenta.empresaId)
+          .collection('suscripcion')
+          .doc('actual')
+          .update({'modulos_override': FieldValue.delete()});
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Módulos restablecidos al plan contratado'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _seleccionarTodos() => setState(
+      () => _seleccionados = _todosModulos.map((m) => m.id).toSet());
+
+  void _deseleccionarTodos() => setState(() => _seleccionados = {});
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                  color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Cabecera
+          Row(children: [
+            const Icon(Icons.extension_outlined, color: Color(0xFF1565C0), size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Módulos activos',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(widget.cuenta.nombre,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ]),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ]),
+          const SizedBox(height: 8),
+
+          // Banner override activo
+          if (_usandoOverride && !_cargando)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFF8F00)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.edit_note, color: Color(0xFFFF8F00), size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text('Módulos personalizados activos (overriding el plan)',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF6D4C41),
+                          fontWeight: FontWeight.w600)),
+                ),
+                TextButton(
+                  onPressed: _guardando ? null : _resetearAPlan,
+                  style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero, minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: const Text('Resetear al plan',
+                      style: TextStyle(fontSize: 11, color: Color(0xFFFF8F00))),
+                ),
+              ]),
+            ),
+
+          // Botones seleccionar / deseleccionar todos
+          Row(children: [
+            TextButton(
+              onPressed: _seleccionarTodos,
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero, minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              child: const Text('Seleccionar todos', style: TextStyle(fontSize: 12)),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: _deseleccionarTodos,
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero, minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: Colors.grey),
+              child: const Text('Ninguno', style: TextStyle(fontSize: 12)),
+            ),
+            const Spacer(),
+            Text('${_seleccionados.length}/${_todosModulos.length}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey,
+                    fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 8),
+
+          // Lista de módulos
+          Flexible(
+            child: _cargando
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    shrinkWrap: true,
+                    children: _buildGrupos(),
+                  ),
+          ),
+          const SizedBox(height: 12),
+
+          // Botón guardar
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: _guardando
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.save_outlined),
+              label: Text(
+                _guardando ? 'Guardando...' : 'Guardar cambios',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildGrupos() {
+    final grupos = <String>[];
+    for (final m in _todosModulos) {
+      if (!grupos.contains(m.grupo)) grupos.add(m.grupo);
+    }
+
+    final widgets = <Widget>[];
+    for (final grupo in grupos) {
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Text(grupo,
+            style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700,
+                color: Color(0xFF455A64), letterSpacing: 0.5)),
+      ));
+      for (final mod in _todosModulos.where((m) => m.grupo == grupo)) {
+        final activo = _seleccionados.contains(mod.id);
+        widgets.add(GestureDetector(
+          onTap: () => setState(() {
+            if (activo) _seleccionados.remove(mod.id);
+            else _seleccionados.add(mod.id);
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: activo ? mod.color.withValues(alpha: 0.08) : const Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: activo ? mod.color : Colors.grey[200]!,
+                width: activo ? 1.5 : 1,
+              ),
+            ),
+            child: Row(children: [
+              Icon(
+                activo ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 20,
+                color: activo ? mod.color : Colors.grey[400],
+              ),
+              const SizedBox(width: 10),
+              Icon(mod.icono, size: 16,
+                  color: activo ? mod.color : Colors.grey[500]),
+              const SizedBox(width: 8),
+              Text(mod.nombre,
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600,
+                      color: activo ? mod.color : Colors.black87)),
+            ]),
+          ),
+        ));
+      }
+    }
+    return widgets;
   }
 }
 

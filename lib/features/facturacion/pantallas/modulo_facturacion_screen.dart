@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
+import '../../../core/firebase/firestore_stream_helper.dart';
+import '../../../core/platform/platform_data_source.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/services/pdf_service.dart';
@@ -24,20 +27,21 @@ class ModuloFacturacionScreen extends StatefulWidget {
 }
 
 class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tabController;
   final FacturacionService _service = FacturacionService();
+  final _firestoreHelper = FirestoreStreamHelper();
   String _busqueda = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     // Detect and mark overdue invoices
     _service.detectarYMarcarVencidas(widget.empresaId);
     // Al pulsar tab 6 (Contabilidad), navegar a pantalla separada
     _tabController.addListener(() {
-      if (_tabController.index == 6 && !_tabController.indexIsChanging) {
+      if (_tabController.index == 7 && !_tabController.indexIsChanging) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _tabController.animateTo(5);
@@ -129,6 +133,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
                 _buildListaFacturas(EstadoFactura.pendiente),
                 _buildListaFacturas(EstadoFactura.pagada),
                 _buildListaFacturas(EstadoFactura.vencida),
+                _buildListaFacturasTpv(),
                 _buildEstadisticas(),
                 _buildRevisionIA(),
                 // Slot dummy – la navegación real ocurre en el listener del TabController
@@ -215,6 +220,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
           const Tab(text: 'Pendientes'),
           const Tab(text: 'Pagadas'),
           const Tab(text: '⚠️ Vencidas'),
+          const Tab(text: '🖥️ TPV'),
           const Tab(text: 'Estadísticas'),
           Tab(
             child: StreamBuilder<int>(
@@ -234,6 +240,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
             ),
           ),
           const Tab(icon: Icon(Icons.calculate, size: 16), text: 'Contabilidad'),
+
         ],
       ),
     );
@@ -341,12 +348,28 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          factura.numeroFactura,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              factura.numeroFactura,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (factura.pedidoId != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepOrange.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('TPV',
+                                    style: TextStyle(fontSize: 10, color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           factura.clienteNombre.isEmpty
@@ -500,6 +523,145 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
       ),
     );
   }
+
+  Widget _buildListaFacturasTpv() {
+    return Column(
+      children: [
+        _buildBarraBusqueda(),
+        Expanded(
+          child: StreamBuilder<List<Factura>>(
+            stream: _service.obtenerFacturas(widget.empresaId),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              var facturas = (snap.data ?? [])
+                  .where((f) => f.pedidoId != null || (f.ticketIds != null && f.ticketIds!.isNotEmpty))
+                  .toList();
+              if (_busqueda.isNotEmpty) {
+                facturas = facturas.where((f) =>
+                    f.clienteNombre.toLowerCase().contains(_busqueda.toLowerCase()) ||
+                    f.numeroFactura.toLowerCase().contains(_busqueda.toLowerCase())).toList();
+              }
+              if (facturas.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(32, 0, 32, 200),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.point_of_sale, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        const Text('Sin facturas TPV', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        Text('Las ventas del TPV aparecerán aquí', style: TextStyle(color: Colors.grey[500])),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 220),
+                itemCount: facturas.length,
+                itemBuilder: (ctx, i) => _buildTarjetaFacturaTpv(facturas[i]),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTarjetaFacturaTpv(Factura f) {
+    final esCierre = f.ticketIds != null && f.ticketIds!.isNotEmpty;
+    final color = esCierre ? const Color(0xFF1565C0) : const Color(0xFF2E7D32);
+    final d = f.fechaEmision;
+    final fechaStr = '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}  ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _verDetalle(f),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                  child: Text(esCierre ? '🖥️ Cierre diario' : '🧾 Ticket', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                Text(f.numeroFactura, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Spacer(),
+                Text('${f.total.toStringAsFixed(2)}€', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(Icons.access_time, size: 12, color: Colors.grey[500]),
+                const SizedBox(width: 4),
+                Text(fechaStr, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                if (f.terminalId != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(Icons.point_of_sale, size: 12, color: Colors.grey[500]),
+                  const SizedBox(width: 4),
+                  Text(f.terminalId!, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ],
+              ]),
+              const SizedBox(height: 6),
+              Row(children: [
+                _chipInfo('Base: ${f.subtotal.toStringAsFixed(2)}€'),
+                const SizedBox(width: 6),
+                _chipInfo('IVA: ${f.totalIva.toStringAsFixed(2)}€'),
+                if (f.metodoPago != null) ...[
+                  const SizedBox(width: 6),
+                  _chipInfo(f.metodoPago!.etiqueta),
+                ],
+              ]),
+              if (esCierre) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  _chipInfo('${f.ticketIds!.length} ticket${f.ticketIds!.length != 1 ? 's' : ''}'),
+                  if (f.desgloseMetodoPago != null) ...[
+                    const SizedBox(width: 6),
+                    ...f.desgloseMetodoPago!.entries.map((e) =>
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _chipInfo('${e.key}: ${e.value.toStringAsFixed(2)}€'),
+                      )),
+                  ],
+                ]),
+              ],
+              if (!esCierre && f.lineas.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                ...f.lineas.take(3).map((l) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(children: [
+                    Text('• ${l.descripcion}', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                    const Spacer(),
+                    Text('${l.cantidad}× ${l.precioUnitario.toStringAsFixed(2)}€', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  ]),
+                )),
+                if (f.lineas.length > 3)
+                  Text('+${f.lineas.length - 3} más', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chipInfo(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+    child: Text(text, style: TextStyle(fontSize: 10, color: Colors.grey[700])),
+  );
 
   Widget _buildEstadisticas() {
     return FutureBuilder<Map<String, dynamic>>(
@@ -767,13 +929,15 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen>
 
   Widget _buildRevisionIA() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .collection('fiscal_transactions')
-          .where('status', isEqualTo: 'needs_review')
-          .orderBy('created_at', descending: true)
-          .snapshots(),
+      stream: _firestoreHelper.collectionStream(
+        FirebaseFirestore.instance
+            .collection('empresas')
+            .doc(widget.empresaId)
+            .collection('fiscal_transactions')
+            .where('status', isEqualTo: 'needs_review')
+            .orderBy('created_at', descending: true),
+        priority: PollingPriority.normal,
+      ),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

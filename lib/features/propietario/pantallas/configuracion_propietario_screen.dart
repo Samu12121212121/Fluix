@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../negocio_publico/pantallas/personalizacion_app_screen.dart';
+import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
+import '../../../services/demo_cuenta_service.dart';
 
 /// Pantalla de Configuración del Propietario
 /// Incluye: Gestión de reseñas Google, configuración de emails, scripts Hostinger
@@ -29,6 +31,7 @@ class _ConfiguracionPropietarioScreenState
   final _apiKeyGoogleCtrl = TextEditingController();
   
   bool _guardando = false;
+  bool _cargandoDemo = false;
   bool _enviarEmailReservas = true;
   bool _requiereConfirmacion = true;
 
@@ -438,10 +441,91 @@ class _ConfiguracionPropietarioScreenState
               ),
             ),
             const SizedBox(height: 16),
+
+            // ── Cuenta Demo ──────────────────────────────────────────────
+            const Divider(color: Color(0xFF2A2E45)),
+            const SizedBox(height: 16),
+            _buildCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.play_circle_outline, color: Color(0xFF00FFC8)),
+                      SizedBox(width: 10),
+                      Text(
+                        'Cuenta Demo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Inicia sesión con la cuenta de demostración para explorar todas las funciones con datos de ejemplo.',
+                    style: TextStyle(color: Color(0xFFB0B3C1), fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _cargandoDemo ? null : _iniciarSesionDemo,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF00FFC8)),
+                        foregroundColor: const Color(0xFF00FFC8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: _cargandoDemo
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF00FFC8)))
+                          : const Icon(Icons.play_circle_outline),
+                      label: Text(
+                        _cargandoDemo ? 'Cargando demo...' : 'Probar cuenta demo',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _iniciarSesionDemo() async {
+    if (!mounted) return;
+    setState(() => _cargandoDemo = true);
+    try {
+      await DemoCuentaService().loginComoDemo();
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al iniciar demo: $e'),
+          backgroundColor: const Color(0xFFFF2850),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cargandoDemo = false);
+    }
   }
 
   Widget _buildSeccionTitulo(String titulo, IconData icono, Color color) {

@@ -295,6 +295,18 @@ class _TarjetaFacturaIngreso extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 12),
                   ),
+                  if (factura.pedidoId != null) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('TPV',
+                          style: TextStyle(fontSize: 9, color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(

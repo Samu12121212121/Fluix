@@ -29,6 +29,8 @@ class ResenaFluix {
   final DateTime fecha;
   final bool verificado;        // true = cliente real confirmado
   final String? servicioUsado;  // "Corte y color", etc.
+  final String? respuesta;      // Respuesta del negocio
+  final DateTime? fechaRespuesta;
 
   const ResenaFluix({
     required this.id,
@@ -39,6 +41,8 @@ class ResenaFluix {
     required this.fecha,
     this.verificado = false,
     this.servicioUsado,
+    this.respuesta,
+    this.fechaRespuesta,
   });
 
   factory ResenaFluix.fromJson(Map<String, dynamic> json) => ResenaFluix(
@@ -50,6 +54,10 @@ class ResenaFluix {
     fecha:          (json['fecha'] as dynamic).toDate(),
     verificado:     json['verificado'] as bool? ?? false,
     servicioUsado:  json['servicioUsado'] as String?,
+    respuesta:      json['respuesta'] as String?,
+    fechaRespuesta: json['fechaRespuesta'] != null
+        ? (json['fechaRespuesta'] as dynamic).toDate()
+        : null,
   );
 
   Map<String, dynamic> toJson() => {
@@ -61,6 +69,8 @@ class ResenaFluix {
     'fecha':          fecha,
     'verificado':     verificado,
     'servicioUsado':  servicioUsado,
+    if (respuesta != null) 'respuesta': respuesta,
+    if (fechaRespuesta != null) 'fechaRespuesta': fechaRespuesta,
   };
 
   ResenaFluix copyWith({
@@ -70,6 +80,8 @@ class ResenaFluix {
     String? comentario,
     bool? verificado,
     String? servicioUsado,
+    String? respuesta,
+    DateTime? fechaRespuesta,
   }) =>
       ResenaFluix(
         id:             id,
@@ -80,6 +92,8 @@ class ResenaFluix {
         fecha:          fecha,
         verificado:     verificado ?? this.verificado,
         servicioUsado:  servicioUsado ?? this.servicioUsado,
+        respuesta:      respuesta ?? this.respuesta,
+        fechaRespuesta: fechaRespuesta ?? this.fechaRespuesta,
       );
 }
 

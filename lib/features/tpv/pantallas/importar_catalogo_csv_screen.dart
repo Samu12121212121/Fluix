@@ -150,6 +150,7 @@ class _ImportarCatalogoCsvScreenState
           if (fila.sku != null) 'sku': fila.sku,
           if (fila.codigoBarras != null) 'codigo_barras': fila.codigoBarras,
           if (fila.stock != null) 'stock': fila.stock,
+          if (fila.coste != null) 'coste': fila.coste,
           if (imagenUrl != null) 'imagen_url': imagenUrl,
         };
 

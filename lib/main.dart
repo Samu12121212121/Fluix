@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/navigation/app_navigator.dart';
 import 'core/providers/app_config_provider.dart';
+import 'features/tpv/providers/mesa_theme_provider.dart';
 import 'core/utils/admin_initializer.dart';
 import 'features/autenticacion/pantallas/pantalla_login.dart';
 import 'features/dashboard/pantallas/pantalla_dashboard.dart';
@@ -24,33 +26,102 @@ import 'services/auth/token_refresh_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // En Windows los errores async no capturados matan el proceso.
+  // Firebase/Firestore los lanza desde threads nativos → los capturamos aquí.
+  if (defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.macOS) {
+    PlatformDispatcher.instance.onError = (error, stack) {
+      final msg = error.toString();
+      if (msg.contains('permission-denied') ||
+          msg.contains('firebase_auth') ||
+          msg.contains('unknown-error') ||
+          msg.contains('non-platform thread') ||
+          msg.contains('FirebaseFirestore') ||
+          msg.contains('cloud_firestore')) {
+        debugPrint('⚠️ Firebase error capturado (desktop): $error');
+        return true;
+      }
+      debugPrint('❌ Error no manejado: $error\n$stack');
+      return true; // nunca cerrar la app en desktop
+    };
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Activar persistencia offline de Firestore
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
+  await _configurarFirestore();
 
   if (!kIsWeb &&
+      !kDebugMode &&
       defaultTargetPlatform != TargetPlatform.windows &&
       defaultTargetPlatform != TargetPlatform.linux &&
       defaultTargetPlatform != TargetPlatform.macOS) {
     await FirebaseAppCheck.instance.activate(
-      androidProvider:
-      kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      androidProvider: AndroidProvider.playIntegrity,
       appleProvider: AppleProvider.deviceCheck,
     );
   }
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppConfigProvider()..inicializar(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppConfigProvider()..inicializar()),
+        ChangeNotifierProvider(create: (_) => MesaThemeProvider()..cargarTema()),
+      ],
       child: const FluixCrmApp(),
     ),
   );
+}
+
+/// Configura Firestore con ajustes específicos por plataforma.
+/// 
+/// - **Windows/Desktop**: Caché limitada (100MB) + limpieza al inicio
+///   → Previene crashes de platform channels y crecimiento ilimitado de disco
+/// 
+/// - **Mobile (Android/iOS)**: Caché ilimitada
+///   → Aprovecha persistencia nativa optimizada del SDK
+/// 
+/// - **Web**: Sin persistencia
+///   → No soportado en navegadores
+Future<void> _configurarFirestore() async {
+  if (kIsWeb) {
+    // ── WEB: Sin persistencia (no soportado) ──────────────────────────
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+    );
+    debugPrint('🌐 Firestore configurado para Web (sin persistencia)');
+    
+  } else if (defaultTargetPlatform == TargetPlatform.windows ||
+             defaultTargetPlatform == TargetPlatform.linux ||
+             defaultTargetPlatform == TargetPlatform.macOS) {
+    // ── DESKTOP: Caché limitada + limpieza preventiva ─────────────────
+    
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: 100 * 1024 * 1024, // 100MB máximo
+    );
+    
+    // Limpiar caché al iniciar app (previene acumulación)
+    try {
+      await FirebaseFirestore.instance.clearPersistence();
+      debugPrint('✅ Caché Firestore limpiada (Windows)');
+    } catch (e) {
+      // Error esperado si app ya está usando Firestore
+      debugPrint('ℹ️ No se pudo limpiar caché (app activa): $e');
+    }
+    
+    debugPrint('💻 Firestore configurado para Desktop (caché 100MB)');
+    
+  } else {
+    // ── MOBILE: Caché ilimitada (óptimo para iOS/Android) ─────────────
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+    debugPrint('📱 Firestore configurado para Mobile (caché ilimitada)');
+  }
 }
 
 class FluixCrmApp extends StatefulWidget {
@@ -62,7 +133,6 @@ class FluixCrmApp extends StatefulWidget {
 
 class _FluixCrmAppState extends State<FluixCrmApp>
     with WidgetsBindingObserver {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
 
@@ -105,7 +175,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     debugPrint('🔗 Deep link recibido: $uri');
     if (uri.scheme != 'fluixcrm') return;
 
-    final nav = _navigatorKey.currentState;
+    final nav = AppNavigator.key.currentState;
     if (nav == null) return;
 
     if (uri.host == 'invite') {
@@ -144,12 +214,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   }
 
   void _onSesionExpirada() {
-    final nav = _navigatorKey.currentState;
-    if (nav == null) return;
-    nav.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const PantallaLogin()),
-          (_) => false,
-    );
+    AppNavigator.irALogin();
   }
 
   @override
@@ -162,7 +227,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
         child: MaterialApp(
           title: 'Fluix CRM',
           debugShowCheckedModeBanner: false,
-          navigatorKey: _navigatorKey,
+          navigatorKey: AppNavigator.key,
           theme: config.temaClaro,
           darkTheme: config.temaOscuro,
           themeMode: config.themeMode,
@@ -176,6 +241,9 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             Locale('es', 'ES'),
             Locale('en', 'US'),
           ],
+          routes: {
+            '/login': (_) => const PantallaLogin(),
+          },
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges().distinct(
                   (a, b) => a?.uid == b?.uid,

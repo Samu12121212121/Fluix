@@ -23,6 +23,7 @@ class WidgetFactory {
         );
       case 'proximos_dias':
         return WidgetProximosDias(empresaId: empresaId);
+      case 'kpis':
       case 'kpis_rapidos':
         return WidgetKpisRapidos(empresaId: empresaId);
       case 'reservas_hoy':
@@ -33,13 +34,8 @@ class WidgetFactory {
         return WidgetResumenFacturacion(empresaId: empresaId);
       case 'resumen_pedidos':
         return WidgetResumenPedidos(empresaId: empresaId);
-    // ── PRÓXIMAMENTE ───────────────────────────────────────────────────────
       case 'ingresos_mes':
         return WidgetIngresosMes(empresaId: empresaId);
-      case 'clientes_nuevos':
-        return WidgetClientesNuevos(empresaId: empresaId);
-      case 'alertas_negocio':
-        return WidgetAlertasNegocio(empresaId: empresaId);
 
       default:
         debugPrint('WidgetFactory: id no reconocido -> ${config.id}');

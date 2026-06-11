@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
 import '../modelos/fichaje.dart';
 
@@ -38,6 +40,31 @@ class FichajeService {
           .collection('empleados_fichaje');
 
   String get _hoy => DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  // ── Firma de integridad SHA-256 ────────────────────────────────────────────
+  // Proporciona un nivel básico de prueba de que el fichaje no fue alterado
+  // post-creación. Los campos clave se concatenan y se hashean con SHA-256.
+  static String _firmaIntegridad({
+    required String empleadoId,
+    required String fecha,
+    required int? entradaMs,
+    required String dispositivoId,
+  }) {
+    final contenido = '$empleadoId|$fecha|${entradaMs ?? 0}|$dispositivoId';
+    return sha256.convert(utf8.encode(contenido)).toString();
+  }
+
+  static String _firmaIntegridadSalida({
+    required String empleadoId,
+    required String fecha,
+    required int? entradaMs,
+    required int? salidaMs,
+    required String dispositivoId,
+  }) {
+    final contenido =
+        '$empleadoId|$fecha|${entradaMs ?? 0}|${salidaMs ?? 0}|$dispositivoId';
+    return sha256.convert(utf8.encode(contenido)).toString();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VERIFICAR PIN
@@ -98,6 +125,13 @@ class FichajeService {
           'Ficha la salida primero.');
     }
 
+    final entradaMs = DateTime.now().millisecondsSinceEpoch;
+    final firma = _firmaIntegridad(
+      empleadoId: empleadoId,
+      fecha: _hoy,
+      entradaMs: entradaMs,
+      dispositivoId: dispositivoId,
+    );
     await _col(empresaId).add({
       'empleado_id': empleadoId,
       'empleado_nombre': empleadoNombre,
@@ -109,6 +143,8 @@ class FichajeService {
       'tipo_horas': tipoHoras.name,
       'dispositivo_id': dispositivoId,
       'creado_at': FieldValue.serverTimestamp(),
+      // ── Firma de integridad SHA-256 (RDL 8/2019 nivel básico) ────────────
+      'firma_integridad': firma,
       // ── Audit trail ──────────────────────────────────────────────────────
       'es_correccion': false,
       'correccion_de': null,
@@ -239,8 +275,17 @@ class FichajeService {
     }
 
     // salida es un campo raíz → serverTimestamp sí está soportado
+    final salidaMs = DateTime.now().millisecondsSinceEpoch;
+    final firmaSalida = _firmaIntegridadSalida(
+      empleadoId: fichaje.empleadoId,
+      fecha: fichaje.fecha,
+      entradaMs: fichaje.entrada?.millisecondsSinceEpoch,
+      salidaMs: salidaMs,
+      dispositivoId: fichaje.dispositivoId,
+    );
     await _col(empresaId).doc(fichaje.id).update({
       'salida': FieldValue.serverTimestamp(),
+      'firma_salida': firmaSalida,
     });
   }
 
@@ -277,7 +322,8 @@ class FichajeService {
     final original = snapOriginal.data()!;
 
     // Crear NUEVO documento — el original queda intacto
-    await _col(empresaId).add({
+    final corrDocRef = _col(empresaId).doc();
+    final correccionData = {
       'empleado_id': original['empleado_id'],
       'empleado_nombre': original['empleado_nombre'],
       'fecha': original['fecha'],
@@ -293,6 +339,21 @@ class FichajeService {
       'motivo_correccion': motivo.trim(),
       'corregido_por_uid': corregidoPorUid,
       'corregido_at': FieldValue.serverTimestamp(),
+    };
+    await corrDocRef.set(correccionData);
+
+    // ── audit_log subcollection en el documento ORIGINAL ─────────────────
+    // Rastrea quién modificó, cuándo y por qué para cumplir RDL 8/2019
+    await _col(empresaId)
+        .doc(fichajeOriginalId)
+        .collection('audit_log')
+        .add({
+      'tipo': 'correccion',
+      'correccion_id': corrDocRef.id,
+      'corregido_por_uid': corregidoPorUid,
+      'motivo': motivo.trim(),
+      'timestamp': FieldValue.serverTimestamp(),
+      'dispositivo_id': original['dispositivo_id'] ?? 'desconocido',
     });
   }
 
@@ -571,5 +632,106 @@ class FichajeService {
     }
 
     return buf.toString();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GESTIÓN DE EMPLEADOS (PIN)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Stream<List<EmpleadoFichaje>> empleadosStream(String empresaId) =>
+      _empleados(empresaId)
+          .orderBy('nombre')
+          .snapshots()
+          .map((s) => s.docs.map(EmpleadoFichaje.fromFirestore).toList());
+
+  Future<void> crearEmpleado({
+    required String empresaId,
+    required String nombre,
+    required String pin,
+  }) async {
+    final dup = await _empleados(empresaId)
+        .where('pin', isEqualTo: pin)
+        .where('activo', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (dup.docs.isNotEmpty) throw Exception('PIN $pin ya está en uso.');
+    await _empleados(empresaId).add({
+      'nombre': nombre.trim(),
+      'pin': pin,
+      'empresa_id': empresaId,
+      'activo': true,
+      'creado_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Crea o actualiza el acceso de fichaje para un empleado existente del módulo
+  /// de RRHH. Usa el mismo UID que el documento `usuarios/{uid}` para mantener
+  /// la coherencia entre módulos.
+  Future<void> configurarPINEmpleado({
+    required String empresaId,
+    required String uid,
+    required String nombre,
+    required String pin,
+    int jornadaDiaria = 480,
+  }) async {
+    final dup = await _empleados(empresaId)
+        .where('pin', isEqualTo: pin)
+        .where('activo', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (dup.docs.isNotEmpty && dup.docs.first.id != uid) {
+      throw Exception('PIN $pin ya está en uso por otro empleado.');
+    }
+    await _empleados(empresaId).doc(uid).set({
+      'nombre': nombre.trim(),
+      'pin': pin,
+      'empresa_id': empresaId,
+      'activo': true,
+      'jornada_diaria': jornadaDiaria,
+      'actualizado_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> actualizarEmpleado({
+    required String empresaId,
+    required String uid,
+    String? nombre,
+    String? pin,
+    bool? activo,
+    int? jornadaDiaria,
+  }) async {
+    if (pin != null) {
+      final dup = await _empleados(empresaId)
+          .where('pin', isEqualTo: pin)
+          .where('activo', isEqualTo: true)
+          .limit(1)
+          .get();
+      if (dup.docs.isNotEmpty && dup.docs.first.id != uid) {
+        throw Exception('PIN $pin ya está en uso.');
+      }
+    }
+    final data = <String, dynamic>{};
+    if (nombre != null) data['nombre'] = nombre.trim();
+    if (pin != null) data['pin'] = pin;
+    if (activo != null) data['activo'] = activo;
+    if (jornadaDiaria != null) data['jornada_diaria'] = jornadaDiaria;
+    await _empleados(empresaId).doc(uid).update(data);
+  }
+
+  Future<List<Fichaje>> fichajesMes({
+    required String empresaId,
+    required DateTime mes,
+  }) async {
+    final desde = DateTime(mes.year, mes.month, 1);
+    final hasta = DateTime(mes.year, mes.month + 1, 0);
+    final snap = await _col(empresaId)
+        .where('fecha',
+            isGreaterThanOrEqualTo: DateFormat('yyyy-MM-dd').format(desde))
+        .where('fecha',
+            isLessThanOrEqualTo: DateFormat('yyyy-MM-dd').format(hasta))
+        .orderBy('fecha')
+        .orderBy('creado_at')
+        .get();
+    return snap.docs.map(Fichaje.fromFirestore).toList();
   }
 }

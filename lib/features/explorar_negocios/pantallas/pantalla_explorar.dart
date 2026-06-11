@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../services/trofeos_service.dart';
+import '../../perfil_cliente/pantallas/pantalla_trofeos.dart';
 import '../../../models/negocio_publico_model.dart';
 import '../../../services/geolocalizacion_service.dart';
 import '../../perfil_cliente/pantallas/pantalla_perfil_cliente.dart';
@@ -388,6 +391,31 @@ class _TabExplorarState extends State<_TabExplorar> {
         fontWeight: FontWeight.w800, letterSpacing: -1,
       )),
       actions: [
+        // Contador de monedas
+        if (FirebaseAuth.instance.currentUser != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: StreamBuilder<int>(
+              stream: TrofeosService.streamMonedas(FirebaseAuth.instance.currentUser!.uid),
+              builder: (_, snap) => GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTrofeos())),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFB830).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFFFB830).withValues(alpha: 0.4)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('🪙', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text('${snap.data ?? 0}', style: const TextStyle(
+                      color: Color(0xFFFFB830), fontSize: 12, fontWeight: FontWeight.w900)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
         // Botón filtros
         GestureDetector(
           onTap: () async {
@@ -534,70 +562,52 @@ class _TabExplorarState extends State<_TabExplorar> {
     );
   }
 
-  SliverPadding _gridNegocios() {
+  Widget _gridNegocios() {
     Query q = FirebaseFirestore.instance
         .collection('negocios_publicos')
-        .where('activo', isEqualTo: true);
+        .where('activo', isEqualTo: true)
+        .limit(50);
     if (_cat != null) q = q.where('categoria', isEqualTo: _cat!.name);
     if (_modTendencias) q = q.where('ratingFluix', isGreaterThanOrEqualTo: 4.3).orderBy('ratingFluix', descending: true);
     if (_filtros.ratingMin > 0) q = q.where('ratingGoogle', isGreaterThanOrEqualTo: _filtros.ratingMin.toDouble());
 
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      sliver: StreamBuilder<QuerySnapshot>(
+    return SliverToBoxAdapter(
+      child: StreamBuilder<QuerySnapshot>(
         stream: q.snapshots(),
         builder: (ctx, snap) {
-          // Skeleton mientras carga
           if (snap.connectionState == ConnectionState.waiting) {
-            return SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                (_, __) => Shimmer.fromColors(
-                  baseColor: _C.grisMedio,
-                  highlightColor: _C.grisClaro,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _C.grisMedio,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-                childCount: 6,
-              ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, childAspectRatio: 0.75,
-                crossAxisSpacing: 12, mainAxisSpacing: 12,
-              ),
-            );
+            return const _SkeletonCarrusel(count: 4, width: 140, height: 175);
           }
           final docs = snap.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return const SliverToBoxAdapter(child: SizedBox.shrink());
-          }
+          if (docs.isEmpty) return const SizedBox.shrink();
           var negocios = docs.map((d) =>
               NegocioPublico.fromJson(d.id, d.data() as Map<String, dynamic>)).toList();
-          // Aplicar filtros cliente
           if (_filtros.tieneAlgunFiltro) {
             negocios = negocios.where(_filtros.pasaFiltro).toList();
           }
           if (negocios.isEmpty) {
-            return const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: Text('Sin resultados con los filtros aplicados',
-                    style: TextStyle(color: _C.textoMuted, fontSize: 13))),
-              ),
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('Sin resultados con los filtros aplicados',
+                  style: TextStyle(color: _C.textoMuted, fontSize: 13))),
             );
           }
-          return SliverGrid(
-            delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _TarjetaGrid(negocio: negocios[i]),
-              childCount: negocios.length,
-            ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          // Encuentra tu favorito → orden aleatorio por día (seed = día actual)
+          negocios.sort((a, b) => a.id.compareTo(b.id)); // orden estable base
+          final seed = DateTime.now().day * 31 + DateTime.now().month;
+          final shuffled = [...negocios];
+          for (int i = shuffled.length - 1; i > 0; i--) {
+            final j = (seed * (i + 7)) % (i + 1);
+            final tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+          }
+          negocios = shuffled;
+          return SizedBox(
+            height: 175,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: negocios.length,
+              itemBuilder: (ctx, i) => _TarjetaCompacta(negocio: negocios[i], posicion: _posicion),
             ),
           );
         },
@@ -771,6 +781,9 @@ class _CarruselOfertas extends StatelessWidget {
               NegocioPublico.fromJson(d.id, d.data() as Map<String, dynamic>)).toList();
           if (filtros.tieneAlgunFiltro) items = items.where(filtros.pasaFiltro).toList();
           if (items.isEmpty) return const SizedBox.shrink();
+          // Ofertas especiales: mejor valorados primero
+          items.sort((a, b) =>
+              (b.ratingGoogle ?? b.ratingFluix ?? 0).compareTo(a.ratingGoogle ?? a.ratingFluix ?? 0));
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -805,8 +818,9 @@ class _TarjetaOferta extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: SizedBox.expand(
               child: negocio.fotoUrl != null && negocio.fotoUrl!.isNotEmpty
-                  ? Image.network(negocio.fotoUrl!, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _FotoPlaceholder())
+                  ? CachedNetworkImage(imageUrl: negocio.fotoUrl!, fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => const _FotoPlaceholder(),
+                      placeholder: (_, __) => const _FotoPlaceholder())
                   : const _FotoPlaceholder(),
             ),
           ),
@@ -845,10 +859,7 @@ class _TarjetaOferta extends StatelessWidget {
               const SizedBox(height: 2),
               Row(children: [
                 if (negocio.ratingGoogle != null) ...[
-                  Icon(Icons.star_rounded, size: 11, color: _C.accent),
-                  const SizedBox(width: 3),
-                  Text(negocio.ratingGoogle!.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 10, color: Colors.white70)),
+                  _ChipRating(rating: negocio.ratingGoogle!),
                   const SizedBox(width: 6),
                 ],
                 Text(negocio.categoria.label,
@@ -901,6 +912,23 @@ class _CarruselCompacto extends StatelessWidget {
           }
           if (filtros.tieneAlgunFiltro) items = items.where(filtros.pasaFiltro).toList();
           if (items.isEmpty) return const SizedBox.shrink();
+          // Ordenar según contexto de la sección
+          if (posicion != null) {
+            // Cerca de ti → por distancia ASC
+            items.sort((a, b) {
+              if (a.latitud == null || a.longitud == null) return 1;
+              if (b.latitud == null || b.longitud == null) return -1;
+              final da = GeolocalizacionService.distanciaKm(
+                  posicion!.latitude, posicion!.longitude, a.latitud!, a.longitud!);
+              final db = GeolocalizacionService.distanciaKm(
+                  posicion!.latitude, posicion!.longitude, b.latitud!, b.longitud!);
+              return da.compareTo(db);
+            });
+          } else if (filtroRating != null) {
+            // Recomendados → mejor ratingGoogle primero
+            items.sort((a, b) =>
+                (b.ratingGoogle ?? 0).compareTo(a.ratingGoogle ?? 0));
+          }
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -969,11 +997,7 @@ class _TarjetaCompacta extends StatelessWidget {
               const SizedBox(height: 5),
               Row(children: [
                 if (negocio.ratingGoogle != null) ...[
-                  Icon(Icons.star_rounded, size: 11, color: _C.accent),
-                  const SizedBox(width: 3),
-                  Text(negocio.ratingGoogle!.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 10, color: _C.textoMuted,
-                          fontWeight: FontWeight.w500)),
+                  _ChipRating(rating: negocio.ratingGoogle!),
                   const SizedBox(width: 5),
                 ],
                 Flexible(child: Container(
@@ -1002,6 +1026,27 @@ class _TarjetaCompacta extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Chip de rating reutilizable ──────────────────────────────────────────────
+class _ChipRating extends StatelessWidget {
+  final double rating;
+  const _ChipRating({required this.rating});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+    decoration: BoxDecoration(
+      color: Colors.amber.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(5),
+      border: Border.all(color: Colors.amber.withValues(alpha: 0.3), width: 0.5),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.star_rounded, size: 10, color: Colors.amber),
+      const SizedBox(width: 2),
+      Text(rating.toStringAsFixed(1),
+          style: const TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.w800)),
+    ]),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1046,50 +1091,21 @@ class _TarjetaGrid extends StatelessWidget {
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
                             color: _C.texto, height: 1.2),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
-                    if (negocio.tagline != null && negocio.tagline!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(negocio.tagline!,
-                          style: const TextStyle(fontSize: 9, color: _C.textoMuted,
-                              fontStyle: FontStyle.italic),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                    const SizedBox(height: 3),
-                    if (negocio.ratingGoogle != null)
-                      Row(children: [
-                        ...List.generate(5, (i) {
-                          final llena = i < negocio.ratingGoogle!.round();
-                          return Icon(
-                            llena ? Icons.star_rounded : Icons.star_border_rounded,
-                            size: 12,
-                            color: llena ? _C.accent : _C.grisClaro,
-                          );
-                        }),
-                        const SizedBox(width: 4),
-                        Text(negocio.ratingGoogle!.toStringAsFixed(1),
-                            style: const TextStyle(fontSize: 10, color: _C.textoMuted)),
-                      ]),
-                    const SizedBox(height: 3),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: _C.negro, borderRadius: BorderRadius.circular(5)),
-                      child: Text(negocio.categoria.label,
-                          style: const TextStyle(fontSize: 9, color: _C.textoMuted)),
-                    ),
-                    if (negocio.precioMedio != null && negocio.precioMedio!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      if (negocio.ratingGoogle != null) ...[
+                        _ChipRating(rating: negocio.ratingGoogle!),
+                        const SizedBox(width: 5),
+                      ],
+                      Flexible(child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                            color: _C.negro, borderRadius: BorderRadius.circular(4)),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.euro, size: 9, color: _C.textoMuted),
-                          const SizedBox(width: 2),
-                          Text(negocio.precioMedio!,
-                              style: const TextStyle(fontSize: 9, color: _C.textoMuted)),
-                        ]),
-                      ),
-                    ],
+                            color: _C.negro, borderRadius: BorderRadius.circular(5)),
+                        child: Text(negocio.categoria.label,
+                            style: const TextStyle(fontSize: 9, color: _C.textoMuted),
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                    ]),
                   ],
                 ),
               ),
@@ -1317,8 +1333,9 @@ class _TabBuscarState extends State<_TabBuscar> {
                 child: SizedBox(
                   width: 56, height: 56,
                   child: n.fotoUrl != null && n.fotoUrl!.isNotEmpty
-                      ? Image.network(n.fotoUrl!, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                      ? CachedNetworkImage(imageUrl: n.fotoUrl!, fit: BoxFit.cover,
+                          placeholder: (_, __) => const _FotoPlaceholder(),
+                          errorWidget: (_, __, ___) =>
                           const ColoredBox(color: _C.grisMedio))
                       : const ColoredBox(color: _C.grisMedio),
                 ),
@@ -1528,8 +1545,9 @@ class _TarjetaFavorito extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 1.1,
                 child: fotoUrl.isNotEmpty
-                    ? Image.network(fotoUrl, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const _FotoPlaceholder())
+                    ? CachedNetworkImage(imageUrl: fotoUrl, fit: BoxFit.cover,
+                        placeholder: (_, __) => const _FotoPlaceholder(),
+                        errorWidget: (_, __, ___) => const _FotoPlaceholder())
                     : const _FotoPlaceholder(),
               ),
             ),

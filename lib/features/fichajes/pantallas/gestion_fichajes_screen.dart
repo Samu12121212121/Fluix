@@ -1,634 +1,1026 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
-import 'pantalla_fichaje_empleado.dart';
+import '../../fichaje/pantalla_fichaje/pantalla_fichaje.dart';
+import '../../pdf_templates/data/pdf_template_service.dart' as ptSvc;
+import '../../pdf_templates/domain/models/pdf_template.dart' as ptModel;
 
 class GestionFichajesScreen extends StatefulWidget {
   final String empresaId;
-  final String usuarioActualUid;
+  final bool esAdmin;
 
   const GestionFichajesScreen({
     super.key,
     required this.empresaId,
-    required this.usuarioActualUid,
+    this.esAdmin = false,
   });
 
   @override
   State<GestionFichajesScreen> createState() => _GestionFichajesScreenState();
 }
 
-class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
-  final FichajeService _service = FichajeService();
-  DateTime _fecha = DateTime.now();
-  bool _creandoDemo = false;
+class _GestionFichajesScreenState extends State<GestionFichajesScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
 
-  String get _fechaKey => DateFormat('yyyy-MM-dd').format(_fecha);
-  bool get _esHoy {
-    final h = DateTime.now();
-    return _fecha.year == h.year && _fecha.month == h.month && _fecha.day == h.day;
+  @override
+  void initState() {
+    super.initState();
+    final length = widget.esAdmin ? 3 : 1;
+    _tabCtrl = TabController(length: length, vsync: this)
+      ..addListener(() { if (mounted) setState(() {}); });
   }
 
-  String _formatHora(Timestamp? ts, {bool conSegundos = false}) {
-    if (ts == null) return '—';
-    return DateFormat(conSegundos ? 'HH:mm:ss' : 'HH:mm').format(ts.toDate());
-  }
-
-  String _formatDuracion(Duration? d) {
-    if (d == null) return '—';
-    return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-  }
-
-  String _nombreTipo(TipoHoras t) {
-    switch (t) {
-      case TipoHoras.ordinarias: return 'Ordinarias';
-      case TipoHoras.extraordinarias: return 'Extraordinarias';
-      case TipoHoras.complementarias: return 'Complementarias';
-    }
-  }
-
-  Stream<List<Fichaje>> _streamFecha() {
-    return FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(widget.empresaId)
-        .collection('fichajes')
-        .where('fecha', isEqualTo: _fechaKey)
-        .where('es_correccion', isEqualTo: false)
-        .orderBy('creado_at', descending: false)
-        .snapshots()
-        .map((s) => s.docs.map((d) => Fichaje.fromFirestore(d)).toList());
-  }
-
-  // ── Abrir fichaje propio ──────────────────────────────────────────────────
-
-  Future<void> _abrirFichajePropio() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PantallaFichajeEmpleado(
-          empresaId: widget.empresaId,
-          dispositivoId: 'tablet_gestion',
-        ),
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  // ── Crear datos demo ──────────────────────────────────────────────────────
-
-  Future<void> _crearDatosDemo() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [
-          Icon(Icons.auto_fix_high, color: Color(0xFF7C4DFF)),
-          SizedBox(width: 8),
-          Text('Crear datos de demo'),
-        ]),
-        content: const Text(
-          'Se crearán 5 empleados de demo con fichajes de ejemplo para hoy y ayer.\n\n'
-              'PINs:\n'
-              '• María García → 1234\n'
-              '• Juan López → 5678\n'
-              '• Ana Torres → 9012\n'
-              '• Carlos Sánchez → 3456\n'
-              '• Laura Fernández → 7890\n\n'
-              '¿Continuar?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C4DFF), foregroundColor: Colors.white),
-            child: const Text('Crear demo'),
-          ),
-        ],
-      ),
-    );
-
-    if (ok != true || !mounted) return;
-    setState(() => _creandoDemo = true);
-    try {
-      await _ejecutarCreacionDemo();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Datos demo creados'), backgroundColor: Colors.green),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _creandoDemo = false);
-    }
-  }
-
-  Future<void> _ejecutarCreacionDemo() async {
-    final db = FirebaseFirestore.instance;
-    final emp = db.collection('empresas').doc(widget.empresaId);
-
-    final empleados = [
-      {'uid': 'demo_maria_garcia',    'nombre': 'María García López',    'pin': '1234'},
-      {'uid': 'demo_juan_lopez',      'nombre': 'Juan López Martínez',   'pin': '5678'},
-      {'uid': 'demo_ana_torres',      'nombre': 'Ana Torres Ruiz',       'pin': '9012'},
-      {'uid': 'demo_carlos_sanchez',  'nombre': 'Carlos Sánchez Díaz',   'pin': '3456'},
-      {'uid': 'demo_laura_fernandez', 'nombre': 'Laura Fernández Gil',   'pin': '7890'},
-    ];
-    for (final e in empleados) {
-      await emp.collection('empleados_fichaje').doc(e['uid']).set({
-        'nombre': e['nombre'], 'pin': e['pin'],
-        'empresa_id': widget.empresaId, 'activo': true,
-        'creado_at': FieldValue.serverTimestamp(),
-      });
-    }
-
-    final hoy = DateTime.now();
-    final fechaHoy = DateFormat('yyyy-MM-dd').format(hoy);
-    final ayer = hoy.subtract(const Duration(days: 1));
-    final fechaAyer = DateFormat('yyyy-MM-dd').format(ayer);
-    ts(DateTime d, int h, int m) => Timestamp.fromDate(DateTime(d.year, d.month, d.day, h, m));
-
-    // María — cerrada
-    await emp.collection('fichajes').add({
-      'empleado_id': 'demo_maria_garcia', 'empleado_nombre': 'María García López',
-      'fecha': fechaHoy, 'entrada': ts(hoy,9,0), 'salida': ts(hoy,17,30),
-      'pausas': [{'inicio': ts(hoy,11,0),'fin': ts(hoy,11,15)}, {'inicio': ts(hoy,14,0),'fin': ts(hoy,14,30)}],
-      'tipo_horas': 'ordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': ts(hoy,9,0), 'es_correccion': false,
-      'correccion_de': null, 'motivo_correccion': null, 'corregido_por_uid': null, 'corregido_at': null,
-    });
-
-    // Juan — activo sin salida
-    await emp.collection('fichajes').add({
-      'empleado_id': 'demo_juan_lopez', 'empleado_nombre': 'Juan López Martínez',
-      'fecha': fechaHoy, 'entrada': ts(hoy,10,15), 'salida': null,
-      'pausas': [{'inicio': ts(hoy,14,0),'fin': ts(hoy,14,30)}],
-      'tipo_horas': 'ordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': ts(hoy,10,15), 'es_correccion': false,
-      'correccion_de': null, 'motivo_correccion': null, 'corregido_por_uid': null, 'corregido_at': null,
-    });
-
-    // Ana — en pausa activa
-    final ahora = DateTime.now();
-    await emp.collection('fichajes').add({
-      'empleado_id': 'demo_ana_torres', 'empleado_nombre': 'Ana Torres Ruiz',
-      'fecha': fechaHoy, 'entrada': ts(hoy,8,45), 'salida': null,
-      'pausas': [{'inicio': Timestamp.fromDate(ahora.subtract(const Duration(minutes: 8))), 'fin': null}],
-      'tipo_horas': 'ordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': ts(hoy,8,45), 'es_correccion': false,
-      'correccion_de': null, 'motivo_correccion': null, 'corregido_por_uid': null, 'corregido_at': null,
-    });
-
-    // Laura — extraordinarias
-    await emp.collection('fichajes').add({
-      'empleado_id': 'demo_laura_fernandez', 'empleado_nombre': 'Laura Fernández Gil',
-      'fecha': fechaHoy, 'entrada': ts(hoy,7,30), 'salida': ts(hoy,19,0),
-      'pausas': [{'inicio': ts(hoy,14,0),'fin': ts(hoy,15,0)}],
-      'tipo_horas': 'extraordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': ts(hoy,7,30), 'es_correccion': false,
-      'correccion_de': null, 'motivo_correccion': null, 'corregido_por_uid': null, 'corregido_at': null,
-    });
-
-    // Carlos ayer — sin salida + corrección (audit trail)
-    final original = await emp.collection('fichajes').add({
-      'empleado_id': 'demo_carlos_sanchez', 'empleado_nombre': 'Carlos Sánchez Díaz',
-      'fecha': fechaAyer, 'entrada': ts(ayer,9,0), 'salida': null, 'pausas': [],
-      'tipo_horas': 'ordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': ts(ayer,9,0), 'es_correccion': false,
-      'correccion_de': null, 'motivo_correccion': null, 'corregido_por_uid': null, 'corregido_at': null,
-    });
-    await emp.collection('fichajes').add({
-      'empleado_id': 'demo_carlos_sanchez', 'empleado_nombre': 'Carlos Sánchez Díaz',
-      'fecha': fechaAyer, 'entrada': ts(ayer,9,0), 'salida': ts(ayer,17,0), 'pausas': [],
-      'tipo_horas': 'ordinarias', 'dispositivo_id': 'tablet_demo',
-      'creado_at': FieldValue.serverTimestamp(), 'es_correccion': true,
-      'correccion_de': original.id, 'motivo_correccion': 'Empleado olvidó fichar la salida',
-      'corregido_por_uid': widget.usuarioActualUid, 'corregido_at': FieldValue.serverTimestamp(),
-    });
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.esAdmin) {
+      return const Scaffold(body: PantallaFichaje(embedido: true));
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Fichajes'),
-        actions: [
-          IconButton(icon: const Icon(Icons.calendar_today), onPressed: _seleccionarFecha, tooltip: 'Cambiar fecha'),
-          IconButton(icon: const Icon(Icons.download), onPressed: _mostrarOpcionesExportacion, tooltip: 'Exportar'),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(icon: Icon(Icons.fingerprint), text: 'Mi fichaje'),
+            Tab(icon: Icon(Icons.people_outline), text: 'Empleados'),
+            Tab(icon: Icon(Icons.bar_chart), text: 'Informes'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          const PantallaFichaje(embedido: true),
+          _TabEmpleados(empresaId: widget.empresaId),
+          _TabInformes(empresaId: widget.empresaId),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirFichajePropio,
-        backgroundColor: const Color(0xFF0D47A1),
-        icon: const Icon(Icons.fingerprint, color: Colors.white),
-        label: const Text('Fichar ahora', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ── Removed Fichajes table tab code (crearDatosDemo etc.) ─────────────────
+
+// ── TAB: EMPLEADOS ────────────────────────────────────────────────────────────
+
+class _TabEmpleados extends StatefulWidget {
+  final String empresaId;
+  const _TabEmpleados({required this.empresaId});
+  @override
+  State<_TabEmpleados> createState() => _TabEmpleadosState();
+}
+
+class _TabEmpleadosState extends State<_TabEmpleados> {
+  final _svc = FichajeService();
+
+  // Empleados del módulo de RRHH (usuarios con empresa_id)
+  Stream<QuerySnapshot<Map<String, dynamic>>> get _usuariosStream =>
+      FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('empresa_id', isEqualTo: widget.empresaId)
+          .snapshots();
+
+  // PINs ya configurados en empleados_fichaje, indexados por UID
+  Stream<Map<String, EmpleadoFichaje>> get _fichajeMapStream =>
+      FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('empleados_fichaje')
+          .snapshots()
+          .map((s) => {
+                for (final d in s.docs)
+                  d.id: EmpleadoFichaje.fromFirestore(d),
+              });
+
+  void _configurarPIN(String uid, String nombre, String? pinActual, int jornadaActual) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DialogConfigurarPIN(
+        uid: uid,
+        nombre: nombre,
+        pinActual: pinActual,
+        jornadaActual: jornadaActual,
+        empresaId: widget.empresaId,
+        svc: _svc,
       ),
-      body: Column(
-        children: [
-          _buildSelectorFecha(),
-          Expanded(
-            child: StreamBuilder<List<Fichaje>>(
-              stream: _streamFecha(),
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) return _buildError(snap.error.toString());
-                final fichajes = snap.data ?? [];
-                if (fichajes.isEmpty) return _buildVacio();
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(child: _buildTabla(fichajes)),
+    );
+  }
+
+  Future<void> _toggleActivo(EmpleadoFichaje emp) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _svc.actualizarEmpleado(
+        empresaId: widget.empresaId,
+        uid: emp.uid,
+        activo: !emp.activo,
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, EmpleadoFichaje>>(
+      stream: _fichajeMapStream,
+      builder: (context, fichajeSnap) {
+        final fichajeMap = fichajeSnap.data ?? {};
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _usuariosStream,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final docs = snap.data?.docs ?? [];
+            final activos = docs
+                .where((d) => d.data()['estado'] != 'baja')
+                .toList()
+              ..sort((a, b) => ((a.data()['nombre'] as String?) ?? '')
+                  .compareTo((b.data()['nombre'] as String?) ?? ''));
+
+            if (activos.isEmpty) {
+              return Center(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 12),
+                  Text('Sin empleados en la empresa',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text('Añade empleados desde el módulo de RRHH',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                ]),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: activos.length,
+              itemBuilder: (ctx, i) {
+                final doc = activos[i];
+                final data = doc.data();
+                final uid = doc.id;
+                final nombre = (data['nombre'] as String?) ?? 'Sin nombre';
+                final fichaje = fichajeMap[uid];
+                final tienePIN = fichaje != null;
+                final pinActivo = tienePIN && fichaje.activo;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: pinActivo ? Colors.blue[50] : Colors.grey[100],
+                      child: Icon(Icons.person,
+                          color: pinActivo ? Colors.blue : Colors.grey),
+                    ),
+                    title: Text(nombre),
+                    subtitle: tienePIN
+                        ? Text('PIN: ${fichaje.pin}',
+                            style: const TextStyle(
+                                fontFamily: 'monospace', letterSpacing: 2))
+                        : TextButton.icon(
+                            onPressed: () => _configurarPIN(uid, nombre, null, 480),
+                            icon: Icon(Icons.pin_outlined,
+                                size: 15, color: Colors.orange[700]),
+                            label: Text('Establecer PIN',
+                                style: TextStyle(
+                                    color: Colors.orange[700], fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                    trailing: tienePIN
+                        ? Row(mainAxisSize: MainAxisSize.min, children: [
+                            Chip(
+                              label: Text(pinActivo ? 'Activo' : 'Inactivo',
+                                  style: const TextStyle(fontSize: 11)),
+                              backgroundColor:
+                                  pinActivo ? Colors.green[50] : Colors.grey[100],
+                              side: BorderSide(
+                                  color: pinActivo ? Colors.green : Colors.grey),
+                              padding: EdgeInsets.zero,
+                              labelPadding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () =>
+                                  _configurarPIN(uid, nombre, fichaje.pin, fichaje.jornadaDiaria),
+                              tooltip: 'Editar',
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                  pinActivo
+                                      ? Icons.person_off_outlined
+                                      : Icons.person_add_outlined,
+                                  size: 20),
+                              onPressed: () => _toggleActivo(fichaje),
+                              tooltip: pinActivo ? 'Desactivar' : 'Activar',
+                              color: pinActivo ? Colors.orange : Colors.green,
+                            ),
+                          ])
+                        : null,
+                  ),
                 );
               },
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
+}
 
-  Widget _buildError(String error) {
-    final esIndice = error.contains('index') || error.contains('Index') || error.contains('FAILED_PRECONDITION');
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(esIndice ? Icons.storage : Icons.error_outline, size: 56,
-              color: esIndice ? Colors.orange : Colors.red),
-          const SizedBox(height: 16),
-          Text(esIndice ? 'Falta crear el índice en Firestore' : 'Error al cargar fichajes',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          if (esIndice)
-            const Text(
-              'Firebase Console → Firestore → Indexes\n'
-                  'Crea índice compuesto en colección "fichajes":\n\n'
-                  '• fecha (Ascending)\n'
-                  '• es_correccion (Ascending)\n'
-                  '• creado_at (Ascending)',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            )
-          else
-            Text(error, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.red)),
-        ]),
-      ),
-    );
+// ── DIALOG: CONFIGURAR PIN ────────────────────────────────────────────────────
+
+class _DialogConfigurarPIN extends StatefulWidget {
+  final String uid;
+  final String nombre;
+  final String? pinActual;
+  final int jornadaActual;
+  final String empresaId;
+  final FichajeService svc;
+
+  const _DialogConfigurarPIN({
+    required this.uid,
+    required this.nombre,
+    required this.pinActual,
+    required this.jornadaActual,
+    required this.empresaId,
+    required this.svc,
+  });
+
+  @override
+  State<_DialogConfigurarPIN> createState() => _DialogConfigurarPINState();
+}
+
+class _DialogConfigurarPINState extends State<_DialogConfigurarPIN> {
+  late final TextEditingController _pinCtrl;
+  final _formKey = GlobalKey<FormState>();
+  bool _guardando = false;
+  late int _jornadaDiaria;
+
+  @override
+  void initState() {
+    super.initState();
+    _pinCtrl = TextEditingController(text: widget.pinActual ?? '');
+    _jornadaDiaria = widget.jornadaActual;
   }
 
-  Widget _buildVacio() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+  @override
+  void dispose() {
+    _pinCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.pinActual == null ? 'Configurar acceso' : 'Editar empleado'),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(widget.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
-          Text(
-            _esHoy ? 'No hay fichajes hoy' : 'Sin fichajes el ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          if (_esHoy) ...[
-            Text(
-              'Pulsa "Fichar ahora" para registrar tu jornada,\n'
-                  'o crea datos demo para ver cómo funciona el sistema.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-            ),
-            const SizedBox(height: 24),
-            _creandoDemo
-                ? const CircularProgressIndicator()
-                : OutlinedButton.icon(
-              onPressed: _crearDatosDemo,
-              icon: const Icon(Icons.auto_fix_high, color: Color(0xFF7C4DFF)),
-              label: const Text('Crear datos de demo', style: TextStyle(color: Color(0xFF7C4DFF))),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF7C4DFF)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          Form(
+            key: _formKey,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                controller: _pinCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'PIN (4 dígitos)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.pin_outlined),
+                ),
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                autofocus: true,
+                validator: (v) {
+                  if (v == null || v.length != 4) return 'Debe tener 4 dígitos';
+                  if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Solo números';
+                  return null;
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: _jornadaDiaria,
+                decoration: const InputDecoration(
+                  labelText: 'Jornada diaria',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.schedule),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 240, child: Text('4 horas')),
+                  DropdownMenuItem(value: 300, child: Text('5 horas')),
+                  DropdownMenuItem(value: 360, child: Text('6 horas')),
+                  DropdownMenuItem(value: 420, child: Text('7 horas')),
+                  DropdownMenuItem(value: 480, child: Text('8 horas')),
+                ],
+                onChanged: (v) => setState(() => _jornadaDiaria = v!),
+              ),
+            ]),
+          ),
         ]),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _guardando ? null : _guardar,
+          child: _guardando
+              ? const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar'),
+        ),
+      ],
     );
   }
 
-  Widget _buildSelectorFecha() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      color: Colors.blue[50],
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(icon: const Icon(Icons.chevron_left),
-              onPressed: () => setState(() => _fecha = _fecha.subtract(const Duration(days: 1)))),
-          Text(DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'es_ES').format(_fecha),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          IconButton(icon: const Icon(Icons.chevron_right),
-              onPressed: _esHoy ? null : () => setState(() => _fecha = _fecha.add(const Duration(days: 1)))),
-        ],
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _guardando = true);
+    final pin = _pinCtrl.text;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.svc.configurarPINEmpleado(
+        empresaId: widget.empresaId,
+        uid: widget.uid,
+        nombre: widget.nombre,
+        pin: pin,
+        jornadaDiaria: _jornadaDiaria,
+      );
+      if (mounted) Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text('Empleado actualizado: ${widget.nombre}'),
+        backgroundColor: Colors.green,
+      ));
+    } catch (e) {
+      if (mounted) setState(() => _guardando = false);
+      messenger.showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+}
+
+// ── TAB: INFORMES ─────────────────────────────────────────────────────────────
+
+class _ResumenEmpleadoMes {
+  final String uid;
+  final String nombre;
+  final bool activo;
+  final int dias;
+  final int minutosNetos;
+  final int minutosPlani;
+  final int minutosExtra;
+  final int numPausas;
+  final int minutosPausa;
+  final int incidencias;
+
+  const _ResumenEmpleadoMes({
+    required this.uid, required this.nombre, required this.activo,
+    required this.dias, required this.minutosNetos,
+    required this.minutosPlani,
+    required this.minutosExtra, required this.numPausas,
+    required this.minutosPausa, required this.incidencias,
+  });
+
+  String get horasStr => _m(minutosNetos);
+  String get horasPlanifStr => minutosPlani > 0 ? _m(minutosPlani) : '—';
+  String get horasExtraStr {
+    if (minutosPlani > 0) {
+      final extra = minutosNetos - minutosPlani;
+      return extra > 0 ? _m(extra) : '—';
+    }
+    return minutosExtra > 0 ? _m(minutosExtra) : '—';
+  }
+  String get pausasStr => numPausas > 0 ? '$numPausas (${_m(minutosPausa)})' : '—';
+
+  static String _m(int min) {
+    final h = min ~/ 60;
+    final m = min % 60;
+    return '${h}h ${m.toString().padLeft(2, '0')}m';
+  }
+}
+
+class _TabInformes extends StatefulWidget {
+  final String empresaId;
+  const _TabInformes({required this.empresaId});
+  @override
+  State<_TabInformes> createState() => _TabInformesState();
+}
+
+class _TabInformesState extends State<_TabInformes> {
+  final _svc = FichajeService();
+  late DateTime _mes;
+  bool _cargando = false;
+  List<_ResumenEmpleadoMes> _datos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _mes = DateTime(now.year, now.month);
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    if (_cargando) return;
+    setState(() => _cargando = true);
+    try {
+      final empSnap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('empleados_fichaje').orderBy('nombre').get();
+      final empleados = empSnap.docs.map(EmpleadoFichaje.fromFirestore).toList();
+      final Map<String, int> jornadaDiariaMap = {
+        for (final e in empleados) e.uid: e.jornadaDiaria,
+      };
+
+      final fichajes = await _svc.fichajesMes(empresaId: widget.empresaId, mes: _mes);
+
+      // Fichaje efectivo por empleado+fecha
+      final Map<String, Fichaje> efectivos = {};
+      for (final f in fichajes) {
+        final key = '${f.empleadoId}_${f.fecha}';
+        final actual = efectivos[key];
+        if (actual == null) {
+          efectivos[key] = f;
+        } else if (f.esCorreccion && !actual.esCorreccion) {
+          efectivos[key] = f;
+        } else if (f.esCorreccion && actual.esCorreccion &&
+            f.corregidoAt != null && actual.corregidoAt != null &&
+            f.corregidoAt!.compareTo(actual.corregidoAt!) > 0) {
+          efectivos[key] = f;
+        }
+      }
+
+      final Map<String, int> mins = {};
+      final Map<String, int> dias = {};
+      final Map<String, int> minsExtra = {};
+      final Map<String, int> numPausas = {};
+      final Map<String, int> minsPausa = {};
+      final Map<String, int> incidencias = {};
+      final hoyKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      for (final f in efectivos.values) {
+        final uid = f.empleadoId;
+        mins[uid] = (mins[uid] ?? 0) + (f.tiempoNeto?.inMinutes ?? 0);
+        dias[uid] = (dias[uid] ?? 0) + 1;
+        if (f.tipoHoras == TipoHoras.extraordinarias) {
+          minsExtra[uid] = (minsExtra[uid] ?? 0) + (f.tiempoNeto?.inMinutes ?? 0);
+        }
+        final cerradas = f.pausas.where((p) => p.fin != null).length;
+        numPausas[uid] = (numPausas[uid] ?? 0) + cerradas;
+        minsPausa[uid] = (minsPausa[uid] ?? 0) + f.minutosPausa;
+        if (f.salida == null && f.fecha != hoyKey) {
+          incidencias[uid] = (incidencias[uid] ?? 0) + 1;
+        }
+      }
+
+      final datos = empleados.map((e) => _ResumenEmpleadoMes(
+        uid: e.uid, nombre: e.nombre, activo: e.activo,
+        dias: dias[e.uid] ?? 0, minutosNetos: mins[e.uid] ?? 0,
+        minutosPlani: (jornadaDiariaMap[e.uid] ?? 480) * (dias[e.uid] ?? 0),
+        minutosExtra: minsExtra[e.uid] ?? 0,
+        numPausas: numPausas[e.uid] ?? 0,
+        minutosPausa: minsPausa[e.uid] ?? 0,
+        incidencias: incidencias[e.uid] ?? 0,
+      )).toList()..sort((a, b) => a.nombre.compareTo(b.nombre));
+
+      if (mounted) setState(() => _datos = datos);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  void _verFichajesEmpleado(_ResumenEmpleadoMes emp) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DialogFichajesEmpleado(
+        empresaId: widget.empresaId,
+        empleadoId: emp.uid,
+        empleadoNombre: emp.nombre,
+        mes: _mes,
+        svc: _svc,
+        onCorregido: _cargar,
       ),
     );
   }
 
-  Future<void> _seleccionarFecha() async {
+  Future<void> _seleccionarMes() async {
     final picked = await showDatePicker(
-      context: context, initialDate: _fecha,
-      firstDate: DateTime(2020), lastDate: DateTime.now(),
+      context: context,
+      initialDate: _mes,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
       locale: const Locale('es', 'ES'),
     );
-    if (picked != null) setState(() => _fecha = picked);
-  }
-
-  Widget _buildTabla(List<Fichaje> fichajes) {
-    return DataTable(
-      headingRowColor: WidgetStateProperty.all(Colors.blue[100]),
-      columns: const [
-        DataColumn(label: Text('Empleado',   style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Entrada',    style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Pausas',     style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Salida',     style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Total neto', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Estado',     style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('Acciones',   style: TextStyle(fontWeight: FontWeight.bold))),
-      ],
-      rows: fichajes.map((f) {
-        final pausasStr = f.pausas.isEmpty
-            ? '—'
-            : f.pausas.map((p) => '${_formatHora(p.inicio)}-${p.fin != null ? _formatHora(p.fin) : "..."}').join(', ');
-        return DataRow(cells: [
-          DataCell(Row(children: [
-            const CircleAvatar(radius: 14, child: Icon(Icons.person, size: 16)),
-            const SizedBox(width: 8), Text(f.empleadoNombre),
-          ])),
-          DataCell(Text(_formatHora(f.entrada))),
-          DataCell(SizedBox(width: 160, child: Text(pausasStr, overflow: TextOverflow.ellipsis))),
-          DataCell(Text(_formatHora(f.salida))),
-          DataCell(Text(_formatDuracion(f.tiempoNeto), style: const TextStyle(fontWeight: FontWeight.w600))),
-          DataCell(_chipEstado(f.estado)),
-          DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(icon: const Icon(Icons.visibility, size: 20), onPressed: () => _verDetalles(f), tooltip: 'Ver'),
-            IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: () => _corregirFichaje(f), tooltip: 'Corregir'),
-          ])),
-        ]);
-      }).toList(),
-    );
-  }
-
-  Widget _chipEstado(EstadoFichaje estado) {
-    late Color color; late String texto; late IconData icono;
-    switch (estado) {
-      case EstadoFichaje.sinFichar:  color = Colors.grey;   texto = 'Sin fichar'; icono = Icons.error_outline; break;
-      case EstadoFichaje.trabajando: color = Colors.green;  texto = 'Activo';     icono = Icons.check_circle; break;
-      case EstadoFichaje.enPausa:    color = Colors.orange; texto = 'En pausa';   icono = Icons.pause_circle; break;
-      case EstadoFichaje.cerrado:    color = Colors.blue;   texto = 'Cerrada';    icono = Icons.done_all; break;
+    if (picked != null && mounted) {
+      setState(() => _mes = DateTime(picked.year, picked.month));
+      _cargar();
     }
-    return Chip(
-      avatar: Icon(icono, size: 14, color: color),
-      label: Text(texto, style: TextStyle(color: color, fontSize: 11)),
-      backgroundColor: color.withValues(alpha: 0.1),
-      side: BorderSide(color: color, width: 1),
-      padding: EdgeInsets.zero,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-    );
   }
 
-  void _verDetalles(Fichaje f) {
+  void _exportarCSV() {
+    if (_datos.isEmpty) return;
+    final fmt = DateFormat('MMMM yyyy', 'es_ES');
+    final buf = StringBuffer()
+      ..writeln('Informe de horas — ${fmt.format(_mes)}')
+      ..writeln()
+      ..writeln('Empleado,Días trabajados,Horas netas,Estado');
+    for (final d in _datos) {
+      buf.writeln('${d.nombre},${d.dias},${d.horasStr},${d.activo ? "Activo" : "Inactivo"}');
+    }
+    final total = _datos.fold(0, (sum, d) => sum + d.minutosNetos);
+    buf.writeln('TOTAL,${_datos.fold(0, (s, d) => s + d.dias)},${total ~/ 60}h ${(total % 60).toString().padLeft(2, '0')}m,');
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(f.empleadoNombre),
+        title: Text('informe_${DateFormat("yyyy_MM").format(_mes)}.csv'),
         content: SingleChildScrollView(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            _fila('Fecha', f.fecha),
-            _fila('Entrada', _formatHora(f.entrada, conSegundos: true)),
-            if (f.pausas.isNotEmpty) ...[
-              const Divider(),
-              const Text('Pausas:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...f.pausas.map((p) {
-                final dur = p.duracion != null ? ' (${p.duracion!.inMinutes} min)' : ' (activa)';
-                return Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 4),
-                  child: Text('• ${_formatHora(p.inicio, conSegundos: true)} — '
-                      '${p.fin != null ? _formatHora(p.fin, conSegundos: true) : "en curso"}$dur'),
-                );
-              }),
-            ],
-            const Divider(),
-            _fila('Salida', _formatHora(f.salida, conSegundos: true)),
-            _fila('Total neto', _formatDuracion(f.tiempoNeto)),
-            _fila('Tipo', _nombreTipo(f.tipoHoras)),
-            _fila('Dispositivo', f.dispositivoId),
-            if (f.esCorreccion) ...[
-              const Divider(),
-              const Text('CORRECCIÓN', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-              _fila('Motivo', f.motivoCorreccion ?? '—'),
-              _fila('Corregido en', f.corregidoAt != null
-                  ? DateFormat('dd/MM/yyyy HH:mm').format(f.corregidoAt!.toDate()) : '—'),
-            ],
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
-          if (!f.esCorreccion)
-            ElevatedButton.icon(
-              onPressed: () { Navigator.pop(ctx); _verHistorialCorrecciones(f); },
-              icon: const Icon(Icons.history), label: const Text('Historial'),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _fila(String titulo, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        SizedBox(width: 100, child: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600))),
-        Expanded(child: Text(valor)),
-      ]),
-    );
-  }
-
-  Future<void> _verHistorialCorrecciones(Fichaje f) async {
-    final correcciones = await _service.obtenerHistorialCorrecciones(widget.empresaId, f.id);
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Historial de Correcciones'),
-        content: correcciones.isEmpty
-            ? const Text('No hay correcciones registradas.')
-            : SizedBox(
-          width: 420,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: correcciones.length,
-            itemBuilder: (_, i) {
-              final c = correcciones[i];
-              return Card(
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.edit)),
-                  title: Text(c.motivoCorreccion ?? 'Sin motivo'),
-                  subtitle: Text(c.corregidoAt != null
-                      ? DateFormat('dd/MM/yyyy HH:mm').format(c.corregidoAt!.toDate()) : '—'),
-                  onTap: () => _verDetalles(c),
-                ),
-              );
-            },
-          ),
+          child: SelectableText(buf.toString(), style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
       ),
     );
   }
 
-  void _corregirFichaje(Fichaje f) {
-    final formKey = GlobalKey<FormState>();
-    final motivoCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDS) {
-          TimeOfDay? nuevaEntrada;
-          TimeOfDay? nuevaSalida;
-          return AlertDialog(
-            title: const Text('Corregir Fichaje'),
-            content: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Empleado: ${f.empleadoNombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.orange)),
-                    child: const Text('El fichaje original no se modificará. Se creará un nuevo documento con audit trail.', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: motivoCtrl,
-                    decoration: const InputDecoration(labelText: 'Motivo *', border: OutlineInputBorder(), hintText: 'Ej: Olvidó fichar salida'),
-                    maxLines: 2,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Obligatorio' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Nueva hora de entrada'),
-                    trailing: Text(nuevaEntrada != null ? nuevaEntrada!.format(ctx) : _formatHora(f.entrada),
-                        style: TextStyle(color: nuevaEntrada != null ? Colors.blue : Colors.grey[600], fontWeight: FontWeight.w600)),
-                    onTap: () async {
-                      final h = await showTimePicker(context: ctx,
-                          initialTime: f.entrada != null ? TimeOfDay.fromDateTime(f.entrada!.toDate()) : TimeOfDay.now());
-                      if (h != null) setDS(() => nuevaEntrada = h);
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Nueva hora de salida'),
-                    trailing: Text(nuevaSalida != null ? nuevaSalida!.format(ctx) : _formatHora(f.salida),
-                        style: TextStyle(color: nuevaSalida != null ? Colors.blue : Colors.grey[600], fontWeight: FontWeight.w600)),
-                    onTap: () async {
-                      final h = await showTimePicker(context: ctx,
-                          initialTime: f.salida != null ? TimeOfDay.fromDateTime(f.salida!.toDate()) : TimeOfDay.now());
-                      if (h != null) setDS(() => nuevaSalida = h);
-                    },
-                  ),
+  @override
+  Widget build(BuildContext context) {
+    final fmt = DateFormat('MMMM yyyy', 'es_ES');
+    final totalMins = _datos.fold(0, (sum, d) => sum + d.minutosNetos);
+    final totalDias = _datos.fold(0, (sum, d) => sum + d.dias);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.blue[50],
+          child: Row(children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: _seleccionarMes,
+                child: Row(children: [
+                  const Icon(Icons.calendar_month, size: 20, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text(fmt.format(_mes).toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                  const Icon(Icons.arrow_drop_down, color: Colors.blue),
                 ]),
               ),
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-              ElevatedButton(
-                onPressed: () async {
-                  if (!formKey.currentState!.validate()) return;
-                  final base = DateTime.parse(f.fecha);
-                  final entradaFinal = nuevaEntrada != null
-                      ? Timestamp.fromDate(DateTime(base.year, base.month, base.day, nuevaEntrada!.hour, nuevaEntrada!.minute))
-                      : f.entrada;
-                  final salidaFinal = nuevaSalida != null
-                      ? Timestamp.fromDate(DateTime(base.year, base.month, base.day, nuevaSalida!.hour, nuevaSalida!.minute))
-                      : f.salida;
-                  try {
-                    await _service.corregirFichaje(
-                      empresaId: widget.empresaId, fichajeOriginalId: f.id,
-                      motivo: motivoCtrl.text.trim(), corregidoPorUid: widget.usuarioActualUid,
-                      nuevaEntrada: entradaFinal, nuevaSalida: salidaFinal, nuevasPausas: f.pausas,
-                    );
-                    if (!mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Corrección guardada'), backgroundColor: Colors.green));
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                  }
-                },
-                child: const Text('Guardar'),
-              ),
-            ],
-          );
-        },
-      ),
+            IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.blue), onPressed: _datos.isEmpty ? null : _descargarPdf, tooltip: 'Descargar PDF'),
+            IconButton(icon: const Icon(Icons.download, color: Colors.blue), onPressed: _exportarCSV, tooltip: 'Exportar CSV'),
+            IconButton(icon: const Icon(Icons.refresh, color: Colors.blue), onPressed: _cargar, tooltip: 'Actualizar'),
+          ]),
+        ),
+
+        if (_cargando) const LinearProgressIndicator(),
+
+        if (!_cargando && _datos.isEmpty)
+          const Expanded(
+            child: Center(child: Text('Sin empleados para este mes', style: TextStyle(color: Colors.grey))),
+          )
+        else if (!_cargando)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                Card(
+                  color: const Color(0xFF0D47A1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                      _statCard('Empleados', '${_datos.where((d) => d.dias > 0).length}'),
+                      _statCard('Total horas', '${totalMins ~/ 60}h ${(totalMins % 60).toString().padLeft(2, '0')}m'),
+                      _statCard('Días totales', '$totalDias'),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(Colors.blue[50]),
+                      columnSpacing: 24,
+                      columns: const [
+                        DataColumn(label: Text('Empleado', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('H. Planif.', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                        DataColumn(label: Text('H. Trabajadas', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                        DataColumn(label: Text('H. Extra', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                        DataColumn(label: Text('Pausas', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                        DataColumn(label: Text('Incidencias', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                      ],
+                      rows: _datos.map((d) => DataRow(
+                        onSelectChanged: (_) => _verFichajesEmpleado(d),
+                        cells: [
+                        DataCell(Row(children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: d.activo ? Colors.blue[50] : Colors.grey[100],
+                            child: Icon(Icons.person, size: 16, color: d.activo ? Colors.blue : Colors.grey),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(d.nombre, style: TextStyle(color: d.activo ? null : Colors.grey[500])),
+                        ])),
+                        DataCell(Text(d.horasPlanifStr,
+                            style: TextStyle(color: d.minutosPlani == 0 ? Colors.grey : null))),
+                        DataCell(Text(d.horasStr,
+                            style: TextStyle(
+                              fontWeight: d.minutosNetos > 0 ? FontWeight.w600 : FontWeight.normal,
+                              color: d.minutosNetos == 0 ? Colors.grey : null,
+                            ))),
+                        DataCell(Text(d.horasExtraStr,
+                            style: TextStyle(color: d.minutosExtra > 0 ? Colors.orange[700] : Colors.grey))),
+                        DataCell(Text(d.pausasStr, style: const TextStyle(fontSize: 12))),
+                        DataCell(d.incidencias > 0
+                            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.warning_amber, size: 14, color: Colors.red[700]),
+                                const SizedBox(width: 4),
+                                Text('${d.incidencias}', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold)),
+                              ])
+                            : const Text('—', style: TextStyle(color: Colors.grey))),
+                      ])).toList(),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+      ],
     );
   }
 
-  void _mostrarOpcionesExportacion() {
-    showModalBottomSheet(
+  Future<void> _descargarPdf() async {
+    final fmt = DateFormat('MMMM yyyy', 'es_ES');
+    final mesTxt = fmt.format(_mes);
+    final titulo = 'Informe de Horas — ${mesTxt[0].toUpperCase()}${mesTxt.substring(1)}';
+
+    // Buscar colores de la plantilla de fichajes configurada
+    String colorHex = '#0D47A1';
+    String colorHexRow = '#E3F2FD';
+    try {
+      final plantilla = await ptSvc.PdfTemplateService()
+          .getPlantillaDefault(widget.empresaId, ptModel.TipoDocumentoPdf.horasEmpleado)
+          ?? await ptSvc.PdfTemplateService()
+              .getPlantillaDefault(widget.empresaId, ptModel.TipoDocumentoPdf.fichajes);
+      if (plantilla != null) {
+        colorHex = plantilla.colorPrimario;
+        // Generar color de fila alternativa desde el color primario con baja opacidad
+        colorHexRow = '#F0F4FF';
+      }
+    } catch (_) {}
+
+    PdfColor pdfColor(String hex) {
+      try { return PdfColor.fromHex(hex); } catch (_) { return PdfColor.fromHex('#0D47A1'); }
+    }
+    final colPrimary = pdfColor(colorHex);
+    final colRow     = pdfColor(colorHexRow);
+
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (ctx) => [
+          pw.Text(titulo,
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: colPrimary)),
+          pw.SizedBox(height: 4),
+          pw.Text('Generado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+          pw.SizedBox(height: 16),
+          pw.TableHelper.fromTextArray(
+            headers: ['Empleado', 'H. Planif.', 'H. Trabajadas', 'H. Extra', 'Pausas', 'Incidencias'],
+            data: _datos.map((d) => [
+              d.nombre,
+              d.horasPlanifStr,
+              d.horasStr,
+              d.horasExtraStr,
+              d.pausasStr,
+              d.incidencias > 0 ? '⚠ ${d.incidencias}' : '—',
+            ]).toList(),
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
+            headerDecoration: pw.BoxDecoration(color: colPrimary),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            oddRowDecoration: pw.BoxDecoration(color: colRow),
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Text(
+            'Total horas trabajadas: ${_ResumenEmpleadoMes._m(_datos.fold(0, (s, d) => s + d.minutosNetos))}  |  '
+            'Empleados activos: ${_datos.where((d) => d.dias > 0).length}',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (_) async => pdf.save());
+  }
+
+  Widget _statCard(String label, String valor) {
+    return Column(children: [
+      Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+    ]);
+  }
+}
+
+// ── DIALOG: FICHAJES DE UN EMPLEADO EN EL MES ─────────────────────────────────
+
+class _DialogFichajesEmpleado extends StatelessWidget {
+  final String empresaId;
+  final String empleadoId;
+  final String empleadoNombre;
+  final DateTime mes;
+  final FichajeService svc;
+  final VoidCallback onCorregido;
+
+  const _DialogFichajesEmpleado({
+    required this.empresaId,
+    required this.empleadoId,
+    required this.empleadoNombre,
+    required this.mes,
+    required this.svc,
+    required this.onCorregido,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final mesTxt = DateFormat('MMMM yyyy', 'es_ES').format(mes);
+    return AlertDialog(
+      title: Text(empleadoNombre),
+      titleTextStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+      content: SizedBox(
+        width: 420,
+        child: FutureBuilder<List<Fichaje>>(
+          future: svc.fichajesMes(empresaId: empresaId, mes: mes),
+          builder: (ctx, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final todos = (snap.data ?? []).where((f) => f.empleadoId == empleadoId).toList();
+            // Resolver efectivos
+            final Map<String, Fichaje> efectivos = {};
+            for (final f in todos) {
+              final key = f.fecha;
+              final actual = efectivos[key];
+              if (actual == null) {
+                efectivos[key] = f;
+              } else if (f.esCorreccion && !actual.esCorreccion) {
+                efectivos[key] = f;
+              }
+            }
+            final lista = efectivos.values.toList()..sort((a, b) => a.fecha.compareTo(b.fecha));
+            if (lista.isEmpty) {
+              return Center(child: Text('Sin fichajes en ${mesTxt.toLowerCase()}',
+                  style: const TextStyle(color: Colors.grey)));
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              itemCount: lista.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (c, i) {
+                final f = lista[i];
+                final fmtH = DateFormat('HH:mm');
+                final fmtD = DateFormat('EEE d MMM', 'es_ES');
+                final fecha = DateTime.parse(f.fecha);
+                final entH = f.entrada != null ? fmtH.format(f.entrada!.toDate().toLocal()) : '—';
+                final salH = f.salida != null ? fmtH.format(f.salida!.toDate().toLocal()) : '—';
+                final neto = f.tiempoNeto;
+                final netoTxt = neto != null
+                    ? '${neto.inHours}h ${(neto.inMinutes % 60).toString().padLeft(2, '0')}m'
+                    : '—';
+                return ListTile(
+                  dense: true,
+                  title: Text(fmtD.format(fecha), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  subtitle: Text('$entH → $salH  ·  $netoTxt',
+                      style: const TextStyle(fontSize: 12)),
+                  leading: f.esCorreccion
+                      ? const Icon(Icons.edit_note, color: Colors.orange, size: 18)
+                      : const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    tooltip: 'Editar fichaje',
+                    onPressed: () async {
+                      await showDialog(
+                        context: c,
+                        builder: (_) => _DialogEditarFichaje(
+                          empresaId: empresaId,
+                          fichaje: f,
+                          svc: svc,
+                        ),
+                      );
+                      if (c.mounted) Navigator.pop(c);
+                      onCorregido();
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+      ],
+    );
+  }
+}
+
+// ── DIALOG: EDITAR FICHAJE ────────────────────────────────────────────────────
+
+class _DialogEditarFichaje extends StatefulWidget {
+  final String empresaId;
+  final Fichaje fichaje;
+  final FichajeService svc;
+
+  const _DialogEditarFichaje({
+    required this.empresaId,
+    required this.fichaje,
+    required this.svc,
+  });
+
+  @override
+  State<_DialogEditarFichaje> createState() => _DialogEditarFichajeState();
+}
+
+class _DialogEditarFichajeState extends State<_DialogEditarFichaje> {
+  late TimeOfDay _entrada;
+  late TimeOfDay _salida;
+  final _motivoCtrl = TextEditingController();
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.fichaje.entrada?.toDate().toLocal() ?? DateTime.now();
+    final s = widget.fichaje.salida?.toDate().toLocal() ?? DateTime.now();
+    _entrada = TimeOfDay(hour: e.hour, minute: e.minute);
+    _salida = TimeOfDay(hour: s.hour, minute: s.minute);
+  }
+
+  @override
+  void dispose() {
+    _motivoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime(bool esEntrada) async {
+    final picked = await showTimePicker(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(leading: const Icon(Icons.table_chart), title: const Text('Exportar día a CSV'),
-              onTap: () { Navigator.pop(ctx); _exportarCSV(); }),
-          ListTile(leading: const Icon(Icons.date_range), title: const Text('Exportar rango a CSV'),
-              onTap: () { Navigator.pop(ctx); _exportarCSVRango(); }),
+      initialTime: esEntrada ? _entrada : _salida,
+    );
+    if (picked != null) {
+      setState(() => esEntrada ? _entrada = picked : _salida = picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmtD = DateFormat("EEEE d 'de' MMMM", 'es_ES');
+    final fecha = DateTime.parse(widget.fichaje.fecha);
+    return AlertDialog(
+      title: Text('Corregir fichaje — ${fmtD.format(fecha)}',
+          style: const TextStyle(fontSize: 15)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(widget.fichaje.empleadoNombre,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _TimeButton(
+            label: 'Entrada',
+            time: _entrada,
+            onTap: () => _pickTime(true),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: _TimeButton(
+            label: 'Salida',
+            time: _salida,
+            onTap: () => _pickTime(false),
+          )),
         ]),
-      ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _motivoCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Motivo de corrección *',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.note_alt_outlined),
+          ),
+          maxLines: 2,
+        ),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        ElevatedButton(
+          onPressed: _guardando ? null : _guardar,
+          child: _guardando
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar corrección'),
+        ),
+      ],
     );
   }
 
-  Future<void> _exportarCSV() async {
+  Future<void> _guardar() async {
+    final motivo = _motivoCtrl.text.trim();
+    if (motivo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El motivo es obligatorio'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    setState(() => _guardando = true);
     try {
-      final csv = await _service.exportarCsvInspeccion(empresaId: widget.empresaId, desde: _fecha, hasta: _fecha);
-      if (!mounted) return;
-      _mostrarCSV(csv, _fechaKey);
+      final fechaBase = DateTime.parse(widget.fichaje.fecha);
+      final nuevaEntrada = Timestamp.fromDate(DateTime(
+        fechaBase.year, fechaBase.month, fechaBase.day,
+        _entrada.hour, _entrada.minute,
+      ));
+      final nuevaSalida = Timestamp.fromDate(DateTime(
+        fechaBase.year, fechaBase.month, fechaBase.day,
+        _salida.hour, _salida.minute,
+      ));
+      await widget.svc.corregirFichaje(
+        empresaId: widget.empresaId,
+        fichajeOriginalId: widget.fichaje.id,
+        motivo: motivo,
+        corregidoPorUid: 'admin',
+        nuevaEntrada: nuevaEntrada,
+        nuevaSalida: nuevaSalida,
+        nuevasPausas: widget.fichaje.pausas,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Corrección guardada'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        setState(() => _guardando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
+}
 
-  Future<void> _exportarCSVRango() async {
-    final rango = await showDateRangePicker(
-      context: context, firstDate: DateTime(2020), lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(start: _fecha.subtract(const Duration(days: 7)), end: _fecha),
-      locale: const Locale('es', 'ES'),
-    );
-    if (rango == null || !mounted) return;
-    try {
-      final csv = await _service.exportarCsvInspeccion(empresaId: widget.empresaId, desde: rango.start, hasta: rango.end);
-      if (!mounted) return;
-      _mostrarCSV(csv, '${DateFormat('yyyy-MM-dd').format(rango.start)}_${DateFormat('yyyy-MM-dd').format(rango.end)}');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-    }
-  }
+class _TimeButton extends StatelessWidget {
+  final String label;
+  final TimeOfDay time;
+  final VoidCallback onTap;
 
-  void _mostrarCSV(String csv, String nombre) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('fichajes_$nombre.csv'),
-        content: SingleChildScrollView(child: SelectableText(csv, style: const TextStyle(fontFamily: 'monospace', fontSize: 11))),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
+  const _TimeButton({required this.label, required this.time, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
       ),
+      child: Column(children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 4),
+        Text('$hh:$mm', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+      ]),
     );
   }
 }

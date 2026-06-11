@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/negocio_publico_model.dart';
+import 'tab_servicios_negocio.dart';
 
 const _kPrimario = Color(0xFF0A0F23);
 const _kCard = Color(0xFF1E2139);
@@ -53,7 +54,7 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    _tabs = TabController(length: 6, vsync: this);
     _initHorarios();
     _cargar();
   }
@@ -193,6 +194,7 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
             Tab(icon: Icon(Icons.photo_library, size: 18), text: 'Fotos'),
             Tab(icon: Icon(Icons.link, size: 18), text: 'Contacto'),
             Tab(icon: Icon(Icons.list_alt, size: 18), text: 'Formulario'),
+            Tab(icon: Icon(Icons.content_cut_rounded, size: 18), text: 'Servicios'),
           ],
         ),
       ),
@@ -234,6 +236,7 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
             onEdit: (i, c) => setState(() => _campos[i] = c),
             onRemove: (i) => setState(() => _campos.removeAt(i)),
           ),
+          TabServiciosNegocio(empresaId: widget.empresaId),
         ],
       ),
     );
@@ -516,9 +519,12 @@ class _TabFotosState extends State<_TabFotos> {
 
     setState(() => _subiendo = true);
     try {
+      final bytes = await img.readAsBytes();
+      final ext = img.path.split('.').last.toLowerCase();
+      final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
       final ref = FirebaseStorage.instance
-          .ref('negocios_publicos/${widget.negocioId}/galeria/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await ref.putFile(File(img.path));
+          .ref('negocios_publicos/${widget.negocioId}/galeria/${DateTime.now().millisecondsSinceEpoch}.$ext');
+      await ref.putData(bytes, SettableMetadata(contentType: contentType));
       final url = await ref.getDownloadURL();
       widget.onAdd(url);
     } catch (e) {

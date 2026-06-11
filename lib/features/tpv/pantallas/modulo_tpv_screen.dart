@@ -7,6 +7,9 @@ import 'importar_catalogo_csv_screen.dart';
 import 'historial_importaciones_screen.dart';
 import 'facturar_pedidos_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
+import 'tpv_gestion_multi_screen.dart';
+import 'gestionar_catalogo_screen.dart';
+import 'subir_imagenes_catalogo_screen.dart';
 
 class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;
@@ -42,6 +45,20 @@ class ModuloTpvScreen extends StatelessWidget {
           _ResumenHoyWidget(empresaId: empresaId),
           const SizedBox(height: 12),
 
+          // ── TPV Base / Gestión multi-TPV (solo admin) ───────────────────
+          if (esAdmin) ...[
+            _TarjetaAccionTpv(
+              icono: Icons.store,
+              titulo: 'TPV Base y adicionales',
+              descripcion: 'Gestiona el catálogo estándar y crea TPVs adicionales con catálogos personalizados',
+              color: const Color(0xFF1565C0),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => TpvGestionMultiScreen(empresaId: empresaId),
+              )),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ── Acceso rápido: Caja ──────────────────────────────────────────
           _TarjetaAccionTpv(
             icono: Icons.point_of_sale,
@@ -62,6 +79,30 @@ class ModuloTpvScreen extends StatelessWidget {
             color: const Color(0xFF7B1FA2),
             onTap: () => Navigator.push(context, MaterialPageRoute(
               builder: (_) => ImportarCatalogoCsvScreen(empresaId: empresaId),
+            )),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Gestionar catálogo ───────────────────────────────────────
+          _TarjetaAccionTpv(
+            icono: Icons.edit_note,
+            titulo: 'Gestionar catálogo',
+            descripcion: 'Edita, elimina y cambia la imagen de cualquier producto del catálogo',
+            color: const Color(0xFF7B1FA2),
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => GestionarCatalogoScreen(empresaId: empresaId),
+            )),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Subir imágenes ───────────────────────────────────────────
+          _TarjetaAccionTpv(
+            icono: Icons.add_photo_alternate_outlined,
+            titulo: 'Subir imágenes al catálogo',
+            descripcion: 'Selecciona imágenes de tu PC y asígnalas automáticamente a los productos',
+            color: const Color(0xFF7B1FA2),
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => SubirImagenesCatalogoScreen(empresaId: empresaId),
             )),
           ),
           const SizedBox(height: 12),

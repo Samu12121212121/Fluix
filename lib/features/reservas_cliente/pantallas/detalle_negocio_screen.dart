@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/negocio_publico_model.dart';
-import '../widgets/formulario_reserva_factory.dart';
 import '../../negocio_publico/pantallas/tab_reservas_screen.dart';
+import '../../../core/widgets/flux_toast.dart';
+import '../../../services/canjeo_service.dart';
 
 class _C {
   static const negro      = Color(0xFF0A0F23);
@@ -202,11 +203,7 @@ class _TabInformacion extends StatelessWidget {
         if (_tieneRedes()) ...[
           const SizedBox(height: 8),
           _buildRedes(context),
-          const SizedBox(height: 24),
         ],
-        const Divider(color: _C.grisClaro, height: 32),
-        FormularioReservaFactory.crearFormulario(
-            categoria: negocio.categoria, negocio: negocio),
       ],
     );
   }
@@ -488,18 +485,42 @@ class _ListaResenasFluix extends StatefulWidget {
 }
 
 class _ListaResenasFluixState extends State<_ListaResenasFluix> {
+  final _scrollCtrl = ScrollController();
   String get _colRef =>
       'empresas/${widget.negocio.empresaIdVinculada}/valoraciones';
 
-  void _mostrarFormulario() {
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _mostrarFormulario() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Inicia sesión para dejar una reseña'),
-        behavior: SnackBarBehavior.floating,
-      ));
+      FluxToast.aviso(context, 'Inicia sesión para dejar una reseña');
       return;
     }
+
+    final snap = await FirebaseFirestore.instance
+        .collection('negocios_publicos')
+        .doc(widget.negocio.id)
+        .collection('reservas')
+        .where('usuarioUid', isEqualTo: uid)
+        .limit(1)
+        .get();
+
+    if (!mounted) return;
+
+    if (snap.docs.isEmpty) {
+      FluxToast.aviso(
+        context,
+        'Solo puedes reseñar negocios donde has reservado',
+        title: 'Reserva primero',
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -536,7 +557,7 @@ class _ListaResenasFluixState extends State<_ListaResenasFluix> {
             return tb.compareTo(ta);
           });
         return Stack(children: [
-          ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), children: [
+          ListView(controller: _scrollCtrl, primary: false, padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), children: [
             if (docs.isNotEmpty) ...[
               _resumenFluix(docs),
               const SizedBox(height: 16),
@@ -595,7 +616,7 @@ class _CarruselResenasState extends State<_CarruselResenas> {
   Widget build(BuildContext context) {
     return Column(children: [
       SizedBox(
-        height: 200,
+        height: 240,
         child: PageView.builder(
           controller: _pageCtrl,
           itemCount: widget.docs.length,
@@ -631,12 +652,13 @@ class _TarjetaCarruselResena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final autor     = data['autor'] ?? data['clienteNombre'] ?? 'Anónimo';
+    final autor     = data['autor'] ?? data['autorNombre'] ?? data['clienteNombre'] ?? 'Anónimo';
     final texto     = data['texto'] ?? data['comentario'] ?? '';
     final estrellas = (data['estrellas'] as num?)?.toDouble() ?? 0;
-    final avatarUrl = data['avatarUrl'] as String?;
-    final servicio  = data['servicio'] as String?;
+    final avatarUrl = data['avatarUrl'] ?? data['autorAvatarUrl'] as String?;
+    final servicio  = data['servicio'] ?? data['servicioUsado'] as String?;
     final verificado = data['verificado'] as bool? ?? false;
+    final respuesta = data['respuesta'] as String?;
     final ts        = data['fecha'] as Timestamp?;
     final fecha     = ts?.toDate();
 
@@ -660,9 +682,18 @@ class _TarjetaCarruselResena extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
+                if (data['destacada'] == true)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(Icons.push_pin_rounded, size: 12, color: Color(0xFFFFB830)),
+                  ),
                 Expanded(child: Text(autor,
-                    style: const TextStyle(color: _C.texto, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      color: _colorNombreResena(data['autor_color'] as String?),
+                      fontWeight: FontWeight.bold, fontSize: 14,
+                    ),
                     overflow: TextOverflow.ellipsis)),
+                _badgeMarco(data['autor_marco'] as String?),
                 if (verificado)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -705,6 +736,30 @@ class _TarjetaCarruselResena extends StatelessWidget {
             if (fecha != null)
               Text(_fmtFecha(fecha), style: const TextStyle(color: _C.textoHint, fontSize: 11)),
           ]),
+          // Respuesta del negocio
+          if (respuesta != null && respuesta.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _C.grisOscuro,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _C.accent.withValues(alpha: 0.2)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.storefront_rounded, size: 12, color: _C.accent),
+                  SizedBox(width: 5),
+                  Text('Respuesta del negocio',
+                      style: TextStyle(color: _C.accent, fontSize: 11, fontWeight: FontWeight.w700)),
+                ]),
+                const SizedBox(height: 6),
+                Text(respuesta,
+                    style: const TextStyle(color: _C.textoMuted, fontSize: 12, height: 1.4),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+          ],
         ]),
       ),
     );
@@ -759,25 +814,51 @@ class _FormularioResenaState extends State<_FormularioResena> {
     if (!_puedeGuardar) return;
     setState(() => _guardando = true);
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      // Leer canjes activos del usuario
+      final userSnap = await FirebaseFirestore.instance
+          .collection('usuarios').doc(widget.uid).get();
+      final ud = userSnap.data() ?? {};
+
+      final anonimo = (ud['canje_anonimo_usos'] as int? ?? 0) > 0;
+      final firma   = ud['canje_firma'] as String?;
+      final colorH  = ud['canje_color_nombre'] as String?;
+      final destacada = ud['canje_resena_destacada'] as bool? ?? false;
+      final marco   = ud['canje_marco'] as String?;
+
+      final nombreFinal = anonimo ? 'Anónimo' : _nombreCtrl.text.trim();
+      final textoFinal  = firma != null && firma.isNotEmpty
+          ? '${_comentCtrl.text.trim()} $firma'
+          : _comentCtrl.text.trim();
+
       await FirebaseFirestore.instance.collection(widget.colRef).add({
-        'origen': 'fluix', 'uid': widget.uid,
-        'autor': _nombreCtrl.text.trim(), 'texto': _comentCtrl.text.trim(),
-        'estrellas': _estrellas,
-        'servicio': _servicioCtrl.text.trim().isEmpty ? null : _servicioCtrl.text.trim(),
-        'verificado': false, 'fecha': FieldValue.serverTimestamp(),
-        'negocioId': widget.negocio.id, 'negocioNombre': widget.negocio.nombre,
+        'origen':      'fluix',
+        'uid':         widget.uid,
+        'autor':       nombreFinal,
+        'texto':       textoFinal,
+        'estrellas':   _estrellas,
+        'servicio':    _servicioCtrl.text.trim().isEmpty ? null : _servicioCtrl.text.trim(),
+        if (user?.photoURL != null && !anonimo) 'avatarUrl': user!.photoURL,
+        'verificado':  false,
+        'fecha':       FieldValue.serverTimestamp(),
+        'negocioId':   widget.negocio.id,
+        'negocioNombre': widget.negocio.nombre,
+        if (destacada)           'destacada': true,
+        if (colorH != null)      'autor_color': colorH,
+        if (marco != null)       'autor_marco': marco,
+        if (anonimo)             'es_anonimo': true,
       });
+
+      // Consumir usos de canjes de un solo uso
+      if (anonimo) await CanjeoService.consumirUso(widget.uid, 'modo_anonimo');
+      if (destacada) await CanjeoService.consumirUso(widget.uid, 'resena_destacada');
+
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Reseña publicada. ¡Gracias!'),
-          backgroundColor: Color(0xFF00FFC8), behavior: SnackBarBehavior.floating,
-        ));
+        FluxToast.exito(context, 'Reseña publicada. ¡Gracias!');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating,
-      ));
+      if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -919,37 +1000,126 @@ class _TarjetaResena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final autor     = data['autor'] ?? data['clienteNombre'] ?? data['cliente'] ?? 'Anónimo';
-    final texto     = data['texto'] ?? data['comentario'] ?? data['resena'] ?? '';
-    final estrellas = (data['estrellas'] as num?)?.toInt() ?? 0;
-    final avatarUrl = data['avatarUrl'] as String?;
-    final ts        = data['fecha'] as Timestamp?;
-    final fecha     = ts?.toDate();
+    final autor      = data['autor'] ?? data['autorNombre'] ?? data['clienteNombre'] ?? 'Anónimo';
+    final texto      = data['texto'] ?? data['comentario'] ?? data['resena'] ?? '';
+    final estrellas  = (data['estrellas'] as num?)?.toDouble() ?? 0;
+    final avatarUrl  = data['avatarUrl'] ?? data['autorAvatarUrl'] as String?;
+    final servicio   = data['servicio'] ?? data['servicioUsado'] as String?;
+    final verificado = data['verificado'] as bool? ?? false;
+    final respuesta  = data['respuesta'] as String?;
+    final ts         = data['fecha'] as Timestamp?;
+    final fecha      = ts?.toDate();
+    final tsResp     = data['fechaRespuesta'] as Timestamp?;
+    final fechaResp  = tsResp?.toDate();
 
+    final accentColor = estrellas >= 4 ? _C.accent : estrellas >= 3 ? _C.oro : _C.accentRosa;
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _C.grisOscuro, borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          _Avatar(nombre: autor, avatarUrl: avatarUrl, size: 34),
-          const SizedBox(width: 10),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _C.grisOscuro,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // Barra de color izquierda
+          Container(
+            width: 4,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                bottomLeft: Radius.circular(14),
+              ),
+            ),
+          ),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(autor, style: const TextStyle(color: _C.texto, fontSize: 13, fontWeight: FontWeight.w600)),
-            if (fecha != null) Text(_fmtFecha(fecha),
-                style: const TextStyle(color: _C.textoHint, fontSize: 10)),
-          ])),
-          if (estrellas > 0)
-            Row(mainAxisSize: MainAxisSize.min,
-                children: List.generate(5, (i) => Icon(
-                    i < estrellas ? Icons.star_rounded : Icons.star_border_rounded,
-                    size: 13, color: i < estrellas ? _C.oro : _C.grisClaro))),
-        ]),
-        if ((texto as String).isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(texto, style: const TextStyle(color: _C.textoMuted, fontSize: 13, height: 1.5)),
-        ],
-      ]),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 14, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Cabecera: avatar + nombre + estrellas
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _Avatar(nombre: autor, avatarUrl: avatarUrl, size: 38),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(autor,
+                      style: const TextStyle(color: _C.texto, fontSize: 13, fontWeight: FontWeight.w700))),
+                  if (verificado)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _C.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.verified_rounded, color: _C.accent, size: 10),
+                        SizedBox(width: 3),
+                        Text('Verificado', style: TextStyle(color: _C.accent, fontSize: 9, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  ...List.generate(5, (i) => Icon(
+                      i < estrellas.round() ? Icons.star_rounded : Icons.star_border_rounded,
+                      size: 13, color: i < estrellas.round() ? _C.oro : _C.grisClaro)),
+                  const SizedBox(width: 6),
+                  if (fecha != null)
+                    Text(_fmtFecha(fecha), style: const TextStyle(color: _C.textoHint, fontSize: 10)),
+                ]),
+              ])),
+            ]),
+            // Comentario
+            if ((texto as String).isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(texto, style: const TextStyle(color: _C.textoMuted, fontSize: 13, height: 1.5)),
+            ],
+            // Servicio
+            if (servicio != null && servicio.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _C.accentRosa.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _C.accentRosa.withValues(alpha: 0.25)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.content_cut_rounded, size: 10, color: _C.accentRosa),
+                  const SizedBox(width: 4),
+                  Text(servicio, style: const TextStyle(color: _C.accentRosa, fontSize: 10, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ],
+          ]),
+        ),
+        // Respuesta del negocio
+        if (respuesta != null && respuesta.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _C.grisMedio,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _C.accent.withValues(alpha: 0.2)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Icon(Icons.storefront_rounded, size: 12, color: _C.accent),
+                const SizedBox(width: 5),
+                const Text('Respuesta del negocio',
+                    style: TextStyle(color: _C.accent, fontSize: 11, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                if (fechaResp != null)
+                  Text(_fmtFecha(fechaResp), style: const TextStyle(color: _C.textoHint, fontSize: 10)),
+              ]),
+              const SizedBox(height: 6),
+              Text(respuesta, style: const TextStyle(color: _C.textoMuted, fontSize: 12, height: 1.4)),
+            ]),
+          ),
+          ])),  // cierra Expanded > Column
+        ]),     // cierra Row
+      ),        // cierra IntrinsicHeight
     );
   }
 
@@ -961,6 +1131,20 @@ class _TarjetaResena extends StatelessWidget {
     if (d.inDays < 365) return 'Hace ${(d.inDays / 30).round()} meses';
     return '${dt.day}/${dt.month}/${dt.year}';
   }
+
+}
+
+// ── Helpers de canjes para tarjetas de reseña ─────────────────────
+Color _colorNombreResena(String? hex) {
+  if (hex == null) return _C.texto;
+  try { return Color(int.parse(hex.replaceFirst('#', '0xFF'))); } catch (_) { return _C.texto; }
+}
+
+Widget _badgeMarco(String? marco) {
+  if (marco == null) return const SizedBox.shrink();
+  final emoji = switch (marco) { 'platino' => '💎', 'oro' => '🥇', _ => '🟤' };
+  return Padding(padding: const EdgeInsets.only(left: 4),
+      child: Text(emoji, style: const TextStyle(fontSize: 12)));
 }
 
 class _Avatar extends StatelessWidget {
@@ -1012,8 +1196,8 @@ class _TabServicios extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('negocios_publicos').doc(negocio.id)
-          .collection('servicios').orderBy('orden').snapshots(),
+          .collection('empresas').doc(negocio.empresaIdVinculada)
+          .collection('servicios').orderBy('nombre').snapshots(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _C.accent));

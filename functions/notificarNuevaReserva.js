@@ -103,6 +103,11 @@ exports.notificarNuevaReserva = functions.firestore
       });
 
       // 5. Construir HTML del email
+      const nombreCliente = reserva.nombre_cliente || reserva.cliente_nombre || 'Cliente';
+      const emailCliente = reserva.email || reserva.cliente_email || '';
+      const telefonoCliente = reserva.telefono || reserva.cliente_telefono || '';
+      const origenTexto = esReservaWeb ? 'tu página web' : 'la app Fluix';
+
       const htmlEmail = `
         <!DOCTYPE html>
         <html>
@@ -213,15 +218,147 @@ exports.notificarNuevaReserva = functions.firestore
           <div class="content">
             <p>Hola <strong>${empresaData.nombre_empresa || empresaData.nombre || 'Negocio'}</strong>,</p>
 
-            <p>Has recibido una nueva solicitud de reserva desde la app <strong>Fluix</strong>:</p>
+            <p>Has recibido una nueva solicitud de reserva desde <strong>${origenTexto}</strong>:</p>
 
             <div class="reserva-card">
               <div class="reserva-row">
                 <div class="reserva-icon">👤</div>
                 <div style="flex: 1;">
                   <div class="reserva-label">Cliente</div>
-                  <div class="reserva-value">${reserva.cliente_nombre}</div>
-                  ${reserva.cliente_email ? `<div style="color: #666; font-size: 12px;">${reserva.cliente_email}</div>` : ''}
+                  <div class="reserva-value">${nombreCliente}</div>
+                  ${emailCliente ? `<div style="color: #666; font-size: 12px;">${emailCliente}</div>` : ''}
+                  ${telefonoCliente ? `<div style="color: #666; font-size: 12px;">📞 ${telefonoCliente}</div>` : ''}
+                </div>
+              </div>
+
+              ${reserva.servicio_nombre ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">✂️</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Servicio</div>
+                  <div class="reserva-value">${reserva.servicio_nombre}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              <div class="reserva-row">
+                <div class="reserva-icon">📅</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Fecha</div>
+                  <div class="reserva-value">${fechaFormateada}</div>
+                </div>
+              </div>
+
+              <div class="reserva-row">
+                <div class="reserva-icon">🕐</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Hora</div>
+                  <div class="reserva-value">${horaFormateada}</div>
+                </div>
+              </div>
+
+              ${reserva.empleado_nombre ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">👨‍💼</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Profesional</div>
+                  <div class="reserva-value">${reserva.empleado_nombre}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.numero_personas ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">👥</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Personas</div>
+                  <div class="reserva-value">${reserva.numero_personas}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.zona ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">${reserva.zona === 'terraza' ? '🌿' : '🏠'}</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Zona</div>
+                  <div class="reserva-value">${reserva.zona === 'terraza' ? 'Terraza' : 'Salón'}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.duracion ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">⏱️</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Duración</div>
+                  <div class="reserva-value">${reserva.duracion} minutos</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.alergenos && reserva.detalle_alergenos ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">⚠️</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Alergias/Intolerancias</div>
+                  <div class="reserva-value">${reserva.detalle_alergenos}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.notas ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">📝</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Comentarios</div>
+                  <div class="reserva-value">${reserva.notas}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.precio ? `
+              <div class="reserva-row">
+                <div class="reserva-icon">💰</div>
+                <div style="flex: 1;">
+                  <div class="reserva-label">Precio</div>
+                  <div class="precio">€${reserva.precio.toFixed(2)}</div>
+                </div>
+              </div>
+              ` : ''}
+
+              <div style="text-align: center; margin-top: 20px;">
+                <span class="estado-badge">⏳ Pendiente de confirmación</span>
+              </div>
+            </div>
+
+            <p style="text-align: center;">
+              <a href="https://app.fluix.es" class="btn">
+                Ver en Fluix CRM →
+              </a>
+            </p>
+
+            <div style="background: #FFF3E0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #E65100; font-size: 13px;">
+                <strong>⚡ Acción requerida:</strong> Accede a tu panel en Fluix CRM para
+                <strong>confirmar o rechazar</strong> esta reserva. El cliente recibirá una notificación
+                de tu decisión.
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>
+                Este email fue generado automáticamente por <strong>Fluix CRM</strong><br>
+                No respondas a este email. Gestiona tus reservas desde la app.
+              </p>
+              <p style="font-size: 11px; color: #ccc;">
+                Reserva ID: ${notif.reserva_id}
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
                 </div>
               </div>
 
@@ -314,7 +451,7 @@ exports.notificarNuevaReserva = functions.firestore
       const mailOptions = {
         from: `Fluix CRM <${config.email.user}>`,
         to: emailEmpresa,
-        subject: `📅 Nueva reserva de ${reserva.cliente_nombre} - ${fechaFormateada}`,
+        subject: `📅 Nueva reserva de ${nombreCliente} - ${fechaFormateada}`,
         html: htmlEmail,
       };
 

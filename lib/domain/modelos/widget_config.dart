@@ -14,10 +14,10 @@ enum PlanModulo {
 extension PlanModuloExt on PlanModulo {
   String get nombre {
     switch (this) {
-      case PlanModulo.basico:  return 'Plan Base';
+      case PlanModulo.basico:  return 'Core';
       case PlanModulo.fiscal:  return 'Pack Fiscal AI';
-      case PlanModulo.gestion: return 'Pack Gestión';
-      case PlanModulo.tienda:  return 'Pack Tienda Online';
+      case PlanModulo.gestion: return 'Gestión';
+      case PlanModulo.tienda:  return 'Tienda Online';
       case PlanModulo.nominas: return 'Add-on Nóminas';
       case PlanModulo.addon:   return 'Add-on';
     }
@@ -273,9 +273,8 @@ class ModulosDisponibles {
       descripcion: 'Comunicación con clientes vía WhatsApp Business',
       icono: Icons.chat,
       activo: false,
-      plan: PlanModulo.addon,          // Add-on independiente (+50€/año)
+      plan: PlanModulo.addon,
       incluidoEnPlan: false,
-      precioAdicional: '+50€/año',
     ),
     const ModuloConfig(
       id: 'nominas',
@@ -293,9 +292,8 @@ class ModulosDisponibles {
       descripcion: 'Tareas de productividad por usuario',
       icono: Icons.task_alt,
       activo: false,
-      plan: PlanModulo.addon,          // Add-on independiente (precio variable)
+      plan: PlanModulo.addon,
       incluidoEnPlan: false,
-      precioAdicional: 'Precio por usuario/mes',
     ),
 
   ]
@@ -371,13 +369,10 @@ class WidgetConfig {
       WidgetConfig(id: 'alertas_fiscales',      nombre: 'Alertas Fiscales',      descripcion: 'Alertas de obligaciones fiscales próximas',                   icono: Icons.account_balance,  activo: true,  orden: 3),
       WidgetConfig(id: 'reservas_hoy',          nombre: 'Reservas de Hoy',       descripcion: 'Reservas y citas del día en curso',                           icono: Icons.calendar_today,   activo: true,  orden: 4),
       WidgetConfig(id: 'valoraciones_recientes',nombre: 'Valoraciones Recientes',descripcion: 'Últimas reseñas y puntuaciones de clientes',                  icono: Icons.star,             activo: true,  orden: 5),
-      WidgetConfig(id: 'kpis_rapidos',          nombre: 'KPIs Rápidos',          descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',    icono: Icons.analytics,        activo: true,  orden: 6),
+      WidgetConfig(id: 'kpis_rapidos',           nombre: 'KPIs Rápidos',          descripcion: 'Reservas de hoy, ingresos de la semana y rating promedio',    icono: Icons.analytics,        activo: true,  orden: 6),
       WidgetConfig(id: 'resumen_facturacion',   nombre: 'Resumen Facturación',   descripcion: 'Total facturado hoy y del mes, pendientes de cobro',          icono: Icons.receipt_long,     activo: true,  orden: 7),
       WidgetConfig(id: 'resumen_pedidos',       nombre: 'Resumen Pedidos',       descripcion: 'Pedidos y ventas del día',                                    icono: Icons.shopping_bag,     activo: true,  orden: 8),
-      WidgetConfig(id: 'ingresos_mes',          nombre: 'Ingresos del Mes',      descripcion: 'Gráfico de evolución de ingresos mensuales',                  icono: Icons.trending_up,      activo: false, orden: 10),
-      WidgetConfig(id: 'clientes_nuevos',       nombre: 'Clientes Nuevos',       descripcion: 'Últimos clientes registrados en el sistema',                  icono: Icons.people,           activo: false, orden: 11),
-      WidgetConfig(id: 'alertas_negocio',       nombre: 'Alertas del Negocio',   descripcion: 'Sugerencias y alertas automáticas del negocio',               icono: Icons.notifications,    activo: false, orden: 12),
-      WidgetConfig(id: 'kpis',                  nombre: 'KPIs',                  descripcion: 'Métricas clave del negocio',                                  icono: Icons.bar_chart,        activo: true,  orden: 13),
+      WidgetConfig(id: 'ingresos_mes',          nombre: 'Ingresos del Mes',      descripcion: 'Evolución de ingresos del mes actual vs mes anterior',        icono: Icons.trending_up,      activo: false, orden: 9),
     ];
   }
 
@@ -386,19 +381,15 @@ class WidgetConfig {
   // ✅ LIBRES — sin restricción de pack:
   //   briefing_matutino      → Resumen matutino inteligente (visible 6h-12h)
   //   proximos_dias          → Reservas y alertas próximos 3 días
-  //   reservas_hoy           → Reservas y citas del día en curso (unificado)
+  //   reservas_hoy           → Reservas y citas del día en curso
   //   alertas_fiscales       → Avisos AEAT / plazos tributarios
   //   valoraciones_recientes → Últimas reseñas de clientes
   //   kpis_rapidos           → Reservas hoy, ingresos semana, rating
+  //   ingresos_mes           → Total del mes vs mes anterior
   //
   // 🔒 REQUIEREN PACK (gestionado en configuracion_widgets_screen.dart):
-  //   resumen_facturacion    → Pack Gestión
-  //   resumen_pedidos        → Pack Tienda Online
-  //
-  // 🚧 PRÓXIMAMENTE (NO añadir aquí hasta estar implementados):
-  //   ingresos_mes, clientes_nuevos, alertas_negocio
-  //
-  // Última actualización: Abril 2026
+  //   resumen_facturacion    → Gestión
+  //   resumen_pedidos        → Tienda Online
   static const Set<String> implementados = {
     'briefing_matutino',
     'proximos_dias',
@@ -408,8 +399,7 @@ class WidgetConfig {
     'kpis_rapidos',
     'resumen_facturacion',
     'resumen_pedidos',
-    'kpis',
+    'ingresos_mes',
   };
 
-// 🚧 No incluidos (próximamente): 'ingresos_mes', 'clientes_nuevos', 'alertas_negocio'
 }

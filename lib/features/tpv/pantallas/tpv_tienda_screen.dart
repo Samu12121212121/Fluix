@@ -1,6 +1,7 @@
 // tpv_tienda_screen.dart — versión completa
 import 'dart:async';
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,13 +16,20 @@ import '../../../domain/modelos/pedido.dart';
 import '../../../services/pedidos_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
 import '../widgets/tpv_type_switcher.dart';
+import '../widgets/dialogo_factura_tpv.dart';
 import '../widgets/dialogo_devoluciones.dart';
 import '../widgets/empleados_banner_widget.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
+import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import '../../../widgets/tpv/historial_tickets_widget.dart';
+import '../../../widgets/tpv/hold_pedidos_widget.dart';
+import '../../../widgets/tpv/descuento_linea_widget.dart';
+import '../../../widgets/tpv/cupon_input_widget.dart';
+import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ESTADO EXTENDIDO DEL TICKET (descuento + cliente — sin tocar modelos)
@@ -107,6 +115,16 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
   Comanda? _comandaActiva;
   _TicketExtra _extra = const _TicketExtra();
 
+  // Hold (pedidos en espera)
+  final _holdNotifier = HoldPedidosNotifier();
+
+  // Cupón
+  String? _cuponId;
+  double _cuponDescuento = 0;
+
+  // Descuentos por línea: productoId → importe total descontado (€)
+  final Map<String, double> _descuentosLinea = {};
+
   String _categoriaFiltro = 'Todos';
   String _busqueda = '';
   bool _mostrandoCierre = false;
@@ -147,6 +165,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
   void dispose() {
     _relojTimer?.cancel();
     _connectivitySub?.cancel();
+    _holdNotifier.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
@@ -157,13 +176,19 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
               () => _horaActual = DateFormat('HH:mm').format(DateTime.now()));
   }
 
+  double get _totalDescuentosLinea =>
+      _descuentosLinea.values.fold(0.0, (a, b) => a + b);
+
   double get _totalConDescuento =>
-      ((_comandaActiva?.total ?? 0) - _extra.descuento)
+      ((_comandaActiva?.total ?? 0) - _extra.descuento - _totalDescuentosLinea - _cuponDescuento)
           .clamp(0, double.infinity);
 
   void _limpiarTicket() => setState(() {
     _comandaActiva = null;
     _extra = const _TicketExtra();
+    _cuponId = null;
+    _cuponDescuento = 0;
+    _descuentosLinea.clear();
   });
 
   @override
@@ -216,6 +241,20 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
                   onCobrado: _limpiarTicket,
                   onLimpiar: _limpiarTicket,
                   onProductoLibre: () => _agregarProductoLibre(),
+                  holdNotifier: _holdNotifier,
+                  cuponId: _cuponId,
+                  cuponDescuento: _cuponDescuento,
+                  onCuponAplicado: (id, desc) => setState(() {
+                    _cuponId = id;
+                    _cuponDescuento = desc;
+                  }),
+                  onCuponRetirado: () => setState(() {
+                    _cuponId = null;
+                    _cuponDescuento = 0;
+                  }),
+                  descuentosLinea: Map.unmodifiable(_descuentosLinea),
+                  onDescuentoLineaChanged: (productoId, importe) =>
+                      setState(() => _descuentosLinea[productoId] = importe),
                 ),
               ),
             ]),
@@ -293,6 +332,72 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
         const SizedBox(width: 4),
+        // Historial de tickets
+        IconButton(
+          icon: const Icon(Icons.receipt_long, size: 16),
+          tooltip: 'Historial de tickets',
+          onPressed: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+        const SizedBox(width: 4),
+        // Pedidos en espera (con badge)
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.pause_circle_outline, size: 16),
+              tooltip: 'Pedidos en espera',
+              onPressed: () async {
+                final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+                if (recuperado != null && mounted) {
+                  final lineas = recuperado.lineas
+                      .map((m) => LineaComanda(
+                            productoId: m['productoId'] as String? ?? '',
+                            nombre: m['nombre'] as String? ?? '',
+                            cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
+                            precioUnitario: (m['precioUnitario'] as num?)?.toDouble() ?? 0,
+                            ivaPorcentaje: (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
+                            notas: m['notas'] as String?,
+                            esNuevo: false,
+                          ))
+                      .toList();
+                  final base = _comandaActiva ??
+                      Comanda(
+                        id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
+                        mesaId: null,
+                        camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+                        lineas: [],
+                        estado: 'abierta',
+                        apertura: Timestamp.now(),
+                        importeTotal: 0,
+                      );
+                  setState(() => _comandaActiva = base.copyWith(lineas: [...base.lineas, ...lineas]));
+                }
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+            ListenableBuilder(
+              listenable: _holdNotifier,
+              builder: (_, __) => _holdNotifier.pedidos.isEmpty
+                  ? const SizedBox.shrink()
+                  : Positioned(
+                      top: 2,
+                      right: 2,
+                      child: CircleAvatar(
+                        radius: 7,
+                        backgroundColor: Colors.red,
+                        child: Text(
+                          '${_holdNotifier.pedidos.length}',
+                          style: const TextStyle(fontSize: 9, color: Colors.white),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
         Text(_horaActual, style: const TextStyle(fontSize: 11)),
         const SizedBox(width: 8),
         Icon(_estaOnline ? Icons.wifi : Icons.wifi_off,
@@ -302,11 +407,6 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
         Icon(Icons.print,
             size: 14,
             color: _btConectado ? Colors.white70 : Colors.white38),
-        const SizedBox(width: 8),
-        TpvTypeSwitcher(
-          tipoActual: 'tienda',
-          onTipoChanged: (_) => Navigator.of(context).pop(),
-        ),
         const SizedBox(width: 4),
         IconButton(
           icon: Icon(Icons.summarize_outlined,
@@ -1226,6 +1326,16 @@ class _TiendaComandaPanel extends StatelessWidget {
   final VoidCallback onCobrado;
   final VoidCallback onLimpiar;
   final VoidCallback onProductoLibre;
+  // Hold
+  final HoldPedidosNotifier holdNotifier;
+  // Cupón
+  final String? cuponId;
+  final double cuponDescuento;
+  final Function(String cuponId, double descuento) onCuponAplicado;
+  final VoidCallback onCuponRetirado;
+  // Descuentos por línea
+  final Map<String, double> descuentosLinea;
+  final Function(String productoId, double importe) onDescuentoLineaChanged;
 
   const _TiendaComandaPanel({
     required this.empresaId,
@@ -1237,6 +1347,13 @@ class _TiendaComandaPanel extends StatelessWidget {
     required this.onCobrado,
     required this.onLimpiar,
     required this.onProductoLibre,
+    required this.holdNotifier,
+    this.cuponId,
+    this.cuponDescuento = 0,
+    required this.onCuponAplicado,
+    required this.onCuponRetirado,
+    required this.descuentosLinea,
+    required this.onDescuentoLineaChanged,
   });
 
   @override
@@ -1334,6 +1451,7 @@ class _TiendaComandaPanel extends StatelessWidget {
             final linea = comandaActiva!.lineas[idx];
             return _TiendaLineaCard(
               linea: linea,
+              descuentoAplicado: descuentosLinea[linea.productoId] ?? 0,
               onCantidadChanged: (delta) {
                 final nueva = linea.cantidad + delta;
                 final lineas = List<LineaComanda>.from(
@@ -1350,6 +1468,17 @@ class _TiendaComandaPanel extends StatelessWidget {
                   _editarPrecio(context, idx, linea),
               onEditarCantidad: () =>
                   _editarCantidad(context, idx, linea),
+              onDescuento: () async {
+                final resultado = await DescuentoLineaWidget.mostrar(
+                  context,
+                  nombreProducto: linea.nombre,
+                  precioOriginal: linea.precioUnitario,
+                  cantidad: linea.cantidad,
+                );
+                if (resultado != null) {
+                  onDescuentoLineaChanged(linea.productoId, resultado.importe);
+                }
+              },
             );
           },
         ),
@@ -1391,6 +1520,22 @@ class _TiendaComandaPanel extends StatelessWidget {
                           fontSize: 12, color: Colors.green),
                     ),
                   ]),
+            if (cuponDescuento > 0)
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Cupón:',
+                        style: TextStyle(fontSize: 12, color: Colors.teal)),
+                    Text('- ${fmt.format(cuponDescuento)}',
+                        style: const TextStyle(fontSize: 12, color: Colors.teal)),
+                  ]),
+            // Cupón input
+            CuponInputWidget(
+              empresaId: empresaId,
+              totalBase: comandaActiva!.total - extra.descuento,
+              onAplicado: onCuponAplicado,
+              onRetirar: onCuponRetirado,
+            ),
             const Divider(),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('TOTAL:',
@@ -1400,7 +1545,39 @@ class _TiendaComandaPanel extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 17, fontWeight: FontWeight.w700)),
             ]),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            // Botón "En espera"
+            OutlinedButton.icon(
+              icon: const Icon(Icons.pause_circle_outline, size: 16),
+              label: const Text('En espera', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 36),
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: () async {
+                final label = await showDialog<String>(
+                  context: context,
+                  builder: (_) => const _DialogoEtiquetaEspera(),
+                );
+                if (label == null) return;
+                holdNotifier.guardar(
+                  etiqueta: label,
+                  lineas: comandaActiva!.lineas
+                      .map((l) => {
+                            'productoId': l.productoId,
+                            'nombre': l.nombre,
+                            'cantidad': l.cantidad,
+                            'precioUnitario': l.precioUnitario,
+                            'ivaPorcentaje': l.ivaPorcentaje,
+                            'notas': l.notas,
+                          })
+                      .toList(),
+                  total: totalConDescuento,
+                );
+                onLimpiar();
+              },
+            ),
+            const SizedBox(height: 6),
             FilledButton(
               onPressed: () => _cobrar(context),
               style: FilledButton.styleFrom(
@@ -1594,13 +1771,13 @@ class _TiendaComandaPanel extends StatelessWidget {
         .collection('contadores')
         .doc('tickets');
     int numTicket = 1;
-    await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      numTicket = snap.exists
-          ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
-          : 1;
-      tx.set(ref, {'ultimo': numTicket}, SetOptions(merge: true));
-    });
+    
+    // WINDOWS DESKTOP FIX: Sin transacciones (evita threading issues)
+    final snap = await ref.get();
+    numTicket = snap.exists
+        ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
+        : 1;
+    await ref.set({'ultimo': numTicket}, SetOptions(merge: true));
 
     final empresaSnap = await FirebaseFirestore.instance
         .collection('empresas')
@@ -1634,27 +1811,21 @@ class _TiendaComandaPanel extends StatelessWidget {
         importeEfectivo: pago['importe_efectivo'],
         importeTarjeta: pago['importe_tarjeta'],
         importeTotal: totalConDescuento,
+        importesPorMetodo: (pago['importes'] as Map?)?.cast<String, double>(),
         mesaId: null,
         estado: 'entregado',
         estadoPago: 'pagado',
         fechaHora: Timestamp.fromDate(ahora),
       );
 
-      // Facturación automática
-      try {
-        final cfg =
-        await TpvFacturacionService().obtenerConfig(empresaId);
-        if (cfg.facturacionAutomatica) {
-          await TpvFacturacionService().generarFacturaPorPedido(
-            empresaId: empresaId,
-            pedido: pedido,
-            config: cfg,
-            usuarioNombre:
-            FirebaseAuth.instance.currentUser?.displayName ??
-                'TPV Tienda',
-          );
-        }
-      } catch (_) {}
+      // Preguntar si desea factura
+      if (context.mounted) {
+        await DialogoFacturaTpv.mostrar(
+          context: context,
+          empresaId: empresaId,
+          pedido: pedido,
+        );
+      }
 
       // Descontar stock
       for (final l in lineasPedido) {
@@ -1687,6 +1858,15 @@ class _TiendaComandaPanel extends StatelessWidget {
         ));
       } catch (_) {}
 
+      // Abrir cajón registradora según configuración del tenant
+      try {
+        final cfg = await TpvFacturacionService().obtenerConfig(empresaId);
+        await ImpresoraService().abrirCajonSiProcede(
+          config: cfg,
+          metodoPago: pago['metodo'] as String? ?? 'efectivo',
+        );
+      } catch (_) {}
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
@@ -1710,15 +1890,19 @@ class _TiendaComandaPanel extends StatelessWidget {
 
 class _TiendaLineaCard extends StatelessWidget {
   final LineaComanda linea;
+  final double descuentoAplicado;
   final ValueChanged<int> onCantidadChanged;
   final VoidCallback onEditarPrecio;
   final VoidCallback onEditarCantidad;
+  final VoidCallback? onDescuento;
 
   const _TiendaLineaCard({
     required this.linea,
+    this.descuentoAplicado = 0,
     required this.onCantidadChanged,
     required this.onEditarPrecio,
     required this.onEditarCantidad,
+    this.onDescuento,
   });
 
   @override
@@ -1758,8 +1942,26 @@ class _TiendaLineaCard extends StatelessWidget {
                 ]),
               ),
             ),
+            if (descuentoAplicado > 0)
+              Text(
+                '- ${fmt.format(descuentoAplicado)}',
+                style: const TextStyle(fontSize: 10, color: Colors.green),
+              ),
           ]),
         ),
+        // Botón descuento por línea
+        if (onDescuento != null)
+          IconButton(
+            icon: Icon(
+              Icons.discount_outlined,
+              size: 16,
+              color: descuentoAplicado > 0 ? Colors.green : Colors.grey,
+            ),
+            tooltip: 'Descuento en línea',
+            onPressed: onDescuento,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+          ),
         // Controles de cantidad
         GestureDetector(
           onTap: onEditarCantidad, // tap en número → editar manualmente
@@ -1793,10 +1995,11 @@ class _TiendaLineaCard extends StatelessWidget {
         // Total línea
         SizedBox(
           width: 64,
-          child: Text(fmt.format(linea.total),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600)),
+          child: Text(
+            fmt.format((linea.total - descuentoAplicado).clamp(0, double.infinity)),
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600)),
         ),
       ]),
     );
@@ -2174,8 +2377,9 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
         'created_at': FieldValue.serverTimestamp(),
       });
       if (mounted) {
+        final messengerCatalogo = ScaffoldMessenger.of(context);
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        messengerCatalogo.showSnackBar(SnackBar(
           content: Text('✅ "$nombre" añadido al catálogo'),
           backgroundColor: Colors.green.shade700,
         ));
@@ -2332,6 +2536,7 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
                   selected: _iva == p,
                   onSelected: (_) =>
                       setState(() => _iva = p.toDouble()),
+                  selectedColor: Colors.green.shade100,
                 ),
               )),
             ]),
@@ -2589,6 +2794,14 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               'metodo': _metodo,
               'importe_efectivo': ef,
               'importe_tarjeta': tj,
+              'importes': <String, double>{
+                if (_metodo == 'efectivo') 'efectivo': ef,
+                if (_metodo == 'tarjeta') 'tarjeta': tj,
+                if (_metodo == 'mixto') ...{
+                  if (ef > 0) 'efectivo': ef,
+                  if (tj > 0) 'tarjeta': tj,
+                },
+              },
             });
           },
           style: FilledButton.styleFrom(
@@ -2929,7 +3142,12 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
       Expanded(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Wrap(spacing: 12, runSpacing: 12, children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              EstadisticasTurnoWidget(empresaId: widget.empresaId),
+              const SizedBox(height: 12),
+              Wrap(spacing: 12, runSpacing: 12, children: [
             _cifra('Total ventas', fmt.format(d['total']),
                 color: const Color(0xFF1B5E20)),
             _cifra('Tickets', '${d['num_tickets']}'),
@@ -2973,6 +3191,8 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
               }),
             ]),
           ]),
+            ],
+          ),
         ),
       ),
     ]);
@@ -3153,4 +3373,58 @@ class _EscanerCamaraModalState extends State<_EscanerCamaraModal> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DIÁLOGO: ETIQUETA PARA PEDIDO EN ESPERA
+// ═══════════════════════════════════════════════════════════════════════════
 
+class _DialogoEtiquetaEspera extends StatefulWidget {
+  const _DialogoEtiquetaEspera();
+
+  @override
+  State<_DialogoEtiquetaEspera> createState() => _DialogoEtiquetaEsperaState();
+}
+
+class _DialogoEtiquetaEsperaState extends State<_DialogoEtiquetaEspera> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.pause_circle_outline, color: Color(0xFF1B5E20)),
+        SizedBox(width: 8),
+        Text('Guardar en espera'),
+      ]),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Etiqueta (ej: Mesa 3, Cliente Juan…)',
+          prefixIcon: Icon(Icons.label_outline),
+        ),
+        onSubmitted: (v) => Navigator.pop(context, v.trim().isEmpty ? 'En espera' : v.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final v = _ctrl.text.trim();
+            Navigator.pop(context, v.isEmpty ? 'En espera' : v);
+          },
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}

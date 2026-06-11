@@ -119,10 +119,15 @@ class SesionService {
     try {
       await user.getIdToken(true); // force = true → ignora caché
       debugPrint('🔑 SesionService: token refrescado al volver de background');
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('❌ SesionService: error al refrescar token: $e');
-      // Si falla el refresh, la sesión es inválida
-      await _cerrarSesion();
+      debugPrint('   Stack: $stack');
+      
+      final callback = onSesionExpirada;
+      detener();
+      callback?.call();
+      
+      // NO hacemos signOut aquí - lo manejará el callback
       return;
     }
 
@@ -141,17 +146,35 @@ class SesionService {
   }
 
   Future<void> _cerrarSesion() async {
+    debugPrint('🛑 SesionService: iniciando cierre de sesión...');
+
+    // Guardar callback antes de detener() lo anula
+    final callback = onSesionExpirada;
+
+    // 1. Detener el servicio primero (cancela timers)
     detener();
+
+    // 2. Notificar a la app ANTES de hacer signOut
+    debugPrint('📢 SesionService: notificando cierre de sesión a la app...');
+    callback?.call();
+    
+    // 3. CRÍTICO: Esperar un momento para que los listeners se cancelen
+    //    Esto evita el error permission-denied que crashea Windows
+    debugPrint('⏳ SesionService: esperando 500ms para cancelación de listeners...');
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // 4. Ahora sí, cerrar sesión en Firebase Auth
     try {
       await FirebaseAuth.instance.signOut();
-      debugPrint('🔓 SesionService: sesión cerrada');
-    } catch (e) {
+      debugPrint('🔓 SesionService: sesión cerrada correctamente');
+    } catch (e, stack) {
       debugPrint('⚠️ SesionService: error al cerrar sesión: $e');
+      debugPrint('   Stack: $stack');
+      // No relanzar - el signOut puede fallar pero la UI ya sabe que debe cerrar
     }
+    
     // El StreamBuilder de authStateChanges en main.dart detectará
     // user == null y redirigirá automáticamente a PantallaLogin.
-    // Pero también llamamos el callback por si hay lógica adicional.
-    onSesionExpirada?.call();
   }
 }
 

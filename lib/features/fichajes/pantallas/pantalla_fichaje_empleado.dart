@@ -306,7 +306,36 @@ class _PantallaFichajeEmpleadoState extends State<PantallaFichajeEmpleado> {
             padding: EdgeInsets.only(top: 20),
             child: CircularProgressIndicator(),
           ),
+
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _mostrarAyudaPIN,
+          child: const Text(
+            '¿Olvidaste tu PIN?',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ),
       ],
+    );
+  }
+
+  void _mostrarAyudaPIN() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('PIN olvidado'),
+        content: const Text(
+          'Contacta con tu administrador para restablecer tu PIN.\n\n'
+          'El administrador puede cambiarlo desde la pestaña '
+          '"Empleados" en la pantalla de gestión de fichajes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
     );
   }
 

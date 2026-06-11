@@ -169,6 +169,19 @@ class ImpressoraBluetooth {
     _bt.paperCut();
   }
 
+  // ── Abrir Cajón ─────────────────────────────────────────────────────────────
+
+  /// [pin] 0 = Pin 2 (estándar), 1 = Pin 5
+  Future<void> abrirCajon({int pin = 0}) async {
+    if (_btNoDisponible) return;
+    await _verificarConexion();
+    if (pin == 1) {
+      await _bt.drawerPin5();
+    } else {
+      await _bt.drawerPin2();
+    }
+  }
+
   // ── PRIVADO ─────────────────────────────────────────────────────────────────
 
   Future<void> _verificarConexion() async {

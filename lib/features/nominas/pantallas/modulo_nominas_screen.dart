@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/nomina.dart';
 import '../../../services/nominas_service.dart';
@@ -18,7 +19,7 @@ class ModuloNominasScreen extends StatefulWidget {
 }
 
 class _ModuloNominasScreenState extends State<ModuloNominasScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tabs;
   final NominasService _svc = NominasService();
 

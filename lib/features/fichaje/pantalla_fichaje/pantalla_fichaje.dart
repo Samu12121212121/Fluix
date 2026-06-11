@@ -2,15 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
-import '../../../domain/modelos/fichaje.dart';
-import '../../../services/fichaje_service.dart';
+import '../../fichajes/modelos/fichaje.dart';
+import '../../fichajes/servicios/fichaje_service.dart';
+import 'mis_horas_mes_section.dart';
 
 const Color _azulPrimario = Color(0xFF1565C0);
 
 class PantallaFichaje extends StatefulWidget {
-  const PantallaFichaje({super.key});
+  final bool embedido;
+  const PantallaFichaje({super.key, this.embedido = false});
 
   @override
   State<PantallaFichaje> createState() => _PantallaFichajeState();
@@ -19,16 +20,13 @@ class PantallaFichaje extends StatefulWidget {
 class _PantallaFichajeState extends State<PantallaFichaje> {
   final _svc = FichajeService();
 
-  // Sesión
   String? _uid;
   String? _empresaId;
   String? _nombreEmpleado;
 
-  // Reloj en tiempo real
   Timer? _timer;
   DateTime _ahora = DateTime.now();
 
-  // Estado de carga de cada botón
   bool _cargandoEntrada = false;
   bool _cargandoSalida = false;
   bool _cargandoPausa = false;
@@ -37,7 +35,6 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
   void initState() {
     super.initState();
     _cargarSesion();
-    // Actualizar hora cada minuto
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() => _ahora = DateTime.now());
     });
@@ -49,7 +46,6 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
     super.dispose();
   }
 
-  // ── Cargar datos del usuario logado ────────────────────────────────────────
   Future<void> _cargarSesion() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -61,104 +57,82 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
     setState(() {
       _uid = user.uid;
       _empresaId = doc.data()?['empresa_id'] as String?;
-      _nombreEmpleado = (doc.data()?['nombre'] as String?) ?? user.displayName ?? '';
+      _nombreEmpleado =
+          (doc.data()?['nombre'] as String?) ?? user.displayName ?? '';
     });
   }
 
-  // ── GPS opcional, timeout 5 s ──────────────────────────────────────────────
-  Future<Position?> _obtenerUbicacion() async {
-    try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        return null;
-      }
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 5),
-        ),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ── Acción de fichaje ──────────────────────────────────────────────────────
-  Future<void> _fichar(TipoFichaje tipo) async {
+  Future<void> _ficharEntrada() async {
     final empresaId = _empresaId;
     final uid = _uid;
     if (empresaId == null || uid == null) return;
 
-    if (tipo == TipoFichaje.entrada) {
-      setState(() => _cargandoEntrada = true);
-    } else {
-      setState(() => _cargandoSalida = true);
-    }
-
+    setState(() => _cargandoEntrada = true);
     try {
-      final pos = await _obtenerUbicacion();
-
-      if (tipo == TipoFichaje.entrada) {
-        await _svc.ficharEntrada(
-          empresaId: empresaId,
-          empleadoId: uid,
-          empleadoNombre: _nombreEmpleado ?? '',
-          latitud: pos?.latitude,
-          longitud: pos?.longitude,
-        );
-      } else {
-        await _svc.ficharSalida(
-          empresaId: empresaId,
-          empleadoId: uid,
-          empleadoNombre: _nombreEmpleado ?? '',
-          latitud: pos?.latitude,
-          longitud: pos?.longitude,
-        );
-      }
-
+      await _svc.ficharEntrada(
+        empresaId: empresaId,
+        empleadoId: uid,
+        empleadoNombre: _nombreEmpleado ?? '',
+        dispositivoId: 'personal_$uid',
+      );
       if (!mounted) return;
       final hora = DateFormat('HH:mm').format(DateTime.now());
-      final label = tipo == TipoFichaje.entrada ? 'Entrada' : 'Salida';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(children: [
-            Icon(
-              tipo == TipoFichaje.entrada
-                  ? Icons.login_rounded
-                  : Icons.logout_rounded,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 8),
-            Text('$label registrada a las $hora'),
-          ]),
-          backgroundColor:
-          tipo == TipoFichaje.entrada ? Colors.green[700] : _azulPrimario,
-          behavior: SnackBarBehavior.floating,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Row(children: [
+          const Icon(Icons.login_rounded, color: Colors.white),
+          const SizedBox(width: 8),
+          Text('Entrada registrada a las $hora'),
+        ]),
+        backgroundColor: Colors.green[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al fichar: $e'),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al fichar entrada: $e'),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+      ));
     } finally {
-      if (mounted) {
-        setState(() {
-          _cargandoEntrada = false;
-          _cargandoSalida = false;
-        });
-      }
+      if (mounted) setState(() => _cargandoEntrada = false);
+    }
+  }
+
+  Future<void> _ficharSalida() async {
+    final empresaId = _empresaId;
+    final uid = _uid;
+    if (empresaId == null || uid == null) return;
+
+    setState(() => _cargandoSalida = true);
+    try {
+      await _svc.ficharSalida(
+        empresaId: empresaId,
+        empleadoId: uid,
+      );
+      if (!mounted) return;
+      final hora = DateFormat('HH:mm').format(DateTime.now());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Row(children: [
+          const Icon(Icons.logout_rounded, color: Colors.white),
+          const SizedBox(width: 8),
+          Text('Salida registrada a las $hora'),
+        ]),
+        backgroundColor: _azulPrimario,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al fichar salida: $e'),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _cargandoSalida = false);
     }
   }
 
@@ -169,33 +143,19 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
 
     setState(() => _cargandoPausa = true);
     try {
-      final pos = await _obtenerUbicacion();
       if (esInicio) {
-        await _svc.ficharPausaInicio(
-          empresaId: empresaId,
-          empleadoId: uid,
-          empleadoNombre: _nombreEmpleado ?? '',
-          latitud: pos?.latitude,
-          longitud: pos?.longitude,
-        );
+        await _svc.iniciarPausa(empresaId: empresaId, empleadoId: uid);
       } else {
-        await _svc.ficharPausaFin(
-          empresaId: empresaId,
-          empleadoId: uid,
-          empleadoNombre: _nombreEmpleado ?? '',
-          latitud: pos?.latitude,
-          longitud: pos?.longitude,
-        );
+        await _svc.finalizarPausa(empresaId: empresaId, empleadoId: uid);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(esInicio
-            ? 'Pausa iniciada'
-            : 'Vuelta de pausa registrada'),
+        content: Text(
+            esInicio ? 'Pausa iniciada' : 'Vuelta de pausa registrada'),
         backgroundColor: Colors.orange[700],
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     } catch (e) {
       if (!mounted) return;
@@ -208,7 +168,6 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
     }
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final empresaId = _empresaId ?? '';
@@ -216,178 +175,200 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
     final listo = empresaId.isNotEmpty && uid.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Row(children: [
-          Icon(Icons.access_time_filled_rounded, size: 22),
-          SizedBox(width: 8),
-          Text('Control Horario',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        ]),
-        backgroundColor: _azulPrimario,
-        foregroundColor: Colors.white,
-      ),
+      appBar: widget.embedido
+          ? null
+          : AppBar(
+              title: const Row(children: [
+                Icon(Icons.access_time_filled_rounded, size: 22),
+                SizedBox(width: 8),
+                Text('Control Horario',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ]),
+              backgroundColor: _azulPrimario,
+              foregroundColor: Colors.white,
+            ),
       body: listo
-          ? StreamBuilder<RegistroFichaje?>(
-        stream: _svc.ultimoFichajeHoy(empresaId, uid),
-        builder: (context, snapUltimo) {
-          final ultimo = snapUltimo.data;
-          final estaEnEntrada = ultimo?.tipo == TipoFichaje.entrada;
-          final hayFichajes = ultimo != null;
+          ? StreamBuilder<Fichaje?>(
+              stream: _svc.fichajeHoyStream(empresaId, uid),
+              builder: (context, snap) {
+                final fichaje = snap.data;
+                final estado =
+                    fichaje?.estado ?? EstadoFichaje.sinFichar;
 
-          final entradaDeshabilitada =
-              _cargandoEntrada || _cargandoSalida || estaEnEntrada;
-          final salidaDeshabilitada =
-              _cargandoEntrada ||
-                  _cargandoSalida ||
-                  !hayFichajes ||
-                  ultimo?.tipo == TipoFichaje.salida ||
-                  ultimo?.tipo == TipoFichaje.pausaInicio;
+                final enPausa = estado == EstadoFichaje.enPausa;
+                final trabajando = estado == EstadoFichaje.trabajando;
+                final cerrado = estado == EstadoFichaje.cerrado;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header con gradiente azul
-                _HeaderFichaje(ahora: _ahora, ultimoFichaje: ultimo),
-                const SizedBox(height: 20),
+                final entradaDeshabilitada = _cargandoEntrada ||
+                    _cargandoSalida ||
+                    fichaje != null;
+                final salidaDeshabilitada = _cargandoEntrada ||
+                    _cargandoSalida ||
+                    fichaje == null ||
+                    cerrado ||
+                    enPausa;
 
-                // Botón Entrada
-                // Botón Entrada
-                _BotonFichar(
-                  label: 'Fichar Entrada',
-                  icono: Icons.login_rounded,
-                  color: Colors.green[700]!,
-                  colorFondo: Colors.green[50]!,
-                  deshabilitado: entradaDeshabilitada,
-                  cargando: _cargandoEntrada,
-                  onTap: () => _fichar(TipoFichaje.entrada),
-                ),
-                const SizedBox(height: 8),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _HeaderFichaje(ahora: _ahora, fichaje: fichaje),
+                      const SizedBox(height: 20),
 
-// Botón Pausa — pequeño, naranja
-                Builder(builder: (context) {
-                  final enPausa = ultimo?.tipo == TipoFichaje.pausaInicio;
-                  final puedeIniciarPausa = estaEnEntrada &&
-                      !enPausa &&
-                      !_cargandoPausa;
-                  final puedevolverPausa = enPausa && !_cargandoPausa;
-                  final mostrarPausa = estaEnEntrada || enPausa;
+                      _BotonFichar(
+                        label: 'Fichar Entrada',
+                        icono: Icons.login_rounded,
+                        color: Colors.green[700]!,
+                        colorFondo: Colors.green[50]!,
+                        deshabilitado: entradaDeshabilitada,
+                        cargando: _cargandoEntrada,
+                        onTap: _ficharEntrada,
+                      ),
+                      const SizedBox(height: 8),
 
-                  if (!mostrarPausa) return const SizedBox.shrink();
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AnimatedOpacity(
-                      opacity: (puedeIniciarPausa || puedevolverPausa) ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 200),
-                      child: GestureDetector(
-                        onTap: (puedeIniciarPausa || puedevolverPausa)
-                            ? () => _ficharPausa(!enPausa)
-                            : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: _cargandoPausa
-                              ? Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.orange[700],
+                      if (trabajando || enPausa)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: AnimatedOpacity(
+                            opacity: _cargandoPausa ? 0.4 : 1.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: GestureDetector(
+                              onTap: _cargandoPausa
+                                  ? null
+                                  : () => _ficharPausa(!enPausa),
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: _cargandoPausa
+                                    ? Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.orange[700],
+                                          ),
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange[50],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              enPausa
+                                                  ? Icons.play_arrow_rounded
+                                                  : Icons.pause_rounded,
+                                              color: Colors.orange[700],
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            enPausa
+                                                ? 'Volver de pausa'
+                                                : 'Iniciar pausa',
+                                            style: TextStyle(
+                                              color: Colors.orange[700],
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
-                          )
-                              : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  enPausa
-                                      ? Icons.play_arrow_rounded
-                                      : Icons.pause_rounded,
-                                  color: Colors.orange[700],
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                enPausa ? 'Volver de pausa' : 'Iniciar pausa',
-                                style: TextStyle(
-                                  color: Colors.orange[700],
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
-                _BotonFichar(
-                  label: 'Fichar Salida',
-                  icono: Icons.logout_rounded,
-                  color: _azulPrimario,
-                  colorFondo: const Color(0xFFE3F0FF),
-                  deshabilitado: salidaDeshabilitada,
-                  cargando: _cargandoSalida,
-                  onTap: () => _fichar(TipoFichaje.salida),
-                ),
-                const SizedBox(height: 24),
 
-                // Fichajes del día
-                _SeccionFichajesHoy(
-                  empresaId: empresaId,
-                  uid: uid,
-                  svc: _svc,
-                ),
-              ],
-            ),
-          );
-        },
-      )
+                      _BotonFichar(
+                        label: 'Fichar Salida',
+                        icono: Icons.logout_rounded,
+                        color: _azulPrimario,
+                        colorFondo: const Color(0xFFE3F0FF),
+                        deshabilitado: salidaDeshabilitada,
+                        cargando: _cargandoSalida,
+                        onTap: _ficharSalida,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _SeccionFichajesHoy(fichaje: fichaje),
+                      const SizedBox(height: 16),
+
+                      MisHorasMesSection(
+                        empresaId: empresaId,
+                        empleadoId: uid,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
           : const Center(child: CircularProgressIndicator()),
     );
   }
 }
 
-// ── HEADER GRADIENTE ──────────────────────────────────────────────────────────
+// ── HEADER ────────────────────────────────────────────────────────────────────
 
 class _HeaderFichaje extends StatelessWidget {
   final DateTime ahora;
-  final RegistroFichaje? ultimoFichaje;
+  final Fichaje? fichaje;
 
-  const _HeaderFichaje({required this.ahora, this.ultimoFichaje});
+  const _HeaderFichaje({required this.ahora, this.fichaje});
 
   @override
   Widget build(BuildContext context) {
-    final fechaTxt = DateFormat("EEEE, d 'de' MMMM", 'es_ES').format(ahora);
+    final fechaTxt =
+        DateFormat("EEEE, d 'de' MMMM", 'es_ES').format(ahora);
     final horaTxt = DateFormat('HH:mm').format(ahora);
+    final fmtH = DateFormat('HH:mm');
 
-    String? ultimoTxt;
-    if (ultimoFichaje != null) {
-      final h = DateFormat('HH:mm').format(ultimoFichaje!.timestamp);
-      final tipo =
-      ultimoFichaje!.tipo == TipoFichaje.entrada ? 'Entrada' : 'Salida';
-      ultimoTxt = 'Último: $tipo a las $h';
+    String? estadoTxt;
+    IconData? estadoIcono;
+    if (fichaje != null) {
+      switch (fichaje!.estado) {
+        case EstadoFichaje.trabajando:
+          final h = fichaje!.entrada != null
+              ? fmtH.format(fichaje!.entrada!.toDate().toLocal())
+              : '—';
+          estadoTxt = 'Entrada a las $h';
+          estadoIcono = Icons.login_rounded;
+        case EstadoFichaje.enPausa:
+          final ultima =
+              fichaje!.pausas.isNotEmpty ? fichaje!.pausas.last : null;
+          final h =
+              ultima != null ? fmtH.format(ultima.inicio.toDate().toLocal()) : '—';
+          estadoTxt = 'Pausa desde las $h';
+          estadoIcono = Icons.pause_rounded;
+        case EstadoFichaje.cerrado:
+          final h = fichaje!.salida != null
+              ? fmtH.format(fichaje!.salida!.toDate().toLocal())
+              : '—';
+          estadoTxt = 'Salida a las $h';
+          estadoIcono = Icons.logout_rounded;
+        default:
+          break;
+      }
     }
 
     return Container(
@@ -422,25 +403,21 @@ class _HeaderFichaje extends StatelessWidget {
               letterSpacing: -2,
             ),
           ),
-          if (ultimoTxt != null) ...[
+          if (estadoTxt != null) ...[
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(
-                  ultimoFichaje!.tipo == TipoFichaje.entrada
-                      ? Icons.login_rounded
-                      : Icons.logout_rounded,
-                  color: Colors.white,
-                  size: 13,
-                ),
+                Icon(estadoIcono!, color: Colors.white, size: 13),
                 const SizedBox(width: 5),
-                Text(ultimoTxt,
-                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+                Text(estadoTxt,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 12)),
               ]),
             ),
           ],
@@ -493,37 +470,34 @@ class _BotonFichar extends StatelessWidget {
           ),
           child: cargando
               ? Center(
-            child: SizedBox(
-              width: 26,
-              height: 26,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: color,
-              ),
-            ),
-          )
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: color),
+                  ),
+                )
               : Column(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: colorFondo,
-                  borderRadius: BorderRadius.circular(14),
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: colorFondo,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(icono, color: color, size: 28),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      label,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: color),
+                    ),
+                  ],
                 ),
-                child: Icon(icono, color: color, size: 28),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -533,18 +507,14 @@ class _BotonFichar extends StatelessWidget {
 // ── SECCIÓN FICHAJES DEL DÍA ──────────────────────────────────────────────────
 
 class _SeccionFichajesHoy extends StatelessWidget {
-  final String empresaId;
-  final String uid;
-  final FichajeService svc;
+  final Fichaje? fichaje;
 
-  const _SeccionFichajesHoy({
-    required this.empresaId,
-    required this.uid,
-    required this.svc,
-  });
+  const _SeccionFichajesHoy({required this.fichaje});
 
   @override
   Widget build(BuildContext context) {
+    final fmtH = DateFormat('HH:mm');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -559,117 +529,111 @@ class _SeccionFichajesHoy extends StatelessWidget {
             ),
           ),
         ),
-        StreamBuilder<List<RegistroFichaje>>(
-          stream: svc.fichajesDelDia(empresaId, uid, DateTime.now()),
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator()),
-              );
-            }
-
-            final lista = snap.data ?? [];
-
-            if (lista.isEmpty) {
-              return Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: 1,
-                child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-                  child: Column(
-                    children: [
-                      Icon(Icons.schedule_outlined,
-                          size: 52, color: Colors.grey[300]),
-                      const SizedBox(height: 12),
-                      Text('No hay fichajes hoy',
-                          style:
+        if (fichaje == null)
+          Card(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  vertical: 36, horizontal: 24),
+              child: Column(
+                children: [
+                  Icon(Icons.schedule_outlined,
+                      size: 52, color: Colors.grey[300]),
+                  const SizedBox(height: 12),
+                  Text('No hay fichajes hoy',
+                      style:
                           TextStyle(color: Colors.grey[500], fontSize: 15)),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Pulsa "Fichar Entrada" para empezar',
-                        style:
-                        TextStyle(color: Colors.grey[400], fontSize: 13),
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text('Pulsa "Fichar Entrada" para empezar',
+                      style: TextStyle(
+                          color: Colors.grey[400], fontSize: 13)),
+                ],
+              ),
+            ),
+          )
+        else
+          Card(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+            elevation: 2,
+            child: Column(
+              children: [
+                if (fichaje!.entrada != null)
+                  _FilaEvento(
+                    icono: Icons.login_rounded,
+                    color: Colors.green[700]!,
+                    colorFondo: Colors.green[50]!,
+                    titulo: 'Entrada',
+                    hora: fmtH.format(fichaje!.entrada!.toDate().toLocal()),
                   ),
-                ),
-              );
-            }
-
-            return Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              elevation: 2,
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: lista.length,
-                separatorBuilder: (_, __) =>
-                const Divider(height: 1, indent: 56),
-                itemBuilder: (context, i) {
-                  final f = lista[i];
-                  final esEntrada = f.tipo == TipoFichaje.entrada;
-                  final hora = DateFormat('HH:mm').format(f.timestamp);
-
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: esEntrada
-                          ? Colors.green[50]
-                          : const Color(0xFFE3F2FD),
-                      child: Icon(
-                        esEntrada ? Icons.login_rounded : Icons.logout_rounded,
-                        color: esEntrada
-                            ? Colors.green[700]
-                            : const Color(0xFF1565C0),
-                        size: 20,
+                ...fichaje!.pausas.expand((p) => [
+                      const Divider(height: 1, indent: 56),
+                      _FilaEvento(
+                        icono: Icons.pause_rounded,
+                        color: Colors.orange[700]!,
+                        colorFondo: Colors.orange[50]!,
+                        titulo: 'Inicio pausa',
+                        hora: fmtH.format(p.inicio.toDate().toLocal()),
                       ),
-                    ),
-                    title: Row(children: [
-                      Text(
-                        esEntrada ? 'Entrada' : 'Salida',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                      if (f.editadoPorAdmin) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange[100],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Editado',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.orange[800],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      if (p.fin != null) ...[
+                        const Divider(height: 1, indent: 56),
+                        _FilaEvento(
+                          icono: Icons.play_arrow_rounded,
+                          color: Colors.orange[700]!,
+                          colorFondo: Colors.orange[50]!,
+                          titulo: 'Fin pausa',
+                          hora: fmtH.format(p.fin!.toDate().toLocal()),
                         ),
                       ],
                     ]),
-                    subtitle:
-                    Text(hora, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                    trailing: f.latitud != null
-                        ? Tooltip(
-                      message: 'Ubicación registrada',
-                      child: Icon(Icons.location_on_rounded,
-                          color: Colors.blue[400], size: 18),
-                    )
-                        : null,
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                if (fichaje!.salida != null) ...[
+                  const Divider(height: 1, indent: 56),
+                  _FilaEvento(
+                    icono: Icons.logout_rounded,
+                    color: _azulPrimario,
+                    colorFondo: const Color(0xFFE3F0FF),
+                    titulo: 'Salida',
+                    hora: fmtH.format(fichaje!.salida!.toDate().toLocal()),
+                  ),
+                ],
+              ],
+            ),
+          ),
       ],
+    );
+  }
+}
+
+class _FilaEvento extends StatelessWidget {
+  final IconData icono;
+  final Color color;
+  final Color colorFondo;
+  final String titulo;
+  final String hora;
+
+  const _FilaEvento({
+    required this.icono,
+    required this.color,
+    required this.colorFondo,
+    required this.titulo,
+    required this.hora,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      leading: CircleAvatar(
+        backgroundColor: colorFondo,
+        child: Icon(icono, color: color, size: 20),
+      ),
+      title: Text(titulo,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text(hora,
+          style: const TextStyle(fontSize: 13, color: Colors.grey)),
     );
   }
 }

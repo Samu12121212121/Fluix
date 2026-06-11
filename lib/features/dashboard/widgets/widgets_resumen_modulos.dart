@@ -218,15 +218,17 @@ class WidgetResumenPedidos extends StatelessWidget {
           for (final doc in snap.data!.docs) {
             final d = doc.data() as Map<String, dynamic>;
             final estado = d['estado'] as String? ?? '';
-            final precio = (d['precio_total'] as num?)?.toDouble() ?? 0;
+            final total = (d['total'] as num?)?.toDouble()
+                ?? (d['importe_total'] as num?)?.toDouble()
+                ?? 0.0;
             final fecha  = (d['fecha_creacion'] as Timestamp?)?.toDate();
 
             pedidosMes++;
-            ventasMes += precio;
+            ventasMes += total;
 
             if (fecha != null && !fecha.isBefore(inicioHoy)) {
               pedidosHoy++;
-              ventasHoy += precio;
+              ventasHoy += total;
             }
             if (estado == 'pendiente' || estado == 'confirmado') pendientes++;
           }

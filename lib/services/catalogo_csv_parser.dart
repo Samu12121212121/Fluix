@@ -15,6 +15,7 @@ class ProductoCsvFila {
   final String? sku;
   final String? codigoBarras;
   final int? stock;
+  final double? coste;
   final List<String> errores;
   final bool esValido;
 
@@ -28,6 +29,7 @@ class ProductoCsvFila {
     this.sku,
     this.codigoBarras,
     this.stock,
+    this.coste,
     required this.errores,
     required this.esValido,
   });
@@ -72,6 +74,7 @@ class CatalogoCsvParser {
     'sku':           ['sku', 'referencia', 'ref', 'codigo', 'code', 'id_producto', 'product_id', 'cod_interno'],
     'codigo_barras': ['codigo_barras', 'barcode', 'ean', 'ean13', 'ean8', 'upc', 'gtin'],
     'stock':         ['stock', 'cantidad', 'quantity', 'existencias', 'inventory', 'disponible'],
+    'coste':         ['coste', 'costo', 'cost', 'precio_coste', 'precio_compra', 'coste_unitario', 'purchase_price'],
   };
 
   /// Detecta el separador más probable del CSV
@@ -180,6 +183,8 @@ class CatalogoCsvParser {
       final cb = _get('codigo_barras').isEmpty ? null : _get('codigo_barras');
       final stockStr = _get('stock').replaceAll(',', '').trim();
       final stock = int.tryParse(stockStr);
+      final costeStr = _get('coste').replaceAll(',', '.').replaceAll('€', '').trim();
+      final coste = costeStr.isEmpty ? null : double.tryParse(costeStr);
 
       final esValido = errores.isEmpty;
       if (esValido) {
@@ -198,6 +203,7 @@ class CatalogoCsvParser {
         sku: sku,
         codigoBarras: cb,
         stock: stock,
+        coste: coste,
         errores: errores,
         esValido: esValido,
       ));

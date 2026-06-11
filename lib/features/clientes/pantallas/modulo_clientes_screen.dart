@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import '../../../core/firebase/firestore_stream_helper.dart';
+import '../../../core/platform/platform_data_source.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/cliente.dart';
 import '../../../domain/modelos/factura.dart';
@@ -31,6 +33,7 @@ class ModuloClientesScreen extends StatefulWidget {
 
 class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
   final _firestore = FirebaseFirestore.instance;
+  final _firestoreHelper = FirestoreStreamHelper();
   final _busquedaCtrl = TextEditingController();
   String _filtro = '';
 
@@ -102,12 +105,14 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('empresas')
-            .doc(widget.empresaId)
-            .collection('clientes')
-            .orderBy('nombre')
-            .snapshots(),
+        stream: _firestoreHelper.collectionStream(
+          _firestore
+              .collection('empresas')
+              .doc(widget.empresaId)
+              .collection('clientes')
+              .orderBy('nombre'),
+          priority: PollingPriority.high,
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

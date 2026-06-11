@@ -7,4 +7,3 @@ import io.flutter.embedding.android.FlutterActivity
 // coincidir con el `namespace`/`applicationId` declarado en Gradle
 // y evitar ClassNotFoundException al arrancar la app.
 class MainActivity: FlutterActivity()
-

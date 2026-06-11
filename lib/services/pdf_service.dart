@@ -9,11 +9,17 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../domain/modelos/factura.dart';
 import '../domain/modelos/contabilidad.dart';
+import '../domain/modelos/pdf_template.dart';
 import 'verifactu_service.dart';
 import 'verifactu/qr_service.dart';
+import 'pdf/pdf_renderer.dart';
+import 'pdf/pdf_template_service.dart';
 
 class PdfService {
   static final _db = FirebaseFirestore.instance;
+  static final _templateService = PdfTemplateService();
+  
+  static PdfRenderer get _renderer => PdfRenderer();
 
   // ── GENERAR Y COMPARTIR PDF ──────────────────────────────────────────────
 
@@ -85,21 +91,69 @@ class PdfService {
 
   // ── CARGAR DATOS EMPRESA ─────────────────────────────────────────────────
 
+  /// Devuelve el mejor campo de nombre disponible, excluyendo campos que
+  /// habitualmente contienen el tipo de negocio en lugar del nombre real.
+  static String? _resolverNombreEmpresa(Map<String, dynamic> data) {
+    final perfil = data['perfil'] as Map<String, dynamic>? ?? {};
+    final candidatos = [
+      perfil['nombre_empresa'],
+      perfil['nombre'],
+      data['nombre'],
+    ];
+    final tipoNegocio = (data['tipo_negocio'] as String? ?? '').toLowerCase();
+    for (final c in candidatos) {
+      if (c == null) continue;
+      final s = c.toString().trim();
+      if (s.isNotEmpty && s.toLowerCase() != tipoNegocio) return s;
+    }
+    // Último recurso: cualquier cosa no vacía
+    return candidatos.whereType<String>().firstWhere(
+      (s) => s.trim().isNotEmpty, orElse: () => '');
+  }
+
   static Future<Map<String, String>> _cargarDatosEmpresa(String empresaId) async {
     try {
-      final raiz = await _db.collection('empresas').doc(empresaId).get();
+      // Cargar documento raíz y config de facturación en paralelo
+      final futures = await Future.wait([
+        _db.collection('empresas').doc(empresaId).get(),
+        // Config TPV de facturación (puede tener nombre_empresa sobreescrito)
+        _db.collection('empresas').doc(empresaId)
+            .collection('configuracion').doc('facturacionTpv').get(),
+      ]);
+
+      final raiz = futures[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final configFact = futures[1] as DocumentSnapshot<Map<String, dynamic>>;
+
       if (!raiz.exists) return {};
 
       final data = raiz.data() ?? {};
       final perfil = data['perfil'] as Map<String, dynamic>? ?? {};
+      final cfg = configFact.data() ?? {};
+
+      // Buscar nombre en orden estricto de prioridad:
+      // 1. Config de facturación (el usuario lo configura explícitamente)
+      // 2. Campos legales/fiscales del documento
+      // 3. Campos de nombre del documento o perfil
+      final nombreEmpresa = (
+        cfg['nombre_empresa'] ??           // configurado en ajustes de facturación
+        cfg['razon_social'] ??             // razón social en config
+        data['razon_social'] ??            // razón social en raíz
+        data['nombre_fiscal'] ??           // nombre fiscal
+        data['nombre_empresa'] ??          // nombre empresa explícito
+        data['nombre_negocio'] ??          // nombre negocio
+        perfil['nombre_empresa'] ??        // nombre empresa en perfil
+        _resolverNombreEmpresa(data)       // resolución inteligente
+      )?.toString() ?? '';
+
+      debugPrint('📄 [PDF] Empresa: $empresaId → nombre="$nombreEmpresa"');
 
       return {
-        'nombre': (data['razon_social'] ?? perfil['nombre'] ?? data['nombre'] ?? '').toString(),
-        'cif': (data['nif'] ?? data['cif'] ?? '').toString(),
-        'direccion': (data['domicilio_fiscal'] ?? perfil['direccion'] ?? data['direccion'] ?? '').toString(),
-        'telefono': (perfil['telefono'] ?? data['telefono'] ?? '').toString(),
-        'correo': (perfil['correo'] ?? data['correo'] ?? '').toString(),
-        'iban': (data['iban_empresa'] ?? '').toString(),
+        'nombre': nombreEmpresa.isEmpty ? 'Mi Empresa' : nombreEmpresa,
+        'cif': (cfg['nif'] ?? cfg['cif'] ?? data['nif'] ?? data['cif'] ?? '').toString(),
+        'direccion': (cfg['domicilio_fiscal'] ?? data['domicilio_fiscal'] ?? perfil['direccion'] ?? data['direccion'] ?? '').toString(),
+        'telefono': (cfg['telefono'] ?? perfil['telefono'] ?? data['telefono'] ?? '').toString(),
+        'correo': (cfg['correo'] ?? data['email_contacto'] ?? perfil['correo'] ?? data['correo'] ?? '').toString(),
+        'iban': (cfg['iban'] ?? data['iban_empresa'] ?? '').toString(),
         'logo_url': (perfil['logo_url'] ?? data['logo_url'] ?? '').toString(),
       };
     } catch (e) {
@@ -134,10 +188,15 @@ class PdfService {
     Uint8List? logoBytes,
     Uint8List? qrVerifactuBytes,
     bool esVerifactu = false,
+    String? colorPrimarioTemplate,
+    String? colorSecundarioTemplate,
   }) async {
-    final colorCabecera = factura.esRectificativa ? PdfColor.fromHex('#D32F2F') : PdfColor.fromHex('#1565C0');
-    final colorAzul    = PdfColor.fromHex('#1565C0');
-    final colorAzulOsc = PdfColor.fromHex('#0D47A1');
+    // Usar colores de la plantilla si están disponibles
+    final colorCabecera = factura.esRectificativa
+        ? PdfColor.fromHex('#D32F2F')
+        : (colorPrimarioTemplate != null ? PdfColor.fromHex(colorPrimarioTemplate) : PdfColor.fromHex('#1565C0'));
+    final colorAzul    = colorPrimarioTemplate != null ? PdfColor.fromHex(colorPrimarioTemplate) : PdfColor.fromHex('#1565C0');
+    final colorAzulOsc = colorSecundarioTemplate != null ? PdfColor.fromHex(colorSecundarioTemplate) : PdfColor.fromHex('#0D47A1');
     final colorGris    = PdfColor.fromHex('#757575');
     final colorLinea   = PdfColor.fromHex('#E0E0E0');
     final colorFondoBg = PdfColor.fromHex('#F5F9FF');
@@ -162,7 +221,19 @@ class PdfService {
     // ── Detectar si alguna línea tiene descuento o recargo ────────────────
     final bool _hayDescuentoLinea = factura.lineas.any((l) => l.descuento > 0);
 
-    final pdf = pw.Document();
+    // ── Fuente con soporte € (Latin Extended) ────────────────────────────────
+    final fontRegular = await PdfGoogleFonts.nunitoRegular();
+    final fontBold    = await PdfGoogleFonts.nunitoBold();
+    final fontItalic  = await PdfGoogleFonts.nunitoItalic();
+
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: fontRegular,
+        bold: fontBold,
+        italic: fontItalic,
+        boldItalic: fontItalic,
+      ),
+    );
 
     // ── Sello diagonal "PAGADA" — solo cuando estado == pagada ──────────────
     final bool _mostrarSelloPagada = factura.estado == EstadoFactura.pagada;
@@ -596,7 +667,7 @@ class PdfService {
                   pw.SizedBox(
                     width: 30,
                     child: pw.Text(
-                      '${l.subtotalSinIva.toStringAsFixed(2)} EUR',
+                      '${l.porcentajeIva.toStringAsFixed(0)}%',
                       style: pw.TextStyle(fontSize: 10, color: colorGris),
                       textAlign: pw.TextAlign.center,
                     ),
@@ -845,6 +916,23 @@ class PdfService {
     // Descargar logo (solo en plataformas no web, para evitar problemas CORS)
     final Uint8List? logoBytes = kIsWeb ? null : await _descargarLogo(logoUrl);
 
+    // ── Buscar colores del template asignado ──────────────────────────────
+    String? colorPrimario;
+    String? colorSecundario;
+    try {
+      final tipoDoc = factura.esRectificativa
+          ? PdfDocumentType.rectificativa
+          : PdfDocumentType.factura;
+      final template = await _templateService.getTemplateForDocument(
+        empresaId: empresaId,
+        type: tipoDoc,
+      );
+      if (template != null) {
+        colorPrimario  = template.styles.brandColors.primary;
+        colorSecundario = template.styles.brandColors.secondary;
+      }
+    } catch (_) {}
+
     // Generar QR Verifactu si la factura tiene datos Verifactu
     Uint8List? qrBytes;
     bool esVerifactu = false;
@@ -879,6 +967,8 @@ class PdfService {
       logoBytes: logoBytes,
       qrVerifactuBytes: qrBytes,
       esVerifactu: esVerifactu,
+      colorPrimarioTemplate: colorPrimario,
+      colorSecundarioTemplate: colorSecundario,
     );
   }
 
@@ -944,6 +1034,79 @@ class PdfService {
           duration: const Duration(seconds: 4),
         ));
       }
+    }
+  }
+
+  // ── GENERAR PDF DINÁMICO (con plantillas personalizadas) ─────────────────────
+  
+  /// Intenta generar PDF usando plantilla dinámica, fallback a legacy si no existe
+  static Future<Uint8List> generarFacturaPdfDinamico(
+    Factura factura,
+    String empresaId,
+  ) async {
+    try {
+      // 1. Intentar obtener plantilla personalizada
+      final template = await _templateService.getTemplateForDocument(
+        empresaId: empresaId,
+        type: PdfDocumentType.factura,
+      );
+      
+      // Si no hay plantilla, usar método legacy
+      if (template == null) {
+        debugPrint('📄 Sin plantilla personalizada, usando diseño por defecto');
+        return await generarFacturaPdfConDatos(factura, empresaId);
+      }
+      
+      debugPrint('🎨 Usando plantilla personalizada: ${template.name}');
+      
+      // 2. Cargar datos empresa y assets
+      final empresa = await _cargarDatosEmpresa(empresaId);
+      final logoBytes = !kIsWeb ? await _descargarLogo(empresa['logo_url']) : null;
+      
+      // 3. Generar QR Verifactu si aplica
+      Uint8List? qrBytes;
+      if (factura.verifactu != null) {
+        try {
+          final datos = DatosVerifactu.fromMap(factura.verifactu!);
+          final qrUrl = datos.urlVerificacion ??
+              VerifactuService.generarUrlQr(
+                nifEmisor: datos.nifEmisor,
+                numeroFactura: datos.idFactura,
+                fechaExpedicion: datos.fechaExpedicion,
+                importeTotal: factura.total,
+              );
+          if (!kIsWeb && qrUrl.isNotEmpty) {
+            qrBytes = await QrService().generarImagenQr(qrUrl);
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error generando QR Verifactu: $e');
+        }
+      }
+      
+      // 4. Preparar branding
+      final branding = PdfBranding(
+        logoUrl: empresa['logo_url'],
+        companyName: empresa['nombre'] ?? 'Mi Empresa',
+        nif: empresa['cif'],
+        domicilioFiscal: empresa['direccion'],
+        telefono: empresa['telefono'],
+        correo: empresa['correo'],
+        iban: empresa['iban'],
+      );
+      
+      // 5. Renderizar con motor dinámico
+      return await _renderer.render(
+        template: template,
+        branding: branding,
+        documentData: factura,
+        logoBytes: logoBytes,
+        qrBytes: qrBytes,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error en PDF dinámico, fallback a legacy: $e');
+      debugPrint('   Stack: $stackTrace');
+      // Fallback a legacy si falla algo
+      return await generarFacturaPdfConDatos(factura, empresaId);
     }
   }
 

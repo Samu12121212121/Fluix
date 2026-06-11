@@ -59,16 +59,22 @@ class WidgetManagerService {
         return WidgetConfig.obtenerWidgetsDefault();
       }
 
-      final resultado = widgetsList
+      final todosDefault = WidgetConfig.obtenerWidgetsDefault();
+      final idsPermitidos = todosDefault.map((w) => w.id).toSet();
+
+      // Elimina widgets obsoletos que ya no están en la lista de defaults
+      final resultadoBruto = widgetsList
           .whereType<Map>()
           .map((w) => WidgetConfig.fromMap(Map<String, dynamic>.from(w)))
           .toList();
+      final resultado =
+          resultadoBruto.where((w) => idsPermitidos.contains(w.id)).toList();
+
+      final seFiltro = resultado.length != resultadoBruto.length;
 
       final idsExistentes = resultado.map((w) => w.id).toSet();
-      final todosDefault = WidgetConfig.obtenerWidgetsDefault();
-
       final faltantes =
-      todosDefault.where((w) => !idsExistentes.contains(w.id)).toList();
+          todosDefault.where((w) => !idsExistentes.contains(w.id)).toList();
 
       if (faltantes.isNotEmpty) {
         int maxOrden = resultado.isEmpty
@@ -79,7 +85,9 @@ class WidgetManagerService {
           maxOrden++;
           resultado.add(w.copyWith(orden: maxOrden));
         }
+      }
 
+      if (seFiltro || faltantes.isNotEmpty) {
         _guardarMigracion(empresaId, resultado);
       }
 
@@ -464,13 +472,38 @@ class WidgetManagerService {
 
   Future<void> _inicializarModulosDefault(String empresaId) async {
     try {
-      final modulos = ModulosDisponibles.todos
-          .map((m) => {
-        'id': m.id,
-        'activo':
-        ModulosDisponibles.activosPorDefecto.contains(m.id),
-      })
-          .toList();
+      // Intentar leer modulos_override de suscripcion/actual primero
+      // (cuentas creadas con el panel del propietario tienen esto guardado)
+      List<String>? override;
+      try {
+        final suscDoc = await _firestore
+            .collection('empresas')
+            .doc(empresaId)
+            .collection('suscripcion')
+            .doc('actual')
+            .get();
+        final raw = suscDoc.data()?['modulos_override'] as List?;
+        if (raw != null && raw.isNotEmpty) {
+          override = raw.map((e) => e.toString()).toList();
+        }
+      } catch (_) {}
+
+      List<Map<String, dynamic>> modulos;
+      if (override != null) {
+        // Inicializar desde override — solo activos los módulos asignados
+        modulos = ModulosDisponibles.todos.map((m) => {
+          'id': m.id,
+          'activo': override!.contains(m.id),
+        }).toList();
+      } else {
+        // Sin override — usar defaults genéricos
+        modulos = ModulosDisponibles.todos
+            .map((m) => {
+          'id': m.id,
+          'activo': ModulosDisponibles.activosPorDefecto.contains(m.id),
+        })
+            .toList();
+      }
 
       await _firestore
           .collection('empresas')

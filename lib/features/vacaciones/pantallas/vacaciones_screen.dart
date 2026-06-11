@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../models/vacacion_model.dart';
 import '../../../services/vacaciones_service.dart';
 import '../../../services/cobertura_equipo_service.dart';
@@ -21,7 +22,7 @@ class VacacionesScreen extends StatefulWidget {
 }
 
 class _VacacionesScreenState extends State<VacacionesScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tabs;
   final VacacionesService _svc = VacacionesService();
   // ignore: unused_field

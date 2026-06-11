@@ -14,6 +14,9 @@ class EmpresaConfigProvider extends ChangeNotifier {
   bool _cargando = false;
   bool get cargando => _cargando;
 
+  bool _cargado = false;
+  bool get cargado => _cargado;
+
   bool _guardando = false;
   bool get guardando => _guardando;
 
@@ -26,6 +29,7 @@ class EmpresaConfigProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _config = await _service.obtenerConfig(empresaId);
+      _cargado = true;
     } catch (e) {
       _error = e.toString();
     } finally {

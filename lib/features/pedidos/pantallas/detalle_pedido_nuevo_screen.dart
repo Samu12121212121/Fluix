@@ -481,6 +481,7 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
       // Actualizar estado local del pedido con facturaId
       setState(() {
         _pedido = Pedido(
+          numeroTicket: 0,
           id: _pedido.id, empresaId: _pedido.empresaId,
           clienteNombre: _pedido.clienteNombre, clienteTelefono: _pedido.clienteTelefono,
           clienteCorreo: _pedido.clienteCorreo, lineas: _pedido.lineas, total: _pedido.total,
@@ -546,6 +547,7 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
     await _svc.cambiarEstado(widget.empresaId, _pedido.id, nuevo, _uid, _nombre);
     setState(() {
       _pedido = Pedido(
+        numeroTicket: 0,
         id: _pedido.id, empresaId: _pedido.empresaId,
         clienteNombre: _pedido.clienteNombre, clienteTelefono: _pedido.clienteTelefono,
         clienteCorreo: _pedido.clienteCorreo, lineas: _pedido.lineas, total: _pedido.total,
@@ -561,6 +563,7 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
     await _svc.cambiarEstadoPago(widget.empresaId, _pedido.id, nuevo, _uid, _nombre);
     setState(() {
       _pedido = Pedido(
+        numeroTicket: 0,
         id: _pedido.id, empresaId: _pedido.empresaId,
         clienteNombre: _pedido.clienteNombre, clienteTelefono: _pedido.clienteTelefono,
         clienteCorreo: _pedido.clienteCorreo, lineas: _pedido.lineas, total: _pedido.total,

@@ -188,7 +188,26 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
         }).toList(),
       });
 
-      // 2. Incrementar stock de productos devueltos (solo si no es libre_)
+      // 2. Registro VeriFactu de anulación (RD 1007/2023 — inmutable, encadenado)
+      try {
+        await db
+            .collection('empresas')
+            .doc(widget.empresaId)
+            .collection('registros_verifactu')
+            .add({
+          'tipo': 'anulacion',
+          'pedido_id_original': _ticketSeleccionado!['id'],
+          'numero_ticket_original': _ticketSeleccionado!['numero_ticket'],
+          'importe_devuelto': _importeDevolver,
+          'metodo_reembolso': _metodoReembolso,
+          'fecha_anulacion': FieldValue.serverTimestamp(),
+          'anulado_por_uid': FirebaseAuth.instance.currentUser?.uid ?? '',
+          'motivo': 'devolucion_tpv',
+          'devolucion_id': devolucionRef.id,
+        });
+      } catch (_) {}
+
+      // 3. Incrementar stock de productos devueltos (solo si no es libre_)
       for (final linea in lineasSeleccionadas) {
         final productoId = linea['producto_id'] as String?;
         if (productoId == null || productoId.isEmpty || productoId.startsWith('libre_')) {
@@ -208,7 +227,7 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
         }
       }
 
-      // 3. Crear vale si el método es vale de tienda
+      // 4. Crear vale si el método es vale de tienda
       if (_metodoReembolso == 'vale') {
         final codigoVale = _generarCodigoVale();
         await db
@@ -228,7 +247,7 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
         });
       }
 
-      // 4. Imprimir ticket de devolución
+      // 5. Imprimir ticket de devolución
       try {
         final empresaSnap = await db
             .collection('empresas')

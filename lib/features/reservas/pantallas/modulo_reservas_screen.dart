@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
+import '../../../core/firebase/firestore_stream_helper.dart';
+import '../../../core/platform/platform_data_source.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../services/clientes_service.dart';
 import 'detalle_reserva_screen.dart';
 import 'configuracion_reservas_screen.dart';
 
@@ -19,7 +23,7 @@ class ModuloReservasScreen extends StatefulWidget {
 }
 
 class _ModuloReservasScreenState extends State<ModuloReservasScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tc;
 
   @override
@@ -95,7 +99,7 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
+    const color = Color(0xFF1565C0);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -178,6 +182,7 @@ class _BodyStreams extends StatefulWidget {
 }
 
 class _BodyStreamsState extends State<_BodyStreams> {
+  final _firestoreHelper = FirestoreStreamHelper();
   String? _empleadoFiltro;
   String? _servicioFiltro;
 
@@ -293,21 +298,25 @@ class _BodyStreamsState extends State<_BodyStreams> {
     Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 90)));
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .collection('reservas')
-          .where('fecha_hora', isGreaterThanOrEqualTo: desde)
-          .orderBy('fecha_hora')
-          .snapshots(),
-      builder: (ctx, snapR) => StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
+      stream: _firestoreHelper.collectionStream(
+        FirebaseFirestore.instance
             .collection('empresas')
             .doc(widget.empresaId)
-            .collection('citas')
+            .collection('reservas')
             .where('fecha_hora', isGreaterThanOrEqualTo: desde)
-            .orderBy('fecha_hora')
-            .snapshots(),
+            .orderBy('fecha_hora'),
+        priority: PollingPriority.high,
+      ),
+      builder: (ctx, snapR) => StreamBuilder<QuerySnapshot>(
+        stream: _firestoreHelper.collectionStream(
+          FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(widget.empresaId)
+              .collection('citas')
+              .where('fecha_hora', isGreaterThanOrEqualTo: desde)
+              .orderBy('fecha_hora'),
+          priority: PollingPriority.high,
+        ),
         builder: (ctx2, snapC) {
           if (snapR.connectionState == ConnectionState.waiting ||
               snapC.connectionState == ConnectionState.waiting) {
@@ -1255,11 +1264,7 @@ class _FormNuevaReserva {
                     if (clienteCtrl.text.trim().isEmpty) return;
                     final dt = DateTime(fecha.year, fecha.month, fecha.day,
                         hora.hour, hora.minute);
-                    await FirebaseFirestore.instance
-                        .collection('empresas')
-                        .doc(empresaId)
-                        .collection(collectionId)
-                        .add({
+                    final reservaData = {
                       'cliente': clienteCtrl.text.trim(),
                       'telefono': telefonoCtrl.text.trim(),
                       'servicio': servicioCtrl.text.trim(),
@@ -1269,7 +1274,17 @@ class _FormNuevaReserva {
                       'estado': estadoSel,
                       'fecha_hora': Timestamp.fromDate(dt),
                       'fecha_creacion': FieldValue.serverTimestamp(),
-                    });
+                    };
+                    await FirebaseFirestore.instance
+                        .collection('empresas')
+                        .doc(empresaId)
+                        .collection(collectionId)
+                        .add(reservaData);
+
+                    // Crear/actualizar cliente si la reserva está confirmada
+                    if (estadoSel == 'CONFIRMADA' || estadoSel == 'ACEPTADA') {
+                      ClientesService().upsertClienteDesdeReserva(empresaId, reservaData);
+                    }
 
                     if (ctx.mounted) Navigator.pop(ctx);
                   },

@@ -18,6 +18,7 @@ import 'package:intl/intl.dart';
 import '../../../domain/modelos/pedido.dart';
 import '../../../services/pedidos_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
+import '../widgets/dialogo_factura_tpv.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 
@@ -341,11 +342,11 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
     final ahora = DateTime.now();
     final ref = FirebaseFirestore.instance.collection('empresas/${widget.empresaId}/contadores').doc('tickets');
     int numTicket = 1;
-    await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      numTicket = snap.exists ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1 : 1;
-      tx.set(ref, {'ultimo': numTicket}, SetOptions(merge: true));
-    });
+    
+    // WINDOWS DESKTOP FIX: Sin transacciones (evita threading issues)
+    final snap = await ref.get();
+    numTicket = snap.exists ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1 : 1;
+    await ref.set({'ultimo': numTicket}, SetOptions(merge: true));
 
     final empresaSnap = await FirebaseFirestore.instance.collection('empresas').doc(widget.empresaId).get();
     final lineasPedido = _lineasTicket.map((l) => LineaPedido(
@@ -366,15 +367,13 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
         fechaHora: Timestamp.fromDate(ahora),
       );
       
-      try {
-        final cfg = await TpvFacturacionService().obtenerConfig(widget.empresaId);
-        if (cfg.facturacionAutomatica) {
-          await TpvFacturacionService().generarFacturaPorPedido(
-            empresaId: widget.empresaId, pedido: pedido, config: cfg,
-            usuarioNombre: FirebaseAuth.instance.currentUser?.displayName ?? 'TPV Peluquería',
-          );
-        }
-      } catch (_) {}
+      if (mounted) {
+        await DialogoFacturaTpv.mostrar(
+          context: context,
+          empresaId: widget.empresaId,
+          pedido: pedido,
+        );
+      }
       
       try {
         await ImpressoraBluetooth().imprimirTicket(TicketData(
@@ -517,15 +516,18 @@ class ProfRow extends StatelessWidget {
       stream: FirebaseFirestore.instance.collection('empresas/$empresaId/citas')
           .where('prof_id', isEqualTo: prof.id).where('fecha', isEqualTo: fechaStr).snapshots(),
       builder: (context, snap) {
-        final citas = snap.data?.docs ?? [];
-        final ahora = DateFormat('HH:mm').format(DateTime.now());
-        final enCurso = citas.any((d) {
-          final m = d.data() as Map<String, dynamic>;
-          return m['hora_inicio'] != null && m['hora_inicio'].toString().compareTo(ahora) <= 0 && m['estado'] == 'en_curso';
-        });
-        final minOcupados = citas.fold<int>(0, (s, d) => s + (((d.data() as Map)['duracion_minutos'] as num?)?.toInt() ?? 0));
-        final hLibres = ((8 * 60 - minOcupados) / 60).clamp(0.0, 8.0);
-        
+        final citas = snap.hasData ? snap.data!.docs.map(Cita.fromDoc).toList() : <Cita>[];
+        final Map<int, Cita> citaEnSlot = {};
+        final Set<int> slotsOcupados = {};
+        for (final cita in citas) {
+          final idx = slotIndex(cita.horaInicio, generarSlots());
+          if (idx < 0) continue;
+          citaEnSlot[idx] = cita;
+          final numSlots = (cita.duracionMinutos / kPelSlotDuration).ceil();
+          for (int k = 1; k < numSlots; k++) {
+            if (idx + k < slotsOcupados.length) slotsOcupados.add(idx + k);
+          }
+        }
         return InkWell(
           onTap: onTap,
           child: Container(
@@ -1551,15 +1553,4 @@ class _CierreWrapperState extends State<CierreWrapper> {
     Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
   ]);
 }
-
-
-
-
-
-
-
-
-
-
-
 

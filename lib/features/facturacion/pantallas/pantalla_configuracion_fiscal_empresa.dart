@@ -50,8 +50,9 @@ class _PantallaConfiguracionFiscalEmpresaState
     super.dispose();
   }
 
-  void _cargarDesdeConfig(EmpresaConfig config) {
-    if (_inicializado) return;
+  void _cargarDesdeConfig(EmpresaConfig config, bool cargado) {
+    // Esperar a que el provider haya completado la carga desde Firestore
+    if (_inicializado || !cargado) return;
     _nifCtrl.text = config.nif;
     _razonCtrl.text = config.razonSocial;
     _domicilioCtrl.text = config.domicilioFiscal;
@@ -73,7 +74,7 @@ class _PantallaConfiguracionFiscalEmpresaState
   Widget build(BuildContext context) {
     final provider = context.watch<EmpresaConfigProvider>();
     final color = Theme.of(context).colorScheme.primary;
-    _cargarDesdeConfig(provider.config);
+    _cargarDesdeConfig(provider.config, provider.cargado);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),

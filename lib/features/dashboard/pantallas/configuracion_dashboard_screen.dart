@@ -32,6 +32,9 @@ class _ConfiguracionDashboardScreenState
   final Set<String> _modulosActivosLocal = {};
   bool _estadoLocalInicializado = false;
 
+  // Módulos permitidos por override directo (de modulos_override en suscripcion)
+  Set<String> _modulosPermitidosPorOverride = {};
+
   @override
   void initState() {
     super.initState();
@@ -56,10 +59,10 @@ class _ConfiguracionDashboardScreenState
   String _planNombre(PlanModulo? plan) {
     switch (plan) {
       case PlanModulo.fiscal:  return 'Pack Fiscal AI';
-      case PlanModulo.gestion: return 'Pack Gestión';
-      case PlanModulo.tienda:  return 'Pack Tienda Online';
+      case PlanModulo.gestion: return 'Gestión';
+      case PlanModulo.tienda:  return 'Tienda Online';
       case PlanModulo.nominas: return 'Add-on Nóminas';
-      default:                 return 'Plan Base';
+      default:                 return 'Core';
     }
   }
 
@@ -127,6 +130,7 @@ class _ConfiguracionDashboardScreenState
 
       Set<PlanModulo> packs  = {};
       Set<PlanModulo> addons = {};
+      Set<String> override   = {};
 
       if (datos != null) {
         final packsActivos = datos.packsActivos ?? [];
@@ -134,6 +138,10 @@ class _ConfiguracionDashboardScreenState
         if (packsActivos.contains('gestion')) packs.add(PlanModulo.gestion);
         if (packsActivos.contains('fiscal'))  packs.add(PlanModulo.fiscal);
         if (packsActivos.contains('nominas')) addons.add(PlanModulo.nominas);
+        // Override de módulos asignados directamente
+        if (datos.modulosOverride.isNotEmpty) {
+          override = Set.from(datos.modulosOverride);
+        }
       } else {
         final doc = await FirebaseFirestore.instance
             .collection('empresas')
@@ -158,13 +166,20 @@ class _ConfiguracionDashboardScreenState
             : [];
         if (addonsList.contains('nominas')) addons.add(PlanModulo.nominas);
         if (addonsList.contains('tareas'))  addons.add(PlanModulo.nominas);
+
+        // Override directo
+        final overrideRaw = data['modulos_override'];
+        if (overrideRaw is List && overrideRaw.isNotEmpty) {
+          override = Set.from(overrideRaw.map((e) => e.toString()));
+        }
       }
 
       if (mounted) {
         setState(() {
-          _planPrincipal     = PlanModulo.basico;
-          _packsContratados  = packs;
-          _addOnsContratados = addons;
+          _planPrincipal                = PlanModulo.basico;
+          _packsContratados             = packs;
+          _addOnsContratados            = addons;
+          _modulosPermitidosPorOverride = override;
         });
       }
     } catch (e) {
@@ -184,6 +199,11 @@ class _ConfiguracionDashboardScreenState
   // ═══════════════════════════════════════════════════════════════════════════
 
   bool _moduloPermitido(ModuloConfig modulo) {
+    // Si hay override: SOLO los módulos de la lista están permitidos
+    if (_modulosPermitidosPorOverride.isNotEmpty) {
+      return _modulosPermitidosPorOverride.contains(modulo.id);
+    }
+    // Sin override: lógica estándar de packs/addons
     if (!modulo.incluidoEnPlan) {
       return _addOnsContratados.contains(modulo.plan);
     }
@@ -316,7 +336,7 @@ class _ConfiguracionDashboardScreenState
             });
           }
 
-          const modulosOcultos = {'propietario', 'citas_del_dia'};
+          const modulosOcultos = {'propietario', 'citas_del_dia', 'explorar'};
           final modulosVisibles =
           modulos.where((m) => !modulosOcultos.contains(m.id)).toList();
 
@@ -473,7 +493,6 @@ class _ConfiguracionDashboardScreenState
         modulos.where((m) => _estaActivo(m)).length;
     final planColor  = _planColor(plan);
     final planNombre = _planNombre(plan);
-    final planPrecio = _planPrecio(plan);
     final planIcono  = _planIcono(plan);
     final contratado =
         plan == PlanModulo.basico || _packsContratados.contains(plan);
@@ -519,10 +538,6 @@ class _ConfiguracionDashboardScreenState
                       Text(planNombre,
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text(planPrecio,
-                          style: TextStyle(
-                              color: planColor.withValues(alpha: 0.8),
-                              fontSize: 13)),
                     ],
                   ),
                 ),
@@ -998,7 +1013,6 @@ class _ConfiguracionDashboardScreenState
   Widget _buildInfoPlan(PlanModulo plan, List<String> caracteristicas) {
     final planColor  = _planColor(plan);
     final planNombre = _planNombre(plan);
-    final planPrecio = _planPrecio(plan);
     final planIcono  = _planIcono(plan);
 
     return Container(
@@ -1021,11 +1035,6 @@ class _ConfiguracionDashboardScreenState
                       fontWeight: FontWeight.bold,
                       fontSize: 14)),
             ),
-            Text(planPrecio,
-                style: TextStyle(
-                    color: planColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 8),
           ...caracteristicas.map((c) => Padding(

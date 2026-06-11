@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
 import '../../../features/explorar_negocios/pantallas/pantalla_explorar.dart';
 import '../../../services/notificaciones_service.dart';
@@ -549,5 +550,30 @@ class _PantallaLoginState extends State<PantallaLogin> {
     if (telefono.length < 6) return telefono;
     final visible = telefono.substring(telefono.length - 2);
     return '${telefono.substring(0, 3)} *** *** $visible';
+  }
+
+  /// Verifica si el usuario actual (si está logueado) es propietario de plataforma.
+  /// Retorna true si tiene el rol 'propietario' o el campo 'es_plataforma_admin: true'.
+  Future<bool> _esUsuarioPropietarioPlataforma() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .get();
+
+      if (!doc.exists) return false;
+
+      final data = doc.data()!;
+      final rol = data['rol'] as String?;
+      final esPlataformaAdmin = data['es_plataforma_admin'] as bool? ?? false;
+
+      return rol == 'propietario' || esPlataformaAdmin;
+    } catch (e) {
+      debugPrint('❌ Error al verificar rol propietario: $e');
+      return false;
+    }
   }
 }

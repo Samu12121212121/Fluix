@@ -1,6 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../domain/modelos/cierre_caja.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
@@ -23,6 +24,7 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
   final _svc = CierreCajaService();
   final _impresora = ImpressoraBluetooth();
   final _obsCtrl = TextEditingController();
+  final _efectivoCtrl = TextEditingController();
 
   CierreCaja? _cierreCalculado;
   bool _calculando = true;
@@ -38,6 +40,7 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
   @override
   void dispose() {
     _obsCtrl.dispose();
+    _efectivoCtrl.dispose();
     super.dispose();
   }
 
@@ -69,48 +72,55 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
   Future<void> _cerrarCaja() async {
     if (_cierreCalculado == null || _yaCerrado) return;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final cierre = CierreCaja(
-      fecha: _cierreCalculado!.fecha,
-      totalEfectivo: _cierreCalculado!.totalEfectivo,
-      totalTarjeta: _cierreCalculado!.totalTarjeta,
-      totalTransferencia: _cierreCalculado!.totalTransferencia,
-      totalVentas: _cierreCalculado!.totalVentas,
-      numTickets: _cierreCalculado!.numTickets,
-      cerradoPor: uid,
-      timestamp: DateTime.now(),
-      observaciones: _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
-    );
+    final efectivoReal = double.tryParse(_efectivoCtrl.text.trim());
+    final prefs = await SharedPreferences.getInstance();
+    final dispositivoId = prefs.getString('dispositivo_id') ?? 'tablet_01';
 
     setState(() => _guardando = true);
     try {
-      await _svc.guardarCierreCaja(widget.empresaId, cierre);
-      if (!mounted) return;
-      setState(() {
-        _cierreCalculado = cierre;
-        _yaCerrado = true;
+      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('cerrarCaja',
+              options: HttpsCallableOptions(timeout: const Duration(seconds: 30)));
+
+      final result = await callable.call({
+        'empresaId': widget.empresaId,
+        if (efectivoReal != null) 'efectivoReal': efectivoReal,
+        if (_obsCtrl.text.trim().isNotEmpty)
+          'observaciones': _obsCtrl.text.trim(),
+        'dispositivoId': dispositivoId,
       });
+
+      if (!mounted) return;
+      final data = result.data as Map<String, dynamic>;
+      final numeroZ = data['numeroZ'] as int? ?? 0;
+      setState(() => _yaCerrado = true);
+      // Recalcular para mostrar datos actualizados
+      await _calcular();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Row(children: [
-          Icon(Icons.check_circle, color: Colors.white),
-          SizedBox(width: 8),
-          Text('Cierre de caja guardado'),
+        content: Row(children: [
+          const Icon(Icons.check_circle, color: Colors.white),
+          const SizedBox(width: 8),
+          Text('Caja cerrada — Z-$numeroZ'),
         ]),
         backgroundColor: Colors.green[700],
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
-    } on StateError catch (e) {
+    } on FirebaseFunctionsException catch (e) {
       if (!mounted) return;
+      final yaExiste = e.code == 'already-exists';
+      if (yaExiste) setState(() => _yaCerrado = true);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.message),
-        backgroundColor: Colors.orange[700],
+        content: Text(e.message ?? 'Error al cerrar caja'),
+        backgroundColor:
+            yaExiste ? Colors.orange[700] : Colors.red[700],
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error al guardar: $e'),
+        content: Text('Error: $e'),
         backgroundColor: Colors.red[700],
         behavior: SnackBarBehavior.floating,
       ));
@@ -127,11 +137,12 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
         backgroundColor: _azul,
         foregroundColor: Colors.white,
         elevation: 0,
+        toolbarHeight: 48,
         title: const Row(children: [
-          Icon(Icons.point_of_sale_rounded, size: 22),
-          SizedBox(width: 8),
+          Icon(Icons.summarize_outlined, size: 18),
+          SizedBox(width: 6),
           Text('Cierre de Caja',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         ]),
       ),
       body: _calculando
@@ -163,6 +174,15 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
                 // ── Resumen del día ──────────────────────────────────────
                 if (_cierreCalculado != null) ...[
                   _TarjetaResumen(cierre: _cierreCalculado!),
+                  const SizedBox(height: 16),
+
+                  // Efectivo contado
+                  _TarjetaEfectivoContado(
+                    cierre: _cierreCalculado!,
+                    ctrl: _efectivoCtrl,
+                    enabled: !_yaCerrado,
+                    onChanged: () => setState(() {}),
+                  ),
                   const SizedBox(height: 16),
 
                   // Observaciones
@@ -329,6 +349,52 @@ class _TarjetaResumen extends StatelessWidget {
                         fontWeight: FontWeight.w600, fontSize: 13)),
               ],
             ),
+            // Número Z y desglose IVA (sólo si hay datos del CF)
+            if (cierre.numeroZ != null) ...[
+              const Divider(height: 20),
+              Row(children: [
+                const Icon(Icons.tag, size: 15, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text('Z-${cierre.numeroZ}',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey)),
+                if (cierre.dispositivoId.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  const Icon(Icons.tablet_android, size: 15, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(cierre.dispositivoId,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ]),
+            ],
+            if (cierre.desgloseIva.isNotEmpty) ...[
+              const Divider(height: 20),
+              const Text('Desglose IVA',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey)),
+              const SizedBox(height: 6),
+              ...([...cierre.desgloseIva.entries]
+                  ..sort((a, b) => int.parse(a.key).compareTo(int.parse(b.key))))
+                  .map((e) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('IVA ${e.key} %',
+                                style: const TextStyle(fontSize: 12)),
+                            Text(
+                                'Base ${fmt.format(e.value['base']!)}  '
+                                '· Cuota ${fmt.format(e.value['cuota']!)}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
+                      )),
+            ],
           ],
         ),
       ),
@@ -449,6 +515,156 @@ class _HistorialCierres extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ── TARJETA EFECTIVO CONTADO ──────────────────────────────────────────────────
+
+class _TarjetaEfectivoContado extends StatelessWidget {
+  final CierreCaja cierre;
+  final TextEditingController ctrl;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  const _TarjetaEfectivoContado({
+    required this.cierre,
+    required this.ctrl,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  double get _efectivoReal =>
+      double.tryParse(ctrl.text.trim()) ?? cierre.efectivoTeorico;
+
+  double get _diferencia => _efectivoReal - cierre.efectivoTeorico;
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
+    final hayDiferencia = ctrl.text.trim().isNotEmpty && _diferencia != 0;
+    final sobrante = _diferencia > 0;
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.savings_rounded, size: 18, color: Color(0xFF1565C0)),
+              SizedBox(width: 8),
+              Text('Control de efectivo',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            ]),
+            const SizedBox(height: 12),
+            _FilaControl(
+              label: 'Fondo inicial',
+              valor: fmt.format(cierre.fondoInicial),
+            ),
+            _FilaControl(
+              label: 'Ventas en efectivo',
+              valor: fmt.format(cierre.totalEfectivo),
+            ),
+            _FilaControl(
+              label: 'Efectivo teórico',
+              valor: fmt.format(cierre.efectivoTeorico),
+              bold: true,
+            ),
+            const Divider(height: 20),
+            TextField(
+              controller: ctrl,
+              enabled: enabled,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => onChanged(),
+              decoration: InputDecoration(
+                labelText: 'Efectivo contado (€)',
+                hintText:
+                    fmt.format(cierre.efectivoTeorico),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.payments_rounded),
+                suffixText: '€',
+                helperText: 'Introduce el dinero físico en caja al cierre',
+              ),
+            ),
+            if (hayDiferencia) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: sobrante
+                      ? Colors.green[50]
+                      : Colors.red[50],
+                  border: Border.all(
+                      color: sobrante
+                          ? Colors.green[300]!
+                          : Colors.red[300]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(children: [
+                  Icon(
+                    sobrante
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    size: 16,
+                    color:
+                        sobrante ? Colors.green[700] : Colors.red[700],
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${sobrante ? "Sobrante" : "Faltante"}: '
+                    '${fmt.format(_diferencia.abs())}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color:
+                          sobrante ? Colors.green[700] : Colors.red[700],
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilaControl extends StatelessWidget {
+  final String label;
+  final String valor;
+  final bool bold;
+
+  const _FilaControl({
+    required this.label,
+    required this.valor,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  fontWeight:
+                      bold ? FontWeight.w600 : FontWeight.normal)),
+          Text(valor,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight:
+                      bold ? FontWeight.bold : FontWeight.normal)),
+        ],
+      ),
     );
   }
 }

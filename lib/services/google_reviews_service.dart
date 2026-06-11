@@ -16,7 +16,7 @@ class GoogleReviewsService {
   factory GoogleReviewsService() => _i;
 
   /// El rating global (rating / userRatingCount) SÍ viene siempre en la respuesta.
-  static const int _maxResenas = 50; // Límite: cuando hay más de 50, se borran las más antiguas
+  static const int _maxResenas = 20; // Límite FIFO: cuando hay más de 20, se borra la más antigua
 
   // ── Configuración de Google por empresa ───────────────────────────────────
 

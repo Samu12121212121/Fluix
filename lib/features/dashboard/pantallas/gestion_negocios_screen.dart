@@ -1,10 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:image_picker/image_picker.dart';
 import '../../../models/negocio_publico_model.dart';
 import '../../../services/negocios_publicos_service.dart';
+import '../../../services/sincronizacion_servicios_service.dart';
 
 class _EmpresaItem {
   final String id;
@@ -625,6 +630,16 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
               Text('${docs.length} servicio${docs.length == 1 ? '' : 's'}',
                   style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500)),
               const Spacer(),
+              OutlinedButton.icon(
+                onPressed: () => _importarServiciosCSV(negocioId: widget.negocio.id, ordenBase: docs.length),
+                icon: const Icon(Icons.upload_file, size: 16),
+                label: const Text('CSV', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: _azul,
+                    side: const BorderSide(color: _azul),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+              ),
+              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: () => _mostrarDialogoServicio(negocioId: widget.negocio.id, orden: docs.length),
                 icon: const Icon(Icons.add, size: 16),
@@ -783,6 +798,9 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
     int duracion = data?['duracion'] as int? ?? 60;
     String publico = data?['publico'] as String? ?? 'todos';
     bool activo = data?['activo'] as bool? ?? true;
+    String? imagenUrlActual = data?['imagen_url'] as String?;
+    Uint8List? imagenBytes;
+    String? imagenNombre;
 
     await showDialog(
       context: context,
@@ -818,6 +836,49 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
               Expanded(child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                  // Foto del servicio
+                  GestureDetector(
+                    onTap: () async {
+                      final img = await ImagePicker().pickImage(
+                          source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 80);
+                      if (img == null) return;
+                      final b = await img.readAsBytes();
+                      setSt(() { imagenBytes = b; imagenNombre = img.name; });
+                    },
+                    child: Container(
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey[300]!),
+                        image: imagenBytes != null
+                            ? DecorationImage(image: MemoryImage(imagenBytes!), fit: BoxFit.cover)
+                            : (imagenUrlActual != null && imagenUrlActual!.isNotEmpty)
+                                ? DecorationImage(image: NetworkImage(imagenUrlActual!), fit: BoxFit.cover)
+                                : null,
+                      ),
+                      child: (imagenBytes == null && (imagenUrlActual == null || imagenUrlActual!.isEmpty))
+                          ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.add_photo_alternate_outlined, size: 28, color: Colors.grey[400]),
+                              const SizedBox(height: 4),
+                              Text('Foto del servicio (opcional)',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                            ])
+                          : Align(
+                              alignment: Alignment.topRight,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Container(
+                                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(6)),
+                                  padding: const EdgeInsets.all(4),
+                                  child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // Nombre
                   TextField(controller: nombreCtrl, autofocus: true,
@@ -965,8 +1026,19 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
                       try {
                         final col = FirebaseFirestore.instance
                             .collection('negocios_publicos').doc(negocioId).collection('servicios');
-                        if (doc == null) await col.add(datos);
-                        else await col.doc(doc.id).update(datos);
+                        // Crear o actualizar doc para obtener el ID
+                        final docRef = doc == null ? await col.add(datos) : col.doc(doc.id);
+                        if (doc != null) await docRef.update(datos);
+                        // Subir imagen si hay una nueva
+                        if (imagenBytes != null) {
+                          final ext = (imagenNombre ?? 'foto.jpg').split('.').last;
+                          final ref = FirebaseStorage.instance
+                              .ref('negocios_publicos/$negocioId/servicios/${docRef.id}.$ext');
+                          await ref.putData(imagenBytes!,
+                              SettableMetadata(contentType: 'image/$ext'));
+                          final url = await ref.getDownloadURL();
+                          await docRef.update({'imagen_url': url});
+                        }
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(doc == null ? '✅ Servicio añadido' : '✅ Servicio actualizado'),
                             backgroundColor: Colors.green));
@@ -990,6 +1062,156 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
     precioCtrl.dispose(); precioDesdeCtrl.dispose();
   }
 
+  Future<void> _importarServiciosCSV({required String negocioId, required int ordenBase}) async {
+    // Seleccionar archivo CSV
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    final path  = result.files.first.path;
+    String contenido;
+    if (bytes != null) {
+      contenido = utf8.decode(bytes, allowMalformed: true);
+    } else if (path != null) {
+      contenido = await File(path).readAsString(encoding: utf8);
+    } else {
+      return;
+    }
+
+    // Parsear CSV — columnas esperadas:
+    // nombre, descripcion, categoria, precio, precio_desde, duracion, publico, activo
+    final rows = const CsvToListConverter(eol: '\n').convert(contenido);
+    if (rows.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El archivo CSV está vacío'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    // Detectar si la primera fila es cabecera
+    final primera = rows.first.map((e) => e.toString().toLowerCase().trim()).toList();
+    final tieneCabecera = primera.contains('nombre') || primera.contains('name');
+    final dataRows = tieneCabecera ? rows.skip(1).toList() : rows;
+
+    if (dataRows.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay filas de datos en el CSV'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    // Mostrar preview y confirmar
+    if (!mounted) return;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.upload_file, color: _azul),
+          const SizedBox(width: 10),
+          const Text('Importar servicios'),
+        ]),
+        content: SizedBox(
+          width: 480,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Se importarán ${dataRows.length} servicio${dataRows.length == 1 ? '' : 's'}.',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                'Columnas esperadas (en orden):\nnombre · descripcion · categoria · precio · precio_desde · duracion · publico · activo',
+                style: TextStyle(fontSize: 11, color: Colors.blue),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...dataRows.take(5).map((row) {
+                      final nombre = row.isNotEmpty ? row[0].toString() : '—';
+                      final precio = row.length > 3 ? row[3].toString() : '';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('• $nombre${precio.isNotEmpty ? ' — €$precio' : ''}',
+                            style: const TextStyle(fontSize: 12)),
+                      );
+                    }),
+                    if (dataRows.length > 5)
+                      Text('  … y ${dataRows.length - 5} más',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  ],
+                ),
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _azul),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+
+    // Escribir en Firestore por lotes
+    int importados = 0;
+    int errores = 0;
+    final col = FirebaseFirestore.instance
+        .collection('negocios_publicos').doc(negocioId).collection('servicios');
+
+    for (int i = 0; i < dataRows.length; i++) {
+      final row = dataRows[i];
+      final nombre = row.isNotEmpty ? row[0].toString().trim() : '';
+      if (nombre.isEmpty) continue;
+
+      try {
+        final precioRaw  = row.length > 3 ? row[3].toString().trim() : '';
+        final precioDesdeRaw = row.length > 4 ? row[4].toString().trim() : '';
+        final duracionRaw = row.length > 5 ? row[5].toString().trim() : '';
+        final publico = row.length > 6 ? row[6].toString().trim() : 'todos';
+        final activoRaw = row.length > 7 ? row[7].toString().trim().toLowerCase() : 'true';
+
+        final datos = <String, dynamic>{
+          'nombre':      nombre,
+          'descripcion': row.length > 1 ? row[1].toString().trim() : '',
+          'categoria':   row.length > 2 ? row[2].toString().trim() : '',
+          'duracion':    int.tryParse(duracionRaw) ?? 60,
+          'publico':     publico.isEmpty ? 'todos' : publico,
+          'activo':      activoRaw != 'false' && activoRaw != '0' && activoRaw != 'no',
+          'orden':       ordenBase + i,
+        };
+        final precio = double.tryParse(precioRaw.replaceAll(',', '.'));
+        final precioDesde = double.tryParse(precioDesdeRaw.replaceAll(',', '.'));
+        if (precioDesde != null) datos['precio_desde'] = precioDesde;
+        else if (precio != null) datos['precio'] = precio;
+
+        await col.add(datos);
+        importados++;
+      } catch (_) {
+        errores++;
+      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(errores == 0
+            ? '✅ $importados servicio${importados == 1 ? '' : 's'} importado${importados == 1 ? '' : 's'}'
+            : '⚠️ $importados importados, $errores con error'),
+        backgroundColor: errores == 0 ? Colors.green : Colors.orange,
+      ));
+    }
+  }
+
   Future<void> _eliminarServicio(String empresaId, String docId, String nombre) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
       title: const Text('Eliminar servicio'),
@@ -1003,7 +1225,7 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
     ));
     if (ok != true) return;
     await FirebaseFirestore.instance
-        .collection('empresas').doc(empresaId).collection('servicios').doc(docId).delete();
+        .collection('negocios_publicos').doc(empresaId).collection('servicios').doc(docId).delete();
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('🗑️ Servicio eliminado'), backgroundColor: Colors.orange));
   }
@@ -1336,6 +1558,7 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
     }
     setState(() => _guardando = true);
     try {
+      final empresaAnterior = widget.negocio.empresaIdVinculada;
       final especialidades = _especialidadesCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
       final negocioActualizado = widget.negocio.copyWith(
         nombre: _nombreCtrl.text.trim(),
@@ -1365,11 +1588,29 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
         formularioBoton: _formularioBotonCtrl.text.trim().isEmpty ? null : _formularioBotonCtrl.text.trim(),
         camposPersonalizados: _camposFormulario.isEmpty ? null : _camposFormulario,
       );
-      if (widget.esNuevo) await widget.service.crear(negocioActualizado);
-      else await widget.service.actualizar(negocioActualizado);
+
+      String negocioId;
+      if (widget.esNuevo) {
+        negocioId = await widget.service.crear(negocioActualizado);
+      } else {
+        await widget.service.actualizar(negocioActualizado);
+        negocioId = widget.negocio.id;
+      }
+
+      // 🔄 SINCRONIZACIÓN AUTOMÁTICA B2B → B2C
+      // Si se vinculó una empresa nueva o cambió la vinculación, sincronizar servicios
+      final cambioVinculacion = empresaAnterior != _empresaIdVinculada;
+      if (_empresaIdVinculada.isNotEmpty && cambioVinculacion) {
+        final syncService = SincronizacionServiciosService();
+        await syncService.sincronizarServiciosEmpresaANegocio(
+          empresaId: _empresaIdVinculada,
+          negocioPublicoId: negocioId,
+        );
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(widget.esNuevo ? '✅ Negocio creado' : '✅ Cambios guardados'),
+            content: Text(widget.esNuevo ? '✅ Negocio creado y servicios sincronizados' : '✅ Cambios guardados'),
             backgroundColor: Colors.green));
         Navigator.pop(context);
       }

@@ -5,6 +5,8 @@ import '../../../core/constantes/constantes_app.dart';
 import '../../../core/config/planes_config.dart';
 import '../../../services/datos_prueba_fluixtech_service.dart';
 import '../pantallas/gestion_negocios_screen.dart';
+import '../pantallas/pantalla_dashboard.dart';
+import '../../../services/demo_cuenta_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:planeag_flutter/features/fichajes/servicios/fichaje_demo_data.dart';
@@ -28,6 +30,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
 
   bool _cargando = true;
   bool _generandoDatos = false;
+  bool _cargandoDemo = false;
   String? _errorCarga;
   _DatosPropietario _datos = _DatosPropietario.vacio();
 
@@ -867,12 +870,61 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _cargandoDemo ? null : _iniciarSesionDemo,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF00FFC8)),
+                      foregroundColor: const Color(0xFF00FFC8),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: _cargandoDemo
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Color(0xFF00FFC8)))
+                        : const Icon(Icons.play_circle_outline, size: 18),
+                    label: Text(
+                      _cargandoDemo ? 'Cargando demo...' : 'Probar cuenta demo',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _iniciarSesionDemo() async {
+    if (!mounted) return;
+    setState(() => _cargandoDemo = true);
+    try {
+      await DemoCuentaService().loginComoDemo();
+      if (!mounted) return;
+      // rootNavigator: true para reemplazar toda la pila, incluyendo el StreamBuilder raíz
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PantallaDashboard()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al iniciar demo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cargandoDemo = false);
+    }
   }
 
   Widget _miniKPI(String valor, String etiqueta, IconData icono, Color color) {

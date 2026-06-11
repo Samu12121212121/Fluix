@@ -195,6 +195,27 @@ class FichajeService {
     });
   }
 
+  // ── FICHAJES DE UN RANGO DE FECHAS ────────────────────────────────────────
+
+  /// Devuelve todos los fichajes (no eliminados) de un empleado en un rango.
+  Future<List<RegistroFichaje>> fichajesDelRango(
+    String empresaId,
+    String empleadoId,
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    final snap = await _fichajes(empresaId)
+        .where('empleado_id', isEqualTo: empleadoId)
+        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+        .where('timestamp', isLessThan: Timestamp.fromDate(hasta))
+        .where('eliminado', isEqualTo: false)
+        .orderBy('timestamp')
+        .get();
+    return snap.docs
+        .map((d) => RegistroFichaje.fromMap(d.data(), d.id))
+        .toList();
+  }
+
   // ── FICHAJES DEL DÍA ─────────────────────────────────────────────────────
 
   Stream<List<RegistroFichaje>> fichajesDelDia(String empresaId,

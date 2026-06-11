@@ -1,60 +1,62 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:printing/printing.dart';
 import '../../../domain/modelos/pedido.dart';
+import '../../../domain/modelos/configuracion_facturacion_tpv.dart';
 import '../../../services/pedidos_service.dart';
-
-// ── MODELO LOCAL ───────────────────────────────────────────────────────────────
-
-class _LineaTicket {
-  final String productoId;
-  final String nombre;
-  final double precioUnitario;
-  int cantidad = 1;
-
-  _LineaTicket({
-    required this.productoId,
-    required this.nombre,
-    required this.precioUnitario,
-  });
-
-  double get subtotal => precioUnitario * cantidad;
-}
-
-// ── PANTALLA ───────────────────────────────────────────────────────────────────
+import '../../../services/tpv_facturacion_service.dart';
+import '../widgets/dialogo_factura_tpv.dart';
+import '../../../services/tpv/impresora_service.dart';
+import '../../../services/tpv/facturacion_automatica_service.dart';
+import '../../../widgets/tpv/historial_tickets_widget.dart';
+import '../../../widgets/tpv/hold_pedidos_widget.dart';
+import '../../../widgets/tpv/estadisticas_turno_widget.dart';
+import 'caja_rapida_helpers.dart';
+import 'caja_rapida_widgets.dart';
 
 class CajaRapidaScreen extends StatefulWidget {
   final String empresaId;
   const CajaRapidaScreen({super.key, required this.empresaId});
-
   @override
   State<CajaRapidaScreen> createState() => _CajaRapidaScreenState();
 }
 
 class _CajaRapidaScreenState extends State<CajaRapidaScreen>
     with SingleTickerProviderStateMixin {
-  final PedidosService _svc = PedidosService();
+  final _svc = PedidosService();
+  final _facturacionSvc = TpvFacturacionService();
+  final _facturacionAuto = FacturacionAutomaticaService();
+  final _impresora = ImpresoraService();
+  final _holdNotifier = HoldPedidosNotifier();
 
-  // Ticket
-  final List<_LineaTicket> _lineas = [];
+  final List<LineaTicket> _lineas = [];
   MetodoPago _metodoPago = MetodoPago.efectivo;
-  final _entregaCtrl       = TextEditingController();
+  final _entregaCtrl = TextEditingController();
   final _efectivoMixtoCtrl = TextEditingController();
-  final _tarjetaMixtoCtrl  = TextEditingController();
+  final _tarjetaMixtoCtrl = TextEditingController();
   bool _cobrando = false;
+  double _descuentoCupon = 0;
 
-  // Catálogo
+  ConfiguracionFacturacionTpv? _configTpv;
+  Uint8List? _ultimoPdf;
+  String? _ultimoPedidoId;
+
   String _busqueda = '';
   String? _categoriaFiltro;
   final _busCtrl = TextEditingController();
-
-  // Tab (móvil)
   late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _facturacionSvc.obtenerConfig(widget.empresaId).then((c) {
+      if (mounted) setState(() => _configTpv = c);
+    }).catchError((_) {
+      if (mounted) setState(() => _configTpv = const ConfiguracionFacturacionTpv());
+    });
   }
 
   @override
@@ -64,12 +66,27 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
     _entregaCtrl.dispose();
     _efectivoMixtoCtrl.dispose();
     _tarjetaMixtoCtrl.dispose();
+    _holdNotifier.dispose();
     super.dispose();
   }
 
-  double get _total => _lineas.fold(0.0, (s, l) => s + l.subtotal);
+  double get _totalBruto => _lineas.fold(0.0, (s, l) => s + l.subtotal);
+  double get _total => (_totalBruto - _descuentoCupon).clamp(0, double.infinity);
+  double get _cambio {
+    final e = double.tryParse(_entregaCtrl.text.replaceAll(',', '.')) ?? 0;
+    return (e - _total).clamp(0, double.infinity);
+  }
+  String _fmt(double v) =>
+      NumberFormat.currency(locale: 'es_ES', symbol: '€', decimalDigits: 2).format(v);
+  String _nombrePago(MetodoPago m) => switch (m) {
+        MetodoPago.efectivo => 'Efectivo',
+        MetodoPago.tarjeta  => 'Tarjeta',
+        MetodoPago.mixto    => 'Mixto',
+        MetodoPago.bizum    => 'Bizum',
+        MetodoPago.paypal   => 'PayPal',
+      };
 
-  // ── AGREGAR PRODUCTO ────────────────────────────────────────────────────────
+  // ── ACCIONES ───────────────────────────────────────────────────────────────
 
   void _agregarProducto(Producto p) {
     setState(() {
@@ -77,177 +94,174 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
       if (idx >= 0) {
         _lineas[idx].cantidad++;
       } else {
-        _lineas.add(_LineaTicket(
-          productoId: p.id,
-          nombre: p.nombre,
-          precioUnitario: p.precio,
-        ));
+        _lineas.add(LineaTicket(
+            productoId: p.id, nombre: p.nombre, precioUnitario: p.precio));
       }
     });
   }
 
+  Future<void> _guardarEnEspera() async {
+    if (_lineas.isEmpty) return;
+    final label = await pedirEtiquetaEspera(context);
+    if (label == null) return;
+    _holdNotifier.guardar(
+      etiqueta: label,
+      lineas: _lineas.map((l) => {
+        'productoId': l.productoId, 'nombre': l.nombre,
+        'precio': l.precioUnitario, 'cantidad': l.cantidad,
+      }).toList(),
+      total: _total,
+    );
+    setState(() { _lineas.clear(); _descuentoCupon = 0; });
+  }
+
+  Future<void> _recuperarPedido() async {
+    final rec = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+    if (rec != null) {
+      setState(() {
+        _lineas.clear(); _descuentoCupon = 0;
+        for (final l in rec.lineas) {
+          _lineas.add(LineaTicket(
+            productoId: l['productoId'] as String? ?? '',
+            nombre: l['nombre'] as String? ?? '',
+            precioUnitario: (l['precio'] as num?)?.toDouble() ?? 0,
+          )..cantidad = (l['cantidad'] as num?)?.toInt() ?? 1);
+        }
+      });
+    }
+  }
+
+  void _limpiarTicket() => setState(() {
+    _lineas.clear(); _metodoPago = MetodoPago.efectivo;
+    _entregaCtrl.clear(); _efectivoMixtoCtrl.clear(); _tarjetaMixtoCtrl.clear();
+    _ultimoPdf = null; _ultimoPedidoId = null; _descuentoCupon = 0;
+  });
+
   // ── COBRAR ─────────────────────────────────────────────────────────────────
 
   Future<void> _cobrar() async {
-    if (_lineas.isEmpty) return;
-
-    // Validar mixto
-    if (_metodoPago == MetodoPago.mixto) {
-      final ef = double.tryParse(_efectivoMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
-      final ta = double.tryParse(_tarjetaMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
-      if ((ef + ta - _total).abs() > 0.01) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('El importe mixto (${_fmt(ef + ta)}) no coincide con el total (${_fmt(_total)})'),
+    String paso = 'Validación inicial';
+    try {
+      if (_lineas.isEmpty) return;
+      if (_metodoPago == MetodoPago.mixto) {
+        paso = 'Validación pago mixto';
+        final ef = double.tryParse(_efectivoMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
+        final ta = double.tryParse(_tarjetaMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
+        if ((ef + ta - _total).abs() > 0.01) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Importe mixto (${_fmt(ef + ta)}) ≠ total (${_fmt(_total)})'),
             backgroundColor: Colors.red,
-          ),
-        );
-        return;
+          ));
+          return;
+        }
       }
-    }
-
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar cobro'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Total: ${_fmt(_total)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+      paso = 'Confirmación';
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Confirmar cobro'),
+          content: Column(mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Total: ${_fmt(_total)}',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('Método: ${_nombrePago(_metodoPago)}'),
             if (_metodoPago == MetodoPago.efectivo && _entregaCtrl.text.isNotEmpty)
               Text('Cambio: ${_fmt(_cambio)}'),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('COBRAR')),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true),  child: const Text('COBRAR')),
-        ],
-      ),
-    );
+      );
+      if (ok != true || !mounted) return;
+      setState(() => _cobrando = true);
 
-    if (confirmar != true || !mounted) return;
-
-    setState(() => _cobrando = true);
-    try {
-      final lineas = _lineas.map((l) => LineaPedido(
-        productoId: l.productoId,
-        productoNombre: l.nombre,
-        precioUnitario: l.precioUnitario,
-        cantidad: l.cantidad,
-      )).toList();
-
+      paso = 'Creando pedido';
       final pedido = await _svc.crearPedido(
         empresaId: widget.empresaId,
         clienteNombre: 'Cliente TPV',
-        lineas: lineas,
+        lineas: _lineas.map((l) => LineaPedido(
+          productoId: l.productoId, productoNombre: l.nombre,
+          precioUnitario: l.precioUnitario, cantidad: l.cantidad,
+        )).toList(),
         origen: OrigenPedido.presencial,
         metodoPago: _metodoPago,
         notasInternas: 'Venta TPV caja rápida',
         usuarioNombre: 'TPV',
       );
-
-      // Marcar como entregado y pagado
-      await _svc.cambiarEstado(
-          widget.empresaId, pedido.id, EstadoPedido.entregado, '', 'TPV');
-      await _svc.cambiarEstadoPago(
-          widget.empresaId, pedido.id, EstadoPago.pagado, '', 'TPV');
-
+      paso = 'Marcando entregado';
+      await _svc.cambiarEstado(widget.empresaId, pedido.id, EstadoPedido.entregado, '', 'TPV');
+      paso = 'Marcando pagado';
+      await _svc.cambiarEstadoPago(widget.empresaId, pedido.id, EstadoPago.pagado, '', 'TPV');
       if (!mounted) return;
-
-      final ticket = _generarTicketTexto(pedido.id);
-      _mostrarDialogoExito(ticket);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cobrar: $e'), backgroundColor: Colors.red),
+      await DialogoFacturaTpv.mostrar(
+        context: context, empresaId: widget.empresaId,
+        pedido: pedido, terminalId: 'caja_rapida',
       );
+      if (!mounted) return;
+      final ticket = generarTicketTexto(
+        lineas: _lineas, total: _total, metodoPago: _metodoPago,
+        cambio: _cambio, pedidoId: pedido.id, fmt: _fmt, nombrePago: _nombrePago,
+      );
+      _mostrarDialogoExito(ticket, null);
+    } catch (e, stack) {
+      await mostrarErrorCritico(context, paso, e, stack);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al cobrar en: $paso'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ));
     } finally {
       if (mounted) setState(() => _cobrando = false);
     }
   }
 
-  double get _cambio {
-    final entrega = double.tryParse(_entregaCtrl.text.replaceAll(',', '.')) ?? 0;
-    return (entrega - _total).clamp(0, double.infinity);
-  }
-
-  void _mostrarDialogoExito(String ticket) {
+  void _mostrarDialogoExito(String ticket, Uint8List? pdfBytes) {
     showDialog(
-      context: context,
-      barrierDismissible: false,
+      context: context, barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Row(children: [
           Icon(Icons.check_circle, color: Colors.green),
-          SizedBox(width: 8),
-          Text('¡Cobro realizado!'),
+          SizedBox(width: 8), Text('¡Cobro realizado!'),
         ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Total cobrado: ${_fmt(_total)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            if (_metodoPago == MetodoPago.efectivo && _cambio > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('Cambio: ${_fmt(_cambio)}',
-                    style: const TextStyle(fontSize: 16, color: Colors.green)),
-              ),
-          ],
-        ),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Total cobrado: ${_fmt(_total)}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          if (_metodoPago == MetodoPago.efectivo && _cambio > 0)
+            Padding(padding: const EdgeInsets.only(top: 8),
+              child: Text('Cambio: ${_fmt(_cambio)}',
+                  style: const TextStyle(fontSize: 16, color: Colors.green))),
+        ]),
         actions: [
+          if (pdfBytes != null) ...[
+            TextButton.icon(icon: const Icon(Icons.visibility, size: 18), label: const Text('Ver PDF'),
+                onPressed: () async => Printing.layoutPdf(onLayout: (_) => pdfBytes)),
+            TextButton.icon(icon: const Icon(Icons.print, size: 18), label: const Text('Imprimir'),
+                onPressed: () async => _impresora.imprimirPdf(pdfBytes,
+                    nombreArchivo: 'documento_${_ultimoPedidoId ?? "venta"}.pdf')),
+          ],
           TextButton.icon(
-            icon: const Icon(Icons.share),
-            label: const Text('Compartir ticket'),
-            onPressed: () => Share.share(ticket, subject: 'Ticket de compra'),
-          ),
-          FilledButton(
+            icon: const Icon(Icons.share, size: 18), label: const Text('Compartir'),
             onPressed: () {
-              Navigator.pop(context);
-              _limpiarTicket();
+              if (pdfBytes != null) {
+                Printing.sharePdf(bytes: pdfBytes,
+                    filename: 'ticket_${_ultimoPedidoId ?? "venta"}.pdf');
+              } else {
+                Share.share(ticket, subject: 'Ticket de compra');
+              }
             },
-            child: const Text('Nueva venta'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.add_shopping_cart, size: 18),
+            label: const Text('Nueva venta'),
+            onPressed: () { Navigator.pop(context); _limpiarTicket(); },
           ),
         ],
       ),
     );
-  }
-
-  void _limpiarTicket() {
-    setState(() {
-      _lineas.clear();
-      _metodoPago = MetodoPago.efectivo;
-      _entregaCtrl.clear();
-      _efectivoMixtoCtrl.clear();
-      _tarjetaMixtoCtrl.clear();
-    });
-  }
-
-  String _generarTicketTexto(String pedidoId) {
-    final fmt  = DateFormat('dd/MM/yyyy HH:mm');
-    final buf  = StringBuffer();
-    buf.writeln('================================');
-    buf.writeln('     FLUIX CRM — TICKET');
-    buf.writeln('================================');
-    buf.writeln('Fecha: ${fmt.format(DateTime.now())}');
-    buf.writeln('Ref: ${pedidoId.substring(0, 8).toUpperCase()}');
-    buf.writeln('--------------------------------');
-    for (final l in _lineas) {
-      final nombre = l.nombre.length > 18 ? '${l.nombre.substring(0, 18)}…' : l.nombre.padRight(20);
-      buf.writeln('$nombre x${l.cantidad}  ${_fmt(l.subtotal).padLeft(8)}');
-    }
-    buf.writeln('--------------------------------');
-    buf.writeln('TOTAL:${_fmt(_total).padLeft(26)}');
-    buf.writeln('Método de pago: ${_nombrePago(_metodoPago)}');
-    if (_metodoPago == MetodoPago.efectivo && _cambio > 0) {
-      buf.writeln('Cambio:${_fmt(_cambio).padLeft(25)}');
-    }
-    buf.writeln('================================');
-    buf.writeln('        ¡Gracias!');
-    buf.writeln('================================');
-    return buf.toString();
   }
 
   // ── BUILD ──────────────────────────────────────────────────────────────────
@@ -259,508 +273,151 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
       behavior: HitTestBehavior.translucent,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          title: const Row(children: [
-            Icon(Icons.point_of_sale, size: 22),
-            SizedBox(width: 8),
-            Text('Caja Rápida', style: TextStyle(fontWeight: FontWeight.w700)),
-          ]),
-          backgroundColor: const Color(0xFF1565C0),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            if (_lineas.isNotEmpty)
-              TextButton.icon(
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Limpiar ticket'),
-                    content: const Text('¿Descartar todas las líneas del ticket?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                      TextButton(onPressed: () { Navigator.pop(context); _limpiarTicket(); }, child: const Text('Limpiar')),
-                    ],
-                  ),
-                ),
-                icon: const Icon(Icons.delete_sweep, color: Colors.white70),
-                label: const Text('Limpiar', style: TextStyle(color: Colors.white70)),
-              ),
-          ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(40),
-            child: LayoutBuilder(builder: (_, c) {
-              if (c.maxWidth >= 600) return const SizedBox.shrink();
-              return TabBar(
-                controller: _tabCtrl,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white54,
-                indicatorColor: Colors.white,
-                tabs: [
-                  Tab(text: 'Catálogo'),
-                  Tab(
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Text('Ticket'),
-                      if (_lineas.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(10)),
-                          child: Text('${_lineas.length}', style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ]),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ),
-        body: LayoutBuilder(builder: (context, constraints) {
-          if (constraints.maxWidth >= 600) {
-            return Row(
-              children: [
-                Expanded(flex: 3, child: _buildCatalogo()),
-                const VerticalDivider(width: 1),
-                SizedBox(width: 340, child: _buildTicket()),
-              ],
-            );
-          }
-          return TabBarView(
-            controller: _tabCtrl,
-            children: [_buildCatalogo(), _buildTicket()],
+        appBar: _buildAppBar(),
+        body: LayoutBuilder(builder: (context, c) {
+          final catalogoWidget = CatalogoCajaWidget(
+            svc: _svc, empresaId: widget.empresaId,
+            busqueda: _busqueda, categoriaFiltro: _categoriaFiltro,
+            busCtrl: _busCtrl, lineas: _lineas,
+            onBusqueda: (v) => setState(() => _busqueda = v),
+            onCategoria: (v) => setState(() => _categoriaFiltro = v),
+            onAgregarProducto: _agregarProducto,
           );
+          final ticketWidget = _buildTicketPanel();
+          if (c.maxWidth >= 600) {
+            return Row(children: [
+              Expanded(flex: 3,
+                child: c.maxWidth > 900
+                    ? Column(children: [
+                        Expanded(child: catalogoWidget),
+                        Padding(padding: const EdgeInsets.all(8),
+                          child: EstadisticasTurnoWidget(empresaId: widget.empresaId)),
+                      ])
+                    : catalogoWidget,
+              ),
+              const VerticalDivider(width: 1),
+              SizedBox(width: 340, child: ticketWidget),
+            ]);
+          }
+          return TabBarView(controller: _tabCtrl,
+              children: [catalogoWidget, ticketWidget]);
         }),
       ),
     );
   }
 
-  // ── CATÁLOGO ───────────────────────────────────────────────────────────────
+  Widget _buildTicketPanel() => TicketPanelWidget(
+    lineas: _lineas,
+    metodoPago: _metodoPago,
+    total: _total,
+    totalBruto: _totalBruto,
+    cambio: _cambio,
+    descuentoCupon: _descuentoCupon,
+    cobrando: _cobrando,
+    empresaId: widget.empresaId,
+    entregaCtrl: _entregaCtrl,
+    efectivoMixtoCtrl: _efectivoMixtoCtrl,
+    tarjetaMixtoCtrl: _tarjetaMixtoCtrl,
+    onCobrar: _cobrar,
+    onMetodoPago: (m) => setState(() {
+      _metodoPago = m;
+      _entregaCtrl.clear(); _efectivoMixtoCtrl.clear(); _tarjetaMixtoCtrl.clear();
+    }),
+    onCantidad: (i, bajar) => setState(() {
+      final l = _lineas[i];
+      if (bajar) { if (l.cantidad > 1) l.cantidad--; else _lineas.removeAt(i); }
+      else { l.cantidad++; }
+    }),
+    onEliminar: (i) => setState(() => _lineas.removeAt(i)),
+    onDescuentoLinea: (i, importe) => setState(() => _lineas[i].descuentoImporte = importe),
+    onCuponAplicado: (desc) => setState(() => _descuentoCupon = desc),
+    onCuponRetirado: () => setState(() => _descuentoCupon = 0),
+    fmt: _fmt,
+  );
 
-  Widget _buildCatalogo() {
-    return StreamBuilder<List<String>>(
-      stream: _svc.categoriasStream(widget.empresaId),
-      builder: (context, catSnap) {
-        final cats = catSnap.data ?? [];
-        return StreamBuilder<List<Producto>>(
-          stream: _svc.productosStream(widget.empresaId, soloActivos: true),
-          builder: (context, snap) {
-            final todos = snap.data ?? [];
-            final filtrados = todos.where((p) {
-              final catOk = _categoriaFiltro == null || p.categoria == _categoriaFiltro;
-              final busOk = _busqueda.isEmpty ||
-                  p.nombre.toLowerCase().contains(_busqueda.toLowerCase());
-              return catOk && busOk;
-            }).toList();
-
-            return Column(
-              children: [
-                // Buscador
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                  child: TextField(
-                    controller: _busCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar producto…',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _busqueda.isNotEmpty
-                          ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
-                              setState(() { _busqueda = ''; _busCtrl.clear(); });
-                            })
-                          : null,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    onChanged: (v) => setState(() => _busqueda = v),
-                    textInputAction: TextInputAction.done,
-                    onEditingComplete: () => FocusScope.of(context).unfocus(),
-                  ),
-                ),
-                // Categorías
-                if (cats.isNotEmpty)
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      children: [
-                        _chipCategoria('Todas', null),
-                        ...cats.map((c) => _chipCategoria(c, c)),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                // Grid de productos
-                Expanded(
-                  child: snap.connectionState == ConnectionState.waiting
-                      ? const Center(child: CircularProgressIndicator())
-                      : filtrados.isEmpty
-                          ? Center(
-                              child: Text(
-                                _busqueda.isNotEmpty ? 'Sin resultados para "$_busqueda"' : 'No hay productos activos',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            )
-                          : GridView.builder(
-                              padding: const EdgeInsets.all(10),
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 160,
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
-                                childAspectRatio: 0.85,
-                              ),
-                              itemCount: filtrados.length,
-                              itemBuilder: (_, i) => _tarjetaProducto(filtrados[i]),
-                            ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _chipCategoria(String label, String? valor) {
-    final sel = _categoriaFiltro == valor;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: FilterChip(
-        label: Text(label, style: TextStyle(fontSize: 12, color: sel ? Colors.white : null)),
-        selected: sel,
-        selectedColor: const Color(0xFF1565C0),
-        onSelected: (_) => setState(() => _categoriaFiltro = valor),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  PreferredSizeWidget _buildAppBar() => AppBar(
+    title: const Row(children: [
+      Icon(Icons.point_of_sale, size: 22), SizedBox(width: 8),
+      Text('Caja Rápida', style: TextStyle(fontWeight: FontWeight.w700)),
+    ]),
+    backgroundColor: const Color(0xFF1565C0),
+    foregroundColor: Colors.white,
+    elevation: 0,
+    actions: [
+      IconButton(
+        icon: const Icon(Icons.receipt_long),
+        tooltip: 'Historial del día',
+        onPressed: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
       ),
-    );
-  }
-
-  Widget _tarjetaProducto(Producto p) {
-    final enTicket = _lineas.indexWhere((l) => l.productoId == p.id);
-    final cantidad  = enTicket >= 0 ? _lineas[enTicket].cantidad : 0;
-
-    return GestureDetector(
-      onTap: () => _agregarProducto(p),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Stack(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Imagen o ícono
-                if (p.thumbnailUrl != null || p.imagenUrl != null)
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.network(
-                        p.thumbnailUrl ?? p.imagenUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
-                      ),
-                    ),
-                  )
-                else
-                  const Expanded(
-                    child: Center(child: Icon(Icons.inventory_2, size: 40, color: Color(0xFF1565C0))),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-                  child: Column(
-                    children: [
-                      Text(p.nombre,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 2),
-                      Text(_fmt(p.precio),
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF1565C0), fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
+      ListenableBuilder(
+        listenable: _holdNotifier,
+        builder: (_, __) {
+          final count = _holdNotifier.pedidos.length;
+          return Stack(clipBehavior: Clip.none, children: [
+            IconButton(
+              icon: const Icon(Icons.history_toggle_off),
+              tooltip: 'Pedidos en espera',
+              onPressed: _recuperarPedido,
+            ),
+            if (count > 0) Positioned(top: 6, right: 6,
+              child: IgnorePointer(child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                child: Text('$count', style: const TextStyle(
+                    color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+              ))),
+          ]);
+        },
+      ),
+      if (_lineas.isNotEmpty) ...[
+        IconButton(
+          icon: const Icon(Icons.pause_circle_outline),
+          tooltip: 'Guardar en espera',
+          onPressed: _guardarEnEspera,
+        ),
+        TextButton.icon(
+          onPressed: () => showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Limpiar ticket'),
+              content: const Text('¿Descartar todas las líneas del ticket?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                TextButton(onPressed: () { Navigator.pop(context); _limpiarTicket(); },
+                    child: const Text('Limpiar')),
               ],
             ),
-            // Badge de cantidad
-            if (cantidad > 0)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                  child: Text('$cantidad',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          icon: const Icon(Icons.delete_sweep, color: Colors.white70),
+          label: const Text('Limpiar', style: TextStyle(color: Colors.white70)),
+        ),
+      ],
+    ],
+    bottom: PreferredSize(
+      preferredSize: const Size.fromHeight(40),
+      child: LayoutBuilder(builder: (_, c) {
+        if (c.maxWidth >= 600) return const SizedBox.shrink();
+        return TabBar(
+          controller: _tabCtrl,
+          labelColor: Colors.white, unselectedLabelColor: Colors.white54,
+          indicatorColor: Colors.white,
+          tabs: [
+            const Tab(text: 'Catálogo'),
+            Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Ticket'),
+              if (_lineas.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(10)),
+                  child: Text('${_lineas.length}',
+                      style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
-              ),
+              ],
+            ])),
           ],
-        ),
-      ),
-    );
-  }
-
-  // ── TICKET ─────────────────────────────────────────────────────────────────
-
-  Widget _buildTicket() {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // Cabecera ticket
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF5F7FA),
-              border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0))),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.receipt_long, size: 18, color: Color(0xFF1565C0)),
-                SizedBox(width: 6),
-                Text('TICKET ACTUAL',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              ],
-            ),
-          ),
-          // Líneas
-          Expanded(
-            child: _lineas.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey[300]),
-                        const SizedBox(height: 8),
-                        Text('Toca un producto para añadirlo',
-                            style: TextStyle(color: Colors.grey[400])),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    itemCount: _lineas.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, indent: 16),
-                    itemBuilder: (_, i) => _filaTicket(i),
-                  ),
-          ),
-          // Separador + total
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('TOTAL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(_fmt(_total),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Método de pago
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('MÉTODO DE PAGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.grey)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _chipPago(MetodoPago.efectivo, '💵 Efectivo'),
-                    const SizedBox(width: 6),
-                    _chipPago(MetodoPago.tarjeta, '💳 Tarjeta'),
-                    const SizedBox(width: 6),
-                    _chipPago(MetodoPago.mixto, '🔀 Mixto'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Campos adicionales según método
-                if (_metodoPago == MetodoPago.efectivo) ...[
-                  Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _entregaCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Entrega cliente (€)',
-                          prefixIcon: Icon(Icons.money),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textInputAction: TextInputAction.done,
-                        onEditingComplete: () => FocusScope.of(context).unfocus(),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    if (_cambio > 0) ...[
-                      const SizedBox(width: 12),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        const Text('CAMBIO', style: TextStyle(fontSize: 11, color: Colors.grey, letterSpacing: 1)),
-                        Text(_fmt(_cambio),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                      ]),
-                    ],
-                  ]),
-                ] else if (_metodoPago == MetodoPago.mixto) ...[
-                  Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _efectivoMixtoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Efectivo (€)',
-                          prefixIcon: Icon(Icons.money),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _tarjetaMixtoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Tarjeta (€)',
-                          prefixIcon: Icon(Icons.credit_card),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textInputAction: TextInputAction.done,
-                        onEditingComplete: () => FocusScope.of(context).unfocus(),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                  ]),
-                ],
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-          // Botón cobrar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: (_lineas.isEmpty || _cobrando) ? null : _cobrar,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green[700],
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: _cobrando
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.payments_outlined),
-                label: Text(
-                  _cobrando ? 'Procesando…' : 'COBRAR ${_lineas.isEmpty ? '' : _fmt(_total)}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filaTicket(int i) {
-    final l = _lineas[i];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(l.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text('${_fmt(l.precioUnitario)} × ${l.cantidad} = ${_fmt(l.subtotal)}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ]),
-          ),
-          // Controles cantidad
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline, size: 20),
-            onPressed: () => setState(() {
-              if (l.cantidad > 1) {
-                l.cantidad--;
-              } else {
-                _lineas.removeAt(i);
-              }
-            }),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            color: Colors.red[400],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text('${l.cantidad}',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, size: 20),
-            onPressed: () => setState(() => l.cantidad++),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            color: Colors.green[700],
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            onPressed: () => setState(() => _lineas.removeAt(i)),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            color: Colors.grey[500],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chipPago(MetodoPago metodo, String label) {
-    final sel = _metodoPago == metodo;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() {
-          _metodoPago = metodo;
-          _entregaCtrl.clear();
-          _efectivoMixtoCtrl.clear();
-          _tarjetaMixtoCtrl.clear();
-        }),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: sel ? const Color(0xFF1565C0) : const Color(0xFFF5F7FA),
-            border: Border.all(color: sel ? const Color(0xFF1565C0) : Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                  color: sel ? Colors.white : Colors.grey[700])),
-        ),
-      ),
-    );
-  }
-
-  // ── HELPERS ────────────────────────────────────────────────────────────────
-
-  String _fmt(double v) => NumberFormat.currency(locale: 'es_ES', symbol: '€', decimalDigits: 2).format(v);
-
-  String _nombrePago(MetodoPago m) => switch (m) {
-    MetodoPago.efectivo => 'Efectivo',
-    MetodoPago.tarjeta  => 'Tarjeta',
-    MetodoPago.mixto    => 'Mixto',
-    MetodoPago.bizum    => 'Bizum',
-    MetodoPago.paypal   => 'PayPal',
-  };
+        );
+      }),
+    ),
+  );
 }
-
-

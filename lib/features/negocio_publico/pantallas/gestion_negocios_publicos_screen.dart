@@ -311,10 +311,9 @@ class _GestionNegociosPublicosScreenState
       );
 
       final ref = FirebaseStorage.instance
-          .ref()
-          .child('negocios_publicos')
-          .child('${negocio.id}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await ref.putFile(File(img.path));
+          .ref('negocios_publicos/${negocio.id}/foto_perfil.jpg');
+      final bytes = await File(img.path).readAsBytes();
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       final url = await ref.getDownloadURL();
 
       await FirebaseFirestore.instance
@@ -448,6 +447,7 @@ class _AccionesNegocio extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => ResenasFluixScreen(
                 negocioId: negocio.id,
+                empresaId: negocio.empresaIdVinculada,
                 nombreNegocio: negocio.nombre,
               ),
             ),

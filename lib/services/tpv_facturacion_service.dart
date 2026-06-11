@@ -34,23 +34,37 @@ class TpvFacturacionService {
     required ConfiguracionFacturacionTpv config,
     String usuarioId = '',
     String usuarioNombre = 'TPV',
+    String? terminalId,
+    String? clienteNombreOverride,
+    String? clienteEmailOverride,
+    String? clienteNifOverride,
   }) async {
     if (pedido.facturaId != null) {
       throw Exception('Este pedido ya tiene factura: ${pedido.facturaId}');
     }
+    final nombreCliente = clienteNombreOverride?.isNotEmpty == true
+        ? clienteNombreOverride!
+        : pedido.clienteNombre.isNotEmpty ? pedido.clienteNombre : 'Cliente TPV';
+    final datosFiscales = clienteNifOverride?.isNotEmpty == true
+        ? DatosFiscales(nif: clienteNifOverride)
+        : null;
     final resultado = await _factSvc.crearFactura(
       empresaId: empresaId,
-      clienteNombre: pedido.clienteNombre.isNotEmpty ? pedido.clienteNombre : 'Ventas TPV',
+      clienteNombre: nombreCliente,
       clienteTelefono: pedido.clienteTelefono,
-      clienteCorreo: pedido.clienteCorreo,
+      clienteCorreo: clienteEmailOverride ?? pedido.clienteCorreo,
+      datosFiscales: datosFiscales,
       lineas: _pedidoALineas(pedido),
       metodoPago: _convertirMetodo(pedido.metodoPago),
       pedidoId: pedido.id,
       tipo: TipoFactura.venta_directa,
-      notasInternas: 'Venta TPV - ${pedido.id}',
+      notasInternas: 'Ticket TPV #${pedido.numeroTicket}',
+      fechaOperacion: pedido.fechaCreacion,
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
       diasVencimiento: config.diasVencimiento,
+      estadoInicial: EstadoFactura.pagada,
+      terminalId: terminalId,
     );
     await _marcarFacturado(empresaId, pedido.id, resultado.factura.id);
     return resultado.factura;
@@ -77,15 +91,27 @@ class TpvFacturacionService {
 
     final lineas = pedidos.expand(_pedidoALineas).toList();
     final fechaStr = '${fecha.day.toString().padLeft(2,'0')}/${fecha.month.toString().padLeft(2,'0')}/${fecha.year}';
+
+    // Desglose por método de pago
+    final desglose = <String, double>{};
+    for (final p in pedidos) {
+      final metodo = p.metodoPago.name;
+      desglose[metodo] = (desglose[metodo] ?? 0) + p.total;
+    }
+
     final resultado = await _factSvc.crearFactura(
       empresaId: empresaId,
-      clienteNombre: 'Ventas TPV — $fechaStr',
+      clienteNombre: 'Cierre diario TPV — $fechaStr',
       lineas: lineas,
       tipo: TipoFactura.venta_directa,
-      notasInternas: 'Resumen diario TPV: ${pedidos.length} ventas',
+      notasInternas: 'Cierre diario TPV: ${pedidos.length} ticket${pedidos.length != 1 ? 's' : ''}',
+      fechaOperacion: DateTime(fecha.year, fecha.month, fecha.day, 23, 59),
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
       diasVencimiento: config.diasVencimiento,
+      estadoInicial: EstadoFactura.pagada,
+      ticketIds: pedidos.map((p) => p.id).toList(),
+      desgloseMetodoPago: desglose,
     );
     final batch = _db.batch();
     for (final p in pedidos) {
@@ -118,6 +144,7 @@ class TpvFacturacionService {
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
       diasVencimiento: config.diasVencimiento,
+      estadoInicial: EstadoFactura.pagada,
     );
     final batch = _db.batch();
     for (final p in pedidos) {

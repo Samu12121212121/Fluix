@@ -51,44 +51,33 @@ class FacturacionService {
     SerieFactura serie,
   ) async {
     final ref = _contadorFacturas(empresaId).doc('facturacion');
-    String numero = '';
     final campoContador = 'ultimo_numero_${serie.name}';
     final campoAnio = 'anio_ultimo_${serie.name}';
+    final anioActual = DateTime.now().year;
 
-    await _firestore.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      final anioActual = DateTime.now().year;
-      int contador = 1;
+    // Leer estado actual
+    final snap = await ref.get();
+    final data = snap.data() ?? {};
+    final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
 
-      if (snap.exists) {
-        final data = snap.data() ?? {};
-        final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
-        
-        // Si el año cambió → contador empieza en 1 (reset anual)
-        if (anioGuardado == anioActual) {
-          final valorActual = (data[campoContador] as num?)?.toInt() ?? 
-              (serie.name == 'fac' ? (data['ultimo_numero_factura'] as num?)?.toInt() : null) ?? 0;
-          contador = valorActual + 1;
-        } else {
-          contador = 1;
-        }
-      }
-
-      tx.set(ref, {
-        campoContador: contador,
+    int contador;
+    if (!snap.exists || anioGuardado != anioActual) {
+      // Primera factura o nuevo año: resetear a 1
+      await ref.set({
+        campoContador: 1,
         campoAnio: anioActual,
       }, SetOptions(merge: true));
-
-      numero = '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
-    });
-
-    // Fallback de seguridad: si la transacción no asignó número, generar uno temporal
-    if (numero.isEmpty) {
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      numero = '${serie.prefijo}-${DateTime.now().year}-TEMP-$ts';
+      contador = 1;
+    } else {
+      // Incremento atómico (evita runTransaction que crashea en Windows)
+      await ref.update({
+        campoContador: FieldValue.increment(1),
+      });
+      final updated = await ref.get();
+      contador = (updated.data()?[campoContador] as num?)?.toInt() ?? 1;
     }
 
-    return numero;
+    return '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
   }
 
   // ── CREAR FACTURA (COMPLETA) ──────────────────────────────────────────────
@@ -111,6 +100,10 @@ class FacturacionService {
     int diasVencimiento = 30,
     double descuentoGlobal = 0,
     double porcentajeIrpf = 0,
+    EstadoFactura estadoInicial = EstadoFactura.pendiente,
+    String? terminalId,
+    List<String>? ticketIds,
+    Map<String, double>? desgloseMetodoPago,
   }) async {
     final serie = tipo.serie;
     final numero = await _generarNumeroFacturaSerie(empresaId, serie);
@@ -141,7 +134,7 @@ class FacturacionService {
       numeroFactura: numero,
       serie: serie,
       tipo: tipo,
-      estado: EstadoFactura.pendiente,
+      estado: estadoInicial,
       clienteNombre: clienteNombre,
       clienteTelefono: clienteTelefono,
       clienteCorreo: clienteCorreo,
@@ -158,12 +151,16 @@ class FacturacionService {
       diasVencimiento: diasVencimiento,
       metodoPago: metodoPago,
       pedidoId: pedidoId,
+      terminalId: terminalId,
+      ticketIds: ticketIds,
+      desgloseMetodoPago: desgloseMetodoPago,
       notasInternas: notasInternas,
       notasCliente: notasCliente,
       fechaOperacion: fechaOperacion,
       historial: [entrada],
-      fechaEmision: DateTime.now(),
-      fechaVencimiento: DateTime.now().add(Duration(days: diasVencimiento)),
+      fechaEmision: fechaOperacion ?? DateTime.now(),
+      fechaVencimiento: (fechaOperacion ?? DateTime.now()).add(Duration(days: diasVencimiento)),
+      fechaPago: estadoInicial == EstadoFactura.pagada ? (fechaOperacion ?? DateTime.now()) : null,
     );
 
     // VALIDACIÓN FISCAL INTEGRAL (R1-R9)

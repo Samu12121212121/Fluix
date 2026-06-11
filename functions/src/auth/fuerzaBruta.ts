@@ -13,7 +13,7 @@ import * as admin from "firebase-admin";
 
 const REGION = "europe-west1";
 const MAX_INTENTOS = 5;
-const BLOQUEO_MINUTOS = 15;
+const BLOQUEO_MINUTOS = 5;
 const LIMPIEZA_HORAS = 24;
 
 const db = admin.firestore();

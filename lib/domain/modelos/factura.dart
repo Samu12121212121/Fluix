@@ -401,6 +401,10 @@ class Factura {
   // Vínculos
   final MetodoPagoFactura? metodoPago;
   final String? pedidoId;
+  // TPV
+  final String? terminalId;
+  final List<String>? ticketIds;
+  final Map<String, double>? desgloseMetodoPago;
   final String? facturaOriginalId;        // para rectificativas y duplicados
   // ── Campos de factura rectificativa (Art. 15 RD 1619/2012) ──
   final String? facturaOriginalNumero;    // número de la factura que se rectifica
@@ -444,6 +448,9 @@ class Factura {
     this.diasVencimiento = 30,
     this.metodoPago,
     this.pedidoId,
+    this.terminalId,
+    this.ticketIds,
+    this.desgloseMetodoPago,
     this.facturaOriginalId,
     this.facturaOriginalNumero,
     this.facturaOriginalFecha,
@@ -497,6 +504,9 @@ class Factura {
     int? diasVencimiento,
     MetodoPagoFactura? metodoPago,
     String? pedidoId,
+    String? terminalId,
+    List<String>? ticketIds,
+    Map<String, double>? desgloseMetodoPago,
     String? facturaOriginalId,
     String? facturaOriginalNumero,
     DateTime? facturaOriginalFecha,
@@ -533,6 +543,9 @@ class Factura {
     diasVencimiento: diasVencimiento ?? this.diasVencimiento,
     metodoPago: metodoPago ?? this.metodoPago,
     pedidoId: pedidoId ?? this.pedidoId,
+    terminalId: terminalId ?? this.terminalId,
+    ticketIds: ticketIds ?? this.ticketIds,
+    desgloseMetodoPago: desgloseMetodoPago ?? this.desgloseMetodoPago,
     facturaOriginalId: facturaOriginalId ?? this.facturaOriginalId,
     facturaOriginalNumero: facturaOriginalNumero ?? this.facturaOriginalNumero,
     facturaOriginalFecha: facturaOriginalFecha ?? this.facturaOriginalFecha,
@@ -611,6 +624,12 @@ class Factura {
               orElse: () => MetodoPagoFactura.efectivo)
           : null,
       pedidoId: d['pedido_id'],
+      terminalId: d['terminal_id'],
+      ticketIds: d['ticket_ids'] != null ? List<String>.from(d['ticket_ids'] as List) : null,
+      desgloseMetodoPago: d['desglose_metodo_pago'] != null
+          ? Map<String, double>.from((d['desglose_metodo_pago'] as Map).map(
+              (k, v) => MapEntry(k.toString(), (v as num).toDouble())))
+          : null,
       facturaOriginalId: d['factura_original_id'],
       facturaOriginalNumero: d['factura_original_numero'],
       facturaOriginalFecha: d['factura_original_fecha'] != null
@@ -673,6 +692,9 @@ class Factura {
     'dias_vencimiento': diasVencimiento,
     'metodo_pago': metodoPago?.name,
     'pedido_id': pedidoId,
+    'terminal_id': terminalId,
+    'ticket_ids': ticketIds,
+    'desglose_metodo_pago': desgloseMetodoPago,
     'factura_original_id': facturaOriginalId,
     'factura_original_numero': facturaOriginalNumero,
     'factura_original_fecha': facturaOriginalFecha != null
@@ -691,6 +713,7 @@ class Factura {
     'fecha_emision': Timestamp.fromDate(fechaEmision),
     'fecha_vencimiento':
         fechaVencimiento != null ? Timestamp.fromDate(fechaVencimiento!) : null,
+    'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,
   };
 
   /// Calcula los totales a partir de las líneas y configuración fiscal.

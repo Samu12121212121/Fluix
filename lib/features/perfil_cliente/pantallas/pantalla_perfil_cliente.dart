@@ -7,6 +7,10 @@ import 'dart:io';
 import '../../../models/user_model.dart';
 import '../../autenticacion/pantallas/pantalla_login.dart';
 import '../../dashboard/pantallas/pantalla_dashboard.dart';
+import 'pantalla_trofeos.dart';
+import '../../../services/trofeos_service.dart';
+import '../../tienda_monedas/pantalla_tienda_monedas.dart';
+import '../../tienda_monedas/widgets/avatar_con_marco.dart';
 
 // ── Paleta del perfil ────────────────────────────────────────────────────────
 const _kBg         = Color(0xFF0A0F23);
@@ -114,6 +118,8 @@ class _PantallaPerfilClienteState extends State<PantallaPerfilCliente> {
                 const SizedBox(height: 16),
                 _buildReservasSection(fbUser.uid),
                 const SizedBox(height: 16),
+                _buildTrofeosCard(fbUser.uid),
+                const SizedBox(height: 16),
                 _buildPuntosSection(fbUser.uid),
                 // ── Botón Switch a vista empresa (solo si tiene empresa vinculada) ──
                 if (empresaId != null && empresaId.isNotEmpty) ...[
@@ -132,75 +138,79 @@ class _PantallaPerfilClienteState extends State<PantallaPerfilCliente> {
 
   Widget _buildProfileHeader(AppUser user, Map<String, dynamic> userData) {
     final gradIdx = ((userData['avatar_gradient'] as int?) ?? 0).clamp(0, _kGradients.length - 1);
-    final emoji = userData['avatar_emoji'] as String?;
-    final fotoUrl = userData['avatar_foto_url'] as String?;
-    final grad = _kGradients[gradIdx];
+    final emoji     = userData['avatar_emoji'] as String?;
+    final fotoUrl   = userData['avatar_foto_url'] as String?;
+    final grad      = _kGradients[gradIdx];
+    final marco     = userData['canje_marco'] as String?;
+    final pulsante  = userData['canje_avatar_pulsante'] as bool? ?? false;
+    final titulo    = userData['canje_titulo'] as String?;
+    final midnight  = (userData['canje_tema'] as String?) == 'midnight';
+    final colorHex  = userData['canje_color_nombre'] as String?;
+    final Color nombreColor = colorHex != null
+        ? Color(int.parse(colorHex.replaceFirst('#', '0xFF')))
+        : _kTexto;
+
+    final Widget avatarInner = Container(
+      width: 100, height: 100,
+      decoration: BoxDecoration(
+        gradient: fotoUrl == null ? LinearGradient(colors: grad) : null,
+        shape: BoxShape.circle,
+      ),
+      child: fotoUrl != null
+          ? ClipOval(child: Image.network(fotoUrl, width: 100, height: 100, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Center(child: Text(
+                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: _kBg),
+              ))))
+          : Center(child: emoji != null
+              ? Text(emoji, style: const TextStyle(fontSize: 46))
+              : Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: _kBg))),
+    );
 
     return Card(
-      color: _kCard,
+      color: midnight ? const Color(0xFF0D1B2A) : _kCard,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Avatar tappable
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                GestureDetector(
-                  onTap: () => _editarAvatar(userData),
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      gradient: fotoUrl == null ? LinearGradient(colors: grad) : null,
-                      shape: BoxShape.circle,
-                    ),
-                    child: fotoUrl != null
-                        ? ClipOval(
-                            child: Image.network(
-                              fotoUrl,
-                              width: 100, height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Center(
-                                child: Text(
-                                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: _kBg),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: emoji != null
-                                ? Text(emoji, style: const TextStyle(fontSize: 46))
-                                : Text(
-                                    user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                                    style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: _kBg),
-                                  ),
-                          ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _editarAvatar(userData),
-                  child: Container(
-                    width: 30, height: 30,
-                    decoration: BoxDecoration(
-                      color: _kAccent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _kCard, width: 2),
-                    ),
-                    child: const Icon(Icons.edit, size: 14, color: _kBg),
-                  ),
-                ),
-              ],
+        child: Column(children: [
+          Stack(alignment: Alignment.bottomRight, children: [
+            GestureDetector(
+              onTap: () => _editarAvatar(userData),
+              child: AvatarConMarco(
+                size: 100,
+                marco: marco,
+                pulsante: pulsante,
+                temaMidnight: midnight,
+                child: avatarInner,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(user.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _kTexto)),
+            GestureDetector(
+              onTap: () => _editarAvatar(userData),
+              child: Container(
+                width: 30, height: 30,
+                decoration: BoxDecoration(
+                  color: _kAccent, shape: BoxShape.circle,
+                  border: Border.all(color: _kCard, width: 2),
+                ),
+                child: const Icon(Icons.edit, size: 14, color: _kBg),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 16),
+          Text(user.name, style: TextStyle(
+              fontSize: 24, fontWeight: FontWeight.bold, color: nombreColor)),
+          if (titulo != null && titulo.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(user.email, style: const TextStyle(fontSize: 14, color: _kMuted)),
+            Text(titulo, style: TextStyle(
+                fontSize: 12, color: midnight
+                    ? const Color(0xFF3F8EFC)
+                    : _kAccent, fontStyle: FontStyle.italic)),
           ],
-        ),
+          const SizedBox(height: 4),
+          Text(user.email, style: const TextStyle(fontSize: 14, color: _kMuted)),
+        ]),
       ),
     );
   }
@@ -414,6 +424,64 @@ class _PantallaPerfilClienteState extends State<PantallaPerfilCliente> {
     );
   }
 
+  Widget _buildTrofeosCard(String uid) {
+    return StreamBuilder<Map<String, Map<String, dynamic>>>(
+      stream: TrofeosService.streamTrofeos(uid),
+      builder: (context, snap) {
+        final datos = snap.data ?? {};
+        final completados = datos.values.where((d) => d['completado'] == true).length;
+        final total = 50; // kTrofeos.length
+        final monedas = datos.values
+            .where((d) => d['completado'] == true)
+            .fold(0, (s, d) => s + ((d['monedas_otorgadas'] as int?) ?? 0));
+        return GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTrofeos())),
+          child: Card(
+            color: const Color(0xFF1E2139),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFF2A2E45), width: 0.5)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFB830).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('🏆', style: TextStyle(fontSize: 22)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Mis Trofeos', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text('$completados/$total completados', style: const TextStyle(color: Color(0xFFB0B3C1), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  ClipRRect(borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: total > 0 ? completados / total : 0,
+                      minHeight: 4,
+                      backgroundColor: const Color(0xFF2A2E45),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFB830)),
+                    ),
+                  ),
+                ])),
+                const SizedBox(width: 12),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Text('🪙', style: TextStyle(fontSize: 18)),
+                  Text('$monedas', style: const TextStyle(color: Color(0xFFFFB830), fontSize: 14, fontWeight: FontWeight.w900)),
+                ]),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF6B6E82), size: 20),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPuntosSection(String uid) {
     return Card(
       color: const Color(0xFF1E2139), // Tarjeta
@@ -424,16 +492,37 @@ class _PantallaPerfilClienteState extends State<PantallaPerfilCliente> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.star, color: Color(0xFFFF3296)), // Magenta rojizo
-                SizedBox(width: 8),
-                Text(
-                  'Programa de Fidelización',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFFFFFF), // Texto blanco
+                const Icon(Icons.star, color: Color(0xFFFF3296)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Programa de Fidelización',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFFFFFF),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => const PantallaTiendaMonedas())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFB830).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFFB830).withValues(alpha: 0.4)),
+                    ),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('🪙', style: TextStyle(fontSize: 13)),
+                      SizedBox(width: 4),
+                      Text('Canjear', style: TextStyle(
+                          color: Color(0xFFFFB830), fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                    ]),
                   ),
                 ),
               ],

@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 import { enviarConfirmacionReserva, enviarCancelacionReserva } from "./resend_service";
 
 const REGION = "europe-west1";
-const BASE_URL = "https://fluixtech.com/reservas";
+const BASE_URL = "https://fluixtech.com";
 
 function generarToken(reservaId: string, empresaId: string, accion: string): string {
   const secreto = process.env.RESERVAS_TOKEN_SECRET || "fluixcrm-reservas-2026";
@@ -13,7 +13,7 @@ function generarToken(reservaId: string, empresaId: string, accion: string): str
 }
 
 function buildEmailEmpresa(opts: {
-  negocioNombre: string; clienteNombre: string; fechaHora: string;
+  negocioNombre: string; clienteNombre: string; clienteEmail?: string; fechaHora: string;
   servicio: string; personas: string; notas: string;
   camposExtra: Record<string, any>; urlAceptar: string; urlRechazar: string;
 }): string {
@@ -24,13 +24,14 @@ function buildEmailEmpresa(opts: {
 <table width="100%"><tr><td align="center" style="padding:32px 16px;">
 <table width="600" style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 <tr><td style="background:linear-gradient(135deg,#0D47A1,#1976D2);padding:32px;text-align:center;">
-  <h1 style="margin:0;color:white;font-size:26px;">🎉 Nueva Solicitud de Reserva</h1>
-  <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Para <strong>${opts.negocioNombre}</strong></p>
+  <h1 style="margin:0;color:white;font-size:26px;">🎉 Nueva Reserva Recibida</h1>
+  <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;"><strong>${opts.negocioNombre}</strong> ha recibido una nueva reserva</p>
 </td></tr>
 <tr><td style="padding:32px;">
   <table width="100%"><tr><td style="background:#f8f9fa;border-left:4px solid #0D47A1;padding:16px;border-radius:6px;">
     <table width="100%">
       <tr><td style="color:#666;width:140px;">👤 Cliente:</td><td><strong>${opts.clienteNombre}</strong></td></tr>
+      ${opts.clienteEmail ? `<tr><td style="color:#666;">📧 Email:</td><td>${opts.clienteEmail}</td></tr>` : ""}
       <tr><td style="color:#666;">📅 Fecha:</td><td><strong>${opts.fechaHora}</strong></td></tr>
       ${opts.servicio ? `<tr><td style="color:#666;">✂️ Servicio:</td><td>${opts.servicio}</td></tr>` : ""}
       ${opts.personas ? `<tr><td style="color:#666;">👥 Personas:</td><td>${opts.personas}</td></tr>` : ""}
@@ -60,7 +61,7 @@ export const onNuevaReservaEmail = onDocumentCreated(
     const snap = event.data; if (!snap) return;
     const r = snap.data(); const empresaId = event.params.empresaId; const reservaId = event.params.reservaId;
     const origen: string = r.origen || "";
-    if (origen !== "app_cliente" && origen !== "web_publica") return;
+    if (!["app_cliente", "web_publica", "fluix_b2c"].includes(origen)) return;
     const db = admin.firestore();
     let ft = "";
     try { const d = r.fecha_hora?.toDate ? r.fecha_hora.toDate() : new Date(r.fecha_hora); ft = d.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
@@ -71,9 +72,10 @@ export const onNuevaReservaEmail = onDocumentCreated(
       const nd = ns.docs[0].data(); const email: string = nd.emailNotificaciones || ""; if (!email) return;
       const nn: string = nd.nombre || "Tu Negocio";
       const ta = generarToken(reservaId, empresaId, "aceptar"); const tr = generarToken(reservaId, empresaId, "rechazar");
-      const html = buildEmailEmpresa({ negocioNombre: nn, clienteNombre: cn, fechaHora: ft || "No especificada", servicio: r.servicio_nombre || r.servicio || "", personas: r.numero_personas ? `${r.numero_personas} personas` : "", notas: r.notas || "", camposExtra: r.campos_extra || {}, urlAceptar: `${BASE_URL}/confirmar?id=${reservaId}&empresa=${empresaId}&token=${ta}`, urlRechazar: `${BASE_URL}/rechazar?id=${reservaId}&empresa=${empresaId}&token=${tr}` });
+      const ce = r.email_cliente || r.usuario_email || r.cliente_email || "";
+      const html = buildEmailEmpresa({ negocioNombre: nn, clienteNombre: cn, clienteEmail: ce, fechaHora: ft || "No especificada", servicio: r.servicio_nombre || r.servicio || "", personas: r.numero_personas ? `${r.numero_personas} personas` : "", notas: r.notas || "", camposExtra: r.campos_extra || {}, urlAceptar: `${BASE_URL}/confirmar?id=${reservaId}&empresa=${empresaId}&token=${ta}`, urlRechazar: `${BASE_URL}/rechazar?id=${reservaId}&empresa=${empresaId}&token=${tr}` });
       const { Resend } = await import("resend"); const c = new Resend(process.env.RESEND_API_KEY);
-      await c.emails.send({ from: `${nn} vía Fluix <noreply@fluixtech.com>`, to: email, subject: `🎉 Nueva reserva de ${cn} — ${ft}`, html });
+      await c.emails.send({ from: `${nn} vía Fluix <noreply@fluixtech.com>`, to: email, subject: `${nn} ha recibido una nueva reserva de ${cn}`, html });
       await db.collection("reservas_tokens").doc(reservaId).set({ token_aceptar: ta, token_rechazar: tr, empresa_id: empresaId, reserva_id: reservaId, expira_en: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 86400000)), creado_en: admin.firestore.FieldValue.serverTimestamp() });
       console.log(`[email] Enviado a ${email}`);
     } catch (err) { console.error("[email]", err); }
@@ -104,11 +106,20 @@ export const onNuevaNotificacionReserva = onDocumentCreated(
   }
 );
 
+function setCors(res: any): void {
+  res.set("Access-Control-Allow-Origin", "https://fluixtech.com");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+}
+
 // ── HTTP: Confirmar reserva ───────────────────────────────────────────────────
 export const confirmarReserva = onRequest(
   { region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
   async (req, res) => {
-    const { id: rid, empresa: eid, token, mensaje = "" } = req.query as Record<string, string>;
+    setCors(res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    const { id: rid, empresa: eid, token } = req.query as Record<string, string>;
+    const mensaje = (req.body?.mensaje as string) || (req.query.mensaje as string) || "";
     if (!rid || !eid || !token) { res.status(400).send(_land("error", "Enlace inválido", "Faltan parámetros.", "")); return; }
     if (token !== generarToken(rid, eid, "aceptar")) { res.status(403).send(_land("error", "Token inválido", "Enlace no válido.", "")); return; }
     const db = admin.firestore();
@@ -120,11 +131,11 @@ export const confirmarReserva = onRequest(
       let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
       if (req.method === "GET") { res.send(_formConfirmar(rid, eid, token, rd, ft)); return; }
       await ref.update({ estado: "confirmada", confirmado_en: admin.firestore.FieldValue.serverTimestamp() });
-      const ec: string = rd.email_cliente || rd.usuario_email || "";
+      const ec: string = rd.email_cliente || rd.usuario_email || rd.cliente_email || "";
       if (ec) {
         const ns = await db.collection("negocios_publicos").where("empresaIdVinculada", "==", eid).limit(1).get();
         const nn = ns.empty ? "El negocio" : ns.docs[0].data().nombre;
-        await enviarConfirmacionReserva({ to: ec, clienteNombre: rd.nombre_cliente || rd.usuario_nombre || "Cliente", empresaNombre: nn, fechaHora: ft, servicio: rd.servicio_nombre || "", notas: mensaje || undefined });
+        await enviarConfirmacionReserva({ to: ec, clienteNombre: rd.nombre_cliente || rd.usuario_nombre || rd.cliente_nombre || "Cliente", empresaNombre: nn, fechaHora: ft, servicio: rd.servicio_nombre || "", notas: mensaje || undefined });
       }
       res.send(_land("confirmada", "¡Reserva Confirmada!", "El cliente recibirá un email.", "green"));
     } catch (err) { console.error("[confirmar]", err); res.status(500).send(_land("error", "Error", String(err), "")); }
@@ -135,7 +146,10 @@ export const confirmarReserva = onRequest(
 export const rechazarReserva = onRequest(
   { region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
   async (req, res) => {
-    const { id: rid, empresa: eid, token, motivo = "" } = req.query as Record<string, string>;
+    setCors(res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    const { id: rid, empresa: eid, token } = req.query as Record<string, string>;
+    const motivo = (req.body?.motivo as string) || (req.query.motivo as string) || "";
     if (!rid || !eid || !token) { res.status(400).send(_land("error", "Enlace inválido", "Faltan parámetros.", "")); return; }
     if (token !== generarToken(rid, eid, "rechazar")) { res.status(403).send(_land("error", "Token inválido", "Enlace no válido.", "")); return; }
     const db = admin.firestore();
@@ -147,11 +161,11 @@ export const rechazarReserva = onRequest(
       let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
       if (req.method === "GET") { res.send(_formRechazar(rid, eid, token, rd, ft)); return; }
       await ref.update({ estado: "cancelada", motivo_cancelacion: motivo, rechazado_en: admin.firestore.FieldValue.serverTimestamp() });
-      const ec: string = rd.email_cliente || rd.usuario_email || "";
+      const ec: string = rd.email_cliente || rd.usuario_email || rd.cliente_email || "";
       if (ec) {
         const ns = await db.collection("negocios_publicos").where("empresaIdVinculada", "==", eid).limit(1).get();
         const nn = ns.empty ? "El negocio" : ns.docs[0].data().nombre;
-        await enviarCancelacionReserva({ to: ec, clienteNombre: rd.nombre_cliente || rd.usuario_nombre || "Cliente", empresaNombre: nn, fechaHora: ft, motivoCancelacion: motivo || "Sin motivo especificado" });
+        await enviarCancelacionReserva({ to: ec, clienteNombre: rd.nombre_cliente || rd.usuario_nombre || rd.cliente_nombre || "Cliente", empresaNombre: nn, fechaHora: ft, motivoCancelacion: motivo || "Sin motivo especificado" });
       }
       res.send(_land("rechazada", "Reserva No Aceptada", "Se ha notificado al cliente.", "orange"));
     } catch (err) { console.error("[rechazar]", err); res.status(500).send(_land("error", "Error", String(err), "")); }

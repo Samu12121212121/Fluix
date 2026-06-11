@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/detalle_pedido_nuevo_screen.dart';
@@ -16,7 +17,7 @@ class ModuloPedidosNuevoScreen extends StatefulWidget {
 }
 
 class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tabs;
   final PedidosService _svc = PedidosService();
   String _busqueda = '';

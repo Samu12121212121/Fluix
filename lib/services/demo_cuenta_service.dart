@@ -70,6 +70,35 @@ class DemoCuentaService {
     final now        = DateTime.now();
     final empresaRef = _db.collection('empresas').doc(demoEmpresaId);
 
+    // ── 0. LIMPIAR DATOS DE PRUEBA (p.ej. "ffff") ───────────────────────────
+    final _testNameRegex = RegExp(r'^[fF]+$|^test$|^prueba$|^demo_emp_', caseSensitive: false);
+    // Limpiar en subcollección profesionales
+    try {
+      final profsSnap = await empresaRef.collection('profesionales').get();
+      for (final doc in profsSnap.docs) {
+        final nombre = (doc.data()['nombre'] as String? ?? '').trim();
+        if (nombre.isEmpty || _testNameRegex.hasMatch(nombre)) {
+          await doc.reference.delete();
+        }
+      }
+    } catch (_) {}
+    // Limpiar en usuarios: documentos con IDs de prueba o nombres de prueba
+    try {
+      final usuariosSnap = await _db
+          .collection('usuarios')
+          .where('empresa_id', isEqualTo: demoEmpresaId)
+          .get();
+      for (final doc in usuariosSnap.docs) {
+        final nombre = (doc.data()['nombre'] as String? ?? '').trim();
+        // Borrar si el nombre es claramente de prueba O si el doc ID es un ID de demo antiguo
+        if (_testNameRegex.hasMatch(nombre) ||
+            nombre.isEmpty ||
+            doc.id.startsWith('demo_emp_')) {
+          await doc.reference.delete();
+        }
+      }
+    } catch (_) {}
+
     // ── 1. USUARIO PRIMERO — las reglas de suscripción/configuración necesitan
     //    que usuarios/{uid} exista con empresa_id y rol correcto. ───────────
     await _db.collection('usuarios').doc(uid).set({
@@ -128,6 +157,8 @@ class DemoCuentaService {
         {'id': 'nominas',      'activo': true},
         {'id': 'whatsapp',     'activo': true},
         {'id': 'web',          'activo': true},
+        {'id': 'app',          'activo': true},
+        {'id': 'tpv',          'activo': true},
       ],
       'ultima_actualizacion': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

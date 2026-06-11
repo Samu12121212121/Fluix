@@ -23,7 +23,8 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
   final WidgetManagerService _widgetService = WidgetManagerService();
   bool _guardandoCambios = false;
   List<String> _packsActivos = [];
-  bool _cargandoPacks = true; // Evita mostrar 🔒 mientras carga
+  List<String> _modulosOverride = [];
+  bool _cargandoPacks = true;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
       if (mounted) {
         setState(() {
           _packsActivos = datos?.packsActivos ?? [];
+          _modulosOverride = datos?.modulosOverride ?? [];
           _cargandoPacks = false;
         });
       }
@@ -52,6 +54,9 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
   bool _widgetPermitido(String widgetId) {
     final packRequerido = _packRequeridoPorWidget[widgetId];
     if (packRequerido == null) return true;
+    // Comprobar por módulo override (cuentas asignadas por propietario)
+    if (widgetId == 'resumen_facturacion' && _modulosOverride.contains('facturacion')) return true;
+    if (widgetId == 'resumen_pedidos' && (_modulosOverride.contains('pedidos') || _modulosOverride.contains('tienda'))) return true;
     return _packsActivos.contains(packRequerido);
   }
 
@@ -558,7 +563,6 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
               Text(
                 '• Activa los widgets que te sean útiles con el switch\n'
                     '• Solo puedes activar los marcados como ✅ Disponible\n'
-                    '• Los marcados 🚧 Próximamente estarán disponibles pronto\n'
                     '• Arrastra para reordenar (mantén presionado el ícono ≡)\n'
                     '• Los widgets activos aparecerán en tu dashboard principal',
                 style: TextStyle(fontSize: 13),

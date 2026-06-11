@@ -127,7 +127,7 @@ class PlanesConfig {
 
   static const planBase = PlanConfig(
     id: 'basico',
-    nombre: 'Plan Base',
+    nombre: 'Core',
     precioAnual: 310,
     modulosIncluidos: [
       'dashboard',
@@ -148,7 +148,7 @@ class PlanesConfig {
 
   static const packGestion = PackConfig(
     id: 'gestion',
-    nombre: 'Pack Gestión',
+    nombre: 'Gestión',
     precioAnual: 370,
     modulosAdicionales: ['facturacion', 'vacaciones', 'tpv', 'fichaje'],
     descripcion: 'Facturación completa, gestión de vacaciones, TPV y fichaje.',
@@ -168,7 +168,7 @@ class PlanesConfig {
 
   static const packTienda = PackConfig(
     id: 'tienda',
-    nombre: 'Pack Tienda Online',
+    nombre: 'Tienda Online',
     precioAnual: 490,
     modulosAdicionales: ['pedidos'],
     descripcion: 'Catálogo de productos y pedidos online.',

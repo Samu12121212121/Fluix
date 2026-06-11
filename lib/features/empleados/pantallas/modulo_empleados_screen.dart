@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/convenio_firestore_service.dart';
@@ -27,7 +28,7 @@ class ModuloEmpleadosScreen extends StatefulWidget {
   State<ModuloEmpleadosScreen> createState() => _ModuloEmpleadosScreenState();
 }
 class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SafeStreamMixin {
   final _firestore = FirebaseFirestore.instance;
   Timer? _tokenRefreshTimer;
   final _convenioService = ConvenioFirestoreService();

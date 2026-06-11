@@ -445,6 +445,10 @@ class _FormularioEsteticaPeluqueriaState extends State<FormularioEsteticaPeluque
   }
 
   Widget _buildEmpleadoSelector() {
+    if (widget.negocio.empresaIdVinculada == null ||
+        widget.negocio.empresaIdVinculada!.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('empresas')

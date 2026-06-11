@@ -10,35 +10,14 @@ class AlertasFiscalesWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vencimientos =
-        CalendarioFiscalService.proximosVencimientos(DateTime.now());
-
+    final ahora = DateTime.now();
+    // Muestra todas las obligaciones pendientes del año; si ya pasaron todas,
+    // muestra las del primer trimestre del año siguiente.
+    var vencimientos =
+        CalendarioFiscalService.proximosVencimientos(ahora, diasLimite: 365);
     if (vencimientos.isEmpty) {
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.grey[200]!),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Obligaciones fiscales',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  Text('Sin vencimientos próximos',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-                ],
-              ),
-            ),
-          ]),
-        ),
-      );
+      vencimientos = CalendarioFiscalService.proximosVencimientos(
+          DateTime(ahora.year + 1, 1, 1), diasLimite: 60);
     }
 
     return Card(
@@ -59,7 +38,15 @@ class AlertasFiscalesWidget extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
             ]),
             const Divider(height: 20),
-            ...vencimientos.take(5).map((v) => _ItemVencimiento(v: v)),
+            if (vencimientos.isEmpty)
+              Row(children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                const SizedBox(width: 8),
+                Text('Sin obligaciones pendientes',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+              ])
+            else
+              ...vencimientos.take(6).map((v) => _ItemVencimiento(v: v)),
           ],
         ),
       ),

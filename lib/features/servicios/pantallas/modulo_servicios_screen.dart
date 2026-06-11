@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:csv/csv.dart';
+import 'dart:io';
+import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
 
 class ModuloServiciosScreen extends StatefulWidget {
@@ -11,7 +15,8 @@ class ModuloServiciosScreen extends StatefulWidget {
   State<ModuloServiciosScreen> createState() => _ModuloServiciosScreenState();
 }
 
-class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
+class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
+    with SafeStreamMixin {
   final _firestore = FirebaseFirestore.instance;
   String _categoriaFiltro = 'Todos';
 
@@ -55,9 +60,10 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
             return _buildVacio();
           }
 
+          final todosLosDocs = snapshot.data?.docs ?? [];
           return CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: _buildResumen(snapshot.data?.docs ?? [])),
+              SliverToBoxAdapter(child: _buildResumen(todosLosDocs, todosLosDocs)),
               // Filtro por categoría
               if (categorias.length > 1)
                 SliverToBoxAdapter(
@@ -119,6 +125,7 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
                           data: data,
                           onEditar: () => _abrirFormulario(id: servicios[i].id, data: data),
                           onToggle: () => _toggleActivo(servicios[i].id, data['activo'] ?? true),
+                          onEliminar: () => _eliminarServicio(servicios[i].id, data['nombre'] ?? ''),
                         ),
                       );
                     },
@@ -131,19 +138,34 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
         },
       ),
       floatingActionButton: (widget.sesion?.puedeGestionarServicios ?? true)
-          ? FloatingActionButton.extended(
-              heroTag: 'fab_servicios',
-              onPressed: _abrirFormulario,
-              backgroundColor: const Color(0xFF7B1FA2),
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo servicio'),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'fab_csv',
+                  onPressed: _importarCsv,
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF7B1FA2),
+                  tooltip: 'Importar CSV',
+                  elevation: 2,
+                  child: const Icon(Icons.upload_file),
+                ),
+                const SizedBox(width: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'fab_servicios',
+                  onPressed: _abrirFormulario,
+                  backgroundColor: const Color(0xFF7B1FA2),
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo servicio'),
+                ),
+              ],
             )
           : null,
     );
   }
 
-  Widget _buildResumen(List<QueryDocumentSnapshot> servicios) {
+  Widget _buildResumen(List<QueryDocumentSnapshot> servicios, List<QueryDocumentSnapshot> todos) {
     final activos = servicios.where((s) {
       final d = s.data() as Map<String, dynamic>;
       return d['activo'] != false;
@@ -167,12 +189,36 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
         ),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
         children: [
-          _StatChip(label: 'Total', valor: '${servicios.length}', icono: Icons.miscellaneous_services),
-          _StatChip(label: 'Activos', valor: '$activos', icono: Icons.check_circle),
-          _StatChip(label: 'Precio medio', valor: '€${precioMedio.toStringAsFixed(0)}', icono: Icons.euro),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatChip(label: 'Total', valor: '${servicios.length}', icono: Icons.miscellaneous_services),
+              _StatChip(label: 'Activos', valor: '$activos', icono: Icons.check_circle),
+              _StatChip(label: 'Precio medio', valor: '€${precioMedio.toStringAsFixed(0)}', icono: Icons.euro),
+            ],
+          ),
+          if (todos.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => _eliminarTodos(todos),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.delete_sweep, color: Colors.white, size: 14),
+                  SizedBox(width: 6),
+                  Text('Borrar todos los servicios',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -205,6 +251,152 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen> {
         .update({'activo': !actual});
   }
 
+  Future<void> _eliminarTodos(List<QueryDocumentSnapshot> servicios) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Borrar todos los servicios'),
+        content: Text('¿Eliminar los ${servicios.length} servicios? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Borrar todos'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final batch = _firestore.batch();
+    for (final doc in servicios) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Todos los servicios eliminados'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
+  Future<void> _eliminarServicio(String id, String nombre) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar servicio'),
+        content: Text('¿Eliminar "$nombre"? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _firestore
+        .collection('empresas')
+        .doc(widget.empresaId)
+        .collection('servicios')
+        .doc(id)
+        .delete();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$nombre" eliminado'), backgroundColor: Colors.red.shade700),
+      );
+    }
+  }
+
+  Future<void> _importarCsv() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'txt'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final path = result.files.first.path;
+    if (path == null) return;
+
+    try {
+      final content = await File(path).readAsString();
+      final rows = const CsvToListConverter(eol: '\n').convert(content);
+      if (rows.isEmpty) return;
+
+      // Detectar si la primera fila es cabecera
+      final primeraFila = rows.first.map((e) => e.toString().toLowerCase().trim()).toList();
+      final tieneCabecera = primeraFila.any((c) =>
+          c.contains('nombre') || c.contains('precio') || c.contains('categor'));
+      final datos = tieneCabecera ? rows.skip(1).toList() : rows;
+
+      // Índices de columnas (intenta detectar por cabecera o usar posición)
+      int iNombre = 0, iCategoria = 1, iPrecio = 2, iDescripcion = 3, iDuracion = 4;
+      if (tieneCabecera) {
+        iNombre     = primeraFila.indexWhere((c) => c.contains('nombre'));
+        iCategoria  = primeraFila.indexWhere((c) => c.contains('categor'));
+        iPrecio     = primeraFila.indexWhere((c) => c.contains('precio'));
+        iDescripcion = primeraFila.indexWhere((c) => c.contains('desc'));
+        iDuracion   = primeraFila.indexWhere((c) => c.contains('dur') || c.contains('min'));
+        if (iNombre < 0) iNombre = 0;
+        if (iCategoria < 0) iCategoria = 1;
+        if (iPrecio < 0) iPrecio = 2;
+        if (iDescripcion < 0) iDescripcion = 3;
+        if (iDuracion < 0) iDuracion = 4;
+      }
+
+      int importados = 0;
+      int errores = 0;
+      final batch = _firestore.batch();
+      final col = _firestore.collection('empresas').doc(widget.empresaId).collection('servicios');
+
+      for (final row in datos) {
+        if (row.isEmpty) continue;
+        String get(int idx) => idx < row.length ? row[idx].toString().trim() : '';
+        final nombre = get(iNombre);
+        if (nombre.isEmpty) { errores++; continue; }
+        final precio = double.tryParse(get(iPrecio).replaceAll(',', '.')) ?? 0.0;
+        final duracion = int.tryParse(get(iDuracion)) ?? 60;
+        batch.set(col.doc(), {
+          'nombre': nombre,
+          'categoria': get(iCategoria).isNotEmpty ? get(iCategoria) : 'General',
+          'precio': precio,
+          'descripcion': get(iDescripcion),
+          'duracion_minutos': duracion,
+          'activo': true,
+          'iva_porcentaje': 21.0,
+          'precio_con_iva': false,
+          'fecha_creacion': FieldValue.serverTimestamp(),
+        });
+        importados++;
+      }
+
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$importados servicio${importados == 1 ? '' : 's'} importado${importados == 1 ? '' : 's'}'
+              '${errores > 0 ? ' ($errores filas con error)' : ''}'),
+          backgroundColor: Colors.green.shade700,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al importar: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _abrirFormulario({String? id, Map<String, dynamic>? data}) async {
     await showModalBottomSheet(
       context: context,
@@ -226,8 +418,9 @@ class _TarjetaServicio extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onEditar;
   final VoidCallback onToggle;
+  final VoidCallback onEliminar;
 
-  const _TarjetaServicio({required this.id, required this.data, required this.onEditar, required this.onToggle});
+  const _TarjetaServicio({required this.id, required this.data, required this.onEditar, required this.onToggle, required this.onEliminar});
 
   String _duracionFormateada(int minutos) {
     if (minutos >= 60) {
@@ -338,6 +531,7 @@ class _TarjetaServicio extends StatelessWidget {
                   onSelected: (v) {
                     if (v == 'editar') onEditar();
                     if (v == 'toggle') onToggle();
+                    if (v == 'eliminar') onEliminar();
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(value: 'editar', child: ListTile(
@@ -348,6 +542,11 @@ class _TarjetaServicio extends StatelessWidget {
                     PopupMenuItem(value: 'toggle', child: ListTile(
                       leading: Icon(activo ? Icons.visibility_off : Icons.visibility),
                       title: Text(activo ? 'Desactivar' : 'Activar'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                    const PopupMenuItem(value: 'eliminar', child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: Colors.red),
+                      title: Text('Eliminar', style: TextStyle(color: Colors.red)),
                       contentPadding: EdgeInsets.zero,
                     )),
                   ],
@@ -383,7 +582,11 @@ class _FormularioServicioState extends State<_FormularioServicio> {
   late TextEditingController _duracionCtrl;
   late TextEditingController _categoriaCtrl;
   bool _guardando = false;
-  
+
+  // IVA por servicio
+  double _ivaPorcentaje = 21.0;
+  bool _precioConIva = false; // true = el precio ya incluye IVA
+
   // Variables para gestión de empleados
   bool _cargandoEmpleados = true;
   List<Map<String, dynamic>> _empleadosDisponibles = [];
@@ -399,6 +602,8 @@ class _FormularioServicioState extends State<_FormularioServicio> {
     _precioCtrl = TextEditingController(text: (widget.data?['precio'] ?? '').toString());
     _duracionCtrl = TextEditingController(text: (widget.data?['duracion_minutos'] ?? 60).toString());
     _categoriaCtrl = TextEditingController(text: widget.data?['categoria'] ?? '');
+    _ivaPorcentaje = (widget.data?['iva_porcentaje'] as num?)?.toDouble() ?? 21.0;
+    _precioConIva  = widget.data?['precio_con_iva'] as bool? ?? false;
     
     // Cargar empleados disponibles
     _cargarEmpleados();
@@ -458,6 +663,8 @@ class _FormularioServicioState extends State<_FormularioServicio> {
         'activo': true,
         'imagenes': [],
         'empleados_ids': _empleadosSeleccionados.toList(),
+        'iva_porcentaje': _ivaPorcentaje,
+        'precio_con_iva': _precioConIva,
         'fecha_modificacion': DateTime.now().toIso8601String(),
       };
 
@@ -560,6 +767,40 @@ class _FormularioServicioState extends State<_FormularioServicio> {
                 ],
               ),
               const SizedBox(height: 12),
+              // ── IVA ─────────────────────────────────────────────────────────
+              Row(children: [
+                const Icon(Icons.percent, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                const Text('IVA:', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
+                ...[0.0, 4.0, 10.0, 21.0].map((v) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('${v.toStringAsFixed(0)}%',
+                        style: const TextStyle(fontSize: 11)),
+                    selected: _ivaPorcentaje == v,
+                    onSelected: (_) => setState(() => _ivaPorcentaje = v),
+                    selectedColor: const Color(0xFF7B1FA2).withValues(alpha: 0.2),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                )),
+              ]),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Precio ya incluye IVA (PVP)',
+                    style: TextStyle(fontSize: 13)),
+                subtitle: Text(
+                  _precioConIva
+                      ? 'La base imponible se calculará dividiendo el precio entre ${(1 + _ivaPorcentaje / 100).toStringAsFixed(2)}'
+                      : 'El IVA se añadirá encima del precio al facturar',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                value: _precioConIva,
+                onChanged: (v) => setState(() => _precioConIva = v),
+              ),
+              const SizedBox(height: 4),
               TextFormField(
                 controller: _categoriaCtrl,
                 decoration: _inputDeco('Categoría (ej: Cabello, Masajes...)', Icons.category),

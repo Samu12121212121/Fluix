@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../services/widget_manager_service.dart';
 
 /// Pantalla para que el admin/propietario configure qué módulos
 /// puede ver cada empleado.
@@ -31,23 +32,36 @@ class _ConfigurarModulosEmpleadoScreenState
   List<String> _modulosSeleccionados = [];
   bool _usarPersonalizados = false;
 
-  // Mapa de módulos con icono y nombre legible
+  /// Módulos activos de la empresa (cargados de Firestore)
+  List<String> _modulosEmpresa = [];
+
+  // Mapa completo de módulos con icono y nombre legible
   static const _modulosInfo = <String, ({IconData icono, String nombre})>{
-    'dashboard':    (icono: Icons.dashboard,           nombre: 'Dashboard'),
-    'reservas':     (icono: Icons.calendar_today,      nombre: 'Reservas'),
-    'citas':        (icono: Icons.event,               nombre: 'Citas'),
-    'clientes':     (icono: Icons.people,              nombre: 'Clientes'),
-    'valoraciones': (icono: Icons.star,                nombre: 'Valoraciones'),
-    'estadisticas': (icono: Icons.bar_chart,           nombre: 'Estadísticas'),
-    'servicios':    (icono: Icons.spa,                 nombre: 'Servicios'),
+    'dashboard':    (icono: Icons.dashboard,            nombre: 'Dashboard'),
+    'reservas':     (icono: Icons.calendar_today,       nombre: 'Reservas'),
+    'citas':        (icono: Icons.event,                nombre: 'Citas'),
+    'clientes':     (icono: Icons.people,               nombre: 'Clientes'),
+    'valoraciones': (icono: Icons.star,                 nombre: 'Valoraciones'),
+    'estadisticas': (icono: Icons.bar_chart,            nombre: 'Estadísticas'),
+    'servicios':    (icono: Icons.spa,                  nombre: 'Servicios'),
     'pedidos':      (icono: Icons.shopping_cart,        nombre: 'Pedidos'),
-    'whatsapp':     (icono: Icons.chat,                nombre: 'WhatsApp Bot'),
-    'tareas':       (icono: Icons.task_alt,            nombre: 'Tareas'),
-    'empleados':    (icono: Icons.badge,               nombre: 'Empleados'),
-    'facturacion':  (icono: Icons.receipt_long,        nombre: 'Facturación'),
-    'nominas':      (icono: Icons.payments,            nombre: 'Nóminas'),
-    'web':          (icono: Icons.web,                 nombre: 'Contenido Web'),
+    'whatsapp':     (icono: Icons.chat,                 nombre: 'WhatsApp Bot'),
+    'tareas':       (icono: Icons.task_alt,             nombre: 'Tareas'),
+    'empleados':    (icono: Icons.badge,                nombre: 'Empleados'),
+    'facturacion':  (icono: Icons.receipt_long,         nombre: 'Facturación'),
+    'nominas':      (icono: Icons.payments,             nombre: 'Nóminas'),
+    'web':          (icono: Icons.web,                  nombre: 'Contenido Web'),
+    'app':          (icono: Icons.phone_android,        nombre: 'Mi App'),
+    'tpv':          (icono: Icons.point_of_sale,        nombre: 'TPV / Cobros'),
+    'fichaje':      (icono: Icons.access_time,          nombre: 'Fichaje'),
+    'vacaciones':   (icono: Icons.beach_access,         nombre: 'Vacaciones'),
+    'fiscal':       (icono: Icons.account_balance,      nombre: 'Fiscal AI'),
   };
+
+  /// Módulos que se activan automáticamente junto con facturación
+  static const _modulosAutoConFacturacion = [
+    'contabilidad', 'plantillas_pdf', 'verifactu',
+  ];
 
   @override
   void initState() {
@@ -57,23 +71,39 @@ class _ConfigurarModulosEmpleadoScreenState
 
   Future<void> _cargar() async {
     try {
+      // Cargar módulos activos de la empresa (fuente de verdad)
+      final modulosEmpresaSnap = await WidgetManagerService()
+          .obtenerModulosActivos(widget.empresaId)
+          .first;
+      final activos = modulosEmpresaSnap
+          .where((m) => m.activo)
+          .map((m) => m.id)
+          .where((id) => !const {'propietario', 'explorar', 'citas_del_dia'}.contains(id))
+          .toList();
+
+      // Cargar configuración del empleado
       final doc = await _db.collection('usuarios').doc(widget.empleadoUid).get();
       if (doc.exists) {
         final data = doc.data()!;
         _rol = data['rol'] as String? ?? 'staff';
         final modulosGuardados = (data['modulos_permitidos'] as List<dynamic>?)
             ?.map((e) => e.toString())
+            .where((id) => activos.contains(id)) // Solo módulos que la empresa tiene
             .toList();
 
         if (modulosGuardados != null && modulosGuardados.isNotEmpty) {
           _usarPersonalizados = true;
           _modulosSeleccionados = modulosGuardados;
         } else {
-          // Usar los por defecto del rol
           _usarPersonalizados = false;
-          _modulosSeleccionados = _modulosPorDefectoRol(_rol);
+          // Defaults del rol filtrados por lo que tiene la empresa
+          _modulosSeleccionados = _modulosPorDefectoRol(_rol)
+              .where((id) => activos.contains(id))
+              .toList();
         }
       }
+
+      setState(() => _modulosEmpresa = activos);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +117,7 @@ class _ConfigurarModulosEmpleadoScreenState
   List<String> _modulosPorDefectoRol(String rol) {
     switch (rol) {
       case 'propietario':
-        return SesionUsuario.todosLosModulos.toList();
+        return List.from(_modulosEmpresa);
       case 'admin':
         return [
           'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
@@ -104,8 +134,15 @@ class _ConfigurarModulosEmpleadoScreenState
     setState(() => _guardando = true);
     try {
       if (_usarPersonalizados) {
+        // Auto-incluir módulos ligados a facturación si está activa
+        final modulos = List<String>.from(_modulosSeleccionados);
+        if (modulos.contains('facturacion')) {
+          for (final auto in _modulosAutoConFacturacion) {
+            if (!modulos.contains(auto)) modulos.add(auto);
+          }
+        }
         await _db.collection('usuarios').doc(widget.empleadoUid).update({
-          'modulos_permitidos': _modulosSeleccionados,
+          'modulos_permitidos': modulos,
         });
       } else {
         // Eliminar personalización → usar defaults del rol
@@ -240,8 +277,7 @@ class _ConfigurarModulosEmpleadoScreenState
                     children: [
                       TextButton.icon(
                         onPressed: () => setState(() {
-                          _modulosSeleccionados =
-                              SesionUsuario.todosLosModulos.toList();
+                          _modulosSeleccionados = List.from(_modulosEmpresa);
                         }),
                         icon: const Icon(Icons.select_all, size: 16),
                         label: const Text('Todos',
@@ -267,8 +303,8 @@ class _ConfigurarModulosEmpleadoScreenState
                   ),
                   const SizedBox(height: 8),
 
-                  // ── Lista de módulos ────────────────────
-                  ...SesionUsuario.todosLosModulos.map((modId) {
+                  // ── Lista de módulos (solo los activos de la empresa) ──
+                  ..._modulosEmpresa.map((modId) {
                     final info = _modulosInfo[modId];
                     final activo = _modulosSeleccionados.contains(modId);
                     return CheckboxListTile(

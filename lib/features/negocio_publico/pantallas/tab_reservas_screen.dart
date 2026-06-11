@@ -200,15 +200,12 @@ class _CuerpoServicios extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cargar servicios desde la colección empresarial (módulo owner)
-    // para mostrar servicios creados/importados desde CSV
+    // Fuente única: empresas/{empresaIdVinculada}/servicios (mismo módulo de Mi App)
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('empresas')
           .doc(negocio.empresaIdVinculada)
           .collection('servicios')
-          .where('activo', isNotEqualTo: false)
-          .orderBy('activo')
           .orderBy('nombre')
           .snapshots(),
       builder: (_, snap) {
@@ -644,34 +641,36 @@ class _BookingSheetState extends State<_BookingSheet>
 
   // Carga cuántas reservas hay por día para el mes actual y el siguiente
   Future<void> _cargarCargaCalendario() async {
+    if (mounted) setState(() => _cargandoCarga = false);
+    final empresaId = widget.negocio.empresaIdVinculada;
+    if (empresaId.isEmpty) return;
+
     final now = DateTime.now();
     final inicio = DateTime(now.year, now.month, 1);
-    final fin = DateTime(now.year, now.month + 2, 0); // fin del mes siguiente
+    final fin = DateTime(now.year, now.month + 2, 0);
 
     try {
       final snap = await FirebaseFirestore.instance
           .collection('empresas')
-          .doc(widget.negocio.empresaIdVinculada)
-          .collection('citas')
-          .where('fecha',
+          .doc(empresaId)
+          .collection('reservas')
+          .where('fecha_hora',
           isGreaterThanOrEqualTo: Timestamp.fromDate(inicio),
           isLessThanOrEqualTo: Timestamp.fromDate(fin))
-          .where('servicioId', isEqualTo: widget.servicio.id)
+          .where('servicio_id', isEqualTo: widget.servicio.id)
           .get();
 
       final Map<String, int> conteos = {};
       for (final doc in snap.docs) {
-        final ts = doc.data()['fecha'] as Timestamp?;
+        final ts = doc.data()['fecha_hora'] as Timestamp?;
         if (ts == null) continue;
         final d = ts.toDate();
         final key = '${d.year}-${d.month}-${d.day}';
         conteos[key] = (conteos[key] ?? 0) + 1;
       }
 
-      if (mounted) setState(() { _cargaDias.addAll(conteos); _cargandoCarga = false; });
-    } catch (_) {
-      if (mounted) setState(() => _cargandoCarga = false);
-    }
+      if (mounted) setState(() => _cargaDias.addAll(conteos));
+    } catch (_) {}
   }
 
   Color _colorCarga(int reservas) {
@@ -828,12 +827,12 @@ class _BookingSheetState extends State<_BookingSheet>
       final clienteNombre = user?.displayName ?? user?.email?.split('@').first ?? 'Cliente';
       final clienteEmail = user?.email ?? '';
 
-      // Crear cita en Firestore
-      final citaRef = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.negocio.empresaIdVinculada)
-          .collection('reservas')  // ← Usamos 'reservas' para unificar con el módulo owner
-          .add({
+      // Crear reserva en Firestore — si hay empresa vinculada, allí; si no, en negocios_publicos
+      final empresaId = widget.negocio.empresaIdVinculada;
+      final reservasCol = empresaId.isNotEmpty
+          ? FirebaseFirestore.instance.collection('empresas').doc(empresaId).collection('reservas')
+          : FirebaseFirestore.instance.collection('negocios_publicos').doc(widget.negocio.id).collection('reservas');
+      final citaRef = await reservasCol.add({
         // Datos del cliente
         'cliente_uid': uid,
         'cliente_nombre': clienteNombre,
@@ -858,11 +857,10 @@ class _BookingSheetState extends State<_BookingSheet>
       });
 
       // Crear notificación para el owner
-      await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.negocio.empresaIdVinculada)
-          .collection('notificaciones_reservas')
-          .add({
+      final notifCol = empresaId.isNotEmpty
+          ? FirebaseFirestore.instance.collection('empresas').doc(empresaId).collection('notificaciones_reservas')
+          : FirebaseFirestore.instance.collection('negocios_publicos').doc(widget.negocio.id).collection('notificaciones_reservas');
+      await notifCol.add({
         'reserva_id': citaRef.id,
         'tipo': 'nueva_reserva_b2c',
         'cliente_nombre': clienteNombre,

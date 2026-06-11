@@ -40,8 +40,8 @@ import '../../tpv/pantallas/tpv_root_screen.dart';
 import '../../tpv/pantallas/tpv_peluqueria_screen.dart';
 import '../../tpv/pantallas/tpv_tienda_screen.dart';
 import '../../tpv/pantallas/tpv_selector_negocio_screen.dart';
-import '../../fichajes/pantallas/pantalla_fichaje_empleado.dart';
 import '../../fichajes/pantallas/gestion_fichajes_screen.dart';
+import '../../../core/navigation/app_navigator.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
@@ -50,6 +50,7 @@ import '../../negocio_publico/pantallas/modulo_app_screen.dart';
 import '../../../services/stock_service.dart';
 import '../../../services/auth/token_refresh_service.dart';
 import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
+import '../../pdf_templates/presentation/screens/pdf_templates_list_screen.dart';
 import '../../../core/enums/enums.dart';
 import 'package:flutter/foundation.dart';
 
@@ -151,7 +152,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   @override
   void dispose() {
     _tabController?.dispose();
-    _notifSubscription?.cancel(); // Cancel subscription
+    // _notifSubscription cancelado automáticamente por SafeStreamMixin
     super.dispose();
   }
 
@@ -589,7 +590,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 } else {
                   modulosVisibles = sesionActiva != null
                       ? modulosFiltrados.where((m) =>
-                          m.id == 'propietario' || sesionActiva.modulosVisibles.contains(m.id)).toList()
+                          sesionActiva.modulosVisibles.contains(m.id)).toList()
                       : modulosFiltrados.toList();
                 }
 
@@ -804,9 +805,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   Widget _buildContenidoModulo(String moduloId) {
     final id = _empresaId!;
     final sesionActiva = _sesionEfectiva;
-    // Módulo exclusivo de la cuenta propietaria
-    final esPropietario = _sesion?.esPropietario == true ||
-        id == ConstantesApp.empresaPropietariaId;
+    // Módulo exclusivo del rol propietario (estrictamente)
+    final esPropietario = _sesion?.esPropietario == true;
     switch (moduloId) {
       case 'propietario':     return esPropietario ? const ModuloPropietario() : const Center(child: Text('Sin acceso'));
       case 'dashboard':       return _buildDashboardModular();
@@ -833,6 +833,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
       case 'web':             return _buildVistaWeb();
       case 'app':             return ModuloAppScreen(empresaId: id);
+      case 'plantillas_pdf':  return PdfTemplatesListScreen(empresaId: id);
       default:                return Center(child: Text('Módulo "$moduloId" no disponible', style: TextStyle(color: Colors.red)));
     }
   }
@@ -1698,18 +1699,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
   /// Construye la pantalla de fichaje según el rol del usuario
   Widget _construirPantallaFichaje() {
-    // Si es admin o propietario, muestra el dashboard de gestión
-    if (_sesion?.esAdmin == true || _sesion?.esPropietario == true) {
-      return GestionFichajesScreen(
-        empresaId: _empresaId ?? '',
-        usuarioActualUid: _sesion?.uid ?? '',
-      );
-    }
-    
-    // Si es empleado normal, muestra la pantalla de fichaje con PIN
-    return PantallaFichajeEmpleado(
+    return GestionFichajesScreen(
       empresaId: _empresaId ?? '',
-      dispositivoId: 'tablet_dashboard', // Puedes cambiar esto según el dispositivo
+      esAdmin: _sesion?.esAdmin == true,
     );
   }
 
@@ -1742,14 +1734,28 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                       child: const Text('Cancelar')),
                   ElevatedButton(
                     onPressed: () async {
+                      debugPrint('🔴 SIGNOUT: iniciando cierre de sesión');
                       Navigator.pop(ctx);
-                      // Limpiar token FCM de la empresa activa para no recibir
-                      // notificaciones de esta empresa en futuras sesiones de otra cuenta
+                      debugPrint('🔴 SIGNOUT: dialog cerrado, empresaId=$_empresaId');
                       if (_empresaId != null) {
-                        await NotificacionesService().eliminarTokenDeEmpresa(_empresaId!);
+                        try {
+                          await NotificacionesService().eliminarTokenDeEmpresa(_empresaId!);
+                          debugPrint('🔴 SIGNOUT: token FCM eliminado');
+                        } catch (e) {
+                          debugPrint('🔴 SIGNOUT: error eliminando token: $e');
+                        }
                       }
                       PermisosService().limpiarSesion();
-                      await FirebaseAuth.instance.signOut();
+                      debugPrint('🔴 SIGNOUT: permisos limpiados');
+                      try {
+                        await FirebaseAuth.instance.signOut();
+                        debugPrint('🔴 SIGNOUT: Firebase signOut OK');
+                      } catch (e) {
+                        debugPrint('🔴 SIGNOUT: Firebase signOut error: $e');
+                      }
+                      debugPrint('🔴 SIGNOUT: llamando AppNavigator.irALogin(), key.currentState=${AppNavigator.key.currentState}');
+                      AppNavigator.irALogin();
+                      debugPrint('🔴 SIGNOUT: irALogin() completado');
                     },
                     style:
                     ElevatedButton.styleFrom(backgroundColor: Colors.red),

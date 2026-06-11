@@ -583,14 +583,6 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
           ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_add_item',
-        onPressed: _anadirItem,
-        backgroundColor: tipoColor,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Añadir'),
-      ),
       body: _items.isEmpty
           ? Center(
               child: Column(

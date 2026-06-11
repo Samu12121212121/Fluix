@@ -557,6 +557,11 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
           .doc(widget.doc.id)
           .update(nuevosDatos);
 
+      // Crear/actualizar cliente si la reserva está confirmada o aceptada
+      if (_estadoSel == 'CONFIRMADA' || _estadoSel == 'ACEPTADA') {
+        ClientesService().upsertClienteDesdeReserva(widget.empresaId, nuevosDatos);
+      }
+
       if (!mounted) return;
       Navigator.pop(context);
 

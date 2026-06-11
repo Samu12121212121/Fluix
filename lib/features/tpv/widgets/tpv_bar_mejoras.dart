@@ -197,8 +197,9 @@ class _DialogoCrearMesaState extends State<_DialogoCrearMesa> {
       }
 
       if (!mounted) return;
+      final messengerMesa = ScaffoldMessenger.of(context);
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messengerMesa.showSnackBar(
         SnackBar(
           content: Text(widget.mesaId != null ? 'Mesa actualizada' : 'Mesa creada'),
           backgroundColor: const Color(0xFF00FFC8),
@@ -247,8 +248,9 @@ class _DialogoCrearMesaState extends State<_DialogoCrearMesa> {
           .delete();
 
       if (!mounted) return;
+      final messengerElim = ScaffoldMessenger.of(context);
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messengerElim.showSnackBar(
         const SnackBar(
           content: Text('Mesa eliminada'),
           backgroundColor: Color(0xFFFF2850),

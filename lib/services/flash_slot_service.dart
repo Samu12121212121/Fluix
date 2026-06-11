@@ -10,6 +10,7 @@ class FlashSlotService {
 
   static Future<String> crearSlot(FlashSlotModel slot) async {
     final ref = await _ref(slot.negocioId).add(slot.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     await _db.collection('flash_slots_notificaciones').add({
       'slot_id': ref.id,
       'negocio_id': slot.negocioId,
@@ -17,6 +18,7 @@ class FlashSlotService {
       'servicio_nombre': slot.servicioNombre,
       'precio_final': slot.precioFinal,
       'huecos_totales': slot.huecosTotal,
+      'user_id': uid,
       'procesado': false,
       'creado_at': FieldValue.serverTimestamp(),
     });
@@ -29,9 +31,12 @@ class FlashSlotService {
   static Stream<List<FlashSlotModel>> escucharActivos(String negocioId) =>
       _ref(negocioId)
           .where('estado', isEqualTo: 'activo')
-          .orderBy('creado_at', descending: true)
           .snapshots()
-          .map((s) => s.docs.map(FlashSlotModel.fromFirestore).toList());
+          .map((s) {
+            final list = s.docs.map(FlashSlotModel.fromFirestore).toList();
+            list.sort((a, b) => b.creadoAt.compareTo(a.creadoAt));
+            return list;
+          });
 
   static Stream<List<FlashSlotModel>> escucharHistorial(String negocioId) =>
       _ref(negocioId)

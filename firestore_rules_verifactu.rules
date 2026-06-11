@@ -1,0 +1,252 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIRESTORE RULES - CUMPLIMIENTO VERIFACTU (RRSIF)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Estas reglas garantizan la INMUTABILIDAD de los registros de facturación
+// según el Real Decreto 1007/2023 (modificado por RD 254/2025)
+//
+// FLUIX TECH, S.L. (NIF: B26997528)
+// Fluix CRM - Sistema de Facturación Verifactu
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FACTURAS VERIFACTU - INMUTABILIDAD ESTRICTA
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // Requisitos legales:
+    // - Solo permitir creación (CREATE) - nunca actualización o eliminación
+    // - Verificar que contiene todos los campos obligatorios
+    // - Verificar que el hash SHA-256 tiene longitud correcta (64 caracteres hex)
+    // - La fecha de creación debe ser la del servidor (no manipulable)
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    match /empresas/{empresaId}/facturas_verifactu/{facturaId} {
+
+      // ──────────────────────────────────────────────────────────────────────
+      // CREAR FACTURA (única operación permitida)
+      // ──────────────────────────────────────────────────────────────────────
+
+      allow create: if
+        // 1. Usuario autenticado
+        request.auth != null &&
+
+        // 2. Usuario pertenece a esta empresa
+        isEmpresaUser(empresaId) &&
+
+        // 3. Verificar campos obligatorios según RRSIF
+        request.resource.data.keys().hasAll([
+          'id_factura',
+          'fecha_expedicion',
+          'hora_expedicion',
+          'emisor',
+          'base_imponible',
+          'tipo_iva',
+          'cuota_iva',
+          'total_factura',
+          'tipo_factura',
+          'hash_anterior',
+          'hash_actual',
+          'numero_registro',
+          'huella_sistema',
+          'verifactu',
+          'metadata'
+        ]) &&
+
+        // 4. Verificar estructura del emisor
+        request.resource.data.emisor.keys().hasAll(['nif', 'nombre']) &&
+        request.resource.data.emisor.nif is string &&
+        request.resource.data.emisor.nif.size() > 0 &&
+
+        // 5. Verificar que el hash SHA-256 tiene longitud correcta (64 caracteres)
+        request.resource.data.hash_actual is string &&
+        request.resource.data.hash_actual.size() == 64 &&
+        request.resource.data.hash_anterior is string &&
+        request.resource.data.hash_anterior.size() == 64 &&
+
+        // 6. Verificar que los importes son números válidos
+        request.resource.data.base_imponible is number &&
+        request.resource.data.base_imponible >= 0 &&
+        request.resource.data.tipo_iva is number &&
+        request.resource.data.tipo_iva >= 0 &&
+        request.resource.data.cuota_iva is number &&
+        request.resource.data.cuota_iva >= 0 &&
+        request.resource.data.total_factura is number &&
+        request.resource.data.total_factura >= 0 &&
+
+        // 7. Verificar que el número de registro es secuencial (entero positivo)
+        request.resource.data.numero_registro is int &&
+        request.resource.data.numero_registro > 0 &&
+
+        // 8. Verificar tipo de factura válido (F1, F2, F3)
+        request.resource.data.tipo_factura in ['F1', 'F2', 'F3'] &&
+
+        // 9. Verificar huella del sistema (identificación del software)
+        request.resource.data.huella_sistema.keys().hasAll([
+          'fabricante',
+          'nombre_software',
+          'version',
+          'numero_instalacion',
+          'nif_desarrollador'
+        ]) &&
+        request.resource.data.huella_sistema.fabricante == 'FLUIX TECH, S.L.' &&
+        request.resource.data.huella_sistema.nif_desarrollador == 'B26997528' &&
+
+        // 10. Verificar que la fecha de creación es la del servidor (no manipulable)
+        request.resource.data.metadata.creado_en == request.time &&
+
+        // 11. Verificar que no está marcada como anulada al crearla
+        request.resource.data.metadata.anulada == false;
+
+      // ──────────────────────────────────────────────────────────────────────
+      // LEER FACTURA (permitido con auditoría)
+      // ──────────────────────────────────────────────────────────────────────
+
+      allow read: if
+        request.auth != null &&
+        isEmpresaUser(empresaId);
+
+      // ──────────────────────────────────────────────────────────────────────
+      // ACTUALIZAR FACTURA - PROHIBIDO (inmutabilidad RRSIF)
+      // ──────────────────────────────────────────────────────────────────────
+      //
+      // EXCEPCIÓN: Solo se permite actualizar campos de metadatos de envío AEAT
+      // mediante Cloud Functions con privilegios de administrador
+      //
+      // ──────────────────────────────────────────────────────────────────────
+
+      allow update: if false;
+
+      // Nota: Los campos verifactu.enviado_aeat, verifactu.fecha_envio_aeat, etc.
+      // solo pueden actualizarse mediante Cloud Functions con admin.firestore()
+      // que bypasean las reglas de seguridad
+
+      // ──────────────────────────────────────────────────────────────────────
+      // ELIMINAR FACTURA - PROHIBIDO (inmutabilidad RRSIF)
+      // ──────────────────────────────────────────────────────────────────────
+
+      allow delete: if false;
+
+      // Para "anular" una factura, debe crearse una factura rectificativa
+      // (tipo F3) que referencie la original. Ver Cloud Function anularFacturaVerifactu
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENTOS VERIFACTU - SOLO ESCRITURA
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // Registro de eventos obligatorio según RRSIF:
+    // - Altas de facturas
+    // - Anulaciones
+    // - Sustituciones
+    // - Errores del sistema
+    // - Envíos a AEAT
+    // - Verificaciones externas
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    match /empresas/{empresaId}/eventos_verifactu/{eventoId} {
+
+      // Permitir crear eventos
+      allow create: if
+        request.auth != null &&
+        isEmpresaUser(empresaId) &&
+        request.resource.data.keys().hasAll([
+          'tipo_evento',
+          'factura_id',
+          'timestamp',
+          'detalles'
+        ]) &&
+        request.resource.data.tipo_evento in [
+          'ALTA',
+          'ANULACION',
+          'SUSTITUCION',
+          'ERROR',
+          'ENVIO_AEAT',
+          'VERIFICACION'
+        ] &&
+        request.resource.data.timestamp == request.time;
+
+      // Permitir leer eventos
+      allow read: if
+        request.auth != null &&
+        isEmpresaUser(empresaId);
+
+      // Prohibir actualizar y eliminar eventos (inmutabilidad)
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DECLARACIÓN RESPONSABLE DEL FABRICANTE
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // Documento público que declara el cumplimiento del software con RRSIF
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    match /sistema/verifactu {
+      // Solo lectura para usuarios autenticados
+      allow read: if request.auth != null;
+
+      // Solo administradores pueden actualizar (no debería cambiar frecuentemente)
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUDITORÍAS VERIFACTU
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    match /sistema/auditorias_verifactu/reportes/{reporteId} {
+      // Solo lectura para administradores
+      allow read: if request.auth != null && isAdmin();
+
+      // Las Cloud Functions pueden escribir (bypassean reglas)
+      allow write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORTACIONES (temporal - URLs firmadas en Cloud Storage)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    match /exportaciones/{empresaId}/{documento} {
+      // Permitir a la empresa leer sus propias exportaciones
+      allow read: if
+        request.auth != null &&
+        isEmpresaUser(empresaId);
+
+      // Solo Cloud Functions pueden escribir
+      allow write: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Verifica que el usuario autenticado pertenece a la empresa
+    function isEmpresaUser(empresaId) {
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+               .data.empresa_id == empresaId;
+    }
+
+    // Verifica que el usuario es administrador del sistema
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.admin == true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESTO DE COLECCIONES (mantener reglas existentes)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ... tus reglas existentes para otras colecciones ...
+
+  }
+}
+

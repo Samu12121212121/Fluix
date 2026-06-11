@@ -169,6 +169,7 @@ class PedidosService {
     String? estado,
     String? estadoPago,
     Timestamp? fechaHora,
+    Map<String, double>? importesPorMetodo,
   }) async {
     final ref = _pedidos(empresaId).doc();
     final total = importeTotal ?? lineas.fold<double>(0, (sum, l) => sum + l.subtotal);
@@ -181,6 +182,7 @@ class PedidosService {
       fecha: ahora,
     );
     final pedido = Pedido(
+      numeroTicket: numeroTicket ?? 0,
       id: ref.id,
       empresaId: empresaId,
       clienteNombre: clienteNombre,
@@ -210,11 +212,14 @@ class PedidosService {
     if (importeTarjeta != null) mapa['importe_tarjeta'] = importeTarjeta;
     if (mesaId != null) mapa['mesa_id'] = mesaId;
     if (fechaHora != null) mapa['fecha_hora'] = fechaHora;
+    if (importesPorMetodo != null && importesPorMetodo.isNotEmpty) {
+      mapa['importes_por_metodo'] = importesPorMetodo;
+    }
     
     await ref.set(mapa);
     // Actualizar estadísticas en tiempo real
     EstadisticasTriggerService().pedidoCreado(empresaId, total);
-    
+
     // ── Decrementar stock ──────────────────────────────────────────────────
     // Se hace después de crear el pedido para no bloquear el flujo de cobro.
     // Si falla, el pedido ya está registrado — el stock puede corregirse manualmente.
@@ -232,7 +237,7 @@ class PedidosService {
       // Error inesperado — no bloquear el cobro
       debugPrint('⚠️ Error al decrementar stock: $e');
     }
-    
+
     return pedido;
   }
 

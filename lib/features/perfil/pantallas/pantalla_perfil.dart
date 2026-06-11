@@ -15,6 +15,7 @@ import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
 import 'gestionar_cuentas_screen.dart';
 import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
+import '../../pdf_templates/presentation/screens/pdf_templates_list_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA PRINCIPAL
@@ -624,10 +625,12 @@ class _SeccionSeguridad2FAState extends State<_SeccionSeguridad2FA> {
                 );
                 if (mounted) {
                   setState(() => _activo = true);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('✅ 2FA activado correctamente'),
-                    backgroundColor: Colors.green,
-                  ));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ 2FA activado correctamente'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               } catch (e) {
                 if (mounted) {
@@ -1077,6 +1080,28 @@ class _TabEmpresaState extends State<_TabEmpresa> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0D47A1),
                     side: const BorderSide(color: Color(0xFF0D47A1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Botón Configuración de PDFs
+              SizedBox(
+                width: double.infinity, height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final empresaId = widget.sesion?.empresaId;
+                    if (empresaId == null) return;
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PdfTemplatesListScreen(empresaId: empresaId),
+                    ));
+                  },
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
+                  label: const Text('Configuración de PDFs (Plantillas, Diseño)',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1565C0),
+                    side: const BorderSide(color: Color(0xFF1565C0)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),

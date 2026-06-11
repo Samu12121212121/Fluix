@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/flux_toast.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODELO FlashSlot
@@ -39,11 +41,12 @@ class FlashSlot {
       id: doc.id,
       negocioId: m['negocio_id'] as String? ?? '',
       negocioNombre: m['negocio_nombre'] as String? ?? '',
-      servicio: m['servicio'] as String? ?? '',
-      negocioFotoUrl: m['foto_url'] as String?,
-      precio: (m['precio'] as num?)?.toDouble() ?? 0,
+      servicio: m['servicio_nombre'] as String? ?? m['servicio'] as String? ?? '',
+      negocioFotoUrl: m['negocio_foto_url'] as String? ?? m['foto_url'] as String?,
+      precio: (m['precio_final'] as num?)?.toDouble() ?? (m['precio'] as num?)?.toDouble() ?? 0,
       precioOriginal: (m['precio_original'] as num?)?.toDouble() ?? 0,
-      fechaFin: (m['fecha_fin'] as Timestamp).toDate(),
+      fechaFin: (m['fecha_hora_expiracion'] as Timestamp? ?? m['fecha_fin'] as Timestamp?)?.toDate()
+          ?? DateTime.now().subtract(const Duration(seconds: 1)),
       huecosTotales: (m['huecos_totales'] as num?)?.toInt() ?? 1,
       huecosReservados: (m['huecos_reservados'] as num?)?.toInt() ?? 0,
       estado: m['estado'] as String? ?? 'activo',
@@ -63,13 +66,19 @@ class CarruselFlashSlots extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collectionGroup('flash_slots')
           .where('estado', isEqualTo: 'activo')
-          .where('fecha_fin', isGreaterThan: Timestamp.now())
-          .limit(10)
+          .where('fecha_hora_expiracion', isGreaterThan: Timestamp.now())
+          .limit(20)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError || snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
         final docs = snap.data?.docs ?? [];
-        if (docs.isEmpty) return const SizedBox.shrink();
-        final slots = docs.map(FlashSlot.fromDoc).toList();
+        final slots = <FlashSlot>[];
+        for (final doc in docs) {
+          try { slots.add(FlashSlot.fromDoc(doc)); } catch (_) {}
+        }
+        if (slots.isEmpty) return const SizedBox.shrink();
 
         // Countdown al slot que expira más pronto
         final primero = slots.reduce((a, b) =>
@@ -158,9 +167,7 @@ class _TarjetaFlashState extends State<_TarjetaFlash> {
 
   void _onTap(BuildContext context) async {
     if (!widget.slot.disponible) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este slot ya no está disponible')),
-      );
+      FluxToast.aviso(context, 'Este slot ya no está disponible');
       return;
     }
 
@@ -207,9 +214,7 @@ class _TarjetaFlashState extends State<_TarjetaFlash> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inicia sesión para reservar')),
-        );
+        FluxToast.aviso(context, 'Inicia sesión para reservar');
       }
       return;
     }
@@ -225,18 +230,11 @@ class _TarjetaFlashState extends State<_TarjetaFlash> {
         'reservas_ids': FieldValue.arrayUnion([uid]),
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Reserva confirmada!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        FluxToast.exito(context, '¡Reserva confirmada!');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     }
   }
@@ -258,8 +256,9 @@ class _TarjetaFlashState extends State<_TarjetaFlash> {
           child: Stack(fit: StackFit.expand, children: [
             // Foto de fondo
             if (s.negocioFotoUrl != null && s.negocioFotoUrl!.isNotEmpty)
-              Image.network(s.negocioFotoUrl!, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E2139))),
+              CachedNetworkImage(imageUrl: s.negocioFotoUrl!, fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(color: const Color(0xFF1E2139)),
+                  errorWidget: (_, __, ___) => Container(color: const Color(0xFF1E2139))),
             // Gradiente
             Container(
               decoration: const BoxDecoration(
