@@ -1,10 +1,10 @@
-# 🏪 TPV Universal — Expansión a Peluquerías, Estéticas, Tattoo & Tienda Online
+#  TPV Universal — Expansión a Peluquerías, Estéticas, Tattoo & Tienda Online
 
 > **Objetivo:** convertir el TPV actual (orientado a bares/restaurantes) en un terminal de punto de venta genérico que sirva a cualquier tipo de negocio con o sin mostrador físico.
 
 ---
 
-## 📌 Situación actual
+##  Situación actual
 
 El módulo TPV/Comandas actual cubre:
 
@@ -17,7 +17,7 @@ El problema: el modelo de "mesa + comanda" es **específico de hostelería** y n
 
 ---
 
-## 🔑 Concepto clave: **Modo TPV por tipo de negocio**
+##  Concepto clave: **Modo TPV por tipo de negocio**
 
 En lugar de crear un TPV diferente para cada sector, se define un **`tipoTpv`** en la configuración de empresa. Según ese valor, la interfaz adapta su vocabulario, flujo y funcionalidades automáticamente.
 
@@ -31,7 +31,7 @@ En lugar de crear un TPV diferente para cada sector, se define un **`tipoTpv`** 
 
 ---
 
-## 🏗️ Arquitectura de la solución
+## ️ Arquitectura de la solución
 
 ### 1. Campo `tipoTpv` en Firestore
 
@@ -58,21 +58,21 @@ empresas/{empresaId}
 - Pack de bonos (10 cortes, abono mensual)
 - Escaneo de código QR/NFC para identificar cliente habitual
 
-#### 💆 Estética / Spa
+####  Estética / Spa
 - Gestión de **cabinas** y tiempos de ocupación
 - Control de **productos consumibles** por tratamiento (cantidad usada)
 - Bonos de sesiones y suscripciones mensuales
 - Historial de piel / ficha de cliente
 - Venta de productos de cosmética en el mismo TPV
 
-#### 🎨 Tatuaje / Piercing
+####  Tatuaje / Piercing
 - Flujo de **depósito previo** (señal para reservar sesión)
 - Sesión con duración estimada y cobro final (precio/hora o precio cerrado)
 - Ficha artística del cliente (referencias, zonas, fechas de sesiones)
 - Control de stock de tintas, agujas y material estéril
 - Consentimiento informado digital (firma en pantalla)
 
-#### 🛒 Tienda / E-commerce
+####  Tienda / E-commerce
 - **Modo escaneo** de código de barras con cámara o lector USB
 - Carrito de venta rápida con búsqueda por nombre o referencia
 - Sincronización bidireccional con **tienda online** (stock compartido)
@@ -81,7 +81,7 @@ empresas/{empresaId}
 
 ---
 
-## 🔄 Integración con Tienda Online
+##  Integración con Tienda Online
 
 Para negocios con e-commerce (estéticas con venta de cosméticos, tattoo con merchandise, tiendas):
 
@@ -105,7 +105,7 @@ Pedido online (web/app cliente)
 
 ---
 
-## 📦 Plan de implementación (fases)
+##  Plan de implementación (fases)
 
 ### Fase 1 — Configuración de `tipoTpv` *(bajo coste)*
 - [ ] Añadir campo `tipoTpv` a `EmpresaModel`
@@ -131,7 +131,7 @@ Pedido online (web/app cliente)
 
 ---
 
-## 💡 Impacto en el modelo de precios
+##  Impacto en el modelo de precios
 
 | Módulo                              | Precio sugerido  |
 |-------------------------------------|-----------------|
@@ -148,4 +148,3 @@ Pedido online (web/app cliente)
 > Un único TPV, **adaptable por tipo de negocio** mediante configuración, sin crear módulos duplicados. El código base es el mismo; cambian las etiquetas, los layouts y las funcionalidades opcionales que se activan como add-ons.
 
 Esto posiciona a PlaneaG como la **solución integral para cualquier negocio de servicios con o sin mostrador físico**, compitiendo directamente con soluciones verticales como Fresha (peluquerías), Square (retail) o Booksy (estética).
-

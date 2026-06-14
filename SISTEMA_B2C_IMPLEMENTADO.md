@@ -1,4 +1,4 @@
-# 🎯 Sistema B2C Tipo Booksy - Implementación Completa
+#  Sistema B2C Tipo Booksy - Implementación Completa
 
 ## ✅ LO QUE SE HA IMPLEMENTADO
 
@@ -11,11 +11,11 @@
 
 ### 2. **Modelo de Datos** ✅
 - ✅ `NegocioPublico` con categorías:
-  - Restaurantes 🍽️
-  - Estéticas 💅
-  - Peluquerías 💇
-  - Carnicerías 🥩
-  - Tatuajes 🎨
+  - Restaurantes ️
+  - Estéticas 
+  - Peluquerías 
+  - Carnicerías 
+  - Tatuajes 
 - ✅ Campos: foto, nombre, rating Google, descripción, dirección, teléfono
 - ✅ Vinculación con empresa mediante `empresaIdVinculada`
 
@@ -66,7 +66,7 @@
 
 ---
 
-## 📋 ESTRUCTURA FIRESTORE NECESARIA
+##  ESTRUCTURA FIRESTORE NECESARIA
 
 ### Colección `negocios_publicos/{negocioId}`
 ```json
@@ -123,7 +123,7 @@
 
 ---
 
-## 🚀 CÓMO PROBAR EL SISTEMA
+##  CÓMO PROBAR EL SISTEMA
 
 ### 1. **Crear Negocios de Prueba**
 
@@ -178,7 +178,7 @@ Desde la consola de Firebase, añade documentos a `negocios_publicos`:
 
 ---
 
-## 🎨 PERSONALIZACIÓN PARA EMPRESAS
+##  PERSONALIZACIÓN PARA EMPRESAS
 
 ### Desde la UI de Empresa (Próxima implementación):
 
@@ -200,37 +200,37 @@ Desde la consola de Firebase, añade documentos a `negocios_publicos`:
 
 ---
 
-## 📦 PRÓXIMOS PASOS (No implementado aún)
+##  PRÓXIMOS PASOS (No implementado aún)
 
-### 1. **Panel de Gestión Empresa** 🔄
+### 1. **Panel de Gestión Empresa** 
 - [ ] Pantalla para publicar/ocultar negocio del catálogo
 - [ ] Upload de foto de negocio desde la app
 - [ ] Configuración de Google Place ID
 - [ ] Switch de activar/desactivar catálogo público
 
-### 2. **Sistema de Fidelización Completo** 🔄
+### 2. **Sistema de Fidelización Completo** 
 - [ ] Pantalla de configuración en UI empresa
 - [ ] Service para acumular puntos automáticamente
 - [ ] Canje de puntos por descuentos
 - [ ] Integración con sistema de facturación
 
-### 3. **Sistema de Ofertas** 🔄
+### 3. **Sistema de Ofertas** 
 - [ ] Crear/editar ofertas desde dashboard
 - [ ] Mostrar badge "OFERTA" en tarjetas
 - [ ] Filtro de "Con ofertas" en explorar
 
-### 4. **Sincronización Google My Business** 🔄
+### 4. **Sincronización Google My Business** 
 - [ ] Cache de rating en Firestore (refresh cada 24h)
 - [ ] Cloud Function para actualizar ratings
 - [ ] Mostrar reseñas de Google en detalle
 
-### 5. **Notificaciones Push** 🔄
+### 5. **Notificaciones Push** 
 - [ ] Reserva confirmada
 - [ ] Reserva cancelada
 - [ ] Recordatorio 24h antes
 - [ ] Puntos acumulados
 
-### 6. **Mejoras UX** 🔄
+### 6. **Mejoras UX** 
 - [ ] Animaciones de transición
 - [ ] Pull-to-refresh en listas
 - [ ] Skeleton loading en tarjetas
@@ -239,7 +239,7 @@ Desde la consola de Firebase, añade documentos a `negocios_publicos`:
 
 ---
 
-## 🔧 COMANDOS ÚTILES
+##  COMANDOS ÚTILES
 
 ### Ejecutar la app:
 ```bash
@@ -259,7 +259,7 @@ flutter analyze
 
 ---
 
-## 📱 CAPTURAS DE FLUJO
+##  CAPTURAS DE FLUJO
 
 ### Flujo Usuario Final:
 1. **Login** → Botón "Registrarse como usuario"
@@ -275,7 +275,7 @@ flutter analyze
 
 ---
 
-## 🎯 OBJETIVO CUMPLIDO
+##  OBJETIVO CUMPLIDO
 
 ✅ **Sistema de reservas en menos de 30 segundos**:
 - Registro: 1 minuto
@@ -291,7 +291,7 @@ flutter analyze
 
 ---
 
-## 📝 NOTAS IMPORTANTES
+##  NOTAS IMPORTANTES
 
 1. **Seguridad**: Las reglas de Firestore deben permitir:
    - Lectura pública de `negocios_publicos` (donde `activo == true`)
@@ -313,7 +313,7 @@ flutter analyze
 
 ---
 
-## 🆘 SOPORTE
+##  SOPORTE
 
 Si necesitas ayuda con:
 - Configuración de reglas de Firestore
@@ -328,4 +328,3 @@ Solo pregunta y continuamos con la implementación.
 **Implementado por:** GitHub Copilot
 **Fecha:** Mayo 2026
 **Versión:** 1.0 - MVP Funcional
-

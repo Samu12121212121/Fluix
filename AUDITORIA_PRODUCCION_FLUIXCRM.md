@@ -1,4 +1,4 @@
-# 🔍 AUDITORÍA TÉCNICA PROFESIONAL — Fluix CRM
+#  AUDITORÍA TÉCNICA PROFESIONAL — Fluix CRM
 ### Estado de Producción por Módulos y Planes
 > Fecha: Mayo 2026 · Versión auditada: `1.0.13+3` · Auditor: Análisis automatizado completo
 
@@ -46,7 +46,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 📦 PLAN BASE — 310 €/año
+##  PLAN BASE — 310 €/año
 
 ### ✅ Módulo 1: Dashboard
 
@@ -231,7 +231,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 💼 PACK GESTIÓN — +370 €/año
+##  PACK GESTIÓN — +370 €/año
 
 ### ⚠️ Módulo 9: Facturación
 
@@ -301,7 +301,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 🧮 PACK FISCAL AI — +430 €/año
+##  PACK FISCAL AI — +430 €/año
 
 ### ⚠️ Módulo 11: Fiscal (Modelos AEAT)
 
@@ -356,7 +356,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 🛒 PACK TIENDA ONLINE — +490 €/año
+##  PACK TIENDA ONLINE — +490 €/año
 
 ### ⚠️ Módulo 13: Pedidos y Catálogo
 
@@ -419,7 +419,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 💬 ADD-ON WHATSAPP — +50 €/año
+##  ADD-ON WHATSAPP — +50 €/año
 
 ### ⚠️ Módulo 15: Bot WhatsApp
 
@@ -445,7 +445,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 📋 ADD-ON TAREAS — Gratis
+##  ADD-ON TAREAS — Gratis
 
 ### ✅ Módulo 16: Tareas
 
@@ -477,7 +477,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 👔 ADD-ON NÓMINAS — +310 €/año
+##  ADD-ON NÓMINAS — +310 €/año
 
 ### ⚠️ Módulo 17: Nóminas
 
@@ -515,7 +515,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 📍 MÓDULO TRANSVERSAL: Control Horario (Fichaje)
+##  MÓDULO TRANSVERSAL: Control Horario (Fichaje)
 
 **Qué hace:**
 - Fichaje de entrada/salida con geolocalización GPS
@@ -529,7 +529,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 💰 MÓDULO TRANSVERSAL: Finiquitos
+##  MÓDULO TRANSVERSAL: Finiquitos
 
 **Qué hace:**
 - Cálculo automático de finiquito al dar de baja un empleado
@@ -543,7 +543,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-## 🔑 MÓDULO TRANSVERSAL: Autenticación y Seguridad
+##  MÓDULO TRANSVERSAL: Autenticación y Seguridad
 
 **Qué hace:**
 - Login con Email/Password
@@ -590,7 +590,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-# 📊 PUNTUACIÓN GLOBAL POR PLAN
+#  PUNTUACIÓN GLOBAL POR PLAN
 
 | Plan / Módulo | Puntuación | Estado |
 |---|---|---|
@@ -631,19 +631,19 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 | Autenticación | 93/100 | ✅ Listo |
 | Cloud Functions | 87/100 | ✅ Mayormente listo |
 
-## 🎯 PUNTUACIÓN GLOBAL: **85 / 100**
+##  PUNTUACIÓN GLOBAL: **85 / 100**
 
 ---
 
-# 🔧 PENDIENTES CRÍTICOS ANTES DE PRODUCCIÓN COMPLETA
+#  PENDIENTES CRÍTICOS ANTES DE PRODUCCIÓN COMPLETA
 
-## 🔴 Bloqueantes
+##  Bloqueantes
 | # | Tarea | Afecta |
 |---|---|---|
 | 1 | Desplegar `firebase deploy --only firestore:rules` | Todo — reglas demo |
 | 2 | Añadir `es_demo: true` en Firestore Console | Cuenta demo |
 
-## 🟠 Importantes (pre-lanzamiento)
+##  Importantes (pre-lanzamiento)
 | # | Tarea | Afecta |
 |---|---|---|
 | 3 | Validación legal de cálculos de nóminas con asesor laboral | Add-on Nóminas |
@@ -654,7 +654,7 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 | 8 | Reactivar `generarThumbnailCatalogo` (actualizar firebase-tools) | Catálogo |
 | 9 | Certificado digital real para Verifactu en AEAT producción | Facturación |
 
-## 🟡 Mejoras recomendadas v1.1
+##  Mejoras recomendadas v1.1
 | # | Tarea | Afecta |
 |---|---|---|
 | 10 | Implementar descuento de stock en `crearPedido()` | Pack Tienda |
@@ -665,14 +665,14 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 
 ---
 
-# 📖 RESUMEN COMPLETO DE LO QUE HACE FLUIX CRM
+#  RESUMEN COMPLETO DE LO QUE HACE FLUIX CRM
 
 ## En una frase
 **Fluix CRM es un ERP en la nube para pymes españolas que unifica CRM, facturación legal con Verifactu, gestión de empleados, nóminas, pedidos TPV, declaraciones fiscales y valoraciones de Google, todo en una app móvil iOS/Android.**
 
 ## Lo que hace la app, módulo a módulo
 
-### 👥 Gestión de Negocio (Plan Base)
+###  Gestión de Negocio (Plan Base)
 - **Clientes**: base de datos de clientes con historial de actividad, importación CSV, detección de duplicados, segmentación
 - **Reservas y Citas**: agenda de citas con confirmación automática por email, recordatorios 24h antes y disponibilidad por empleado
 - **Servicios**: catálogo de servicios del negocio con precios y duraciones
@@ -680,32 +680,32 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 - **Estadísticas Web**: panel de analytics de la web del negocio (visitas, dispositivos, páginas populares)
 - **Contenido Web**: editor de la web del negocio desde la app, recepción de mensajes del formulario de contacto web
 
-### 📊 Dashboard
+###  Dashboard
 - Pantalla principal personalizable con los KPIs m��s importantes del día: ventas, pedidos, citas, cobertura del equipo, alertas fiscales, ranking de Google
 
-### 💶 Facturación y Fiscal (Pack Gestión + Pack Fiscal)
+###  Facturación y Fiscal (Pack Gestión + Pack Fiscal)
 - **Facturación**: emite facturas legales con IVA/IRPF/recargo, genera PDFs, las envía por email o WhatsApp, soporta rectificativas, proformas y anulación. Compatible con Verifactu (Real Decreto 1007/2023)
 - **Gastos**: registra facturas recibidas para calcular el IVA deducible
 - **Modelos AEAT**: calcula y exporta los modelos 303, 111, 347, 190, 349, 390... para presentar a Hacienda
 - **Contabilidad**: libro de ingresos y gastos con gráficos de rentabilidad
 
-### 🛒 Tienda y TPV (Pack Tienda)
+###  Tienda y TPV (Pack Tienda)
 - **Catálogo**: gestión de productos con variantes (talla, sabor, color...), precios, stock e IVA
 - **Pedidos**: gestión en tiempo real de pedidos de clientes (web, app, WhatsApp, presencial) con pipeline de estados y generación automática de facturas
 - **TPV**: caja rápida para cobros inmediatos con cierre de caja diario y facturación automática a las 23:30h
 
-### 👔 Recursos Humanos
+###  Recursos Humanos
 - **Empleados**: altas, bajas, documentos, contratos, alertas de vencimiento
 - **Control Horario**: fichaje GPS de entrada/salida y pausas desde el móvil
 - **Vacaciones**: solicitudes, aprobaciones, calendario de equipo, festivos locales
 - **Nóminas**: cálculo automático mensual con IRPF, SS, convenio colectivo, PDF, firma digital y remesa SEPA para pago bancario
 - **Finiquitos**: cálculo automático al dar de baja, carta de cese, firma digital
 
-### 📋 Productividad
+###  Productividad
 - **Tareas**: gestor de tareas con prioridades, asignación a empleados, recurrencia automática, recordatorios push, adjuntos y control de tiempo
 - **WhatsApp**: bot de atención automática y gestión de mensajes de WhatsApp Business
 
-### 🔒 Plataforma Multi-empresa
+###  Plataforma Multi-empresa
 - Panel de administración exclusivo para el operador de plataforma
 - Gestión de planes, packs y add-ons por empresa
 - Sistema de suscripción con Stripe
@@ -715,4 +715,3 @@ Flutter 3.x (Dart)  ←→  Firebase Firestore (base de datos en tiempo real)
 ---
 
 *Auditoría generada automáticamente · Fluix CRM v1.0.13+3 · Mayo 2026*
-

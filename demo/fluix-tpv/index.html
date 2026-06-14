@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary:    #7C3AED;
+  --primary-lt: #EDE9FE;
+  --bg:         #F5F3FF;
+  --surface:    #ffffff;
+  --text:       #1E1B4B;
+  --text-sec:   rgba(30,11,75,0.55);
+  --divider:    rgba(124,58,237,0.12);
+  --shadow:     rgba(124,58,237,0.10);
+}
+
+body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: "DM Sans", sans-serif;
+  background: #1A1A2E;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+}
+#s2, #s3 { opacity: 0; }
+
+/* SCENE 1 - INTRO */
+#s1 {
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 28px;
+}
+.intro-glow {
+  position: absolute;
+  width: 900px; height: 900px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,0.22) 0%, transparent 65%);
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+.intro-logo { display: flex; align-items: center; gap: 20px; }
+.intro-logo-icon {
+  width: 80px; height: 80px;
+  background: var(--primary);
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 60px rgba(124,58,237,0.4);
+}
+.intro-logo-text { font-size: 72px; font-weight: 800; letter-spacing: -0.04em; color: var(--text); }
+.intro-logo-text span { color: #5B21B6; }
+.intro-tagline { font-size: 28px; font-weight: 300; color: var(--text-sec); letter-spacing: 0.01em; }
+
+/* SCENE 2 - APP SCREEN */
+#s2 { background: var(--bg); }
+
+.appbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 2px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.appbar-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.appbar-btn svg { width: 18px; height: 18px; }
+.appbar-title { font-size: 15px; font-weight: 700; color: #fff; margin-left: 4px; white-space: nowrap; }
+.appbar-spacer { flex: 1; }
+.appbar-time { font-size: 12px; color: rgba(255,255,255,0.75); font-family: "DM Mono", monospace; margin-right: 4px; }
+
+.mini-dash {
+  position: absolute;
+  top: 48px; left: 0; right: 0;
+  height: 32px;
+  background: var(--primary-lt);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--divider);
+  z-index: 9;
+}
+.dash-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(124,58,237,0.08);
+  padding: 3px 10px;
+  border-radius: 100px;
+  border: 1px solid rgba(124,58,237,0.2);
+}
+
+.fila-profs {
+  position: absolute;
+  top: 80px; left: 0; right: 0;
+  height: 88px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--divider);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 20px;
+  z-index: 8;
+}
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary-lt);
+  border-radius: 10px;
+  padding: 6px 10px;
+  border: 1.5px solid rgba(124,58,237,0.2);
+}
+.date-nav-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--primary); cursor: pointer; }
+.date-nav-text { font-size: 14px; font-weight: 700; color: var(--text); padding: 0 8px; white-space: nowrap; }
+.prof-avatars { display: flex; align-items: center; gap: 16px; flex: 1; }
+.prof-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.prof-circle {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+  border: 3px solid transparent;
+  position: relative;
+}
+.prof-circle.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.2); }
+.prof-status-dot { position: absolute; bottom: 1px; right: 1px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; }
+.prof-name { font-size: 11px; font-weight: 600; color: var(--text-sec); text-align: center; white-space: nowrap; }
+.prof-add { width: 52px; height: 52px; border-radius: 50%; border: 2px dashed rgba(124,58,237,0.3); display: flex; align-items: center; justify-content: center; color: var(--primary); opacity: 0.5; }
+.nueva-cita-btn {
+  background: var(--primary); color: #fff; border: none; border-radius: 10px;
+  padding: 10px 18px; font-size: 13px; font-weight: 700; font-family: "DM Sans", sans-serif;
+  cursor: pointer; display: flex; align-items: center; gap: 7px;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.3); white-space: nowrap;
+}
+
+.main-area { position: absolute; top: 168px; left: 0; right: 0; bottom: 0; display: flex; }
+
+.left-panel { width: 1056px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg); border-right: 1px solid var(--divider); overflow: hidden; }
+.timeline-header { height: 40px; background: var(--surface); border-bottom: 1px solid var(--divider); display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; }
+.prof-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.prof-legend-item { display: flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--text-sec); }
+.timeline-grid { flex: 1; display: flex; overflow: hidden; position: relative; }
+.time-col { width: 60px; flex-shrink: 0; border-right: 1px solid var(--divider); position: relative; }
+.time-label { position: absolute; right: 8px; font-size: 11px; font-weight: 600; color: var(--text-sec); font-family: "DM Mono", monospace; transform: translateY(-7px); }
+.prof-columns { flex: 1; display: flex; }
+.prof-col { flex: 1; border-right: 1px solid var(--divider); position: relative; }
+.prof-col:last-child { border-right: none; }
+.col-header { height: 32px; background: var(--surface); border-bottom: 1px solid var(--divider); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.hour-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--divider); }
+.half-line { position: absolute; left: 12px; right: 8px; height: 1px; background: rgba(124,58,237,0.05); }
+.hour-band-even { position: absolute; left: 0; right: 0; background: rgba(124,58,237,0.025); }
+.cita-block { position: absolute; left: 6px; right: 6px; border-radius: 8px; padding: 6px 8px; cursor: pointer; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+.cita-block::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: rgba(255,255,255,0.4); border-radius: 8px 0 0 8px; }
+.cita-name { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cita-svc { font-size: 10px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.cita-prof { font-size: 10px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+.current-time-line { position: absolute; left: 0; right: 8px; height: 2px; background: #EF4444; z-index: 5; }
+.current-time-dot { position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #EF4444; }
+
+.right-panel { flex: 1; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+.client-section { padding: 10px 12px 8px; border-bottom: 1px solid var(--divider); flex-shrink: 0; }
+.client-row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.client-name-txt { font-size: 13px; font-weight: 600; color: var(--text-sec); flex: 1; }
+.client-name-txt.selected { color: var(--text); font-weight: 700; }
+.search-field { background: var(--surface); border: 1.5px solid var(--divider); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--text-sec); display: flex; align-items: center; gap: 6px; }
+.suggestions-bar { padding: 5px 12px; background: rgba(124,58,237,0.04); border-bottom: 1px solid var(--divider); flex-shrink: 0; display: none; }
+.suggestions-bar.visible { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.suggest-chip { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25); border-radius: 100px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: var(--primary); cursor: pointer; }
+.cat-strip { height: 36px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--divider); overflow-x: auto; flex-shrink: 0; }
+.cat-chip { padding: 4px 11px; border-radius: 100px; border: 1.5px solid var(--divider); font-size: 11px; font-weight: 600; color: var(--text-sec); white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.cat-chip.active { background: rgba(124,58,237,0.1); border-color: var(--primary); color: var(--primary); }
+.service-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.service-item { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(124,58,237,0.06); cursor: pointer; }
+.svc-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.svc-price { font-size: 13px; font-weight: 700; color: var(--primary); font-family: "DM Mono", monospace; font-variant-numeric: tabular-nums; margin-right: 8px; }
+.svc-add { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.ticket-items { border-top: 1px solid var(--divider); flex-shrink: 0; display: none; }
+.ticket-items.visible { display: block; }
+.ticket-header-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px 3px; }
+.ticket-lbl { font-size: 11px; font-weight: 600; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
+.ticket-clear { font-size: 11px; color: #EF4444; font-weight: 600; cursor: pointer; }
+.ticket-line { display: flex; align-items: center; padding: 5px 12px; gap: 6px; border-bottom: 1px solid rgba(124,58,237,0.05); }
+.ticket-line-name { flex: 1; font-size: 12px; font-weight: 600; color: var(--text); }
+.ticket-line-price { font-size: 12px; font-weight: 700; color: var(--primary); font-family: "DM Mono", monospace; }
+.ticket-line-rm { width: 16px; height: 16px; border-radius: 50%; background: rgba(239,68,68,0.1); color: #EF4444; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; }
+.ticket-footer { background: var(--surface); border-top: 2px solid var(--divider); padding: 10px 12px; flex-shrink: 0; }
+.propina-row { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; }
+.propina-lbl { font-size: 11px; font-weight: 600; color: var(--text-sec); }
+.propina-chip { padding: 3px 8px; border-radius: 4px; border: 1px solid var(--divider); font-size: 10px; font-weight: 600; color: var(--text-sec); cursor: pointer; }
+.propina-chip.active { background: rgba(124,58,237,0.12); border-color: var(--primary); color: var(--primary); }
+.total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.total-lbl { font-size: 14px; font-weight: 800; color: var(--text); }
+.total-val { font-size: 22px; font-weight: 800; color: var(--primary); font-family: "DM Mono", monospace; font-variant-numeric: tabular-nums; }
+.cobrar-btn { width: 100%; background: #16A34A; color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; font-family: "DM Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 12px rgba(22,163,74,0.3); }
+
+/* OVERLAYS */
+.overlay-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.25); z-index: 50; opacity: 0; pointer-events: none; }
+
+.dialog-apertura { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; background: var(--surface); border-radius: 20px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); z-index: 51; overflow: hidden; opacity: 0; }
+.dialog-header { background: var(--primary); padding: 20px 24px; display: flex; align-items: center; gap: 14px; }
+.dialog-header-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.dialog-title { font-size: 18px; font-weight: 700; color: #fff; }
+.dialog-body { padding: 24px; }
+.dialog-input-lbl { font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px; }
+.dialog-input { width: 100%; background: var(--bg); border: 2px solid var(--divider); border-radius: 10px; padding: 12px 16px; font-size: 28px; font-weight: 700; font-family: "DM Mono", monospace; color: var(--text); margin-bottom: 20px; }
+.dialog-input.focused { border-color: var(--primary); }
+.dialog-actions { display: flex; gap: 10px; }
+.dialog-btn-cancel { flex: 1; padding: 12px; border: 1.5px solid var(--divider); border-radius: 10px; background: var(--surface); font-size: 14px; font-weight: 600; color: var(--text-sec); font-family: "DM Sans", sans-serif; cursor: pointer; }
+.dialog-btn-confirm { flex: 2; padding: 12px; background: var(--primary); border: none; border-radius: 10px; font-size: 14px; font-weight: 700; color: #fff; font-family: "DM Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 12px rgba(124,58,237,0.3); }
+
+/* Nueva cita sheet */
+.cita-sheet { position: absolute; top: 168px; right: 0; width: 480px; bottom: 0; background: var(--surface); box-shadow: -4px 0 24px rgba(0,0,0,0.12); z-index: 51; display: flex; flex-direction: column; transform: translateX(480px); }
+.sheet-header { background: var(--primary); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+.sheet-title { font-size: 16px; font-weight: 700; color: #fff; }
+.sheet-close { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; }
+.sheet-body { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+.sheet-field { display: flex; flex-direction: column; gap: 5px; }
+.sheet-field-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-sec); }
+.sheet-field-val { font-size: 15px; font-weight: 600; color: var(--text); background: var(--bg); padding: 10px 14px; border-radius: 8px; border: 1.5px solid var(--divider); }
+.sheet-footer { padding: 16px 20px; border-top: 1px solid var(--divider); }
+.sheet-confirm-btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; font-family: "DM Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 12px rgba(124,58,237,0.3); display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* Payment dialog */
+.dialog-pago { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 480px; background: var(--surface); border-radius: 24px; box-shadow: 0 8px 60px rgba(0,0,0,0.2); z-index: 51; padding: 32px; display: flex; flex-direction: column; gap: 24px; opacity: 0; }
+.pago-title { font-size: 20px; font-weight: 700; color: var(--text); text-align: center; }
+.pago-amount { text-align: center; font-size: 52px; font-weight: 800; color: var(--primary); font-family: "DM Mono", monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; line-height: 1; }
+.pago-methods { display: flex; gap: 12px; }
+.pago-method { flex: 1; padding: 14px; border-radius: 12px; border: 2px solid var(--divider); text-align: center; font-size: 13px; font-weight: 700; color: var(--text-sec); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.pago-method.active { background: rgba(124,58,237,0.08); border-color: var(--primary); color: var(--primary); }
+.pago-method-icon { font-size: 26px; }
+.pago-confirm-btn { background: var(--primary); color: #fff; border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; font-family: "DM Sans", sans-serif; cursor: pointer; box-shadow: 0 3px 16px rgba(124,58,237,0.35); }
+.pago-success { position: absolute; inset: 0; background: var(--surface); border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; opacity: 0; }
+.pago-check { width: 90px; height: 90px; border-radius: 50%; background: #16A34A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px rgba(22,163,74,0.4); }
+.pago-success-txt { font-size: 26px; font-weight: 800; color: #16A34A; }
+.pago-success-sub { font-size: 14px; color: var(--text-sec); }
+
+/* Factura dialog */
+.dialog-factura {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 8px 60px rgba(0,0,0,0.25);
+  z-index: 52;
+  overflow: hidden;
+  opacity: 0;
+}
+.factura-header {
+  background: var(--primary);
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.factura-num { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
+.factura-date { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+.factura-badge { background: rgba(255,255,255,0.25); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; padding: 3px 10px; border-radius: 4px; }
+.factura-body { padding: 18px 24px 0; }
+.factura-empresa-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.factura-empresa-nif { font-size: 12px; color: var(--text-sec); margin-top: 2px; }
+.factura-divider { height: 1px; background: var(--divider); margin: 12px 0; }
+.factura-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.factura-table td { padding: 6px 0; color: var(--text); }
+.factura-table td:not(:first-child) { text-align: right; font-family: "DM Mono", monospace; }
+.factura-row-hdr td { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-sec); padding-bottom: 4px; }
+.factura-totals { font-size: 12px; }
+.factura-total-row { display: flex; justify-content: space-between; padding: 3px 0; color: var(--text-sec); }
+.factura-total-row span:last-child { font-family: "DM Mono", monospace; }
+.factura-total-final { display: flex; justify-content: space-between; padding: 7px 0; font-size: 16px; font-weight: 800; color: var(--primary); border-top: 1px solid var(--divider); margin-top: 4px; }
+.factura-total-final span:last-child { font-family: "DM Mono", monospace; }
+.factura-meta { font-size: 11px; color: var(--text-sec); padding: 8px 0 14px; }
+.factura-actions { display: flex; gap: 10px; padding: 0 24px 20px; }
+.factura-btn-pdf { flex: 1; padding: 10px 16px; border-radius: 10px; border: 1.5px solid var(--divider); background: transparent; font-size: 13px; font-weight: 600; color: var(--text-sec); font-family: "DM Sans", sans-serif; cursor: pointer; }
+.factura-btn-send { flex: 2; padding: 10px 16px; background: var(--primary); border: none; border-radius: 10px; font-size: 13px; font-weight: 700; color: #fff; font-family: "DM Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 10px rgba(124,58,237,0.3); }
+
+/* Theme sheet */
+.theme-sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 380px; background: var(--surface); border-radius: 24px 24px 0 0; box-shadow: 0 -4px 40px rgba(0,0,0,0.15); z-index: 51; transform: translateY(380px); overflow: hidden; display: flex; flex-direction: column; }
+.theme-sheet-header { padding: 12px 24px 8px; flex-shrink: 0; }
+.theme-sheet-handle { width: 36px; height: 4px; background: rgba(0,0,0,0.15); border-radius: 2px; margin: 0 auto 14px; }
+.theme-sheet-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.theme-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 24px 20px; overflow-y: auto; }
+.theme-card { width: 128px; border-radius: 12px; overflow: hidden; border: 2px solid transparent; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.theme-card.active-theme { border-color: var(--primary); }
+.theme-card-bar { height: 28px; display: flex; align-items: center; padding: 0 8px; gap: 6px; }
+.theme-card-bar-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.5); }
+.theme-card-body { padding: 6px 8px; }
+.theme-card-line { height: 6px; border-radius: 3px; margin-bottom: 4px; opacity: 0.35; }
+.theme-card-name { font-size: 11px; font-weight: 700; padding: 4px 8px 8px; color: var(--text); }
+
+/* Snackbar */
+.snackbar { position: absolute; bottom: 24px; left: 24px; background: #1E1B4B; color: #fff; border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; z-index: 60; opacity: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+.snackbar-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.snackbar.success .snackbar-icon { background: #16A34A; }
+.snackbar.info .snackbar-icon { background: var(--primary); }
+
+/* Cursor */
+.cursor-wrap { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 100; }
+.cursor-svg { display: block; }
+.cursor-ripple { position: absolute; width: 32px; height: 32px; border-radius: 50%; background: rgba(124,58,237,0.35); transform: translate(-50%, -50%) scale(0); pointer-events: none; }
+
+/* SCENE 3 - OUTRO */
+#s3 { background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
+.outro-glow { position: absolute; width: 800px; height: 800px; border-radius: 50%; background: radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 65%); top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; }
+.outro-logo { display: flex; align-items: center; gap: 20px; }
+.outro-logo-icon { width: 80px; height: 80px; background: var(--primary); border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 60px rgba(124,58,237,0.4); }
+.outro-logo-text { font-size: 72px; font-weight: 800; letter-spacing: -0.04em; color: var(--text); }
+.outro-logo-text span { color: #5B21B6; }
+.outro-tagline { font-size: 28px; font-weight: 300; color: var(--text-sec); }
+.outro-features { display: flex; align-items: center; gap: 20px; font-size: 18px; font-weight: 500; color: var(--text-sec); }
+.outro-sep { color: var(--primary); opacity: 0.6; font-size: 20px; }
+.outro-cta { font-size: 26px; font-weight: 800; color: var(--primary); letter-spacing: 0.01em; margin-top: 4px; }
+.outro-fade { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="fluix-tpv-v3" data-width="1920" data-height="1080" data-start="0" data-duration="40">
+
+  <!-- SCENE 1 - INTRO -->
+  <div id="s1" class="scene">
+    <div class="intro-glow"></div>
+    <div id="i-logo" class="intro-logo">
+      <div class="intro-logo-icon">
+        <svg viewBox="0 0 52 52" fill="none" width="48" height="48">
+          <rect x="4" y="4" width="20" height="20" rx="5" fill="white" opacity="0.9"/>
+          <rect x="28" y="4" width="20" height="20" rx="5" fill="white" opacity="0.6"/>
+          <rect x="4" y="28" width="20" height="20" rx="5" fill="white" opacity="0.6"/>
+          <rect x="28" y="28" width="20" height="20" rx="5" fill="white" opacity="0.3"/>
+        </svg>
+      </div>
+      <div class="intro-logo-text">Fluix<span>CRM</span></div>
+    </div>
+    <div id="i-tag" class="intro-tagline">TPV Peluqueria - Demo en vivo</div>
+  </div>
+
+  <!-- SCENE 2 - APP SCREEN -->
+  <div id="s2" class="scene">
+
+    <!-- APPBAR -->
+    <div class="appbar" id="appbar">
+      <div class="appbar-btn">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="appbar-btn">
+        <svg viewBox="0 0 18 18" fill="none"><circle cx="5" cy="13" r="2.5" stroke="white" stroke-width="1.5"/><circle cx="13" cy="13" r="2.5" stroke="white" stroke-width="1.5"/><path d="M7 11.5L14 4M7 11.5C8.5 8.5 11 7 14 4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="appbar-title">TPV Peluqueria</div>
+      <div class="appbar-spacer"></div>
+      <div class="appbar-time">09:32</div>
+      <div class="appbar-btn">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M3 7.5a9 9 0 0112 0M5.5 10a5.5 5.5 0 017 0M8 12.5a2.5 2.5 0 012 0M9 15v.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="appbar-btn" id="btn-wallet">
+        <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="14" height="10" rx="2" stroke="white" stroke-width="1.5"/><path d="M2 8h14M6 3l2-1 2 1 2 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/><circle cx="13" cy="11" r="1" fill="white"/></svg>
+      </div>
+      <div class="appbar-btn" id="btn-cierre">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M3 5h12M3 9h8M3 13h10" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="appbar-btn">
+        <svg viewBox="0 0 18 18" fill="none"><rect x="4" y="7" width="10" height="7" rx="1.5" stroke="white" stroke-width="1.5"/><path d="M5 7V4h8v3" stroke="white" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 11h6" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="appbar-btn" id="btn-tune">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M3 5h12M5 9h8M7 13h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="5" r="1.5" fill="white"/><circle cx="12" cy="9" r="1.5" fill="white"/><circle cx="9" cy="13" r="1.5" fill="white"/></svg>
+      </div>
+      <div class="appbar-btn">
+        <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="white" stroke-width="1.5"/><path d="M9 5.5V9l2.5 2" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <!-- MINI DASHBOARD -->
+    <div class="mini-dash" id="mini-dash">
+      <div class="dash-chip">3 citas hoy</div>
+      <div class="dash-chip" id="dash-cobrado">0.00 EUR cobrado hoy</div>
+      <div class="dash-chip">1 pendiente</div>
+    </div>
+
+    <!-- FILA PROFESIONALES -->
+    <div class="fila-profs" id="fila-profs">
+      <div class="date-nav">
+        <div class="date-nav-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <div class="date-nav-text">Lun, 5 Jun 2025</div>
+        <div class="date-nav-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div class="prof-avatars">
+        <div class="prof-item">
+          <div class="prof-circle active" style="background:rgba(124,58,237,0.12)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h10M4 17h12" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="prof-name" style="color:#7C3AED">Todos</div>
+        </div>
+        <div class="prof-item">
+          <div class="prof-circle" style="background:#E8613A" id="prof-laura">
+            L
+            <div class="prof-status-dot" style="background:#16A34A"></div>
+          </div>
+          <div class="prof-name">Laura</div>
+        </div>
+        <div class="prof-item">
+          <div class="prof-circle" style="background:#0DB9B9" id="prof-samuel">
+            S
+            <div class="prof-status-dot" style="background:#16A34A"></div>
+          </div>
+          <div class="prof-name">Samuel</div>
+        </div>
+        <div class="prof-item">
+          <div class="prof-add">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="rgba(124,58,237,0.5)" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="prof-name" style="opacity:0.4">Anadir</div>
+        </div>
+      </div>
+      <div class="nueva-cita-btn" id="btn-nueva-cita">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        Nueva cita
+      </div>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main-area">
+      <!-- LEFT PANEL - TIMELINE -->
+      <div class="left-panel">
+        <div class="timeline-header">
+          <div class="prof-legend-item">
+            <span class="prof-legend-dot" style="background:#E8613A"></span>Laura - 4 citas
+          </div>
+          <div class="prof-legend-item" style="margin-left:16px">
+            <span class="prof-legend-dot" style="background:#0DB9B9"></span>Samuel - 3 citas
+          </div>
+          <div style="margin-left:auto;font-size:12px;color:var(--text-sec)">Pulsa slot vacio para crear cita</div>
+        </div>
+        <div class="timeline-grid">
+          <div class="time-col" id="time-col"></div>
+          <div class="prof-columns">
+            <!-- Laura -->
+            <div class="prof-col" id="col-laura">
+              <div class="col-header">
+                <div style="width:20px;height:20px;border-radius:50%;background:#E8613A;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white;flex-shrink:0">L</div>
+                Laura
+              </div>
+              <div class="cita-block" id="cita-ana" style="background:#E8613A;top:124px;height:72px">
+                <div class="cita-name">Ana Martinez</div>
+                <div class="cita-svc">Corte de pelo - 09:00</div>
+              </div>
+              <div class="cita-block" id="cita-carmen" style="background:#C2522A;top:240px;height:108px">
+                <div class="cita-name">Carmen Lopez</div>
+                <div class="cita-svc">Tinte completo - 10:30</div>
+              </div>
+              <div class="cita-block" id="cita-maria" style="background:#7C3AED;top:376px;height:108px;opacity:0;transform-origin:top center;transform:scaleY(0)">
+                <div class="cita-name">Maria Garcia</div>
+                <div class="cita-svc">Corte + Color - 11:30</div>
+                <div class="cita-prof">Profesional: Laura</div>
+              </div>
+              <div id="slot-click-target" style="position:absolute;top:376px;height:72px;left:6px;right:6px;border-radius:8px;border:2px dashed rgba(124,58,237,0.3);opacity:0"></div>
+            </div>
+            <!-- Samuel -->
+            <div class="prof-col" id="col-samuel">
+              <div class="col-header">
+                <div style="width:20px;height:20px;border-radius:50%;background:#0DB9B9;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white;flex-shrink:0">S</div>
+                Samuel
+              </div>
+              <div class="cita-block" id="cita-elena" style="background:#0DB9B9;top:124px;height:144px">
+                <div class="cita-name">Elena Ros</div>
+                <div class="cita-svc">Corte + Color - 09:00</div>
+                <div class="cita-prof" style="color:rgba(255,255,255,0.65)">Profesional: Samuel</div>
+              </div>
+              <div class="cita-block" id="cita-rosa" style="background:#14B8A6;top:340px;height:72px">
+                <div class="cita-name">Rosa Jimenez</div>
+                <div class="cita-svc">Mechas - 11:00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL - TICKET -->
+      <div class="right-panel">
+        <div class="client-section">
+          <div class="client-row">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="3" stroke="var(--text-sec)" stroke-width="1.5"/><path d="M2.5 13.5a5.5 5.5 0 0111 0" stroke="var(--text-sec)" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="client-name-txt" id="client-name-display">Sin cliente</div>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" id="client-clear-btn" style="opacity:0;cursor:pointer"><path d="M3 3l8 8M11 3l-8 8" stroke="var(--text-sec)" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="search-field">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="var(--text-sec)" stroke-width="1.3"/><path d="M8.5 8.5L11 11" stroke="var(--text-sec)" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span>Buscar cliente...</span>
+          </div>
+        </div>
+        <div class="suggestions-bar" id="suggestions-bar">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="var(--primary)" stroke-width="1.3"/><path d="M1.5 10a4.5 4.5 0 019 0" stroke="var(--primary)" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span style="font-size:11px;font-weight:600;color:var(--primary)">Volver a pedir:</span>
+          <div class="suggest-chip">Corte + Color</div>
+          <div class="suggest-chip">Tinte</div>
+        </div>
+        <div class="cat-strip">
+          <div class="cat-chip active">Todos</div>
+          <div class="cat-chip">Cabello</div>
+          <div class="cat-chip">Color</div>
+          <div class="cat-chip">Tratamiento</div>
+          <div class="cat-chip">Extras</div>
+        </div>
+        <div class="service-list" id="svc-list">
+          <div class="service-item" id="svc-corte">
+            <div class="svc-name">Corte de pelo</div>
+            <div class="svc-price">15.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+          <div class="service-item" id="svc-tinte">
+            <div class="svc-name">Tinte completo</div>
+            <div class="svc-price">45.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+          <div class="service-item" id="svc-corte-color">
+            <div class="svc-name">Corte + Color</div>
+            <div class="svc-price">55.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+          <div class="service-item" id="svc-tratamiento">
+            <div class="svc-name">Tratamiento keratina</div>
+            <div class="svc-price">35.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+          <div class="service-item" id="svc-mechas">
+            <div class="svc-name">Mechas</div>
+            <div class="svc-price">65.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+          <div class="service-item">
+            <div class="svc-name">Ondulado / Permanente</div>
+            <div class="svc-price">50.00 EUR</div>
+            <div class="svc-add">+</div>
+          </div>
+        </div>
+        <div class="ticket-items" id="ticket-items">
+          <div class="ticket-header-row">
+            <div class="ticket-lbl">Ticket</div>
+            <div class="ticket-clear">Limpiar</div>
+          </div>
+          <div class="ticket-line" id="tkt-line1">
+            <div class="ticket-line-name">Corte + Color</div>
+            <div class="ticket-line-price">55.00 EUR</div>
+            <div class="ticket-line-rm">x</div>
+          </div>
+        </div>
+        <div class="ticket-footer">
+          <div class="propina-row">
+            <span class="propina-lbl">Propina:</span>
+            <div class="propina-chip">Sin</div>
+            <div class="propina-chip">+1 EUR</div>
+            <div class="propina-chip">+2 EUR</div>
+            <div class="propina-chip">+5 EUR</div>
+          </div>
+          <div class="total-row">
+            <div class="total-lbl">TOTAL</div>
+            <div class="total-val" id="total-val">0.00 EUR</div>
+          </div>
+          <button class="cobrar-btn" id="cobrar-btn">COBRAR 0.00 EUR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OVERLAYS -->
+    <div class="overlay-backdrop" id="backdrop"></div>
+
+    <!-- Apertura de caja -->
+    <div class="dialog-apertura" id="dialog-apertura">
+      <div class="dialog-header">
+        <div class="dialog-header-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="13" rx="2.5" stroke="white" stroke-width="2"/><path d="M3 10h18M7 4l2-1.5L12 4l3-1.5L17 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="17" cy="14" r="1.5" fill="white"/></svg>
+        </div>
+        <div class="dialog-title">Abrir caja</div>
+      </div>
+      <div class="dialog-body">
+        <div class="dialog-input-lbl">Efectivo inicial</div>
+        <div class="dialog-input" id="caja-input"><span id="caja-val">0.00</span> EUR</div>
+        <div class="dialog-actions">
+          <button class="dialog-btn-cancel">Cancelar</button>
+          <button class="dialog-btn-confirm" id="btn-confirm-caja">Abrir caja</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nueva cita sheet -->
+    <div class="cita-sheet" id="cita-sheet">
+      <div class="sheet-header">
+        <div class="sheet-title">Nueva cita</div>
+        <div class="sheet-close">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-field">
+          <div class="sheet-field-lbl">Cliente</div>
+          <div class="sheet-field-val">Maria Garcia</div>
+        </div>
+        <div class="sheet-field">
+          <div class="sheet-field-lbl">Servicio</div>
+          <div class="sheet-field-val">Corte + Color</div>
+        </div>
+        <div class="sheet-field">
+          <div class="sheet-field-lbl">Duracion</div>
+          <div class="sheet-field-val">90 min</div>
+        </div>
+        <div class="sheet-field">
+          <div class="sheet-field-lbl">Hora</div>
+          <div class="sheet-field-val">11:30 - Laura</div>
+        </div>
+        <div class="sheet-field">
+          <div class="sheet-field-lbl">Precio</div>
+          <div class="sheet-field-val" style="color:var(--primary)">55.00 EUR</div>
+        </div>
+      </div>
+      <div class="sheet-footer">
+        <button class="sheet-confirm-btn" id="btn-confirm-cita">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 8l4 4L13.5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Confirmar cita
+        </button>
+      </div>
+    </div>
+
+    <!-- Payment dialog -->
+    <div class="dialog-pago" id="dialog-pago">
+      <div class="pago-title">Metodo de pago</div>
+      <div class="pago-amount" id="pago-amount">55.00 EUR</div>
+      <div class="pago-methods">
+        <div class="pago-method" id="pm-efectivo">
+          <div class="pago-method-icon">&#128181;</div>
+          <div>Efectivo</div>
+        </div>
+        <div class="pago-method active" id="pm-tarjeta">
+          <div class="pago-method-icon">&#128179;</div>
+          <div>Tarjeta</div>
+        </div>
+        <div class="pago-method" id="pm-bizum">
+          <div class="pago-method-icon">&#128241;</div>
+          <div>Bizum</div>
+        </div>
+      </div>
+      <button class="pago-confirm-btn" id="btn-confirm-pago">Confirmar cobro</button>
+      <div class="pago-success" id="pago-success">
+        <div class="pago-check" id="pago-check">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none"><path d="M8 23l9 9 21-18" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="pago-success-txt">Cobro realizado</div>
+        <div class="pago-success-sub">Tarjeta - 55.00 EUR - #0043</div>
+      </div>
+    </div>
+
+    <!-- Factura dialog -->
+    <div class="dialog-factura" id="dialog-factura">
+      <div class="factura-header">
+        <div>
+          <div class="factura-num">FACTURA #0043</div>
+          <div class="factura-date">05/06/2025</div>
+        </div>
+        <div class="factura-badge">AUTO</div>
+      </div>
+      <div class="factura-body">
+        <div class="factura-empresa-name">Mi Peluqueria</div>
+        <div class="factura-empresa-nif">NIF: B-12345678</div>
+        <div class="factura-divider"></div>
+        <table class="factura-table">
+          <tr class="factura-row-hdr"><td>Descripcion</td><td>Base</td><td>IVA 21%</td><td>Total</td></tr>
+          <tr id="factura-row1"><td>Corte + Color</td><td>45.45 EUR</td><td>9.55 EUR</td><td>55.00 EUR</td></tr>
+        </table>
+        <div class="factura-divider"></div>
+        <div id="factura-totals" class="factura-totals">
+          <div class="factura-total-row"><span>Base imponible</span><span>45.45 EUR</span></div>
+          <div class="factura-total-row"><span>IVA (21%)</span><span>9.55 EUR</span></div>
+          <div class="factura-total-final"><span>TOTAL</span><span>55.00 EUR</span></div>
+        </div>
+        <div id="factura-meta" class="factura-meta">Metodo: Tarjeta &nbsp;-&nbsp; Fecha: 05 Jun 2025</div>
+      </div>
+      <div class="factura-actions">
+        <button class="factura-btn-pdf">Ver PDF</button>
+        <button class="factura-btn-send" id="btn-factura-send">Enviar por email</button>
+      </div>
+    </div>
+
+    <!-- Theme sheet -->
+    <div class="theme-sheet" id="theme-sheet">
+      <div class="theme-sheet-header">
+        <div class="theme-sheet-handle"></div>
+        <div class="theme-sheet-title">Estilo de pantalla</div>
+      </div>
+      <div class="theme-grid">
+        <div class="theme-card active-theme" id="tc-lavanda">
+          <div class="theme-card-bar" style="background:#7C3AED">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#F5F3FF">
+            <div class="theme-card-line" style="background:#7C3AED;width:90%"></div>
+            <div class="theme-card-line" style="background:#7C3AED;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Lavanda</div>
+        </div>
+        <div class="theme-card" id="tc-coral">
+          <div class="theme-card-bar" style="background:#E11D74">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#FFF0F7">
+            <div class="theme-card-line" style="background:#E11D74;width:90%"></div>
+            <div class="theme-card-line" style="background:#E11D74;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Rosa Coral</div>
+        </div>
+        <div class="theme-card" id="tc-sage">
+          <div class="theme-card-bar" style="background:#4A7C59">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#F0F7F4">
+            <div class="theme-card-line" style="background:#4A7C59;width:90%"></div>
+            <div class="theme-card-line" style="background:#4A7C59;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Sage Green</div>
+        </div>
+        <div class="theme-card" id="tc-midnight">
+          <div class="theme-card-bar" style="background:#38BDF8">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#182033">
+            <div class="theme-card-line" style="background:#38BDF8;width:90%"></div>
+            <div class="theme-card-line" style="background:#38BDF8;width:65%"></div>
+          </div>
+          <div class="theme-card-name" style="color:#CBD5E1;background:#182033">Midnight</div>
+        </div>
+        <div class="theme-card" id="tc-teal">
+          <div class="theme-card-bar" style="background:#0F766E">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#F0FDFB">
+            <div class="theme-card-line" style="background:#0F766E;width:90%"></div>
+            <div class="theme-card-line" style="background:#0F766E;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Teal Agua</div>
+        </div>
+        <div class="theme-card" id="tc-dorado">
+          <div class="theme-card-bar" style="background:#92702A">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#FFFDF5">
+            <div class="theme-card-line" style="background:#92702A;width:90%"></div>
+            <div class="theme-card-line" style="background:#92702A;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Champagne</div>
+        </div>
+        <div class="theme-card" id="tc-terracota">
+          <div class="theme-card-bar" style="background:#C2522A">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#FDF0EB">
+            <div class="theme-card-line" style="background:#C2522A;width:90%"></div>
+            <div class="theme-card-line" style="background:#C2522A;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Terracota</div>
+        </div>
+        <div class="theme-card" id="tc-indigo">
+          <div class="theme-card-bar" style="background:#1D4ED8">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#EFF6FF">
+            <div class="theme-card-line" style="background:#1D4ED8;width:90%"></div>
+            <div class="theme-card-line" style="background:#1D4ED8;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Azul Indigo</div>
+        </div>
+        <div class="theme-card" id="tc-slate">
+          <div class="theme-card-bar" style="background:#374151">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#F9FAFB">
+            <div class="theme-card-line" style="background:#374151;width:90%"></div>
+            <div class="theme-card-line" style="background:#374151;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Slate Neutro</div>
+        </div>
+        <div class="theme-card" id="tc-morado">
+          <div class="theme-card-bar" style="background:#C4B5FD">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#251445">
+            <div class="theme-card-line" style="background:#C4B5FD;width:90%"></div>
+            <div class="theme-card-line" style="background:#C4B5FD;width:65%"></div>
+          </div>
+          <div class="theme-card-name" style="color:#EDE9FE;background:#251445">Morado Night</div>
+        </div>
+        <div class="theme-card" id="tc-blush">
+          <div class="theme-card-bar" style="background:#C48B8B">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#FDF8F5">
+            <div class="theme-card-line" style="background:#C48B8B;width:90%"></div>
+            <div class="theme-card-line" style="background:#C48B8B;width:65%"></div>
+          </div>
+          <div class="theme-card-name">Blush Nude</div>
+        </div>
+        <div class="theme-card" id="tc-negro">
+          <div class="theme-card-bar" style="background:#DC2626">
+            <div class="theme-card-bar-dot"></div>
+            <div style="font-size:9px;font-weight:700;color:white;margin-left:2px">TPV</div>
+          </div>
+          <div class="theme-card-body" style="background:#181818">
+            <div class="theme-card-line" style="background:#DC2626;width:90%"></div>
+            <div class="theme-card-line" style="background:#DC2626;width:65%"></div>
+          </div>
+          <div class="theme-card-name" style="color:#FECACA;background:#272727">Negro + Rojo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Snackbars -->
+    <div class="snackbar success" id="snack-caja">
+      <div class="snackbar-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      Caja abierta - 200.00 EUR en efectivo
+    </div>
+    <div class="snackbar success" id="snack-cita">
+      <div class="snackbar-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      Cita creada - Maria Garcia - 11:30
+    </div>
+    <div class="snackbar success" id="snack-cobro">
+      <div class="snackbar-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      Cobro realizado - Tarjeta - 55.00 EUR
+    </div>
+    <div class="snackbar info" id="snack-factura" style="bottom:70px">
+      <div class="snackbar-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v4l2 2" stroke="white" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="6" r="5" stroke="white" stroke-width="1.3"/></svg></div>
+      <span id="snack-factura-txt">Generando factura...</span>
+    </div>
+    <div class="snackbar info" id="snack-tema">
+      <div class="snackbar-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <span id="snack-tema-txt">Tema aplicado</span>
+    </div>
+
+    <!-- CURSOR -->
+    <div class="cursor-wrap" id="cursor-wrap">
+      <div class="cursor-ripple" id="ripple"></div>
+      <svg class="cursor-svg" id="cursor-svg" width="22" height="28" viewBox="0 0 22 28" fill="none">
+        <path d="M2 2L2 22L7 17L10.5 26L13 25L9.5 16L17 16L2 2Z" fill="white" stroke="#1E1B4B" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+  </div><!-- #s2 -->
+
+  <!-- SCENE 3 - OUTRO -->
+  <div id="s3" class="scene">
+    <div class="outro-glow"></div>
+    <div id="o-logo" class="outro-logo">
+      <div class="outro-logo-icon">
+        <svg viewBox="0 0 52 52" fill="none" width="48" height="48">
+          <rect x="4" y="4" width="20" height="20" rx="5" fill="white" opacity="0.9"/>
+          <rect x="28" y="4" width="20" height="20" rx="5" fill="white" opacity="0.6"/>
+          <rect x="4" y="28" width="20" height="20" rx="5" fill="white" opacity="0.6"/>
+          <rect x="28" y="28" width="20" height="20" rx="5" fill="white" opacity="0.3"/>
+        </svg>
+      </div>
+      <div class="outro-logo-text">Fluix<span>CRM</span></div>
+    </div>
+    <div id="o-tag" class="outro-tagline">Tu TPV de peluqueria, a tu manera.</div>
+    <div id="o-features" class="outro-features">
+      <span>Agenda inteligente</span>
+      <span class="outro-sep">|</span>
+      <span>Facturacion automatica</span>
+      <span class="outro-sep">|</span>
+      <span>Multiples profesionales</span>
+    </div>
+    <div id="o-cta" class="outro-cta">fluixcrm.com</div>
+    <div class="outro-fade" id="outro-fade"></div>
+  </div>
+
+</div><!-- #root -->
+
+<script>
+function mulberry32(a) {
+  return function() {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+(function buildGrid() {
+  const SLOT = 72;
+  const START_H = 8;
+  const END_H = 20;
+  const tc = document.getElementById('time-col');
+  const laura = document.getElementById('col-laura');
+  const samuel = document.getElementById('col-samuel');
+  const HDR = 32;
+
+  for (let h = START_H; h <= END_H; h++) {
+    const y = HDR + (h - START_H) * SLOT;
+    const lbl = document.createElement('div');
+    lbl.className = 'time-label';
+    lbl.style.top = y + 'px';
+    lbl.textContent = h.toString().padStart(2,'0') + ':00';
+    tc.appendChild(lbl);
+    if (h < END_H) {
+      [laura, samuel].forEach(col => {
+        const line = document.createElement('div');
+        line.className = 'hour-line';
+        line.style.top = y + 'px';
+        col.appendChild(line);
+        const half = document.createElement('div');
+        half.className = 'half-line';
+        half.style.top = (y + SLOT/2) + 'px';
+        col.appendChild(half);
+        if ((h - START_H) % 2 === 0) {
+          const band = document.createElement('div');
+          band.className = 'hour-band-even';
+          band.style.top = y + 'px';
+          band.style.height = SLOT + 'px';
+          col.appendChild(band);
+        }
+      });
+    }
+  }
+  const curY = HDR + 2.25 * SLOT;
+  [laura, samuel].forEach(col => {
+    const line = document.createElement('div');
+    line.className = 'current-time-line';
+    line.style.top = curY + 'px';
+    const dot = document.createElement('div');
+    dot.className = 'current-time-dot';
+    line.appendChild(dot);
+    col.appendChild(line);
+  });
+})();
+
+const THEMES = {
+  lavanda:   { primary:'#7C3AED', lt:'#EDE9FE', bg:'#F5F3FF', surface:'#ffffff', text:'#1E1B4B', textSec:'rgba(30,11,75,0.55)' },
+  coral:     { primary:'#E11D74', lt:'#FEE2F0', bg:'#FFF0F7', surface:'#ffffff', text:'#3D0020', textSec:'rgba(61,0,32,0.55)' },
+  sage:      { primary:'#4A7C59', lt:'#DCF0E6', bg:'#F0F7F4', surface:'#ffffff', text:'#1A3A27', textSec:'rgba(26,58,39,0.55)' },
+  midnight:  { primary:'#38BDF8', lt:'#243047', bg:'#182033', surface:'#1E2D42', text:'#CBD5E1', textSec:'rgba(203,213,225,0.65)' },
+  teal:      { primary:'#0F766E', lt:'#CCFBF1', bg:'#F0FDFB', surface:'#ffffff', text:'#042F2E', textSec:'rgba(4,47,46,0.55)' },
+  dorado:    { primary:'#92702A', lt:'#FFF3CC', bg:'#FFFDF5', surface:'#ffffff', text:'#3A2800', textSec:'rgba(58,40,0,0.55)' },
+  terracota: { primary:'#C2522A', lt:'#F9D5C8', bg:'#FDF0EB', surface:'#ffffff', text:'#4A1500', textSec:'rgba(74,21,0,0.55)' },
+  indigo:    { primary:'#1D4ED8', lt:'#DBEAFE', bg:'#EFF6FF', surface:'#ffffff', text:'#0F2460', textSec:'rgba(15,36,96,0.55)' },
+  slate:     { primary:'#374151', lt:'#F3F4F6', bg:'#F9FAFB', surface:'#ffffff', text:'#111827', textSec:'rgba(17,24,39,0.55)' },
+  morado:    { primary:'#C4B5FD', lt:'#32206A', bg:'#251445', surface:'#32206A', text:'#EDE9FE', textSec:'rgba(237,233,254,0.65)' },
+  blush:     { primary:'#C48B8B', lt:'#F5EBE6', bg:'#FDF8F5', surface:'#ffffff', text:'#5C3030', textSec:'rgba(92,48,48,0.55)' },
+  negro:     { primary:'#DC2626', lt:'#272727', bg:'#181818', surface:'#272727', text:'#FECACA', textSec:'rgba(254,202,202,0.65)' },
+};
+
+function applyTheme(name) {
+  const t = THEMES[name];
+  if (!t) return;
+  const root = document.documentElement;
+  root.style.setProperty('--primary', t.primary);
+  root.style.setProperty('--primary-lt', t.lt);
+  root.style.setProperty('--bg', t.bg);
+  root.style.setProperty('--surface', t.surface || '#ffffff');
+  root.style.setProperty('--text', t.text);
+  root.style.setProperty('--text-sec', t.textSec);
+  root.style.setProperty('--divider', t.primary + '22');
+  document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active-theme'));
+  const tc = document.getElementById('tc-' + name);
+  if (tc) tc.classList.add('active-theme');
+  const names = { lavanda:'Lavanda', coral:'Rosa Coral', sage:'Sage Green', midnight:'Midnight Dark', teal:'Teal Agua', dorado:'Dorado Champagne', terracota:'Terracota', indigo:'Azul Indigo', slate:'Slate Neutro', morado:'Morado Night', blush:'Blush Nude', negro:'Negro + Rojo' };
+  document.getElementById('snack-tema-txt').textContent = 'Tema: ' + (names[name] || name);
+}
+
+window.__timelines = window.__timelines || {};
+const tl = gsap.timeline({ paused: true });
+
+const A = 2.05;
+
+// S1 entrance
+tl.fromTo('#i-logo', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: 'expo.out' }, 0.2);
+tl.fromTo('#i-tag',  { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out' }, 0.7);
+tl.fromTo('.intro-glow', { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.0, ease: 'sine.out' }, 0.1);
+
+// S1 -> S2 blur crossfade
+tl.to('#s1', { opacity: 0, filter: 'blur(16px)', duration: 0.35, ease: 'power2.in' }, 1.7);
+tl.fromTo('#s2', { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' }, 1.85);
+
+// App entrance
+tl.fromTo('#appbar',     { y: -48, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: 'expo.out' }, A);
+tl.fromTo('#mini-dash',  { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4,  ease: 'power2.out' }, A + 0.1);
+tl.fromTo('#fila-profs', { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4,  ease: 'power2.out' }, A + 0.2);
+tl.fromTo('.left-panel', { x: -40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5,  ease: 'expo.out' }, A + 0.25);
+tl.fromTo('.right-panel',{ x:  40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5,  ease: 'expo.out' }, A + 0.3);
+tl.set('#cursor-wrap', { x: 960, y: 540 }, A);
+
+// Cursor explores
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1700, y: 600, duration: 0.8, ease: 'power2.inOut' }, A + 0.4);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1700, y: 300, duration: 0.5, ease: 'power2.inOut' }, A + 1.2);
+
+// APERTURA DE CAJA (A+1.7 to A+7)
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1698, y: 24, duration: 0.55, ease: 'power3.inOut' }, A + 1.7);
+tl.to('#btn-wallet', { backgroundColor: 'rgba(255,255,255,0.18)', duration: 0.15 }, A + 2.2);
+tl.fromTo('#ripple', { x: 1698, y: 24, scale: 0, opacity: 0.8 }, { scale: 4, opacity: 0, duration: 0.45, ease: 'power1.out' }, A + 2.28);
+tl.to('#btn-wallet', { backgroundColor: 'rgba(255,255,255,0)', duration: 0.2 }, A + 2.4);
+tl.to('#backdrop', { opacity: 1, duration: 0.25 }, A + 2.35);
+tl.fromTo('#dialog-apertura', { opacity: 0, y: 30, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'expo.out' }, A + 2.4);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 960, y: 520, duration: 0.4, ease: 'power2.inOut' }, A + 2.9);
+tl.to('#caja-input', { borderColor: 'var(--primary)', duration: 0.2 }, A + 3.1);
+tl.call(() => { document.getElementById('caja-val').textContent = '2'; }, [], A + 3.3);
+tl.call(() => { document.getElementById('caja-val').textContent = '20'; }, [], A + 3.5);
+tl.call(() => { document.getElementById('caja-val').textContent = '200'; }, [], A + 3.7);
+tl.call(() => { document.getElementById('caja-val').textContent = '200.00'; }, [], A + 3.85);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1000, y: 600, duration: 0.45, ease: 'power2.inOut' }, A + 4.1);
+tl.fromTo('#ripple', { x: 1000, y: 600, scale: 0, opacity: 0.8 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, A + 4.62);
+tl.to('#btn-confirm-caja', { scale: 0.95, duration: 0.1, ease: 'power2.in' }, A + 4.6);
+tl.to('#btn-confirm-caja', { scale: 1, duration: 0.2, ease: 'back.out(2)' }, A + 4.7);
+tl.to('#dialog-apertura', { opacity: 0, scale: 0.95, y: -20, duration: 0.25, ease: 'power2.in' }, A + 4.85);
+tl.to('#backdrop', { opacity: 0, duration: 0.2 }, A + 4.9);
+tl.fromTo('#snack-caja', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'expo.out' }, A + 5.1);
+tl.to('#snack-caja', { y: 60, opacity: 0, duration: 0.3, ease: 'power2.in' }, A + 7.0);
+
+// CREAR CITA (A+5.5 to A+12.3)
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 309, y: 590, duration: 0.9, ease: 'power2.inOut' }, A + 5.5);
+tl.to('#slot-click-target', { opacity: 1, duration: 0.2 }, A + 6.3);
+tl.fromTo('#ripple', { x: 309, y: 590, scale: 0, opacity: 0.6 }, { scale: 4, opacity: 0, duration: 0.45, ease: 'power1.out' }, A + 6.62);
+tl.to('#backdrop', { opacity: 1, duration: 0.25 }, A + 6.7);
+tl.to('#cita-sheet', { x: 0, duration: 0.45, ease: 'expo.out' }, A + 6.75);
+tl.to('#slot-click-target', { opacity: 0, duration: 0.1 }, A + 6.8);
+tl.fromTo('#cita-sheet .sheet-field:nth-child(1)', { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, A + 7.2);
+tl.fromTo('#cita-sheet .sheet-field:nth-child(2)', { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, A + 7.4);
+tl.fromTo('#cita-sheet .sheet-field:nth-child(3)', { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, A + 7.6);
+tl.fromTo('#cita-sheet .sheet-field:nth-child(4)', { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, A + 7.8);
+tl.fromTo('#cita-sheet .sheet-field:nth-child(5)', { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, A + 8.0);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1680, y: 1040, duration: 0.7, ease: 'power2.inOut' }, A + 8.5);
+tl.fromTo('#ripple', { x: 1680, y: 1040, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, A + 9.22);
+tl.to('#btn-confirm-cita', { scale: 0.95, duration: 0.1, ease: 'power2.in' }, A + 9.2);
+tl.to('#btn-confirm-cita', { scale: 1, duration: 0.2, ease: 'back.out(2)' }, A + 9.3);
+tl.to('#cita-sheet', { x: 480, duration: 0.35, ease: 'power2.in' }, A + 9.45);
+tl.to('#backdrop', { opacity: 0, duration: 0.25 }, A + 9.5);
+tl.fromTo('#cita-maria', { opacity: 1, scaleY: 0 }, { scaleY: 1, duration: 0.5, ease: 'expo.out' }, A + 9.75);
+tl.fromTo('#snack-cita', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'expo.out' }, A + 10.1);
+tl.to('#snack-cita', { y: 60, opacity: 0, duration: 0.3, ease: 'power2.in' }, A + 12.3);
+
+// COBRAR (A+11.2 to A+16.2)
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1350, y: 450, duration: 0.8, ease: 'power2.inOut' }, A + 11.2);
+tl.to('#svc-corte-color', { backgroundColor: 'rgba(124,58,237,0.06)', duration: 0.2 }, A + 12.0);
+tl.fromTo('#ripple', { x: 1350, y: 450, scale: 0, opacity: 0.6 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, A + 12.05);
+tl.to('#svc-corte-color .svc-add', { scale: 0.85, duration: 0.1, ease: 'power2.in' }, A + 12.05);
+tl.to('#svc-corte-color .svc-add', { scale: 1, duration: 0.2, ease: 'back.out(2)' }, A + 12.15);
+tl.to('#svc-corte-color', { backgroundColor: 'transparent', duration: 0.3 }, A + 12.3);
+tl.call(() => {
+  document.getElementById('ticket-items').classList.add('visible');
+  document.getElementById('total-val').textContent = '55.00 EUR';
+  document.getElementById('cobrar-btn').textContent = 'COBRAR 55.00 EUR';
+}, [], A + 12.1);
+tl.fromTo('#ticket-items', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: 'expo.out' }, A + 12.15);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1488, y: 1055, duration: 0.6, ease: 'power2.inOut' }, A + 12.5);
+tl.to('#cobrar-btn', { filter: 'brightness(1.1)', duration: 0.15 }, A + 13.1);
+tl.fromTo('#ripple', { x: 1488, y: 1055, scale: 0, opacity: 0.5 }, { scale: 5, opacity: 0, duration: 0.5, ease: 'power1.out' }, A + 13.18);
+tl.to('#cobrar-btn', { scale: 0.96, duration: 0.1, ease: 'power2.in' }, A + 13.15);
+tl.to('#cobrar-btn', { scale: 1, filter: 'brightness(1)', duration: 0.2, ease: 'back.out(2)' }, A + 13.25);
+tl.to('#backdrop', { opacity: 1, duration: 0.25 }, A + 13.3);
+tl.fromTo('#dialog-pago', { opacity: 0, scale: 0.93, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: 'expo.out' }, A + 13.35);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1040, y: 590, duration: 0.5, ease: 'power2.inOut' }, A + 13.9);
+tl.fromTo('#ripple', { x: 1040, y: 590, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, A + 14.45);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 960, y: 668, duration: 0.4, ease: 'power2.inOut' }, A + 14.7);
+tl.fromTo('#ripple', { x: 960, y: 668, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, A + 15.22);
+tl.to('#btn-confirm-pago', { scale: 0.95, duration: 0.1, ease: 'power2.in' }, A + 15.2);
+tl.to('#btn-confirm-pago', { scale: 1, duration: 0.15, ease: 'back.out(2)' }, A + 15.3);
+tl.fromTo('#pago-success', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' }, A + 15.4);
+tl.fromTo('#pago-check', { scale: 0, rotation: -20 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(2)' }, A + 15.45);
+tl.to('#dialog-pago', { opacity: 0, scale: 0.95, duration: 0.3, ease: 'power2.in' }, A + 16.2);
+tl.to('#backdrop', { opacity: 0, duration: 0.25 }, A + 16.3);
+tl.fromTo('#snack-cobro', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'expo.out' }, A + 16.4);
+tl.call(() => {
+  document.getElementById('dash-cobrado').textContent = '55.00 EUR cobrado hoy';
+  document.getElementById('ticket-items').classList.remove('visible');
+  document.getElementById('total-val').textContent = '0.00 EUR';
+  document.getElementById('cobrar-btn').textContent = 'COBRAR 0.00 EUR';
+}, [], A + 16.4);
+
+// FACTURACION AUTOMATICA (A+16.5 to A+24.5)
+const F = A + 16.5;
+tl.call(() => { document.getElementById('snack-factura-txt').textContent = 'Generando factura...'; }, [], F);
+tl.fromTo('#snack-factura', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'expo.out' }, F);
+tl.to('#snack-cobro', { y: 60, opacity: 0, duration: 0.3, ease: 'power2.in' }, F + 0.5);
+// Dialog appears after 1.2s
+tl.to('#backdrop', { opacity: 1, duration: 0.2 }, F + 1.2);
+tl.fromTo('#dialog-factura', { opacity: 0, scale: 0.88, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'expo.out' }, F + 1.3);
+tl.call(() => { document.getElementById('snack-factura-txt').textContent = 'Factura #0043 generada'; }, [], F + 1.5);
+// Cursor moves to dialog
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 960, y: 380, duration: 0.6, ease: 'power2.inOut' }, F + 2.0);
+// Invoice rows animate in
+tl.fromTo('#factura-row1', { opacity: 0, x: 15 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' }, F + 2.5);
+tl.fromTo('#factura-totals', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }, F + 2.85);
+tl.fromTo('#factura-meta', { opacity: 0 }, { opacity: 1, duration: 0.25 }, F + 3.2);
+// Cursor moves to Enviar button
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1044, y: 672, duration: 0.7, ease: 'power2.inOut' }, F + 4.0);
+tl.to('#btn-factura-send', { filter: 'brightness(1.12)', duration: 0.15 }, F + 4.75);
+tl.fromTo('#ripple', { x: 1044, y: 672, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, F + 4.85);
+tl.to('#btn-factura-send', { scale: 0.95, duration: 0.1, ease: 'power2.in' }, F + 4.83);
+tl.to('#btn-factura-send', { scale: 1, filter: 'brightness(1)', duration: 0.15, ease: 'back.out(2)' }, F + 4.93);
+tl.call(() => { document.getElementById('snack-factura-txt').textContent = 'Factura enviada por email'; }, [], F + 5.0);
+// Dialog closes
+tl.to('#dialog-factura', { opacity: 0, scale: 0.95, y: -20, duration: 0.35, ease: 'power2.in' }, F + 5.8);
+tl.to('#backdrop', { opacity: 0, duration: 0.25 }, F + 5.9);
+tl.to('#snack-factura', { y: 60, opacity: 0, duration: 0.3, ease: 'power2.in' }, F + 7.5);
+
+// CAMBIO DE ESTILO (F+8 = A+24.5 to A+33)
+const TH = F + 8.0;
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 700, y: 400, duration: 1.0, ease: 'sine.inOut' }, F + 6.5);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 1792, y: 24, duration: 0.8, ease: 'power2.inOut' }, TH);
+tl.to('#btn-tune', { backgroundColor: 'rgba(255,255,255,0.18)', duration: 0.15 }, TH + 0.8);
+tl.fromTo('#ripple', { x: 1792, y: 24, scale: 0, opacity: 0.8 }, { scale: 4, opacity: 0, duration: 0.45, ease: 'power1.out' }, TH + 0.88);
+tl.to('#btn-tune', { backgroundColor: 'rgba(255,255,255,0)', duration: 0.15 }, TH + 1.0);
+tl.to('#backdrop', { opacity: 1, duration: 0.25 }, TH + 0.95);
+tl.to('#theme-sheet', { y: 0, duration: 0.45, ease: 'expo.out' }, TH + 1.0);
+// Rosa Coral
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 240, y: 790, duration: 0.6, ease: 'power2.inOut' }, TH + 1.6);
+tl.fromTo('#ripple', { x: 240, y: 790, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, TH + 2.22);
+tl.call(() => { applyTheme('coral'); }, [], TH + 2.27);
+tl.fromTo('#snack-tema', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'expo.out' }, TH + 2.3);
+tl.to('#snack-tema', { y: 60, opacity: 0, duration: 0.25, ease: 'power2.in' }, TH + 3.5);
+// Sage Green
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 380, y: 790, duration: 0.5, ease: 'power2.inOut' }, TH + 2.8);
+tl.fromTo('#ripple', { x: 380, y: 790, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, TH + 3.32);
+tl.call(() => { applyTheme('sage'); }, [], TH + 3.37);
+tl.fromTo('#snack-tema', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'expo.out' }, TH + 3.4);
+tl.to('#snack-tema', { y: 60, opacity: 0, duration: 0.25, ease: 'power2.in' }, TH + 4.5);
+// Midnight
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 520, y: 790, duration: 0.45, ease: 'power2.inOut' }, TH + 4.0);
+tl.fromTo('#ripple', { x: 520, y: 790, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, TH + 4.47);
+tl.call(() => { applyTheme('midnight'); }, [], TH + 4.52);
+tl.fromTo('#snack-tema', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'expo.out' }, TH + 4.55);
+tl.to('#snack-tema', { y: 60, opacity: 0, duration: 0.25, ease: 'power2.in' }, TH + 5.5);
+// Back to Lavanda
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 110, y: 790, duration: 0.5, ease: 'power2.inOut' }, TH + 5.1);
+tl.fromTo('#ripple', { x: 110, y: 790, scale: 0, opacity: 0.7 }, { scale: 4, opacity: 0, duration: 0.4, ease: 'power1.out' }, TH + 5.62);
+tl.call(() => { applyTheme('lavanda'); }, [], TH + 5.67);
+tl.fromTo('#snack-tema', { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'expo.out' }, TH + 5.7);
+// Close sheet
+tl.to('#theme-sheet', { y: 380, duration: 0.4, ease: 'power2.in' }, TH + 6.2);
+tl.to('#backdrop', { opacity: 0, duration: 0.3 }, TH + 6.3);
+tl.to('#snack-tema', { y: 60, opacity: 0, duration: 0.25, ease: 'power2.in' }, TH + 7.0);
+
+// Cursor drift
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 700, y: 500, duration: 1.2, ease: 'sine.inOut' }, TH + 5.0);
+tl.to('#cursor-wrap', { overwrite: 'auto', x: 960, y: 450, duration: 1.0, ease: 'sine.inOut' }, TH + 6.5);
+
+// S2 -> S3 transition at t=37
+const T23 = 34.5;
+tl.to('#s2', { opacity: 0, filter: 'blur(12px)', duration: 0.4, ease: 'power2.in' }, T23);
+tl.fromTo('#s3', { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power2.out' }, T23 + 0.1);
+
+// OUTRO (37-45s)
+tl.fromTo('.outro-glow', { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'sine.out' }, T23 + 0.2);
+tl.fromTo('#o-logo', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: 'expo.out' }, T23 + 0.3);
+tl.fromTo('#o-tag',  { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out' }, T23 + 0.8);
+tl.fromTo('#o-features', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power2.out' }, T23 + 1.3);
+tl.fromTo('#o-cta', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: 'expo.out' }, T23 + 2.0);
+tl.to('#o-cta', { scale: 1.04, duration: 0.9, ease: 'sine.inOut', repeat: 3, yoyo: true }, T23 + 2.8);
+// Fade to white
+tl.fromTo('#outro-fade', { opacity: 0 }, { opacity: 1, duration: 1.5, ease: 'power2.inOut' }, 38.0);
+
+window.__timelines['fluix-tpv-v3'] = tl;
+</script>
+</body>
+</html>

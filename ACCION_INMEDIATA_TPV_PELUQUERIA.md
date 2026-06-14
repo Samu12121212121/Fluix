@@ -1,12 +1,12 @@
-# 🚨 ACCIÓN INMEDIATA: Arreglar TPV Peluquería
+#  ACCIÓN INMEDIATA: Arreglar TPV Peluquería
 
 **Fecha**: 13 Mayo 2026  
-**Prioridad**: 🔴 CRÍTICA  
+**Prioridad**:  CRÍTICA  
 **Tiempo estimado**: 5-7 días → **2-3 días con esta guía**  
 
 ---
 
-## 🎯 PROBLEMA IDENTIFICADO
+##  PROBLEMA IDENTIFICADO
 
 El **TPV Peluquería** está usando **servicios STUB/MOCK** locales en lugar de importar los servicios reales que ya existen en el proyecto.
 
@@ -42,7 +42,7 @@ Ya existen implementaciones **completas y funcionales**:
 
 ---
 
-## 🔧 SOLUCIÓN EN 3 PASOS
+##  SOLUCIÓN EN 3 PASOS
 
 ### PASO 1: Eliminar Stubs (5 minutos)
 
@@ -261,7 +261,7 @@ class CierreCajaService {
 
 ---
 
-## 🚀 BENEFICIOS INMEDIATOS
+##  BENEFICIOS INMEDIATOS
 
 ### Antes (CON STUBS) ❌
 - NO imprime tickets
@@ -277,20 +277,20 @@ class CierreCajaService {
 
 ---
 
-## 📊 IMPACTO EN EL RATING
+##  IMPACTO EN EL RATING
 
 | Aspecto | Antes | Después | Mejora |
 |---------|-------|---------|--------|
 | **Completitud global** | 7/10 ⭐⭐⭐⭐⭐⭐⭐☆☆☆ | 9.5/10 ⭐⭐⭐⭐⭐⭐⭐⭐⭐☆ | +2.5 ⭐ |
 | **Impresión de tickets** | 0% ❌ | 100% ✅ | +100% |
 | **Cierre de caja** | 0% ❌ | 100% ✅ | +100% |
-| **Tiempo a producción** | 5-7 días 🔴 | 0.5-1 días 🟢 | **-86%** |
+| **Tiempo a producción** | 5-7 días  | 0.5-1 días  | **-86%** |
 
 **Conclusión**: Con estos 3 pasos simples, el TPV Peluquería pasa de **7/10 a 9.5/10** y está listo para producción en **menos de 1 día** en lugar de 5-7 días.
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 ### Problema
 El TPV Peluquería usa servicios stub que **siempre retornan 0** y **no imprimen realmente**.
@@ -300,8 +300,8 @@ Reemplazar imports comentados por los servicios reales que **ya existen** en el 
 
 ### Impacto
 - ⏱️ **Ahorra 5-6 días** de desarrollo
-- 💰 **Ahorra 2.000-2.400€** en costos
-- 🚀 **Lanza a producción HOY** en lugar de en 1 semana
+-  **Ahorra 2.000-2.400€** en costos
+-  **Lanza a producción HOY** en lugar de en 1 semana
 - ✅ **Sin crear código nuevo**, solo conectar lo existente
 
 ### Acción Inmediata
@@ -313,12 +313,12 @@ code lib/features/tpv/pantallas/tpv_peluqueria_screen.dart
 # 3. Descomentar/actualizar líneas 19-21 (imports reales)
 # 4. Crear CierreCajaService si no existe (usar plantilla)
 # 5. Probar en tablet física
-# 6. 🎉 LISTO PARA PRODUCCIÓN
+# 6.  LISTO PARA PRODUCCIÓN
 ```
 
 ---
 
-## 📋 CHECKLIST DE IMPLEMENTACIÓN
+##  CHECKLIST DE IMPLEMENTACIÓN
 
 ### Hora 0-1: Setup Inicial
 - [ ] Hacer backup del archivo `tpv_peluqueria_screen.dart`
@@ -352,11 +352,11 @@ code lib/features/tpv/pantallas/tpv_peluqueria_screen.dart
 - [ ] Probar con impresora Bluetooth real
 - [ ] Documentar cualquier ajuste necesario
 
-### Hora 6: 🎉 LANZAR A PRODUCCIÓN
+### Hora 6:  LANZAR A PRODUCCIÓN
 
 ---
 
-## 🛠️ COMANDOS ÚTILES
+## ️ COMANDOS ÚTILES
 
 ### Compilar y verificar errores
 ```bash
@@ -400,7 +400,7 @@ import '../../../services/tpv/impresora_bluetooth_service.dart'
 
 ---
 
-## 📞 SOPORTE
+##  SOPORTE
 
 Si encuentras problemas durante la implementación:
 
@@ -413,7 +413,6 @@ Si encuentras problemas durante la implementación:
 
 ---
 
-**🎉 Con estos cambios, el TPV Peluquería estará al nivel de los otros 2 TPV (9.5/10) y listo para producción inmediata.**
+** Con estos cambios, el TPV Peluquería estará al nivel de los otros 2 TPV (9.5/10) y listo para producción inmediata.**
 
 _Última actualización: 13 Mayo 2026_
-

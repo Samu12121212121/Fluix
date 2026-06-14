@@ -1380,121 +1380,133 @@ class _TabBuscarState extends State<_TabBuscar> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// TAB 2 — FAVORITOS (funcional con Firestore)
+// TAB 2 — FAVORITOS
 // ═══════════════════════════════════════════════════════════════════════
-class _TabFavoritos extends StatelessWidget {
+enum _SortFav { reciente, nombre, rating }
+
+class _TabFavoritos extends StatefulWidget {
   const _TabFavoritos();
+  @override
+  State<_TabFavoritos> createState() => _TabFavoritosState();
+}
+
+class _TabFavoritosState extends State<_TabFavoritos> {
+  _SortFav _sort = _SortFav.reciente;
+  final _uid = FirebaseAuth.instance.currentUser?.uid;
+
+  List<QueryDocumentSnapshot> _sorted(List<QueryDocumentSnapshot> docs) {
+    final list = [...docs];
+    switch (_sort) {
+      case _SortFav.nombre:
+        list.sort((a, b) {
+          final na = (a.data() as Map)['nombre'] as String? ?? '';
+          final nb = (b.data() as Map)['nombre'] as String? ?? '';
+          return na.compareTo(nb);
+        });
+      case _SortFav.rating:
+        list.sort((a, b) {
+          final ra = ((a.data() as Map)['rating'] as num?) ?? 0;
+          final rb = ((b.data() as Map)['rating'] as num?) ?? 0;
+          return rb.compareTo(ra);
+        });
+      case _SortFav.reciente:
+        list.sort((a, b) {
+          final ta = (a.data() as Map)['guardado_en'];
+          final tb = (b.data() as Map)['guardado_en'];
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1; if (tb == null) return -1;
+          return (tb as dynamic).compareTo(ta);
+        });
+    }
+    return list;
+  }
+
+  String get _sortLabel => switch (_sort) {
+    _SortFav.reciente => 'Recientes',
+    _SortFav.nombre   => 'A-Z',
+    _SortFav.rating   => 'Rating',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (_uid == null) {
+      return Scaffold(backgroundColor: _C.negro, body: SafeArea(child: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('💫', style: TextStyle(fontSize: 52)),
+          const SizedBox(height: 16),
+          const Text('Inicia sesión para guardar favoritos', style: TextStyle(color: _C.texto, fontSize: 15, fontWeight: FontWeight.w600)),
+        ],
+      ))));
+    }
 
     return Scaffold(
       backgroundColor: _C.negro,
       body: SafeArea(
-        child: Column(children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Row(children: [
-              const Text('Mis Favoritos', style: TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w800, color: _C.texto,
-              )),
-              const Spacer(),
-              Icon(Icons.favorite_rounded, color: _C.accentRosa, size: 22),
-            ]),
-          ),
-
-          if (uid == null)
-            Expanded(child: Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.favorite_border_rounded, size: 56,
-                    color: _C.textoMuted.withValues(alpha: 0.3)),
-                const SizedBox(height: 16),
-                const Text('Inicia sesión para guardar favoritos',
-                    style: TextStyle(color: _C.texto, fontSize: 15,
-                        fontWeight: FontWeight.w600)),
-              ],
-            )))
-          else
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('usuarios').doc(uid)
-                    .collection('favoritos')
-                    .snapshots(),  // sin orderBy → evita necesitar índice compuesto
-                builder: (ctx, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                        child: CircularProgressIndicator(color: _C.accent));
-                  }
-
-                  if (snap.hasError) {
-                    return Center(child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.lock_outline, size: 48,
-                            color: _C.textoMuted.withValues(alpha: 0.4)),
-                        const SizedBox(height: 12),
-                        const Text('No se pudieron cargar los favoritos',
-                            style: TextStyle(color: _C.texto, fontSize: 14,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
-                        Text('${snap.error}',
-                            style: const TextStyle(color: _C.textoMuted, fontSize: 11),
-                            textAlign: TextAlign.center),
-                      ],
-                    ));
-                  }
-
-                  // Ordenar cliente-side por fecha (más reciente primero)
-                  final docs = [...(snap.data?.docs ?? [])];
-                  docs.sort((a, b) {
-                    final ta = (a.data() as Map<String, dynamic>)['guardado_en'];
-                    final tb = (b.data() as Map<String, dynamic>)['guardado_en'];
-                    if (ta == null && tb == null) return 0;
-                    if (ta == null) return 1;
-                    if (tb == null) return -1;
-                    return (tb as dynamic).compareTo(ta);
-                  });
-
-                  if (docs.isEmpty) {
-                    return Center(child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.favorite_border_rounded, size: 56,
-                            color: _C.textoMuted.withValues(alpha: 0.3)),
-                        const SizedBox(height: 16),
-                        const Text('Sin favoritos aún',
-                            style: TextStyle(color: _C.texto, fontSize: 16,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
-                        const Text('Pulsa el ❤️ en cualquier negocio\npara guardarlo aquí',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: _C.textoMuted, fontSize: 13)),
-                      ],
-                    ));
-                  }
-
-                  return GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.82,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('usuarios').doc(_uid).collection('favoritos').snapshots(),
+          builder: (ctx, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: _C.accent));
+            }
+            final docs = _sorted(snap.data?.docs ?? []);
+            return Column(children: [
+              // ── Header ─────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 16, 12),
+                child: Row(children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Mis Favoritos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _C.texto)),
+                    Text('${docs.length} guardado${docs.length != 1 ? 's' : ''}', style: const TextStyle(color: _C.textoMuted, fontSize: 12)),
+                  ]),
+                  const Spacer(),
+                  PopupMenuButton<_SortFav>(
+                    onSelected: (v) => setState(() => _sort = v),
+                    color: _C.grisMedio,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(color: _C.grisMedio, borderRadius: BorderRadius.circular(10), border: Border.all(color: _C.grisClaro)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.sort_rounded, size: 13, color: _C.textoMuted),
+                        const SizedBox(width: 5),
+                        Text(_sortLabel, style: const TextStyle(color: _C.textoMuted, fontSize: 11)),
+                      ]),
                     ),
-                    itemCount: docs.length,
-                    itemBuilder: (ctx, i) {
-                      final data = docs[i].data() as Map<String, dynamic>;
-                      return _TarjetaFavorito(data: data, uid: uid, docId: docs[i].id);
-                    },
-                  );
-                },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: _SortFav.reciente, child: Text('Más recientes', style: TextStyle(color: Colors.white, fontSize: 13))),
+                      PopupMenuItem(value: _SortFav.nombre,   child: Text('Nombre A-Z',    style: TextStyle(color: Colors.white, fontSize: 13))),
+                      PopupMenuItem(value: _SortFav.rating,   child: Text('Mejor valorados', style: TextStyle(color: Colors.white, fontSize: 13))),
+                    ],
+                  ),
+                ]),
               ),
-            ),
-        ]),
+              // ── Grid o empty state ──────────────────────────────────
+              if (docs.isEmpty)
+                const Expanded(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text('❤️', style: TextStyle(fontSize: 52)),
+                  SizedBox(height: 16),
+                  Text('Sin favoritos aún', style: TextStyle(color: _C.texto, fontSize: 16, fontWeight: FontWeight.w600)),
+                  SizedBox(height: 8),
+                  Text('Toca el ❤️ en cualquier negocio\npara guardarlo aquí',
+                    textAlign: TextAlign.center, style: TextStyle(color: _C.textoMuted, fontSize: 13, height: 1.5)),
+                ])))
+              else
+                Expanded(child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2, childAspectRatio: 0.72,
+                    crossAxisSpacing: 12, mainAxisSpacing: 12,
+                  ),
+                  itemCount: docs.length,
+                  itemBuilder: (_, i) => _TarjetaFavorito(
+                    data: docs[i].data() as Map<String, dynamic>,
+                    uid: _uid, docId: docs[i].id,
+                  ),
+                )),
+            ]);
+          },
+        ),
       ),
     );
   }
@@ -1502,108 +1514,99 @@ class _TabFavoritos extends StatelessWidget {
 
 class _TarjetaFavorito extends StatelessWidget {
   final Map<String, dynamic> data;
-  final String uid;
-  final String docId;
+  final String uid, docId;
   const _TarjetaFavorito({required this.data, required this.uid, required this.docId});
 
   @override
   Widget build(BuildContext context) {
-    final nombre = data['nombre'] as String? ?? '';
+    final nombre  = data['nombre'] as String? ?? '';
     final fotoUrl = data['foto_url'] as String? ?? '';
     final catName = data['categoria'] as String? ?? '';
-    final rating = (data['rating'] as num?)?.toDouble();
-
+    final rating  = (data['rating'] as num?)?.toDouble();
     CategoriaNegocio? cat;
-    try {
-      cat = CategoriaNegocio.values.firstWhere((c) => c.name == catName);
-    } catch (_) {}
+    try { cat = CategoriaNegocio.values.firstWhere((c) => c.name == catName); } catch (_) {}
 
     return GestureDetector(
       onTap: () async {
-        // Cargar negocio completo y navegar
         final negocioId = data['negocio_id'] as String? ?? docId;
-        final docSnap = await FirebaseFirestore.instance
-            .collection('negocios_publicos').doc(negocioId).get();
+        final docSnap = await FirebaseFirestore.instance.collection('negocios_publicos').doc(negocioId).get();
         if (!context.mounted) return;
         if (docSnap.exists) {
-          final negocio = NegocioPublico.fromJson(
-              docSnap.id, docSnap.data() as Map<String, dynamic>);
-          Navigator.push(context, MaterialPageRoute(
-              builder: (_) => DetalleNegocioScreen(negocio: negocio)));
+          final negocio = NegocioPublico.fromJson(docSnap.id, docSnap.data() as Map<String, dynamic>);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => DetalleNegocioScreen(negocio: negocio)));
         }
       },
       child: Container(
         decoration: BoxDecoration(
-          color: _C.grisOscuro,
-          borderRadius: BorderRadius.circular(16),
+          color: _C.grisMedio,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _C.grisClaro.withValues(alpha: 0.6)),
         ),
-        child: Stack(children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Foto
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Foto con overlay ──────────────────────────────────────
+          Expanded(flex: 6, child: Stack(fit: StackFit.expand, children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: AspectRatio(
-                aspectRatio: 1.1,
-                child: fotoUrl.isNotEmpty
-                    ? CachedNetworkImage(imageUrl: fotoUrl, fit: BoxFit.cover,
-                        placeholder: (_, __) => const _FotoPlaceholder(),
-                        errorWidget: (_, __, ___) => const _FotoPlaceholder())
-                    : const _FotoPlaceholder(),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              child: fotoUrl.isNotEmpty
+                  ? CachedNetworkImage(imageUrl: fotoUrl, fit: BoxFit.cover,
+                      placeholder: (_, __) => const _FotoPlaceholder(),
+                      errorWidget: (_, __, ___) => const _FotoPlaceholder())
+                  : const _FotoPlaceholder(),
+            ),
+            // Gradiente nombre
+            Positioned.fill(child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              child: DecoratedBox(decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.65)],
+                  stops: const [0.45, 1.0],
+                ),
+              )),
+            )),
+            // Nombre sobre la foto
+            Positioned(left: 10, right: 44, bottom: 10,
+              child: Text(nombre, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800, height: 1.2,
+                shadows: [Shadow(blurRadius: 6, color: Colors.black54)]), maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
+            // Botón quitar favorito
+            Positioned(top: 8, right: 8,
+              child: GestureDetector(
+                onTap: () => FirebaseFirestore.instance.collection('usuarios').doc(uid).collection('favoritos').doc(docId).delete(),
+                child: Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: _C.accentRosa.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _C.accentRosa.withValues(alpha: 0.5)),
+                  ),
+                  child: const Center(child: Icon(Icons.favorite_rounded, size: 15, color: _C.accentRosa)),
+                ),
               ),
             ),
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(nombre, style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700,
-                      color: _C.texto, height: 1.2),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  if (rating != null)
-                    Row(children: [
-                      Icon(Icons.star_rounded, size: 11, color: _C.accent),
-                      const SizedBox(width: 3),
-                      Text(rating.toStringAsFixed(1),
-                          style: const TextStyle(fontSize: 10, color: _C.textoMuted)),
-                    ]),
-                  if (cat != null) ...[
-                    const SizedBox(height: 3),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: _C.negro, borderRadius: BorderRadius.circular(4)),
-                      child: Text(cat.label,
-                          style: const TextStyle(fontSize: 9, color: _C.textoMuted)),
-                    ),
-                  ],
+          ])),
+          // ── Info ─────────────────────────────────────────────────
+          Expanded(flex: 3, child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              if (rating != null)
+                Row(children: [
+                  const Icon(Icons.star_rounded, size: 13, color: Color(0xFFFFB830)),
+                  const SizedBox(width: 3),
+                  Text(rating.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 5),
+                  const Text('·', style: TextStyle(color: _C.textoMuted, fontSize: 10)),
+                  const SizedBox(width: 5),
+                  const Expanded(child: Text('reseñas', style: TextStyle(color: _C.textoMuted, fontSize: 9), overflow: TextOverflow.ellipsis)),
                 ]),
-              ),
-            ),
-          ]),
-          // Botón eliminar favorito (corazón lleno)
-          Positioned(
-            top: 8, right: 8,
-            child: GestureDetector(
-              onTap: () async {
-                await FirebaseFirestore.instance
-                    .collection('usuarios').doc(uid)
-                    .collection('favoritos').doc(docId)
-                    .delete();
-              },
-              child: Container(
-                width: 30, height: 30,
-                decoration: BoxDecoration(
-                  color: _C.negro.withValues(alpha: 0.55),
-                  shape: BoxShape.circle,
+              if (cat != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(color: _C.grisOscuro, borderRadius: BorderRadius.circular(6)),
+                  child: Text(cat.label, style: const TextStyle(color: _C.textoMuted, fontSize: 9, fontWeight: FontWeight.w600)),
                 ),
-                child: const Center(
-                  child: Icon(Icons.favorite_rounded, size: 16, color: _C.accentRosa),
-                ),
-              ),
-            ),
-          ),
+            ]),
+          )),
         ]),
       ),
     );

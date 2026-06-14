@@ -4,7 +4,7 @@
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 
-🔍 ERRORES DETECTADOS:
+ ERRORES DETECTADOS:
 
 1. ❌ "file cannot be read" (pubspec.yaml)
    → Symlinks de plugins no creados
@@ -67,7 +67,7 @@ Este script hace TODO:
 
 ══════════════════════════════════════════════════════════════
 
-🛡️ SI FALLA CON PERMISOS DE SYMLINKS:
+️ SI FALLA CON PERMISOS DE SYMLINKS:
 
 Ejecuta como Administrador:
 
@@ -84,7 +84,7 @@ El script admin también:
 
 ══════════════════════════════════════════════════════════════
 
-📊 ARCHIVOS CREADOS:
+ ARCHIVOS CREADOS:
 
 ✅ ejecutar_windows_completo.bat
    Script principal todo-en-uno (USAR ESTE)
@@ -113,7 +113,7 @@ Siguientes veces: 2-3 minutos
 
 ══════════════════════════════════════════════════════════════
 
-🐛 DIAGNOSTICO SI SIGUE FALLANDO:
+ DIAGNOSTICO SI SIGUE FALLANDO:
 
 1. Verifica Flutter Doctor:
    flutter doctor -v
@@ -139,7 +139,7 @@ Siguientes veces: 2-3 minutos
 
 ══════════════════════════════════════════════════════════════
 
-🎯 COMANDO FINAL:
+ COMANDO FINAL:
 
    ejecutar_windows_completo.bat
 
@@ -148,7 +148,7 @@ Siguientes veces: 2-3 minutos
 
 ══════════════════════════════════════════════════════════════
 
-💡 POR QUE OCURREN ESTOS ERRORES:
+ POR QUE OCURREN ESTOS ERRORES:
 
 SYMLINKS:
 Windows requiere permisos especiales (Developer Mode o Admin)
@@ -165,7 +165,7 @@ Por eso hay que limpiar completamente.
 
 ══════════════════════════════════════════════════════════════
 
-📖 DOCUMENTACION:
+ DOCUMENTACION:
 
 LEER_PRIMERO_WINDOWS.txt — Guia completa actualizada
 DESKTOP_RESUMEN_FINAL.md — Resumen adaptacion
@@ -174,9 +174,8 @@ SOLUCIONES_CMAKE_FIREBASE.md — Explicacion tecnica
 
 ══════════════════════════════════════════════════════════════
 
-🚀 ¡EJECUTA AHORA!
+ ¡EJECUTA AHORA!
 
    Doble clic en: ejecutar_windows_completo.bat
 
 ══════════════════════════════════════════════════════════════
-

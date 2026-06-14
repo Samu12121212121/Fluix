@@ -1,16 +1,16 @@
-# 🛒 Módulo de Pedidos en Explorar + APIs de Delivery (Glovo, etc.)
+#  Módulo de Pedidos en Explorar + APIs de Delivery (Glovo, etc.)
 
 > **Fecha:** Mayo 2026  
 > **Alcance:** Carnicerías, fruterías y cualquier negocio que requiera gestión de pedidos desde la app B2C (pantalla Explorar).
 
 ---
 
-## 📌 Visión general
+##  Visión general
 
 ```
 Cliente (Explorar)
     │
-    ├── Ve negocio con 🛒 "Aceptamos pedidos"
+    ├── Ve negocio con  "Aceptamos pedidos"
     │
     ├── Entra en el catálogo de productos del negocio
     │
@@ -27,7 +27,7 @@ Cliente (Explorar)
 
 ---
 
-## 🏗️ Fase 1 — Configuración del negocio (B2B)
+## ️ Fase 1 — Configuración del negocio (B2B)
 
 ### 1.1 Campos nuevos en `negocios_publicos` / `empresas`
 
@@ -88,7 +88,7 @@ Pechuga de pollo,Pack 1kg,Aves,5.50,,10,true,
 
 ---
 
-## 🏗️ Fase 2 — Pantalla Explorar (B2C)
+## ️ Fase 2 — Pantalla Explorar (B2C)
 
 ### 2.1 Badge "Pedidos" en tarjeta del negocio
 
@@ -162,7 +162,7 @@ class CarritoScreen extends StatefulWidget {
 
 ---
 
-## 🏗️ Fase 3 — Notificaciones al negocio
+## ️ Fase 3 — Notificaciones al negocio
 
 ### 3.1 Cloud Function: `onNuevoPedidoCliente`
 
@@ -197,7 +197,7 @@ export const onNuevoPedidoCliente = functions.firestore
     await admin.messaging().sendEachForMulticast({
       tokens,
       notification: {
-        title: '🛒 Nuevo pedido recibido',
+        title: ' Nuevo pedido recibido',
         body: `${cliente} • ${total}€ • ${modalidad}`,
       },
       data: {
@@ -230,7 +230,7 @@ Future<void> guardarTokenFCM(String uid) async {
 
 ---
 
-## 🏗️ Fase 4 — Pagos
+## ️ Fase 4 — Pagos
 
 ### Opción A: Pago en negocio (efectivo/bizum/tarjeta física) — Sin integración
 
@@ -253,7 +253,7 @@ El pedido se crea con `estado_pago: 'pendiente'` y el negocio lo cobra al entreg
 
 ---
 
-## 🚚 Fase 5 — Integración APIs de Delivery
+##  Fase 5 — Integración APIs de Delivery
 
 ### 5.1 Glovo for Business (Glovo Partners API)
 
@@ -393,7 +393,7 @@ async function crearEnvioStuart(pedido: Pedido) {
 
 ---
 
-## 📊 Estructura Firestore del Pedido Cliente
+##  Estructura Firestore del Pedido Cliente
 
 ```json
 {
@@ -451,4 +451,3 @@ async function crearEnvioStuart(pedido: Pedido) {
 - [ ] Integrar Stuart API
 - [ ] Webhook Glovo (si hay demanda)
 - [ ] Estado del pedido en tiempo real para el cliente
-

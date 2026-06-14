@@ -300,6 +300,7 @@ class LineaFactura {
   final String? referencia;
   final double descuento;            // porcentaje de descuento por línea (0-100)
   final double recargoEquivalencia;  // porcentaje recargo (0, 1.4, 5.2)
+  final String unidad;               // 'ud', 'h', 'kg', 'm²', 'mes', 'servicio', etc.
 
   const LineaFactura({
     required this.descripcion,
@@ -309,6 +310,7 @@ class LineaFactura {
     this.referencia,
     this.descuento = 0,
     this.recargoEquivalencia = 0,
+    this.unidad = '',
   });
 
   double get subtotalBruto => precioUnitario * cantidad;
@@ -326,6 +328,7 @@ class LineaFactura {
     referencia: d['referencia'],
     descuento: (d['descuento'] as num?)?.toDouble() ?? 0,
     recargoEquivalencia: (d['recargo_equivalencia'] as num?)?.toDouble() ?? 0,
+    unidad: d['unidad'] as String? ?? '',
   );
 
   Map<String, dynamic> toMap() => {
@@ -336,6 +339,7 @@ class LineaFactura {
     'referencia': referencia,
     if (descuento > 0) 'descuento': descuento,
     if (recargoEquivalencia > 0) 'recargo_equivalencia': recargoEquivalencia,
+    if (unidad.isNotEmpty) 'unidad': unidad,
   };
 }
 

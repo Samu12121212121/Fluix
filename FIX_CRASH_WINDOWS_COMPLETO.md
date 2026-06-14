@@ -1,11 +1,11 @@
-# 🔧 SOLUCIÓN COMPLETA: Crash en Windows por Error Async de Firestore
+#  SOLUCIÓN COMPLETA: Crash en Windows por Error Async de Firestore
 
 **Fecha:** 2026-05-26  
 **Problema:** App cierra silenciosamente en Windows al fallar refresh de token Firebase Auth
 
 ---
 
-## 🎯 CAUSA RAÍZ IDENTIFICADA
+##  CAUSA RAÍZ IDENTIFICADA
 
 ### Problema 1 (CRÍTICO - Causa el cierre)
 ```
@@ -50,7 +50,7 @@ void _setupPlatformErrorHandler() {
   PlatformDispatcher.instance.onError = (error, stack) {
     final errorStr = error.toString();
     
-    _writeLog('🔴 PLATFORM ERROR:\n$error\n');
+    _writeLog(' PLATFORM ERROR:\n$error\n');
     _writeLog('Stack: $stack\n');
     
     // Detectar errores específicos que NO deben cerrar la app
@@ -128,7 +128,7 @@ Future<void> _cerrarSesion() async {
 
 ```dart
 void _onSesionExpirada() {
-  debugPrint('🔴 MAIN: Sesión expirada - iniciando limpieza...');
+  debugPrint(' MAIN: Sesión expirada - iniciando limpieza...');
   
   final nav = _navigatorKey.currentState;
   if (nav == null) return;
@@ -192,7 +192,7 @@ SafeStreamBuilder<QuerySnapshot>(
 
 ---
 
-## 🚀 CÓMO APLICAR LOS FIXES
+##  CÓMO APLICAR LOS FIXES
 
 ### Paso 1: Verificar que los archivos modificados están en tu proyecto
 
@@ -253,7 +253,7 @@ flutter run -d windows
 
 ---
 
-## 🧪 TESTING
+##  TESTING
 
 ### Test 1: Simular token expirado
 
@@ -282,7 +282,7 @@ notepad C:\Users\Samu\Documents\fluixcrm_crash.log
 
 ---
 
-## 📊 RESUMEN DE CAMBIOS
+##  RESUMEN DE CAMBIOS
 
 | Archivo | Cambio | Efecto |
 |---------|--------|--------|
@@ -327,7 +327,7 @@ Compartir el contenido de `debug_crash.txt` para análisis más profundo.
 
 ---
 
-## 🎯 RESULTADO ESPERADO
+##  RESULTADO ESPERADO
 
 Después de estos fixes:
 
@@ -339,7 +339,7 @@ Después de estos fixes:
 
 ---
 
-## 📞 SOPORTE
+##  SOPORTE
 
 Si después de aplicar estos fixes el problema persiste:
 
@@ -352,5 +352,4 @@ Si después de aplicar estos fixes el problema persiste:
 
 ---
 
-**Los fixes están aplicados y listos para testing. La app ya no debería cerrarse por errores async de Firestore. 🚀**
-
+**Los fixes están aplicados y listos para testing. La app ya no debería cerrarse por errores async de Firestore. **

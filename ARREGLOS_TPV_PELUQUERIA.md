@@ -36,7 +36,7 @@
 
 ## ⚠️ QUÉ COSAS NO FUNCIONARÁN (Requieren Implementación)
 
-### 1. **Impresión de Tickets** 🖨️
+### 1. **Impresión de Tickets** ️
 - **Estado**: NO FUNCIONAL - es un **stub/mock**
 - **Qué hace actualmente**: Solo imprime en consola `debugPrint('MOCK: Imprimiendo ticket #...')`
 - **Para hacerlo funcionar**:
@@ -44,7 +44,7 @@
   - Integrar SDK de impresora térmica Bluetooth (ej: `blue_thermal_printer`)
   - Configurar plantilla de ticket real
 
-### 2. **Cierre de Caja** 💰
+### 2. **Cierre de Caja** 
 - **Estado**: NO FUNCIONAL - es un **stub/mock**
 - **Qué hace actualmente**: Retorna datos vacíos `{total: 0.0, efectivo: 0.0, tarjeta: 0.0}`
 - **Para hacerlo funcionar**:
@@ -52,7 +52,7 @@
   - Conectar con Firebase para agregar ventas del día
   - Guardar registros de cierres en colección `cierres_caja`
 
-### 3. **Bluetooth para Impresora** 📡
+### 3. **Bluetooth para Impresora** 
 - **Estado**: NO IMPLEMENTADO
 - **Qué necesitas**:
   ```yaml
@@ -74,7 +74,7 @@
 - **Motivo**: La primera versión de `TpvPeluqueriaScreen` que usaba este import está comentada
 - **Acción**: Puedes eliminar `import 'tpv_root_screen.dart';` si no lo usas en otra parte
 
-### 5. **Selector de Fecha en Español** 🗓️
+### 5. **Selector de Fecha en Español** ️
 - **Estado**: PUEDE NO FUNCIONAR BIEN
 - **Problema**: `DateFormat('EEEE, dd MMM yyyy', 'es_ES')` requiere locale español
 - **Para hacerlo funcionar**:
@@ -101,7 +101,7 @@
 
 ---
 
-## 📋 CHECKLIST DE IMPLEMENTACIÓN PENDIENTE
+##  CHECKLIST DE IMPLEMENTACIÓN PENDIENTE
 
 Para que el archivo funcione al 100%, implementa en este orden:
 
@@ -125,7 +125,7 @@ Para que el archivo funcione al 100%, implementa en este orden:
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 | Aspecto | Estado | Comentario |
 |---------|--------|------------|
@@ -139,7 +139,7 @@ Para que el archivo funcione al 100%, implementa en este orden:
 
 ---
 
-## 🚀 PARA PROBAR LA APP AHORA
+##  PARA PROBAR LA APP AHORA
 
 La app debería compilar y ejecutarse con estas limitaciones:
 
@@ -163,7 +163,7 @@ flutter run
 
 ---
 
-## 📝 NOTAS ADICIONALES
+##  NOTAS ADICIONALES
 
 - **Código comentado**: La primera versión de `TpvPeluqueriaScreen` está comentada entre las líneas ~250-1065. Puedes eliminarla si confirmas que la segunda funciona bien.
 - **Stubs claramente marcados**: Todos los stubs tienen comentarios `// TODO: Implementar` y `debugPrint('MOCK: ...')` para fácil identificación.
@@ -174,4 +174,3 @@ flutter run
 **Fecha de arreglos**: 13 Mayo 2026  
 **Versión Flutter**: Compatible con Flutter 3.33.0+  
 **Estado**: ✅ COMPILABLE Y FUNCIONAL (con limitaciones documentadas)
-

@@ -5,7 +5,7 @@
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 Se ha implementado **el 32% restante del módulo TPV**, elevándolo del 68% al **100% funcional** y listo para producción. Todos los bloqueantes críticos han sido resueltos.
 
@@ -22,7 +22,7 @@ Se ha implementado **el 32% restante del módulo TPV**, elevándolo del 68% al *
 
 ---
 
-## 📦 ARCHIVOS MODIFICADOS
+##  ARCHIVOS MODIFICADOS
 
 ### 1. `lib/services/pedidos_service.dart`
 **Cambios**:
@@ -111,7 +111,7 @@ Se ha implementado **el 32% restante del módulo TPV**, elevándolo del 68% al *
 
 ---
 
-## 🔥 FUNCIONALIDADES NUEVAS
+##  FUNCIONALIDADES NUEVAS
 
 ### 1. Persistencia en Tiempo Real
 **Antes**: La comanda solo existía en memoria (`setState`). Si la app se cerraba, se perdían todos los pedidos abiertos.
@@ -203,7 +203,7 @@ await FirebaseFirestore.instance.runTransaction<int>((txn) async {
 
 ---
 
-## 🧪 TESTING RECOMENDADO
+##  TESTING RECOMENDADO
 
 ### Test 1: Persistencia
 1. Abrir mesa → añadir productos
@@ -241,7 +241,7 @@ await FirebaseFirestore.instance.runTransaction<int>((txn) async {
 
 ---
 
-## 📋 CHECKLIST FINAL (TODO COMPLETADO)
+##  CHECKLIST FINAL (TODO COMPLETADO)
 
 - [x] Al añadir un producto, la comanda se guarda en `empresas/{id}/comandas/{comandaId}`
 - [x] Al reabrir una mesa ocupada, se carga la comanda guardada (no se crea una nueva)
@@ -260,7 +260,7 @@ await FirebaseFirestore.instance.runTransaction<int>((txn) async {
 
 ---
 
-## 🚀 PRÓXIMOS PASOS OPCIONALES (NO BLOQUEANTES)
+##  PRÓXIMOS PASOS OPCIONALES (NO BLOQUEANTES)
 
 ### Mejoras UX
 - [ ] Badge de cantidad en tarjeta de producto (mostrar cuántos hay en comanda)
@@ -277,7 +277,7 @@ await FirebaseFirestore.instance.runTransaction<int>((txn) async {
 
 ---
 
-## 📚 DOCUMENTACIÓN RELACIONADA
+##  DOCUMENTACIÓN RELACIONADA
 
 - `TPV_DESPLIEGUE_GUIA.md` — Guía de despliegue original
 - `AUDITORIA_TPV_BAR_HIOPOS.md` — Auditoría inicial del módulo
@@ -287,4 +287,3 @@ await FirebaseFirestore.instance.runTransaction<int>((txn) async {
 ---
 
 *✅ Módulo TPV completado al 100% — Mayo 7, 2026*
-

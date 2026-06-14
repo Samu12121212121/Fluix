@@ -1,11 +1,11 @@
-# 🚨 SISTEMA DE CAPTURA DE ERRORES ANTES DEL CRASH - INSTALADO
+#  SISTEMA DE CAPTURA DE ERRORES ANTES DEL CRASH - INSTALADO
 
 **Fecha:** 2026-05-26  
 **Estado:** ✅ **ACTIVO Y LISTO PARA USAR**
 
 ---
 
-## 🎯 ¿QUÉ SE IMPLEMENTÓ?
+##  ¿QUÉ SE IMPLEMENTÓ?
 
 He modificado el método `_cobrar()` en `caja_rapida_screen.dart` para que:
 
@@ -16,7 +16,7 @@ He modificado el método `_cobrar()` en `caja_rapida_screen.dart` para que:
 
 ---
 
-## 📋 CÓMO FUNCIONA
+##  CÓMO FUNCIONA
 
 ### Flujo Normal (Sin Error)
 ```
@@ -34,7 +34,7 @@ Paso 5/6: PDF DESACTIVADO (para debugging) ⚠️
     ↓
 Paso 6/6: Generar ticket texto ✅
     ↓
-Mostrar diálogo de éxito 🎉
+Mostrar diálogo de éxito 
 ```
 
 ### Flujo con Error (NUEVO - Te dice qué falló)
@@ -43,14 +43,14 @@ Usuario confirma cobro
     ↓
 Paso X/6: [alguna operación]
     ↓
-💥 ERROR DETECTADO 💥
+ ERROR DETECTADO 
     ↓
-🚨 MOSTRAR DIÁLOGO DE ERROR (NO se puede cerrar hasta leer)
+ MOSTRAR DIÁLOGO DE ERROR (NO se puede cerrar hasta leer)
     información del error completa
     stack trace
     paso exacto que falló
     ↓
-💾 GUARDAR ERROR EN ARCHIVO
+ GUARDAR ERROR EN ARCHIVO
     C:\Users\Samu\Documents\fluixcrm_error_cobro.txt
     ↓
 App se mantiene abierta (no crashea inmediatamente)
@@ -58,7 +58,7 @@ App se mantiene abierta (no crashea inmediatamente)
 
 ---
 
-## 🔍 DÓNDE VER EL ERROR
+##  DÓNDE VER EL ERROR
 
 ### Opción 1: Diálogo en Pantalla (PRINCIPAL)
 
@@ -66,7 +66,7 @@ Cuando ocurra un error, verás un diálogo **rojo** que dice:
 
 ```
 ═══════════════════════════════════
-🚨 Error al Cobrar
+ Error al Cobrar
 
 La aplicación detectó un error y lo 
 capturó antes de cerrarse.
@@ -77,7 +77,7 @@ Error: [Mensaje del error]
 
 Stack Trace: [Detalles técnicos]
 
-📁 Error guardado en:
+ Error guardado en:
    Documentos\fluixcrm_error_cobro.txt
 ═══════════════════════════════════
       [CERRAR]
@@ -121,7 +121,7 @@ Stack:
 
 ---
 
-## 🧪 TESTING
+##  TESTING
 
 ### Test 1: Probar que el error se captura
 
@@ -154,7 +154,7 @@ Si el cobro SIGUE fallando:
 
 ---
 
-## 📊 INTERPRETACIÓN DE ERRORES
+##  INTERPRETACIÓN DE ERRORES
 
 ### Error: MissingPluginException
 
@@ -221,7 +221,7 @@ Null check operator used on a null value
 
 ---
 
-## 🔧 REACTIVAR EL PDF (Cuando esté listo)
+##  REACTIVAR EL PDF (Cuando esté listo)
 
 Una vez que sepas que el error NO está en el PDF, puedes reactivarlo:
 
@@ -244,7 +244,7 @@ Una vez que sepas que el error NO está en el PDF, puedes reactivarlo:
 
 ---
 
-## 🚀 PRÓXIMOS PASOS
+##  PRÓXIMOS PASOS
 
 ### 1. Ejecutar y reproducir el error
 
@@ -285,7 +285,7 @@ flutter run -d windows
 
 ---
 
-## 📞 SIGUIENTE ACCIÓN
+##  SIGUIENTE ACCIÓN
 
 **EJECUTA LA APP Y PRUEBA EL COBRO:**
 
@@ -301,5 +301,4 @@ flutter run -d windows
 
 ---
 
-**El sistema de captura está listo. La próxima vez que falle, sabremos EXACTAMENTE qué pasó. 🎯**
-
+**El sistema de captura está listo. La próxima vez que falle, sabremos EXACTAMENTE qué pasó. **

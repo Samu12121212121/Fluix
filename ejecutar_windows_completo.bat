@@ -66,13 +66,13 @@ set "firebaseCMake=build\windows\x64\extracted\firebase_cpp_sdk_windows\CMakeLis
 if exist "%firebaseCMake%" (
     echo OK - Firebase SDK descargado
     echo      Aplicando parche...
-
+    
     REM Crear respaldo
     copy "%firebaseCMake%" "%firebaseCMake%.backup" >nul 2>&1
-
+    
     REM Parchear VERSION
     powershell -Command "(Get-Content '%firebaseCMake%') -replace 'cmake_minimum_required\(VERSION [0-9.]+\)', 'cmake_minimum_required(VERSION 3.10)' | Set-Content '%firebaseCMake%'"
-
+    
     echo OK - Parche aplicado (VERSION 3.10)
 ) else (
     echo AVISO - Firebase SDK no se descargo
@@ -111,4 +111,3 @@ echo ========================================
 echo   Ejecucion completada exitosamente
 echo ========================================
 pause
-

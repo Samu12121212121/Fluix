@@ -1,4 +1,4 @@
-# 📊 ANÁLISIS DE EXPANSIÓN: B2C + Desktop + Comparativa WheelUp
+#  ANÁLISIS DE EXPANSIÓN: B2C + Desktop + Comparativa WheelUp
 
 > **Fecha**: 7 Mayo 2026  
 > **Autor**: Análisis técnico FluixCRM  
@@ -6,7 +6,7 @@
 
 ---
 
-## 📋 TABLA DE CONTENIDOS
+##  TABLA DE CONTENIDOS
 
 1. [Transformación B2C: Usuario Final + Empresa](#1-transformación-b2c-usuario-final--empresa)
 2. [Soporte Desktop: Windows/macOS](#2-soporte-desktop-windowsmacos)
@@ -17,7 +17,7 @@
 
 # 1. TRANSFORMACIÓN B2C: Usuario Final + Empresa
 
-## 1.1 📐 ARQUITECTURA ACTUAL vs. PROPUESTA
+## 1.1  ARQUITECTURA ACTUAL vs. PROPUESTA
 
 ### **Estado Actual (B2B — Solo Empresas)**
 
@@ -97,7 +97,7 @@ UI: BottomNavigationBar con módulos de gestión
 
 ---
 
-## 1.2 🔧 CAMBIOS TÉCNICOS NECESARIOS
+## 1.2  CAMBIOS TÉCNICOS NECESARIOS
 
 ### **A) Autenticación y Registro Dual**
 
@@ -106,7 +106,7 @@ UI: BottomNavigationBar con módulos de gestión
 - Pantalla de login (`lib/features/autenticacion/pantallas/pantalla_login.dart`)
 - Registro de empresas con validación
 
-#### 🔴 **LO QUE NECESITAS IMPLEMENTAR:**
+####  **LO QUE NECESITAS IMPLEMENTAR:**
 
 **1. Pantalla de Selección de Tipo de Cuenta** (Esfuerzo: 8-12h)
 
@@ -164,7 +164,7 @@ Future<void> registrarClienteFinal({
     'nombre': nombre,
     'correo': correo,
     'telefono': telefono,
-    'tipo_usuario': 'cliente_final',  // 🔥 NUEVO CAMPO CRÍTICO
+    'tipo_usuario': 'cliente_final',  //  NUEVO CAMPO CRÍTICO
     'fecha_creacion': FieldValue.serverTimestamp(),
     'activo': true,
     'favoritos': [],
@@ -197,13 +197,13 @@ Future<void> _handleLogin() async {
   final tipoUsuario = doc.data()?['tipo_usuario'] as String?;
   
   if (tipoUsuario == 'cliente_final') {
-    // 🔷 Navegar a UI de Cliente
+    //  Navegar a UI de Cliente
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => PantallaClienteHome()),
     );
   } else {
-    // 🔶 Navegar a UI de Empresa (actual)
+    //  Navegar a UI de Empresa (actual)
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => PantallaDashboard()),
@@ -297,7 +297,7 @@ Para mostrar información pública de las empresas sin exponer datos sensibles:
 }
 ```
 
-> 💡 **NOTA:** Esta colección se puede poblar con una **Cloud Function** que sincroniza desde `/empresas/{empresaId}` solo los campos públicos.
+>  **NOTA:** Esta colección se puede poblar con una **Cloud Function** que sincroniza desde `/empresas/{empresaId}` solo los campos públicos.
 
 ---
 
@@ -813,7 +813,7 @@ class _PantallaFormularioReservaState extends State<PantallaFormularioReserva> {
         'hora_inicio': _horaSeleccionada,
         'estado': 'PENDIENTE',
         'notas': _notasController.text,
-        'cliente_id': user.uid,  // 🔥 Referencia al cliente
+        'cliente_id': user.uid,  //  Referencia al cliente
         'origen': 'app_cliente',
         'fecha_creacion': FieldValue.serverTimestamp(),
       });
@@ -1090,7 +1090,7 @@ export const notifyNuevaReserva = functions.firestore
     await admin.messaging().sendMulticast({
       tokens,
       notification: {
-        title: '📅 Nueva Reserva',
+        title: ' Nueva Reserva',
         body: `${reserva.cliente} ha solicitado ${reserva.servicio} para el ${reserva.fecha.toDate().toLocaleDateString()}`,
       },
       data: {
@@ -1103,33 +1103,33 @@ export const notifyNuevaReserva = functions.firestore
 
 ---
 
-## 1.3 📊 RESUMEN DE COMPLEJIDAD B2C
+## 1.3  RESUMEN DE COMPLEJIDAD B2C
 
 ### **Tabla de Esfuerzo por Componente**
 
 | Componente | Esfuerzo (horas) | Complejidad | Prioridad |
 |---|---|---|---|
-| **Autenticación dual (tipo de cuenta)** | 16-24h | MEDIA | 🔴 CRÍTICA |
-| **Registro de cliente final** | 16-24h | MEDIA | 🔴 CRÍTICA |
-| **Modificar esquema Firestore** | 12-16h | MEDIA | 🔴 CRÍTICA |
-| **Firestore rules para clientes** | 8-12h | ALTA | 🔴 CRÍTICA |
-| **Pantalla Descubrir (búsqueda + filtros)** | 40-60h | ALTA | 🔴 CRÍTICA |
-| **Ficha de empresa pública** | 32-48h | MEDIA | 🔴 CRÍTICA |
-| **Formulario de reserva cliente** | 32-48h | MEDIA | 🔴 CRÍTICA |
-| **Mis Reservas (historial)** | 24-32h | BAJA | 🟠 ALTA |
-| **Pantalla Favoritos** | 16-24h | BAJA | 🟡 MEDIA |
-| **Perfil de cliente** | 16-24h | BAJA | 🟡 MEDIA |
-| **Cloud Function sync empresas_publicas** | 12-16h | MEDIA | 🔴 CRÍTICA |
-| **Cloud Function notificación nueva reserva** | 8-12h | BAJA | 🟠 ALTA |
-| **Sistema de valoraciones mejorado** | 24-32h | MEDIA | 🟡 MEDIA |
-| **Mapa de negocios cercanos (Google Maps)** | 32-40h | ALTA | 🟡 MEDIA |
-| **Chat empresa-cliente** | 60-80h | MUY ALTA | 🔵 BAJA |
+| **Autenticación dual (tipo de cuenta)** | 16-24h | MEDIA |  CRÍTICA |
+| **Registro de cliente final** | 16-24h | MEDIA |  CRÍTICA |
+| **Modificar esquema Firestore** | 12-16h | MEDIA |  CRÍTICA |
+| **Firestore rules para clientes** | 8-12h | ALTA |  CRÍTICA |
+| **Pantalla Descubrir (búsqueda + filtros)** | 40-60h | ALTA |  CRÍTICA |
+| **Ficha de empresa pública** | 32-48h | MEDIA |  CRÍTICA |
+| **Formulario de reserva cliente** | 32-48h | MEDIA |  CRÍTICA |
+| **Mis Reservas (historial)** | 24-32h | BAJA |  ALTA |
+| **Pantalla Favoritos** | 16-24h | BAJA |  MEDIA |
+| **Perfil de cliente** | 16-24h | BAJA |  MEDIA |
+| **Cloud Function sync empresas_publicas** | 12-16h | MEDIA |  CRÍTICA |
+| **Cloud Function notificación nueva reserva** | 8-12h | BAJA |  ALTA |
+| **Sistema de valoraciones mejorado** | 24-32h | MEDIA |  MEDIA |
+| **Mapa de negocios cercanos (Google Maps)** | 32-40h | ALTA |  MEDIA |
+| **Chat empresa-cliente** | 60-80h | MUY ALTA |  BAJA |
 | **Total estimado MÍNIMO (MVP)** | **232-340h** | — | — |
 | **Total con features completos** | **360-480h** | — | — |
 
 ### **¿Qué tan complicado es?**
 
-#### 🟢 **ASPECTOS FAVORABLES:**
+####  **ASPECTOS FAVORABLES:**
 
 1. **Ya tienes Firebase configurado** — No necesitas cambiar de backend.
 2. **Ya tienes autenticación** — Solo hay que añadir el flujo de selección de tipo.
@@ -1137,7 +1137,7 @@ export const notifyNuevaReserva = functions.firestore
 4. **Ya tienes valoraciones** — Ya capturáis reseñas de Google y manuales.
 5. **Flutter es multiplataforma** — El mismo código funcionará en iOS y Android.
 
-#### 🔴 **ASPECTOS DESAFIANTES:**
+####  **ASPECTOS DESAFIANTES:**
 
 1. **Búsqueda en Firestore es limitada** — Para búsqueda full-text necesitarás **Algolia**, **Meilisearch** o **Elasticsearch** (~40h extra).
 2. **Geolocalización** — Si quieres "negocios cerca de mí", necesitas **geo-queries** con `geoflutterfire` o similar (~24h extra).
@@ -1190,7 +1190,7 @@ Clientes finales generan **mucho más soporte** que empresas:
 
 ---
 
-## 1.5 📋 CHECKLIST DE IMPLEMENTACIÓN
+## 1.5  CHECKLIST DE IMPLEMENTACIÓN
 
 ### **Fase 1: MVP B2C (8-10 semanas)**
 - [ ] Modificar `pantalla_login.dart` para detectar tipo de usuario
@@ -1227,7 +1227,7 @@ Clientes finales generan **mucho más soporte** que empresas:
 
 # 2. SOPORTE DESKTOP: Windows/macOS
 
-## 2.1 🖥️ ESTADO ACTUAL
+## 2.1 ️ ESTADO ACTUAL
 
 Tu app está construida con **Flutter**, que soporta oficialmente:
 - ✅ iOS
@@ -1241,7 +1241,7 @@ Tu app está construida con **Flutter**, que soporta oficialmente:
 
 ---
 
-## 2.2 📊 ANÁLISIS DE COMPLEJIDAD DESKTOP
+## 2.2  ANÁLISIS DE COMPLEJIDAD DESKTOP
 
 ### **¿Qué funciona inmediatamente?**
 
@@ -1256,7 +1256,7 @@ Tu app está construida con **Flutter**, que soporta oficialmente:
 
 ### **¿Qué necesita adaptación?**
 
-#### 🔴 **1. Layout Responsive** (Esfuerzo: 40-60h)
+####  **1. Layout Responsive** (Esfuerzo: 40-60h)
 
 **Problema:** La app está diseñada para móvil (pantallas pequeñas). En Desktop tienes 1920x1080 o más.
 
@@ -1306,7 +1306,7 @@ Widget build(BuildContext context) {
 
 ---
 
-#### 🔴 **2. Notificaciones Push** (Esfuerzo: 24-32h)
+####  **2. Notificaciones Push** (Esfuerzo: 24-32h)
 
 **Problema:** Firebase Cloud Messaging (FCM) **NO funciona en Windows/macOS nativo**.
 
@@ -1328,7 +1328,7 @@ Widget build(BuildContext context) {
 
 ---
 
-#### 🔴 **3. Impresora Bluetooth** (Esfuerzo: 40-60h)
+####  **3. Impresora Bluetooth** (Esfuerzo: 40-60h)
 
 **Problema:** El módulo `ImpressoraBluetooth` usa plugins de Bluetooth para móvil. **No funciona en Desktop**.
 
@@ -1350,7 +1350,7 @@ Si quieres usar el módulo TPV en Desktop, mejor:
 
 ---
 
-#### 🔴 **4. Cámara y Escáner** (Esfuerzo: 24-32h)
+####  **4. Cámara y Escáner** (Esfuerzo: 24-32h)
 
 **Problema:** `image_picker` y cámaras funcionan diferente en Desktop.
 
@@ -1360,7 +1360,7 @@ Si quieres usar el módulo TPV en Desktop, mejor:
 
 ---
 
-#### 🔴 **5. File Picker y Descargas** (Esfuerzo: 8-12h)
+####  **5. File Picker y Descargas** (Esfuerzo: 8-12h)
 
 En móvil usas `file_picker` y guardas en `Downloads`. En Desktop:
 - `file_picker` funciona perfecto.
@@ -1377,7 +1377,7 @@ await OpenFile.open(outputFile.path);
 
 ---
 
-#### 🟡 **6. Actualizaciones OTA** (Esfuerzo: 16-24h)
+####  **6. Actualizaciones OTA** (Esfuerzo: 16-24h)
 
 En móvil tienes App Store y Play Store que manejan actualizaciones. En Desktop:
 
@@ -1398,7 +1398,7 @@ En móvil tienes App Store y Play Store que manejan actualizaciones. En Desktop:
 
 ---
 
-## 2.3 📦 PROCESO DE COMPILACIÓN DESKTOP
+## 2.3  PROCESO DE COMPILACIÓN DESKTOP
 
 ### **Compilar para Windows**
 
@@ -1450,7 +1450,7 @@ codesign --deep --force --verify --verbose \
 
 ---
 
-## 2.4 📊 TABLA DE COMPATIBILIDAD
+## 2.4  TABLA DE COMPATIBILIDAD
 
 | Feature | iOS | Android | Windows | macOS | Esfuerzo |
 |---|---|---|---|---|---|
@@ -1466,7 +1466,7 @@ codesign --deep --force --verify --verbose \
 | **Google Maps** | ✅ | ✅ | ❌ | ❌ | 0h (no se usa en tu app) |
 | **Biometric auth** | ✅ | ✅ | ⚠️ Windows Hello | ⚠️ Touch ID | 16-24h |
 | **Background services** | ✅ | ✅ | ✅ | ✅ | 0h |
-| **Layout responsive** | N/A | N/A | 🔴 | 🔴 | 40-60h |
+| **Layout responsive** | N/A | N/A |  |  | 40-60h |
 | **Total adaptación** | — | — | **112-176h** | **112-176h** | — |
 
 ---
@@ -1533,7 +1533,7 @@ Cada plataforma tiene:
 
 ---
 
-## 2.6 📋 CHECKLIST IMPLEMENTACIÓN DESKTOP
+## 2.6  CHECKLIST IMPLEMENTACIÓN DESKTOP
 
 ### **Fase 1: Versión Web Desktop (2-3 semanas)**
 - [ ] Compilar con `flutter build web --release`
@@ -1558,7 +1558,7 @@ Cada plataforma tiene:
 
 # 3. COMPARATIVA CON WHEELUP
 
-## 3.1 🔍 ¿QUÉ ES WHEELUP?
+## 3.1  ¿QUÉ ES WHEELUP?
 
 **WheelUp** es una plataforma de **reservas online** enfocada en:
 - Restaurantes
@@ -1585,20 +1585,20 @@ Cada plataforma tiene:
 
 ---
 
-## 3.2 📊 COMPARATIVA FLUIXCRM vs. WHEELUP
+## 3.2  COMPARATIVA FLUIXCRM vs. WHEELUP
 
 ### **¿Qué tiene WheelUp que FluixCRM NO tiene?**
 
 | Feature | WheelUp | FluixCRM | Impacto | Esfuerzo |
 |---|---|---|---|---|
-| **App cliente (B2C)** | ✅ | ❌ | 🔴 ALTO | 232-340h |
-| **Marketplace de negocios** | ✅ | ❌ | 🔴 ALTO | 160-240h |
-| **Búsqueda geolocalizada** | ✅ | ❌ | 🔴 ALTO | 24-40h |
-| **Confirmación automática de reservas** | ✅ | ⚠️ Manual | 🟠 MEDIO | 16-24h |
-| **Recordatorios automáticos (SMS/Email)** | ✅ | ❌ | 🟠 MEDIO | 16-24h |
-| **Gestión de listas de espera** | ✅ | ❌ | 🟡 BAJO | 24-32h |
-| **Reservas desde Google** | ✅ | ⚠️ Via GMB manual | 🟡 BAJO | 40-60h |
-| **Integración con redes sociales** | ✅ | ❌ | 🟡 BAJO | 16-24h |
+| **App cliente (B2C)** | ✅ | ❌ |  ALTO | 232-340h |
+| **Marketplace de negocios** | ✅ | ❌ |  ALTO | 160-240h |
+| **Búsqueda geolocalizada** | ✅ | ❌ |  ALTO | 24-40h |
+| **Confirmación automática de reservas** | ✅ | ⚠️ Manual |  MEDIO | 16-24h |
+| **Recordatorios automáticos (SMS/Email)** | ✅ | ❌ |  MEDIO | 16-24h |
+| **Gestión de listas de espera** | ✅ | ❌ |  BAJO | 24-32h |
+| **Reservas desde Google** | ✅ | ⚠️ Via GMB manual |  BAJO | 40-60h |
+| **Integración con redes sociales** | ✅ | ❌ |  BAJO | 16-24h |
 
 ---
 
@@ -1606,22 +1606,22 @@ Cada plataforma tiene:
 
 | Feature | FluixCRM | WheelUp | Ventaja Competitiva |
 |---|---|---|---|
-| **Facturación completa (9 modelos AEAT)** | ✅ | ❌ | 🔴 ENORME |
-| **VeriFactu con hash chain** | ✅ | ❌ | 🔴 ENORME |
-| **Módulo de nóminas con cálculo IRPF** | ✅ | ❌ | 🔴 MUY ALTA |
-| **Gestión de gastos y proveedores** | ✅ | ❌ | 🔴 ALTA |
-| **Generación de facturas desde pedidos** | ✅ | ❌ | 🔴 ALTA |
-| **TPV completo (módulo bar/restaurante)** | ✅ | ❌ | 🟠 ALTA |
-| **Gestión de empleados + permisos** | ✅ | ⚠️ Básico | 🟠 MEDIA |
-| **WhatsApp para pedidos** | ✅ | ❌ | 🟠 MEDIA |
-| **Módulo de tareas/proyectos** | ✅ | ❌ | 🟡 MEDIA |
-| **Estadísticas avanzadas con cache** | ✅ | ⚠️ Básico | 🟡 MEDIA |
-| **Integración Stripe + Redsys + PSD2** | ✅ | ⚠️ Solo Stripe | 🟡 MEDIA |
-| **Configuración fiscal por empresa** | ✅ | ❌ | 🟡 ALTA |
+| **Facturación completa (9 modelos AEAT)** | ✅ | ❌ |  ENORME |
+| **VeriFactu con hash chain** | ✅ | ❌ |  ENORME |
+| **Módulo de nóminas con cálculo IRPF** | ✅ | ❌ |  MUY ALTA |
+| **Gestión de gastos y proveedores** | ✅ | ❌ |  ALTA |
+| **Generación de facturas desde pedidos** | ✅ | ❌ |  ALTA |
+| **TPV completo (módulo bar/restaurante)** | ✅ | ❌ |  ALTA |
+| **Gestión de empleados + permisos** | ✅ | ⚠️ Básico |  MEDIA |
+| **WhatsApp para pedidos** | ✅ | ❌ |  MEDIA |
+| **Módulo de tareas/proyectos** | ✅ | ❌ |  MEDIA |
+| **Estadísticas avanzadas con cache** | ✅ | ⚠️ Básico |  MEDIA |
+| **Integración Stripe + Redsys + PSD2** | ✅ | ⚠️ Solo Stripe |  MEDIA |
+| **Configuración fiscal por empresa** | ✅ | ❌ |  ALTA |
 
 ---
 
-## 3.3 💰 ANÁLISIS DE PRECIOS
+## 3.3  ANÁLISIS DE PRECIOS
 
 ### **Estructura de Precios WheelUp (aprox.):**
 
@@ -1675,7 +1675,7 @@ Pack Tienda: €99-129/mes
 
 ---
 
-## 3.4 🎯 RECOMENDACIONES DE PRECIO
+## 3.4  RECOMENDACIONES DE PRECIO
 
 ### **Estrategia 1: Posicionamiento Premium (Recomendada)**
 
@@ -1773,7 +1773,7 @@ Ejemplo:
 
 ---
 
-## 3.5 📋 COMPARATIVA FINAL: FLUIXCRM vs. WHEELUP
+## 3.5  COMPARATIVA FINAL: FLUIXCRM vs. WHEELUP
 
 ### **Si implementas B2C (cliente final):**
 
@@ -1815,7 +1815,7 @@ FluixCRM: 9/10 (con B2C implementado)
 
 # 4. RECOMENDACIONES FINALES
 
-## 4.1 🎯 PRIORIZACIÓN ESTRATÉGICA
+## 4.1  PRIORIZACIÓN ESTRATÉGICA
 
 ### **Escenario 1: Enfoque B2B (Recomendado)**
 
@@ -1869,7 +1869,7 @@ FluixCRM: 9/10 (con B2C implementado)
 
 ---
 
-## 4.2 💰 ESTIMACIÓN DE COSTOS TOTALES
+## 4.2  ESTIMACIÓN DE COSTOS TOTALES
 
 ### **Desarrollo B2C (MVP):**
 - **Horas:** 232-340h
@@ -1890,15 +1890,15 @@ FluixCRM: 9/10 (con B2C implementado)
 
 ---
 
-## 4.3 📊 TABLA DE DECISIÓN
+## 4.3  TABLA DE DECISIÓN
 
 | Criterio | B2B Solo | B2C | Desktop | Puntuación |
 |---|---|---|---|---|
-| **Inversión inicial** | 💰 Baja (€0) | 💰💰💰 Alta (€12-24k) | 💰💰 Media (€6-12k) | B2B |
-| **Complejidad técnica** | 🟢 Baja | 🔴 Alta | 🟠 Media | B2B |
-| **Time to market** | 🟢 0 meses | 🔴 3-4 meses | 🟠 2-3 meses | B2B |
-| **Potencial de escala** | 🟡 Medio | 🟢 Alto | 🟠 Bajo | B2C |
-| **Riesgo competitivo** | 🟢 Bajo | 🔴 Alto (WheelUp) | 🟡 Medio | B2B |
+| **Inversión inicial** |  Baja (€0) |  Alta (€12-24k) |  Media (€6-12k) | B2B |
+| **Complejidad técnica** |  Baja |  Alta |  Media | B2B |
+| **Time to market** |  0 meses |  3-4 meses |  2-3 meses | B2B |
+| **Potencial de escala** |  Medio |  Alto |  Bajo | B2C |
+| **Riesgo competitivo** |  Bajo |  Alto (WheelUp) |  Medio | B2B |
 | **Ventaja competitiva** | ✅ VeriFactu única | ⚠️ Marketplace pequeño vs WheelUp | ⚠️ Web suficiente | B2B |
 | **Adecuación producto** | ✅ Perfecto | ⚠️ Falta marketplace | ⚠️ Mejor web | B2B |
 
@@ -1906,7 +1906,7 @@ FluixCRM: 9/10 (con B2C implementado)
 
 ---
 
-## 4.4 🚀 PLAN DE ACCIÓN RECOMENDADO (PRÓXIMOS 6 MESES)
+## 4.4  PLAN DE ACCIÓN RECOMENDADO (PRÓXIMOS 6 MESES)
 
 ### **Mes 1-2: Completar Paridad con WheelUp (B2B)**
 - [ ] Facturas recurrentes automáticas (24-32h)
@@ -1930,24 +1930,24 @@ FluixCRM: 9/10 (con B2C implementado)
 
 ---
 
-## 📝 CONCLUSIONES
+##  CONCLUSIONES
 
 ### **B2C (Usuario Final):**
 - ✅ **Técnicamente viable** — Flutter + Firebase lo soportan.
 - ⚠️ **Inversión alta** — 232-340h para MVP, €12-24k costo desarrollo.
-- 🔴 **Competencia fuerte** — WheelUp, TheFork, Treatwell ya establecidos.
-- 🟢 **Ventaja:** Tu app es **gestión integral**, no solo reservas.
+-  **Competencia fuerte** — WheelUp, TheFork, Treatwell ya establecidos.
+-  **Ventaja:** Tu app es **gestión integral**, no solo reservas.
 
 ### **Desktop (Windows/macOS):**
 - ✅ **Técnicamente viable** — Flutter Desktop es estable.
-- 🟠 **Adaptación media** — 112-176h para versión completa.
-- 🟢 **Alternativa mejor:** **Versión Web** accesible desde navegador (2-3 semanas).
+-  **Adaptación media** — 112-176h para versión completa.
+-  **Alternativa mejor:** **Versión Web** accesible desde navegador (2-3 semanas).
 - ⚠️ **Limitación:** Notificaciones push y Bluetooth no funcionan nativo.
 
 ### **Comparativa WheelUp:**
 - ✅ **FluixCRM es SUPERIOR en:** Facturación, nóminas, TPV, gestión integral.
 - ⚠️ **WheelUp es SUPERIOR en:** Marketplace establecido, app cliente pulida.
-- 🎯 **Recomendación de precio:** €49/€99/€179 (Starter/Pro/Business).
+-  **Recomendación de precio:** €49/€99/€179 (Starter/Pro/Business).
 
 ---
 
@@ -1957,10 +1957,9 @@ FluixCRM: 9/10 (con B2C implementado)
 2. **Mes 5-6:** Lanzar versión **Web para Desktop** (no nativa).
 3. **Mes 7-12:** **SOLO si hay demanda validada**, iniciar B2C MVP.
 
-**Con esta estrategia, maximizas ROI con mínimo riesgo.** 🚀
+**Con esta estrategia, maximizas ROI con mínimo riesgo.** 
 
 ---
 
 *Fecha del análisis: 7 Mayo 2026*  
 *Versión: 1.0*
-

@@ -1,4 +1,4 @@
-# 🔍 Documentación del Módulo Explorar — Fluix CRM
+#  Documentación del Módulo Explorar — Fluix CRM
 
 ## Descripción General
 
@@ -32,10 +32,10 @@ PantallaExplorar (Stateful)
 │   ├── [2] _TabFavoritos      → Lista de favoritos guardados
 │   └── [3] PantallaPerfilCliente → Perfil del usuario
 └── _BottomBar (barra de navegación inferior)
-    ├── 🔲 Explorar
-    ├── 🔍 Buscar
+    ├──  Explorar
+    ├──  Buscar
     ├── ❤️ Favoritos
-    └── 👤 Perfil
+    └──  Perfil
 ```
 
 El `IndexedStack` preserva el estado de cada pestaña al cambiar entre ellas (no recarga).
@@ -63,14 +63,14 @@ El `IndexedStack` preserva el estado de cada pestaña al cambiar entre ellas (no
 - Según hora del sistema (< 12 = días, < 19 = tardes, resto = noches)
 
 #### Chips de Categorías
-- "Todo" / "🔥 Tendencias" / Restaurantes / Estéticas / Peluquerías / Carnicerías / Tatuajes
+- "Todo" / " Tendencias" / Restaurantes / Estéticas / Peluquerías / Carnicerías / Tatuajes
 - Al seleccionar: filtra todas las secciones
 - Tendencias usa gradiente rosa→naranja cuando está activo
 
 #### Carrusel Flash Slots
 - Widget `CarruselFlashSlots` embebido (descuentos/slots de última hora)
 
-#### Sección "Ofertas especiales" 🔥
+#### Sección "Ofertas especiales" 
 - Carrusel horizontal de tarjetas anchas (240px × 120px)
 - Clase: `_CarruselOfertas` → `_TarjetaOferta`
 - Fuente: `negocios_publicos WHERE activo=true` (con filtros opcionales)
@@ -81,7 +81,7 @@ El `IndexedStack` preserva el estado de cada pestaña al cambiar entre ellas (no
 - Clase: `_CarruselCompacto` con `filtroRating: 4.0`
 - Fuente: `negocios_publicos WHERE ratingGoogle >= 4.0`
 
-#### Sección "Cerca de ti" 📍
+#### Sección "Cerca de ti" 
 - Mismo carrusel compacto pero ordenado por distancia
 - Requiere permiso de ubicación
 - Usa `GeolocalizacionService.obtenerPosicion()`
@@ -403,4 +403,3 @@ Cliente ve negocio → Abre DetalleNegocioScreen
 ---
 
 *Documentación generada — Fluix CRM v2026*
-

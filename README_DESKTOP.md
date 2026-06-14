@@ -1,4 +1,4 @@
- # 🖥️ FluixCRM Desktop — Guía Rápida
+# ️ FluixCRM Desktop — Guía Rápida
 
 ## ⚡ Inicio Rápido
 
@@ -19,7 +19,7 @@ flutter run -d linux
 
 ---
 
-## 📸 Vista Previa
+##  Vista Previa
 
 ### Móvil
 - TabBar horizontal arriba
@@ -53,7 +53,7 @@ flutter run -d linux
 
 ---
 
-## 📁 Archivos Clave
+##  Archivos Clave
 
 - `lib/core/utils/platform_helper.dart` — Detección de plataforma
 - `lib/features/dashboard/pantallas/pantalla_dashboard.dart` — UI adaptativa
@@ -62,7 +62,7 @@ flutter run -d linux
 
 ---
 
-## 🚀 Compilar Release
+##  Compilar Release
 
 ### Windows
 ```cmd
@@ -78,12 +78,10 @@ flutter build macos --release
 
 ---
 
-## 📖 Documentación Completa
+##  Documentación Completa
 
 Ver: `DESKTOP_ADAPTACION_COMPLETA.md`
 
 ---
 
 *✨ Disfruta de FluixCRM en tu desktop!*
-
-run

@@ -5,4 +5,3 @@ firebase deploy --only storage
 echo.
 echo Listo. Reglas de Storage actualizadas.
 pause
-

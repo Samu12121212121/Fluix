@@ -1,4 +1,4 @@
-# 🔧 ERROR CMAKE FIREBASE EN WINDOWS - SOLUCIÓN DEFINITIVA
+#  ERROR CMAKE FIREBASE EN WINDOWS - SOLUCIÓN DEFINITIVA
 
 ## ❌ EL PROBLEMA
 
@@ -51,7 +51,7 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON)
 
 ---
 
-## 🚀 SOLUCIÓN: SCRIPT AUTOMÁTICO (RECOMENDADA)
+##  SOLUCIÓN: SCRIPT AUTOMÁTICO (RECOMENDADA)
 
 ```cmd
 ejecutar_windows_fix.bat
@@ -91,7 +91,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 📊 COMPARATIVA
+##  COMPARATIVA
 
 | Enfoque | Funciona? | Por qué |
 |---------|-----------|---------|
@@ -102,7 +102,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 🛠️ ALTERNATIVA: PARCHE MANUAL
+## ️ ALTERNATIVA: PARCHE MANUAL
 
 Si prefieres hacerlo a mano:
 
@@ -146,7 +146,7 @@ flutter run -d windows
 
 ---
 
-## 🐛 TROUBLESHOOTING
+##  TROUBLESHOOTING
 
 ### Error: "flutter: No se reconoce como comando"
 **Solución:**
@@ -182,7 +182,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 📁 ARCHIVOS CRÍTICOS
+##  ARCHIVOS CRÍTICOS
 
 | Archivo | PropósitoEstado |
 |---------|---------|----------|
@@ -228,7 +228,7 @@ Launching lib\main.dart on Windows...
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 **Pregunta:** ¿Por qué no hay una solución "limpia"?
 
@@ -249,7 +249,7 @@ ejecutar_windows_fix.bat
 
 *Solución definitiva — 7 Mayo 2026*
 
-## 🎯 EL PROBLEMA
+##  EL PROBLEMA
 
 Al ejecutar `flutter run -d windows` aparece:
 
@@ -369,18 +369,18 @@ Si prefieres hacerlo a mano:
 
 ---
 
-## 📊 COMPARATIVA DE SOLUCIONES
+##  COMPARATIVA DE SOLUCIONES
 
 | Solución | Velocidad | Permanencia | Complejidad | Recomendación |
 |----------|-----------|-------------|-------------|---------------|
-| **1. Integrada** | ⚡⚡⚡ Rápida | ✅ Permanente | 🟢 Simple | ⭐⭐⭐⭐⭐ |
-| **2. Script Parche** | ⚡ Media | ⚠️ Temporal | 🟡 Media | ⭐⭐⭐⭐ |
-| **3. PowerShell** | ⚡⚡ Rápida | ⚠️ Temporal | 🟡 Media | ⭐⭐⭐ |
-| **4. Manual** | ⚡ Lenta | ⚠️ Temporal | 🔴 Alta | ⭐⭐ |
+| **1. Integrada** | ⚡⚡⚡ Rápida | ✅ Permanente |  Simple | ⭐⭐⭐⭐⭐ |
+| **2. Script Parche** | ⚡ Media | ⚠️ Temporal |  Media | ⭐⭐⭐⭐ |
+| **3. PowerShell** | ⚡⚡ Rápida | ⚠️ Temporal |  Media | ⭐⭐⭐ |
+| **4. Manual** | ⚡ Lenta | ⚠️ Temporal |  Alta | ⭐⭐ |
 
 ---
 
-## 🚀 EJECUTAR AHORA
+##  EJECUTAR AHORA
 
 ### Opción Recomendada:
 ```cmd
@@ -394,7 +394,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 🐛 SI NINGUNA FUNCIONA
+##  SI NINGUNA FUNCIONA
 
 ### Verificar CMake
 ```cmd
@@ -423,7 +423,7 @@ flutter run -d windows
 
 ---
 
-## 📁 ARCHIVOS RELACIONADOS
+##  ARCHIVOS RELACIONADOS
 
 - `windows/CMakeLists.txt` — Configuración principal (modificado)
 - `ejecutar_windows_simple.bat` — Solución integrada
@@ -433,7 +433,7 @@ flutter run -d windows
 
 ---
 
-## 📖 MÁS INFORMACIÓN
+##  MÁS INFORMACIÓN
 
 Ver documentación completa:
 - `DESKTOP_RESUMEN_FINAL.md`
@@ -443,5 +443,4 @@ Ver documentación completa:
 ---
 
 *Soluciones verificadas — 7 Mayo 2026*
-
 

@@ -108,7 +108,7 @@ SOLUCION: El script lo parchea automáticamente
 
 ══════════════════════════════════════════════════════════════
 
-🎯 COMANDO RAPIDO
+ COMANDO RAPIDO
 
    ejecutar_windows_completo.bat
 
@@ -118,7 +118,7 @@ Si falla, usar: ejecutar_windows_admin.ps1
 
 ══════════════════════════════════════════════════════════════
 
-📊 ¿POR QUE FALLA EN WINDOWS?
+ ¿POR QUE FALLA EN WINDOWS?
 
 1. SYMLINKS: Windows requiere permisos especiales para crear
    enlaces simbólicos (Developer Mode o Admin)
@@ -132,7 +132,7 @@ Si falla, usar: ejecutar_windows_admin.ps1
 
 ══════════════════════════════════════════════════════════════
 
-🐛 SI SIGUE FALLANDO
+ SI SIGUE FALLANDO
 
 1. Verifica Flutter Doctor:
    flutter doctor -v
@@ -148,7 +148,7 @@ Si falla, usar: ejecutar_windows_admin.ps1
 
 ══════════════════════════════════════════════════════════════
 
-📖 MAS INFO
+ MAS INFO
 
 DESKTOP_RESUMEN_FINAL.md — Guia completa adaptacion
 DESKTOP_ADAPTACION_COMPLETA.md — Documentacion tecnica
@@ -157,11 +157,10 @@ SOLUCIONES_CMAKE_FIREBASE.md — Explicacion de errores
 
 ══════════════════════════════════════════════════════════════
 
-🚀 ¡EJECUTA AHORA!
+ ¡EJECUTA AHORA!
 
    ejecutar_windows_completo.bat
 
 ══════════════════════════════════════════════════════════════
-
 
 

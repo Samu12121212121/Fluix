@@ -1,4 +1,4 @@
-# 🚀 PLAN DE IMPLEMENTACIÓN: Facturación Automática TPV
+#  PLAN DE IMPLEMENTACIÓN: Facturación Automática TPV
 
 > **Fecha inicio**: 20 Mayo 2026  
 > **Duración estimada**: 2-3 semanas  
@@ -7,7 +7,7 @@
 
 ---
 
-## 📋 RESUMEN
+##  RESUMEN
 
 Implementar sistema de facturación automática para TPVs con dos modalidades:
 - **Plan Básico**: Sin facturación automática (solo tickets)
@@ -15,7 +15,7 @@ Implementar sistema de facturación automática para TPVs con dos modalidades:
 
 ---
 
-## 🎯 OBJETIVOS SMART
+##  OBJETIVOS SMART
 
 1. **Específico**: Cada cobro de mesa debe poder generar factura automática si está activado
 2. **Medible**: 100% de cobros con facturación activada generan factura en <2seg
@@ -25,7 +25,7 @@ Implementar sistema de facturación automática para TPVs con dos modalidades:
 
 ---
 
-## 📦 ENTREGABLES
+##  ENTREGABLES
 
 - [x] Documento de análisis (ANALISIS_FACTURACION_TPV_AUTOMATICA_COMPLETO.md)
 - [ ] Migración de colección `ventas` a `pedidos`
@@ -37,7 +37,7 @@ Implementar sistema de facturación automática para TPVs con dos modalidades:
 
 ---
 
-## 🏗️ ARQUITECTURA DE LA SOLUCIÓN
+## ️ ARQUITECTURA DE LA SOLUCIÓN
 
 ### Diagrama de Flujo
 
@@ -126,7 +126,7 @@ Implementar sistema de facturación automática para TPVs con dos modalidades:
 
 ---
 
-## 📝 TAREAS DETALLADAS
+##  TAREAS DETALLADAS
 
 ### SPRINT 1 (Semana 1): Fundación
 
@@ -141,7 +141,7 @@ Implementar sistema de facturación automática para TPVs con dos modalidades:
 class Pedido {
   // ...campos existentes...
   
-  // 🆕 AGREGAR estos campos
+  //  AGREGAR estos campos
   final double? propina;        // Propina del ticket
   final String? mesaId;         // ID de la mesa (si aplica)
   final String? mesaNombre;     // Nombre de la mesa (ej: "Mesa 5")
@@ -242,7 +242,7 @@ Future<void> _confirmarCobro() async {
   setState(() => _procesando = true);
 
   try {
-    // 🆕 Usar PedidosService
+    //  Usar PedidosService
     final pedidosService = PedidosService();
     
     // Convertir líneas de comanda a líneas de pedido
@@ -275,7 +275,7 @@ Future<void> _confirmarCobro() async {
         metodoPago = MetodoPago.efectivo;
     }
     
-    // 🆕 CREAR PEDIDO (reemplaza creación de venta)
+    //  CREAR PEDIDO (reemplaza creación de venta)
     final pedido = await pedidosService.crearPedido(
       empresaId: widget.empresaId,
       clienteNombre: widget.nombreMesa, // ej: "Mesa 5"
@@ -298,7 +298,7 @@ Future<void> _confirmarCobro() async {
       notasInternas: 'Cobro TPV - Mesa: ${widget.nombreMesa}, Comensales: ${widget.comensales}',
     );
 
-    // 🆕 FACTURACIÓN AUTOMÁTICA (si está activada)
+    //  FACTURACIÓN AUTOMÁTICA (si está activada)
     try {
       final tpvFacturacionService = TpvFacturacionService();
       final config = await tpvFacturacionService.obtenerConfig(widget.empresaId);
@@ -655,7 +655,7 @@ class _ConfiguracionFacturacionScreenState
                   });
                 },
                 title: const Text(
-                  '💼 Plan Básico',
+                  ' Plan Básico',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 subtitle: const Text(
@@ -912,7 +912,7 @@ export const generarFacturasTPVDiarias = functions.scheduler.onSchedule({
 }, async (event) => {
   const db = admin.firestore();
   
-  console.log('🚀 Iniciando generación de facturas TPV diarias...');
+  console.log(' Iniciando generación de facturas TPV diarias...');
   
   try {
     // Obtener todas las empresas
@@ -979,7 +979,7 @@ export const generarFacturasTPVDiarias = functions.scheduler.onSchedule({
           continue;
         }
         
-        console.log(`📋 Empresa ${empresaId}: ${pedidosSinFactura.length} pedidos pendientes`);
+        console.log(` Empresa ${empresaId}: ${pedidosSinFactura.length} pedidos pendientes`);
         
         // Agrupar líneas
         const todasLasLineas: any[] = [];
@@ -1111,7 +1111,7 @@ export const generarFacturasTPVDiarias = functions.scheduler.onSchedule({
     }
     
     console.log(`
-    📊 RESUMEN:
+     RESUMEN:
     - Empresas procesadas: ${procesadas}
     - Facturas generadas: ${exitosas}
     - Fallos: ${fallos}
@@ -1315,13 +1315,13 @@ Future<void> main() async {
   await Firebase.initializeApp();
   final db = FirebaseFirestore.instance;
   
-  print('🔍 Buscando empresas con ventas...');
+  print(' Buscando empresas con ventas...');
   
   final empresasSnap = await db.collection('empresas').get();
   
   for (final empresaDoc in empresasSnap.docs) {
     final empresaId = empresaDoc.id;
-    print('\n📋 Procesando empresa: $empresaId');
+    print('\n Procesando empresa: $empresaId');
     
     final ventasSnap = await db
       .collection('empresas/$empresaId/ventas')
@@ -1332,7 +1332,7 @@ Future<void> main() async {
       continue;
     }
     
-    print('   📦 ${ventasSnap.docs.length} ventas encontradas');
+    print('    ${ventasSnap.docs.length} ventas encontradas');
     
     int migradas = 0;
     int errores = 0;
@@ -1428,7 +1428,7 @@ Pantalla para mostrar:
 
 ---
 
-## 📊 DEFINICIÓN DE ÉXITO (DoD)
+##  DEFINICIÓN DE ÉXITO (DoD)
 
 ### Criterios de Aceptación
 
@@ -1455,7 +1455,7 @@ Pantalla para mostrar:
 
 ---
 
-## 🎯 KPIs DEL PROYECTO
+##  KPIs DEL PROYECTO
 
 | Métrica | Objetivo | Método de Medición |
 |---------|----------|-------------------|
@@ -1466,7 +1466,7 @@ Pantalla para mostrar:
 
 ---
 
-## 📅 CRONOGRAMA GANTT
+##  CRONOGRAMA GANTT
 
 ```
 Semana 1: Fundación
@@ -1491,7 +1491,7 @@ Semana 4 (Buffer): Documentación y mejoras
 
 ---
 
-## 🚨 RIESGOS Y CONTINGENCIAS
+##  RIESGOS Y CONTINGENCIAS
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|--------------|---------|------------|
@@ -1519,7 +1519,7 @@ Semana 4 (Buffer): Documentación y mejoras
 
 ---
 
-## 📚 RECURSOS Y REFERENCIAS
+##  RECURSOS Y REFERENCIAS
 
 ### Documentación Interna
 - `ANALISIS_FACTURACION_TPV_AUTOMATICA_COMPLETO.md` ← Este documento maestro
@@ -1537,7 +1537,7 @@ Semana 4 (Buffer): Documentación y mejoras
 
 ---
 
-## 📞 CONTACTOS DEL EQUIPO
+##  CONTACTOS DEL EQUIPO
 
 | Rol | Responsable | Contacto |
 |-----|-------------|----------|
@@ -1554,7 +1554,7 @@ Semana 4 (Buffer): Documentación y mejoras
 
 ---
 
-## 📝 LOG DE CAMBIOS
+##  LOG DE CAMBIOS
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
@@ -1562,5 +1562,4 @@ Semana 4 (Buffer): Documentación y mejoras
 
 ---
 
-**¡Éxito en la implementación! 🚀**
-
+**¡Éxito en la implementación! **

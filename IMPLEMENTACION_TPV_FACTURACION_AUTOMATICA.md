@@ -5,7 +5,7 @@
 
 ---
 
-## 📋 Resumen
+##  Resumen
 
 Se han implementado **dos planes de TPV** con facturación diferenciada:
 
@@ -16,7 +16,7 @@ Cuando una empresa con **TPV Profesional** cobra una mesa, el sistema genera aut
 
 ---
 
-## 🎯 Planes Creados
+##  Planes Creados
 
 ### TPV Esencial (addon_id: 'tpv_esencial')
 **Precio:** 290€/año  
@@ -52,7 +52,7 @@ Cuando una empresa con **TPV Profesional** cobra una mesa, el sistema genera aut
 
 ---
 
-## 🔧 Cómo Funciona
+##  Cómo Funciona
 
 ### Flujo de Facturación Automática
 
@@ -97,7 +97,7 @@ PlanesConfig.tieneFacturacionAutomatica(
 
 ---
 
-## 📁 Archivos Modificados
+##  Archivos Modificados
 
 ### 1. `lib/core/config/planes_config.dart`
 **Cambios:**
@@ -160,7 +160,7 @@ Future<void> _confirmarCobro() async {
 
 ---
 
-## 🎨 UI - Gestión de Cuentas
+##  UI - Gestión de Cuentas
 
 En la pantalla de **Gestión de Cuentas** (`gestionar_cuentas_screen.dart`), el propietario puede:
 
@@ -174,7 +174,7 @@ En la pantalla de **Gestión de Cuentas** (`gestionar_cuentas_screen.dart`), el 
 
 ---
 
-## 📊 Datos en Firestore
+##  Datos en Firestore
 
 ### Estructura de Pedido (con facturación automática)
 ```
@@ -244,7 +244,7 @@ empresas/{empresaId}/facturas/FA2024-001234
 
 ---
 
-## 🚀 Cómo Contratar/Cambiar Plan
+##  Cómo Contratar/Cambiar Plan
 
 ### Desde Gestión de Cuentas (Propietario)
 
@@ -269,7 +269,7 @@ empresas/{empresaId}/facturas/FA2024-001234
 
 ---
 
-## 🔍 Testing
+##  Testing
 
 ### Verificar que funciona:
 
@@ -344,7 +344,7 @@ empresas/{id}/configuracion/facturacionTpv
 
 ---
 
-## 📈 Próximas Mejoras
+##  Próximas Mejoras
 
 1. **Indicador visual en TPV**
    - Mostrar badge "Facturación automática activada" en pantalla principal
@@ -369,7 +369,7 @@ empresas/{id}/configuracion/facturacionTpv
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### ⚠️ ERROR CRÍTICO: App se cierra al cobrar en TPV (Root/Peluquería/Tienda)
 **Causa:** Los TPVs tenían una lógica **ANTIGUA** de facturación automática que verificaba el campo manual `ConfiguracionFacturacionTpv.facturacionAutomatica` en lugar del **plan contratado** (TPV Profesional vs TPV Esencial).
@@ -436,7 +436,7 @@ if (suscDoc.exists) {
 
 ---
 
-## 📝 Checklist Post-Implementación
+##  Checklist Post-Implementación
 
 - [x] Planes TPV Esencial y Profesional creados en `planes_config.dart`
 - [x] Método `tieneFacturacionAutomatica()` implementado
@@ -464,7 +464,7 @@ if (suscDoc.exists) {
 
 ---
 
-## 💡 Resumen Ejecutivo
+##  Resumen Ejecutivo
 
 **Problema resuelto:**  
 Los negocios necesitaban facturar manualmente cada venta del TPV, perdiendo tiempo y arriesgando errores fiscales.
@@ -480,6 +480,5 @@ Dos planes de TPV diferenciados por precio y funcionalidad, donde el plan premiu
 
 **Diferenciador competitivo:**  
 Ningún TPV del mercado español integra facturación automática con VeriFactu en el mismo cobro. FluxTech es pionero en esta implementación.
-
 
 

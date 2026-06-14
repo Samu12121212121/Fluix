@@ -4,7 +4,7 @@
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 
-🎯 EL PROBLEMA
+ EL PROBLEMA
 
 Firebase SDK para Windows tiene:
   cmake_minimum_required(VERSION 2.8.12)
@@ -26,17 +26,17 @@ Parchear el archivo de Firebase DESPUÉS de descargarlo.
 
 ══════════════════════════════════════════════════════════════
 
-🚀 EJECUTA ESTO AHORA:
+ EJECUTA ESTO AHORA:
 
    ejecutar_windows_fix.bat
 
 
 ══════════════════════════════════════════════════════════════
 
-📊 LO QUE HACE EL SCRIPT:
+ LO QUE HACE EL SCRIPT:
 
 [1/5] Limpia proyecto
-[2/5] Obtiene dependencias
+[2/5] Obtiene dependencias  
 [3/5] Descarga Firebase SDK (5-10 min)
       ↳ El build fallará, pero eso es NORMAL
 [4/5] Encuentra CMakeLists.txt de Firebase
@@ -64,7 +64,7 @@ Siguientes:  2-3 minutos
 
 ══════════════════════════════════════════════════════════════
 
-🐛 SI FALLA:
+ SI FALLA:
 
 1. Verifica Flutter Doctor:
    flutter doctor -v
@@ -72,7 +72,7 @@ Siguientes:  2-3 minutos
 2. Debe salir:
    ✓ Visual Studio 2022 (Desktop development with C++)
    ✓ Windows SDK
-
+   
 3. Si falta algo, instálalo y vuelve a ejecutar
 
 
@@ -87,7 +87,7 @@ Siguientes:  2-3 minutos
 
 ══════════════════════════════════════════════════════════════
 
-🎉 ¡EJECUTA AHORA!
+ ¡EJECUTA AHORA!
 
    Doble clic en: ejecutar_windows_fix.bat
 
@@ -95,4 +95,3 @@ Siguientes:  2-3 minutos
 
 
 ══════════════════════════════════════════════════════════════
-

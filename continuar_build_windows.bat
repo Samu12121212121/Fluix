@@ -36,4 +36,3 @@ echo Para ejecutar la app en modo DEBUG:
 echo flutter run -d windows
 echo.
 pause
-

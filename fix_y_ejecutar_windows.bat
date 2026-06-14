@@ -22,4 +22,3 @@ echo.
 
 echo [5/5] Ejecutando en Windows...
 flutter run -d windows --verbose
-

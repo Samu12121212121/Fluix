@@ -1,4 +1,4 @@
-# 🎨 Especificaciones UI Detalladas — TPV Multi-Sector
+#  Especificaciones UI Detalladas — TPV Multi-Sector
 
 > Documento técnico de diseño visual para implementación  
 > PlaneaG v1.0 · Mayo 2026
@@ -15,7 +15,7 @@
 
 ---
 
-### 📋 COLUMNA IZQUIERDA — Lista de profesionales (230px)
+###  COLUMNA IZQUIERDA — Lista de profesionales (230px)
 
 #### Navegador de fecha (fijo arriba)
 ```
@@ -43,8 +43,8 @@ Cada fila (profesional) contiene:
 3. **Nombre:** Fuente 13px, peso 600
 4. **Stats:** Fuente 11px, color gris, formato "X citas · Y.Yh libres"
 5. **Indicador disponibilidad:** Círculo 10px en extremo derecho
-   - 🟢 Verde `#4CAF50`: disponible ahora
-   - 🟠 Ámbar `#FFA726`: ocupado en cita actual
+   -  Verde `#4CAF50`: disponible ahora
+   -  Ámbar `#FFA726`: ocupado en cita actual
 
 **Estado seleccionado:**
 - Fondo blanco `#FFFFFF`
@@ -79,7 +79,7 @@ Se asignan cíclicamente según orden en Firestore.
 
 ---
 
-### 📅 COLUMNA CENTRAL — Agenda / Walk-in / Cabinas
+###  COLUMNA CENTRAL — Agenda / Walk-in / Cabinas
 
 #### TabBar (fijo arriba)
 ```
@@ -178,7 +178,7 @@ HH:mm  │  [Contenido del slot]
 **Grid de cabinas/sillones:**
 ```
 ┌─────────┐  ┌─────────┐  ┌─────────┐
-│  🪑     │  │  🪑     │  │  🪑     │
+│       │  │       │  │       │
 │ Cabina 1│  │ Cabina 2│  │ Cabina 3│
 │  Libre  │  │ Ocupada │  │  Libre  │
 └─────────┘  └─────────┘  └─────────┘
@@ -192,13 +192,13 @@ HH:mm  │  [Contenido del slot]
 
 ---
 
-### 🎫 COLUMNA DERECHA — Cliente + Ticket (290px)
+###  COLUMNA DERECHA — Cliente + Ticket (290px)
 
 #### Bloque 1: Buscador de cliente
 
 ```
 ┌────────────────────────────────────┐
-│  🔍 Buscar cliente…                │
+│   Buscar cliente…                │
 └────────────────────────────────────┘
 ```
 
@@ -208,8 +208,8 @@ HH:mm  │  [Contenido del slot]
 │  [AC]  Ana Cristina                │
 │        12 visitas                  │
 │                                    │
-│  🎨 Rubio miel  🎟 3 sesiones     │
-│  💧 Producto Premium               │
+│   Rubio miel   3 sesiones     │
+│   Producto Premium               │
 └────────────────────────────────────┘
 ```
 
@@ -279,7 +279,7 @@ Barba                      10,00 €  [+]
 
 ---
 
-## TPV 3 — Tienda / Retail 🛍️
+## TPV 3 — Tienda / Retail ️
 
 ### Layout general
 - **2 columnas en tablet horizontal**
@@ -289,12 +289,12 @@ Barba                      10,00 €  [+]
 
 ---
 
-### 📦 COLUMNA IZQUIERDA — Catálogo / Pedidos / Stock (Flexible)
+###  COLUMNA IZQUIERDA — Catálogo / Pedidos / Stock (Flexible)
 
 #### Barra superior
 ```
 ┌────────────────────────────────────────────────┐
-│  🔍 Buscar o escanear…          [Escanear]     │
+│   Buscar o escanear…          [Escanear]     │
 └────────────────────────────────────────────────┘
 ```
 - TextField grande, casi full width
@@ -321,11 +321,11 @@ Barba                      10,00 €  [+]
 **Grid de productos (3-4 columnas):**
 ```
 ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-│ 🍕  [+]  │  │ 🥤  [+]  │  │ 🍫  [+]  │  │ 📱  [+]  │
+│   [+]  │  │   [+]  │  │   [+]  │  │   [+]  │
 │          │  │          │  │          │  │          │
 │ Pizza    │  │ Refresco │  │ Chocolate│  │ iPhone   │
 │ 12,50 €  │  │  2,50 €  │  │  1,80 €  │  │ 899,00 € │
-│ ⚠️ 3 ⬤   │  │  🟢 45   │  │  🟢 120  │  │ SIN STOCK│
+│ ⚠️ 3 ⬤   │  │   45   │  │   120  │  │ SIN STOCK│
 └──────────┘  └──────────┘  └──────────┘  └──────────┘
 ```
 
@@ -335,8 +335,8 @@ Barba                      10,00 €  [+]
 - **Nombre:** Fuente 13px peso 700, max 2 líneas con ellipsis
 - **Precio:** Fuente 14px color verde `#2E7D32`
 - **Stock badge:**
-  - 🟢 Verde normal: stock > stock_mínimo
-  - 🟠 Ámbar + ⚠️: stock ≤ stock_mínimo, fuente 10px
+  -  Verde normal: stock > stock_mínimo
+  -  Ámbar + ⚠️: stock ≤ stock_mínimo, fuente 10px
   - Sin stock: tarjeta opacity 0.5, texto "SIN STOCK" en gris, botón [+] deshabilitado
 
 ---
@@ -346,11 +346,11 @@ Barba                      10,00 €  [+]
 **Lista de pedidos:**
 ```
 ┌────────────────────────────────────────────────────────┐
-│  #0042  │  Carlos Ruiz  │  67,90 €  │ 📦 │ [NUEVO]    │
+│  #0042  │  Carlos Ruiz  │  67,90 €  │  │ [NUEVO]    │
 ├────────────────────────────────────────────────────────┤
-│  #0041  │  Ana López    │  23,50 €  │ 🏪 │ [PREPARANDO]│
+│  #0041  │  Ana López    │  23,50 €  │  │ [PREPARANDO]│
 ├────────────────────────────────────────────────────────┤
-│  #0040  │  Juan Pérez   │ 145,00 €  │ 📦 │ [LISTO]    │
+│  #0040  │  Juan Pérez   │ 145,00 €  │  │ [LISTO]    │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -359,8 +359,8 @@ Barba                      10,00 €  [+]
 - **Nombre cliente:** Fuente 13px
 - **Importe:** Fuente 14px peso 600
 - **Icono tipo:** 
-  - 🏪 `Icons.store` = recogida en tienda
-  - 📦 `Icons.local_shipping` = envío a domicilio
+  -  `Icons.store` = recogida en tienda
+  -  `Icons.local_shipping` = envío a domicilio
 - **Badge estado:**
   - NUEVO: verde `#4CAF50`
   - PREPARANDO: ámbar `#FFA726`
@@ -377,11 +377,11 @@ Barba                      10,00 €  [+]
 **Tabla de productos:**
 ```
 ┌──────────────────────────────────────────────────┐
-│  Nombre          │ Ref    │ Stock │ Min │ [🔄]  │
+│  Nombre          │ Ref    │ Stock │ Min │ []  │
 ├──────────────────────────────────────────────────┤
-│  Pizza Margarita │ PZ001  │  ⚠️5  │  10 │ [🔄]  │
-│  Coca-Cola 33cl  │ RF002  │  45   │  20 │ [🔄]  │
-│  Chocolate Negro │ SN003  │  0    │   5 │ [🔄]  │
+│  Pizza Margarita │ PZ001  │  ⚠️5  │  10 │ []  │
+│  Coca-Cola 33cl  │ RF002  │  45   │  20 │ []  │
+│  Chocolate Negro │ SN003  │  0    │   5 │ []  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -389,18 +389,18 @@ Barba                      10,00 €  [+]
 - Ordenable por nombre o stock (tap en header)
 - Si stock < mínimo: texto ámbar + ⚠️
 - Si stock = 0: texto rojo
-- Botón [🔄] "Ajustar stock": abre bottom sheet con field numérico
+- Botón [] "Ajustar stock": abre bottom sheet con field numérico
 
 ---
 
-### 🎫 COLUMNA DERECHA — Ticket / Detalle pedido (320px)
+###  COLUMNA DERECHA — Ticket / Detalle pedido (320px)
 
 #### MODO 1: Ticket normal
 
 **Header:**
 ```
 ┌────────────────────────────────────┐
-│  🛒 Venta directa          [🗑️]   │
+│   Venta directa          [️]   │
 └────────────────────────────────────┘
 ```
 
@@ -418,7 +418,7 @@ Barba                      10,00 €  [+]
 **Buscar cliente:**
 ```
 ┌────────────────────────────────────┐
-│  👤 Cliente (opcional)             │
+│   Cliente (opcional)             │
 │  Ana López Martínez                │  ← Autocomplete
 └────────────────────────────────────┘
 ```
@@ -426,7 +426,7 @@ Barba                      10,00 €  [+]
 **Código de descuento:**
 ```
 ┌────────────────────────────────────┐
-│  🎟️ Código descuento   [Aplicar]  │
+│  ️ Código descuento   [Aplicar]  │
 └────────────────────────────────────┘
 ```
 
@@ -443,14 +443,14 @@ Barba                      10,00 €  [+]
 **Botones de pago (grid 2 columnas):**
 ```
 ┌────────────────┐  ┌────────────────┐
-│   💳 Efectivo  │  │  💳 Tarjeta    │
+│    Efectivo  │  │   Tarjeta    │
 └────────────────┘  └────────────────┘
 ```
 
 **Botón secundario:**
 ```
 ┌────────────────────────────────────┐
-│     📦 Preparar para envío         │  ← Outlined button
+│      Preparar para envío         │  ← Outlined button
 └────────────────────────────────────┘
 ```
 
@@ -470,11 +470,11 @@ Barba                      10,00 €  [+]
 **Grid de info (2 columnas):**
 ```
 ┌──────────────────┐  ┌──────────────────┐
-│ 👤 Cliente       │  │ 📍 Dirección     │
+│  Cliente       │  │  Dirección     │
 │ Carlos Ruiz      │  │ C/ Mayor 123     │
 │ 666 123 456      │  │ 28001 Madrid     │
 │ carlos@email.com │  │ España           │
-│                  │  │ 📦 MRW Express   │
+│                  │  │  MRW Express   │
 └──────────────────┘  └──────────────────┘
 ```
 
@@ -503,14 +503,14 @@ Barba                      10,00 €  [+]
 **Botón avisar:**
 ```
 ┌────────────────────────────────────┐
-│     📧 Avisar cliente              │  ← Abre email/SMS
+│      Avisar cliente              │  ← Abre email/SMS
 └────────────────────────────────────┘
 ```
 - Texto prefijado: "Su pedido #XXXX está listo para recoger/ha sido enviado"
 
 ---
 
-## 🔧 Componentes técnicos comunes
+##  Componentes técnicos comunes
 
 ### Diálogo de pago (ambos TPV)
 
@@ -561,13 +561,13 @@ Barba                      10,00 €  [+]
 ```
 
 **Botones acción:**
-- `[🔄 Refrescar]` — Recalcula sin recargar
-- `[📄 Z-Report PDF]` — Genera PDF con `pdf` + `printing` package
+- `[ Refrescar]` — Recalcula sin recargar
+- `[ Z-Report PDF]` — Genera PDF con `pdf` + `printing` package
 - `[✅ Cerrar caja]` — Registra en Firestore con confirmación
 
 ---
 
-## 📐 Medidas y constantes
+##  Medidas y constantes
 
 ```dart
 // Peluquería
@@ -585,7 +585,7 @@ const kTiendaGridCols = 4;  // columnas del grid de productos
 
 ---
 
-## 🎨 Sistema de colores
+##  Sistema de colores
 
 ### Peluquería
 ```dart
@@ -606,4 +606,3 @@ warning: Color(0xFFFFA726)      // ámbar
 ---
 
 *Especificaciones UI v1.0 · PlaneaG · Mayo 2026*
-

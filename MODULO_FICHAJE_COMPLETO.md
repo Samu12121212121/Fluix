@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 Marco legal (España 2026)
+##  Marco legal (España 2026)
 
 | Norma | Obligación |
 |---|---|
@@ -29,7 +29,7 @@
 
 ---
 
-## 🏗️ Arquitectura del módulo en PlaneaG
+## ️ Arquitectura del módulo en PlaneaG
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -60,7 +60,7 @@
 
 ---
 
-## 🗄️ Estructura Firestore
+## ️ Estructura Firestore
 
 ### Colección: `empresas/{empresaId}/fichajes/{fichajeId}`
 
@@ -88,7 +88,7 @@
 
 ---
 
-## 📱 Pantallas implementadas
+##  Pantallas implementadas
 
 ### 1. `PantallaFichaje` — Empleado
 
@@ -105,18 +105,18 @@
 │  └─────────────────────────┘  │
 │                               │
 │  ┌─────────────────────────┐  │
-│  │  🟢 Fichar Entrada      │  │  ← Verde, deshabilitado si ya hay entrada
+│  │   Fichar Entrada      │  │  ← Verde, deshabilitado si ya hay entrada
 │  └─────────────────────────┘  │
 │                               │
 │  ┌─────────────────────────┐  │
-│  │  🔵 Fichar Salida       │  │  ← Azul, deshabilitado si no hay entrada
+│  │   Fichar Salida       │  │  ← Azul, deshabilitado si no hay entrada
 │  └─────────────────────────┘  │
 │                               │
 │  Fichajes de hoy              │
 │  ┌─────────────────────────┐  │
-│  │ 🟢 Entrada  09:00 📍    │  │
+│  │  Entrada  09:00     │  │
 │  │ ────────────────────    │  │
-│  │ 🔵 Salida   14:30       │  │
+│  │  Salida   14:30       │  │
 │  └─────────────────────────┘  │
 └───────────────────────────────┘
 ```
@@ -143,7 +143,7 @@
 
 ---
 
-## 🔧 Servicio: `FichajeService`
+##  Servicio: `FichajeService`
 
 **Ruta:** `lib/services/fichaje_service.dart`
 
@@ -165,9 +165,9 @@
 
 ---
 
-## 🚀 Mejoras pendientes a implementar
+##  Mejoras pendientes a implementar
 
-### 🔴 Crítico (obligatorio por ley)
+###  Crítico (obligatorio por ley)
 
 #### 1. Conservación 4 años
 El índice actual solo consulta hacia atrás 90 días en algunas partes. Revisar que **ningún fichaje se borra automáticamente** y que el admin no pueda borrar sin dejar huella.
@@ -214,7 +214,7 @@ Future<bool> verificarIdentidadBiometrica() async {
 
 ---
 
-### 🟡 Importante (mejora de UX)
+###  Importante (mejora de UX)
 
 #### 4. Pausas (descanso/comida)
 
@@ -256,10 +256,10 @@ double calcularHorasDia(List<RegistroFichaje> fichajes) {
 #### 5. Vista calendario del empleado
 
 Mostrar un calendario mensual con colores:
-- 🟢 Verde: Día completo (entrada + salida)
-- 🟡 Amarillo: Solo entrada (fichaje pendiente)
+-  Verde: Día completo (entrada + salida)
+-  Amarillo: Solo entrada (fichaje pendiente)
 - ⚫ Gris: Festivo/fin de semana
-- 🔴 Rojo: Ausencia sin justificar
+-  Rojo: Ausencia sin justificar
 
 #### 6. Notificación si el empleado olvida fichar salida
 
@@ -313,7 +313,7 @@ export const recordatorioFichajePendiente = functions.pubsub
 
 ---
 
-### 🟢 Avanzado (diferenciador de mercado)
+###  Avanzado (diferenciador de mercado)
 
 #### 7. Geovalla (Geofencing)
 
@@ -399,7 +399,7 @@ Future<double> horasTrabajadasMes({
 
 ---
 
-## 📊 Índices Firestore necesarios
+##  Índices Firestore necesarios
 
 Ya están en `firestore.indexes.json`:
 
@@ -455,7 +455,7 @@ Ya están en `firestore.indexes.json`:
 
 ---
 
-## 📁 Archivos del módulo
+##  Archivos del módulo
 
 ```
 lib/features/fichaje/
@@ -477,7 +477,7 @@ functions/src/ (pendiente)
 
 ---
 
-## 🔒 Reglas Firestore recomendadas
+##  Reglas Firestore recomendadas
 
 ```javascript
 // firestore.rules
@@ -496,4 +496,3 @@ match /empresas/{empresaId}/fichajes/{fichajeId} {
     && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId;
 }
 ```
-

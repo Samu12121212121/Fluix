@@ -1,6 +1,6 @@
 # ✅ RESUMEN: ADAPTACIÓN DESKTOP COMPLETADA + FIX CMAKE
 
-## 🎯 Estado Actual
+##  Estado Actual
 
 **La aplicación FluixCRM ahora es COMPLETAMENTE FUNCIONAL en Windows, macOS y Linux.**
 
@@ -8,7 +8,7 @@
 
 ---
 
-## 🔧 SOLUCIÓN AL ERROR CMAKE DE FIREBASE
+##  SOLUCIÓN AL ERROR CMAKE DE FIREBASE
 
 ### **Error común:**
 ```
@@ -47,7 +47,7 @@ Este script:
 
 ---
 
-## 📊 Lo que se ha implementado
+##  Lo que se ha implementado
 
 ### 1. Helper de Plataforma ✅
 - **Archivo**: `lib/core/utils/platform_helper.dart`
@@ -75,7 +75,7 @@ Este script:
 
 ---
 
-## 🚀 PRÓXIMO PASO: EJECUTAR
+##  PRÓXIMO PASO: EJECUTAR
 
 ### **Opción 1: Solución Integrada (RECOMENDADA)**
 ```cmd
@@ -100,7 +100,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 🎨 Lo que Verás
+##  Lo que Verás
 
 ### **En ventana pequeña (<800px)**
 - Interface idéntica a móvil
@@ -112,13 +112,13 @@ ejecutar_windows_fix.bat
 ┌────────────────────────────────────────┐
 │         AppBar — FluixCRM              │
 ├────┬───────────────────────────────────┤
-│ 📊 │  Tarjeta bienvenida                │
+│  │  Tarjeta bienvenida                │
 │    │  Banner suscripción                │
-│ 📅 │ ────────────────────────────────  │
+│  │ ────────────────────────────────  │
 │    │                                   │
-│ 👥 │      Contenido del módulo         │
+│  │      Contenido del módulo         │
 │    │                                   │
-│ 💰 │                                   │
+│  │                                   │
 │    │                                   │
 │ ⚙️ │                                   │
 └────┴───────────────────────────────────┘
@@ -147,7 +147,7 @@ ejecutar_windows_fix.bat
 
 ---
 
-## 🐛 Si algo falla
+##  Si algo falla
 
 ### Error: "Could not find device"
 ```cmd
@@ -168,7 +168,7 @@ flutter run -d windows
 
 ---
 
-## 📁 Estructura Final
+##  Estructura Final
 
 ```
 planeag_flutter/
@@ -193,7 +193,7 @@ planeag_flutter/
 
 ---
 
-## 📊 Líneas de Código
+##  Líneas de Código
 
 - **Modificadas**: ~150 líneas
 - **Añadidas**: ~250 líneas (helper + layout desktop)
@@ -202,7 +202,7 @@ planeag_flutter/
 
 ---
 
-## 🎯 Resultado Final
+##  Resultado Final
 
 ✅ **App 100% funcional en Windows**  
 ✅ **App 100% funcional en macOS**  
@@ -214,7 +214,7 @@ planeag_flutter/
 
 ---
 
-## 🚀 ¡LISTO PARA USAR!
+##  ¡LISTO PARA USAR!
 
 ```cmd
 ejecutar_windows.bat
@@ -229,6 +229,5 @@ flutter run -d windows
 ---
 
 *✨ Desarrollo completado en tiempo récord — 7 Mayo 2026*
-
 
 

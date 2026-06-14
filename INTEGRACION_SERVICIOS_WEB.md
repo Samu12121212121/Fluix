@@ -1,12 +1,12 @@
-# 📋 Integración de Servicios con Formularios Web
+#  Integración de Servicios con Formularios Web
 
-## 🎯 Objetivo
+##  Objetivo
 
 Este documento explica cómo integrar el sistema de servicios con los formularios web de reservas y cómo las estadísticas rastrean los servicios más solicitados.
 
 ---
 
-## 📊 Estructura de Datos
+##  Estructura de Datos
 
 ### Servicio en Firestore
 
@@ -44,7 +44,7 @@ empresas/{empresaId}/reservas/{reservaId}
 
 ---
 
-## 🌐 Integración con Formulario Web
+##  Integración con Formulario Web
 
 ### 1. Listar Servicios Disponibles
 
@@ -210,7 +210,7 @@ document.getElementById('formularioReserva').addEventListener('submit', async (e
 
 ---
 
-## 📈 Estadísticas de Servicios
+##  Estadísticas de Servicios
 
 El sistema calcula automáticamente:
 
@@ -257,7 +257,7 @@ Si las reservas tienen `empleado_asignado`:
 
 ---
 
-## 📥 Importación Masiva con CSV
+##  Importación Masiva con CSV
 
 ### Formato del CSV
 
@@ -288,7 +288,7 @@ Maquillaje profesional,Maquillaje para eventos,55.00,45,Maquillaje
 
 ---
 
-## 🔧 Integración con Cloud Functions
+##  Integración con Cloud Functions
 
 Si usas Cloud Functions para procesar reservas web:
 
@@ -314,7 +314,7 @@ export const onNuevaReservaWeb = functions.firestore
         
         // Enviar notificación con info del servicio
         await enviarPushAEmpresa(empresaId, {
-          title: '🎯 Nueva reserva web',
+          title: ' Nueva reserva web',
           body: `${reserva.cliente_nombre} - ${servicio.nombre}`,
           tipo: 'nueva_reserva',
           servicio_nombre: servicio.nombre,
@@ -353,7 +353,7 @@ export const onNuevaReservaWeb = functions.firestore
 
 ---
 
-## 📚 Recursos Adicionales
+##  Recursos Adicionales
 
 - **Firestore Rules:** Asegúrate de que los servicios sean de lectura pública para formularios web
 - **Testing:** Prueba con datos de ejemplo antes de desplegar en producción
@@ -371,4 +371,3 @@ match /empresas/{empresaId}/servicios/{servicioId} {
 
 **Documentación actualizada:** 06/05/2026  
 **Versión:** 1.0
-

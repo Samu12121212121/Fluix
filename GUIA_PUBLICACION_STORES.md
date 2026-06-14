@@ -1,10 +1,10 @@
-# 🚀 Guía de Publicación — Fluix CRM
+#  Guía de Publicación — Fluix CRM
 ### Google Play Store + Apple App Store
 > Versión actual: `1.0.13+2` · App ID Android: `com.fluixcrm.app` · Bundle ID iOS: `com.fluixtech.fluixcrm`
 
 ---
 
-## 📊 Estado de Preparación para Producción (Post-Fixes)
+##  Estado de Preparación para Producción (Post-Fixes)
 
 | Módulo | Antes | Después | Estado |
 |---|---|---|---|
@@ -19,7 +19,7 @@
 | Formulario Web Contacto | 70% | **82%** | ✅ Listo |
 | Configuración / Perfil | 85% | **85%** | ✅ Listo |
 
-### 🎯 Puntuación global actual: **79 / 100 — Apto para beta pública**
+###  Puntuación global actual: **79 / 100 — Apto para beta pública**
 
 > ⚠️ Pendientes antes de producción total: deploy reglas Firestore, set `es_demo: true` en Firestore Console, tests mínimos de pedidos.
 
@@ -92,7 +92,7 @@ En Firestore Console:
 
 ---
 
-## 🤖 ANDROID — Google Play Store
+##  ANDROID — Google Play Store
 
 ### Paso 1: Preparar keystore de firma
 
@@ -121,7 +121,7 @@ flutter build appbundle --release
 # build/app/outputs/bundle/release/app-release.aab
 ```
 
-> 💡 También puedes usar el script ya existente: `build_release.bat`
+>  También puedes usar el script ya existente: `build_release.bat`
 
 ### Paso 3: Probar el APK antes de subir
 
@@ -169,9 +169,9 @@ Fluix CRM es la solución todo-en-uno para pymes españolas.
 • Gestión de tareas con calendario visual
 • Gestión de empleados y roles
 
-🔒 Seguridad empresarial con autenticación biométrica.
-📄 Genera PDFs de facturas y nóminas al instante.
-🔔 Notificaciones push en tiempo real.
+ Seguridad empresarial con autenticación biométrica.
+ Genera PDFs de facturas y nóminas al instante.
+ Notificaciones push en tiempo real.
 ```
 
 #### Capturas de pantalla requeridas
@@ -196,7 +196,7 @@ Antes de producción, sube primero a **Internal Testing** para probar con tu equ
 
 ---
 
-## 🍎 iOS — Apple App Store
+##  iOS — Apple App Store
 
 ### Requisitos previos
 
@@ -301,7 +301,7 @@ Disponibilidad: España / empezar con España
 | iPhone 6.5" (Plus) | 1242×2688 px — **OBLIGATORIO** |
 | iPad Pro 12.9" (6ª gen) | 2048×2732 px — recomendado |
 
-> 💡 Usa `flutter screenshot` o simulador iOS para generar las capturas.
+>  Usa `flutter screenshot` o simulador iOS para generar las capturas.
 
 #### Información de privacidad (obligatoria desde 2024)
 En App Store Connect → tu app → **Privacidad de la App**:
@@ -347,7 +347,7 @@ Uso de Bluetooth: impresora térmica TPV — funcionalidad opcional.
 
 ---
 
-## 🔄 CI/CD — Automatización con Codemagic
+##  CI/CD — Automatización con Codemagic
 
 El proyecto ya tiene `codemagic.yaml`. Para activarlo:
 
@@ -368,7 +368,7 @@ FIREBASE_TOKEN       → firebase login:ci (ejecutar localmente)
 
 ---
 
-## 📋 Checklist Final Antes de Publicar
+##  Checklist Final Antes de Publicar
 
 ### Android ✅
 - [ ] `versionCode` y `versionName` en `build.gradle.kts` sincronizados con `pubspec.yaml`
@@ -402,7 +402,7 @@ FIREBASE_TOKEN       → firebase login:ci (ejecutar localmente)
 
 ---
 
-## 🆘 Problemas Frecuentes
+##  Problemas Frecuentes
 
 ### "Keystore not found" al compilar Android
 ```bash
@@ -431,7 +431,7 @@ iOS **solo se puede compilar desde macOS**. Usa un Mac físico o un servicio CI/
 
 ---
 
-## 📞 Tiempos de Revisión Estimados
+##  Tiempos de Revisión Estimados
 
 | Store | Tipo | Tiempo estimado |
 |---|---|---|
@@ -442,4 +442,3 @@ iOS **solo se puede compilar desde macOS**. Usa un Mac físico o un servicio CI/
 | App Store | TestFlight (externo) | 1–2 días |
 | App Store | Production (primera vez) | 1–3 días |
 | App Store | Actualizaciones | 1–2 días |
-

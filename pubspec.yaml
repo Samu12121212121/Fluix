@@ -1,23 +1,23 @@
-  name: planeag_flutter
-  description: PlaneaGuada CRM para pymes
-  publish_to: 'none'
+name: planeag_flutter
+description: PlaneaGuada CRM para pymes
+publish_to: 'none'
 
-  version: 1.0.15
+version: 1.0.15
 
-  environment:
+environment:
     sdk: ^3.11.1
 
-  # Dependencies specify other packages that your package needs in order to work.
-  # To automatically upgrade your package dependencies to the latest versions
-  # consider running `flutter pub upgrade --major-versions`. Alternatively,
-  # dependencies can be manually updated by changing the version numbers below to
-  # the latest version available on pub.dev. To see which dependencies have newer
-  # versions available, run `flutter pub outdated`.
-  dependencies:
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
     flutter:
-      sdk: flutter
+        sdk: flutter
     flutter_localizations:
-      sdk: flutter
+        sdk: flutter
 
     # The following adds the Cupertino Icons font to your application.
     # Use with the CupertinoIcons class for iOS style icons.
@@ -157,9 +157,9 @@
     # Versión de la app (para log de auditoría)
     package_info_plus: ^8.1.3
 
-  dev_dependencies:
+dev_dependencies:
     flutter_test:
-      sdk: flutter
+        sdk: flutter
     mockito: ^5.4.4
     build_runner: ^2.4.12
     fake_cloud_firestore: ^3.1.0
@@ -172,27 +172,26 @@
     # rules and activating additional ones.
     flutter_lints: ^6.0.0
 
-  # For information on the generic Dart part of this file, see the
-  # following page: https://dart.dev/tools/pub/pubspec
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
 
-  # The following section is specific to Flutter packages.
-  flutter:
+# The following section is specific to Flutter packages.
+flutter:
 
     uses-material-design: true
 
     assets:
-      - assets/sounds/
+        - assets/sounds/
 
-  # ── FLUTTER LAUNCHER ICONS ────────────────────────────────────────────────────
-  flutter_launcher_icons:
+# ── FLUTTER LAUNCHER ICONS ────────────────────────────────────────────────────
+flutter_launcher_icons:
     android: true
     ios: true
     image_path: "assets/icons/app_icon.png"
     min_sdk_android: 21
     web:
-      generate: false
+        generate: false
     windows:
-      generate: false
+        generate: false
     macos:
-      generate: false
-
+        generate: false

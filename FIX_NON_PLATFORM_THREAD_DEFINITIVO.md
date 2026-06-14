@@ -1,4 +1,4 @@
-# 🔥 FIX DEFINITIVO: Non-Platform Thread Error (Firebase Firestore Windows)
+#  FIX DEFINITIVO: Non-Platform Thread Error (Firebase Firestore Windows)
 
 **Fecha:** 2026-05-26  
 **Problema Identificado:** Callbacks de Firestore ejecutándose desde threads nativos en Windows  
@@ -81,7 +81,7 @@ SafeStreamBuilder<QuerySnapshot>(
 
 ---
 
-## 🚀 CÓMO APLICAR EL FIX
+##  CÓMO APLICAR EL FIX
 
 ### Opción 1: Usar SafeStreamBuilder (RECOMENDADO - Automático)
 
@@ -158,7 +158,7 @@ FirebaseFirestore.instance
 
 ---
 
-## 📊 ARCHIVOS QUE NECESITAN ACTUALIZACIÓN
+##  ARCHIVOS QUE NECESITAN ACTUALIZACIÓN
 
 ### Prioridad CRÍTICA (Crashean frecuentemente)
 
@@ -189,7 +189,7 @@ Estos archivos usan StreamBuilder con Firestore y deben cambiarse:
 
 ---
 
-## 🔧 EJEMPLO DE MIGRACIÓN EN CAJA_RAPIDA_SCREEN.DART
+##  EJEMPLO DE MIGRACIÓN EN CAJA_RAPIDA_SCREEN.DART
 
 ### ANTES (crashea):
 ```dart
@@ -235,7 +235,7 @@ return SafeStreamBuilder<List<String>>(
 
 ---
 
-## 🧪 TESTING DEL FIX
+##  TESTING DEL FIX
 
 ### Test 1: Verificar que no aparecen errores de threading
 
@@ -264,13 +264,13 @@ flutter run -d windows --verbose 2>&1 | Select-String "non-platform thread"
 flutter run -d windows --verbose 2>&1 | Select-String "FIRESTORE THREAD FIX"
 
 # Deberías ver:
-# 🔄 [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
-# 🛑 [FIRESTORE THREAD FIX] Stream cancelado - limpiando
+#  [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
+#  [FIRESTORE THREAD FIX] Stream cancelado - limpiando
 ```
 
 ---
 
-## 📊 RESUMEN DE TODOS LOS FIXES APLICADOS
+##  RESUMEN DE TODOS LOS FIXES APLICADOS
 
 | # | Fix | Archivo | Previene |
 |---|-----|---------|----------|
@@ -331,7 +331,7 @@ flutter run -d windows --verbose
 
 ---
 
-## 🎯 RESULTADO ESPERADO
+##  RESULTADO ESPERADO
 
 ### ✅ Éxito
 
@@ -342,7 +342,7 @@ flutter run -d windows --verbose
 
 **Consola SÍ mostrará (si hay debugging activo):**
 ```
-🔄 [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
+ [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
 ```
 
 **App:**
@@ -352,7 +352,7 @@ flutter run -d windows --verbose
 
 ---
 
-## 🆘 SI EL FIX NO FUNCIONA
+##  SI EL FIX NO FUNCIONA
 
 ### Posibles causas:
 
@@ -380,7 +380,7 @@ flutter run -d windows --verbose
 
 ---
 
-## 📝 NOTAS FINALES
+##  NOTAS FINALES
 
 ### ¿Por qué es necesario este fix?
 
@@ -404,5 +404,4 @@ flutter run -d windows --verbose
 
 ---
 
-**Este fix es CRÍTICO para que la app funcione en Windows sin crashes. Aplica la migración lo antes posible. 🚀**
-
+**Este fix es CRÍTICO para que la app funcione en Windows sin crashes. Aplica la migración lo antes posible. **

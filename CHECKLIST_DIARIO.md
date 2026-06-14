@@ -4,9 +4,9 @@
 
 ---
 
-## 📅 DÍA 1 — LUNES
+##  DÍA 1 — LUNES
 
-### 🌅 MAÑANA (08:00 - 12:30)
+###  MAÑANA (08:00 - 12:30)
 
 #### Setup Inicial (1h)
 - [ ] Crear branch: `feature/estabilizacion-1-semana`
@@ -55,11 +55,11 @@
 
 ---
 
-### 🍕 ALMUERZO (12:30 - 13:30)
+###  ALMUERZO (12:30 - 13:30)
 
 ---
 
-### 🌆 TARDE (13:30 - 16:30)
+###  TARDE (13:30 - 16:30)
 
 #### Módulo 3: Reservas (2h)
 - [ ] Abrir: `modulo_reservas_screen.dart`
@@ -84,7 +84,7 @@
 
 ---
 
-#### 🎯 Decisión Go/No-Go Lunes
+####  Decisión Go/No-Go Lunes
 - [ ] ✅ 3 módulos migrados sin errores
 - [ ] ✅ Testing OK en Windows y mobile
 - [ ] ✅ Memoria estable
@@ -94,9 +94,9 @@
 
 ---
 
-## 📅 DÍA 2 — MARTES
+##  DÍA 2 — MARTES
 
-### 🌅 MAÑANA (08:00 - 12:00)
+###  MAÑANA (08:00 - 12:00)
 
 #### Módulo 4: Clientes (1h)
 - [ ] Abrir: `modulo_clientes_screen.dart`
@@ -129,11 +129,11 @@
 
 ---
 
-### 🍕 ALMUERZO (12:00 - 13:00)
+###  ALMUERZO (12:00 - 13:00)
 
 ---
 
-### 🌆 TARDE (13:00 - 16:00)
+###  TARDE (13:00 - 16:00)
 
 #### Módulo 7: TPV Root (1h)
 - [ ] Abrir: `tpv_root_screen.dart` (línea 68)
@@ -158,7 +158,7 @@
 
 ---
 
-#### 🎯 Decisión Go/No-Go Martes
+####  Decisión Go/No-Go Martes
 - [ ] 7/15 módulos migrados ✅
 - [ ] Builds OK en 3 plataformas ✅
 - [ ] Windows: 0 crashes en 1h ✅
@@ -166,9 +166,9 @@
 
 ---
 
-## 📅 DÍA 3 — MIÉRCOLES
+##  DÍA 3 — MIÉRCOLES
 
-### 🌅 MAÑANA (08:00 - 12:00)
+###  MAÑANA (08:00 - 12:00)
 
 #### Módulo 8: Facturación (1h)
 - [ ] Abrir: `modulo_facturacion_screen.dart`
@@ -198,11 +198,11 @@
 
 ---
 
-### 🍕 ALMUERZO (12:00 - 13:00)
+###  ALMUERZO (12:00 - 13:00)
 
 ---
 
-### 🌆 TARDE (13:00 - 16:00)
+###  TARDE (13:00 - 16:00)
 
 #### Módulo 12: WhatsApp (1h)
 - [ ] Abrir: `modulo_whatsapp_screen.dart`
@@ -226,7 +226,7 @@
 
 ---
 
-#### 🎯 Decisión Go/No-Go Miércoles
+####  Decisión Go/No-Go Miércoles
 - [ ] 12/15 módulos migrados ✅
 - [ ] Builds beta distribuidos ✅
 - [ ] Testers confirman recepción ✅
@@ -234,9 +234,9 @@
 
 ---
 
-## 📅 DÍA 4 — JUEVES
+##  DÍA 4 — JUEVES
 
-### 🌅 MAÑANA (08:00 - 12:00)
+###  MAÑANA (08:00 - 12:00)
 
 #### Módulo 13: Nóminas (1h)
 - [ ] Abrir: `modulo_nominas_screen.dart`
@@ -275,11 +275,11 @@
 
 ---
 
-### 🍕 ALMUERZO (12:00 - 13:00)
+###  ALMUERZO (12:00 - 13:00)
 
 ---
 
-### 🌆 TARDE (13:00 - 16:00)
+###  TARDE (13:00 - 16:00)
 
 #### ⚡ Testing Marathon 3 Horas
 
@@ -346,7 +346,7 @@
 
 ---
 
-#### 🎯 Decisión Go/No-Go Jueves
+####  Decisión Go/No-Go Jueves
 - [ ] 15/15 módulos migrados ✅
 - [ ] Marathon test completado ✅
 - [ ] Windows: 3h sin crash ✅
@@ -358,9 +358,9 @@
 
 ---
 
-## 📅 DÍA 5 — VIERNES
+##  DÍA 5 — VIERNES
 
-### 🌅 MAÑANA (08:00 - 12:00)
+###  MAÑANA (08:00 - 12:00)
 
 #### Resolver Issues Críticos de Testers (2h)
 - [ ] Issue #1: _____________________ ✅
@@ -384,11 +384,11 @@
 
 ---
 
-### 🍕 ALMUERZO (12:00 - 13:00)
+###  ALMUERZO (12:00 - 13:00)
 
 ---
 
-### 🌆 TARDE (13:00 - 16:00)
+###  TARDE (13:00 - 16:00)
 
 #### Documentación (1h)
 - [ ] Actualizar CHANGELOG.md
@@ -433,7 +433,7 @@
 
 ---
 
-#### 🎯 Decisión DEPLOY Viernes EOD
+####  Decisión DEPLOY Viernes EOD
 - [ ] ✅ Builds finales compilados sin errores
 - [ ] ✅ Testing completo pass
 - [ ] ✅ Feedback testers positivo (>80%)
@@ -442,15 +442,15 @@
 - [ ] ✅ Stakeholders aprueban
 
 **Decisión**:
-- [ ] 🟢 **GO**: Deploy Sábado/Domingo/Lunes
-- [ ] 🟡 **HOLD**: Retrasar 48h para fix menor
-- [ ] 🔴 **NO-GO**: Problema crítico, iterar próxima semana
+- [ ]  **GO**: Deploy Sábado/Domingo/Lunes
+- [ ]  **HOLD**: Retrasar 48h para fix menor
+- [ ]  **NO-GO**: Problema crítico, iterar próxima semana
 
 ---
 
-## 📅 DÍA 6-7 — FIN DE SEMANA (Opcional)
+##  DÍA 6-7 — FIN DE SEMANA (Opcional)
 
-### 🟢 Si decisión fue GO:
+###  Si decisión fue GO:
 
 #### Sábado AM
 - [ ] Deploy Android Play Console (10% rollout)
@@ -478,7 +478,7 @@
 
 ---
 
-### 🟡 Si decisión fue HOLD:
+###  Si decisión fue HOLD:
 
 #### Sábado
 - [ ] Fix issue menor identificado
@@ -488,7 +488,7 @@
 
 ---
 
-### 🔴 Si decisión fue NO-GO:
+###  Si decisión fue NO-GO:
 
 #### Fin de Semana
 - [ ] Descanso
@@ -498,7 +498,7 @@
 
 ---
 
-## 📊 MÉTRICAS FINALES (Completar Viernes EOD)
+##  MÉTRICAS FINALES (Completar Viernes EOD)
 
 | Métrica | Baseline | Objetivo | ✅ Real |
 |---------|----------|----------|---------|
@@ -550,7 +550,7 @@
 
 ---
 
-## 🎉 CELEBRACIÓN
+##  CELEBRACIÓN
 
 **Si completaste todo lo anterior, ¡FELICIDADES!**
 
@@ -568,7 +568,7 @@ Has logrado:
 
 ---
 
-## 📝 NOTAS PERSONALES
+##  NOTAS PERSONALES
 
 Usa este espacio para anotar observaciones, problemas encontrados, o ideas para mejoras futuras:
 
@@ -600,5 +600,4 @@ _________________________________________________
 
 **Última actualización**: 25 Mayo 2026  
 **Versión**: 1.0  
-**Estado**: ⏳ Pendiente / 🟢 En progreso / ✅ Completado
-
+**Estado**: ⏳ Pendiente /  En progreso / ✅ Completado

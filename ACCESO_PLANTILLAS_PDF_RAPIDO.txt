@@ -9,35 +9,56 @@
  🚀 GUÍA RÁPIDA - 3 PASOS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PASO 1: Activar el módulo (solo la primera vez)
-─────────────────────────────────────────────────
-cd scripts
-node agregar_modulo_plantillas_pdf.js
-
-
-PASO 2: Abrir la aplicación
+PASO 1: Abrir la aplicación
 ─────────────────────────────────────────────────
 → Login como PROPIETARIO o ADMIN
 
 
-PASO 3: Buscar "Plantillas PDF" en el dashboard
+PASO 2: Ir a Mi Perfil → Mi Empresa
 ─────────────────────────────────────────────────
-Desktop: Icono 📄 en el NavigationRail lateral
-Mobile: Tab 📄 en la barra superior
+1. Tap en el avatar/perfil (esquina superior derecha)
+2. Seleccionar tab "Mi Empresa"
+3. Scroll hasta "Configuración Fiscal y Facturación"
+
+
+PASO 3: Tap en "Configuración de PDFs"
+─────────────────────────────────────────────────
+→ Botón azul debajo de "Configuración Fiscal"
+→ Se abre pantalla de Plantillas PDF
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 📍 UBICACIÓN
+ 📍 UBICACIÓN EXACTA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-El módulo "Plantillas PDF" aparece junto con:
-• Dashboard
-• Facturación
-• Clientes
-• Empleados
-• etc.
+Ruta de navegación:
 
-Busca el icono: 📄
+    Mi Perfil (👤)
+        └─ Tab "Mi Empresa"
+            └─ Configuración Fiscal y Facturación
+                ├─ 📄 Configuración Fiscal (NIF, Series, etc.)
+                └─ 📄 Configuración de PDFs (Plantillas, Diseño) ← AQUÍ
+
+
+Visual:
+┌─────────────────────────────────────────┐
+│  Mi Perfil          Mi Empresa  Cuentas │
+├─────────────────────────────────────────┤
+│  [Datos del negocio]                    │
+│  [Horarios]                             │
+│                                         │
+│  ▼ Configuración Fiscal y Facturación  │
+│  ┌───────────────────────────────────┐ │
+│  │ 📋 Configuración Fiscal           │ │
+│  │    (NIF, Series, etc.)            │ │
+│  └───────────────────────────────────┘ │
+│  ┌───────────────────────────────────┐ │
+│  │ 📄 Configuración de PDFs  ← AQUÍ │ │
+│  │    (Plantillas, Diseño)           │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+│  [Guardar cambios]                      │
+└─────────────────────────────────────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -58,23 +79,26 @@ Busca el icono: 📄
 
 ✅ Propietario → Acceso completo
 ✅ Admin → Acceso completo
-❌ Staff → Sin acceso
+❌ Staff → Sin acceso (no ve el tab "Mi Empresa")
 ❌ Cliente → Sin acceso
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 🆘 SI NO APARECE EL MÓDULO
+ 🆘 SI NO VES EL BOTÓN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. Ejecutar script de activación:
-   cd scripts
-   node agregar_modulo_plantillas_pdf.js
+1. Verificar que estás en el tab "Mi Empresa"
+   (Solo visible para Admin/Propietario)
 
-2. Reiniciar la app
+2. Scroll hacia abajo hasta la sección
+   "Configuración Fiscal y Facturación"
 
-3. Si persiste el problema:
-   - Verificar rol de usuario (debe ser admin/propietario)
-   - Ejecutar: .\verificar_pdf_dinamico.bat
+3. El botón de PDFs está debajo del botón de
+   "Configuración Fiscal"
+
+4. Si no aparece:
+   - Ejecutar: flutter clean && flutter pub get
+   - Reiniciar la app
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -88,9 +112,11 @@ Ver documentación completa:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ Estado: INTEGRADO Y FUNCIONAL
+✅ Estado: INTEGRADO EN MI PERFIL → MI EMPRESA
 📅 Fecha: 2026-05-25
-🔖 Versión: 1.0.0
+🔖 Versión: 2.0.0
+📍 Ubicación: Mi Perfil → Mi Empresa → Configuración de PDFs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 

@@ -1,6 +1,6 @@
 # ⚡ TESTING RÁPIDO: Fix Crash Windows
 
-## 🎯 ¿Qué se arregló?
+##  ¿Qué se arregló?
 
 **Problema:** App cierra silenciosamente cuando expira token de Firebase Auth  
 **Causa:** Error `permission-denied` de Firestore no capturado mata proceso en Windows  
@@ -28,7 +28,7 @@
 
 ---
 
-## 🚀 COMANDOS DE TESTING
+##  COMANDOS DE TESTING
 
 ### Test Básico (1 minuto)
 
@@ -72,12 +72,12 @@ notepad C:\Users\Samu\Documents\fluixcrm_crash.log
 # Buscar estas líneas (SI aparecen = fix funcionando):
 # ⚠️ FIRESTORE PERMISSION DENIED - Manejado sin cerrar app
 # ⚠️ FIREBASE AUTH ERROR - Manejado sin cerrar app
-# 🔴 MAIN: Sesión expirada - iniciando limpieza...
+#  MAIN: Sesión expirada - iniciando limpieza...
 ```
 
 ---
 
-## 📊 RESULTADOS ESPERADOS
+##  RESULTADOS ESPERADOS
 
 ### ✅ ÉXITO (App NO cierra)
 
@@ -85,10 +85,10 @@ notepad C:\Users\Samu\Documents\fluixcrm_crash.log
 ```
 ⚠️ FIRESTORE PERMISSION DENIED - Manejado sin cerrar app
 → Causa probable: sesión cerrada con listeners activos
-🔴 MAIN: Sesión expirada - iniciando limpieza...
+ MAIN: Sesión expirada - iniciando limpieza...
 ⏳ SesionService: esperando 500ms para cancelación de listeners...
-🔓 SesionService: sesión cerrada correctamente
-🔓 MAIN: Navegando a login tras limpieza
+ SesionService: sesión cerrada correctamente
+ MAIN: Navegando a login tras limpieza
 ```
 
 **En pantalla verás:**
@@ -113,22 +113,22 @@ notepad C:\Users\Samu\Documents\fluixcrm_crash.log
 
 ---
 
-## 🔍 CHECKLIST DE VERIFICACIÓN
+##  CHECKLIST DE VERIFICACIÓN
 
 Después del test, verifica:
 
 - [ ] La app **NO se cierra** cuando expira la sesión
 - [ ] Aparecen logs con "⚠️ FIRESTORE PERMISSION DENIED"
-- [ ] Aparecen logs con "🔴 MAIN: Sesión expirada"
+- [ ] Aparecen logs con " MAIN: Sesión expirada"
 - [ ] La app navega al login suavemente
 - [ ] El archivo `fluixcrm_crash.log` contiene los logs del error
 - [ ] El cobro en TPV funciona correctamente si la sesión está activa
 
 ---
 
-## 🎯 SI TODO FUNCIONA
+##  SI TODO FUNCIONA
 
-**¡El fix está funcionando! 🎉**
+**¡El fix está funcionando! **
 
 Ahora puedes:
 1. Continuar usando la app con normalidad
@@ -137,7 +137,7 @@ Ahora puedes:
 
 ---
 
-## 🆘 SI SIGUE CRASHEANDO
+##  SI SIGUE CRASHEANDO
 
 **Paso 1:** Ejecuta esto y comparte el output:
 
@@ -157,7 +157,7 @@ flutter run -d windows --verbose > C:\Users\Samu\crash_detallado.txt 2>&1
 
 ---
 
-## 📝 NOTAS ADICIONALES
+##  NOTAS ADICIONALES
 
 ### ¿Cómo funciona el fix?
 
@@ -182,5 +182,4 @@ Navegación al login → ✅ Sin crash
 
 ---
 
-**Ejecuta el test y comparte los resultados. Los fixes están aplicados y deberían solucionar el crash. 🚀**
-
+**Ejecuta el test y comparte los resultados. Los fixes están aplicados y deberían solucionar el crash. **

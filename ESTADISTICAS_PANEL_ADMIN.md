@@ -1,11 +1,11 @@
-# 📊 Estadísticas Interesantes para el Panel de Admin (PlaneaG)
+#  Estadísticas Interesantes para el Panel de Admin (PlaneaG)
 
 > Ideas de métricas y KPIs que se pueden añadir al panel de administración de plataforma.  
 > Todas se pueden calcular desde Firestore con Cloud Functions programadas o en tiempo real.
 
 ---
 
-## 🏢 Métricas de Empresas
+##  Métricas de Empresas
 
 | Métrica | Descripción | Fuente Firestore |
 |---------|-------------|-----------------|
@@ -19,14 +19,14 @@
 ### Widget sugerido: Tarjetas de resumen
 ```
 ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
-│  🏢 Total  │  │  ✅ Activas │  │  ❌ Vencidas│  │  🆕 Nuevas │
+│   Total  │  │  ✅ Activas │  │  ❌ Vencidas│  │   Nuevas │
 │    142     │  │    118     │  │    24      │  │   +7 mes   │
 └────────────┘  └────────────┘  └────────────┘  └────────────┘
 ```
 
 ---
 
-## 💰 Métricas Financieras (MRR / ARR)
+##  Métricas Financieras (MRR / ARR)
 
 | Métrica | Cálculo | Notas |
 |---------|---------|-------|
@@ -50,7 +50,7 @@
 
 ---
 
-## 📋 Distribución por Plan
+##  Distribución por Plan
 
 | Plan | Empresas | % | Precio/mes | MRR aportado |
 |------|----------|---|------------|--------------|
@@ -63,7 +63,7 @@
 
 ---
 
-## 📅 Reservas y Citas
+##  Reservas y Citas
 
 | Métrica | Descripción | Fuente |
 |---------|-------------|--------|
@@ -76,7 +76,7 @@
 
 ---
 
-## 🌐 Tráfico Web (Fluix Analytics)
+##  Tráfico Web (Fluix Analytics)
 
 | Métrica | Descripción | Fuente |
 |---------|-------------|--------|
@@ -99,7 +99,7 @@
 
 ---
 
-## 👥 Usuarios y Equipo
+##  Usuarios y Equipo
 
 | Métrica | Descripción |
 |---------|-------------|
@@ -110,7 +110,7 @@
 
 ---
 
-## 🔔 Notificaciones y Engagement
+##  Notificaciones y Engagement
 
 | Métrica | Descripción |
 |---------|-------------|
@@ -121,7 +121,7 @@
 
 ---
 
-## 📦 Módulos más usados
+##  Módulos más usados
 
 | Módulo | Empresas que lo usan | % adopción |
 |--------|---------------------|------------|
@@ -137,7 +137,7 @@
 
 ---
 
-## 📈 Widgets prioritarios para implementar primero
+##  Widgets prioritarios para implementar primero
 
 ### Nivel 1 – Fáciles (datos ya existentes, solo leer)
 1. ✅ Contador total empresas + activas/vencidas
@@ -145,18 +145,18 @@
 3. ✅ Nuevas empresas este mes vs mes anterior
 
 ### Nivel 2 – Medios (requieren agregación)
-4. 📊 MRR calculado (Cloud Function diaria que guarda snapshot en `/plataforma_stats/mrr_historico`)
-5. 📊 Top empresas por reservas este mes
-6. 📊 Gráfico visitas web agregadas
+4.  MRR calculado (Cloud Function diaria que guarda snapshot en `/plataforma_stats/mrr_historico`)
+5.  Top empresas por reservas este mes
+6.  Gráfico visitas web agregadas
 
 ### Nivel 3 – Avanzados (requieren más lógica)
-7. 🔬 Tasa de churn mensual
-8. 🔬 LTV estimado
-9. 🔬 Embudo de conversión (demo → pago → renovación)
+7.  Tasa de churn mensual
+8.  LTV estimado
+9.  Embudo de conversión (demo → pago → renovación)
 
 ---
 
-## 🗂️ Estructura Firestore sugerida para estadísticas de plataforma
+## ️ Estructura Firestore sugerida para estadísticas de plataforma
 
 Para no recalcular en cada carga, guardar snapshots diarios:
 
@@ -183,7 +183,7 @@ La Cloud Function `generarResumenPlataforma` se ejecutaría cada noche a las 02:
 
 ---
 
-## 🚀 Código Flutter sugerido — Tarjeta KPI
+##  Código Flutter sugerido — Tarjeta KPI
 
 ```dart
 class KpiCard extends StatelessWidget {
@@ -259,4 +259,3 @@ class KpiCard extends StatelessWidget {
 ---
 
 *Generado: 2026-05-06 | PlaneaG / FluixCRM Admin Panel*
-

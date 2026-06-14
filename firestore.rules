@@ -155,6 +155,9 @@ service cloud.firestore {
       && resource.data.get('activo', false) == true
       && resource.data.empresa_id is string;
 
+    // Admin de plataforma puede crear cualquier usuario (alta de nuevas cuentas)
+    allow create: if esPlataformaAdmin();
+
     allow create: if esUsuarioReal()
       && uid() == userId
       && request.resource.data.keys().hasAll(['empresa_id', 'rol'])
@@ -268,6 +271,28 @@ service cloud.firestore {
     // ── CONFIGURACIÓN PERSONAL (sonidos, tema, etc.) ────────────────────────
     match /configuracion/{docId} {
       allow read, write: if esUsuarioReal() && uid() == userId;
+    }
+
+    // ── TROFEOS (lectura/escritura propia — escritura server también vía Cloud Functions) ─
+    match /trofeos/{trofeoId} {
+      allow read: if esUsuarioReal() && uid() == userId;
+      allow write: if esUsuarioReal() && uid() == userId;
+    }
+
+    // ── CANJES (lectura/escritura propia) ────────────────────────────────────
+    match /canjes/{canjeId} {
+      allow read, write: if esUsuarioReal() && uid() == userId;
+    }
+
+    // ── MONEDERO (lectura propia; escritura solo Cloud Functions) ─────────────
+    match /monedero/{docId} {
+      allow read: if esUsuarioReal() && uid() == userId;
+      allow write: if false;
+
+      match /transacciones/{txId} {
+        allow read: if esUsuarioReal() && uid() == userId;
+        allow write: if false;
+      }
     }
   }
 
@@ -394,18 +419,22 @@ service cloud.firestore {
               || resource.data.get('cliente_uid', '') == uid())
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado'])
           && request.resource.data.estado in ['cancelada', 'CANCELADA'];
-      // Admin/propietario puede crear cualquier reserva (incluyendo datos de prueba)
+
+      // ── CREACIÓN ─────────────────────────────────────────────────────────
+      // 1. Admin/propietario/plataforma puede crear cualquier reserva
       allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-      // Staff puede crear citas (TPV)
+
+      // 2. Staff puede crear citas (TPV)
       allow create: if esStaffOSuperior(empresaId);
-      // App B2C: cualquier usuario autenticado puede crear reservas en negocios
+
+      // 3. App B2C: cualquier usuario autenticado puede crear reservas
       allow create: if esUsuarioReal()
-          && (request.resource.data.get('usuario_uid', '') == uid()
-              || request.resource.data.get('cliente_uid', '') == uid())
-          && request.resource.data.estado in ['pendiente', 'PENDIENTE'];
-      // Clientes externos pueden crear reservas con campos mínimos estrictos (formulario web)
-      allow create: if (
-          request.resource.data.estado in ['pendiente', 'PENDIENTE']
+          && request.resource.data.estado in ['pendiente', 'PENDIENTE', 'confirmada', 'CONFIRMADA'];
+
+      // 4. Formularios web externos (sin autenticación): requieren campos mínimos
+      //    pero permiten campos adicionales como fecha, hora, servicio, etc.
+      allow create: if !isAuth()
+          && request.resource.data.estado in ['pendiente', 'PENDIENTE']
           && request.resource.data.keys().hasAll(['cliente_nombre', 'cliente_telefono'])
           && request.resource.data.cliente_nombre is string
           && request.resource.data.cliente_nombre.size() > 0
@@ -413,7 +442,21 @@ service cloud.firestore {
           && request.resource.data.cliente_telefono is string
           && request.resource.data.cliente_telefono.size() > 0
           && request.resource.data.cliente_telefono.size() <= 20
-        );
+          && request.resource.data.size() <= 50; // Límite razonable de campos
+
+      // 5. Formularios web con autenticación anónima (Damajuana, etc.)
+      //    Permite usuarios anónimos crear reservas con campos específicos
+      allow create: if esAnonimo()
+          && request.resource.data.estado in ['pendiente', 'PENDIENTE']
+          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono'])
+          && request.resource.data.nombre_cliente is string
+          && request.resource.data.nombre_cliente.size() > 0
+          && request.resource.data.nombre_cliente.size() <= 100
+          && request.resource.data.telefono is string
+          && request.resource.data.telefono.size() > 0
+          && request.resource.data.telefono.size() <= 30
+          && request.resource.data.origen == 'web'
+          && request.resource.data.size() <= 50; // Límite razonable de campos
     }
 
     // ── EMPLEADOS — lectura pública para formularios B2C ──────────────────
@@ -447,14 +490,14 @@ service cloud.firestore {
     }
 
     match /valoraciones/{valoracionId} {
-      allow read: if puedeVerModulo(empresaId, 'valoraciones') || esPlataformaAdmin();
+      // Lectura pública para que clientes B2C vean reseñas
+      allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-      // Permitir crear desde público (clientes que dejan valoración)
+      // Cualquier usuario autenticado puede crear una reseña
       allow create: if isAuth()
-        && request.resource.data.keys().hasAll(['calificacion'])
-        && request.resource.data.calificacion is int
-        && request.resource.data.calificacion >= 1
-        && request.resource.data.calificacion <= 5;
+        && request.resource.data.keys().hasAll(['estrellas'])
+        && request.resource.data.estrellas >= 1
+        && request.resource.data.estrellas <= 5;
     }
 
     match /google_reviews/{reviewId} {
@@ -582,12 +625,27 @@ service cloud.firestore {
       allow read: if esAdminOPropietario(empresaId)
         || esPlataformaAdmin()
         || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
+
+      // Empleado crea su propia jornada (fichar entrada — esquema jornada única)
       allow create: if perteneceAEmpresa(empresaId)
         && request.resource.data.empleado_id == request.auth.uid
-        && request.resource.data.keys().hasAll(['empleado_id', 'tipo', 'timestamp'])
-        && request.resource.data.tipo in ['entrada', 'salida', 'pausa_inicio', 'pausa_fin']
-        && request.resource.data.size() <= 20;
+        && request.resource.data.get('es_correccion', false) == false
+        && request.resource.data.keys().hasAll(
+            ['empleado_id', 'empleado_nombre', 'fecha', 'entrada', 'es_correccion']);
+
+      // Admin/propietario puede crear cualquier fichaje o corrección
+      allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+
+      // Empleado puede actualizar su propio fichaje (fichar salida, iniciar/finalizar pausa)
+      allow update: if perteneceAEmpresa(empresaId)
+        && resource.data.empleado_id == request.auth.uid
+        && resource.data.get('es_correccion', false) == false
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['salida', 'pausas']);
+
+      // Admin puede corregir o modificar cualquier fichaje
       allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+
       allow delete: if false;
 
       match /historial/{entradaId} {
@@ -595,6 +653,10 @@ service cloud.firestore {
         allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow update, delete: if false;
       }
+    }
+
+    match /empleados_fichaje/{docId} {
+      allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     match /equipos/{equipoId} {
@@ -698,6 +760,13 @@ service cloud.firestore {
       // La creación la hacen los triggers de Firestore o el código cliente (B2C)
       // Permitir a usuarios autenticados crear notificaciones al hacer reservas
       allow create: if esUsuarioReal();
+
+      // Permitir a usuarios anónimos crear notificaciones de reservas web
+      allow create: if esAnonimo()
+          && request.resource.data.tipo == 'nueva_reserva_web'
+          && request.resource.data.keys().hasAll(['reserva_id', 'empresa_id'])
+          && request.resource.data.reserva_id is string
+          && request.resource.data.empresa_id == empresaId;
 
       // Owner puede marcar como leída (solo ese campo)
       allow update: if esAdminOPropietario(empresaId)
@@ -884,9 +953,39 @@ service cloud.firestore {
       }
     }
 
-    match /cierres_caja/{cierreId} {
+    match /pdf_config/{docId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    match /cierres_caja/{cierreId} {
+      allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin()
+          || (perteneceAEmpresa(empresaId) && esDemoSuscripcion(empresaId));
+      allow create: if esStaffOSuperior(empresaId) || esPlataformaAdmin()
+          || (perteneceAEmpresa(empresaId) && esDemoSuscripcion(empresaId));
+      // Permite añadir el campo 'cierre' por primera vez (flujo legacy peluquería)
+      // Mismos roles que create: staff, admin, propietario y cuentas demo
+      allow update: if (esStaffOSuperior(empresaId) || esPlataformaAdmin()
+              || (perteneceAEmpresa(empresaId) && esDemoSuscripcion(empresaId)))
+          && !resource.data.keys().hasAny(['cierre'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cierre', 'fecha']);
+      allow delete: if false;
+    }
+
+    match /aperturas_caja/{aperturaId} {
+      allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin()
+          || (perteneceAEmpresa(empresaId) && esDemoSuscripcion(empresaId));
+      allow create: if esStaffOSuperior(empresaId) || esPlataformaAdmin()
+          || (perteneceAEmpresa(empresaId) && esDemoSuscripcion(empresaId));
+      // fondo_inicial inmutable — solo plataforma puede corregir errores graves
+      allow update: if esPlataformaAdmin();
+      allow delete: if false;
+    }
+
+    match /registros_verifactu/{registroId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Inalterabilidad total exigida por RD 1007/2023 art. 4.1.a
       allow update, delete: if false;
     }
 
@@ -1066,8 +1165,28 @@ service cloud.firestore {
   match /negocios_publicos/{negocioId} {
     // Cualquier visitante puede leer el directorio de negocios (app B2C)
     allow read: if true;
-    // Solo el admin de plataforma puede crear/editar/borrar del directorio
+    // Plataforma admin puede hacer cualquier cosa
     allow write: if esPlataformaAdmin();
+    // Admin/propietario de la empresa vinculada puede crear su propio perfil
+    allow create: if esUsuarioReal()
+      && existeUsuarioDoc()
+      && request.resource.data.empresaIdVinculada == getUserData().empresa_id
+      && (getRol() == 'admin' || getRol() == 'propietario');
+    // Admin/propietario puede actualizar su propio perfil (no puede cambiar empresaIdVinculada)
+    allow update: if esUsuarioReal()
+      && existeUsuarioDoc()
+      && resource.data.empresaIdVinculada == getUserData().empresa_id
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['empresaIdVinculada']));
+
+    // ── SERVICIOS (subcol de negocios_publicos) ───────────────────────────
+    match /servicios/{servicioId} {
+      allow read: if true;
+      allow write: if esPlataformaAdmin()
+        || (esUsuarioReal() && existeUsuarioDoc()
+          && get(/databases/$(database)/documents/negocios_publicos/$(negocioId)).data.empresaIdVinculada == getUserData().empresa_id
+          && (getRol() == 'admin' || getRol() == 'propietario'));
+    }
 
     // ── VALORACIONES (subcol de negocios_publicos) ────────────────────────
     match /valoraciones/{valoracionId} {
@@ -1108,11 +1227,17 @@ service cloud.firestore {
   match /negocios_publicos/{negocioId}/flash_slots/{slotId} {
     // Cualquier auth (incluyendo anónimo) puede leer slots activos
     allow read: if isAuth();
-    // Solo plataforma admin puede crear/borrar slots
-    allow create, delete: if esPlataformaAdmin();
-    // Plataforma admin puede actualizar cualquier campo
-    // Usuario real autenticado solo puede incrementar huecos_reservados (reservar)
+    // Plataforma admin o admin/propietario del negocio vinculado pueden crear/borrar
+    allow create, delete: if esPlataformaAdmin()
+      || (esUsuarioReal() && existeUsuarioDoc()
+        && get(/databases/$(database)/documents/negocios_publicos/$(negocioId)).data.empresaIdVinculada == getUserData().empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario'));
+    // Admin/propietario del negocio puede actualizar (cancelar, modificar)
     allow update: if esPlataformaAdmin()
+      || (esUsuarioReal() && existeUsuarioDoc()
+        && get(/databases/$(database)/documents/negocios_publicos/$(negocioId)).data.empresaIdVinculada == getUserData().empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario'))
+      // Cliente puede reservar (incrementar huecos)
       || (
         esUsuarioReal()
         && resource.data.estado == 'activo'
@@ -1130,7 +1255,15 @@ service cloud.firestore {
     allow create: if isAuth()
       && request.resource.data.keys().hasAll(['negocio_id', 'slot_id', 'user_id'])
       && request.resource.data.user_id == request.auth.uid
-      && request.resource.data.size() <= 10;
+      && request.resource.data.size() <= 12;
+
+    // Admin/propietario puede crear al publicar una oferta flash (dispara push a clientes)
+    allow create: if esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && request.resource.data.keys().hasAll(['negocio_id', 'slot_id'])
+      && request.resource.data.size() <= 12;
+
     allow read, update, delete: if esPlataformaAdmin();
   }
 
@@ -1169,15 +1302,15 @@ service cloud.firestore {
   // ════════════════════════════════════════════════════════════════════
 
   match /empresas/{empresaId}/mesas/{mesaId} {
-    allow read, write: if esStaffOSuperior(empresaId);
+    allow read, write: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
   }
 
   match /empresas/{empresaId}/comandas/{comandaId} {
-    allow read, write: if esStaffOSuperior(empresaId);
+    allow read, write: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
   }
 
   match /empresas/{empresaId}/contadores/{doc} {
-    allow read, write: if esStaffOSuperior(empresaId);
+    allow read, write: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -1213,6 +1346,87 @@ service cloud.firestore {
     allow create: if perteneceAEmpresa(empresaId)
       && request.resource.data.empleado_id == request.auth.uid;
     allow update, delete: if false;
+  }
+match /pdf_templates/{templateId} {
+
+  allow list: if esPlataformaAdmin()
+    || (
+      esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+    );
+
+  allow get: if esPlataformaAdmin()
+    || (
+      esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && resource.data.empresa_id == getUserData().empresa_id
+    );
+
+  allow create: if esPlataformaAdmin()
+    || (
+      esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && request.resource.data.empresa_id == getUserData().empresa_id
+    );
+
+  allow update: if esPlataformaAdmin()
+    || (
+      esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && resource.data.empresa_id == getUserData().empresa_id
+    );
+
+  allow delete: if esPlataformaAdmin()
+    || (
+      esUsuarioReal()
+      && existeUsuarioDoc()
+      && (getRol() == 'admin' || getRol() == 'propietario')
+      && resource.data.empresa_id == getUserData().empresa_id
+    );
+}
+  // ════════════════════════════════════════════════════════════════════
+  // COLLECTION GROUP QUERIES
+  // Requeridos para collectionGroup() del SDK — las reglas de subcol
+  // existentes no cubren queries cross-collection.
+  // ════════════════════════════════════════════════════════════════════
+
+  // App B2C: listar reservas propias del cliente (origen == app_cliente)
+  match /{path=**}/reservas/{reservaId} {
+    allow read: if esUsuarioReal()
+        && (resource.data.get('cliente_uid', '') == uid()
+            || resource.data.get('usuario_uid', '') == uid());
+  }
+
+  // App B2C: directorio público de valoraciones de negocios
+  match /{path=**}/valoraciones/{valoracionId} {
+    allow read: if true;
+  }
+
+  // App B2C: slots de reserva flash de negocios públicos
+  match /{path=**}/flash_slots/{slotId} {
+    allow read: if isAuth();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // TROFEOS_CONFIG — catálogo global de definiciones (solo lectura para usuarios)
+  // ════════════════════════════════════════════════════════════════════
+
+  match /trofeos_config/{trofeoId} {
+    allow read: if isAuth();
+    allow write: if esPlataformaAdmin();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // COLLECTION GROUP — trofeos propios (Cloud Functions collectionGroup queries)
+  // ════════════════════════════════════════════════════════════════════
+
+  match /{path=**}/trofeos/{trofeoId} {
+    allow read: if esUsuarioReal()
+      && resource.data.get('uid', '') == uid();
   }
 
   // ════════════════════════════════════════════════════════════════════

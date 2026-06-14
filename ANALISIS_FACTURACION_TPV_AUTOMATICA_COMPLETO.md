@@ -1,4 +1,4 @@
-# 📊 ANÁLISIS COMPLETO: Módulo de Facturación y TPVs
+#  ANÁLISIS COMPLETO: Módulo de Facturación y TPVs
 
 > **Fecha**: 20 Mayo 2026  
 > **Analista**: Claude (GitHub Copilot)  
@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 ### Estado Actual
 El sistema cuenta con una **infraestructura de facturación robusta y completa** pero con **integración parcial** con los TPVs. Existe toda la lógica necesaria, pero falta el "pegamento" para que funcione automáticamente.
@@ -17,11 +17,11 @@ El sistema cuenta con una **infraestructura de facturación robusta y completa**
 - ✅ **VeriFactu integrado** con validación fiscal automática
 - ⚠️ **Facturación automática NO conectada**: El cobro de mesas no genera facturas
 - ⚠️ **Flag `facturacionAutomatica` existe** pero no se utiliza en el flujo
-- 🐛 **Bug crítico**: IVA hardcoded al 10% en `_pedidoALineas()` (línea 192)
+-  **Bug crítico**: IVA hardcoded al 10% en `_pedidoALineas()` (línea 192)
 
 ---
 
-## 📦 ARQUITECTURA ACTUAL
+##  ARQUITECTURA ACTUAL
 
 ### 1. Módulo de Facturación Core
 
@@ -167,7 +167,7 @@ Future<Factura> facturarSeleccion({
 }
 ```
 
-#### 🐛 Bug Crítico Detectado
+####  Bug Crítico Detectado
 
 **Ubicación**: `tpv_facturacion_service.dart:187-194`
 
@@ -285,7 +285,7 @@ empresas/{empresaId}/configuracion/facturacionTpv
 
 ---
 
-## 🔄 INTEGRACIÓN CON VERIFACTU
+##  INTEGRACIÓN CON VERIFACTU
 
 **Archivo**: `lib/services/verifactu_service.dart` (375 líneas)
 
@@ -323,7 +323,7 @@ try {
 
 ---
 
-## 📋 PROPUESTA: ARQUITECTURA CON PLANES
+##  PROPUESTA: ARQUITECTURA CON PLANES
 
 ### Plan 1: Sin Facturación Automática (Básico)
 **Características:**
@@ -337,7 +337,7 @@ try {
 **Configuración:**
 ```dart
 ConfiguracionFacturacionTpv(
-  facturacionAutomatica: false,  // 🔴 DESACTIVADA
+  facturacionAutomatica: false,  //  DESACTIVADA
   modo: ModoFacturacionTpv.manual,
   generarAutomaticamente: false,
 )
@@ -362,7 +362,7 @@ Cobro Mesa → Ticket → Venta registrada → Cierre caja
 **Configuración:**
 ```dart
 ConfiguracionFacturacionTpv(
-  facturacionAutomatica: true,  // 🟢 ACTIVADA
+  facturacionAutomatica: true,  //  ACTIVADA
   modo: ModoFacturacionTpv.resumenDiario,  // o porVenta
   generarAutomaticamente: true,
   horaGeneracion: TimeOfDay(hour: 23, minute: 30),  // Si resumenDiario
@@ -381,7 +381,7 @@ Cobro Mesa → Ticket → Pedido registrado → Factura automática ✅
 
 ---
 
-## 🔧 CAMBIOS NECESARIOS PARA IMPLEMENTACIÓN
+##  CAMBIOS NECESARIOS PARA IMPLEMENTACIÓN
 
 ### 1. Unificar Colecciones Ventas/Pedidos
 
@@ -448,7 +448,7 @@ Future<void> _confirmarCobro() async {
     notasInternas: 'Mesa: ${widget.nombreMesa}, Comensales: ${widget.comensales}',
   );
   
-  // 🆕 NUEVO: Generar factura si está activado
+  //  NUEVO: Generar factura si está activado
   final config = await TpvFacturacionService().obtenerConfig(widget.empresaId);
   if (config.facturacionAutomatica) {
     if (config.modo == ModoFacturacionTpv.porVenta) {
@@ -648,12 +648,12 @@ class Pedido {
   // ...campos existentes...
   
   final String? facturaId;           // ✅ YA EXISTE - vincula con factura
-  final double? propina;             // 🆕 AGREGAR - propina del ticket
+  final double? propina;             //  AGREGAR - propina del ticket
   final double? importeEfectivo;     // ✅ YA EXISTE
   final double? importeTarjeta;      // ✅ YA EXISTE
-  final String? mesaId;              // 🆕 AGREGAR - si viene de mesa
-  final String? mesaNombre;          // 🆕 AGREGAR
-  final int? comensales;             // 🆕 AGREGAR
+  final String? mesaId;              //  AGREGAR - si viene de mesa
+  final String? mesaNombre;          //  AGREGAR
+  final int? comensales;             //  AGREGAR
   
   // ...resto del modelo...
 }
@@ -672,7 +672,7 @@ Pantalla para que el usuario vea:
 
 ---
 
-## 📊 COMPARATIVA DE PLANES
+##  COMPARATIVA DE PLANES
 
 | Característica | Plan Básico | Plan Premium |
 |----------------|-------------|--------------|
@@ -690,7 +690,7 @@ Pantalla para que el usuario vea:
 
 ---
 
-## 🎯 PRIORIDADES DE IMPLEMENTACIÓN
+##  PRIORIDADES DE IMPLEMENTACIÓN
 
 ### Fase 1: Crítica (Esta semana)
 1. ✅ Unificar colecciones `ventas` → `pedidos`
@@ -712,7 +712,7 @@ Pantalla para que el usuario vea:
 
 ---
 
-## 🧪 CASOS DE PRUEBA
+##  CASOS DE PRUEBA
 
 ### Test 1: Cobro Mesa con Facturación Desactivada
 ```
@@ -764,7 +764,7 @@ THEN:
 
 ---
 
-## 📈 MÉTRICAS DE ÉXITO
+##  MÉTRICAS DE ÉXITO
 
 ### KPIs Técnicos
 - ✅ 100% de cobros generan pedido en Firestore
@@ -774,10 +774,10 @@ THEN:
 - ✅ 99% de envíos VeriFactu exitosos
 
 ### KPIs de Negocio
-- 📊 % de usuarios con facturación automática activada
-- 📊 Tiempo ahorrado por usuario/mes
-- 📊 Reducción de errores de facturación manual
-- 📊 NPS de usuarios con Plan Premium
+-  % de usuarios con facturación automática activada
+-  Tiempo ahorrado por usuario/mes
+-  Reducción de errores de facturación manual
+-  NPS de usuarios con Plan Premium
 
 ---
 
@@ -811,7 +811,7 @@ THEN:
 
 ---
 
-## 📚 DOCUMENTACIÓN ADICIONAL
+##  DOCUMENTACIÓN ADICIONAL
 
 ### Referencias Normativas
 - RD 1619/2012 (Facturación)
@@ -856,4 +856,3 @@ El sistema tiene una **infraestructura sólida** de facturación, pero requiere:
 
 *Documento generado el 20 de Mayo de 2026*  
 *Versión: 1.0*
-

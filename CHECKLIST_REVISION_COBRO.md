@@ -1,10 +1,10 @@
-# 🔎 CHECKLIST TÉCNICO: Revisión del Código de Cobro
+#  CHECKLIST TÉCNICO: Revisión del Código de Cobro
 
 **Objetivo:** Identificar la causa del crash silencioso en el flujo de cobro del TPV
 
 ---
 
-## 📋 **SECCIÓN 1: FLUJO DE COBRO PRINCIPAL**
+##  **SECCIÓN 1: FLUJO DE COBRO PRINCIPAL**
 
 ### ✅ Archivo: `caja_rapida_screen.dart` → método `_cobrar()`
 
@@ -63,7 +63,7 @@ pdfBytes = await _facturacionAuto.procesarCobro(empresaId: widget.empresaId, ped
 
 ---
 
-## 📋 **SECCIÓN 2: SERVICIO DE FACTURACIÓN AUTOMÁTICA**
+##  **SECCIÓN 2: SERVICIO DE FACTURACIÓN AUTOMÁTICA**
 
 ### ✅ Archivo: `facturacion_automatica_service.dart` → método `procesarCobro()`
 
@@ -108,7 +108,7 @@ if (!configDoc.exists) {
 
 ---
 
-## 📋 **SECCIÓN 3: RENDERIZADOR DE DOCUMENTOS TPV**
+##  **SECCIÓN 3: RENDERIZADOR DE DOCUMENTOS TPV**
 
 ### ✅ Archivo: `tpv_document_renderer.dart` → método `renderizarDocumento()`
 
@@ -149,7 +149,7 @@ as int          // Sin '?' → Puede crashear
 
 ---
 
-## 📋 **SECCIÓN 4: PLUGINS DE WINDOWS**
+##  **SECCIÓN 4: PLUGINS DE WINDOWS**
 
 ### ✅ Verificar compatibilidad de plugins
 
@@ -191,7 +191,7 @@ if (Platform.isAndroid || Platform.isIOS) {
 
 ---
 
-## 📋 **SECCIÓN 5: OPERACIONES FIRESTORE**
+##  **SECCIÓN 5: OPERACIONES FIRESTORE**
 
 ### ✅ Verificar permisos y estructura
 
@@ -227,14 +227,14 @@ match /empresas/{empresaId} {
 
 ---
 
-## 📋 **SECCIÓN 6: ANÁLISIS DE LOGS**
+##  **SECCIÓN 6: ANÁLISIS DE LOGS**
 
 ### ✅ Buscar patrones de fallo
 
 **Ejecuta el debug y busca esto en el log:**
 
 ```
-💰 [COBRO] Paso 5/6: Generando documento PDF...
+ [COBRO] Paso 5/6: Generando documento PDF...
 // Si después NO aparece "✅ PDF generado" → Crash aquí
 ```
 
@@ -242,9 +242,9 @@ match /empresas/{empresaId} {
 
 | Patrón en Log | Significado |
 |---------------|-------------|
-| `🔴 PLATFORM ERROR:` | Error en platform channel (plugin de Windows) |
-| `🔴 FLUTTER ERROR:` | Error en widget/render |
-| `🔴 UNCAUGHT ASYNC ERROR:` | Error en Future sin await |
+| ` PLATFORM ERROR:` | Error en platform channel (plugin de Windows) |
+| ` FLUTTER ERROR:` | Error en widget/render |
+| ` UNCAUGHT ASYNC ERROR:` | Error en Future sin await |
 | `MissingPluginException` | Plugin no registrado o incompatible |
 | `PlatformException` | Error llamando código nativo |
 | `Null check operator` | Error de null safety (`!`) |
@@ -252,11 +252,11 @@ match /empresas/{empresaId} {
 
 ---
 
-## 📋 **SECCIÓN 7: CAUSAS MÁS PROBABLES**
+##  **SECCIÓN 7: CAUSAS MÁS PROBABLES**
 
 Basándome en el análisis del código, estas son las causas más probables del crash:
 
-### 🔴 **Causa #1: Plugin printing en Windows (50% probabilidad)**
+###  **Causa #1: Plugin printing en Windows (50% probabilidad)**
 
 **Síntoma:** Crash en "Paso 5/6: Generando documento PDF"
 
@@ -284,7 +284,7 @@ if (kIsWeb || Platform.isWindows) {
 
 ---
 
-### 🔴 **Causa #2: Null safety en ConfiguracionFacturacionTpv (30% probabilidad)**
+###  **Causa #2: Null safety en ConfiguracionFacturacionTpv (30% probabilidad)**
 
 **Síntoma:** Crash al leer configuración que no existe
 
@@ -308,7 +308,7 @@ final config = await _facturacionSvc.obtenerConfig(widget.empresaId)
 
 ---
 
-### 🔴 **Causa #3: Operación Firestore sin await (15% probabilidad)**
+###  **Causa #3: Operación Firestore sin await (15% probabilidad)**
 
 **Síntoma:** Crash async después de cambiar estado
 
@@ -328,7 +328,7 @@ Future<void> cambiarEstado(...) async {
 
 ---
 
-### 🔴 **Causa #4: setState() después de dispose() (5% probabilidad)**
+###  **Causa #4: setState() después de dispose() (5% probabilidad)**
 
 **Síntoma:** Crash al volver al diálogo o cerrar pantalla
 
@@ -344,7 +344,7 @@ if (mounted) setState(() => _cobrando = false); // ✅
 
 ---
 
-## 🎯 **PLAN DE ACCIÓN INMEDIATO**
+##  **PLAN DE ACCIÓN INMEDIATO**
 
 ### Paso 1: Ejecutar el script de debug
 
@@ -387,9 +387,8 @@ C:\Users\Samu\debug_tpv_complete_YYYYMMDD_HHMMSS.txt
 Comparte esta información:
 
 1. **Paso donde falla:** "Paso 5/6: Generando documento PDF"
-2. **Mensaje de error:** El texto después de `🔴` en el log
+2. **Mensaje de error:** El texto después de `` en el log
 3. **Stack trace:** Las líneas después de `Stack:`
 4. **Contexto:** ¿Existe la configuración TPV en Firestore? ¿Qué plugins están activos?
 
-Con esto podré identificar la causa exacta y darte el fix específico. 🚀
-
+Con esto podré identificar la causa exacta y darte el fix específico. 

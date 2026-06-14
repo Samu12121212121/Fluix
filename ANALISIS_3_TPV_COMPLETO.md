@@ -1,11 +1,11 @@
-# 📊 ANÁLISIS COMPLETO DE LOS 3 SISTEMAS TPV
+#  ANÁLISIS COMPLETO DE LOS 3 SISTEMAS TPV
 **Fecha**: 13 Mayo 2026  
 **Versión**: 1.0  
 **Estado**: Pre-producción
 
 ---
 
-## 📋 ÍNDICE
+##  ÍNDICE
 1. [Resumen Ejecutivo](#resumen-ejecutivo)
 2. [TPV Bar/Restaurante](#1-tpv-barrestaurante)
 3. [TPV Tienda](#2-tpv-tienda)
@@ -15,15 +15,15 @@
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 | TPV | Completitud | Estado | Producción |
 |-----|-------------|--------|------------|
-| **Bar/Restaurante** | ⭐⭐⭐⭐⭐⭐⭐⭐⭐☆ **9/10** | 🟢 **Listo** | ✅ 1-2 días |
-| **Tienda** | ⭐⭐⭐⭐⭐⭐⭐⭐☆☆ **8/10** | 🟡 **Casi listo** | ⚠️ 3-5 días |
-| **Peluquería** | ⭐⭐⭐⭐⭐⭐⭐☆☆☆ **7/10** | 🟡 **Beta** | ⚠️ 5-7 días |
+| **Bar/Restaurante** | ⭐⭐⭐⭐⭐⭐⭐⭐⭐☆ **9/10** |  **Listo** | ✅ 1-2 días |
+| **Tienda** | ⭐⭐⭐⭐⭐⭐⭐⭐☆☆ **8/10** |  **Casi listo** | ⚠️ 3-5 días |
+| **Peluquería** | ⭐⭐⭐⭐⭐⭐⭐☆☆☆ **7/10** |  **Beta** | ⚠️ 5-7 días |
 
-### 🏆 Ranking de Madurez
+###  Ranking de Madurez
 1. **TPV Bar** - Most complete, production-ready
 2. **TPV Tienda** - Good foundation, needs polish
 3. **TPV Peluquería** - Functional but needs implementation
@@ -36,7 +36,7 @@
 
 ### ✅ FUNCIONALIDADES ACTUALES
 
-#### 🍽️ Gestión de Mesas
+#### ️ Gestión de Mesas
 - [x] **Plano de mesas visual** con estados en tiempo real
 - [x] **Zonas de restaurante** (terraza, salón, barra)
 - [x] **Filtrado por zona** dinámico
@@ -45,7 +45,7 @@
 - [x] **Contador de mesas** (libres/ocupadas)
 - [x] **Creación/edición de mesas** (solo admin)
 
-#### 📋 Sistema de Comandas
+####  Sistema de Comandas
 - [x] **Comandas en tiempo real** por mesa
 - [x] **Líneas de comanda** agrupadas
 - [x] **Modificación de cantidades** (+/-)
@@ -55,7 +55,7 @@
 - [x] **Sincronización automática** con Firebase
 - [x] **Persistencia offline** (Connectivity Plus)
 
-#### 🍕 Catálogo de Productos
+####  Catálogo de Productos
 - [x] **Grid de productos** con imágenes
 - [x] **Categorías** (bebidas, entrantes, principales, postres)
 - [x] **Búsqueda en tiempo real** por nombre
@@ -64,7 +64,7 @@
 - [x] **Precios dinámicos** por variante
 - [x] **Colores por categoría** para identificación rápida
 
-#### 💰 Sistema de Cobro
+####  Sistema de Cobro
 - [x] **Cobro efectivo** con cálculo de cambio
 - [x] **Cobro tarjeta** con datáfono
 - [x] **Cobro mixto** (efectivo + tarjeta)
@@ -76,7 +76,7 @@
 - [x] **División de cuenta** (en desarrollo)
 - [x] **Liberación automática** de mesa tras cobro
 
-#### 📊 Cierre de Caja
+####  Cierre de Caja
 - [x] **Resumen del día** (ventas totales)
 - [x] **Desglose por método** (efectivo/tarjeta)
 - [x] **Ticket promedio** calculado
@@ -86,7 +86,7 @@
 - [x] **Registro histórico** de cierres
 - [x] **Apertura de caja** con fondo inicial
 
-#### 🔧 Funciones Avanzadas
+####  Funciones Avanzadas
 - [x] **Multi-usuario** (camareros simultáneos)
 - [x] **Orientación landscape** forzada
 - [x] **Reloj en tiempo real** en AppBar
@@ -106,27 +106,27 @@
 5. **Propinas compartidas** - No hay distribución entre camareros
 6. **Informes avanzados** - Solo básicos (día actual)
 
-### 🎯 MEJORAS RECOMENDADAS (Prioridad ALTA)
+###  MEJORAS RECOMENDADAS (Prioridad ALTA)
 
-#### 🔴 Críticas (Antes de Producción)
+####  Críticas (Antes de Producción)
 1. **Tests de integración** - Sin tests automatizados
 2. **Manejo de errores offline** - Mejorar UX cuando no hay conexión
 3. **Backup automático** - Comandas en almacenamiento local
 4. **Logs de auditoría** - Registro de quién hizo qué
 
-#### 🟠 Importantes (1-2 semanas)
+####  Importantes (1-2 semanas)
 5. **División de cuenta mejorada** - UI más intuitiva
 6. **Imprimir comandas en cocina** - Auto-envío a impresora de cocina
 7. **Turnos de camareros** - Control de horas y propinas
 8. **Dashboard de métricas** - Ventas por hora/día/mes
 
-#### 🟡 Deseables (1-2 meses)
+####  Deseables (1-2 meses)
 9. **Modo offline completo** - Sincronización diferida
 10. **Gestión de reservas** - Integrado con el plano
 11. **Sistema de propinas** - Distribución automática
 12. **Reportes avanzados** - Análisis de rentabilidad
 
-### 📦 PARA ENTRAR EN PRODUCCIÓN
+###  PARA ENTRAR EN PRODUCCIÓN
 
 #### ✅ Checklist Técnico (1-2 días)
 
@@ -139,7 +139,7 @@
 - [ ] **Permisos Android** (Bluetooth, Storage)
 - [ ] **Certificados iOS** (si aplica)
 
-#### 📚 Checklist Operativo
+####  Checklist Operativo
 - [ ] **Manual de usuario** para camareros
 - [ ] **Video tutorial** de operaciones básicas
 - [ ] **Procedimiento de cierre** documentado
@@ -147,7 +147,7 @@
 - [ ] **Plan de contingencia** (sin conexión)
 - [ ] **Capacitación del personal** (2 horas)
 
-#### 💡 Checklist Negocio
+####  Checklist Negocio
 - [ ] **Precio de suscripción** definido
 - [ ] **Modelo de cobro** (por terminal, % ventas)
 - [ ] **Contrato SLA** (uptime 99.9%)
@@ -163,7 +163,7 @@
 
 ### ✅ FUNCIONALIDADES ACTUALES
 
-#### 🛒 Gestión de Ventas
+####  Gestión de Ventas
 - [x] **Carrito de compra** visual
 - [x] **Añadir productos** por búsqueda o categoría
 - [x] **Modificar cantidades** (+/-)
@@ -173,7 +173,7 @@
 - [x] **Descuentos por línea** (% o fijos)
 - [x] **Subtotales calculados** en tiempo real
 
-#### 📦 Catálogo de Productos
+####  Catálogo de Productos
 - [x] **Grid de productos** con stock visible
 - [x] **Categorías** navegables
 - [x] **Búsqueda rápida** por nombre/código
@@ -183,7 +183,7 @@
 - [x] **Imágenes de producto** cargadas desde Firebase
 - [x] **Código de barras** (no escáner activo)
 
-#### 💳 Sistema de Cobro
+####  Sistema de Cobro
 - [x] **Múltiples métodos** de pago
 - [x] **Efectivo** con cambio calculado
 - [x] **Tarjeta** con datáfono
@@ -193,14 +193,14 @@
 - [x] **Notas del pedido** personalizadas
 - [x] **Generación de recibos** numerados
 
-#### 📊 Gestión de Stock
+####  Gestión de Stock
 - [x] **Actualización automática** tras venta
 - [x] **Verificación de disponibilidad** antes de añadir
 - [x] **Alertas de productos agotados**
 - [x] **Reserva temporal** durante la venta
 - [x] **Rollback** si se cancela la venta
 
-#### 🧾 Tickets y Facturación
+####  Tickets y Facturación
 - [x] **Tickets térmicos** con formato estándar
 - [x] **Numeración secuencial** de tickets
 - [x] **Datos fiscales** impresos
@@ -209,7 +209,7 @@
 - [x] **Reimprimir tickets** históricos
 - [x] **Facturación simplificada** integrada
 
-#### 📈 Cierre de Caja
+####  Cierre de Caja
 - [x] **Resumen de ventas** diarias
 - [x] **Desglose por método** de pago
 - [x] **Ticket promedio** del día
@@ -231,9 +231,9 @@
 s regalo** - No implementado
 8. **Impresión de etiquetas** - No disponible
 
-### 🎯 MEJORAS RECOMENDADAS
+###  MEJORAS RECOMENDADAS
 
-#### 🔴 Críticas (Antes de Producción)
+####  Críticas (Antes de Producción)
 1. **Escáner de código de barras**
    - Integrar `flutter_barcode_scanner`
    - Añadir botón de escaneo en carrito
@@ -254,7 +254,7 @@ s regalo** - No implementado
    - Descuentos personalizados
    - **Tiempo estimado**: 4 días
 
-#### 🟠 Importantes (1-2 semanas)
+####  Importantes (1-2 semanas)
 4. **Facturas completas** (no simplificadas)
    - Datos completos del cliente
    - Exportar a formato AEAT
@@ -273,13 +273,13 @@ s regalo** - No implementado
    - Ofertas temporales
    - **Tiempo estimado**: 5 días
 
-#### 🟡 Deseables (1-2 meses)
+####  Deseables (1-2 meses)
 7. **Gestión de proveedores**
 8. **Vales regalo y tarjetas**
 9. **Impresión de etiquetas de precio**
 10. **Multi-tienda con inventario compartido**
 
-### 📦 PARA ENTRAR EN PRODUCCIÓN
+###  PARA ENTRAR EN PRODUCCIÓN
 
 #### ✅ Checklist Técnico (3-5 días)
 
@@ -292,14 +292,14 @@ s regalo** - No implementado
 - [ ] **Tests de rendimiento** (1000 productos, 50 ventas/día)
 - [ ] **Error handling** para stock <= 0
 
-#### 📚 Checklist Operativo
+####  Checklist Operativo
 - [ ] **Manual para dependientes** (checkout, devoluciones)
 - [ ] **Procedimiento de apertura/cierre** de caja
 - [ ] **Gestión de descuadres** de caja
 - [ ] **Protocolo de stockout** (producto agotado)
 - [ ] **Capacitación del personal** (4 horas)
 
-#### 💡 Checklist Negocio
+####  Checklist Negocio
 - [ ] **Modelo de precios** definido (por ticket o suscripción)
 - [ ] **Integración con contabilidad** (A3, Sage)
 - [ ] **Política de devoluciones** legal
@@ -314,7 +314,7 @@ s regalo** - No implementado
 
 ### ✅ FUNCIONALIDADES ACTUALES
 
-#### 💇 Gestión de Agenda
+####  Gestión de Agenda
 - [x] **Vista de agenda** tipo timeline
 - [x] **Profesionales con colores** identificativos
 - [x] **Citas por día** y hora
@@ -324,7 +324,7 @@ s regalo** - No implementado
 - [x] **Drag & drop** (en desarrollo)
 - [x] **Múltiples profesionales** simultáneos
 
-#### 📅 Sistema de Citas
+####  Sistema de Citas
 - [x] **Crear cita** con cliente y servicio
 - [x] **Editar cita** existente
 - [x] **Cancelar cita** con motivo
@@ -334,7 +334,7 @@ s regalo** - No implementado
 - [x] **Servicios múltiples** en una cita
 - [x] **Importe calculado** automáticamente
 
-#### 👥 Gestión de Profesionales
+####  Gestión de Profesionales
 - [x] **Lista de profesionales** activos
 - [x] **Crear/editar profesional**
 - [x] **Especialidades** (corte, color, mechas, etc.)
@@ -344,7 +344,7 @@ s regalo** - No implementado
 - [x] **Estado en tiempo real** (libre/ocupado)
 - [x] **Desactivar profesional**
 
-#### 🎫 Sistema de Turnos (Walk-in)
+####  Sistema de Turnos (Walk-in)
 - [x] **Cola de espera** visual
 - [x] **Añadir turno sin cita**
 - [x] **Número de turno** secuencial
@@ -353,7 +353,7 @@ s regalo** - No implementado
 - [x] **Servicios seleccionables** al añadir turno
 - [x] **Cargar servicios en ticket** tras llamar
 
-#### 🛋️ Gestión de Cabinas
+#### ️ Gestión de Cabinas
 - [x] **Estado de cabinas** (libre/ocupada/limpieza)
 - [x] **Crear cabinas** personalizadas
 - [x] **Cambiar estado** de cabina
@@ -361,7 +361,7 @@ s regalo** - No implementado
 - [x] **Vista en grid** visual
 - [x] **Eliminar cabina**
 
-#### 💰 Sistema de Cobro
+####  Sistema de Cobro
 - [x] **Ticket de servicios** desde citas o walk-in
 - [x] **Cargar servicios** automáticamente
 - [x] **Cliente en ticket** con búsqueda
@@ -372,7 +372,7 @@ s regalo** - No implementado
 - [x] **Generación de ticket** numerado
 - [x] **Sincronización con pedidos**
 
-#### 📊 Cierre de Caja
+####  Cierre de Caja
 - [x] **Resumen del día** (ventas de peluquería)
 - [x] **Desglose por método** de pago
 - [x] **Ticket promedio** calculado
@@ -383,7 +383,7 @@ s regalo** - No implementado
 
 ### ⚠️ LIMITACIONES ACTUALES
 
-#### 🔴 CRÍTICAS (Bloqueantes para Producción)
+####  CRÍTICAS (Bloqueantes para Producción)
 
 1. **Servicios stub/mock**
    - ❌ `ImpressoraBluetooth` - Solo logs en consola
@@ -400,7 +400,7 @@ s regalo** - No implementado
    - No calcula ventas reales del día
    - **Impacto**: Imposible cerrar caja
 
-#### 🟠 IMPORTANTES
+####  IMPORTANTES
 
 4. **Recordatorios de citas** - No hay envío de SMS/email
 5. **Confirmación automática** - Citas quedan en pendiente
@@ -410,7 +410,7 @@ s regalo** - No implementado
 9. **Reservas online** - No integradas con agenda
 10. **Gestión de bonos** - Creación manual
 
-#### 🟡 DESEABLES
+####  DESEABLES
 
 11. **Estadísticas por profesional** - Clientes atendidos/día
 12. **Calendario mensual** - Solo vista diaria
@@ -418,9 +418,9 @@ s regalo** - No implementado
 14. **Fotografías antes/después** - Portfolio de trabajos
 15. **Productos recomendados** - Sugerencias post-servicio
 
-### 🎯 MEJORAS RECOMENDADAS
+###  MEJORAS RECOMENDADAS
 
-#### 🔴 Críticas (URGENTE - Antes de Producción)
+####  Críticas (URGENTE - Antes de Producción)
 
 1. **Implementar ImpressoraBluetooth real**
    ```dart
@@ -431,7 +431,7 @@ s regalo** - No implementado
    - Plantilla de ticket para peluquería
    - Manejo de errores de conexión
    - **Tiempo estimado**: 3 días
-   - **Prioridad**: 🔴 CRÍTICA
+   - **Prioridad**:  CRÍTICA
 
 2. **Implementar CierreCajaService real**
    ```dart
@@ -442,14 +442,14 @@ s regalo** - No implementado
    - Guardar en colección `cierres_caja`
    - Exportar PDF completo
    - **Tiempo estimado**: 2 días
-   - **Prioridad**: 🔴 CRÍTICA
+   - **Prioridad**:  CRÍTICA
 
 3. **Configurar locales español**
    - `intl` con soporte español
    - Fechas en formato español
    - **Tiempo estimado**: 0.5 días
 
-#### 🟠 Importantes (1-2 semanas)
+####  Importantes (1-2 semanas)
 
 4. **Recordatorios automáticos**
    - SMS 24h antes (Twilio)
@@ -476,23 +476,23 @@ s regalo** - No implementado
    - Notas persistentes
    - **Tiempo estimado**: 3 días
 
-#### 🟡 Deseables (1-2 meses)
+####  Deseables (1-2 meses)
 
 8. **Calendario mensual** - Vista de ocupación
 9. **Estadísticas avanzadas** - Por profesional/servicio
 10. **Integración con tienda** - Venta de productos
 11. **Portfolio fotográfico** - Trabajos realizados
 
-### 📦 PARA ENTRAR EN PRODUCCIÓN
+###  PARA ENTRAR EN PRODUCCIÓN
 
 #### ✅ Checklist Técnico (5-7 días)
 
 ##### BLOQUEANTES (Deben estar al 100%)
-- [ ] **Implementar ImpressoraBluetooth.dart** (3 días) 🔴
-- [ ] **Implementar CierreCajaService.dart** (2 días) 🔴
-- [ ] **Configurar locale español** (0.5 días) 🔴
-- [ ] **Probar impresión en impresora real** (0.5 días) 🔴
-- [ ] **Validar cierre de caja con datos reales** (0.5 días) 🔴
+- [ ] **Implementar ImpressoraBluetooth.dart** (3 días) 
+- [ ] **Implementar CierreCajaService.dart** (2 días) 
+- [ ] **Configurar locale español** (0.5 días) 
+- [ ] **Probar impresión en impresora real** (0.5 días) 
+- [ ] **Validar cierre de caja con datos reales** (0.5 días) 
 
 ##### Importantes
 - [ ] **Tests end-to-end** en tablet real
@@ -500,7 +500,7 @@ s regalo** - No implementado
 - [ ] **Validar 50 citas/día** de carga
 - [ ] **Error handling** completo
 
-#### 📚 Checklist Operativo
+####  Checklist Operativo
 - [ ] **Manual para recepcionistas** (agenda, turnos)
 - [ ] **Manual para profesionales** (marcar cita completada)
 - [ ] **Procedimiento de cierre** de caja
@@ -508,7 +508,7 @@ s regalo** - No implementado
 - [ ] **Protocolo de no-show** (cliente no vino)
 - [ ] **Capacitación del personal** (6 horas)
 
-#### 💡 Checklist Negocio
+####  Checklist Negocio
 - [ ] **Política de cancelación** (24h antes)
 - [ ] **Precio de suscripción** por profesional
 - [ ] **Comisiones** de la plataforma definidas
@@ -518,7 +518,7 @@ s regalo** - No implementado
 
 ---
 
-## 📊 COMPARATIVA GLOBAL
+##  COMPARATIVA GLOBAL
 
 ### Tabla de Funcionalidades
 
@@ -550,14 +550,14 @@ s regalo** - No implementado
 ### Nivel de Abstracción
 
 ```
-TPV Bar         : 🏗️ Arquitectura madura, servicios desacoplados
-TPV Tienda      : 🏗️ Buena estructura, falta modularización
-TPV Peluquería  : 📦 Código monolítico, 4300 líneas en un archivo
+TPV Bar         : ️ Arquitectura madura, servicios desacoplados
+TPV Tienda      : ️ Buena estructura, falta modularización
+TPV Peluquería  :  Código monolítico, 4300 líneas en un archivo
 ```
 
 ---
 
-## 🚀 ROADMAP A PRODUCCIÓN
+##  ROADMAP A PRODUCCIÓN
 
 ### Fase 1: TPV Bar (1-2 días) ✅ PRIORITARIO
 
@@ -574,7 +574,7 @@ TPV Peluquería  : 📦 Código monolítico, 4300 líneas en un archivo
 - ✅ Capacitar a 3 camareros (2 horas)
 - ✅ Prueba piloto en horario de almuerzo (2 horas)
 - ✅ Ajustes finales post-feedback
-- ✅ **Lanzamiento en producción** 🎉
+- ✅ **Lanzamiento en producción** 
 
 **Entregables**:
 - Manual de usuario (PDF)
@@ -608,7 +608,7 @@ dependencies:
 - Tests finales
 - Capacitación de dependientes (4 horas)
 - Prueba piloto (1 día completo)
-- **Lanzamiento** 🎉
+- **Lanzamiento** 
 
 **Entregables**:
 - Manual de devoluciones
@@ -659,7 +659,7 @@ touch lib/services/cierre_caja_service.dart
   - Recepcionistas: Agenda, turnos, cobro
   - Profesionales: Completar citas, horarios
 - Prueba piloto (medio día)
-- **Lanzamiento** 🎉
+- **Lanzamiento** 
 
 **Entregables**:
 - Manual de agenda (PDF)
@@ -669,9 +669,9 @@ touch lib/services/cierre_caja_service.dart
 
 ---
 
-## 📋 CHECKLIST GLOBAL PRE-PRODUCCIÓN
+##  CHECKLIST GLOBAL PRE-PRODUCCIÓN
 
-### 🔴 Bloqueantes Críticos (Deben estar al 100%)
+###  Bloqueantes Críticos (Deben estar al 100%)
 
 #### TPV Bar
 - [ ] Tests en tablet física ✅
@@ -688,7 +688,7 @@ touch lib/services/cierre_caja_service.dart
 - [ ] Servicio de cierre REAL implementado ❌
 - [ ] Locale español configurado ❌
 
-### 🟠 Importantes (Alta Prioridad)
+###  Importantes (Alta Prioridad)
 
 - [ ] **Todos los TPV**:
   - [ ] Firebase Crashlytics activado
@@ -709,7 +709,7 @@ touch lib/services/cierre_caja_service.dart
   - [ ] Seguro de responsabilidad civil
   - [ ] Plan de marketing preparado
 
-### 🟡 Deseables (Post-Lanzamiento)
+###  Deseables (Post-Lanzamiento)
 
 - [ ] Tests automatizados (unit + integration)
 - [ ] CI/CD pipeline configurado
@@ -719,7 +719,7 @@ touch lib/services/cierre_caja_service.dart
 
 ---
 
-## 💰 ESTIMACIÓN DE ESFUERZO TOTAL
+##  ESTIMACIÓN DE ESFUERZO TOTAL
 
 | Fase | Días | Desarrollador | Tester | Total |
 |------|------|---------------|--------|-------|
@@ -738,59 +738,58 @@ touch lib/services/cierre_caja_service.dart
 
 ---
 
-## 🎯 RECOMENDACIÓN FINAL
+##  RECOMENDACIÓN FINAL
 
 ### Estrategia de Lanzamiento Escalonado
 
 #### 1️⃣ **Semana 1-2**: TPV Bar → Producción
 - **Estado**: ✅ Listo (9/10)
-- **Riesgo**: 🟢 Bajo
-- **ROI**: 🟢 Inmediato (restaurante operativo)
+- **Riesgo**:  Bajo
+- **ROI**:  Inmediato (restaurante operativo)
 
 #### 2️⃣ **Semana 3-4**: TPV Tienda → Producción
 - **Estado**: ⚠️ Requiere scanner & devoluciones (8/10)
-- **Riesgo**: 🟡 Medio
-- **ROI**: 🟢 Alto (retail tiene más volumen)
+- **Riesgo**:  Medio
+- **ROI**:  Alto (retail tiene más volumen)
 
 #### 3️⃣ **Semana 5-7**: TPV Peluquería → Producción
 - **Estado**: ❌ Requiere servicios reales (7/10)
-- **Riesgo**: 🔴 Alto (stubs bloqueantes)
-- **ROI**: 🟡 Medio (nicho más específico)
+- **Riesgo**:  Alto (stubs bloqueantes)
+- **ROI**:  Medio (nicho más específico)
 
 ### Priorización de Recursos
 
 ```
-🏆 Enfoque Principal: TPV Bar (Lanzar YA)
+ Enfoque Principal: TPV Bar (Lanzar YA)
    ↓
-🥈 Segundo Objetivo: TPV Tienda (2 semanas)
+ Segundo Objetivo: TPV Tienda (2 semanas)
    ↓
-🥉 Tercer Objetivo: TPV Peluquería (1 mes)
+ Tercer Objetivo: TPV Peluquería (1 mes)
 ```
 
 ---
 
-## 📞 CONTACTO Y SOPORTE
+##  CONTACTO Y SOPORTE
 
 **Documentación creada**: 13 Mayo 2026  
 **Última actualización**: 13 Mayo 2026  
 **Versión**: 1.0  
 
 **Para consultas técnicas:**
-- 📧 dev@planeag.com
-- 📱 WhatsApp: +34 XXX XXX XXX
-- 🔗 Docs: docs.planeag.com/tpv
+-  dev@planeag.com
+-  WhatsApp: +34 XXX XXX XXX
+-  Docs: docs.planeag.com/tpv
 
 **Para soporte en producción:**
-- 📞 24/7: +34 XXX XXX XXX
-- 🎫 Tickets: support.planeag.com
-- 💬 Chat: chat.planeag.com
+-  24/7: +34 XXX XXX XXX
+-  Tickets: support.planeag.com
+-  Chat: chat.planeag.com
 
 ---
 
-**🎉 ¡Los 3 TPV tienen potencial de ser líderes del mercado!**  
+** ¡Los 3 TPV tienen potencial de ser líderes del mercado!**  
 **Con estos ajustes, estarán listos para competir con Square, Toast, y Lightspeed.**
 
 ---
 
 _Este documento es confidencial y propiedad de PlaneaG. Prohibida su distribución sin autorización._
-

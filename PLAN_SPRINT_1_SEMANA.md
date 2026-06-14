@@ -1,4 +1,4 @@
-# 🚀 PLAN SPRINT 1 SEMANA — Estabilización Multiplataforma
+#  PLAN SPRINT 1 SEMANA — Estabilización Multiplataforma
 
 **Objetivo**: Implementar Fase 1 (estabilización) en TODOS los módulos críticos  
 **Deadline**: 7 días (Lunes a Domingo)  
@@ -7,22 +7,22 @@
 
 ---
 
-## 📊 MÓDULOS PRIORIZADOS (15 Total)
+##  MÓDULOS PRIORIZADOS (15 Total)
 
 | # | Módulo | Criticidad | Archivos | Tiempo Est. |
 |---|--------|-----------|----------|-------------|
-| 1 | **TPV Peluquería** | 🔴 CRÍTICO | 1 | 2h |
-| 2 | **Dashboard** | 🔴 CRÍTICO | 1 | 1.5h |
-| 3 | **Reservas** | 🔴 CRÍTICO | 2 | 2h |
-| 4 | **Clientes** | 🟡 ALTO | 1 | 1h |
-| 5 | **Fichajes** | 🟡 ALTO | 2 | 1.5h |
-| 6 | **TPV Tienda** | 🟡 ALTO | 1 | 1.5h |
-| 7 | **TPV Root** | 🟡 ALTO | 1 | 1h |
-| 8 | **Facturación** | 🟡 MEDIO | 1 | 1h |
-| 9 | **Empleados** | 🟡 MEDIO | 1 | 1h |
-| 10 | **Servicios** | 🟡 MEDIO | 1 | 1h |
-| 11 | **Pedidos** | 🟡 MEDIO | 1 | 1h |
-| 12 | **WhatsApp** | 🟡 MEDIO | 1 | 1h |
+| 1 | **TPV Peluquería** |  CRÍTICO | 1 | 2h |
+| 2 | **Dashboard** |  CRÍTICO | 1 | 1.5h |
+| 3 | **Reservas** |  CRÍTICO | 2 | 2h |
+| 4 | **Clientes** |  ALTO | 1 | 1h |
+| 5 | **Fichajes** |  ALTO | 2 | 1.5h |
+| 6 | **TPV Tienda** |  ALTO | 1 | 1.5h |
+| 7 | **TPV Root** |  ALTO | 1 | 1h |
+| 8 | **Facturación** |  MEDIO | 1 | 1h |
+| 9 | **Empleados** |  MEDIO | 1 | 1h |
+| 10 | **Servicios** |  MEDIO | 1 | 1h |
+| 11 | **Pedidos** |  MEDIO | 1 | 1h |
+| 12 | **WhatsApp** |  MEDIO | 1 | 1h |
 | 13 | **Nóminas** | ⚪ BAJO | 1 | 1h |
 | 14 | **Vacaciones** | ⚪ BAJO | 1 | 1h |
 | 15 | **Contenido Web** | ⚪ BAJO | 1 | 1h |
@@ -34,9 +34,9 @@
 
 ---
 
-## 📅 PLANNING DÍA A DÍA
+##  PLANNING DÍA A DÍA
 
-### 🗓️ LUNES — Fundación + Módulos Críticos
+### ️ LUNES — Fundación + Módulos Críticos
 
 **Objetivo**: Implementar infraestructura base + 3 módulos más críticos
 
@@ -61,7 +61,7 @@ mkdir -p test/integration
 
 ---
 
-**09:00 - 11:00** | Módulo 1: TPV Peluquería (🔴 CRÍTICO)
+**09:00 - 11:00** | Módulo 1: TPV Peluquería ( CRÍTICO)
 
 **Archivos**:
 - `lib/features/tpv/pantallas/tpv_peluqueria_screen.dart`
@@ -108,7 +108,7 @@ flutter run --release
 
 ---
 
-**11:00 - 12:30** | Módulo 2: Dashboard (🔴 CRÍTICO)
+**11:00 - 12:30** | Módulo 2: Dashboard ( CRÍTICO)
 
 **Archivos**:
 - `lib/features/dashboard/pantallas/pantalla_dashboard.dart` (línea 76)
@@ -148,12 +148,12 @@ flutter run --release
 
 ---
 
-#### 🍕 Almuerzo (1h)
+####  Almuerzo (1h)
 
 ---
 
 #### ⏰ Tarde (3h)
-**13:30 - 15:30** | Módulo 3: Reservas (🔴 CRÍTICO)
+**13:30 - 15:30** | Módulo 3: Reservas ( CRÍTICO)
 
 **Archivos**:
 - `lib/features/reservas/pantallas/modulo_reservas_screen.dart`
@@ -178,7 +178,7 @@ flutter run --release
 # test/integration/memory_leak_test.sh
 #!/bin/bash
 
-echo "🧪 Test de Memory Leaks - Módulos Críticos"
+echo " Test de Memory Leaks - Módulos Críticos"
 echo "=========================================="
 
 flutter drive \
@@ -186,7 +186,7 @@ flutter drive \
   --driver=test_driver/memory_leak_test.dart
 
 echo ""
-echo "📊 Resultados:"
+echo " Resultados:"
 cat test_results/memory_report.txt
 ```
 
@@ -203,12 +203,12 @@ cat test_results/memory_report.txt
 
 ---
 
-### 🗓️ MARTES — Módulos de Alta Prioridad
+### ️ MARTES — Módulos de Alta Prioridad
 
 **Objetivo**: 4 módulos adicionales + validación continua
 
 #### ⏰ Mañana (4h)
-**08:00 - 09:00** | Módulo 4: Clientes (🟡 ALTO)
+**08:00 - 09:00** | Módulo 4: Clientes ( ALTO)
 
 **Archivo**: `lib/features/clientes/pantallas/modulo_clientes_screen.dart`
 
@@ -216,7 +216,7 @@ cat test_results/memory_report.txt
 
 ---
 
-**09:00 - 10:30** | Módulo 5: Fichajes (🟡 ALTO)
+**09:00 - 10:30** | Módulo 5: Fichajes ( ALTO)
 
 **Archivos**:
 - `lib/features/fichajes/pantallas/pantalla_fichaje_empleado.dart`
@@ -224,7 +224,7 @@ cat test_results/memory_report.txt
 
 ---
 
-**10:30 - 12:00** | Módulo 6: TPV Tienda (🟡 ALTO)
+**10:30 - 12:00** | Módulo 6: TPV Tienda ( ALTO)
 
 **Archivo**: `lib/features/tpv/pantallas/tpv_tienda_screen.dart` (línea 117)
 
@@ -232,12 +232,12 @@ cat test_results/memory_report.txt
 
 ---
 
-#### 🍕 Almuerzo (1h)
+####  Almuerzo (1h)
 
 ---
 
 #### ⏰ Tarde (3h)
-**13:00 - 14:00** | Módulo 7: TPV Root (🟡 ALTO)
+**13:00 - 14:00** | Módulo 7: TPV Root ( ALTO)
 
 **Archivo**: `lib/features/tpv/pantallas/tpv_root_screen.dart` (línea 68)
 
@@ -270,7 +270,7 @@ flutter build ios --release
 
 ---
 
-### 🗓️ MIÉRCOLES — Módulos de Prioridad Media
+### ️ MIÉRCOLES — Módulos de Prioridad Media
 
 **Objetivo**: 5 módulos adicionales (8-12) + build beta
 
@@ -299,7 +299,7 @@ flutter build ios --release
 
 ---
 
-#### 🍕 Almuerzo (1h)
+####  Almuerzo (1h)
 
 ---
 
@@ -352,7 +352,7 @@ flutter build ios --release
 
 ---
 
-### 🗓️ JUEVES — Finalizar + Testing Exhaustivo
+### ️ JUEVES — Finalizar + Testing Exhaustivo
 
 **Objetivo**: Últimos 3 módulos + testing marathon
 
@@ -390,7 +390,7 @@ echo "Archivos migrados: $(grep -r 'with SafeStreamMixin' lib/features/ --includ
 
 ---
 
-#### 🍕 Almuerzo (1h)
+####  Almuerzo (1h)
 
 ---
 
@@ -403,7 +403,7 @@ echo "Archivos migrados: $(grep -r 'with SafeStreamMixin' lib/features/ --includ
 #!/bin/bash
 # test/integration/marathon_test.sh
 
-echo "🏃 TESTING MARATHON — 3 Horas"
+echo " TESTING MARATHON — 3 Horas"
 echo "=============================="
 
 # ── Test 1: Stress Test Windows (1h) ──────────────────────────
@@ -437,7 +437,7 @@ echo "   ✅ iOS completado"
 echo ""
 
 # ── Resultados ──────────────────────────────────────────────
-echo "📊 RESULTADOS FINALES"
+echo " RESULTADOS FINALES"
 cat test_results/marathon_summary.txt
 ```
 
@@ -469,7 +469,7 @@ iOS:
 
 ---
 
-### 🗓️ VIERNES — Optimización + Deploy Preparación
+### ️ VIERNES — Optimización + Deploy Preparación
 
 **Objetivo**: Ajustes finales + documentación + preparar deploy producción
 
@@ -479,7 +479,7 @@ iOS:
 Revisar feedback de testers beta (Miércoles-Jueves):
 - ✅ Issues críticos → Fix inmediato
 - ⚠️ Issues menores → Backlog
-- 💡 Sugerencias → Evaluar
+-  Sugerencias → Evaluar
 
 **Posibles fixes**:
 - Ajustar intervalos de polling Windows si hay quejas de latencia
@@ -520,12 +520,12 @@ class TelemetryService {
 - ✅ Limpieza automática de caché al iniciar app
 - ✅ Mejoras de estabilidad en TPV (0 crashes en testing)
 
-## 🔧 Cambios Técnicos
+##  Cambios Técnicos
 - Implementado `SafeStreamMixin` para auto-cancelación de streams
 - Configuración Firestore platform-aware
 - Testing exhaustivo en 3 plataformas
 
-## 📊 Métricas
+##  Métricas
 - Memoria Windows: -60% (800MB → 300MB)
 - Crashes Windows: -95% (5-10/día → 0)
 - Performance mobile: sin cambios (validado)
@@ -533,7 +533,7 @@ class TelemetryService {
 
 ---
 
-#### 🍕 Almuerzo (1h)
+####  Almuerzo (1h)
 
 ---
 
@@ -607,9 +607,9 @@ stores/
 
 ---
 
-### 🗓️ SÁBADO (Opcional) — Buffer + Contingencia
+### ️ SÁBADO (Opcional) — Buffer + Contingencia
 
-**Si todo va bien**: Descanso merecido 🎉
+**Si todo va bien**: Descanso merecido 
 
 **Si hay problemas pendientes**:
 - Fix issues críticos encontrados viernes
@@ -620,7 +620,7 @@ stores/
 
 ---
 
-### 🗓️ DOMINGO (Opcional) — Testing Final + Deploy Soft
+### ️ DOMINGO (Opcional) — Testing Final + Deploy Soft
 
 **Opción A: Deploy Soft (Recomendado)**
 
@@ -639,7 +639,7 @@ Si prefieres cautela, esperar al lunes y deploy entonces.
 
 ---
 
-## 🛠️ SCRIPTS DE AUTOMATIZACIÓN
+## ️ SCRIPTS DE AUTOMATIZACIÓN
 
 ### Script 1: Aplicar Mixin Automáticamente
 
@@ -657,7 +657,7 @@ if [ -z "$FILE" ]; then
   exit 1
 fi
 
-echo "🔧 Aplicando SafeStreamMixin a $FILE..."
+echo " Aplicando SafeStreamMixin a $FILE..."
 
 # 1. Añadir import si no existe
 if ! grep -q "safe_stream_mixin.dart" "$FILE"; then
@@ -689,7 +689,7 @@ echo "✅ Completado: $FILE"
 
 MODULE=$1
 
-echo "🧪 Testing módulo: $MODULE"
+echo " Testing módulo: $MODULE"
 echo "=========================="
 
 # 1. Compilar
@@ -752,7 +752,7 @@ class MemoryMonitor {
         // En Windows, usar ProcessInfo para memoria
         final info = ProcessInfo.currentRss;
         final mb = info ~/ (1024 * 1024);
-        debugPrint('📊 Memoria actual: $mb MB');
+        debugPrint(' Memoria actual: $mb MB');
         
         if (mb > 400) {
           debugPrint('⚠️ ALERTA: Memoria >400MB, posible leak');
@@ -775,7 +775,7 @@ if (kDebugMode) {
 
 ---
 
-## 📋 CHECKLIST MASTER (Diaria)
+##  CHECKLIST MASTER (Diaria)
 
 ### ✅ Checklist Lunes
 - [ ] Infraestructura base creada
@@ -834,7 +834,7 @@ if (kDebugMode) {
 
 ---
 
-## 📊 METRICAS DE ÉXITO (Validar Viernes)
+##  METRICAS DE ÉXITO (Validar Viernes)
 
 | Métrica | Baseline | Objetivo | Real |
 |---------|----------|----------|------|
@@ -848,7 +848,7 @@ if (kDebugMode) {
 
 ---
 
-## 🚨 PUNTOS DE DECISIÓN GO/NO-GO
+##  PUNTOS DE DECISIÓN GO/NO-GO
 
 ### Lunes EOD
 **Criterio**: 3 módulos críticos sin memory leaks  
@@ -877,7 +877,7 @@ if (kDebugMode) {
 
 ---
 
-## 🛡️ PLAN DE ROLLBACK (Si Algo Sale Mal)
+## ️ PLAN DE ROLLBACK (Si Algo Sale Mal)
 
 ### Nivel 1: Rollback Inmediato (En Testing)
 ```bash
@@ -922,7 +922,7 @@ flutter build apk --release
 
 ---
 
-## 💡 TIPS PARA MAXIMIZAR EFICIENCIA
+##  TIPS PARA MAXIMIZAR EFICIENCIA
 
 ### 1. Trabajar con Feature Flags
 ```dart
@@ -975,31 +975,31 @@ R  # hot restart (solo si es necesario)
 @override
 void initState() {
   super.initState();
-  debugPrint('🟢 TPV iniciado - streams activos: X');
+  debugPrint(' TPV iniciado - streams activos: X');
 }
 
 @override
 void dispose() {
-  debugPrint('🔴 TPV disposed - streams cancelados: X');
+  debugPrint(' TPV disposed - streams cancelados: X');
   super.dispose();
 }
 ```
 
 ---
 
-## 📞 CONTACTOS DE EMERGENCIA
+##  CONTACTOS DE EMERGENCIA
 
 **Si algo bloquea el progreso, escalar inmediatamente:**
 
-- 🔴 Crash crítico que no se resuelve en 2h → Escalar a arquitecto senior
-- 🔴 Build falla en CI/CD → Escalar a DevOps
-- 🔴 Issue de Firebase quota → Escalar a admin proyecto Firebase
-- 🟡 Issue de performance → Consultar documentación oficial
-- 🟡 Duda técnica → Stack Overflow / Flutter Discord
+-  Crash crítico que no se resuelve en 2h → Escalar a arquitecto senior
+-  Build falla en CI/CD → Escalar a DevOps
+-  Issue de Firebase quota → Escalar a admin proyecto Firebase
+-  Issue de performance → Consultar documentación oficial
+-  Duda técnica → Stack Overflow / Flutter Discord
 
 ---
 
-## 🎯 OBJETIVO FINAL
+##  OBJETIVO FINAL
 
 **Al final de esta semana tendrás**:
 
@@ -1012,7 +1012,7 @@ void dispose() {
 
 ---
 
-## 🚀 COMENZAMOS
+##  COMENZAMOS
 
 **AHORA MISMO**:
 ```bash
@@ -1023,9 +1023,8 @@ code lib/core/mixins/safe_stream_mixin.dart
 
 **Copia el código del mixin** de `CODIGO_FASE1_IMPLEMENTAR.md` y...
 
-**¡A por ello! 💪**
+**¡A por ello! **
 
 ---
 
 **FIN DEL PLAN SPRINT 1 SEMANA**
-

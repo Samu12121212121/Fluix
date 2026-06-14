@@ -1,502 +1,1121 @@
 {
   "indexes": [
     {
+      "collectionGroup": "valoraciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_hora", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "clientes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nombre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "clientes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "telefono", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" }
+        {
+          "fieldPath": "telefono",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "completada", "order": "ASCENDING" },
-        { "fieldPath": "fecha_limite", "order": "ASCENDING" }
+        {
+          "fieldPath": "completada",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_limite",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "nominas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
+        {
+          "fieldPath": "anio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "mes",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "nominas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "anio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "mes",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas_recibidas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "es_arrendamiento", "order": "ASCENDING" },
-        { "fieldPath": "fecha_recepcion", "order": "ASCENDING" }
+        {
+          "fieldPath": "es_arrendamiento",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_recepcion",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "finiquitos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "anio", "order": "ASCENDING" },
-        { "fieldPath": "mes", "order": "ASCENDING" }
+        {
+          "fieldPath": "anio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "mes",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "usuarios",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "usuarios",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "rol", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "rol",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "actividad",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "tipo", "order": "ASCENDING" },
-        { "fieldPath": "completada", "order": "ASCENDING" }
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completada",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "actividad",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "tipo", "order": "ASCENDING" },
-        { "fieldPath": "fecha", "order": "DESCENDING" }
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fiscal_transactions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ejercicio", "order": "ASCENDING" },
-        { "fieldPath": "trimestre", "order": "ASCENDING" }
+        {
+          "fieldPath": "ejercicio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trimestre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "modelos130",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ejercicio", "order": "ASCENDING" },
-        { "fieldPath": "trimestre", "order": "ASCENDING" },
-        { "fieldPath": "fecha_generacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "ejercicio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trimestre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_generacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "currency_rates",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "currency", "order": "ASCENDING" },
-        { "fieldPath": "rate_date", "order": "DESCENDING" }
+        {
+          "fieldPath": "currency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "rate_date",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "ratingFluix", "order": "DESCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingFluix",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "flash_slots",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_fin", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora_expiracion",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "citas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "prof_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha", "order": "ASCENDING" }
+        {
+          "fieldPath": "prof_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "turnos_walkin",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha", "order": "ASCENDING" },
-        { "fieldPath": "asignado", "order": "ASCENDING" }
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "asignado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "usuario_uid", "order": "ASCENDING" },
-        { "fieldPath": "creado_en", "order": "DESCENDING" }
+        {
+          "fieldPath": "usuario_uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_en",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "categoria", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "ratingFluix", "order": "DESCENDING" }
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingFluix",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "destacado", "order": "DESCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" }
+        {
+          "fieldPath": "destacado",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "citas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha", "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre_lower", "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nombre_lower",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "categoria", "order": "ASCENDING" },
-        { "fieldPath": "nombre_lower", "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nombre_lower",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "ratingGoogle", "order": "DESCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingGoogle",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "notificaciones",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "leida", "order": "ASCENDING" },
-        { "fieldPath": "creado_en", "order": "DESCENDING" }
+        {
+          "fieldPath": "leida",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_en",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "recordatorio_cliente_enviado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_hora", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordatorio_cliente_enviado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "solicitud_valoracion_pendiente", "order": "ASCENDING" },
-        { "fieldPath": "fecha_completada", "order": "ASCENDING" }
+        {
+          "fieldPath": "solicitud_valoracion_pendiente",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_completada",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "valoraciones",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "reserva_id", "order": "ASCENDING" },
-        { "fieldPath": "cliente_uid", "order": "ASCENDING" }
+        {
+          "fieldPath": "reserva_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cliente_uid",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "nominas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empleado_id", "order": "ASCENDING" },
-        { "fieldPath": "anio", "order": "DESCENDING" },
-        { "fieldPath": "mes", "order": "DESCENDING" }
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "anio",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "mes",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "DESCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_emision",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_emision",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha_emision", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" }
+        {
+          "fieldPath": "fecha_emision",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cliente_correo", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "DESCENDING" }
+        {
+          "fieldPath": "cliente_correo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_emision",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cliente_nombre", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "DESCENDING" }
+        {
+          "fieldPath": "cliente_nombre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_emision",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "usuarios",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha_fin_contrato", "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_fin_contrato",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha_entrega", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" }
+        {
+          "fieldPath": "fecha_entrega",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" }
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha_pedido", "order": "DESCENDING" },
-        { "fieldPath": "stripe_session_id", "order": "DESCENDING" }
+        {
+          "fieldPath": "fecha_pedido",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "stripe_session_id",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado_pago", "order": "ASCENDING" },
-        { "fieldPath": "fecha_hora", "order": "ASCENDING" }
+        {
+          "fieldPath": "estado_pago",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cliente_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha", "order": "DESCENDING" }
+        {
+          "fieldPath": "cliente_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "fecha_limite", "order": "ASCENDING" },
-        { "fieldPath": "completada", "order": "ASCENDING" }
+        {
+          "fieldPath": "fecha_limite",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completada",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cliente_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha_hora", "order": "DESCENDING" }
+        {
+          "fieldPath": "cliente_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "blog",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "publicada", "order": "ASCENDING" },
-        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "publicada",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_publicacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "nominas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ejercicio", "order": "ASCENDING" },
-        { "fieldPath": "trimestre", "order": "ASCENDING" }
+        {
+          "fieldPath": "ejercicio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trimestre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "finiquitos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empleado_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha_baja", "order": "DESCENDING" }
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_baja",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "actividad",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cliente_id", "order": "ASCENDING" },
-        { "fieldPath": "fecha", "order": "DESCENDING" }
+        {
+          "fieldPath": "cliente_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fiscal_transactions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "counterparty.tax_id", "order": "ASCENDING" },
-        { "fieldPath": "invoice_number", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "counterparty.tax_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "invoice_number",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empleado_id", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empleado_id", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "modelos111",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ejercicio", "order": "ASCENDING" },
-        { "fieldPath": "trimestre", "order": "ASCENDING" }
+        {
+          "fieldPath": "ejercicio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trimestre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "modelos115",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "ejercicio", "order": "ASCENDING" },
-        { "fieldPath": "trimestre", "order": "ASCENDING" }
+        {
+          "fieldPath": "ejercicio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "trimestre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "servicios",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "nombre", "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nombre",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "tipo", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "facturas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "origen", "order": "ASCENDING" },
-        { "fieldPath": "fecha_emision", "order": "DESCENDING" }
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_emision",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "negocio_id", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "negocio_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "negocios_publicos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "acepta_pedidos", "order": "ASCENDING" },
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "ratingFluix", "order": "DESCENDING" }
+        {
+          "fieldPath": "acepta_pedidos",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingFluix",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "estado_pago",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado_pago",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "registros_verifactu",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "nif_emisor",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora_generacion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "cliente_uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "cliente_uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "valoraciones",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "clienteId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "trofeos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "completado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transacciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

@@ -1,4 +1,4 @@
-# 🔍 GUÍA COMPLETA: Debugging de Crash Silencioso en TPV Flutter Windows
+#  GUÍA COMPLETA: Debugging de Crash Silencioso en TPV Flutter Windows
 
 **Última actualización:** 2026-05-26  
 **Problema:** La aplicación se cierra silenciosamente al ejecutar el flujo de cobro desde el TPV, sin mostrar ningún error.
@@ -22,19 +22,19 @@ Se ha añadido un sistema completo de captura y logging de errores que:
 Se ha añadido logging exhaustivo paso a paso:
 
 ```
-💰 [COBRO] Paso 1/6: Construyendo líneas de pedido...
-📝 [COBRO] Paso 2/6: Creando pedido en Firestore...
-🚚 [COBRO] Paso 3/6: Marcando como entregado...
-💳 [COBRO] Paso 4/6: Marcando como pagado...
-📄 [COBRO] Paso 5/6: Generando documento PDF...
-🎟️ [COBRO] Paso 6/6: Generando ticket texto...
+ [COBRO] Paso 1/6: Construyendo líneas de pedido...
+ [COBRO] Paso 2/6: Creando pedido en Firestore...
+ [COBRO] Paso 3/6: Marcando como entregado...
+ [COBRO] Paso 4/6: Marcando como pagado...
+ [COBRO] Paso 5/6: Generando documento PDF...
+️ [COBRO] Paso 6/6: Generando ticket texto...
 ```
 
 **→ Permite identificar exactamente en qué paso falla el cobro**
 
 ---
 
-## 📋 **PASO 1: EJECUTAR EN MODO DEBUG DESDE CONSOLA**
+##  **PASO 1: EJECUTAR EN MODO DEBUG DESDE CONSOLA**
 
 ### Opción A: Ejecutar y ver logs en tiempo real
 
@@ -51,7 +51,7 @@ flutter run -d windows --verbose
 
 **Qué observar:**
 - ✅ Logs con prefijo `[COBRO]` durante el flujo de pago
-- 🔴 Stack traces completos si hay excepciones
+-  Stack traces completos si hay excepciones
 - ⚠️ Mensajes de error de Firebase, PDF, o platform channels
 
 ---
@@ -74,11 +74,11 @@ notepad C:\Users\Samu\debug_tpv_log.txt
 
 ---
 
-## 📂 **PASO 2: UBICACIÓN DEL LOG PERSISTENTE**
+##  **PASO 2: UBICACIÓN DEL LOG PERSISTENTE**
 
 El sistema escribe automáticamente un archivo de log que **persiste incluso si la app cierra**:
 
-### 📍 Ubicación del archivo:
+###  Ubicación del archivo:
 
 ```
 %USERPROFILE%\Documents\fluixcrm_crash.log
@@ -99,21 +99,21 @@ notepad C:\Users\Samu\Documents\fluixcrm_crash.log
 explorer C:\Users\Samu\Documents
 ```
 
-### 🔍 Qué buscar en el log:
+###  Qué buscar en el log:
 
 | Símbolo | Significado |
 |---------|-------------|
-| 🚀 | Inicio de aplicación |
+|  | Inicio de aplicación |
 | ⚙️ | Inicialización de Firebase |
-| 💰 [COBRO] | Flujo de cobro activo |
+|  [COBRO] | Flujo de cobro activo |
 | ✅ | Operación exitosa |
 | ⚠️ | Warning/advertencia |
-| 🔴 | **ERROR CRÍTICO** ← **BUSCA ESTO** |
+|  | **ERROR CRÍTICO** ← **BUSCA ESTO** |
 | Stack: | **Stack trace completo** ← **BUSCA ESTO** |
 
 ---
 
-## 🪟 **PASO 3: REVISAR EL VISOR DE EVENTOS DE WINDOWS**
+##  **PASO 3: REVISAR EL VISOR DE EVENTOS DE WINDOWS**
 
 Si la app cierra sin logs, puede ser un crash a nivel de sistema operativo.
 
@@ -152,7 +152,7 @@ Exception code: 0xc0000005                                 ← Tipo de error
 
 ---
 
-## 🧪 **PASO 4: PROBAR CON CONFIGURACIÓN SIMPLIFICADA**
+##  **PASO 4: PROBAR CON CONFIGURACIÓN SIMPLIFICADA**
 
 ### Test 1: Deshabilitar generación de PDF
 
@@ -190,7 +190,7 @@ flutter pub deps
 
 ---
 
-## 🚨 **ERRORES COMUNES Y CÓMO DETECTARLOS**
+##  **ERRORES COMUNES Y CÓMO DETECTARLOS**
 
 ### 1. ❌ **Null Safety Violation**
 
@@ -199,7 +199,7 @@ flutter pub deps
 **Cómo detectar:**
 ```dart
 // Buscar en logs:
-"🔴 PLATFORM ERROR:"
+" PLATFORM ERROR:"
 "Null check operator used on a null value"
 ```
 
@@ -216,7 +216,7 @@ flutter pub deps
 **Cómo detectar:**
 ```dart
 // Buscar en logs:
-"🔴 PLATFORM ERROR:"
+" PLATFORM ERROR:"
 "MissingPluginException"
 "PlatformException"
 ```
@@ -234,7 +234,7 @@ flutter pub deps
 **Cómo detectar:**
 ```dart
 // Buscar en logs:
-"🔴 UNCAUGHT ASYNC ERROR:"
+" UNCAUGHT ASYNC ERROR:"
 "FirebaseException"
 ```
 
@@ -256,7 +256,7 @@ await _svc.cambiarEstado(empresaId, pedidoId, estado);
 **Cómo detectar:**
 ```dart
 // Buscar en logs:
-"🔴 FLUTTER ERROR:"
+" FLUTTER ERROR:"
 "setState() called after dispose()"
 ```
 
@@ -275,7 +275,7 @@ setState(() { /* ... */ });
 **Cómo detectar:**
 ```dart
 // Buscar en logs:
-"📄 [COBRO] Paso 5/6: Generando documento PDF..."
+" [COBRO] Paso 5/6: Generando documento PDF..."
 // Si NO aparece "✅ PDF generado" después → crash aquí
 ```
 
@@ -286,7 +286,7 @@ setState(() { /* ... */ });
 
 ---
 
-## 📊 **CHECKLIST DE REVISIÓN DEL CÓDIGO**
+##  **CHECKLIST DE REVISIÓN DEL CÓDIGO**
 
 ### ✅ Flujo de cobro (`caja_rapida_screen.dart`)
 
@@ -315,7 +315,7 @@ setState(() { /* ... */ });
 
 ---
 
-## 🎯 **PRÓXIMOS PASOS**
+##  **PRÓXIMOS PASOS**
 
 ### 1. Ejecutar la app con logging activado
 
@@ -347,10 +347,10 @@ notepad C:\Users\Samu\debug_tpv_log.txt
 **Ejemplo de análisis:**
 
 ```
-[14:32:15.123] 💰 [COBRO] Paso 4/6: Marcando como pagado...
+[14:32:15.123]  [COBRO] Paso 4/6: Marcando como pagado...
 [14:32:15.456] ✅ [COBRO] Estado de pago cambiado a Pagado
-[14:32:15.789] 📄 [COBRO] Paso 5/6: Generando documento PDF...
-[14:32:16.001] 🔴 PLATFORM ERROR:
+[14:32:15.789]  [COBRO] Paso 5/6: Generando documento PDF...
+[14:32:16.001]  PLATFORM ERROR:
 [14:32:16.002] PlatformException(printing_not_available)
 [14:32:16.003] Stack: ...
 ```
@@ -359,7 +359,7 @@ notepad C:\Users\Samu\debug_tpv_log.txt
 
 ---
 
-## 📧 **COMPARTIR INFORMACIÓN DEL CRASH**
+##  **COMPARTIR INFORMACIÓN DEL CRASH**
 
 Una vez tengas los logs, comparte:
 
@@ -382,7 +382,7 @@ Una vez tengas los logs, comparte:
 
 ---
 
-## 🛠️ **COMANDOS ÚTILES**
+## ️ **COMANDOS ÚTILES**
 
 ```powershell
 # Ver versión de Flutter
@@ -413,9 +413,8 @@ explorer C:\Users\Samu\Documents
 | **Ejecutar con logs** | `flutter run -d windows --verbose > debug_tpv_log.txt 2>&1` |
 | **Ver log persistente** | `notepad C:\Users\Samu\Documents\fluixcrm_crash.log` |
 | **Ver Event Viewer** | `eventvwr.msc` → Application Logs |
-| **Buscar en logs** | `[COBRO]`, `🔴`, `Stack:`, `ERROR`, `EXCEPTION` |
+| **Buscar en logs** | `[COBRO]`, ``, `Stack:`, `ERROR`, `EXCEPTION` |
 
 ---
 
-**Una vez tengascualquiera de estos logs con el stack trace, compártelos para identificar la causa exacta y aplicar el fix. 🚀**
-
+**Una vez tengascualquiera de estos logs con el stack trace, compártelos para identificar la causa exacta y aplicar el fix. **

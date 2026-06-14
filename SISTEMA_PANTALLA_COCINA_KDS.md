@@ -5,13 +5,13 @@
 
 ---
 
-## 📋 Resumen
+##  Resumen
 
 Se ha implementado un **Kitchen Display System (KDS)** completo para gestionar el flujo de comandas en cocina. El sistema permite al personal de cocina ver en tiempo real las comandas enviadas desde el TPV y gestionar su estado de preparación.
 
 ---
 
-## 🎯 Características Principales
+##  Características Principales
 
 ### ✅ **Diseño de 3 Columnas**
 
@@ -23,7 +23,7 @@ El sistema organiza las comandas en un flujo visual de izquierda a derecha:
 │    (25%)    │       (50%)          │    (25%)    │
 ├─────────────┼──────────────────────┼─────────────┤
 │             │                      │             │
-│  ⏳ Nueva   │  👨‍🍳 Cocinando      │  ✅ Listas  │
+│  ⏳ Nueva   │  ‍ Cocinando      │  ✅ Listas  │
 │  comanda    │  activamente         │  para       │
 │  esperando  │                      │  servir     │
 │             │                      │             │
@@ -37,14 +37,14 @@ El sistema organiza las comandas en un flujo visual de izquierda a derecha:
 
 ---
 
-## 🔄 Flujo de Trabajo
+##  Flujo de Trabajo
 
 ### **1. CAMARERO (TPV Root)**
 
 ```
 1. Camarero crea comanda en mesa
 2. Añade productos
-3. Pulsa botón "Cocina" 🔵
+3. Pulsa botón "Cocina" 
    ↓
 4. Sistema marca comanda como "enviada_cocina: true"
 5. Establece estado inicial "pendiente"
@@ -55,19 +55,19 @@ El sistema organiza las comandas en un flujo visual de izquierda a derecha:
 
 ```
 COLUMNA IZQUIERDA (Pendientes):
-├─ Ve nueva comanda marcada en naranja 🟠
+├─ Ve nueva comanda marcada en naranja 
 ├─ Lee productos y notas
 ├─ Pulsa "Iniciar" ▶️
 └─ Comanda se mueve a columna central
 
 COLUMNA CENTRO (En Preparación):
-├─ Ve comanda marcada en azul 🔵
+├─ Ve comanda marcada en azul 
 ├─ Prepara los platos
 ├─ Pulsa "Finalizar" ✅
 └─ Comanda se mueve a columna derecha
 
 COLUMNA DERECHA (Terminadas):
-├─ Ve comanda marcada en verde 🟢
+├─ Ve comanda marcada en verde 
 └─ Camarero puede recoger platos
 ```
 
@@ -76,11 +76,11 @@ COLUMNA DERECHA (Terminadas):
 Al **hacer clic** en cualquier tarjeta:
 ```
 ┌────────────────────────────────────────────┐
-│  📋 Mesa 5                         PENDIENTE│
+│   Mesa 5                         PENDIENTE│
 ├────────────────────────────────────────────┤
 │                                            │
 │  ⏰ Enviada: 14:23:45                      │
-│  🎯 Iniciada: -                            │
+│   Iniciada: -                            │
 │  ✓ Finalizada: -                           │
 │                                            │
 │  ⚠️ NOTA: Alergia al gluten               │
@@ -88,7 +88,7 @@ Al **hacer clic** en cualquier tarjeta:
 │  PRODUCTOS:                                │
 │  ┌──────────────────────────────┐         │
 │  │  [2] Hamburguesa completa     │         │
-│  │  📝 Sin cebolla               │         │
+│  │   Sin cebolla               │         │
 │  └──────────────────────────────┘         │
 │  ┌──────────────────────────────┐         │
 │  │  [1] Ensalada César           │         │
@@ -100,7 +100,7 @@ Al **hacer clic** en cualquier tarjeta:
 
 ---
 
-## 🗂️ Estructura de Datos en Firestore
+## ️ Estructura de Datos en Firestore
 
 ### **Colección:** `empresas/{empresaId}/comandas/{comandaId}`
 
@@ -141,13 +141,13 @@ Al **hacer clic** en cualquier tarjeta:
 
 ---
 
-## 🎨 Diseño Visual
+##  Diseño Visual
 
 ### **Tarjeta de Comanda (Vista Compacta)**
 
 ```dart
 ┌─────────────────────────────────────┐
-│ 🍽️ Mesa 5           [15 min] 🔴    │
+│ ️ Mesa 5           [15 min]     │
 ├─────────────────────────────────────┤
 │ [2] Hamburguesa completa            │
 │ [1] Ensalada César                  │
@@ -162,13 +162,13 @@ Al **hacer clic** en cualquier tarjeta:
 ```
 
 **Indicadores de Tiempo:**
-- 🟢 **Verde**: < 10 minutos (recién llegada)
-- 🟠 **Naranja**: 10-20 minutos (precaución)
-- 🔴 **Rojo**: > 20 minutos (urgente)
+-  **Verde**: < 10 minutos (recién llegada)
+-  **Naranja**: 10-20 minutos (precaución)
+-  **Rojo**: > 20 minutos (urgente)
 
 ---
 
-## 🔧 Funciones Principales
+##  Funciones Principales
 
 ### **1. Cambiar Estado de Comanda**
 
@@ -220,7 +220,7 @@ Future<void> _mostrarDetalleComanda(BuildContext context, ComandaCocina comanda)
 
 ---
 
-## 🚀 Accesos a la Pantalla de Cocina
+##  Accesos a la Pantalla de Cocina
 
 ### **Opción 1: Desde Botón "Enviar a Cocina"**
 
@@ -276,7 +276,7 @@ IconButton(
 
 ---
 
-## 📊 Filtros y Consultas
+##  Filtros y Consultas
 
 ### **Query Principal de Comandas**
 
@@ -333,7 +333,7 @@ Collection: comandas (dentro de empresas/{empresaId})
 
 ---
 
-## 🎯 Casos de Uso
+##  Casos de Uso
 
 ### **Caso 1: Restaurante con Alta Demanda**
 
@@ -373,7 +373,7 @@ Collection: comandas (dentro de empresas/{empresaId})
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### **Error: "Las comandas no aparecen en cocina"**
 
@@ -406,7 +406,7 @@ match /comandas/{comandaId} {
 
 ---
 
-## 📈 Mejoras Futuras
+##  Mejoras Futuras
 
 ### **Fase 2: Notificaciones Sonoras**
 - Sonido de alerta cuando llega nueva comanda
@@ -454,7 +454,7 @@ match /comandas/{comandaId} {
 
 ---
 
-## 🖥️ Configuración de Hardware Recomendada
+## ️ Configuración de Hardware Recomendada
 
 ### **Opción 1: Tablet Android (Económica)**
 - **Modelo:** Samsung Galaxy Tab A8 (10.5")
@@ -476,7 +476,7 @@ match /comandas/{comandaId} {
 
 ---
 
-## 💡 Consejos de Uso
+##  Consejos de Uso
 
 ### **Para Cocineros:**
 1. **Prioriza por color**: Empieza por las rojas (>20 min)
@@ -492,7 +492,7 @@ match /comandas/{comandaId} {
 
 ---
 
-## 📄 Archivos Modificados
+##  Archivos Modificados
 
 1. ✅ `lib/features/tpv/pantallas/pantalla_cocina_screen.dart` (NUEVO)
    - Pantalla completa de cocina con 3 columnas
@@ -505,7 +505,7 @@ match /comandas/{comandaId} {
 
 ---
 
-## 🎓 Documentación Técnica
+##  Documentación Técnica
 
 ### **Modelo de Datos: ComandaCocina**
 
@@ -546,7 +546,7 @@ class LineaComandaCocina {
 
 ---
 
-## 💼 Resumen Ejecutivo
+##  Resumen Ejecutivo
 
 **Problema resuelto:**  
 Los cocineros no tenían visibilidad de las comandas pendientes, causando:
@@ -569,4 +569,3 @@ Sistema KDS (Kitchen Display System) con flujo visual de 3 columnas que muestra 
 
 **Diferenciador competitivo:**  
 Sistema integrado con TPV sin necesidad de hardware adicional costoso. La mayoría de competidores requieren sistemas KDS separados que cuestan 1000-3000€.
-

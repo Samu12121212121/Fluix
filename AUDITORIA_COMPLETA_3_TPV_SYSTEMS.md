@@ -1,11 +1,11 @@
-# 🔍 AUDITORÍA COMPLETA DE LOS 3 SISTEMAS TPV
+#  AUDITORÍA COMPLETA DE LOS 3 SISTEMAS TPV
 **Fecha**: 13 Mayo 2026  
 **Auditor**: Análisis exhaustivo del código fuente  
 **Líneas totales auditadas**: 11,483 líneas de código
 
 ---
 
-## 📊 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 | Sistema TPV | Líneas | Completitud | Estado Producción | Score |
 |------------|--------|-------------|-------------------|-------|
@@ -15,7 +15,7 @@
 
 ---
 
-## 🏪 1. TPV TIENDA (tpv_tienda_screen.dart)
+##  1. TPV TIENDA (tpv_tienda_screen.dart)
 
 **Completitud general: 9.5/10**  
 **Estado: LISTO PARA PRODUCCIÓN ✅**
@@ -136,7 +136,7 @@ class _EscanerCamaraModal extends StatefulWidget {
 4. **Multi-caja**: Identificar qué caja registró cada ticket
 5. **Descuentos por cliente**: Aplicar descuentos automáticos según tipo de cliente
 
-### 🎯 Funcionalidades por Categoría
+###  Funcionalidades por Categoría
 
 | Categoría | Funcionalidades | Completas | Score |
 |-----------|----------------|-----------|-------|
@@ -152,7 +152,7 @@ class _EscanerCamaraModal extends StatefulWidget {
 
 ---
 
-## 🍺 2. TPV BAR/RESTAURANTE (tpv_root_screen.dart)
+##  2. TPV BAR/RESTAURANTE (tpv_root_screen.dart)
 
 **Completitud general: 9/10**  
 **Estado: CASI LISTO PARA PRODUCCIÓN ✅**
@@ -286,7 +286,7 @@ Future<void> _mostrarDividirComanda(...) {
 5. **Reservas**: Sistema de reservas de mesas por horario
 6. **Ocupación por tiempo**: Calcular tiempo de ocupación de mesa
 
-### 🎯 Funcionalidades por Categoría
+###  Funcionalidades por Categoría
 
 | Categoría | Funcionalidades | Completas | Score |
 |-----------|----------------|-----------|-------|
@@ -304,7 +304,7 @@ Future<void> _mostrarDividirComanda(...) {
 
 ---
 
-## 💇 3. TPV PELUQUERÍA (tpv_peluqueria_screen.dart)
+##  3. TPV PELUQUERÍA (tpv_peluqueria_screen.dart)
 
 **Completitud general: 7.5/10**  
 **Estado: EN DESARROLLO ACTIVO ⚠️**
@@ -472,7 +472,7 @@ Future<void> _mostrarDividirComanda(...) {
 7. **Vista Semanal**: Implementar vista de semana completa
 8. **Drag & Drop**: Reorganizar citas arrastrando
 
-### 🎯 Funcionalidades por Categoría
+###  Funcionalidades por Categoría
 
 | Categoría | Funcionalidades | Completas | Score |
 |-----------|----------------|-----------|-------|
@@ -491,7 +491,7 @@ Future<void> _mostrarDividirComanda(...) {
 
 ---
 
-## 📋 COMPARATIVA FINAL DE LOS 3 SISTEMAS
+##  COMPARATIVA FINAL DE LOS 3 SISTEMAS
 
 ### Funcionalidades Comunes (Compartidas)
 
@@ -541,7 +541,7 @@ Future<void> _mostrarDividirComanda(...) {
 
 ---
 
-## 🔧 ANÁLISIS TÉCNICO
+##  ANÁLISIS TÉCNICO
 
 ### Calidad del Código
 
@@ -602,9 +602,9 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 
 ---
 
-## 🚀 ROADMAP PARA PRODUCCIÓN
+##  ROADMAP PARA PRODUCCIÓN
 
-### 🔴 CRÍTICO (2-4 semanas)
+###  CRÍTICO (2-4 semanas)
 
 #### TPV Peluquería
 1. **CRUD de Servicios** → 3 días
@@ -640,7 +640,7 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
    - Añadir campos `descuento` y `descuentoPct` a `Comanda`
    - Actualizar cálculos de total
 
-### 🟡 IMPORTANTE (1-2 meses)
+###  IMPORTANTE (1-2 meses)
 
 #### TPV Peluquería
 8. **Vista Semanal de Agenda** → 5 días
@@ -659,7 +659,7 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 17. **Impresión de Cocina** (real) → 5 días
 18. **Comisiones por Camarero** → 4 días
 
-### 🟢 MEJORAS (3-6 meses)
+###  MEJORAS (3-6 meses)
 
 - Multi-caja con identificación
 - Dashboard de KPIs en tiempo real
@@ -671,7 +671,7 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 
 ---
 
-## 📊 MÉTRICAS DE CALIDAD
+##  MÉTRICAS DE CALIDAD
 
 ### Cobertura de Funcionalidades TPV Estándar
 
@@ -723,7 +723,7 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 
 ---
 
-## 💾 BACKUPS Y ROLLBACK
+##  BACKUPS Y ROLLBACK
 
 **Recomendación**: Antes de deploy en producción:
 
@@ -736,7 +736,7 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 
 ---
 
-## 📝 NOTAS FINALES
+##  NOTAS FINALES
 
 - **Calidad del código**: Excelente en los 3 sistemas
 - **Consistencia**: Muy buena entre TPV Bar y Tienda
@@ -755,5 +755,4 @@ await FirebaseFirestore.instance.runTransaction((tx) async {
 
 **Auditoría completada el**: 13 Mayo 2026  
 **Próxima revisión recomendada**: Tras completar roadmap crítico de Peluquería
-
 

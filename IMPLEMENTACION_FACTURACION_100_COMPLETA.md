@@ -7,7 +7,7 @@
 
 ---
 
-## 📋 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 Se han implementado exitosamente **3 bugs críticos**, **facturación automática TPV→Factura** y **gestión de stock automática** sin romper ninguna funcionalidad existente.
 
@@ -19,7 +19,7 @@ Se han implementado exitosamente **3 bugs críticos**, **facturación automátic
 
 ---
 
-## 🔧 FASE 1 — 3 BUGS CRÍTICOS (COMPLETADA)
+##  FASE 1 — 3 BUGS CRÍTICOS (COMPLETADA)
 
 ### ✅ BUG 1: Pago mixto hardcoded 50/50
 **Archivo:** `lib/services/tpv/cierre_caja_service.dart` líneas 55-72  
@@ -91,7 +91,7 @@ catch (e) {
 
 ---
 
-## 🔗 FASE 2 — ESLABÓN 2: TPV → FACTURA AUTOMÁTICA (COMPLETADA)
+##  FASE 2 — ESLABÓN 2: TPV → FACTURA AUTOMÁTICA (COMPLETADA)
 
 ### ✅ PASO A: Campo `facturacion_automatica` en el modelo
 **Archivo:** `lib/domain/modelos/configuracion_facturacion_tpv.dart`  
@@ -161,7 +161,7 @@ try {
 
 ---
 
-## 📦 FASE 3 — ESLABÓN 4: STOCK AUTOMÁTICO (COMPLETADA)
+##  FASE 3 — ESLABÓN 4: STOCK AUTOMÁTICO (COMPLETADA)
 
 ### ✅ PASO A: Crear StockService
 **Archivo creado:** `lib/services/stock_service.dart` (135 líneas)
@@ -271,7 +271,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 📊 ARCHIVOS MODIFICADOS
+##  ARCHIVOS MODIFICADOS
 
 ### Archivos editados (8)
 1. ✅ `lib/services/tpv/cierre_caja_service.dart` — Bug 1 corregido
@@ -296,7 +296,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 🧪 CHECKLIST DE VERIFICACIÓN
+##  CHECKLIST DE VERIFICACIÓN
 
 ### ✅ Bugs corregidos
 - [x] Pago mixto 60%/40% → cierre muestra 60% efectivo / 40% tarjeta (no 50/50)
@@ -328,7 +328,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 🚀 PRÓXIMOS PASOS
+##  PRÓXIMOS PASOS
 
 ### Para probar en desarrollo:
 1. Activa el toggle "Facturación automática al cobrar" en la configuración del TPV
@@ -349,7 +349,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 📝 NOTAS TÉCNICAS
+##  NOTAS TÉCNICAS
 
 ### Transacciones atómicas
 - El stock se decrementa usando `FieldValue.increment()` de Firestore, lo que garantiza operaciones atómicas incluso con múltiples usuarios simultáneos.
@@ -366,7 +366,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 🎯 RESULTADO FINAL
+##  RESULTADO FINAL
 
 **Estado del módulo de facturación:** 100% COMPLETADO ✅
 
@@ -386,7 +386,7 @@ Widget _buildAlertaStockBajo() {
 
 ---
 
-## 🔧 APÉNDICE A: SOLUCIÓN ERROR CMAKE WINDOWS
+##  APÉNDICE A: SOLUCIÓN ERROR CMAKE WINDOWS
 
 ### Problema
 Al compilar para Windows, puede aparecer este error:
@@ -423,5 +423,4 @@ flutter build windows --release
 
 ### Prevención
 Este error solo ocurre la primera vez que se compila para Windows. Una vez parcheado, no volverá a aparecer a menos que se elimine la carpeta `build\windows`.
-
 

@@ -16,4 +16,3 @@ echo Ejecutable en: build\windows\runner\Release\planeag_flutter.exe
 echo.
 
 pause
-

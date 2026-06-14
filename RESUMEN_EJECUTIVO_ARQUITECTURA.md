@@ -1,4 +1,4 @@
-# 🎯 RESUMEN EJECUTIVO — Arquitectura PlaneaG Flutter
+#  RESUMEN EJECUTIVO — Arquitectura PlaneaG Flutter
 
 **Fecha**: 25 Mayo 2026  
 **Para**: Toma de decisiones rápida  
@@ -16,7 +16,7 @@ Tu aplicación está en producción con **3 problemas críticos** que causan cra
 
 ---
 
-## 🔥 SOLUCIÓN URGENTE (Esta Semana)
+##  SOLUCIÓN URGENTE (Esta Semana)
 
 ### Fix 1: SafeStreamMixin (6 horas de trabajo)
 
@@ -82,7 +82,7 @@ await _configurarFirestore(); // ← AÑADIR AQUÍ
 
 ---
 
-## 📈 PLAN A MEDIO PLAZO (2-3 Meses)
+##  PLAN A MEDIO PLAZO (2-3 Meses)
 
 ### Fase 1: Estabilización (Semanas 1-3)
 - ✅ Fixes urgentes arriba
@@ -103,14 +103,14 @@ await _configurarFirestore(); // ← AÑADIR AQUÍ
 
 ---
 
-## 💰 COSTE-BENEFICIO
+##  COSTE-BENEFICIO
 
 | Acción | Esfuerzo | Impacto | Urgencia |
 |--------|----------|---------|----------|
-| **SafeStreamMixin** | 6h | 🔴 Crítico | Esta semana |
-| **Platform-Aware Firestore** | 2h | 🔴 Crítico | Esta semana |
-| **Repository Pattern** | 30-40h | 🟡 Alto | 1 mes |
-| **Dependency Injection** | 20-30h | 🟡 Medio | 2 meses |
+| **SafeStreamMixin** | 6h |  Crítico | Esta semana |
+| **Platform-Aware Firestore** | 2h |  Crítico | Esta semana |
+| **Repository Pattern** | 30-40h |  Alto | 1 mes |
+| **Dependency Injection** | 20-30h |  Medio | 2 meses |
 | **Cache Layer** | 15-20h | ⚪ Bajo | 3 meses |
 
 **Total Fase 1 (crítico)**: 8 horas  
@@ -118,7 +118,7 @@ await _configurarFirestore(); // ← AÑADIR AQUÍ
 
 ---
 
-## 📊 KPIS PARA MEDIR ÉXITO
+##  KPIS PARA MEDIR ÉXITO
 
 | Métrica | Ahora | Objetivo Fase 1 | Objetivo Fase 3 |
 |---------|-------|----------------|----------------|
@@ -131,20 +131,20 @@ await _configurarFirestore(); // ← AÑADIR AQUÍ
 
 ## ✅ DECISIÓN RECOMENDADA
 
-### 🚨 **ACCIÓN INMEDIATA** (Esta semana)
+###  **ACCIÓN INMEDIATA** (Esta semana)
 1. ✅ Implementar `SafeStreamMixin` (6h)
 2. ✅ Implementar `_configurarFirestore()` (2h)
 3. ✅ Deploy Windows beta viernes
 4. ✅ Monitoreo 48h
 
-### 📅 **PLANNING 2-3 MESES**
+###  **PLANNING 2-3 MESES**
 5. ✅ Asignar 1 desarrollador senior full-time
 6. ✅ Ejecutar Fases 1 → 2 → 3 según documento completo
 7. ✅ Review semanal: métricas + ajustes
 
 ---
 
-## 🛡️ ESTRATEGIA DE RIESGO
+## ️ ESTRATEGIA DE RIESGO
 
 **Si algo falla**:
 - ✅ Feature flags en código → rollback en 5 min
@@ -155,7 +155,7 @@ await _configurarFirestore(); // ← AÑADIR AQUÍ
 
 ---
 
-## 📞 PRÓXIMO PASO CONCRETO
+##  PRÓXIMO PASO CONCRETO
 
 **HOY MISMO**:
 1. Leer documento completo: `ANALISIS_ARQUITECTURA_INCREMENTAL.md` (30 min)
@@ -206,4 +206,3 @@ Justificación: Resuelve lo crítico Y posiciona la app para escalar los próxim
 ---
 
 **FIN RESUMEN EJECUTIVO**
-

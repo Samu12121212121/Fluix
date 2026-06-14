@@ -56,14 +56,14 @@ if (-not (Test-Path "windows\flutter\ephemeral\.plugin_symlinks\firebase_core"))
     Write-Host "     AVISO - Symlinks no se generaron" -ForegroundColor Yellow
     Write-Host "     Reintentando pub get..." -ForegroundColor Yellow
     flutter pub get
-
+    
     if (-not (Test-Path "windows\flutter\ephemeral\.plugin_symlinks\firebase_core")) {
         Write-Host "     ERROR - Los symlinks siguen sin generarse" -ForegroundColor Red
         Write-Host ""
         Write-Host "     Intentando reparar cache de Flutter..." -ForegroundColor Yellow
         flutter pub cache repair
         flutter pub get
-
+        
         if (-not (Test-Path "windows\flutter\ephemeral\.plugin_symlinks\firebase_core")) {
             Write-Host ""
             Write-Host "ERROR CRITICO: No se pueden crear symlinks" -ForegroundColor Red
@@ -91,13 +91,13 @@ $firebaseCMake = "build\windows\x64\extracted\firebase_cpp_sdk_windows\CMakeList
 
 if (Test-Path $firebaseCMake) {
     Write-Host "     OK - Firebase SDK encontrado" -ForegroundColor Green
-
+    
     # Crear backup
     Copy-Item $firebaseCMake "$firebaseCMake.backup" -ErrorAction SilentlyContinue
-
+    
     # Aplicar parche
     (Get-Content $firebaseCMake) -replace 'cmake_minimum_required\(VERSION [0-9.]+\)', 'cmake_minimum_required(VERSION 3.10)' | Set-Content $firebaseCMake
-
+    
     Write-Host "     OK - Parche aplicado (VERSION 3.10)" -ForegroundColor Green
 } else {
     Write-Host "     AVISO - Firebase SDK no descargado" -ForegroundColor Yellow
@@ -144,4 +144,3 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "  EJECUCION EXITOSA" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 pause
-

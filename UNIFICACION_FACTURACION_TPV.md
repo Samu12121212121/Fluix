@@ -1,11 +1,11 @@
-# 🧾 Unificación de Facturación con TPVs en PlaneaG
+#  Unificación de Facturación con TPVs en PlaneaG
 
 > **Fecha:** Mayo 2026  
 > **Objetivo:** Que cada venta cerrada en el TPV genere automáticamente su factura en el módulo de facturación, sin duplicar trabajo manual.
 
 ---
 
-## 📌 El problema actual
+##  El problema actual
 
 | Flujo actual | Problema |
 |---|---|
@@ -15,7 +15,7 @@
 
 ---
 
-## 🏗️ Arquitectura propuesta
+## ️ Arquitectura propuesta
 
 ```
 TPV (cierre de venta)
@@ -34,7 +34,7 @@ TPV (cierre de venta)
 
 ---
 
-## 🔧 Paso 1 — Estandarizar el documento `pedidos`
+##  Paso 1 — Estandarizar el documento `pedidos`
 
 Al cerrar una venta en el TPV, el documento en Firestore debe incluir estos campos:
 
@@ -128,7 +128,7 @@ export const onPedidoCompletado = functions.firestore
 
 ---
 
-## 📱 Paso 3 — Cambios en el TPV (Flutter)
+##  Paso 3 — Cambios en el TPV (Flutter)
 
 ### 3.1 Al cerrar venta, marcar `generar_factura: true`
 
@@ -177,7 +177,7 @@ StreamBuilder<DocumentSnapshot>(
 
 ---
 
-## 📊 Paso 4 — Cierre de Caja unificado
+##  Paso 4 — Cierre de Caja unificado
 
 El cierre de caja del TPV debe cuadrar con las facturas emitidas ese día:
 
@@ -231,7 +231,7 @@ Future<Map<String, dynamic>> calcularCierreCaja({
 
 ---
 
-## 🔍 Paso 5 — Índice Firestore necesario
+##  Paso 5 — Índice Firestore necesario
 
 Añadir a `firestore.indexes.json`:
 
@@ -261,7 +261,7 @@ Añadir a `firestore.indexes.json`:
 
 ---
 
-## 🚨 Reglas de negocio importantes
+##  Reglas de negocio importantes
 
 | Regla | Detalle |
 |---|---|
@@ -273,7 +273,7 @@ Añadir a `firestore.indexes.json`:
 
 ---
 
-## 📁 Archivos a crear/modificar
+##  Archivos a crear/modificar
 
 ```
 functions/src/facturacion/
@@ -285,4 +285,3 @@ lib/features/tpv/
 
 firestore.indexes.json           ← añadir índice origen+fecha_emision
 ```
-

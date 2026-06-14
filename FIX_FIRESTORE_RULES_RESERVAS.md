@@ -1,4 +1,4 @@
-# 🔧 FIX: Reglas de Firestore - Reservas No Llegaban a la App
+#  FIX: Reglas de Firestore - Reservas No Llegaban a la App
 
 **Fecha:** 2026-05-26  
 **Problema:** Las reservas no llegaban a la app por reglas de Firestore muy restrictivas  
@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 PROBLEMA IDENTIFICADO
+##  PROBLEMA IDENTIFICADO
 
 ### Regla Original (Muy Restrictiva)
 ```javascript
@@ -80,7 +80,7 @@ allow create: if !isAuth()
 
 ---
 
-## 📋 BENEFICIOS
+##  BENEFICIOS
 
 ### 1. Usuarios Autenticados (App)
 ✅ **Pueden crear reservas libremente**
@@ -103,7 +103,7 @@ allow create: if !isAuth()
 
 ---
 
-## 🚀 DESPLEGAR LAS NUEVAS REGLAS
+##  DESPLEGAR LAS NUEVAS REGLAS
 
 ### Opción 1: Firebase Console (Rápido)
 
@@ -136,7 +136,7 @@ i  firestore: uploading rules firestore.rules...
 
 ---
 
-## 🧪 TESTING
+##  TESTING
 
 ### Test 1: Reserva desde App Autenticada
 
@@ -189,7 +189,7 @@ await db.collection('empresas')
 
 ## ⚠️ CONSIDERACIONES DE SEGURIDAD
 
-### 🟢 Mantenidas
+###  Mantenidas
 
 ✅ **Autenticación requerida** para usuarios de app  
 ✅ **Validación de strings** (tamaño, tipo)  
@@ -197,7 +197,7 @@ await db.collection('empresas')
 ✅ **Límite de 50 campos** para prevenir abuso  
 ✅ **Admin/Staff** tienen acceso completo
 
-### 🟡 Relajadas (Necesarias)
+###  Relajadas (Necesarias)
 
 ⚠️ **Usuarios autenticados** no necesitan `usuario_uid`
 - Razón: Facilita integración con diferentes flujos
@@ -208,7 +208,7 @@ await db.collection('empresas')
 - Seguridad: Límite de 50 campos previene abuso
 - Seguridad: Validación de campos obligatorios se mantiene
 
-### 🔴 Sin Cambios (Seguras)
+###  Sin Cambios (Seguras)
 
 ❌ **No pueden UPDATE sin permiso** (lectura/cancelación propia limitada)  
 ❌ **No pueden DELETE** (solo cancelar cambiando estado)  
@@ -216,7 +216,7 @@ await db.collection('empresas')
 
 ---
 
-## 📊 COMPARACIÓN ANTES/DESPUÉS
+##  COMPARACIÓN ANTES/DESPUÉS
 
 ### Escenario 1: App crea reserva SIN usuario_uid
 
@@ -241,7 +241,7 @@ await db.collection('empresas')
 
 ---
 
-## 🎯 PRÓXIMOS PASOS
+##  PRÓXIMOS PASOS
 
 ### 1. Desplegar Reglas
 ```powershell
@@ -276,7 +276,7 @@ firebase firestore:logs --project planeaapp-4bea4
 
 ---
 
-## 📝 RESUMEN
+##  RESUMEN
 
 **Problema:** Reglas muy restrictivas bloqueaban reservas  
 **Causa:** Requerían campos específicos (`usuario_uid`) y limitaban estados  
@@ -290,5 +290,4 @@ firebase deploy --only firestore:rules
 
 ---
 
-**Las reglas están listas. Despliega a Firebase para que surtan efecto. 🚀**
-
+**Las reglas están listas. Despliega a Firebase para que surtan efecto. **

@@ -1,6 +1,6 @@
-# 🛍️ Guía Completa: Integración Tienda Online con Stripe Connect
+# ️ Guía Completa: Integración Tienda Online con Stripe Connect
 
-## 📋 Índice
+##  Índice
 
 1. [Resumen del Sistema](#resumen-del-sistema)
 2. [Requisitos Previos](#requisitos-previos)
@@ -15,7 +15,7 @@
 
 ---
 
-## 🎯 Resumen del Sistema
+##  Resumen del Sistema
 
 Este sistema permite que cada empresa conecte su propia cuenta de Stripe y gestione su tienda online:
 
@@ -32,7 +32,7 @@ Este sistema permite que cada empresa conecte su propia cuenta de Stripe y gesti
 
 ---
 
-## 📋 Requisitos Previos
+##  Requisitos Previos
 
 ### 1. Cuenta Stripe Platform
 
@@ -70,7 +70,7 @@ dependencies:
 
 ---
 
-## 🛠️ Configuración Inicial
+## ️ Configuración Inicial
 
 ### Paso 1: Actualizar Constantes
 
@@ -122,7 +122,7 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 🚀 Implementación Paso a Paso
+##  Implementación Paso a Paso
 
 ### Fase 1: Pantalla de Integraciones
 
@@ -880,7 +880,7 @@ class _FormularioProductoState extends State<_FormularioProducto> {
 
 ---
 
-## 🔔 Webhooks y Notificaciones
+##  Webhooks y Notificaciones
 
 ### Configurar Notificaciones Push
 
@@ -895,7 +895,7 @@ Las notificaciones se envían automáticamente cuando llega un pedido. El sistem
 **Formato de notificación:**
 
 ```
-Título: 🛒 Nuevo pedido online
+Título:  Nuevo pedido online
 Cuerpo: María García - €45.99
 Datos: {
   tipo: 'nuevo_pedido_tienda',
@@ -936,7 +936,7 @@ void _manejarNavegacionNotificacion(Map<String, dynamic> data) {
 
 ---
 
-## 📊 Estadísticas de Tienda
+##  Estadísticas de Tienda
 
 Las estadísticas se calculan automáticamente cada hora e incluyen:
 
@@ -1027,7 +1027,7 @@ StreamBuilder<DocumentSnapshot>(
 
 ---
 
-## 💡 Uso por Empresa (Guía para Empresarios)
+##  Uso por Empresa (Guía para Empresarios)
 
 ### 1. Conectar Stripe (Primera vez)
 
@@ -1112,7 +1112,7 @@ Para cambiar estado:
 
 ---
 
-## 🔧 Troubleshooting
+##  Troubleshooting
 
 ### Problema: "No se sincroniza con Stripe"
 
@@ -1152,7 +1152,7 @@ Para cambiar estado:
 
 ---
 
-## 📝 Checklist de Despliegue
+##  Checklist de Despliegue
 
 - [ ] Crear cuenta Stripe Platform
 - [ ] Obtener Client ID y secretos
@@ -1173,7 +1173,7 @@ Para cambiar estado:
 
 ---
 
-## 🎓 Recursos Adicionales
+##  Recursos Adicionales
 
 - [Stripe Connect Docs](https://stripe.com/docs/connect)
 - [Stripe Webhooks](https://stripe.com/docs/webhooks)
@@ -1185,4 +1185,3 @@ Para cambiar estado:
 **Fecha:** 06 de mayo de 2026  
 **Versión:** 1.0  
 **Estado:** ✅ Implementación Completa
-

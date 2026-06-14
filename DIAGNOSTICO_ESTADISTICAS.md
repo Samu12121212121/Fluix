@@ -1,4 +1,4 @@
-# 🔍 Diagnóstico: Estadísticas no muestran datos
+#  Diagnóstico: Estadísticas no muestran datos
 
 ## Problema
 Las secciones **"Métricas de Negocio"** y **"Rendimiento del Negocio"** aparecen vacías o con valores en 0.
@@ -103,7 +103,7 @@ En la app:
 ### 3. Ver logs en la consola
 Si ejecutas la app desde Android Studio/Xcode, verás logs como:
 ```
-📊 Calculando estadísticas en background para {empresaId}...
+ Calculando estadísticas en background para {empresaId}...
 ✅ Estadísticas calculadas y guardadas en cache
 ```
 
@@ -248,7 +248,6 @@ Si ves el error "The query requires an index", copia el enlace que aparece en la
 
 **Última actualización:** 1 Mayo 2026  
 **Versión:** Flutter 3.x • Firebase 10.x
-
 
 
 

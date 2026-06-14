@@ -1,10 +1,10 @@
-# 🚧 Guía de Implementación — TPV Peluquería UI Detallada
+#  Guía de Implementación — TPV Peluquería UI Detallada
 
 > Instrucciones paso a paso para reemplazar `tpv_peluqueria_screen.dart` con la UI especificada en `TPV_SPECS_UI_DETALLADAS.md`
 
 ---
 
-## 📋 Resumen de cambios
+##  Resumen de cambios
 
 **Estado actual:** NavigationRail con Sillones/Caja/Cierre (vertical)  
 **Estado objetivo:** 3 columnas fijas horizontales (230px | flex | 290px)
@@ -1477,13 +1477,13 @@ class ClienteCard extends StatelessWidget {
           if (colorHab != null || bonoRestantes > 0 || producto != null) ...[
             const SizedBox(height: 6),
             Wrap(spacing: 6, runSpacing: 4, children: [
-              if (colorHab != null) EtiquetaFicha(label: '🎨 $colorHab'),
+              if (colorHab != null) EtiquetaFicha(label: ' $colorHab'),
               if (bonoRestantes > 0)
                 EtiquetaFicha(
-                  label: '🎟 $bonoRestantes sesiones',
+                  label: ' $bonoRestantes sesiones',
                   color: Colors.green.shade100,
                 ),
-              if (producto != null) EtiquetaFicha(label: '💧 $producto'),
+              if (producto != null) EtiquetaFicha(label: ' $producto'),
             ]),
           ],
         ],
@@ -1686,4 +1686,3 @@ El widget `CierreWrapper` se mantiene igual, solo adaptando colores.
 ---
 
 *Guía de implementación v1.0 · PlaneaG · Mayo 2026*
-

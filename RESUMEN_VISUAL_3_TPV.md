@@ -1,45 +1,45 @@
-# 📊 RESUMEN VISUAL: ANÁLISIS DE 3 TPV
+#  RESUMEN VISUAL: ANÁLISIS DE 3 TPV
 
 ---
 
-## 🎯 PUNTUACIÓN GLOBAL
+##  PUNTUACIÓN GLOBAL
 
 ```
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  TPV BAR/RESTAURANTE        ⭐⭐⭐⭐⭐⭐⭐⭐⭐☆  9/10  ┃
-┃  Estado: 🟢 LISTO PARA PRODUCCIÓN              ┃
+┃  Estado:  LISTO PARA PRODUCCIÓN              ┃
 ┃  Tiempo: 1-2 días                               ┃
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
 ┃  TPV TIENDA                 ⭐⭐⭐⭐⭐⭐⭐⭐☆☆  8/10  ┃
-┃  Estado: 🟡 CASI LISTO                         ┃
+┃  Estado:  CASI LISTO                         ┃
 ┃  Tiempo: 3-5 días (falta scanner)              ┃
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
 ┃  TPV PELUQUERÍA             ⭐⭐⭐⭐⭐⭐⭐☆☆☆  7/10  ┃
-┃  Estado: 🔴 REQUIERE TRABAJO                   ┃
+┃  Estado:  REQUIERE TRABAJO                   ┃
 ┃  Tiempo: 5-7 días (servicios stub)             ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ```
 
 ---
 
-## 🚦 SEMÁFORO DE PRODUCCIÓN
+##  SEMÁFORO DE PRODUCCIÓN
 
 | Funcionalidad | TPV Bar | TPV Tienda | TPV Peluquería |
 |:--------------|:-------:|:----------:|:--------------:|
-| **Sistema de ventas** | 🟢 | 🟢 | 🟡 |
-| **Gestión de inventario** | ⚫ N/A | 🟢 | ⚫ N/A |
-| **Impresión de tickets** | 🟢 | 🟢 | 🔴 **STUB** |
-| **Cierre de caja** | 🟢 | 🟢 | 🔴 **STUB** |
-| **Facturación** | 🟢 | 🟡 | 🟡 |
-| **Multi-usuario** | 🟢 | 🟡 | 🟢 |
-| **Modo offline** | 🟡 | 🟡 | 🔴 |
-| **Tests automatizados** | 🔴 | 🔴 | 🔴 |
+| **Sistema de ventas** |  |  |  |
+| **Gestión de inventario** | ⚫ N/A |  | ⚫ N/A |
+| **Impresión de tickets** |  |  |  **STUB** |
+| **Cierre de caja** |  |  |  **STUB** |
+| **Facturación** |  |  |  |
+| **Multi-usuario** |  |  |  |
+| **Modo offline** |  |  |  |
+| **Tests automatizados** |  |  |  |
 
-**Leyenda**: 🟢 Completo | 🟡 Parcial | 🔴 Falta | ⚫ No aplica
+**Leyenda**:  Completo |  Parcial |  Falta | ⚫ No aplica
 
 ---
 
-## 📈 COMPARATIVA DE MADUREZ
+##  COMPARATIVA DE MADUREZ
 
 ```
 FUNCIONALIDAD           BAR  TIENDA  PELUQUERÍA
@@ -75,9 +75,9 @@ TOTAL                   █████████░░░   90%
 
 ---
 
-## 🔍 ANÁLISIS DETALLADO POR TPV
+##  ANÁLISIS DETALLADO POR TPV
 
-### 1️⃣ TPV BAR/RESTAURANTE - **9/10** 🟢
+### 1️⃣ TPV BAR/RESTAURANTE - **9/10** 
 
 #### ✅ Fortalezas
 - ✨ **Sistema de mesas** completo con zonas
@@ -95,7 +95,7 @@ TOTAL                   █████████░░░   90%
 - Sin gestión de alergenos
 - Informes solo del día actual
 
-#### 🎯 Para producción (1-2 días)
+####  Para producción (1-2 días)
 ```
 ✅ Pruebas en tablet física
 ✅ Configurar impresora Bluetooth
@@ -103,12 +103,12 @@ TOTAL                   █████████░░░   90%
 ✅ Activar Firebase Crashlytics
 ✅ Capacitar camareros (2h)
 ✅ Prueba piloto (almuerzo)
-🚀 LANZAR
+ LANZAR
 ```
 
 ---
 
-### 2️⃣ TPV TIENDA - **8/10** 🟡
+### 2️⃣ TPV TIENDA - **8/10** 
 
 #### ✅ Fortalezas
 - ✨ **Carrito de compra** intuitivo
@@ -126,19 +126,19 @@ TOTAL                   █████████░░░   90%
 - No hay gestión de clientes VIP
 - Sin sistema de fidelización
 
-#### 🎯 Para producción (3-5 días)
+####  Para producción (3-5 días)
 ```
-🔴 Implementar scanner de barras (2 días)
-🔴 Sistema de devoluciones completo (2 días)
-🟡 Tests con 100+ productos
-🟡 Validar stock bajo carga
+ Implementar scanner de barras (2 días)
+ Sistema de devoluciones completo (2 días)
+ Tests con 100+ productos
+ Validar stock bajo carga
 ✅ Capacitar dependientes (4h)
-🚀 LANZAR
+ LANZAR
 ```
 
 ---
 
-### 3️⃣ TPV PELUQUERÍA - **7/10** 🔴
+### 3️⃣ TPV PELUQUERÍA - **7/10** 
 
 #### ✅ Fortalezas
 - ✨ **Agenda tipo timeline** profesional
@@ -159,20 +159,20 @@ TOTAL                   █████████░░░   90%
 - Sin historial de cliente en cita
 - Código monolítico (4399 líneas)
 
-#### 🎯 Para producción (5-7 días)
+####  Para producción (5-7 días)
 ```
-🔴 Implementar impresión REAL (3 días) ⚠️ BLOQUEANTE
-🔴 Implementar cierre REAL (2 días) ⚠️ BLOQUEANTE
-🟡 Configurar locale español (0.5 días)
-🟡 Probar con impresora física
-🟡 Validar cierre con datos reales
+ Implementar impresión REAL (3 días) ⚠️ BLOQUEANTE
+ Implementar cierre REAL (2 días) ⚠️ BLOQUEANTE
+ Configurar locale español (0.5 días)
+ Probar con impresora física
+ Validar cierre con datos reales
 ✅ Capacitar equipo (6h)
-🚀 LANZAR
+ LANZAR
 ```
 
 ---
 
-## 🚨 BLOQUEANTES POR TPV
+##  BLOQUEANTES POR TPV
 
 ### TPV Bar - **NINGUNO** ✅
 ```
@@ -196,7 +196,7 @@ TOTAL                   █████████░░░   90%
 
 ---
 
-## 📊 MÉTRICAS DE CÓDIGO
+##  MÉTRICAS DE CÓDIGO
 
 | Métrica | TPV Bar | TPV Tienda | TPV Peluquería |
 |---------|--------:|----------:|---------------:|
@@ -208,7 +208,7 @@ TOTAL                   █████████░░░   90%
 
 ---
 
-## 💰 INVERSIÓN REQUERIDA
+##  INVERSIÓN REQUERIDA
 
 ### Esfuerzo de Desarrollo
 
@@ -231,28 +231,28 @@ INVERSIÓN: 6,800€ - 8,600€
 
 ---
 
-## 🗓️ ROADMAP VISUAL
+## ️ ROADMAP VISUAL
 
 ```
 SEMANA 1-2
 ┌───────────────────────────────┐
-│ 🍽️  TPV BAR                   │
+│ ️  TPV BAR                   │
 │ ✅ Tests + Config + Lanzar    │
-│ Estado: 🟢 PRODUCCIÓN         │
+│ Estado:  PRODUCCIÓN         │
 └───────────────────────────────┘
 
 SEMANA 3-4
 ┌───────────────────────────────┐
-│ 🛒 TPV TIENDA                 │
-│ 🔨 Scanner + Devoluciones     │
-│ Estado: 🟡 → 🟢 PRODUCCIÓN    │
+│  TPV TIENDA                 │
+│  Scanner + Devoluciones     │
+│ Estado:  →  PRODUCCIÓN    │
 └───────────────────────────────┘
 
 SEMANA 5-7
 ┌───────────────────────────────┐
-│ 💇 TPV PELUQUERÍA             │
-│ 🔨 Servicios reales           │
-│ Estado: 🔴 → 🟢 PRODUCCIÓN    │
+│  TPV PELUQUERÍA             │
+│  Servicios reales           │
+│ Estado:  →  PRODUCCIÓN    │
 └───────────────────────────────┘
 ```
 
@@ -260,21 +260,21 @@ SEMANA 5-7
 
 ## ⚡ QUICK WINS (Rápido ROI)
 
-### 🏆 Prioridad 1: Lanzar TPV Bar (HOY)
+###  Prioridad 1: Lanzar TPV Bar (HOY)
 **Justificación**: 
 - ✅ Ya está al 90%
 - ✅ Solo necesita configuración
 - ✅ ROI inmediato (restaurante operativo)
 - ✅ Genera confianza en el producto
 
-### 🥈 Prioridad 2: TPV Tienda (Semana 2-3)
+###  Prioridad 2: TPV Tienda (Semana 2-3)
 **Justificación**:
 - ⚠️ Falta scanner pero es funcional sin él
 - ✅ Stock + Cobro funcionan
 - ✅ Retail tiene mayor volumen de ventas
 - ✅ Puede lanzarse con "entrada manual" temporal
 
-### 🥉 Prioridad 3: TPV Peluquería (Mes 2)
+###  Prioridad 3: TPV Peluquería (Mes 2)
 **Justificación**:
 - ❌ Tiene bloqueantes críticos
 - ⚠️ Requiere más desarrollo
@@ -283,11 +283,11 @@ SEMANA 5-7
 
 ---
 
-## 🎯 RECOMENDACIÓN EJECUTIVA
+##  RECOMENDACIÓN EJECUTIVA
 
 ### ✅ LANZAMIENTO INMEDIATO (1-2 días)
 ```
-🍽️  TPV BAR → PRODUCCIÓN
+️  TPV BAR → PRODUCCIÓN
     - Configurar + Probar + Lanzar
     - Generar primeros ingresos
     - Validar arquitectura
@@ -296,16 +296,16 @@ SEMANA 5-7
 
 ### ⏳ LANZAMIENTO CORTO PLAZO (2-3 semanas)
 ```
-🛒 TPV TIENDA → PRODUCCIÓN
+ TPV TIENDA → PRODUCCIÓN
     - Implementar scanner (2 días)
     - Sistema devoluciones (2 días)
     - Tests exhaustivos (1 día)
     - Lanzamiento controlado
 ```
 
-### 📅 LANZAMIENTO MEDIO PLAZO (1-1.5 meses)
+###  LANZAMIENTO MEDIO PLAZO (1-1.5 meses)
 ```
-💇 TPV PELUQUERÍA → PRODUCCIÓN
+ TPV PELUQUERÍA → PRODUCCIÓN
     - Refactorizar servicios stub (5 días)
     - Testing completo (2 días)
     - Capacitación extendida (1 día)
@@ -314,14 +314,14 @@ SEMANA 5-7
 
 ---
 
-## 📋 CHECKLIST RÁPIDA PRE-PRODUCCIÓN
+##  CHECKLIST RÁPIDA PRE-PRODUCCIÓN
 
 ### TPV Bar ✅
 - [ ] Tests en tablet ✅
 - [ ] Impresora configurada ✅
 - [ ] Backup activo ✅
 - [ ] Manual de usuario ✅
-- [ ] **LISTO → LANZAR** 🚀
+- [ ] **LISTO → LANZAR** 
 
 ### TPV Tienda ⚠️
 - [ ] ❌ Scanner implementado
@@ -330,7 +330,7 @@ SEMANA 5-7
 - [ ] Manual de usuario
 - [ ] **2 semanas → LANZAR**
 
-### TPV Peluquería 🔴
+### TPV Peluquería 
 - [ ] ❌ **Impresión REAL** (BLOQUEANTE)
 - [ ] ❌ **Cierre REAL** (BLOQUEANTE)
 - [ ] Locale español
@@ -340,37 +340,37 @@ SEMANA 5-7
 
 ---
 
-## 🎉 CONCLUSIÓN
+##  CONCLUSIÓN
 
 ### Los 3 TPV son **viables y competitivos**
 
-#### 🏅 Mejor del mercado
+####  Mejor del mercado
 - TPV Bar: Comparable a **Toast POS**
 - TPV Tienda: Nivel de **Square POS**
 - TPV Peluquería: Competidor de **Fresha/Treatwell**
 
-#### 💎 Ventajas competitivas
+####  Ventajas competitivas
 - ✅ Todo en español nativo
 - ✅ Integrado con facturación AEAT
 - ✅ Sin comisiones abusivas
 - ✅ Datos en España (RGPD compliant)
 - ✅ Soporte en español 24/7
 
-#### 🚀 Estrategia de lanzamiento
+####  Estrategia de lanzamiento
 ```
 DÍA 1-2    : TPV Bar en producción
 DÍA 3-5    : Desarrollar scanner tienda
 DÍA 6-10   : TPV Tienda en producción
 DÍA 11-17  : Refactorizar peluquería
 DÍA 18-19  : TPV Peluquería en producción
-DÍA 20     : 🎉 3 TPV operativos
+DÍA 20     :  3 TPV operativos
 ```
 
 ---
 
-## 📞 SIGUIENTE PASO
+##  SIGUIENTE PASO
 
-### 🎯 ACCIÓN INMEDIATA RECOMENDADA
+###  ACCIÓN INMEDIATA RECOMENDADA
 
 **HOY (13 Mayo 2026)**:
 1. ✅ Aprobar lanzamiento de TPV Bar
@@ -378,22 +378,21 @@ DÍA 20     : 🎉 3 TPV operativos
 3. ✅ Planificar refactor de peluquería
 
 **MAÑANA (14 Mayo 2026)**:
-1. 🔧 Configurar impresora en restaurant
-2. 🔧 Prueba piloto TPV Bar (almuerzo)
-3. 📱 Recoger feedback inmediato
+1.  Configurar impresora en restaurant
+2.  Prueba piloto TPV Bar (almuerzo)
+3.  Recoger feedback inmediato
 
 **SEMANA 1**:
-- 🚀 TPV Bar en producción
-- 💻 Scanner de tienda en desarrollo
-- 📊 Métricas de uso en tiempo real
+-  TPV Bar en producción
+-  Scanner de tienda en desarrollo
+-  Métricas de uso en tiempo real
 
 ---
 
-📄 **Documento completo**: `ANALISIS_3_TPV_COMPLETO.md`  
-📧 **Contacto**: dev@planeag.com  
-📅 **Fecha**: 13 Mayo 2026  
+ **Documento completo**: `ANALISIS_3_TPV_COMPLETO.md`  
+ **Contacto**: dev@planeag.com  
+ **Fecha**: 13 Mayo 2026  
 
 ---
 
 **⚡ ¡TODO LISTO PARA CONQUISTAR EL MERCADO TPV ESPAÑOL! ⚡**
-

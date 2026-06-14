@@ -1,4 +1,4 @@
-# 🪟 GUÍA DE COMPILACIÓN WINDOWS
+#  GUÍA DE COMPILACIÓN WINDOWS
 
 **Fecha:** 7 de mayo de 2026  
 **Versión:** 1.0.15  
@@ -6,7 +6,7 @@
 
 ---
 
-## 📋 REQUISITOS
+##  REQUISITOS
 
 ### Software necesario
 - ✅ Flutter SDK 3.11.1 o superior
@@ -22,7 +22,7 @@ cmake --version
 
 ---
 
-## 🚀 COMPILACIÓN RÁPIDA
+##  COMPILACIÓN RÁPIDA
 
 ### Opción 1: Script automático (RECOMENDADO)
 ```powershell
@@ -96,7 +96,7 @@ Visual Studio not found
 
 ---
 
-## 📁 UBICACIÓN DEL EJECUTABLE
+##  UBICACIÓN DEL EJECUTABLE
 
 Después de compilar exitosamente:
 
@@ -117,7 +117,7 @@ cd build\windows\x64\runner\Release
 
 ---
 
-## 🔧 SCRIPTS DISPONIBLES
+##  SCRIPTS DISPONIBLES
 
 ### `continuar_build_windows.bat`
 - **Uso:** Continuar una compilación interrumpida
@@ -137,7 +137,7 @@ cd build\windows\x64\runner\Release
 
 ---
 
-## 🐛 DEBUGGING
+##  DEBUGGING
 
 ### Ver logs en tiempo real
 ```powershell
@@ -159,7 +159,7 @@ flutter config --list
 
 ---
 
-## 📊 TIEMPOS DE COMPILACIÓN
+##  TIEMPOS DE COMPILACIÓN
 
 | Tipo | Tiempo estimado |
 |------|----------------|
@@ -169,7 +169,7 @@ flutter config --list
 
 ---
 
-## 🎯 CHECKLIST DE COMPILACIÓN EXITOSA
+##  CHECKLIST DE COMPILACIÓN EXITOSA
 
 - [ ] `flutter doctor -v` no muestra errores críticos
 - [ ] CMake versión 3.10 o superior instalado
@@ -179,7 +179,7 @@ flutter config --list
 
 ---
 
-## 📝 NOTAS
+##  NOTAS
 
 ### Firebase en Windows
 - La primera compilación descarga el Firebase C++ SDK (~200 MB)
@@ -196,7 +196,7 @@ flutter config --list
 
 ---
 
-## 🆘 AYUDA
+##  AYUDA
 
 Si ninguna solución funciona:
 
@@ -215,4 +215,3 @@ Si el problema persiste, revisa:
 
 **Última actualización:** 7 de mayo de 2026  
 **Autor:** Claude Code
-

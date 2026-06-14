@@ -17,4 +17,3 @@ dart run lib\scripts\seed_negocios_prueba.dart
 echo.
 echo Presiona ENTER para cerrar...
 pause >nul
-

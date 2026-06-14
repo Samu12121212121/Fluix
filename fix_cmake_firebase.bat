@@ -70,4 +70,3 @@ echo El ejecutable esta en:
 echo build\windows\x64\runner\Release\planeag_flutter.exe
 echo.
 pause
-

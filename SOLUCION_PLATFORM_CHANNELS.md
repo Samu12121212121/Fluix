@@ -1,4 +1,4 @@
-# 🔧 SOLUCIÓN DEFINITIVA — Eliminar Errores Platform Channels
+#  SOLUCIÓN DEFINITIVA — Eliminar Errores Platform Channels
 
 **Problema**: Los errores `platform channel sent message from non-platform thread` causan:
 - ❌ Crashes aleatorios
@@ -12,7 +12,7 @@
 
 ---
 
-## 📊 COMPARATIVA
+##  COMPARATIVA
 
 ### ❌ ANTES (Lo que causa los errores):
 
@@ -67,7 +67,7 @@ StreamBuilder<QuerySnapshot>(
 
 ---
 
-## 🎯 CÓMO FUNCIONA
+##  CÓMO FUNCIONA
 
 ### En Android/iOS (Mobile):
 ```
@@ -99,7 +99,7 @@ User Action → UI Update
 
 ---
 
-## 📝 GUÍA DE MIGRACIÓN
+##  GUÍA DE MIGRACIÓN
 
 ### Paso 1: Añadir imports
 
@@ -157,7 +157,7 @@ priority: PollingPriority.low,  // 2min
 
 ---
 
-## 🔄 EJEMPLO COMPLETO: Módulo Reservas
+##  EJEMPLO COMPLETO: Módulo Reservas
 
 ### ANTES:
 ```dart
@@ -224,7 +224,7 @@ class _TabReservasBodyState extends State<_TabReservasBody>
 
 ---
 
-## 📊 IMPACTO ESPERADO
+##  IMPACTO ESPERADO
 
 ### Antes de migrar:
 ```
@@ -238,12 +238,12 @@ Logs Windows (cada 2-3 segundos):
 ### Después de migrar:
 ```
 Logs Windows (sin errores):
-💻 Firestore: Usando polling 10s (Windows)
+ Firestore: Usando polling 10s (Windows)
 ```
 
 ---
 
-## 🎯 PLAN DE MIGRACIÓN
+##  PLAN DE MIGRACIÓN
 
 ### Prioridad 1 (Esta noche - 1h):
 1. ✅ **Reservas** - Ya migramos SafeStreamMixin, ahora añadir helper
@@ -258,7 +258,7 @@ Logs Windows (sin errores):
 
 ---
 
-## 🧪 TESTING
+##  TESTING
 
 ### Test 1: Verificar que funciona
 ```bash
@@ -295,7 +295,7 @@ flutter run -d windows --verbose
 
 ---
 
-## 💡 VENTAJAS ADICIONALES
+##  VENTAJAS ADICIONALES
 
 1. **Consume menos batería** en mobile (si queremos)
    - Podemos ajustar polling también en mobile si app en background
@@ -341,7 +341,7 @@ R: Al contrario, **mejora** performance en Windows:
 
 ---
 
-## 🚀 COMENZAR MIGRACIÓN
+##  COMENZAR MIGRACIÓN
 
 **Migrar AHORA Reservas (30 min)**:
 
@@ -353,9 +353,8 @@ R: Al contrario, **mejora** performance en Windows:
 6. `flutter run -d windows`
 7. Verificar logs: NO más errores de platform channels
 
-**¿Listo para empezar?** Te guío paso a paso. 🎯
+**¿Listo para empezar?** Te guío paso a paso. 
 
 ---
 
 **FIN DE LA GUÍA**
-

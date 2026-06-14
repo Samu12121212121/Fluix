@@ -1,12 +1,12 @@
-# 🔐 Configuración de Reglas de Firestore para Sistema B2C
+#  Configuración de Reglas de Firestore para Sistema B2C
 
-## 📋 INSTRUCCIONES
+##  INSTRUCCIONES
 
 Las reglas de Firestore deben actualizarse para permitir el nuevo sistema B2C. Este documento explica qué hacer.
 
 ---
 
-## 🚀 OPCIÓN 1: Aplicar Reglas Automáticamente
+##  OPCIÓN 1: Aplicar Reglas Automáticamente
 
 ### Paso 1: Verifica que tienes Firebase CLI instalado
 ```bash
@@ -30,7 +30,7 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 🖱️ OPCIÓN 2: Aplicar Reglas Manualmente (Consola Web)
+## ️ OPCIÓN 2: Aplicar Reglas Manualmente (Consola Web)
 
 ### Paso 1: Abre la consola de Firebase
 1. Ve a https://console.firebase.google.com
@@ -49,7 +49,7 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 🔍 QUÉ HACEN LAS NUEVAS REGLAS
+##  QUÉ HACEN LAS NUEVAS REGLAS
 
 ### 1. **Negocios Públicos** (`negocios_publicos`)
 - ✅ **Lectura pública**: Cualquiera puede ver negocios activos
@@ -82,7 +82,7 @@ Las reglas actuales garantizan:
 
 ---
 
-## 🧪 PROBAR LAS REGLAS
+##  PROBAR LAS REGLAS
 
 ### Desde Firebase Console:
 
@@ -119,7 +119,7 @@ Resultado esperado: ❌ Denegar
 
 ---
 
-## 🔄 MIGRACIÓN DESDE REGLAS EXISTENTES
+##  MIGRACIÓN DESDE REGLAS EXISTENTES
 
 Si ya tienes reglas personalizadas:
 
@@ -158,7 +158,7 @@ match /empresas/{empresaId}/reservas/{reservaId} {
 
 ---
 
-## 📞 SOPORTE
+##  SOPORTE
 
 Si las reglas fallan:
 1. Verifica que el campo `role` existe en `usuarios/{uid}`
@@ -169,4 +169,3 @@ Si las reglas fallan:
 
 **Actualizado:** Mayo 2026
 **Versión:** 1.0 - Sistema B2C
-

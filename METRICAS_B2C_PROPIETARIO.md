@@ -3,13 +3,13 @@
 **Fecha de implementación:** 2026-05-20  
 **Ubicación:** `lib/features/dashboard/widgets/modulo_propietario.dart`
 
-## 📋 Resumen
+##  Resumen
 
 Se han implementado **7 grupos de métricas B2C** en el módulo de propietario para monitorizar el crecimiento y salud de la plataforma desde la perspectiva de clientes finales.
 
 ---
 
-## 📊 Métricas Implementadas
+##  Métricas Implementadas
 
 ### 1. Usuarios Registrados en App Explorar
 **Por qué es importante:** Es la métrica de crecimiento de la red B2C. Sin ella no sabes si la app de clientes está creciendo o muriendo.
@@ -42,13 +42,13 @@ db.collection('usuarios').where('rol', isEqualTo: 'clienteFinal')
 - ✅ **DAU (Daily Active Users)**: Usuarios con `ultimo_acceso` < 24h
 - ✅ **MAU (Monthly Active Users)**: Usuarios con `ultimo_acceso` < 30 días
 - ✅ **Ratio DAU/MAU**: Porcentaje que indica engagement
-  - 🟢 Verde si > 20% (engagement excelente)
-  - 🟡 Amarillo si ≤ 20% (engagement bajo)
+  -  Verde si > 20% (engagement excelente)
+  -  Amarillo si ≤ 20% (engagement bajo)
 
 **Campos requeridos:**
 - `ultimo_acceso: Timestamp` — **NOTA:** Este campo debe actualizarse cada vez que el usuario abre la app
 
-**🔧 Implementación requerida:**
+** Implementación requerida:**
 El campo `ultimo_acceso` debe actualizarse en:
 - Inicio de sesión
 - Cada vez que la app vuelve del background
@@ -120,7 +120,7 @@ db.collectionGroup('valoraciones')
 **Métricas mostradas:**
 - ✅ **Total valoraciones**: Todas las valoraciones de la plataforma
 - ✅ **Media de estrellas**: Promedio de todas las valoraciones
-  - 🟢 Amarillo/dorado si ≥ 4.0
+  -  Amarillo/dorado si ≥ 4.0
   - ⚪ Gris si < 4.0
 - ✅ **Nuevas esta semana**: Valoraciones de los últimos 7 días
 
@@ -148,8 +148,8 @@ db.collectionGroup('flash_slots')
 - ✅ **Creados este mes**: Flash slots creados desde inicio del mes
 - ✅ **Reservados**: Flash slots con estado reservado/ocupado
 - ✅ **Tasa de ocupación**: (Reservados / Creados) × 100
-  - 🟢 Verde si > 50%
-  - 🟡 Amarillo si ≤ 50%
+  -  Verde si > 50%
+  -  Amarillo si ≤ 50%
 
 **Campos esperados:**
 - `fecha_creacion: Timestamp`
@@ -176,7 +176,7 @@ db.collection('negocios_publicos')
 
 ---
 
-## 🎨 Diseño UI
+##  Diseño UI
 
 Cada métrica está organizada en **tarjetas colapsables** con:
 - **Título descriptivo** con emoji
@@ -185,16 +185,16 @@ Cada métrica está organizada en **tarjetas colapsables** con:
 - **Tooltips explicativos** cuando el valor es crítico
 
 ### Colores utilizados:
-- 🔵 Azul: Métricas informativas (usuarios totales, DAU, MAU)
-- 🟢 Verde: Métricas positivas (nuevos usuarios, reservas, valoraciones altas)
-- 🟡 Amarillo: Warnings (engagement bajo, ocupación baja)
-- 🔴 Rojo: No usado (se reserva para errores críticos)
-- 🟣 Morado: Métricas especiales (reservas semana/mes)
-- 🟠 Naranja: Valoraciones y flash slots
+-  Azul: Métricas informativas (usuarios totales, DAU, MAU)
+-  Verde: Métricas positivas (nuevos usuarios, reservas, valoraciones altas)
+-  Amarillo: Warnings (engagement bajo, ocupación baja)
+-  Rojo: No usado (se reserva para errores críticos)
+-  Morado: Métricas especiales (reservas semana/mes)
+-  Naranja: Valoraciones y flash slots
 
 ---
 
-## 🔧 Mantenimiento
+##  Mantenimiento
 
 ### Actualización del campo `ultimo_acceso`
 Para que DAU/MAU funcione correctamente, necesitas actualizar el campo `ultimo_acceso` en el documento del usuario:
@@ -220,7 +220,7 @@ Future<void> registrarAccesoUsuario(String userId) async {
 
 ---
 
-## 📈 KPIs a Monitorizar
+##  KPIs a Monitorizar
 
 | Métrica | Objetivo | Acción si no se cumple |
 |---------|----------|------------------------|
@@ -234,7 +234,7 @@ Future<void> registrarAccesoUsuario(String userId) async {
 
 ---
 
-## 🚀 Próximos Pasos
+##  Próximos Pasos
 
 ### Mejoras futuras:
 1. **Gráficas históricas**: Mostrar tendencias de los últimos 3-6 meses
@@ -276,7 +276,7 @@ Si obtienes errores al cargar las métricas, crea estos índices en Firebase Con
 
 ---
 
-## 📝 Notas Técnicas
+##  Notas Técnicas
 
 **Rendimiento:**
 - Las queries usan `collectionGroup` que puede ser lento con millones de documentos
@@ -293,7 +293,7 @@ El usuario debe tener `es_plataforma_admin: true` en su documento de `usuarios` 
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Error: "Missing or insufficient permissions"
 **Causa:** El usuario no tiene `es_plataforma_admin: true`  
@@ -316,4 +316,3 @@ El usuario debe tener `es_plataforma_admin: true` en su documento de `usuarios` 
 **Implementado por:** GitHub Copilot  
 **Versión:** 1.0.0  
 **Última actualización:** 2026-05-20
-

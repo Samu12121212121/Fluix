@@ -1,4 +1,4 @@
-# 🔍 AUDITORÍA TÉCNICA COMPLETA — Facturación, TPV, Caja, Stock y VeriFactu
+#  AUDITORÍA TÉCNICA COMPLETA — Facturación, TPV, Caja, Stock y VeriFactu
 
 > **Fecha**: 7 Mayo 2026  
 > **Auditor**: Claude Code (Análisis basado en código fuente real)  
@@ -7,7 +7,7 @@
 
 ---
 
-## 📋 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 **Estado general del flujo**: ⚠️ **PARCIAL** (65% completado)
 
@@ -17,12 +17,12 @@ El sistema tiene implementada gran parte de la infraestructura de facturación y
 - ✅ TPV funcional PERO no genera factura automáticamente al cobrar
 - ⚠️ VeriFactu existe pero no se llama desde el flujo TPV
 - ❌ Stock NO se decrementa automáticamente
-- 🐛 Bug hardcoded: pago mixto usa 50/50 en lugar de importes reales
-- 🐛 Bug hardcoded: IVA 10% forzado en TpvFacturacionService (línea 192)
+-  Bug hardcoded: pago mixto usa 50/50 en lugar de importes reales
+-  Bug hardcoded: IVA 10% forzado en TpvFacturacionService (línea 192)
 
 ---
 
-## 🔗 ESLABONES AUDITADOS
+##  ESLABONES AUDITADOS
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -102,7 +102,7 @@ final lineasPedido = comandaActiva!.lineas.map((l) => LineaPedido(
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ESLABÓN 2 — TPV → Factura Automática
-Estado: 🔗 EXISTE PERO NO CONECTADO (40%)
+Estado:  EXISTE PERO NO CONECTADO (40%)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Archivos relevantes:
@@ -516,12 +516,12 @@ empresaDireccion: empresaData['direccion'] ?? '', // ← Real
 
 ---
 
-## 📊 TABLA RESUMEN
+##  TABLA RESUMEN
 
 | Eslabón | Estado | Completitud | Esfuerzo | Prioridad |
 |---------|--------|-------------|----------|-----------|
 | 1. TPV registro de venta | ✅ | 95% | 0.5 días | Baja |
-| 2. TPV → Factura automática | 🔗 | 40% | **2 días** | **ALTA** |
+| 2. TPV → Factura automática |  | 40% | **2 días** | **ALTA** |
 | 3. Factura → VeriFactu | ⚠️ | 70% | 1 día | Media |
 | 4. Stock decremento automático | ❌ | 0% | **2 días** | **ALTA** |
 | 5. Caja diaria | ⚠️ | 75% | **1 día** | **ALTA** |
@@ -534,7 +534,7 @@ empresaDireccion: empresaData['direccion'] ?? '', // ← Real
 
 ---
 
-## 🎯 RESPUESTAS DIRECTAS
+##  RESPUESTAS DIRECTAS
 
 ### **P1. ¿Puede esta app generar facturas fiscalmente válidas en España hoy mismo?**
 
@@ -574,11 +574,11 @@ el mismo impacto fiscal/legal que la facturación.
 
 ---
 
-## 🐛 BUGS CRÍTICOS IDENTIFICADOS
+##  BUGS CRÍTICOS IDENTIFICADOS
 
 ### **BUG #1: Pago mixto hardcoded 50/50**
 **Archivo:** `lib/services/tpv/cierre_caja_service.dart:55-59`  
-**Severidad:** 🔴 ALTA  
+**Severidad:**  ALTA  
 **Impacto:** Cálculo de caja incorrecto, diferencias en arqueo  
 **Fix:**
 ```dart
@@ -592,7 +592,7 @@ case 'mixto':
 
 ### **BUG #2: IVA hardcoded al 10%**
 **Archivo:** `lib/services/tpv_facturacion_service.dart:192`  
-**Severidad:** 🔴 ALTA  
+**Severidad:**  ALTA  
 **Impacto:** Facturación incorrecta de productos con IVA del 21%  
 **Fix:**
 ```dart
@@ -607,7 +607,7 @@ List<LineaFactura> _pedidoALineas(Pedido pedido) =>
 
 ### **BUG #3: Manejo de errores VeriFactu silencioso**
 **Archivo:** `lib/services/facturacion_service.dart:218`  
-**Severidad:** 🟡 MEDIA  
+**Severidad:**  MEDIA  
 **Impacto:** Errores de VeriFactu no se notifican al usuario  
 **Fix:**
 ```dart
@@ -625,7 +625,7 @@ List<LineaFactura> _pedidoALineas(Pedido pedido) =>
 
 ---
 
-## 🔧 PLAN DE IMPLEMENTACIÓN RECOMENDADO
+##  PLAN DE IMPLEMENTACIÓN RECOMENDADO
 
 ### **FASE 1: BUGS CRÍTICOS (1 día)**
 1. ✅ Bug #1: Fix pago mixto 50/50 → usar campos reales
@@ -654,7 +654,7 @@ List<LineaFactura> _pedidoALineas(Pedido pedido) =>
 
 ---
 
-## 📈 COMPARATIVA: ESTADO ACTUAL vs. HIOPOS/WheelUp
+##  COMPARATIVA: ESTADO ACTUAL vs. HIOPOS/WheelUp
 
 | Funcionalidad | HIOPOS | FluixCRM Ahora | FluixCRM +6 días |
 |---------------|--------|----------------|------------------|
@@ -673,4 +673,3 @@ FluixCRM supera a HIOPOS en cumplimiento fiscal moderno.
 
 *Auditoría completada — 7 Mayo 2026  
 Basada en análisis exhaustivo del código fuente real del proyecto*
-

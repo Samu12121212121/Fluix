@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/negocio_publico_model.dart';
+import '../../../services/trofeos_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Servicio compartido para guardar reserva + disparar notificación al negocio
@@ -21,18 +22,22 @@ class ReservaService {
     }
 
     // 1. Guardar reserva en la colección de la empresa
+    // cliente_uid = campo que usan Cloud Functions de trofeos
+    // usuario_uid = campo legacy (backward compat)
     final docRef = await FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
         .collection('reservas')
         .add({
       ...datos,
-      'usuario_uid': uid,
+      'cliente_uid': uid,   // para Cloud Functions de trofeos
+      'usuario_uid': uid,   // compatibilidad legacy
       'estado': 'pendiente',
       'origen': 'app_cliente',
       'negocio_id': negocio.id,
       'negocio_nombre': negocio.nombre,
       'creado_en': FieldValue.serverTimestamp(),
+      'fecha_creacion': FieldValue.serverTimestamp(),
     });
 
     // 2. Disparar notificación → Cloud Function onNuevaReservaEmail
@@ -51,6 +56,13 @@ class ReservaService {
       });
     } catch (_) {
       // La notificación es opcional — no bloquear si falla
+    }
+
+    // 3. Evaluar y mostrar trofeos de reserva (client-side, sin esperar Cloud Functions)
+    try {
+      await TrofeosService.evaluarTrofeosReservaCliente(uid, ctx);
+    } catch (_) {
+      // No bloquear el flujo de reserva si falla la gamificación
     }
   }
 }

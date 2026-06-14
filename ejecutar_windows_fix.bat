@@ -39,7 +39,7 @@ if exist "%firebaseCMake%" (
 
     REM Usar PowerShell para hacer el reemplazo - usar 3.10 por compatibilidad
     powershell -Command "(Get-Content '%firebaseCMake%') -replace 'cmake_minimum_required\(VERSION [0-9.]+\)', 'cmake_minimum_required(VERSION 3.10)' | Set-Content '%firebaseCMake%'"
-
+    
     echo OK - Parche aplicado correctamente
     echo      VERSION cambiada a 3.10
 ) else (
@@ -66,6 +66,5 @@ echo ========================================
 echo   Ejecucion completada
 echo ========================================
 pause
-
 
 

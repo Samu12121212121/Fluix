@@ -5,7 +5,7 @@
 
 ---
 
-## 🎯 PROBLEMA IDENTIFICADO Y SOLUCIONADO
+##  PROBLEMA IDENTIFICADO Y SOLUCIONADO
 
 ### Error Original
 ```
@@ -33,7 +33,7 @@ Lost connection to device.
 
 ---
 
-## 📁 ARCHIVOS MODIFICADOS/CREADOS
+##  ARCHIVOS MODIFICADOS/CREADOS
 
 ### Archivos Modificados
 
@@ -72,7 +72,7 @@ Lost connection to device.
 
 ---
 
-## 🚀 TESTING INMEDIATO
+##  TESTING INMEDIATO
 
 ### Test Rápido (2 minutos)
 
@@ -103,12 +103,12 @@ flutter run -d windows --verbose
 # 5. Repetir 2-3 veces
 
 # ✅ ÉXITO: Sin errores, sin "Lost connection to device"
-# ✅ ÉXITO: Logs muestran "🔄 [FIRESTORE THREAD FIX] Stream iniciado"
+# ✅ ÉXITO: Logs muestran " [FIRESTORE THREAD FIX] Stream iniciado"
 ```
 
 ---
 
-## 📊 RESULTADO ESPERADO
+##  RESULTADO ESPERADO
 
 ### ✅ Consola ANTES del fix
 ```
@@ -120,10 +120,10 @@ Lost connection to device.
 
 ### ✅ Consola DESPUÉS del fix
 ```
-🔄 [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
-📦 [COBRO] Paso 1/6: Construyendo líneas de pedido...
+ [FIRESTORE THREAD FIX] Stream iniciado con protección de threading
+ [COBRO] Paso 1/6: Construyendo líneas de pedido...
 ✅ [COBRO] Estado de pago cambiado a Pagado
-📄 [COBRO] Paso 5/6: Generando documento PDF...
+ [COBRO] Paso 5/6: Generando documento PDF...
 ✅ [COBRO] ═══════ COBRO COMPLETADO EXITOSAMENTE ═══════
 ```
 
@@ -133,7 +133,7 @@ Lost connection to device.
 
 ---
 
-## 📋 PRÓXIMOS PASOS (OPCIONAL pero recomendado)
+##  PRÓXIMOS PASOS (OPCIONAL pero recomendado)
 
 ### Migrar otros archivos con StreamBuilder
 
@@ -166,7 +166,7 @@ SafeStreamBuilder<TipoData>(
 
 ---
 
-## 🛠️ COMANDOS ÚTILES
+## ️ COMANDOS ÚTILES
 
 ```powershell
 # Ver si hay errores de threading
@@ -187,7 +187,7 @@ flutter analyze
 
 ---
 
-## 🎯 CHECKLIST FINAL
+##  CHECKLIST FINAL
 
 Antes de considerar el problema resuelto, verifica:
 
@@ -196,12 +196,12 @@ Antes de considerar el problema resuelto, verifica:
 - [ ] ✅ El cobro en TPV funciona completamente
 - [ ] ✅ Se pueden añadir múltiples productos sin crash
 - [ ] ✅ Se puede navegar entre categorías sin crash
-- [ ] ✅ Los logs muestran "🔄 [FIRESTORE THREAD FIX] Stream iniciado"
+- [ ] ✅ Los logs muestran " [FIRESTORE THREAD FIX] Stream iniciado"
 - [ ] ✅ Los logs muestran "✅ [COBRO] COBRO COMPLETADO EXITOSAMENTE"
 
 ---
 
-## 📝 DOCUMENTACIÓN DE REFERENCIA
+##  DOCUMENTACIÓN DE REFERENCIA
 
 | Documento | Contenido |
 |-----------|-----------|
@@ -212,7 +212,7 @@ Antes de considerar el problema resuelto, verifica:
 
 ---
 
-## 🆘 SI ALGO NO FUNCIONA
+##  SI ALGO NO FUNCIONA
 
 ### Escenario 1: Siguen apareciendo errores de threading
 
@@ -275,13 +275,13 @@ ls lib/core/utils/firestore_stream_helpers.dart
 
 ### Impacto
 
-- 🔴 **Crítico resuelto:** Crash silencioso Windows
-- 🟡 **Mejorado:** Manejo de errores async
-- 🟢 **Añadido:** Sistema de protección en 5 capas
+-  **Crítico resuelto:** Crash silencioso Windows
+-  **Mejorado:** Manejo de errores async
+-  **Añadido:** Sistema de protección en 5 capas
 
 ---
 
-## 🎉 SIGUIENTE PASO
+##  SIGUIENTE PASO
 
 **EJECUTAR EL TEST Y CONFIRMAR QUE FUNCIONA:**
 
@@ -298,7 +298,6 @@ flutter clean ; flutter pub get ; flutter run -d windows --verbose
 
 ---
 
-**Todos los fixes están aplicados, compilados sin errores y listos para testing. La app ya NO debe crashear en Windows. 🚀**
+**Todos los fixes están aplicados, compilados sin errores y listos para testing. La app ya NO debe crashear en Windows. **
 
 **Ejecuta el test y comparte los resultados.**
-

@@ -1,4 +1,4 @@
-# 🏛️ PLAN TÉCNICO: Cumplimiento RRSIF (Verifactu) - Fluix CRM
+# ️ PLAN TÉCNICO: Cumplimiento RRSIF (Verifactu) - Fluix CRM
 
 **Empresa Fabricante:** FLUIX TECH, S.L. (CIF: B26997528)  
 **Producto:** Fluix CRM (SaaS Multitenant)  
@@ -7,7 +7,7 @@
 
 ---
 
-## 📊 ÍNDICE
+##  ÍNDICE
 
 1. [Registro de Facturación Inmutable](#1-registro-de-facturación-inmutable)
 2. [Hash SHA-256 Encadenado](#2-hash-sha-256-encadenado)
@@ -22,7 +22,7 @@
 
 # 1. REGISTRO DE FACTURACIÓN INMUTABLE
 
-## 🗄️ Estructura de Firestore
+## ️ Estructura de Firestore
 
 ### Colección: `empresas/{empresaId}/facturas_verifactu/{facturaId}`
 
@@ -114,7 +114,7 @@
 
 ---
 
-## 🔒 Reglas de Seguridad Firestore
+##  Reglas de Seguridad Firestore
 
 ```javascript
 // firestore.rules
@@ -193,7 +193,7 @@ service cloud.firestore {
 
 ---
 
-## 🔄 Gestión de Anulaciones (sin borrar)
+##  Gestión de Anulaciones (sin borrar)
 
 Las facturas **NUNCA se borran**. Para anular:
 
@@ -317,7 +317,7 @@ async function calcularHashFactura(factura: any): Promise<string> {
 
 # 2. HASH SHA-256 ENCADENADO
 
-## 🔗 Algoritmo de Hash Encadenado
+##  Algoritmo de Hash Encadenado
 
 ### Cloud Function: Cálculo Automático al Crear Factura
 
@@ -514,7 +514,7 @@ export const verificarIntegridadCadena = functions
 
 ---
 
-## 🎬 Inicialización de la Cadena (Primera Factura)
+##  Inicialización de la Cadena (Primera Factura)
 
 ```dart
 // lib/services/verifactu/verifactu_service.dart
@@ -558,7 +558,7 @@ class VerifactuService {
 
 # 3. REGISTRO DE EVENTOS
 
-## 📝 Estructura de Eventos
+##  Estructura de Eventos
 
 ### Colección: `empresas/{empresaId}/eventos_verifactu/{eventoId}`
 
@@ -608,7 +608,7 @@ class VerifactuService {
 
 ---
 
-## 📊 Tipos de Eventos Obligatorios
+##  Tipos de Eventos Obligatorios
 
 | Código | Evento | Cuándo Registrar |
 |--------|--------|------------------|
@@ -622,7 +622,7 @@ class VerifactuService {
 
 ---
 
-## 🔧 Cloud Function para Registrar Eventos
+##  Cloud Function para Registrar Eventos
 
 ```typescript
 // functions/src/verifactu/registrarEvento.ts
@@ -666,7 +666,7 @@ export async function registrarEventoVerifactu(
 
 # 4. CÓDIGO QR EN FACTURA
 
-## 📱 Campos Obligatorios según Orden HAC/1177/2024
+##  Campos Obligatorios según Orden HAC/1177/2024
 
 El código QR debe contener una URL con estos parámetros:
 
@@ -691,7 +691,7 @@ https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?
 
 ---
 
-## 🎨 Generación del QR en Flutter
+##  Generación del QR en Flutter
 
 ### Dependencia a añadir en `pubspec.yaml`:
 
@@ -829,7 +829,7 @@ class QrVerifactuService {
 
 ---
 
-## 📄 Integración en PDF con package `pdf`
+##  Integración en PDF con package `pdf`
 
 ```dart
 // lib/services/tpv/tpv_document_renderer.dart (actualización)
@@ -935,7 +935,7 @@ class TpvDocumentRenderer {
 
 ---
 
-## 📝 Texto Legal Obligatorio
+##  Texto Legal Obligatorio
 
 Debe aparecer en **TODAS las facturas**:
 
@@ -958,25 +958,25 @@ Para verificar la autenticidad de esta factura, escanee el código QR.
 
 # 5. REMISIÓN A LA AEAT
 
-## 🔄 Modalidades de Envío
+##  Modalidades de Envío
 
 ### Opción 1: **CON ENVÍO INMEDIATO** (VERI*FACTU)
 
 - ✅ **Obligatorio para:** Facturas > 100.000€
 - ⚙️ **Requisito:** Envío en **tiempo real** (máximo 4 días naturales)
-- 🔐 **Comunicación:** API web service de la AEAT
+-  **Comunicación:** API web service de la AEAT
 - ✅ **Ventaja:** Mayor seguridad, permite deducción IVA inmediata
 
 ### Opción 2: **SIN ENVÍO INMEDIATO** (TicketBAI + Conservación)
 
 - ✅ **Válido para:** Facturas < 100.000€
 - ⚙️ **Requisito:** Conservación del registro durante 4 años
-- 📤 **Envío:** Solo bajo requerimiento de inspección
+-  **Envío:** Solo bajo requerimiento de inspección
 - ⚠️ **Limitación:** No permite deducción IVA hasta SII
 
 ---
 
-## 📡 API de la AEAT - Estructura XML/JSON
+##  API de la AEAT - Estructura XML/JSON
 
 ### Endpoint de Envío (Producción):
 
@@ -1298,7 +1298,7 @@ function parsearRespuestaAeat(xmlResponse: string): any {
 
 ---
 
-## 🔄 Manejo de Errores y Reintentos
+##  Manejo de Errores y Reintentos
 
 ```typescript
 // functions/src/verifactu/reintentarEnvios.ts
@@ -1348,7 +1348,7 @@ export const reintentarEnviosAeat = functions
 
 # 6. EXPORTACIÓN ESTANDARIZADA
 
-## 📤 Formato Requerido para Exportar
+##  Formato Requerido para Exportar
 
 La AEAT puede requerir exportación de registros en formato:
 - **XML estructurado** (preferido)
@@ -1519,7 +1519,7 @@ function generarCsvExportacion(facturas: any[]): string {
 
 ---
 
-## 📱 Integración en Flutter
+##  Integración en Flutter
 
 ```dart
 // lib/services/verifactu/exportacion_service.dart
@@ -1553,7 +1553,7 @@ class ExportacionVerifactuService {
 
 # 7. DECLARACIÓN RESPONSABLE DEL FABRICANTE
 
-## 📜 Contenido Obligatorio
+##  Contenido Obligatorio
 
 Como **FLUIX TECH, S.L. (CIF: B26997528)**, fabricante/comercializador de Fluix CRM, debe declarar:
 
@@ -1582,7 +1582,7 @@ Como **FLUIX TECH, S.L. (CIF: B26997528)**, fabricante/comercializador de Fluix 
 
 ---
 
-## 📄 Documento de Declaración (Firebase/Firestore)
+##  Documento de Declaración (Firebase/Firestore)
 
 ```typescript
 // Colección: /sistema/verifactu
@@ -1700,7 +1700,7 @@ Como **FLUIX TECH, S.L. (CIF: B26997528)**, fabricante/comercializador de Fluix 
 
 ---
 
-## 📱 Pantalla Flutter: Mostrar Declaración al Usuario
+##  Pantalla Flutter: Mostrar Declaración al Usuario
 
 ```dart
 // lib/features/verifactu/pantallas/declaracion_fabricante_screen.dart
@@ -1912,7 +1912,7 @@ class DeclaracionFabricanteScreen extends StatelessWidget {
 
 # 8. INALTERABILIDAD Y AUDITORÍA
 
-## 🚫 OPERACIONES PROHIBIDAS
+##  OPERACIONES PROHIBIDAS
 
 ### Lista de bloqueos obligatorios:
 
@@ -1928,7 +1928,7 @@ class DeclaracionFabricanteScreen extends StatelessWidget {
 
 ---
 
-## 🔍 Auditoría del Código Actual
+##  Auditoría del Código Actual
 
 ### Script de auditoría automática:
 
@@ -2050,7 +2050,7 @@ async function verificarIntegridadCadena(empresaId: string): Promise<any> {
 
 ---
 
-## 📋 Checklist Final de Implementación
+##  Checklist Final de Implementación
 
 ### ✅ Checklist Técnico
 
@@ -2072,7 +2072,7 @@ async function verificarIntegridadCadena(empresaId: string): Promise<any> {
 
 ---
 
-## 🚀 Próximos Pasos
+##  Próximos Pasos
 
 1. **Implementar los archivos TypeScript en `/functions/src/verifactu/`**
 2. **Desplegar Cloud Functions:** `firebase deploy --only functions`
@@ -2087,7 +2087,7 @@ async function verificarIntegridadCadena(empresaId: string): Promise<any> {
 
 ---
 
-## 📞 Contacto y Soporte
+##  Contacto y Soporte
 
 **FLUIX TECH, S.L.**  
 NIF: B26997528  
@@ -2100,4 +2100,3 @@ Soporte técnico: soporte@fluixcrm.com
 **Versión del documento:** 1.0  
 **Autor:** Equipo técnico Fluix CRM  
 **Aprobado por:** [NOMBRE RESPONSABLE LEGAL]
-

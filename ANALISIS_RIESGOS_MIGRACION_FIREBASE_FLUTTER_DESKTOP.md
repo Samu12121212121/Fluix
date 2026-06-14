@@ -1775,168 +1775,211 @@ void main() {
 
 ### Mitigación
 
-#### Opción 1: Polling Firestore (RECOMENDADO para Windows)
+#### ✅ **SOLUCIÓN IMPLEMENTADA**: Polling Firestore Robusto
+
+**Archivo creado**: `lib/services/notificaciones_windows_service.dart`
+
+**Características**:
+- ✅ Deduplicación por `doc.id` (NO timestamp)
+- ✅ Control concurrencia con `_isFetching` flag
+- ✅ Plugin singleton (evita memory leaks)
+- ✅ Backoff exponencial (30s → 60s → 120s)
+- ✅ Cancelación automática en background
+- ✅ Sin filtros timestamp frágiles
+- ✅ `Source.server` forzado (sin cache stale)
+
+**Ventajas vs diseño anterior**:
+| Aspecto | Diseño Previo | ✅ Implementado |
+|---------|---------------|-----------------|
+| Duplicados | ⚠️ Posibles (timestamp) | ✅ Imposibles (ID dedupe) |
+| Race conditions | ❌ Sí | ✅ NO (`_isFetching`) |
+| Memory leaks | ❌ Múltiples plugins | ✅ Singleton |
+| Sobrecarga | ❌ Sin backoff | ✅ Backoff exponencial |
+| Pérdida notificaciones | ⚠️ Clock skew | ✅ NO (sin timestamp filter) |
+
+**Código clave**:
 
 ```dart
-// lib/services/notificaciones_windows_service.dart
+/// Singleton holder para plugin (evita memory leaks)
+class NotificationPluginHolder {
+  static final FlutterLocalNotificationsPlugin instance =
+      FlutterLocalNotificationsPlugin();
+}
+
 class NotificacionesWindowsService {
-  Timer? _pollingTimer;
-  DateTime _ultimaConsulta = DateTime.now();
-  
-  void iniciar(String empresaId, String userId) {
-    // Polling cada 30 segundos
-    _pollingTimer = Timer.periodic(Duration(seconds: 30), (_) async {
-      await _verificarNotificacionesPendientes(empresaId, userId);
-    });
+  Timer? _timer;
+  bool _isFetching = false; // 🔴 Evita race conditions
+  final Set<String> _notificacionesProcesadas = {}; // 🔴 Dedupe por ID
+  int _failCount = 0; // 🔴 Backoff exponencial
+
+  Future<void> iniciar(String empresaId, String userId) async {
+    await NotificationPluginHolder.initialize();
+    _timer = Timer.periodic(Duration(seconds: 30), (_) => _tick(...));
   }
-  
-  Future<void> _verificarNotificacionesPendientes(
-    String empresaId,
-    String userId,
-  ) async {
-    final snap = await FirebaseFirestore.instance
-      .collection('empresas/$empresaId/notificaciones')
-      .where('usuario_id', isEqualTo: userId)
-      .where('leida', isEqualTo: false)
-      .where('creada', isGreaterThan: Timestamp.fromDate(_ultimaConsulta))
-      .orderBy('creada', descending: true)
-      .limit(10)
-      .get();
-    
-    if (snap.docs.isNotEmpty) {
-      for (final doc in snap.docs) {
-        await _mostrarNotificacionLocal(doc.data());
-      }
-      _ultimaConsulta = DateTime.now();
+
+  Future<void> _tick(String empresaId, String userId) async {
+    if (_isFetching) return; // 🔴 Skip si ya en curso
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return; // 🔴 Skip si en background
+    }
+
+    _isFetching = true;
+    try {
+      await _verificar(empresaId, userId);
+      _failCount = 0; // Reset tras éxito
+    } catch (e) {
+      _failCount++;
+      _recalcularIntervalo(); // Backoff exponencial
+    } finally {
+      _isFetching = false;
     }
   }
-  
-  Future<void> _mostrarNotificacionLocal(Map<String, dynamic> data) async {
-    // Usar flutter_local_notifications
-    await FlutterLocalNotificationsPlugin().show(
-      data['id'].hashCode,
-      data['titulo'],
-      data['cuerpo'],
-      NotificationDetails(
-        windows: WindowsNotificationDetails(
-          title: data['titulo'],
-          body: data['cuerpo'],
-        ),
-      ),
-    );
+
+  Future<void> _verificar(String empresaId, String userId) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas/$empresaId/notificaciones')
+        .where('usuario_id', isEqualTo: userId)
+        .where('leida', isEqualTo: false)
+        .orderBy('creada', descending: true)
+        .limit(20)
+        .get(GetOptions(source: Source.server)); // 🔴 Forzar server
+
+    for (final doc in snap.docs) {
+      if (_notificacionesProcesadas.contains(doc.id)) continue; // 🔴 Dedupe
+      _notificacionesProcesadas.add(doc.id);
+      await _mostrar(doc.data(), doc.id);
+    }
   }
-  
-  void detener() {
-    _pollingTimer?.cancel();
+
+  Duration get _interval {
+    if (_failCount == 0) return Duration(seconds: 30);
+    return Duration(seconds: min(120, 30 * (1 << _failCount))); // Backoff
   }
 }
 ```
 
-#### Opción 2: WebSocket custom (si necesitas real-time)
+**Integración en `notificaciones_service.dart`**:
 
 ```dart
-// lib/services/notificaciones_realtime_service.dart
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'notificaciones_windows_service.dart';
 
-class NotificacionesRealtimeService {
-  WebSocketChannel? _channel;
-  
-  Future<void> conectar(String empresaId, String userId) async {
-    // Conectar a Cloud Function con WebSocket
-    final uri = Uri.parse(
-      'wss://us-central1-planeag.cloudfunctions.net/notificaciones'
-      '?empresaId=$empresaId&userId=$userId',
-    );
-    
-    _channel = WebSocketChannel.connect(uri);
-    
-    _channel!.stream.listen(
-      (message) {
-        final data = jsonDecode(message);
-        _mostrarNotificacion(data);
-      },
-      onError: (error) {
-        debugPrint('❌ WebSocket error: $error');
-        // Reconectar tras 5s
-        Future.delayed(Duration(seconds: 5), () => conectar(empresaId, userId));
-      },
-    );
+Future<void> inicializar() async {
+  if (_plataformaNoSoportaFCM) {
+    if (!kIsWeb && Platform.isWindows) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final userDoc = await _firestore.collection('usuarios').doc(uid).get();
+        final empresaId = userDoc.data()?['empresa_id'];
+        
+        if (empresaId != null) {
+          await NotificacionesWindowsService().iniciar(empresaId, uid);
+          print('✅ Polling Windows iniciado (30s interval)');
+        }
+      }
+    }
+    return;
   }
-  
-  void desconectar() {
-    _channel?.sink.close();
+  // Android/iOS: Firebase Messaging normal
+  // ...
+}
+
+Future<void> eliminarTokenDeEmpresa(String empresaId) async {
+  // ✅ Detener servicio Windows
+  if (!kIsWeb && Platform.isWindows) {
+    NotificacionesWindowsService().detener();
+    NotificacionesWindowsService().limpiarCache();
   }
+  // ...
 }
 ```
 
-**Firebase Function** (crear nueva):
-```typescript
-// functions/src/notificaciones-websocket.ts
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
+### Índice Firestore REQUERIDO
 
-export const notificaciones = functions.https.onRequest(async (req, res) => {
-  // Upgrade a WebSocket
-  // ... implementación WebSocket server ...
+**CRÍTICO**: Sin este índice, las queries serán lentas:
+
+```bash
+# Firebase Console → Firestore → Indexes
+Collection: notificaciones
+Fields:
+  - usuario_id (Ascending)
+  - leida (Ascending)
+  - creada (Descending)
+```
+
+O vía Firebase CLI:
+```bash
+firebase firestore:indexes:create \
+  --collection-group=notificaciones \
+  --field-path=usuario_id,ascending \
+  --field-path=leida,ascending \
+  --field-path=creada,descending
+```
+
+### Testing Post-Migración
+
+**Test 1: No duplicados**
+```dart
+testWidgets('Polling sin duplicados', (tester) async {
+  final service = NotificacionesWindowsService();
+  await service.iniciar('test_empresa', 'test_user');
   
-  // Escuchar colección de notificaciones
-  const empresaId = req.query.empresaId;
-  const userId = req.query.userId;
+  // Crear notificación
+  await FirebaseFirestore.instance
+    .collection('empresas/test_empresa/notificaciones')
+    .add({...});
   
-  const unsubscribe = admin.firestore()
-    .collection(`empresas/${empresaId}/notificaciones`)
-    .where('usuario_id', '==', userId)
-    .onSnapshot(snap => {
-      snap.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          // Enviar por WebSocket
-          ws.send(JSON.stringify(change.doc.data()));
-        }
-      });
-    });
+  // Esperar 2 ciclos (60s)
+  await tester.pump(Duration(seconds: 60));
+  expect(service.notificacionesProcesadas, 1);
+  
+  // Esperar otro ciclo
+  await tester.pump(Duration(seconds: 30));
+  expect(service.notificacionesProcesadas, 1); // ✅ SIGUE siendo 1
 });
 ```
 
-#### Opción 3: Deshabilitar completamente en Windows
-
+**Test 2: Backoff funciona**
 ```dart
-// lib/services/notificaciones_service.dart
-class NotificacionesService {
-  Future<void> inicializar() async {
-    if (!kIsWeb && Platform.isWindows) {
-      debugPrint('⚠️ Firebase Messaging no disponible en Windows');
-      debugPrint('   Usando polling local en su lugar');
-      NotificacionesWindowsService().iniciar(empresaId, userId);
-      return;
-    }
-    
-    // Android/iOS: Firebase Messaging normal
-    await FirebaseMessaging.instance.requestPermission();
-    final token = await FirebaseMessaging.instance.getToken();
-    // ... código existente ...
-  }
-}
+testWidgets('Backoff tras fallo Firestore', (tester) async {
+  final service = NotificacionesWindowsService();
+  await service.iniciar('test_empresa', 'test_user');
+  
+  // Simular Firestore offline (plugin fake)
+  await tester.pump(Duration(seconds: 30));
+  expect(service.fallosConsecutivos, 1);
+  
+  // Verificar intervalo aumentó
+  await Future.delayed(Duration(seconds: 60)); // Debe esperar 60s (backoff)
+  expect(service.fallosConsecutivos, 2);
+});
 ```
 
-### Testing
-
+**Test manual Windows**:
 ```powershell
-# Test Windows (polling)
-1. Login en Windows app
-2. Desde otra sesión: crear pedido/tarea/reserva
-3. Esperar 30 segundos (intervalo polling)
-4. Verificar notificación local aparece
+# 1. Abrir app Windows
+flutter run -d windows
 
-# Test Android/iOS (push real)
-1. Login en móvil
-2. Crear pedido desde web
-3. Push debe llegar en < 5 segundos
+# 2. Crear notificación desde Firebase Console
+#    empresas/{empresaId}/notificaciones
+#    {
+#      titulo: "Test",
+#      cuerpo: "Notificación de prueba",
+#      usuario_id: "{userId}",
+#      leida: false,
+#      creada: serverTimestamp(),
+#      tipo: "general"
+#    }
+
+# 3. Verificar notificación aparece en Windows < 60s
 ```
 
-**Criterio de aceptación**:
+**Criterios de aceptación**:
 - ✅ Windows: notificaciones via polling en < 60s
 - ✅ Android/iOS: push real en < 5s
 - ✅ NO crashes por `firebase_messaging` en Windows
+- ✅ 0% duplicados (1000 notificaciones)
+- ✅ Backoff funciona tras Firestore offline
+- ✅ Memory < 10MB tras 1000 notificaciones
 
 ---
 
@@ -2456,4 +2499,5 @@ firebase deploy --only storage:rules --config firebase-backup.json
 ---
 
 *Este documento es un análisis de ingeniería de producción. Cada riesgo ha sido identificado basándose en el código real del proyecto y experiencia con migraciones similares en apps TPV Flutter Desktop.*
+
 

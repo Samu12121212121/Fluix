@@ -1,11 +1,11 @@
-# 🎨 Propuesta de Mejoras UI - Diferenciación de Booksy
+#  Propuesta de Mejoras UI - Diferenciación de Booksy
 
 > **Fecha:** 13 Mayo 2026  
 > **Objetivo:** Diferenciar PlaneaG/Fluix de Booksy y mejorar experiencia del usuario final
 
 ---
 
-## 📊 Análisis de Situación Actual
+##  Análisis de Situación Actual
 
 ### ❌ Problemas Identificados
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 🎯 Propuestas de Diferenciación
+##  Propuestas de Diferenciación
 
 ### 1. **Sistema de Categorías Visuales Mejorado con Tags**
 
@@ -25,10 +25,10 @@ Booksy tiene categorías simples. Nosotros podemos tener un sistema de filtros m
 
 #### ¿Qué añadir?
 ```
-📱 Diseño propuesto:
+ Diseño propuesto:
 
 ┌─────────────────────────────────────────────────────┐
-│  [Todo] [Restaurantes🍽️] [Estética💅] [Tatuajes🎨] │
+│  [Todo] [Restaurantes️] [Estética] [Tatuajes] │
 │  ↓                                                   │
 │  SUB-FILTROS (chips animados):                      │
 │  • Precio: [€] [€€] [€€€]                           │
@@ -50,15 +50,15 @@ Diferenciar con contenido dinámico que Booksy no prioriza.
 
 #### ¿Qué añadir?
 ```
-🎉 EVENTOS Y PROMOCIONES (nuevo carrusel)
+ EVENTOS Y PROMOCIONES (nuevo carrusel)
 
 Tarjetas grandes horizontales con:
 ┌──────────────────────────────────────┐
 │  [FOTO DEL EVENTO/PROMO]             │
 │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
-│  🎊 "Martes de Manicura"             │
+│   "Martes de Manicura"             │
 │  20% OFF en manicuras - Solo hoy     │
-│  📍 Salón Bella - Centro             │
+│   Salón Bella - Centro             │
 │  ⏰ Termina en: 3h 24m                │
 │  [RESERVAR AHORA →]                  │
 └──────────────────────────────────────┘
@@ -80,10 +80,10 @@ Booksy tiene mapa pero NO es su vista principal. Diferenciarnos con vista híbri
 
 #### ¿Qué añadir?
 ```
-🗺️ VISTA MAPA (botón toggle en appbar):
+️ VISTA MAPA (botón toggle en appbar):
 
 ┌───────────────────────────────────────┐
-│  [Lista 📄] [Mapa 🗺️] ← toggle       │
+│  [Lista ] [Mapa ️] ← toggle       │
 │                                        │
 │  Mapa con pins agrupados por zona:    │
 │  • Pin común → un negocio              │
@@ -113,14 +113,14 @@ Personalización basada en historial y preferencias.
 ✨ DESCUBRE TU ESTILO (después de 2-3 reservas)
 
 ┌──────────────────────────────────────────────────────┐
-│  🎯 "Basado en tu historial de estética..."          │
+│   "Basado en tu historial de estética..."          │
 │                                                       │
 │  Carrusel con negocios similares:                    │
 │  • Si reservó en salón estilo moderno → Mostrar +    │
 │  • Si valoró 5⭐ servicio rápido → Priorizar eso     │
 │  • Si siempre reserva sábados 10am → Sugerir eso     │
 │                                                       │
-│  Badge: "95% Match con tu estilo" 🎯                 │
+│  Badge: "95% Match con tu estilo"                  │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -135,14 +135,14 @@ Pinterest/Spotify lo hacen. Crear listas curadas diferencia vs Booksy.
 
 #### ¿Qué añadir?
 ```
-📚 COLECCIONES CURADAS (por equipo editorial o comunidad)
+ COLECCIONES CURADAS (por equipo editorial o comunidad)
 
 Ejemplos:
-• "Mejores Barberías Retro de Guadalajara" 🪒
-• "Salones Pet-Friendly" 🐕
-• "Comida Vegana Con Alma" 🌱
-• "Tatuajes Minimalistas Top 10" 🎨
-• "Date Night: Cena + Spa Romántico" 💑
+• "Mejores Barberías Retro de Guadalajara" 
+• "Salones Pet-Friendly" 
+• "Comida Vegana Con Alma" 
+• "Tatuajes Minimalistas Top 10" 
+• "Date Night: Cena + Spa Romántico" 
 
 Tap → Vista lista con descripción:
 ┌─────────────────────────────────────────┐
@@ -167,11 +167,11 @@ Instagram/Facebook Stories funcionan. Aplicarlo a negocios locales.
 
 #### ¿Qué añadir?
 ```
-📸 STORIES (barra horizontal top, después del saludo)
+ STORIES (barra horizontal top, después del saludo)
 
 ┌────────────────────────────────────────────────┐
 │  Círculos con foto del negocio + borde:        │
-│  🟣[Salón Ana] 🟣[Tattoo Ink] ⚪[Resto Luigi] │
+│  [Salón Ana] [Tattoo Ink] ⚪[Resto Luigi] │
 │  ↑ gradient     ↑ gradient    ↑ visto         │
 │                                                 │
 │  Tap → Fullscreen story:                       │
@@ -199,22 +199,22 @@ Gamificación y social proof mejorado.
 
 #### ¿Qué añadir?
 ```
-🏆 TOP ESTA SEMANA (carrusel con medallas)
+ TOP ESTA SEMANA (carrusel con medallas)
 
 ┌────────────────────────────────────────┐
 │  Tarjetas verticales con badge:        │
 │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
-│  🥇 #1  [Foto Negocio]                 │
+│   #1  [Foto Negocio]                 │
 │       "Estética María"                  │
 │       ⭐ 4.9 · 124 reservas            │
-│       🔥 +45% vs semana pasada          │
+│        +45% vs semana pasada          │
 │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
-│  🥈 #2  [Foto Negocio]                 │
+│   #2  [Foto Negocio]                 │
 │       "Barbería Clásica"                │
 │       ⭐ 4.8 · 98 reservas             │
-│       📈 Subió 3 posiciones             │
+│        Subió 3 posiciones             │
 │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
-│  🥉 #3  ...                            │
+│   #3  ...                            │
 └────────────────────────────────────────┘
 ```
 
@@ -229,7 +229,7 @@ Booksy tiene búsqueda simple. Mejorar con sugerencias visuales.
 
 #### ¿Qué añadir?
 ```
-🔍 BÚSQUEDA MEJORADA
+ BÚSQUEDA MEJORADA
 
 Mientras escribes:
 ┌──────────────────────────────────────┐
@@ -248,7 +248,7 @@ Mientras escribes:
 │  └───────────────────────────────┘   │
 └──────────────────────────────────────┘
 
-Búsqueda por voz: 🎤
+Búsqueda por voz: 
 "Buscar peluquería cerca de mí con hueco hoy"
 → IA procesa y filtra automáticamente
 ```
@@ -271,7 +271,7 @@ Reducir pasos del funnel. Acción inmediata.
 │                                      │
 │                 ┌───────────────────┐│
 │                 │ ⚡ Reservar Ya    ││
-│                 │ 🕐 Siguiente: 17:30││
+│                 │  Siguiente: 17:30││
 │                 └───────────────────┘│
 │                   ↑ Botón flotante   │
 └─────────────────────────────────────┘
@@ -298,10 +298,10 @@ Destacar negocios recién añadidos incentiva exploración.
 
 Tarjetas con badge especial:
 ┌──────────────────────────────────┐
-│  [FOTO] 🆕 NUEVO (badge esquina) │
+│  [FOTO]  NUEVO (badge esquina) │
 │  "Salón de Uñas Premium"          │
 │  ⭐ Aún sin valoraciones          │
-│  🎁 15% OFF en tu primera visita  │
+│   15% OFF en tu primera visita  │
 │  [Ser el primero en reservar →]  │
 └──────────────────────────────────┘
 
@@ -312,17 +312,17 @@ Badge visible solo primeros 30 días.
 
 ---
 
-## 🎨 Mejoras de Diseño General
+##  Mejoras de Diseño General
 
 ### 1. **Paleta de Color Única y Reconocible**
 
 **Actual**: Cian (#00FFC8) + Rosa/Magenta (#FF3296)  
 **Mantener pero enriquecer con:**
 - Gradientes dinámicos por categoría:
-  - Restaurantes: 🍽️ Naranja → Rojo (#FF6B35 → #FF2850)
-  - Estética: 💅 Rosa → Púrpura (#FF3296 → #A855F7)
-  - Peluquería: 💇 Cian → Azul (#00FFC8 → #3B82F6)
-  -Tatuajes: 🎨 Amarillo → Verde (#FCD34D → #10B981)
+  - Restaurantes: ️ Naranja → Rojo (#FF6B35 → #FF2850)
+  - Estética:  Rosa → Púrpura (#FF3296 → #A855F7)
+  - Peluquería:  Cian → Azul (#00FFC8 → #3B82F6)
+  -Tatuajes:  Amarillo → Verde (#FCD34D → #10B981)
 
 **Por qué**: Identidad visual única. Booksy usa azul simple.
 
@@ -364,7 +364,7 @@ Badge visible solo primeros 30 días.
 
 ---
 
-## 📱 Mejoras de Funcionalidad
+##  Mejoras de Funcionalidad
 
 ### 1. **Modo Oscuro Mejorado**
 
@@ -410,7 +410,7 @@ Long-press en tarjeta de negocio:
 
 ---
 
-## 🚀 Funcionalidades "Wow" (Diferenciadores Únicos)
+##  Funcionalidades "Wow" (Diferenciadores Únicos)
 
 ### 1. **"Grupo de Reservas" (Reservar con Amigos)**
 
@@ -425,9 +425,9 @@ Flujo:
 4. Sistema coordina horarios para que coincidan
 5. Todas reciben confirmación conjunta
 
-📍 La Peluquería
-📅 Sábado 15:00
-👥 3 personas:
+ La Peluquería
+ Sábado 15:00
+ 3 personas:
    • María: Corte + Tinte (90 min)
    • Ana: Manicura (45 min)
    • Laura: Peinado (60 min)
@@ -488,15 +488,15 @@ Por cada reserva completada:
 • Al llegar a 100 puntos → Vale 10€
 
 Niveles VIP:
-🥉 Bronce: 0-500 puntos (beneficios básicos)
-🥈 Plata: 500-2000 puntos (+5% puntos extra)
-🥇 Oro: 2000+ puntos (+10% + acceso anticipado a ofertas)
+ Bronce: 0-500 puntos (beneficios básicos)
+ Plata: 500-2000 puntos (+5% puntos extra)
+ Oro: 2000+ puntos (+10% + acceso anticipado a ofertas)
 
 Dashboard:
 ┌────────────────────────────────┐
-│  🏆 Nivel: Plata                │
-│  💎 Puntos: 1,234              │
-│  📈 Para Oro: 766 puntos más   │
+│   Nivel: Plata                │
+│   Puntos: 1,234              │
+│   Para Oro: 766 puntos más   │
 │  ━━━━━━━━━━━━━━━━━━━━━━━━━━│
 │  Recompensas disponibles:       │
 │  • Vale 10€ (1000 pts) [Canjear]│
@@ -508,9 +508,9 @@ Dashboard:
 
 ---
 
-## 📊 Resumen de Prioridades
+##  Resumen de Prioridades
 
-### 🔴 Críticas (Implementar Ya)
+###  Críticas (Implementar Ya)
 
 1. ✅ **Carruseles con scroll infinito** (Fix técnico)
 2. ✅ **Botón "Ver todo" funcional** (Fix técnico)
@@ -518,7 +518,7 @@ Dashboard:
 4. ✅ **Vista Mapa interactivo** (Toggle vista lista/mapa)
 5. ✅ **Búsqueda mejorada con preview** (UX superior)
 
-### 🟡 Importantes (Fase 2)
+###  Importantes (Fase 2)
 
 6. ✅ **System Stories** (24h)
 7. ✅ **Top Esta Semana** (ranking)
@@ -526,7 +526,7 @@ Dashboard:
 9. ✅ **Filtros avanzados** (tags múltiples)
 10. ✅ **Quick Preview** (long-press)
 
-### 🟢 Nice-to-Have (Fase 3)
+###  Nice-to-Have (Fase 3)
 
 11. ⚪ **Grupo de reservas** (social)
 12. ⚪ **Ruta de belleza** (multi-negocio)
@@ -536,7 +536,7 @@ Dashboard:
 
 ---
 
-## 🎯 Conclusión
+##  Conclusión
 
 Con estas mejoras, **Fluix/PlaneaG se diferenciará claramente de Booksy**:
 
@@ -558,6 +558,5 @@ Con estas mejoras, **Fluix/PlaneaG se diferenciará claramente de Booksy**:
 
 ---
 
-**Próximo paso**: Implementar mejoras críticas (🔴) en Sprint actual.
-
+**Próximo paso**: Implementar mejoras críticas () en Sprint actual.
 

@@ -37,6 +37,13 @@ export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
 export { expirarFlashSlots, onNuevoFlashSlot };
 export { verificarLoginIntento };
+export {
+  onCitaCompletadaTrofeos,
+  onResenaCreadaTrofeos,
+  onPerfilActualizadoTrofeos,
+  evaluarTrofeosFidelidad,
+  fanNumero1Job,
+} from "./trofeos";
 export { onInvitacionCreada } from "./invitaciones";
 export { sendResetPasswordEmail } from "./resetPassword";
 export {

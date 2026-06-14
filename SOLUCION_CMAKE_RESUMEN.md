@@ -6,7 +6,7 @@
 
 ---
 
-## 🔍 PROBLEMA DETECTADO
+##  PROBLEMA DETECTADO
 
 ```
 cmake_minimum_required: Compatibility with CMake < 3.5 has been removed from CMake
@@ -48,7 +48,7 @@ cmake_minimum_required: Compatibility with CMake < 3.5 has been removed from CMa
 
 ---
 
-## 🚀 PRÓXIMOS PASOS
+##  PRÓXIMOS PASOS
 
 ### Opción A: Continuar compilación (RECOMENDADO)
 ```powershell
@@ -75,7 +75,7 @@ Este script:
 
 ---
 
-## 📊 ARCHIVOS CREADOS/MODIFICADOS
+##  ARCHIVOS CREADOS/MODIFICADOS
 
 ### Archivos modificados (2)
 1. ✅ `build\windows\x64\extracted\firebase_cpp_sdk_windows\CMakeLists.txt` — Parcheado
@@ -109,7 +109,7 @@ flutter build windows --release
 
 ---
 
-## 🎯 RESULTADO ESPERADO
+##  RESULTADO ESPERADO
 
 Después de ejecutar el script, deberías ver:
 
@@ -125,7 +125,7 @@ build\windows\x64\runner\Release\planeag_flutter.exe
 
 ---
 
-## 🐛 SI EL ERROR PERSISTE
+##  SI EL ERROR PERSISTE
 
 ### Verificar versión de CMake
 ```powershell
@@ -157,7 +157,7 @@ Si falta:
 
 ---
 
-## 📞 SOPORTE TÉCNICO
+##  SOPORTE TÉCNICO
 
 ### Logs útiles para debugging
 ```powershell
@@ -177,7 +177,7 @@ flutter run -d windows --verbose
 
 ---
 
-## 📝 NOTAS IMPORTANTES
+##  NOTAS IMPORTANTES
 
 1. **El parche es permanente** - Una vez aplicado, no necesitas volver a hacerlo a menos que elimines `build\windows\`
 
@@ -207,4 +207,3 @@ flutter run -d windows --verbose
 **Documentado por:** Claude Code  
 **Fecha:** 7 de mayo de 2026  
 **Tiempo de resolución:** ~5 minutos
-

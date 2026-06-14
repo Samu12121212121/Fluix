@@ -110,18 +110,18 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
             child: TabBarView(
               controller: _tab,
               children: [
-                _TabResumen(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
+                ContabTabResumen(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
                 TabLibroIngresos(empresaId: widget.empresaId, anio: _anio, svc: _svc),
                 TabFacturasRecibidas(empresaId: widget.empresaId, svc: _svc),
-                _TabGastos(empresaId: widget.empresaId, svc: _svc, color: color),
+                ContabTabGastos(empresaId: widget.empresaId, svc: _svc, color: color),
                 TabGraficosContabilidad(empresaId: widget.empresaId, anio: _anio, svc: _svc),
                 TabModelosFiscales(empresaId: widget.empresaId, anio: _anio, svc: _svc),
                 TabMod347(
                   empresaId: widget.empresaId,
                   anio: _anio,
                 ),
-                _TabProveedores(empresaId: widget.empresaId, svc: _svc, color: color),
-                _TabExportar(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
+                ContabTabProveedores(empresaId: widget.empresaId, svc: _svc, color: color),
+                ContabTabExportar(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
               ],
             ),
           ),
@@ -136,19 +136,19 @@ class _PantallaContabilidadState extends State<PantallaContabilidad>
 // TAB 1 — RESUMEN FISCAL
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _TabResumen extends StatefulWidget {
+class ContabTabResumen extends StatefulWidget {
   final String empresaId;
   final int anio;
   final ContabilidadService svc;
   final Color color;
-  const _TabResumen({required this.empresaId, required this.anio,
+  const ContabTabResumen({required this.empresaId, required this.anio,
       required this.svc, required this.color});
 
   @override
-  State<_TabResumen> createState() => _TabResumenState();
+  State<ContabTabResumen> createState() => ContabTabResumenState();
 }
 
-class _TabResumenState extends State<_TabResumen> {
+class ContabTabResumenState extends State<ContabTabResumen> {
   ResumenContable? _resumenAnual;
   List<ResumenContable> _trimestres = [];
   bool _cargando = true;
@@ -162,7 +162,7 @@ class _TabResumenState extends State<_TabResumen> {
   }
 
   @override
-  void didUpdateWidget(_TabResumen old) {
+  void didUpdateWidget(ContabTabResumen old) {
     super.didUpdateWidget(old);
     if (old.anio != widget.anio) _cargar();
   }
@@ -584,11 +584,11 @@ class _TabResumenState extends State<_TabResumen> {
 // TAB 2 — GASTOS
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _TabGastos extends StatelessWidget {
+class ContabTabGastos extends StatelessWidget {
   final String empresaId;
   final ContabilidadService svc;
   final Color color;
-  const _TabGastos({required this.empresaId, required this.svc,
+  const ContabTabGastos({required this.empresaId, required this.svc,
       required this.color});
 
   @override
@@ -843,11 +843,11 @@ class _TarjetaGasto extends StatelessWidget {
 // TAB 3 — PROVEEDORES
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _TabProveedores extends StatelessWidget {
+class ContabTabProveedores extends StatelessWidget {
   final String empresaId;
   final ContabilidadService svc;
   final Color color;
-  const _TabProveedores({required this.empresaId, required this.svc,
+  const ContabTabProveedores({required this.empresaId, required this.svc,
       required this.color});
 
   @override
@@ -964,19 +964,19 @@ class _TabProveedores extends StatelessWidget {
 // TAB 4 — EXPORTAR
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _TabExportar extends StatefulWidget {
+class ContabTabExportar extends StatefulWidget {
   final String empresaId;
   final int anio;
   final ContabilidadService svc;
   final Color color;
-  const _TabExportar({required this.empresaId, required this.anio,
+  const ContabTabExportar({required this.empresaId, required this.anio,
       required this.svc, required this.color});
 
   @override
-  State<_TabExportar> createState() => _TabExportarState();
+  State<ContabTabExportar> createState() => ContabTabExportarState();
 }
 
-class _TabExportarState extends State<_TabExportar> {
+class ContabTabExportarState extends State<ContabTabExportar> {
   bool _exportando = false;
 
   Future<void> _exportar(String tipo) async {

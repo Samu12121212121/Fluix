@@ -1,11 +1,11 @@
-# 📊 AUDITORÍA DE PLANES — FLUIX CRM · Mayo 2026
+#  AUDITORÍA DE PLANES — FLUIX CRM · Mayo 2026
 
 > Documento de referencia para diseñar los planes de suscripción con módulo TPV/Comandas.  
 > Preparado por: GitHub Copilot · Fecha: 11/05/2026
 
 ---
 
-## 🗺️ ARQUITECTURA ACTUAL DE MÓDULOS
+## ️ ARQUITECTURA ACTUAL DE MÓDULOS
 
 ### Plan Base (310 €/año)
 Módulos incluidos por defecto en toda suscripción:
@@ -22,7 +22,7 @@ Módulos incluidos por defecto en toda suscripción:
 
 ---
 
-### 🟣 Pack Gestión (370 €/año)
+###  Pack Gestión (370 €/año)
 Módulos adicionales al Plan Base:
 | Módulo | Descripción |
 |--------|-------------|
@@ -33,7 +33,7 @@ Módulos adicionales al Plan Base:
 
 ---
 
-### 🟢 Pack Fiscal AI (430 €/año)
+###  Pack Fiscal AI (430 €/año)
 | Módulo | Descripción |
 |--------|-------------|
 | `fiscal` | Automatización fiscal con IA (modelos 303, 130, IRPF, IVA) |
@@ -42,14 +42,14 @@ Módulos adicionales al Plan Base:
 
 ---
 
-### 🟠 Pack Tienda Online (490 €/año)
+###  Pack Tienda Online (490 €/año)
 | Módulo | Descripción |
 |--------|-------------|
 | `pedidos` | Catálogo de productos, pedidos online, stock y avisos |
 
 ---
 
-### 🔵 Add-ons Independientes
+###  Add-ons Independientes
 | Add-on | Precio | Módulo |
 |--------|--------|--------|
 | `whatsapp` | 50 €/año | Gestión de pedidos y comunicación por WhatsApp Business |
@@ -59,7 +59,7 @@ Módulos adicionales al Plan Base:
 
 ---
 
-## 🍺 MÓDULO COMANDAS (TPV BARES) — Análisis detallado
+##  MÓDULO COMANDAS (TPV BARES) — Análisis detallado
 
 ### ¿Qué hace?
 El módulo `comandas` activa el **TPV (Terminal Punto de Venta)** orientado a negocios de hostelería:
@@ -89,14 +89,14 @@ O en formato legacy (modulos_activos):
 
 ---
 
-## 💡 PROPUESTA DE PLANES CON MÓDULO COMANDAS
+##  PROPUESTA DE PLANES CON MÓDULO COMANDAS
 
 El usuario quiere dos planes basados en el módulo TPV/Comandas.  
 A continuación se presentan dos opciones de diseño:
 
 ---
 
-### 🥇 OPCIÓN A — "Plan Bar Esencial" vs "Plan Bar Pro"
+###  OPCIÓN A — "Plan Bar Esencial" vs "Plan Bar Pro"
 
 #### Plan Bar Esencial (~29 €/mes · 349 €/año)
 **Para**: bares y restaurantes que solo necesitan gestionar comandas.
@@ -106,7 +106,7 @@ A continuación se presentan dos opciones de diseño:
 - ✅ `comandas` / `tpv` — **terminal de comandas completo**
 - ✅ `estadisticas` — métricas básicas de ventas
 
-> 💬 Sin facturación, sin fichaje, sin fiscal. Solo lo que necesita un bar.
+>  Sin facturación, sin fichaje, sin fiscal. Solo lo que necesita un bar.
 
 #### Plan Bar Pro (~59 €/mes · 709 €/año)
 **Para**: bares/restaurantes que necesitan gestión completa + comandas.
@@ -119,7 +119,7 @@ A continuación se presentan dos opciones de diseño:
 
 ---
 
-### 🥈 OPCIÓN B — "Plan Hostelería Básico" vs "Plan Hostelería Completo"
+###  OPCIÓN B — "Plan Hostelería Básico" vs "Plan Hostelería Completo"
 
 #### Plan Hostelería Básico (~25 €/mes · 299 €/año)
 - ✅ Plan Base + módulo `comandas`
@@ -139,7 +139,7 @@ A continuación se presentan dos opciones de diseño:
 
 ---
 
-## 📋 COMPARATIVA DE PRECIOS ACTUALES VS COMPETENCIA
+##  COMPARATIVA DE PRECIOS ACTUALES VS COMPETENCIA
 
 | Solución | Precio mensual | Módulos hostelería |
 |---------|----------------|-------------------|
@@ -154,7 +154,7 @@ A continuación se presentan dos opciones de diseño:
 
 ---
 
-## 🔧 RECOMENDACIONES TÉCNICAS
+##  RECOMENDACIONES TÉCNICAS
 
 1. **Activación desde Firebase**: Añadir `addons_activos: ["comandas"]` en Firestore activa el módulo TPV inmediatamente sin redeploy.
 2. **Compatibilidad**: El módulo `comandas` es alias del módulo `tpv` ya implementado. Toda la lógica de TPV ya está en `ModuloTpvScreen`.
@@ -163,7 +163,7 @@ A continuación se presentan dos opciones de diseño:
 
 ---
 
-## 📌 ESTRUCTURA RECOMENDADA EN FIRESTORE PARA ACTIVAR TPV
+##  ESTRUCTURA RECOMENDADA EN FIRESTORE PARA ACTIVAR TPV
 
 ### Empresa con sólo el módulo comandas (sin Pack Gestión):
 ```json
@@ -191,4 +191,3 @@ A continuación se presentan dos opciones de diseño:
 ---
 
 *Última actualización: 11 de mayo de 2026 — Fluix CRM v2.x*
-

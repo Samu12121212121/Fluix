@@ -1,4 +1,4 @@
-# 📊 ANÁLISIS ARQUITECTÓNICO — PLANEAG FLUTTER
+#  ANÁLISIS ARQUITECTÓNICO — PLANEAG FLUTTER
 
 **Fecha**: 25 Mayo 2026  
 **Versión App**: 1.0.15  
@@ -8,38 +8,38 @@
 
 ---
 
-## 🎯 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 ### Hallazgos Críticos
 
-1. **🔴 CRÍTICO - Memory Leaks en StreamSubscriptions**  
+1. ** CRÍTICO - Memory Leaks en StreamSubscriptions**  
    - 50+ servicios singleton con streams no cancelados
    - StreamSubscriptions en widgets sin `dispose()` consistente
    - Riesgo de acumulación progresiva de listeners en sesiones largas
 
-2. **🔴 CRÍTICO - Firestore Realtime + Windows = Inestabilidad**  
+2. ** CRÍTICO - Firestore Realtime + Windows = Inestabilidad**  
    - Persistencia ilimitada activa en `main.dart` (línea 32-35)
    - Listeners Firebase realtime problemáticos en Windows
    - Platform channels crashes documentados (notificaciones_windows_service.dart)
 
-3. **🔴 CRÍTICO - Ausencia de Arquitectura en Capas**  
+3. ** CRÍTICO - Ausencia de Arquitectura en Capas**  
    - Servicios mezclando UI + Firebase + lógica de negocio
    - Dependencia directa de Firestore en prácticamente toda la app
    - Imposible testear sin Firebase real
 
-4. **🟡 MEDIO - Singletons sin DI**  
+4. ** MEDIO - Singletons sin DI**  
    - `factory` pattern usado manualmente en 50+ servicios
    - GetIt declarado en `pubspec.yaml` pero no implementado
    - Dificulta testing y aumenta acoplamiento
 
-5. **🟡 MEDIO - Caché SQLite infrautilizado**  
+5. ** MEDIO - Caché SQLite infrautilizado**  
    - `CacheService` implementado pero solo usado en KPIs
    - No se usa para mitigar problemas de realtime en Windows
    - Oportunidad de mejora para modo offline robusto
 
 ---
 
-## 📊 MAPA DE ARQUITECTURA ACTUAL
+##  MAPA DE ARQUITECTURA ACTUAL
 
 ### Estructura Inferida
 
@@ -104,9 +104,9 @@
 
 ## ⚠️ RIESGOS CRÍTICOS POR PLATAFORMA
 
-### 🪟 Windows Desktop
+###  Windows Desktop
 
-#### 🔴 CRÍTICO 1: Platform Channel Instability
+####  CRÍTICO 1: Platform Channel Instability
 **Ubicación**: `main.dart:32-35`, `notificaciones_windows_service.dart:13-26`
 
 ```dart
@@ -140,7 +140,7 @@ if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
 
 ---
 
-#### 🔴 CRÍTICO 2: Unbounded Stream Listeners
+####  CRÍTICO 2: Unbounded Stream Listeners
 
 **Archivo**: `lib/features/tpv/pantallas/tpv_peluqueria_screen.dart:1105-1106, 2024-2026, 2990-2991`
 
@@ -168,7 +168,7 @@ StreamSubscription<QuerySnapshot>? _subUsuarios;
 
 ---
 
-#### 🟡 MEDIO: Persistencia de Firestore Ilimitada
+####  MEDIO: Persistencia de Firestore Ilimitada
 
 **Ubicación**: `main.dart:32-35`
 
@@ -191,9 +191,9 @@ FirebaseFirestore.instance.settings = const Settings(
 
 ---
 
-### 📱 Android/iOS
+###  Android/iOS
 
-#### 🟢 BAJO: Arquitectura Móvil Más Estable
+####  BAJO: Arquitectura Móvil Más Estable
 
 **Observación**: Los problemas críticos de Windows NO aplican a mobile porque:
 1. Firebase SDK nativo (no platform channels problemáticos)
@@ -207,7 +207,7 @@ FirebaseFirestore.instance.settings = const Settings(
 
 ---
 
-## 🧩 COMPONENTES A ABSTRAER (Prioridad)
+##  COMPONENTES A ABSTRAER (Prioridad)
 
 ### Fase 1️⃣ - CRÍTICO (Semanas 1-2)
 
@@ -265,11 +265,11 @@ abstract class ReservasRepository {
 // lib/data/repositories/reservas_repository_impl.dart
 class ReservasRepositoryImpl implements ReservasRepository {
   final FirebaseFirestore _firestore;
-  final PlatformDataSource _platform; // 🔑 Decide realtime vs polling
+  final PlatformDataSource _platform; //  Decide realtime vs polling
   
   @override
   Stream<List<Reserva>> watchReservas(String empresaId) {
-    // 🔀 DECISIÓN POR PLATAFORMA
+    //  DECISIÓN POR PLATAFORMA
     if (_platform.supportsRealtimeStreams) {
       // Android/iOS → Realtime
       return _firestore
@@ -367,9 +367,9 @@ class _TpvPeluqueriaScreenState extends State<TpvPeluqueriaScreen>
 ```
 
 **Impacto**:
-- 🔧 Modificación de 15-20 archivos
+-  Modificación de 15-20 archivos
 - ⏱️ 2-3 días de trabajo
-- 🐛 Elimina >90% de memory leaks
+-  Elimina >90% de memory leaks
 
 ---
 
@@ -679,13 +679,13 @@ class TpvRepositoryImpl {
 ```
 
 **Ventajas**:
-- 🚀 Menos round-trips a Firestore
-- 🔒 Transacción atómica (todo o nada)
-- 💰 Reduce costos Firebase (1 write en lugar de N)
+-  Menos round-trips a Firestore
+-  Transacción atómica (todo o nada)
+-  Reduce costos Firebase (1 write en lugar de N)
 
 ---
 
-## 🪜 PLAN DE MIGRACIÓN INCREMENTAL
+##  PLAN DE MIGRACIÓN INCREMENTAL
 
 ### Estrategia General
 
@@ -698,7 +698,7 @@ class TpvRepositoryImpl {
 
 ---
 
-### 📅 Fase 1: Estabilización Windows (2-3 semanas)
+###  Fase 1: Estabilización Windows (2-3 semanas)
 
 #### Semana 1: Platform-Aware Settings + Stream Lifecycle
 
@@ -816,7 +816,7 @@ class MetricsService {
 
 ---
 
-### 📅 Fase 2: Expansión Repository Pattern (3-4 semanas)
+###  Fase 2: Expansión Repository Pattern (3-4 semanas)
 
 #### Semana 4-5: Migrar Módulos Críticos
 
@@ -885,7 +885,7 @@ class ReservasScreen extends StatelessWidget {
 
 ---
 
-### 📅 Fase 3: Optimización y Polish (2-3 semanas)
+###  Fase 3: Optimización y Polish (2-3 semanas)
 
 #### Semana 7: Cache Layer Integration
 
@@ -928,7 +928,7 @@ repository.watch(priority: PollingPriority.lazy);
 
 ---
 
-## 🛡️ ESTRATEGIAS DE ROLLBACK
+## ️ ESTRATEGIAS DE ROLLBACK
 
 ### Nivel 1: Feature Flags (Inmediato)
 
@@ -946,8 +946,8 @@ class FeatureFlags {
 
 **Ventajas**:
 - ⚡ Revertir en segundos (change + hot restart)
-- 🔄 Probar ambas implementaciones en paralelo
-- 📊 A/B testing en producción
+-  Probar ambas implementaciones en paralelo
+-  A/B testing en producción
 
 ---
 
@@ -990,7 +990,7 @@ version: 1.1.0+refactor   # Nueva arquitectura
 
 ---
 
-## 🧪 CHECKLIST DE VALIDACIÓN POR FASE
+##  CHECKLIST DE VALIDACIÓN POR FASE
 
 ### ✅ Checklist Fase 1 (Estabilización)
 
@@ -1043,29 +1043,29 @@ version: 1.1.0+refactor   # Nueva arquitectura
 
 ---
 
-## 🧠 RECOMENDACIÓN FINAL
+##  RECOMENDACIÓN FINAL
 
 ### Prioridades Inmediatas (Esta Semana)
 
-1. **🔴 URGENTE**: Implementar `SafeStreamMixin` en TPV  
+1. ** URGENTE**: Implementar `SafeStreamMixin` en TPV  
    → Previene crashes críticos en Windows  
    → Esfuerzo: 4-6 horas  
    → Impacto: alto
 
-2. **🔴 URGENTE**: `_configurarFirestore()` platform-aware  
+2. ** URGENTE**: `_configurarFirestore()` platform-aware  
    → Limita caché en Windows  
    → Esfuerzo: 2 horas  
    → Impacto: medio-alto
 
 ### Estrategia a Medio Plazo (2-3 Meses)
 
-3. **🟡 IMPORTANTE**: Repository pattern gradual  
+3. ** IMPORTANTE**: Repository pattern gradual  
    → Empieza por módulo piloto (Reservas)  
    → Expande a TPV, Clientes, Fichajes  
    → Esfuerzo: 30-40 horas totales  
    → Impacto: transformacional
 
-4. **🟡 IMPORTANTE**: Dependency Injection con GetIt  
+4. ** IMPORTANTE**: Dependency Injection con GetIt  
    → Migración incremental servicio por servicio  
    → Esfuerzo: 20-30 horas  
    → Impacto: mejora testing y mantenibilidad
@@ -1117,7 +1117,7 @@ version: 1.1.0+refactor   # Nueva arquitectura
 
 ---
 
-## 📞 PRÓXIMOS PASOS RECOMENDADOS
+##  PRÓXIMOS PASOS RECOMENDADOS
 
 1. **Revisar este documento** con el equipo técnico
 2. **Priorizar Fase 1** (estabilización Windows)
@@ -1134,7 +1134,7 @@ version: 1.1.0+refactor   # Nueva arquitectura
 
 ---
 
-## 📚 APÉNDICES
+##  APÉNDICES
 
 ### A. Referencias Técnicas
 
@@ -1159,4 +1159,3 @@ version: 1.1.0+refactor   # Nueva arquitectura
 ---
 
 **FIN DEL ANÁLISIS**
-

@@ -1,10 +1,20 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
+import 'package:planeag_flutter/services/pdf_service.dart';
+import 'package:planeag_flutter/services/email_service.dart';
 import 'package:planeag_flutter/core/utils/validador_nif_cif.dart';
 import 'package:planeag_flutter/widgets/cliente_selector_rapido.dart';
+import 'formulario_linea_factura_sheet.dart';
+
+const _kPrimario = Color(0xFF0D47A1);
+const _kFondo = Color(0xFFF5F7FA);
 
 enum TipoClienteFactura { particular, empresaAutonomo }
 
@@ -13,7 +23,7 @@ class FormularioFacturaScreen extends StatefulWidget {
   final String? pedidoId;
   final String? clienteNombreInicial;
   final List<Map<String, dynamic>>? lineasIniciales;
-  final Factura? facturaExistente; // Para edición
+  final Factura? facturaExistente;
 
   const FormularioFacturaScreen({
     super.key,
@@ -25,8 +35,7 @@ class FormularioFacturaScreen extends StatefulWidget {
   });
 
   @override
-  State<FormularioFacturaScreen> createState() =>
-      _FormularioFacturaScreenState();
+  State<FormularioFacturaScreen> createState() => _FormularioFacturaScreenState();
 }
 
 class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
@@ -36,55 +45,46 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   bool _guardando = false;
   bool get _esEdicion => widget.facturaExistente != null;
 
-  // Datos cliente
-  final _ctrlClienteNombre = TextEditingController();
-  final _ctrlClienteTelefono = TextEditingController();
-  final _ctrlClienteCorreo = TextEditingController();
+  // Cliente
+  final _ctrlNombre = TextEditingController();
+  final _ctrlTelefono = TextEditingController();
+  final _ctrlCorreo = TextEditingController();
   final _ctrlNif = TextEditingController();
   final _ctrlRazonSocial = TextEditingController();
   final _ctrlDireccion = TextEditingController();
   TipoClienteFactura _tipoCliente = TipoClienteFactura.particular;
   bool _mostrarDatosFiscales = false;
-  String? _errorValidacionNif;  // Mensaje de error NIF/CIF
+  String? _errorNif;
 
-  // Tipo y método
+  // Configuración
   TipoFactura _tipoFactura = TipoFactura.venta_directa;
   MetodoPagoFactura? _metodoPago;
   double _porcentajeIva = 21.0;
+  final _ctrlDiasVenc = TextEditingController(text: '30');
+  DateTime? _fechaOperacion;
 
-  // Campos fiscales avanzados
-  final _ctrlDiasVencimiento = TextEditingController(text: '30');
+  // Fiscal avanzado
   double _descuentoGlobal = 0;
   double _porcentajeIrpf = 0;
 
-  // Líneas
+  // Líneas y notas
   final List<LineaFactura> _lineas = [];
-
-  // Bandera para empresas del sector construcción / obras
-  bool _esConstruccion = false;
-  // Bandera para hostelería (IVA por defecto 10%)
-  bool _esHosteleria = false;
-  // Bandera para comercio (IVA obligatorio por línea, sin valor por defecto)
-  bool _esComercio = false;
-  // Fecha de operación (opcional; obligatoria si difiere de emisión)
-  DateTime? _fechaOperacion;
-
-  // Notas
   final _ctrlNotasInternas = TextEditingController();
   final _ctrlNotasCliente = TextEditingController();
+
+  // Sector
+  bool _esConstruccion = false;
+  bool _esHosteleria = false;
+  bool _esComercio = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.facturaExistente != null) {
-      _precargarFactura(widget.facturaExistente!);
+      _precargar(widget.facturaExistente!);
     } else {
-      if (widget.clienteNombreInicial != null) {
-        _ctrlClienteNombre.text = widget.clienteNombreInicial!;
-      }
-      if (widget.pedidoId != null) {
-        _tipoFactura = TipoFactura.pedido;
-      }
+      if (widget.clienteNombreInicial != null) _ctrlNombre.text = widget.clienteNombreInicial!;
+      if (widget.pedidoId != null) _tipoFactura = TipoFactura.pedido;
       if (widget.lineasIniciales != null) {
         for (final l in widget.lineasIniciales!) {
           _lineas.add(LineaFactura(
@@ -96,72 +96,47 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
         }
       }
     }
-
-    _cargarContextoEmpresa();
+    _cargarSector();
   }
 
-  Future<void> _cargarContextoEmpresa() async {
-    try {
-      final doc = await _firestore
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .get();
-      final data = doc.data() ?? <String, dynamic>{};
-      final sector = (data['sector'] as String? ?? '').toLowerCase();
-      final tipo = (data['tipo_negocio'] as String? ?? '').toLowerCase();
-
-      final esConstruccion = sector.contains('construcci') ||
-          tipo.contains('construcci') ||
-          tipo.contains('obra');
-
-      final esHosteleria = sector.contains('hostel') ||
-          sector.contains('restaura') ||
-          sector.contains('cafeter') ||
-          sector.contains('bar') ||
-          tipo.contains('hostel') ||
-          tipo.contains('restaura');
-
-      final esComercio = sector.contains('comerci') ||
-          tipo.contains('comerci') ||
-          tipo.contains('tienda') ||
-          tipo.contains('bazar');
-
-      // IVA por defecto según sector:
-      //  - Hostelería: 10% (comidas y bebidas no alcohólicas)
-      //  - Comercio: sin defecto (obligatorio elegir por línea)
-      //  - Construcción: 21% (el asistente ajustará según obra)
-      //  - Resto: 21%
-      double ivaDefecto = esHosteleria ? 10.0 : 21.0;
-
-      if (mounted) {
-        setState(() {
-          _esConstruccion = esConstruccion;
-          _esHosteleria = esHosteleria;
-          _esComercio = esComercio;
-          // Solo sobreescribir el IVA si es una factura nueva
-          if (!_esEdicion) _porcentajeIva = ivaDefecto;
-        });
-      }
-    } catch (e) {
-      debugPrint('⚠️ Error cargando contexto empresa: $e');
+  @override
+  void dispose() {
+    for (final c in [_ctrlNombre, _ctrlTelefono, _ctrlCorreo, _ctrlNif, _ctrlRazonSocial, _ctrlDireccion, _ctrlDiasVenc, _ctrlNotasInternas, _ctrlNotasCliente]) {
+      c.dispose();
     }
+    super.dispose();
   }
 
-  void _precargarFactura(Factura f) {
-    _ctrlClienteNombre.text = f.clienteNombre;
-    _ctrlClienteTelefono.text = f.clienteTelefono ?? '';
-    _ctrlClienteCorreo.text = f.clienteCorreo ?? '';
+  Future<void> _cargarSector() async {
+    try {
+      final data = (await _firestore.collection('empresas').doc(widget.empresaId).get()).data() ?? {};
+      final s = (data['sector'] as String? ?? '').toLowerCase();
+      final t = (data['tipo_negocio'] as String? ?? '').toLowerCase();
+      if (!mounted) return;
+      setState(() {
+        _esConstruccion = s.contains('construcci') || t.contains('construcci') || t.contains('obra');
+        _esHosteleria = s.contains('hostel') || s.contains('restaura') || s.contains('bar') || t.contains('hostel');
+        _esComercio = s.contains('comerci') || t.contains('tienda') || t.contains('bazar');
+        if (!_esEdicion) _porcentajeIva = _esHosteleria ? 10.0 : 21.0;
+      });
+    } catch (_) {}
+  }
+
+  void _precargar(Factura f) {
+    _ctrlNombre.text = f.clienteNombre;
+    _ctrlTelefono.text = f.clienteTelefono ?? '';
+    _ctrlCorreo.text = f.clienteCorreo ?? '';
     _tipoFactura = f.tipo;
     _metodoPago = f.metodoPago;
-    _ctrlDiasVencimiento.text = f.diasVencimiento.toString();
+    _ctrlDiasVenc.text = f.diasVencimiento.toString();
     _descuentoGlobal = f.descuentoGlobal;
     _porcentajeIrpf = f.porcentajeIrpf;
     _ctrlNotasInternas.text = f.notasInternas ?? '';
     _ctrlNotasCliente.text = f.notasCliente ?? '';
-    _lineas.addAll(f.lineas);
     _fechaOperacion = f.fechaOperacion;
-    _tipoCliente = ((f.datosFiscales?.razonSocial?.trim().isNotEmpty ?? false) ||
-            (f.datosFiscales?.direccion?.trim().isNotEmpty ?? false))
+    _lineas.addAll(f.lineas);
+    if (f.lineas.isNotEmpty) _porcentajeIva = f.lineas.first.porcentajeIva;
+    _tipoCliente = (f.datosFiscales?.razonSocial?.trim().isNotEmpty ?? false)
         ? TipoClienteFactura.empresaAutonomo
         : TipoClienteFactura.particular;
     if (f.datosFiscales?.tieneDatos == true) {
@@ -170,950 +145,716 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
       _ctrlRazonSocial.text = f.datosFiscales?.razonSocial ?? '';
       _ctrlDireccion.text = f.datosFiscales?.direccion ?? '';
     }
-    if (f.lineas.isNotEmpty) {
-      _porcentajeIva = f.lineas.first.porcentajeIva;
-    }
   }
 
-  @override
-  void dispose() {
-    _ctrlClienteNombre.dispose();
-    _ctrlClienteTelefono.dispose();
-    _ctrlClienteCorreo.dispose();
-    _ctrlNif.dispose();
-    _ctrlRazonSocial.dispose();
-    _ctrlDireccion.dispose();
-    _ctrlNotasInternas.dispose();
-    _ctrlNotasCliente.dispose();
-    _ctrlDiasVencimiento.dispose();
-    super.dispose();
-  }
-
-  Map<String, double> get _totales => Factura.calcularTotales(
-    lineas: _lineas,
-    descuentoGlobal: _descuentoGlobal,
-    porcentajeIrpf: _porcentajeIrpf,
-  );
-
-  double get _importeTotalActual => _totales['total'] ?? 0.0;
-  bool get _esEmpresaOProfesional =>
-      _tipoCliente == TipoClienteFactura.empresaAutonomo;
-  bool get _nifObligatorio => _esEmpresaOProfesional || _importeTotalActual >= 400;
-  /// Si es empresa/autónomo el NIF es obligatorio estrictamente (no se puede continuar sin él)
-  bool get _nifEstrictamenteObligatorio => _esEmpresaOProfesional || _ctrlRazonSocial.text.trim().isNotEmpty;
-  bool get _debeMostrarDatosFiscales =>
-      _mostrarDatosFiscales ||
-      _esEmpresaOProfesional ||
-      _nifObligatorio ||
-      _ctrlNif.text.trim().isNotEmpty ||
-      _ctrlRazonSocial.text.trim().isNotEmpty ||
-      _ctrlDireccion.text.trim().isNotEmpty;
-
-  bool get _nifValidoActual =>
-      _ctrlNif.text.trim().isNotEmpty && validarNIF(_ctrlNif.text);
-
-  String? get _mensajeAyudaNif {
-    if (_errorValidacionNif != null) return _errorValidacionNif;
-    if (_nifObligatorio && _ctrlNif.text.trim().isEmpty) {
-      return _esEmpresaOProfesional
-          ? 'NIF obligatorio para Empresa/Autónomo'
-          : 'NIF obligatorio cuando el importe total es igual o superior a 400 €';
-    }
-    if (!_nifObligatorio && _ctrlNif.text.trim().isEmpty) {
-      return 'NIF opcional para particulares con importe inferior a 400 €';
-    }
-    return null;
-  }
-
-  void _actualizarValidacionNif(String v) {
-    setState(() {
-      if (v.trim().isEmpty) {
-        _errorValidacionNif = null;
-      } else {
-        final validacion = ValidadorNifCif.validar(v);
-        _errorValidacionNif = validacion.valido ? null : validacion.razon;
-      }
-    });
-  }
+  Map<String, double> get _t => Factura.calcularTotales(lineas: _lineas, descuentoGlobal: _descuentoGlobal, porcentajeIrpf: _porcentajeIrpf);
+  bool get _esEmpresa => _tipoCliente == TipoClienteFactura.empresaAutonomo;
+  bool get _nifObligatorio => _esEmpresa || (_t['total'] ?? 0) >= 400;
+  bool get _nifEstricto => _esEmpresa || _ctrlRazonSocial.text.trim().isNotEmpty;
+  bool get _mostrarFiscales => _mostrarDatosFiscales || _esEmpresa || _nifObligatorio || _ctrlNif.text.trim().isNotEmpty;
+  bool get _nifValido => _ctrlNif.text.trim().isNotEmpty && validarNIF(_ctrlNif.text);
 
   @override
   Widget build(BuildContext context) {
-    final t = _totales;
+    final t = _t;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: _kFondo,
       appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar Factura' : 'Nueva Factura'),
-        backgroundColor: const Color(0xFF0D47A1),
+        title: Text(_esEdicion ? 'Editar Factura' : 'Nueva Factura', style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: _kPrimario,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            _buildSeccion('👤 Datos del Cliente', [
-              DropdownButtonFormField<TipoClienteFactura>(
-                value: _tipoCliente,
-                decoration: _inputDeco('Tipo de cliente'),
-                items: const [
-                  DropdownMenuItem(
-                    value: TipoClienteFactura.particular,
-                    child: Text('Particular'),
-                  ),
-                  DropdownMenuItem(
-                    value: TipoClienteFactura.empresaAutonomo,
-                    child: Text('Empresa/Autónomo'),
-                  ),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _tipoCliente = v;
-                    if (v == TipoClienteFactura.empresaAutonomo) {
-                      _mostrarDatosFiscales = true;
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              // Selector de cliente con creación rápida (Feature 7)
-              ClienteSelectorRapido(
-                empresaId: widget.empresaId,
-                valorInicial: _ctrlClienteNombre.text,
-                hint: 'Buscar o crear cliente...',
-                onSeleccionado: (cliente) {
-                  _ctrlClienteNombre.text = cliente.nombre;
-                  if (cliente.telefono != null && _ctrlClienteTelefono.text.isEmpty) {
-                    _ctrlClienteTelefono.text = cliente.telefono!;
-                  }
-                  if (cliente.correo != null && _ctrlClienteCorreo.text.isEmpty) {
-                    _ctrlClienteCorreo.text = cliente.correo!;
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              _buildCampo('Teléfono', _ctrlClienteTelefono,
-                  tipo: TextInputType.phone),
-              _buildCampo('Correo', _ctrlClienteCorreo,
-                  tipo: TextInputType.emailAddress),
-              if (!_nifObligatorio)
-                SwitchListTile(
-                  title: const Text('Añadir datos fiscales',
-                      style: TextStyle(fontSize: 14)),
-                  subtitle: const Text(
-                    'Opcional para particulares con importe inferior a 400 €',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  value: _mostrarDatosFiscales,
-                  onChanged: (v) => setState(() => _mostrarDatosFiscales = v),
-                  activeThumbColor: const Color(0xFF0D47A1),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              if (_debeMostrarDatosFiscales) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextFormField(
-                    controller: _ctrlNif,
-                    decoration: _inputDeco(
-                      _nifObligatorio ? 'NIF/CIF/NIE *' : 'NIF/CIF/NIE',
-                      hintText: '12345678Z o A12345678 o X1234567L',
-                      errorText: _mensajeAyudaNif,
-                      prefixIcon: _errorValidacionNif == null && _ctrlNif.text.isNotEmpty
-                          ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
-                          : null,
-                    ),
-                    onChanged: _actualizarValidacionNif,
-                    validator: (_) => null,
-                  ),
-                ),
-                if (!_nifObligatorio)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Aviso: si el destinatario es particular y el importe total es inferior a 400 €, el NIF puede omitirse legalmente.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    ),
-                  ),
-                _buildCampo('Razón Social', _ctrlRazonSocial),
-                _buildCampo('Dirección fiscal', _ctrlDireccion),
-              ],
-            ]),
-            const SizedBox(height: 16),
-            _buildSeccion('📋 Configuración', [
-              DropdownButtonFormField<TipoFactura>(
-                value: _tipoFactura,
-                decoration: _inputDeco('Tipo de factura'),
-                items: TipoFactura.values
-                    .map((t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(t.etiqueta),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _tipoFactura = v!),
-              ),
-              const SizedBox(height: 12),
-              // ── Fecha de operación (Art. 6.1.f RD 1619/2012) ──────────
-              InkWell(
-                onTap: () async {
-                  final fecha = await showDatePicker(
-                    context: context,
-                    initialDate: _fechaOperacion ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                    helpText: 'Fecha de realización de la operación',
-                  );
-                  if (fecha != null) {
-                    setState(() => _fechaOperacion = fecha);
-                  }
-                },
-                child: InputDecorator(
-                  decoration: _inputDeco(
-                    'Fecha de operación (opcional)',
-                    hintText: 'Solo si difiere de la fecha de emisión',
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _fechaOperacion != null
-                              ? '${_fechaOperacion!.day.toString().padLeft(2, '0')}/${_fechaOperacion!.month.toString().padLeft(2, '0')}/${_fechaOperacion!.year}'
-                              : 'Igual que la fecha de emisión',
-                          style: TextStyle(
-                            color: _fechaOperacion != null
-                                ? Colors.black87
-                                : Colors.grey[500],
-                          ),
-                        ),
-                      ),
-                      if (_fechaOperacion != null)
-                        GestureDetector(
-                          onTap: () => setState(() => _fechaOperacion = null),
-                          child: const Icon(Icons.close, size: 18, color: Colors.grey),
-                        )
-                      else
-                        const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<double>(
-                value: _porcentajeIva,
-                decoration: _inputDeco('IVA aplicable'),
-                items: const [
-                  DropdownMenuItem(value: 0.0, child: Text('0% - Exento')),
-                  DropdownMenuItem(value: 4.0, child: Text('4% - Superreducido')),
-                  DropdownMenuItem(value: 10.0, child: Text('10% - Reducido')),
-                  DropdownMenuItem(value: 21.0, child: Text('21% - General')),
-                ],
-                onChanged: (v) => setState(() => _porcentajeIva = v!),
-              ),
-              if (_esHosteleria) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFFCC02)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 14, color: Color(0xFFF57F17)),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Hostelería: comidas/bebidas sin alcohol → 10% · '
-                          'Bebidas alcohólicas → 21% · '
-                          'Cambia el IVA por línea si mezclas tipos.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFFF57F17)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (_esComercio) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF1565C0)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.shopping_cart_outlined, size: 14, color: Color(0xFF1565C0)),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Comercio: selecciona el IVA por cada línea · '
-                          '4% Alimentación básica/medicamentos · '
-                          '10% Alimentación general · '
-                          '21% Ropa, electrónica y resto.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF1565C0)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              DropdownButtonFormField<MetodoPagoFactura?>(
-                value: _metodoPago,
-                decoration: _inputDeco('Método de pago (opcional)'),
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Pendiente de pago')),
-                  ...MetodoPagoFactura.values.map((m) => DropdownMenuItem(
-                        value: m,
-                        child: Text(m.etiqueta),
-                      )),
-                ],
-                onChanged: (v) => setState(() => _metodoPago = v),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _ctrlDiasVencimiento,
-                decoration: _inputDeco('Días hasta vencimiento'),
-                keyboardType: TextInputType.number,
-              ),
-            ]),
-            const SizedBox(height: 16),
-            _buildSeccion('💰 Opciones Fiscales Avanzadas', [
-              DropdownButtonFormField<double>(
-                value: _descuentoGlobal,
-                decoration: _inputDeco('Descuento global'),
-                items: const [
-                  DropdownMenuItem(value: 0.0, child: Text('Sin descuento')),
-                  DropdownMenuItem(value: 5.0, child: Text('5%')),
-                  DropdownMenuItem(value: 10.0, child: Text('10%')),
-                  DropdownMenuItem(value: 15.0, child: Text('15%')),
-                  DropdownMenuItem(value: 20.0, child: Text('20%')),
-                  DropdownMenuItem(value: 25.0, child: Text('25%')),
-                  DropdownMenuItem(value: 50.0, child: Text('50%')),
-                ],
-                onChanged: (v) => setState(() => _descuentoGlobal = v ?? 0),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<double>(
-                initialValue: _porcentajeIrpf,
-                decoration: _inputDeco('Retención IRPF (freelancer)'),
-                items: const [
-                  DropdownMenuItem(value: 0.0, child: Text('Sin retención')),
-                  DropdownMenuItem(value: 7.0, child: Text('7% (nuevos autónomos)')),
-                  DropdownMenuItem(value: 15.0, child: Text('15% (estándar)')),
-                  DropdownMenuItem(value: 19.0, child: Text('19% (profesional)')),
-                ],
-                onChanged: (v) => setState(() => _porcentajeIrpf = v ?? 0),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            _buildSeccionLineas(),
-            const SizedBox(height: 16),
-            _buildResumenTotales(t),
-            const SizedBox(height: 16),
-            _buildSeccion('📝 Notas', [
-              _buildCampo('Notas internas (no visibles al cliente)',
-                  _ctrlNotasInternas,
-                  maxLines: 2),
-              _buildCampo('Notas para el cliente', _ctrlNotasCliente,
-                  maxLines: 2),
-            ]),
-            const SizedBox(height: 80),
+            _seccion(1, 'Cliente', Icons.person_outline, _buildCliente()),
+            _seccion(2, 'Configuración de factura', Icons.receipt_outlined, _buildConfiguracion()),
+            _seccion(3, 'Descuentos y retenciones', Icons.percent, _buildFiscal()),
+            _seccion(4, 'Líneas', Icons.list_alt_outlined, _buildLineas()),
+            _seccion(5, 'Notas', Icons.notes_outlined, _buildNotas()),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBotonGuardar(),
+      bottomNavigationBar: _buildBottomBar(t),
     );
   }
 
-  Widget _buildSeccion(String titulo, List<Widget> children) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(titulo,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 12),
-            ...children,
-          ],
-        ),
+  // ── SECCIONES ─────────────────────────────────────────────────────────────
+
+  List<Widget> _buildCliente() => [
+    SegmentedButton<TipoClienteFactura>(
+      segments: const [
+        ButtonSegment(value: TipoClienteFactura.particular, label: Text('Particular'), icon: Icon(Icons.person, size: 16)),
+        ButtonSegment(value: TipoClienteFactura.empresaAutonomo, label: Text('Empresa / Autónomo'), icon: Icon(Icons.business, size: 16)),
+      ],
+      selected: {_tipoCliente},
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: _kPrimario,
+        selectedForegroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 12),
       ),
-    );
-  }
-
-  Widget _buildCampo(
-    String label,
-    TextEditingController ctrl, {
-    bool validar = false,
-    TextInputType tipo = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: ctrl,
-        keyboardType: tipo,
-        maxLines: maxLines,
-        decoration: _inputDeco(label),
-        validator: validar
-            ? (v) => (v == null || v.isEmpty) ? 'Campo obligatorio' : null
-            : null,
+      onSelectionChanged: (v) => setState(() {
+        _tipoCliente = v.first;
+        if (_tipoCliente == TipoClienteFactura.empresaAutonomo) _mostrarDatosFiscales = true;
+      }),
+    ),
+    const SizedBox(height: 12),
+    ClienteSelectorRapido(
+      empresaId: widget.empresaId,
+      valorInicial: _ctrlNombre.text,
+      hint: 'Buscar o crear cliente...',
+      onSeleccionado: (c) {
+        setState(() {
+          _ctrlNombre.text = c.nombre;
+          if (c.telefono != null && _ctrlTelefono.text.isEmpty) _ctrlTelefono.text = c.telefono!;
+          if (c.correo != null && _ctrlCorreo.text.isEmpty) _ctrlCorreo.text = c.correo!;
+        });
+      },
+    ),
+    const SizedBox(height: 10),
+    _campo('Teléfono', _ctrlTelefono, tipo: TextInputType.phone),
+    _campo('Correo electrónico', _ctrlCorreo, tipo: TextInputType.emailAddress),
+    if (!_nifObligatorio)
+      SwitchListTile(
+        dense: true, contentPadding: EdgeInsets.zero,
+        title: const Text('Añadir datos fiscales', style: TextStyle(fontSize: 13)),
+        subtitle: const Text('Opcional para particulares < 400 €', style: TextStyle(fontSize: 11)),
+        value: _mostrarDatosFiscales,
+        onChanged: (v) => setState(() => _mostrarDatosFiscales = v),
+        activeColor: _kPrimario,
       ),
-    );
-  }
+    if (_mostrarFiscales) ..._buildFiscalesCliente(),
+  ];
 
-  InputDecoration _inputDeco(
-    String label, {
-    String? hintText,
-    String? errorText,
-    Widget? prefixIcon,
-  }) =>
-      InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        errorText: errorText,
-        prefixIcon: prefixIcon,
-        filled: true,
-        fillColor: const Color(0xFFF5F7FA),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF0D47A1)),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      );
+  List<Widget> _buildFiscalesCliente() => [
+    const SizedBox(height: 4),
+    TextFormField(
+      controller: _ctrlNif,
+      decoration: _deco(
+        _nifObligatorio ? 'NIF / CIF / NIE *' : 'NIF / CIF / NIE',
+        hint: '12345678Z · A12345678 · X1234567L',
+        error: _errorNif,
+        prefijo: _ctrlNif.text.isNotEmpty && _errorNif == null
+            ? const Icon(Icons.check_circle, color: Colors.green, size: 20) : null,
+      ),
+      onChanged: (v) {
+        setState(() => _errorNif = v.trim().isEmpty ? null : (ValidadorNifCif.validar(v).valido ? null : ValidadorNifCif.validar(v).razon));
+      },
+    ),
+    const SizedBox(height: 10),
+    _campo('Razón social', _ctrlRazonSocial),
+    _campo('Dirección fiscal completa', _ctrlDireccion),
+  ];
 
-  Widget _buildSeccionLineas() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  List<Widget> _buildConfiguracion() => [
+    DropdownButtonFormField<TipoFactura>(
+      value: _tipoFactura,
+      decoration: _deco('Tipo de factura'),
+      items: TipoFactura.values.map((t) => DropdownMenuItem(value: t, child: Text(t.etiqueta))).toList(),
+      onChanged: (v) => setState(() => _tipoFactura = v!),
+    ),
+    const SizedBox(height: 12),
+    _buildIvaGlobal(),
+    const SizedBox(height: 12),
+    if (_esHosteleria) _aviso('Hostelería: comidas/bebidas sin alcohol → 10%  ·  Bebidas alcohólicas → 21%'),
+    if (_esComercio) _aviso('Comercio: ajusta el IVA por cada línea (4% / 10% / 21%)'),
+    InkWell(
+      onTap: () async {
+        final d = await showDatePicker(
+          context: context,
+          initialDate: _fechaOperacion ?? DateTime.now(),
+          firstDate: DateTime(2020), lastDate: DateTime(2100),
+          helpText: 'Fecha de realización de la operación',
+        );
+        if (d != null) setState(() => _fechaOperacion = d);
+      },
+      child: InputDecorator(
+        decoration: _deco('Fecha de operación', hint: 'Solo si difiere de la fecha de emisión'),
+        child: Row(children: [
+          Expanded(child: Text(
+            _fechaOperacion != null
+                ? '${_fechaOperacion!.day.toString().padLeft(2, '0')}/${_fechaOperacion!.month.toString().padLeft(2, '0')}/${_fechaOperacion!.year}'
+                : 'Igual que la fecha de emisión',
+            style: TextStyle(color: _fechaOperacion != null ? Colors.black87 : Colors.grey[500]),
+          )),
+          if (_fechaOperacion != null)
+            GestureDetector(onTap: () => setState(() => _fechaOperacion = null), child: const Icon(Icons.close, size: 16, color: Colors.grey))
+          else
+            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+        ]),
+      ),
+    ),
+    const SizedBox(height: 12),
+    DropdownButtonFormField<MetodoPagoFactura?>(
+      value: _metodoPago,
+      decoration: _deco('Método de pago'),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Pendiente de pago')),
+        ...MetodoPagoFactura.values.map((m) => DropdownMenuItem(value: m, child: Text(m.etiqueta))),
+      ],
+      onChanged: (v) => setState(() => _metodoPago = v),
+    ),
+    const SizedBox(height: 12),
+    TextFormField(
+      controller: _ctrlDiasVenc,
+      decoration: _deco('Días hasta vencimiento'),
+      keyboardType: TextInputType.number,
+    ),
+  ];
+
+  Widget _buildIvaGlobal() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('IVA por defecto en nuevas líneas', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8, runSpacing: 8,
           children: [
-            Row(
-              children: [
-                const Text('🛒 Líneas de Factura',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _agregarLinea,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Añadir', style: TextStyle(fontSize: 13)),
-                  style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF0D47A1)),
+            (0.0, '0% — Exento'),
+            (4.0, '4%'),
+            (10.0, '10%'),
+            (21.0, '21%'),
+          ].map((item) {
+            final sel = _porcentajeIva == item.$1;
+            return GestureDetector(
+              onTap: () => setState(() => _porcentajeIva = item.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: sel ? _kPrimario : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: sel ? _kPrimario : Colors.grey[300]!),
                 ),
-              ],
-            ),
-            if (_lineas.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text('Sin líneas. Pulsa "Añadir" para agregar productos.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey)),
-                ),
-              )
-            else
-              ..._lineas.asMap().entries.map((e) => _buildLinea(e.key, e.value)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLinea(int i, LineaFactura linea) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(linea.descripcion,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
-                Text(
-                  '${linea.cantidad} × ${linea.precioUnitario.toStringAsFixed(2)}€'
-                  '  (IVA ${linea.porcentajeIva.toInt()}%)'
-                  '${linea.descuento > 0 ? '  -${linea.descuento.toInt()}% dto' : ''}'
-                  '${linea.recargoEquivalencia > 0 ? '  +${linea.recargoEquivalencia}% RE' : ''}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${linea.subtotalConIva.toStringAsFixed(2)}€',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-            onPressed: () => setState(() => _lineas.removeAt(i)),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResumenTotales(Map<String, double> t) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: const Color(0xFF0D47A1),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildFilaTotal('Base imponible', t['subtotal'] ?? 0, Colors.white70),
-            if (_descuentoGlobal > 0)
-              _buildFilaTotal('Descuento global (${_descuentoGlobal.toInt()}%)',
-                  -(t['importe_descuento_global'] ?? 0), Colors.orangeAccent),
-            _buildFilaTotal('IVA', t['total_iva'] ?? 0, Colors.white70),
-            if ((t['total_recargo_equivalencia'] ?? 0) > 0)
-              _buildFilaTotal('Recargo equiv.', t['total_recargo_equivalencia']!, Colors.white70),
-            if (_porcentajeIrpf > 0)
-              _buildFilaTotal('Retención IRPF (${_porcentajeIrpf.toInt()}%)',
-                  -(t['retencion_irpf'] ?? 0), Colors.orangeAccent),
-            const Divider(color: Colors.white30, height: 20),
-            _buildFilaTotal('TOTAL', t['total'] ?? 0, Colors.white, bold: true),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilaTotal(String label, double valor, Color color,
-      {bool bold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: color,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                  fontSize: bold ? 16 : 13)),
-          Text('${valor.toStringAsFixed(2)}€',
-              style: TextStyle(
-                  color: color,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                  fontSize: bold ? 18 : 13)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBotonGuardar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: _guardando ? null : _guardar,
-        icon: _guardando
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2))
-            : const Icon(Icons.save),
-        label: Text(_guardando
-            ? 'Guardando...'
-            : _esEdicion ? 'Actualizar Factura' : 'Guardar Factura'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0D47A1),
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-    );
-  }
-
-  // ── AGREGAR LÍNEA ──────────────────────────────────────────────────────────
-
-  void _agregarLinea() async {
-    final linea = await showDialog<LineaFactura>(
-      context: context,
-      builder: (ctx) => _DialogLineaFactura(
-        ivaDefault: _porcentajeIva,
-        mostrarAsistente: _esConstruccion,
-        esComercio: _esComercio,
-      ),
-    );
-    if (linea != null) {
-      setState(() => _lineas.add(linea));
-    }
-  }
-
-  // ── GUARDAR / EDITAR ──────────────────────────────────────────────────────
-
-  Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_lineas.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ Añade al menos una línea a la factura'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final nifIntroducido = _ctrlNif.text.trim();
-    final hayNifValido = nifIntroducido.isNotEmpty && validarNIF(nifIntroducido);
-
-    // Validar NIF/CIF en tiempo real si se ha introducido
-    if (_debeMostrarDatosFiscales && nifIntroducido.isNotEmpty) {
-      final validacionNif = ValidadorNifCif.validar(_ctrlNif.text);
-      if (!validacionNif.valido) {
-        _actualizarValidacionNif(_ctrlNif.text);
-      }
-    }
-
-    // Bloqueo estricto: empresa/autónomo SIEMPRE requiere NIF válido
-    if (_nifEstrictamenteObligatorio && !hayNifValido) {
-      setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '❌ NIF/CIF obligatorio para empresas y autónomos. '
-            'Introduce un NIF/CIF válido antes de continuar.',
-          ),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 4),
-        ),
-      );
-      return;
-    }
-
-    // Advertencia (no bloqueo) para particulares con total ≥ 400 €
-    if (_nifObligatorio && !_nifEstrictamenteObligatorio && !hayNifValido) {
-      final continuar = await _mostrarDialogoAdvertenciaFiscal();
-      if (continuar != true) return;
-    }
-
-    setState(() => _guardando = true);
-
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      final uid = user?.uid ?? '';
-      final nombre = user?.displayName ?? 'Usuario';
-
-      DatosFiscales? datosFiscales;
-      if (_debeMostrarDatosFiscales) {
-        final nifNormalizado = hayNifValido
-            ? ValidadorNifCif.limpiar(_ctrlNif.text)
-            : null;
-        datosFiscales = DatosFiscales(
-          nif: nifNormalizado,
-          razonSocial: _ctrlRazonSocial.text.isEmpty ? null : _ctrlRazonSocial.text,
-          direccion: _ctrlDireccion.text.isEmpty ? null : _ctrlDireccion.text,
-        );
-
-        if ((datosFiscales.nif == null) &&
-            (datosFiscales.razonSocial == null) &&
-            (datosFiscales.direccion == null)) {
-          datosFiscales = null;
-        }
-      }
-
-      final diasVenc = int.tryParse(_ctrlDiasVencimiento.text) ?? 30;
-
-      if (_esEdicion) {
-        await _service.editarFactura(
-          empresaId: widget.empresaId,
-          facturaId: widget.facturaExistente!.id,
-          clienteNombre: _ctrlClienteNombre.text,
-          clienteTelefono: _ctrlClienteTelefono.text.isEmpty
-              ? null : _ctrlClienteTelefono.text,
-          clienteCorreo: _ctrlClienteCorreo.text.isEmpty
-              ? null : _ctrlClienteCorreo.text,
-          datosFiscales: datosFiscales,
-          lineas: _lineas,
-          metodoPago: _metodoPago,
-          notasInternas: _ctrlNotasInternas.text.isEmpty
-              ? null : _ctrlNotasInternas.text,
-          notasCliente: _ctrlNotasCliente.text.isEmpty
-              ? null : _ctrlNotasCliente.text,
-          fechaOperacion: _fechaOperacion,
-          diasVencimiento: diasVenc,
-          descuentoGlobal: _descuentoGlobal,
-          porcentajeIrpf: _porcentajeIrpf,
-          usuarioId: uid,
-          usuarioNombre: nombre,
-        );
-      } else {
-        final resultado = await _service.crearFactura(
-          empresaId: widget.empresaId,
-          clienteNombre: _ctrlClienteNombre.text,
-          clienteTelefono: _ctrlClienteTelefono.text.isEmpty
-              ? null : _ctrlClienteTelefono.text,
-          clienteCorreo: _ctrlClienteCorreo.text.isEmpty
-              ? null : _ctrlClienteCorreo.text,
-          datosFiscales: datosFiscales,
-          lineas: _lineas,
-          metodoPago: _metodoPago,
-          pedidoId: widget.pedidoId,
-          tipo: _tipoFactura,
-          notasInternas: _ctrlNotasInternas.text.isEmpty
-              ? null : _ctrlNotasInternas.text,
-          notasCliente: _ctrlNotasCliente.text.isEmpty
-              ? null : _ctrlNotasCliente.text,
-          fechaOperacion: _fechaOperacion,
-          diasVencimiento: diasVenc,
-          descuentoGlobal: _descuentoGlobal,
-          porcentajeIrpf: _porcentajeIrpf,
-          usuarioId: uid,
-          usuarioNombre: nombre,
-        );
-
-        // Mostrar feedback de VeriFactu si aplica
-        if (mounted && (resultado.verifactuOk || resultado.verifactuError)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(resultado.mensajeVerifactu),
-              backgroundColor: resultado.verifactuOk
-                  ? const Color(0xFF2196F3)
-                  : Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_esEdicion
-                ? '✅ Factura actualizada correctamente'
-                : '✅ Factura creada correctamente'),
-            backgroundColor: const Color(0xFF4CAF50),
-          ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      setState(() => _guardando = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<bool?> _mostrarDialogoAdvertenciaFiscal() {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Advertencia fiscal'),
-        content: const Text(
-          'Esta factura no será válida fiscalmente ni podrá incluirse en el Mod. 347. ¿Deseas continuar de todos modos?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1)),
-            child: const Text('Continuar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── DIÁLOGO AÑADIR LÍNEA ──────────────────────────────────────────────────────
-
-class _DialogLineaFactura extends StatefulWidget {
-  final double ivaDefault;
-  final bool mostrarAsistente;
-  /// Si true (sector Comercio) el IVA no tiene valor por defecto:
-  /// el usuario DEBE seleccionarlo antes de confirmar.
-  final bool esComercio;
-
-  const _DialogLineaFactura({
-    required this.ivaDefault,
-    this.mostrarAsistente = false,
-    this.esComercio = false,
-  });
-
-  @override
-  State<_DialogLineaFactura> createState() => _DialogLineaFacturaState();
-}
-
-class _DialogLineaFacturaState extends State<_DialogLineaFactura> {
-  final _ctrlDesc = TextEditingController();
-  final _ctrlPrecio = TextEditingController();
-  final _ctrlCantidad = TextEditingController(text: '1');
-  final _ctrlDescuento = TextEditingController(text: '0');
-  double? _iva; // null en modo comercio hasta que el usuario elige
-  double _recargoEquivalencia = 0;
-  bool _mostrarErrorIva = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _iva = widget.esComercio ? null : widget.ivaDefault;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Añadir línea'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _ctrlDesc,
-              decoration: const InputDecoration(labelText: 'Descripción *'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _ctrlPrecio,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Precio unitario (€) *'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _ctrlCantidad,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Cantidad'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _ctrlDescuento,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Descuento línea (%)'),
-            ),
-            const SizedBox(height: 8),
-            // Selector IVA: con etiquetas de categoría para Comercio
-            DropdownButtonFormField<double>(
-              value: _iva,
-              decoration: InputDecoration(
-                labelText: widget.esComercio ? 'IVA % *' : 'IVA %',
-                errorText: _mostrarErrorIva ? 'Selecciona el tipo de IVA' : null,
+                child: Text(item.$2, style: TextStyle(color: sel ? Colors.white : Colors.grey[700], fontWeight: sel ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
               ),
-              hint: widget.esComercio
-                  ? const Text('Selecciona el IVA aplicable *')
-                  : null,
-              items: widget.esComercio
-                  ? const [
-                      DropdownMenuItem(
-                        value: 4.0,
-                        child: Text('4% — Alimentación básica, medicamentos'),
-                      ),
-                      DropdownMenuItem(
-                        value: 10.0,
-                        child: Text('10% — Alimentación general'),
-                      ),
-                      DropdownMenuItem(
-                        value: 21.0,
-                        child: Text('21% — Ropa, electrónica, resto'),
-                      ),
-                    ]
-                  : const [
-                      DropdownMenuItem(value: 0.0, child: Text('0% — Exento')),
-                      DropdownMenuItem(value: 4.0, child: Text('4%')),
-                      DropdownMenuItem(value: 10.0, child: Text('10%')),
-                      DropdownMenuItem(value: 21.0, child: Text('21%')),
-                    ],
-              onChanged: (v) => setState(() {
-                _iva = v;
-                _mostrarErrorIva = false;
-              }),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<double>(
-              value: _recargoEquivalencia,
-              decoration: const InputDecoration(labelText: 'Recargo equivalencia'),
-              items: const [
-                DropdownMenuItem(value: 0.0, child: Text('Sin recargo')),
-                DropdownMenuItem(value: 0.5, child: Text('0.5% (IVA 4%)')),
-                DropdownMenuItem(value: 1.4, child: Text('1.4% (IVA 10%)')),
-                DropdownMenuItem(value: 5.2, child: Text('5.2% (IVA 21%)')),
-              ],
-              onChanged: (v) => setState(() => _recargoEquivalencia = v ?? 0),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar')),
-        ElevatedButton(
-          onPressed: _confirmar,
-          style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1)),
-          child: const Text('Añadir', style: TextStyle(color: Colors.white)),
+            );
+          }).toList(),
         ),
       ],
     );
   }
 
-  void _confirmar() {
-    final desc = _ctrlDesc.text.trim();
-    final precio = double.tryParse(_ctrlPrecio.text.replaceAll(',', '.'));
-    final cantidad = int.tryParse(_ctrlCantidad.text) ?? 1;
-    final descuento =
-        double.tryParse(_ctrlDescuento.text.replaceAll(',', '.')) ?? 0;
+  List<Widget> _buildFiscal() => [
+    DropdownButtonFormField<double>(
+      value: _descuentoGlobal,
+      decoration: _deco('Descuento global sobre la factura'),
+      items: const [
+        DropdownMenuItem(value: 0.0, child: Text('Sin descuento')),
+        DropdownMenuItem(value: 5.0, child: Text('5%')),
+        DropdownMenuItem(value: 10.0, child: Text('10%')),
+        DropdownMenuItem(value: 15.0, child: Text('15%')),
+        DropdownMenuItem(value: 20.0, child: Text('20%')),
+        DropdownMenuItem(value: 25.0, child: Text('25%')),
+        DropdownMenuItem(value: 50.0, child: Text('50%')),
+      ],
+      onChanged: (v) => setState(() => _descuentoGlobal = v ?? 0),
+    ),
+    const SizedBox(height: 12),
+    DropdownButtonFormField<double>(
+      initialValue: _porcentajeIrpf,
+      decoration: _deco('Retención IRPF (autónomos / profesionales)'),
+      items: const [
+        DropdownMenuItem(value: 0.0, child: Text('Sin retención')),
+        DropdownMenuItem(value: 7.0, child: Text('7% — Nuevos autónomos')),
+        DropdownMenuItem(value: 15.0, child: Text('15% — Estándar')),
+        DropdownMenuItem(value: 19.0, child: Text('19% — Profesional')),
+      ],
+      onChanged: (v) => setState(() => _porcentajeIrpf = v ?? 0),
+    ),
+  ];
 
-    if (desc.isEmpty || precio == null) return;
+  List<Widget> _buildLineas() => [
+    if (_lineas.isEmpty)
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        alignment: Alignment.center,
+        child: Column(children: [
+          Icon(Icons.add_shopping_cart_outlined, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 8),
+          Text('Sin líneas todavía', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          const SizedBox(height: 4),
+          Text('Pulsa el botón para añadir productos o servicios', style: TextStyle(color: Colors.grey[400], fontSize: 12), textAlign: TextAlign.center),
+        ]),
+      )
+    else
+      ...List.generate(_lineas.length, (i) => _buildItemLinea(i, _lineas[i])),
+    const SizedBox(height: 8),
+    OutlinedButton.icon(
+      onPressed: _agregarLinea,
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text('Añadir línea'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _kPrimario,
+        side: const BorderSide(color: _kPrimario),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        minimumSize: const Size(double.infinity, 44),
+      ),
+    ),
+  ];
 
-    // Comercio: IVA obligatorio
-    if (_iva == null) {
-      setState(() => _mostrarErrorIva = true);
-      return;
-    }
-
-    Navigator.pop(
-      context,
-      LineaFactura(
-        descripcion: desc,
-        precioUnitario: precio,
-        cantidad: cantidad,
-        porcentajeIva: _iva!,
-        descuento: descuento,
-        recargoEquivalencia: _recargoEquivalencia,
+  Widget _buildItemLinea(int i, LineaFactura l) {
+    final ivaColor = l.porcentajeIva == 21 ? const Color(0xFF1565C0) : l.porcentajeIva == 10 ? const Color(0xFF2E7D32) : l.porcentajeIva == 4 ? const Color(0xFFEF6C00) : Colors.grey;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _editarLinea(i),
+        child: Row(children: [
+          Container(
+            width: 5, height: 80,
+            decoration: BoxDecoration(color: ivaColor, borderRadius: const BorderRadius.horizontal(left: Radius.circular(12))),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(l.descripcion, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Text('${l.subtotalConIva.toStringAsFixed(2)}€', style: const TextStyle(fontWeight: FontWeight.bold, color: _kPrimario, fontSize: 14)),
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Text('${l.cantidad}${l.unidad.isNotEmpty ? " ${l.unidad}" : ""} × ${l.precioUnitario.toStringAsFixed(2)}€', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  const SizedBox(width: 8),
+                  _badge('IVA ${l.porcentajeIva.toInt()}%', ivaColor),
+                  if (l.descuento > 0) ...[const SizedBox(width: 4), _badge('-${l.descuento.toInt()}%', Colors.orange)],
+                ]),
+                if (l.referencia != null && l.referencia!.isNotEmpty)
+                  Padding(padding: const EdgeInsets.only(top: 2), child: Text('Ref: ${l.referencia}', style: TextStyle(fontSize: 11, color: Colors.grey[400]))),
+              ]),
+            ),
+          ),
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(icon: const Icon(Icons.edit_outlined, size: 18, color: _kPrimario), onPressed: () => _editarLinea(i), visualDensity: VisualDensity.compact),
+            IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red), onPressed: () => setState(() => _lineas.removeAt(i)), visualDensity: VisualDensity.compact),
+          ]),
+        ]),
       ),
     );
   }
+
+  List<Widget> _buildNotas() => [
+    _campo('Notas internas (no visibles al cliente)', _ctrlNotasInternas, maxLines: 2),
+    _campo('Notas para el cliente', _ctrlNotasCliente, maxLines: 2),
+  ];
+
+  // ── BOTTOM BAR CON TOTALES + GUARDAR ─────────────────────────────────────
+
+  Widget _buildBottomBar(Map<String, double> t) {
+    final total = t['total'] ?? 0;
+    final base = t['subtotal'] ?? 0;
+    final iva = t['total_iva'] ?? 0;
+    final irpf = t['retencion_irpf'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            _miniTotal('Base', base),
+            const SizedBox(width: 16),
+            _miniTotal('IVA', iva),
+            if (_porcentajeIrpf > 0) ...[
+              const SizedBox(width: 16),
+              _miniTotal('IRPF', -irpf, color: Colors.orange[700]),
+            ],
+            const Spacer(),
+            Text(
+              '${total.toStringAsFixed(2)} €',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kPrimario),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity, height: 50,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kPrimario, foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _guardando
+                  ? const Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                      SizedBox(width: 10),
+                      Text('Guardando...'),
+                    ])
+                  : Text(_esEdicion ? 'Actualizar Factura' : 'Guardar Factura',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniTotal(String label, double valor, {Color? color}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+      Text('${valor.toStringAsFixed(2)}€', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? Colors.grey[800])),
+    ],
+  );
+
+  // ── ACCIONES ──────────────────────────────────────────────────────────────
+
+  Future<void> _agregarLinea() async {
+    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio);
+    if (linea != null) setState(() => _lineas.add(linea));
+  }
+
+  Future<void> _editarLinea(int i) async {
+    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio, editar: _lineas[i]);
+    if (linea != null) setState(() => _lineas[i] = linea);
+  }
+
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_lineas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Añade al menos una línea'), backgroundColor: Colors.orange));
+      return;
+    }
+    final nifTexto = _ctrlNif.text.trim();
+    final hayNifValido = nifTexto.isNotEmpty && validarNIF(nifTexto);
+    if (_nifEstricto && !hayNifValido) {
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('NIF/CIF obligatorio para empresas y autónomos'), backgroundColor: Colors.red, duration: Duration(seconds: 4)));
+      return;
+    }
+    if (_nifObligatorio && !_nifEstricto && !hayNifValido) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Advertencia fiscal'),
+          content: const Text('Esta factura no tendrá validez fiscal ni podrá incluirse en el Mod. 347. ¿Continuar?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: _kPrimario), child: const Text('Continuar', style: TextStyle(color: Colors.white))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    setState(() => _guardando = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final uid = user?.uid ?? '';
+      final nombre = user?.displayName ?? 'Usuario';
+      DatosFiscales? fiscales;
+      if (_mostrarFiscales) {
+        final nif = hayNifValido ? ValidadorNifCif.limpiar(nifTexto) : null;
+        fiscales = DatosFiscales(
+          nif: nif,
+          razonSocial: _ctrlRazonSocial.text.trim().isEmpty ? null : _ctrlRazonSocial.text.trim(),
+          direccion: _ctrlDireccion.text.trim().isEmpty ? null : _ctrlDireccion.text.trim(),
+        );
+        if (!fiscales.tieneDatos) fiscales = null;
+      }
+      final dias = int.tryParse(_ctrlDiasVenc.text) ?? 30;
+      if (_esEdicion) {
+        await _service.editarFactura(
+          empresaId: widget.empresaId, facturaId: widget.facturaExistente!.id,
+          clienteNombre: _ctrlNombre.text, clienteTelefono: _ctrlTelefono.text.trim().isEmpty ? null : _ctrlTelefono.text,
+          clienteCorreo: _ctrlCorreo.text.trim().isEmpty ? null : _ctrlCorreo.text,
+          datosFiscales: fiscales, lineas: _lineas, metodoPago: _metodoPago,
+          notasInternas: _ctrlNotasInternas.text.trim().isEmpty ? null : _ctrlNotasInternas.text,
+          notasCliente: _ctrlNotasCliente.text.trim().isEmpty ? null : _ctrlNotasCliente.text,
+          fechaOperacion: _fechaOperacion, diasVencimiento: dias,
+          descuentoGlobal: _descuentoGlobal, porcentajeIrpf: _porcentajeIrpf,
+          usuarioId: uid, usuarioNombre: nombre,
+        );
+      } else {
+        final res = await _service.crearFactura(
+          empresaId: widget.empresaId, clienteNombre: _ctrlNombre.text,
+          clienteTelefono: _ctrlTelefono.text.trim().isEmpty ? null : _ctrlTelefono.text,
+          clienteCorreo: _ctrlCorreo.text.trim().isEmpty ? null : _ctrlCorreo.text,
+          datosFiscales: fiscales, lineas: _lineas, metodoPago: _metodoPago,
+          pedidoId: widget.pedidoId, tipo: _tipoFactura,
+          notasInternas: _ctrlNotasInternas.text.trim().isEmpty ? null : _ctrlNotasInternas.text,
+          notasCliente: _ctrlNotasCliente.text.trim().isEmpty ? null : _ctrlNotasCliente.text,
+          fechaOperacion: _fechaOperacion, diasVencimiento: dias,
+          descuentoGlobal: _descuentoGlobal, porcentajeIrpf: _porcentajeIrpf,
+          usuarioId: uid, usuarioNombre: nombre,
+        );
+        if (mounted && (res.verifactuOk || res.verifactuError)) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(res.mensajeVerifactu),
+            backgroundColor: res.verifactuOk ? const Color(0xFF2196F3) : Colors.orange,
+            duration: const Duration(seconds: 4),
+          ));
+        }
+      }
+      if (mounted) {
+        if (_esEdicion) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura actualizada'), backgroundColor: Colors.green));
+          Navigator.pop(context, true);
+        } else {
+          await _mostrarOpcionesPostGuardado(res.factura);
+        }
+      }
+    } catch (e) {
+      setState(() => _guardando = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _mostrarOpcionesPostGuardado(Factura f) async {
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PostGuardadoSheet(factura: f, empresaId: widget.empresaId),
+    );
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  // ── HELPERS ───────────────────────────────────────────────────────────────
+
+  Widget _seccion(int n, String titulo, IconData icono, List<Widget> children) => Card(
+    margin: const EdgeInsets.only(bottom: 16),
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 22, height: 22,
+            decoration: const BoxDecoration(color: _kPrimario, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text('$n', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          const SizedBox(width: 8),
+          Icon(icono, size: 15, color: _kPrimario),
+          const SizedBox(width: 6),
+          Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        ]),
+        const SizedBox(height: 14),
+        ...children,
+      ]),
+    ),
+  );
+
+  Widget _campo(String label, TextEditingController ctrl, {TextInputType tipo = TextInputType.text, int maxLines = 1}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextFormField(controller: ctrl, keyboardType: tipo, maxLines: maxLines, decoration: _deco(label)),
+      );
+
+  Widget _aviso(String texto) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFFFCC02))),
+      child: Row(children: [
+        const Icon(Icons.info_outline, size: 14, color: Color(0xFFF57F17)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(texto, style: const TextStyle(fontSize: 11, color: Color(0xFFF57F17)))),
+      ]),
+    ),
+  );
+
+  Widget _badge(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
+    child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+  );
+
+  InputDecoration _deco(String label, {String? hint, String? error, Widget? prefijo}) => InputDecoration(
+    labelText: label, hintText: hint, errorText: error, prefixIcon: prefijo,
+    filled: true, fillColor: _kFondo,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimario)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.red)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  );
 }
+
+// ── SHEET POST-GUARDADO ────────────────────────────────────────────────────────
+
+class _PostGuardadoSheet extends StatefulWidget {
+  final Factura factura;
+  final String empresaId;
+
+  const _PostGuardadoSheet({required this.factura, required this.empresaId});
+
+  @override
+  State<_PostGuardadoSheet> createState() => _PostGuardadoSheetState();
+}
+
+class _PostGuardadoSheetState extends State<_PostGuardadoSheet> {
+  bool _cargando = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = widget.factura;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Icono de éxito
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_outline, color: Colors.green, size: 40),
+          ),
+          const SizedBox(height: 12),
+          Text(f.numeroFactura, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            '${f.total.toStringAsFixed(2)} € · ${f.clienteNombre.isEmpty ? "Cliente general" : f.clienteNombre}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          if (_cargando)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: CircularProgressIndicator(color: _kPrimario),
+            )
+          else ...[
+            _botonAccion(
+              icon: Icons.picture_as_pdf,
+              label: 'Ver PDF',
+              color: _kPrimario,
+              onTap: () => PdfService.verFacturaPdf(context, f, widget.empresaId),
+            ),
+            const SizedBox(height: 10),
+            _botonAccion(
+              icon: Icons.share_outlined,
+              label: 'Compartir (WhatsApp, Drive…)',
+              color: const Color(0xFF25D366),
+              onTap: () => _compartir(f),
+            ),
+            const SizedBox(height: 10),
+            _botonAccion(
+              icon: Icons.email_outlined,
+              label: f.clienteCorreo?.isNotEmpty == true
+                  ? 'Enviar por email a ${f.clienteCorreo}'
+                  : 'Enviar por email',
+              color: Colors.orange,
+              onTap: () => _enviarEmail(f),
+            ),
+            if (f.clienteTelefono != null) ...[
+              const SizedBox(height: 10),
+              _botonAccion(
+                icon: Icons.chat_outlined,
+                label: 'WhatsApp a ${f.clienteTelefono}',
+                color: const Color(0xFF25D366),
+                onTap: () => _whatsapp(f),
+              ),
+            ],
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Listo', style: TextStyle(color: Colors.grey, fontSize: 15)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _botonAccion({required IconData icon, required String label, required Color color, required VoidCallback onTap}) =>
+      OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18, color: color),
+        label: Text(label, style: TextStyle(color: color, fontSize: 13), overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: color.withValues(alpha: 0.5)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          minimumSize: const Size(double.infinity, 46),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+      );
+
+  Future<void> _compartir(Factura f) async {
+    setState(() => _cargando = true);
+    try {
+      final bytes = await PdfService.generarFacturaPdfConDatos(f, widget.empresaId);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/Factura_${f.numeroFactura.replaceAll('/', '_')}.pdf');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf')],
+        subject: 'Factura ${f.numeroFactura}',
+        text: 'Factura ${f.numeroFactura} · ${f.total.toStringAsFixed(2)}€',
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _enviarEmail(Factura f) async {
+    setState(() => _cargando = true);
+    try {
+      final bytes = await PdfService.generarFacturaPdfConDatos(f, widget.empresaId);
+      final correo = f.clienteCorreo ?? '';
+      if (correo.isNotEmpty) {
+        await EmailService.enviarFactura(
+          destinatario: correo,
+          pdfBytes: bytes,
+          numeroFactura: f.numeroFactura,
+          total: f.total,
+          empresaId: widget.empresaId,
+          nombreCliente: f.clienteNombre,
+        );
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email enviado'), backgroundColor: Colors.green));
+      } else {
+        // Sin correo: fallback a compartir
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/Factura_${f.numeroFactura.replaceAll('/', '_')}.pdf');
+        await file.writeAsBytes(bytes);
+        if (mounted) {
+          await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')], subject: 'Factura ${f.numeroFactura}');
+        }
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _whatsapp(Factura f) async {
+    final tel = f.clienteTelefono!.replaceAll(RegExp(r'[^0-9+]'), '');
+    final texto = 'Hola, te envío la factura ${f.numeroFactura} por ${f.total.toStringAsFixed(2)}€.';
+    final uri = Uri.parse('https://wa.me/$tel?text=${Uri.encodeComponent(texto)}');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // También compartir el PDF por separado
+    await _compartir(f);
+  }
+}
+

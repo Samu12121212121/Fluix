@@ -1,4 +1,4 @@
-# 🧾 Auditoría Técnica TPV — PlaneaGuada / FluixCRM
+#  Auditoría Técnica TPV — PlaneaGuada / FluixCRM
 ### Análisis de viabilidad: TPV para bares similar a HIOPOS
 
 > **Versión analizada:** `1.0.15` · Dart SDK `^3.11.1` · Firebase (Firestore, Functions v2, Storage)
@@ -6,7 +6,7 @@
 
 ---
 
-## 1. 🏗️ Arquitectura Actual del Módulo TPV
+## 1. ️ Arquitectura Actual del Módulo TPV
 
 ```
 features/tpv/pantallas/
@@ -122,7 +122,7 @@ La Cloud Function `generarFacturasResumenTpv` (cron `30 23 * * * Europe/Madrid`)
 
 ## 3. ❌ GAPS CRÍTICOS vs. HIOPOS
 
-### 3.1 🚨 Bloqueantes — Sin estos no es un TPV de bar real
+### 3.1  Bloqueantes — Sin estos no es un TPV de bar real
 
 #### A) NO existe Gestión de Mesas
 No hay ningún concepto de `mesa`, `zona`, `sala` en el código ni en Firestore. HIOPOS centra toda la operativa en esto: sin mesas no hay comandas abiertas, ni transferencia, ni cobro al final de la noche.
@@ -215,36 +215,36 @@ Solo muestra totales por método de pago. Faltan:
 
 ---
 
-## 4. 📊 Comparativa Completa vs. HIOPOS
+## 4.  Comparativa Completa vs. HIOPOS
 
 | Feature HIOPOS | Estado FluixCRM | Prioridad |
 |---|---|---|
-| Plano de mesas interactivo | ❌ No existe | 🔴 Alta |
-| Comandas abiertas por mesa | ❌ No existe | 🔴 Alta |
-| Transferencia de mesa | ❌ No existe | 🔴 Alta |
-| Impresión de comanda a cocina | ❌ No existe | 🔴 Alta |
-| Routing multi-impresora (bar/cocina) | ❌ No existe | 🔴 Alta |
-| BT ticket desde cobro en Caja Rápida | ⚠️ Servicio OK, sin conectar | 🔴 Alta |
-| Datos empresa en ticket | ⚠️ Hardcoded "FLUIX CRM" | 🔴 Alta |
-| IVA correcto (10%) en caja | ⚠️ Default 21% | 🔴 Alta |
-| Variantes en Caja Rápida | ⚠️ Modelo OK, UI ausente | 🔴 Alta |
-| Número de ticket secuencial | ⚠️ Campo en BT modelo, sin contador | 🟠 Media-Alta |
-| Descuentos por línea/ticket | ❌ No existe | 🟠 Media |
-| Notas por línea en Caja Rápida | ⚠️ Modelo OK, UI ausente | 🟠 Media |
-| Reparto mixto real en cierre | ⚠️ Hardcoded 50/50 | 🟠 Media |
-| Decremento de stock | ❌ No existe | 🟠 Media |
-| Z-Report PDF exportable | ❌ No existe | 🟡 Baja-Media |
-| División de cuenta | ❌ No existe | 🟡 Baja |
-| Propina / tip | ❌ No existe | 🟡 Baja |
-| Cuenta en espera / parked sale | ❌ No existe | 🟡 Baja |
-| Escáner código de barras | ⚠️ Campo modelo OK, sin UI | 🟡 Baja |
-| WiFi / IP printer support | ❌ Solo BT | 🟡 Baja |
-| KDS (Kitchen Display System) | ❌ No existe | 🟡 Baja |
-| Modo offline + sync | ❌ sqflite sin usar | 🟡 Baja |
+| Plano de mesas interactivo | ❌ No existe |  Alta |
+| Comandas abiertas por mesa | ❌ No existe |  Alta |
+| Transferencia de mesa | ❌ No existe |  Alta |
+| Impresión de comanda a cocina | ❌ No existe |  Alta |
+| Routing multi-impresora (bar/cocina) | ❌ No existe |  Alta |
+| BT ticket desde cobro en Caja Rápida | ⚠️ Servicio OK, sin conectar |  Alta |
+| Datos empresa en ticket | ⚠️ Hardcoded "FLUIX CRM" |  Alta |
+| IVA correcto (10%) en caja | ⚠️ Default 21% |  Alta |
+| Variantes en Caja Rápida | ⚠️ Modelo OK, UI ausente |  Alta |
+| Número de ticket secuencial | ⚠️ Campo en BT modelo, sin contador |  Media-Alta |
+| Descuentos por línea/ticket | ❌ No existe |  Media |
+| Notas por línea en Caja Rápida | ⚠️ Modelo OK, UI ausente |  Media |
+| Reparto mixto real en cierre | ⚠️ Hardcoded 50/50 |  Media |
+| Decremento de stock | ❌ No existe |  Media |
+| Z-Report PDF exportable | ❌ No existe |  Baja-Media |
+| División de cuenta | ❌ No existe |  Baja |
+| Propina / tip | ❌ No existe |  Baja |
+| Cuenta en espera / parked sale | ❌ No existe |  Baja |
+| Escáner código de barras | ⚠️ Campo modelo OK, sin UI |  Baja |
+| WiFi / IP printer support | ❌ Solo BT |  Baja |
+| KDS (Kitchen Display System) | ❌ No existe |  Baja |
+| Modo offline + sync | ❌ sqflite sin usar |  Baja |
 
 ---
 
-## 5. 🔧 Arquitectura Firestore Ampliada para Bar
+## 5.  Arquitectura Firestore Ampliada para Bar
 
 ```
 empresas/{id}/
@@ -293,7 +293,7 @@ match /empresas/{id}/contadores/{doc} {
 
 ---
 
-## 6. 🗺️ Roadmap de Implementación
+## 6. ️ Roadmap de Implementación
 
 ### FASE 0 — Correcciones Críticas (≈ 3-4 días)
 *Hacen el TPV actual correcto para venta directa de barra:*
@@ -343,7 +343,7 @@ match /empresas/{id}/contadores/{doc} {
 
 ---
 
-## 7. 📦 Dependencias Adicionales Necesarias
+## 7.  Dependencias Adicionales Necesarias
 
 | Package | Uso | Estado |
 |---|---|---|
@@ -357,19 +357,18 @@ match /empresas/{id}/contadores/{doc} {
 
 ---
 
-## 8. 💡 Resumen Ejecutivo
+## 8.  Resumen Ejecutivo
 
 **El módulo TPV tiene una base técnica sólida:** catálogo con imágenes + variantes + IVA, flujo de cobro multi-método, integración fiscal completa (VeriFactu, series), cierre de caja con historial, importación CSV de TPVs externos, impresora Bluetooth térmica funcional.
 
 **Para un bar tipo HIOPOS, los bloqueos principales son:**
-1. 🚨 Sin mesas ni comandas abiertas
-2. 🚨 BT ticket no conectado al cobro (servicio existe, falta llamarlo)
-3. 🚨 IVA por defecto 21% (correcto es 10% bebidas)
-4. 🚨 Ticket sin datos legales empresa
+1.  Sin mesas ni comandas abiertas
+2.  BT ticket no conectado al cobro (servicio existe, falta llamarlo)
+3.  IVA por defecto 21% (correcto es 10% bebidas)
+4.  Ticket sin datos legales empresa
 
 **Las 5 correcciones de Fase 0 (≈3-4 días) hacen el TPV de barra directa operativo y fiscalmente correcto.** El módulo de Mesas completo requiere ≈6-8 semanas adicionales para ser comparable a HIOPOS.
 
 ---
 
 *Auditoría técnica basada en análisis estático de código fuente — Mayo 2026*
-

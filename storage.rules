@@ -43,6 +43,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Fotos de servicios del catálogo de servicios
+    match /empresas/{empresaId}/servicios/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Contenido web público (imágenes de secciones, blog, etc.)
     match /empresas/{empresaId}/web/{allPaths=**} {
       allow read: if true;
@@ -154,7 +162,15 @@ service firebase.storage {
       allow read, write: if false;
     }
 
-    // ── NEGOCIOS PÚBLICOS (galería de fotos del perfil B2C) ─────────────────
+    // ── NEGOCIOS PÚBLICOS (fotos directas: foto.jpg, foto_secundaria.jpg, etc.) ─
+    match /negocios_publicos/{negocioId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Galería de imágenes del negocio B2C
     match /negocios_publicos/{negocioId}/galeria/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
@@ -162,19 +178,44 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Foto de perfil/avatar de negocio B2C
-    match /negocios_publicos/{negocioId}/foto_perfil.jpg {
+    // Fotos de servicios del negocio B2C
+    match /negocios_publicos/{negocioId}/servicios/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Avatares de usuarios (clientes)
+    // Avatares de usuarios (clientes) — ruta canónica
     match /usuarios/{userId}/avatar.jpg {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Fotos de empleados — ruta usada por StorageService
+    // Path: empleados/{empresaId}/{empleadoId}/foto.jpg
+    match /empleados/{empresaId}/{empleadoId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Avatares de usuarios — ruta corta usada por pantalla_perfil_cliente
+    match /avatares/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Imágenes de catálogo TPV subidas desde la app (SubirImagenesCatalogoScreen)
+    match /empresas/{empresaId}/catalogo_imagenes/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 

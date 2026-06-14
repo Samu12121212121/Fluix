@@ -1,10 +1,10 @@
-# 🔧 CÓDIGO LISTO PARA IMPLEMENTAR — Fase 1
+#  CÓDIGO LISTO PARA IMPLEMENTAR — Fase 1
 
 **Instrucciones**: Copiar y pegar estos archivos para implementar los fixes críticos de Fase 1.
 
 ---
 
-## 📁 Archivo 1: `lib/core/mixins/safe_stream_mixin.dart` (NUEVO)
+##  Archivo 1: `lib/core/mixins/safe_stream_mixin.dart` (NUEVO)
 
 ```dart
 import 'dart:async';
@@ -93,7 +93,7 @@ mixin SafeStreamMixin<T extends StatefulWidget> on State<T> {
 
 ---
 
-## 📁 Archivo 2: Modificar `lib/main.dart`
+##  Archivo 2: Modificar `lib/main.dart`
 
 **BUSCAR** (líneas 31-35):
 ```dart
@@ -129,7 +129,7 @@ Future<void> _configurarFirestore() async {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: false,
     );
-    debugPrint('🌐 Firestore configurado para Web (sin persistencia)');
+    debugPrint(' Firestore configurado para Web (sin persistencia)');
     
   } else if (defaultTargetPlatform == TargetPlatform.windows ||
              defaultTargetPlatform == TargetPlatform.linux ||
@@ -150,7 +150,7 @@ Future<void> _configurarFirestore() async {
       debugPrint('ℹ️ No se pudo limpiar caché (app activa): $e');
     }
     
-    debugPrint('💻 Firestore configurado para Desktop (caché 100MB)');
+    debugPrint(' Firestore configurado para Desktop (caché 100MB)');
     
   } else {
     // ── MOBILE: Caché ilimitada (óptimo para iOS/Android) ─────────────
@@ -158,7 +158,7 @@ Future<void> _configurarFirestore() async {
       persistenceEnabled: true,
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
-    debugPrint('📱 Firestore configurado para Mobile (caché ilimitada)');
+    debugPrint(' Firestore configurado para Mobile (caché ilimitada)');
   }
 }
 ```
@@ -202,7 +202,7 @@ Future<void> _configurarFirestore() async {
 
 ---
 
-## 📁 Archivo 3: Ejemplo de Uso en `tpv_peluqueria_screen.dart`
+##  Archivo 3: Ejemplo de Uso en `tpv_peluqueria_screen.dart`
 
 **ANTES** (líneas 1105-1110 aprox.):
 ```dart
@@ -287,7 +287,7 @@ class _TpvPeluqueriaScreenState extends State<TpvPeluqueriaScreen>
 
 ---
 
-## 📁 Archivo 4: Feature Flag (Opcional pero Recomendado)
+##  Archivo 4: Feature Flag (Opcional pero Recomendado)
 
 **Crear**: `lib/core/config/feature_flags.dart`
 
@@ -350,7 +350,7 @@ class _TpvPeluqueriaScreenState extends State<TpvPeluqueriaScreen>
 
 ---
 
-## 🧪 TESTING MANUAL (Checklist)
+##  TESTING MANUAL (Checklist)
 
 Después de implementar los cambios, validar:
 
@@ -412,7 +412,7 @@ Después de implementar los cambios, validar:
 
 ---
 
-## 📊 MÉTRICAS A CAPTURAR
+##  MÉTRICAS A CAPTURAR
 
 **Antes de implementar**:
 ```
@@ -438,7 +438,7 @@ Después de implementar los cambios, validar:
 
 ---
 
-## 🚀 DEPLOYMENT
+##  DEPLOYMENT
 
 ### Paso 1: Crear Branch
 ```bash
@@ -543,16 +543,15 @@ R: Sí, tres niveles:
 
 ---
 
-## 📞 SOPORTE
+##  SOPORTE
 
 Si algo falla o tienes dudas:
 1. Leer `ANALISIS_ARQUITECTURA_INCREMENTAL.md` (documento completo)
 2. Leer `RESUMEN_EJECUTIVO_ARQUITECTURA.md` (decisiones)
 3. Consultar con tu equipo técnico
 
-**¡Éxito con la implementación!** 🚀
+**¡Éxito con la implementación!** 
 
 ---
 
 **FIN CÓDIGO LISTO PARA IMPLEMENTAR**
-

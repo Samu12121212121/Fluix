@@ -6,7 +6,7 @@
 
 ---
 
-## 📋 Resumen Ejecutivo
+##  Resumen Ejecutivo
 
 Se ha implementado un **Sistema de Fichaje de Empleados** que cumple al 100% con la nueva normativa española de registro de jornada (Real Decreto 2026), que entrará en vigor tras publicación en el BOE.
 
@@ -26,22 +26,22 @@ Se ha implementado un **Sistema de Fichaje de Empleados** que cumple al 100% con
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+## ️ Arquitectura del Sistema
 
 ```
-📁 lib/features/fichajes/
-├── 📁 modelos/
+ lib/features/fichajes/
+├──  modelos/
 │   └── fichaje.dart                    # Modelos: Fichaje, Pausa, EmpleadoFichaje
-├── 📁 servicios/
+├──  servicios/
 │   └── fichaje_service.dart            # Lógica de negocio y validaciones
-└── 📁 pantallas/
+└──  pantallas/
     ├── pantalla_fichaje_empleado.dart  # Pantalla con PIN para empleados
     └── gestion_fichajes_screen.dart    # Dashboard para administradores
 ```
 
 ---
 
-## 🗂️ Estructura de Datos en Firestore
+## ️ Estructura de Datos en Firestore
 
 ### **Colección:** `empresas/{empresaId}/fichajes/{fichajeId}`
 
@@ -109,7 +109,7 @@ Se ha implementado un **Sistema de Fichaje de Empleados** que cumple al 100% con
 
 ---
 
-## 🔄 Flujo Completo del Sistema
+##  Flujo Completo del Sistema
 
 ### **1️⃣ FICHAJE ENTRADA (Inicio de jornada)**
 
@@ -291,7 +291,7 @@ await _service.iniciarPausa(
 
 ---
 
-## 🔧 CORRECCIÓN DE FICHAJES (Audit Trail)
+##  CORRECCIÓN DE FICHAJES (Audit Trail)
 
 ### **Caso:** Empleado olvidó fichar salida
 
@@ -363,28 +363,28 @@ await _service.iniciarPausa(
 
 ---
 
-## 📊 Dashboard de Gestión (Vista Administrador)
+##  Dashboard de Gestión (Vista Administrador)
 
 ### **Tabla en Tiempo Real (StreamBuilder)**
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  📋 Gestión de Fichajes                      [📅] [📥 Exportar]              │
+│   Gestión de Fichajes                      [] [ Exportar]              │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  ◀ Miércoles, 20 de mayo de 2026 ▶                                          │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  Empleado      │ Entrada │ Pausas        │ Salida │ Total  │ Estado  │ ... │
 │────────────────┼─────────┼───────────────┼────────┼────────┼─────────┼─────│
-│  👤 María      │ 09:00   │ 11:00-11:15   │ 17:00  │ 7h 14m │ ✅ Cer  │ 👁️✏️│
-│  👤 Juan       │ 10:15   │ 14:00-14:30   │ —      │ 4h 15m │ 🟢 Act  │ 👁️✏️│
-│  👤 Ana        │ 08:45   │ 11:00-...     │ —      │ —      │ 🟠 Pau  │ 👁️✏️│
-│  👤 Carlos     │ —       │ —             │ —      │ —      │ ⚠️ Sin  │ 👁️✏️│
+│   María      │ 09:00   │ 11:00-11:15   │ 17:00  │ 7h 14m │ ✅ Cer  │ ️✏️│
+│   Juan       │ 10:15   │ 14:00-14:30   │ —      │ 4h 15m │  Act  │ ️✏️│
+│   Ana        │ 08:45   │ 11:00-...     │ —      │ —      │  Pau  │ ️✏️│
+│   Carlos     │ —       │ —             │ —      │ —      │ ⚠️ Sin  │ ️✏️│
 └──────────────────────────────────────────────────────────────────────────────┘
 
 Leyenda Estados:
 ✅ Cerrada    — Jornada completa (entrada + salida)
-🟢 Activo     — Trabajando (sin pausa activa)
-🟠 En pausa   — Pausa activa sin cerrar
+ Activo     — Trabajando (sin pausa activa)
+ En pausa   — Pausa activa sin cerrar
 ⚠️ Sin fichar — No ha fichado entrada hoy
 ```
 
@@ -401,7 +401,7 @@ StreamBuilder<List<Fichaje>>(
 
 ---
 
-## 🔐 Seguridad y Privacidad
+##  Seguridad y Privacidad
 
 ### **1. Sin Biometría de Alto Riesgo**
 
@@ -436,7 +436,7 @@ match /empresas/{empresaId}/empleados_fichaje/{empleadoId} {
 
 ---
 
-## 📤 Exportación de Datos
+##  Exportación de Datos
 
 ### **CSV con todos los campos legales**
 
@@ -460,7 +460,7 @@ await File('fichajes_$fecha.csv').writeAsString(csv);
 
 ---
 
-## 🎯 Casos de Uso Reales
+##  Casos de Uso Reales
 
 ### **Caso 1: Restaurante con 15 Empleados**
 
@@ -537,20 +537,20 @@ await File('fichajes_$fecha.csv').writeAsString(csv);
 
 ---
 
-## 📱 UI/UX — Pantallas
+##  UI/UX — Pantallas
 
 ### **Pantalla Empleado (Tablet)**
 
 ```
 ┌─────────────────────────────────────────────┐
-│  💼 Sistema de Fichaje                      │
+│   Sistema de Fichaje                      │
 ├─────────────────────────────────────────────┤
 │                                             │
 │     Miércoles, 20 de mayo de 2026          │
 │                                             │
-│         🕐  09:42:17                        │
+│           09:42:17                        │
 │                                             │
-│              👤                             │
+│                                           │
 │        Introduce tu PIN                     │
 │                                             │
 │            ····                             │
@@ -669,7 +669,7 @@ await FirebaseFirestore.instance
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### **Error: "PIN incorrecto"**
 
@@ -699,7 +699,7 @@ WHERE activo == true
 
 ---
 
-## 📈 Roadmap Futuro
+##  Roadmap Futuro
 
 ### **Fase 2: Notificaciones Push**
 - Recordatorio si empleado no fichó entrada a las 9:15
@@ -722,7 +722,7 @@ WHERE activo == true
 
 ---
 
-## 📄 Archivos del Sistema
+##  Archivos del Sistema
 
 ```
 ✅ lib/features/fichajes/modelos/fichaje.dart                    (170 líneas)
@@ -779,7 +779,7 @@ WHERE activo == true
 
 ---
 
-## 💼 Impacto Empresarial
+##  Impacto Empresarial
 
 **Antes del sistema:**
 - ❌ Excel con fichajes manuales
@@ -806,7 +806,7 @@ WHERE activo == true
 
 ---
 
-## 🎓 Fuentes Legales
+##  Fuentes Legales
 
 1. **Kronjop ControlHorario** - Análisis nueva normativa 2026
 2. **Grupo Castilla** - Requisitos técnicos de fichaje digital
@@ -817,4 +817,3 @@ WHERE activo == true
 ---
 
 *Este sistema garantiza el 100% de cumplimiento de la normativa y protege a la empresa ante inspecciones laborales.*
-

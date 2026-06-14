@@ -1,4 +1,4 @@
-# 🔍 AUDITORÍA COMPLETA PARA DESPLIEGUE EN PRODUCCIÓN
+#  AUDITORÍA COMPLETA PARA DESPLIEGUE EN PRODUCCIÓN
 > **Fecha:** 5 Mayo 2026  
 > **Proyecto:** Fluix CRM / PlaneaG  
 > **Versión:** 1.0.14  
@@ -7,38 +7,38 @@
 
 ---
 
-## 📊 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 ### Estado General del Proyecto
 **Completitud Global: 70%**  
 **Estado: Beta Avanzada — NO LISTO para producción completa**  
-**Riesgo de despliegue: 🟡 MEDIO-ALTO**
+**Riesgo de despliegue:  MEDIO-ALTO**
 
 ### Veredicto por Áreas
 
 | Área | Estado | Nota | Producción |
 |------|--------|------|------------|
-| 🔐 **Autenticación** | ✅ Funcional | 8/10 | ✅ Listo |
-| 📱 **App Mobile (Android)** | ✅ Funcional | 7/10 | ⚠️ Con condiciones |
-| 🍎 **App Mobile (iOS)** | ⚠️ Sin verificar | 5/10 | ❌ No listo |
-| 🔥 **Firebase Backend** | ✅ Operativo | 7/10 | ⚠️ Con condiciones |
-| 💰 **Módulo Facturación** | ✅ Funcional | 7/10 | ⚠️ Sin Verifactu activo |
-| 📊 **Módulo Fiscal/IA** | ✅ Avanzado | 8/10 | ⚠️ Verifactu inactivo |
-| 💼 **Módulo Nóminas** | ✅ Funcional | 7/10 | ⚠️ Solo CLM |
-| 🛒 **Módulo Reservas** | ⚠️ Incompleto | 6/10 | ❌ Bugs críticos |
-| 💳 **Pagos/Suscripciones** | ⚠️ Test mode | 6/10 | ❌ No listo |
-| 🔔 **Push Notifications** | ✅ Configurado | 7/10 | ⚠️ iOS sin verificar |
-| 🛡️ **Seguridad Firestore** | ⚠️ Sin auditar | 4/10 | ❌ CRÍTICO |
-| 🧪 **Testing** | ❌ Inexistente | 0/10 | ❌ BLOQUEANTE |
-| 📦 **CI/CD** | ⚠️ Configurado | 6/10 | ⚠️ Manual |
+|  **Autenticación** | ✅ Funcional | 8/10 | ✅ Listo |
+|  **App Mobile (Android)** | ✅ Funcional | 7/10 | ⚠️ Con condiciones |
+|  **App Mobile (iOS)** | ⚠️ Sin verificar | 5/10 | ❌ No listo |
+|  **Firebase Backend** | ✅ Operativo | 7/10 | ⚠️ Con condiciones |
+|  **Módulo Facturación** | ✅ Funcional | 7/10 | ⚠️ Sin Verifactu activo |
+|  **Módulo Fiscal/IA** | ✅ Avanzado | 8/10 | ⚠️ Verifactu inactivo |
+|  **Módulo Nóminas** | ✅ Funcional | 7/10 | ⚠️ Solo CLM |
+|  **Módulo Reservas** | ⚠️ Incompleto | 6/10 | ❌ Bugs críticos |
+|  **Pagos/Suscripciones** | ⚠️ Test mode | 6/10 | ❌ No listo |
+|  **Push Notifications** | ✅ Configurado | 7/10 | ⚠️ iOS sin verificar |
+| ️ **Seguridad Firestore** | ⚠️ Sin auditar | 4/10 | ❌ CRÍTICO |
+|  **Testing** | ❌ Inexistente | 0/10 | ❌ BLOQUEANTE |
+|  **CI/CD** | ⚠️ Configurado | 6/10 | ⚠️ Manual |
 
 ---
 
-## 🚨 BLOQUEANTES CRÍTICOS PARA PRODUCCIÓN
+##  BLOQUEANTES CRÍTICOS PARA PRODUCCIÓN
 
 ### ⛔ NO DESPLEGAR hasta resolver estos 8 puntos
 
-#### 1. ⚠️ **SEGURIDAD: Firestore Rules sin auditar** 🔴
+#### 1. ⚠️ **SEGURIDAD: Firestore Rules sin auditar** 
 **Severidad:** CRÍTICA  
 **Archivo:** `firestore.rules`  
 **Problema:** Las reglas de seguridad de Firestore no han sido auditadas formalmente módulo por módulo. Riesgo de exposición de datos entre empresas o acceso no autorizado.
@@ -54,7 +54,7 @@
 
 ---
 
-#### 2. ⚠️ **TESTING: 0% de cobertura** 🔴
+#### 2. ⚠️ **TESTING: 0% de cobertura** 
 **Severidad:** CRÍTICA  
 **Problema:** El proyecto maneja dinero, nóminas, impuestos y facturación, pero **no tiene un solo test unitario, widget o de integración**.
 
@@ -76,7 +76,7 @@ test/
 
 ---
 
-#### 3. ⚠️ **PAGOS: Stripe en modo TEST** 🔴
+#### 3. ⚠️ **PAGOS: Stripe en modo TEST** 
 **Severidad:** CRÍTICA — Bloqueante comercial  
 **Archivos afectados:**
 - `functions/src/index.ts` (webhook Stripe)
@@ -98,7 +98,7 @@ test/
 
 ---
 
-#### 4. ⚠️ **FISCAL: Verifactu NO enviando a AEAT** 🔴
+#### 4. ⚠️ **FISCAL: Verifactu NO enviando a AEAT** 
 **Severidad:** CRÍTICA — Incumplimiento legal  
 **Normativa:** RD 1007/2023 + RDL 15/2025  
 **Plazo obligatorio:** Julio 2027 (sociedades) / Enero 2027 (autónomos)
@@ -127,7 +127,7 @@ test/
 
 ---
 
-#### 5. ⚠️ **RESERVAS: Modelo corrupto + Provider inexistente** 🔴
+#### 5. ⚠️ **RESERVAS: Modelo corrupto + Provider inexistente** 
 **Severidad:** CRÍTICA — Módulo no funcional  
 **Archivos afectados:**
 - `lib/domain/modelos/reserva.dart` ← **CORRUPTO**
@@ -147,7 +147,7 @@ El archivo `reserva.dart` contiene fragmentos de código mezclados/duplicados qu
 
 ---
 
-#### 6. ⚠️ **iOS: Certificados y APNs sin verificar** 🔴
+#### 6. ⚠️ **iOS: Certificados y APNs sin verificar** 
 **Severidad:** CRÍTICA — App no puede publicarse  
 **Archivos:**
 - `ios/Runner.xcodeproj/project.pbxproj`
@@ -171,7 +171,7 @@ El archivo `reserva.dart` contiene fragmentos de código mezclados/duplicados qu
 
 ---
 
-#### 7. ⚠️ **DATOS DE PRUEBA: Accesibles en release** 🟠
+#### 7. ⚠️ **DATOS DE PRUEBA: Accesibles en release** 
 **Severidad:** ALTA — Confusión operativa  
 **Archivos problemáticos:**
 ```
@@ -187,13 +187,13 @@ lib/services/demo_cuenta_service.dart
 - [ ] Envolver imports en `kDebugMode` (Flutter)
 - [ ] Eliminar del build release con tree-shaking
 - [ ] O mover a carpeta `lib/dev/` y excluir del build
-- [ ] Verificar que el botón 🐛 del dashboard solo aparece en debug
+- [ ] Verificar que el botón  del dashboard solo aparece en debug
 
 **Tiempo estimado:** 2 horas
 
 ---
 
-#### 8. ⚠️ **CREDENCIALES: `credentials.json` en repositorio** 🔴
+#### 8. ⚠️ **CREDENCIALES: `credentials.json` en repositorio** 
 **Severidad:** CRÍTICA — Seguridad comprometida  
 **Archivo:** `credentials.json` (raíz del proyecto)
 
@@ -223,7 +223,7 @@ echo "credentials.json" >> .gitignore
 
 ## ✅ FUNCIONALIDADES OPERATIVAS
 
-### 🟢 Módulos Listos para Producción (con condiciones)
+###  Módulos Listos para Producción (con condiciones)
 
 #### 1. ✅ **Autenticación (8/10)**
 **Estado:** Operativo  
@@ -273,7 +273,7 @@ echo "credentials.json" >> .gitignore
 **Problemas conocidos:**
 - ⚠️ KPIs sin caché → lecturas Firestore en cada rebuild (costos altos)
 - ⚠️ Archivo de 1420 líneas → viola Single Responsibility Principle
-- ⚠️ Botón debug 🐛 accesible en release builds
+- ⚠️ Botón debug  accesible en release builds
 
 **Acción requerida:**
 - [ ] Implementar caché de KPIs con TTL de 5 minutos
@@ -690,7 +690,7 @@ echo "credentials.json" >> .gitignore
 
 ---
 
-## 🏗️ INFRAESTRUCTURA Y CI/CD
+## ️ INFRAESTRUCTURA Y CI/CD
 
 ### **Firebase Backend (7/10)**
 
@@ -801,9 +801,9 @@ compilar_functions.bat
 
 ---
 
-## 🛡️ SEGURIDAD
+## ️ SEGURIDAD
 
-### Estado de Seguridad: 🔴 CRÍTICO
+### Estado de Seguridad:  CRÍTICO
 
 #### 1. Firestore Rules (4/10)
 **Estado:** ⚠️ NO auditadas
@@ -832,7 +832,7 @@ match /empresas/{empresaId}/clientes/{clienteId} {
 ---
 
 #### 2. Credenciales Expuestas (0/10)
-**Estado:** 🔴 CRÍTICO — **Acción inmediata requerida**
+**Estado:**  CRÍTICO — **Acción inmediata requerida**
 
 **Archivo:** `credentials.json` en raíz del proyecto
 
@@ -869,7 +869,7 @@ match /empresas/{empresaId}/clientes/{clienteId} {
 
 ---
 
-## 📱 PLATAFORMAS
+##  PLATAFORMAS
 
 ### Android (7/10)
 **Estado:** ✅ Funcional en debug y release
@@ -926,9 +926,9 @@ match /empresas/{empresaId}/clientes/{clienteId} {
 
 ---
 
-## 🧪 TESTING Y CALIDAD
+##  TESTING Y CALIDAD
 
-### Estado de Testing: 🔴 0/10 — BLOQUEANTE
+### Estado de Testing:  0/10 — BLOQUEANTE
 
 **Cobertura actual: 0%**
 
@@ -991,7 +991,7 @@ flutter fix --apply
 
 ---
 
-## 📊 MÉTRICAS TÉCNICAS
+##  MÉTRICAS TÉCNICAS
 
 ### Tamaño del Proyecto
 ```
@@ -1036,7 +1036,7 @@ Archivos TypeScript: ~30
 
 ---
 
-## 💰 ESTIMACIÓN DE COSTOS FIREBASE (Producción)
+##  ESTIMACIÓN DE COSTOS FIREBASE (Producción)
 
 **Escenario: 100 empresas activas**
 
@@ -1071,7 +1071,7 @@ Archivos TypeScript: ~30
 
 ---
 
-## 📋 CUMPLIMIENTO LEGAL
+##  CUMPLIMIENTO LEGAL
 
 ### RGPD (Reglamento General de Protección de Datos)
 **Estado:** ⚠️ Parcial
@@ -1142,9 +1142,9 @@ Archivos TypeScript: ~30
 
 ---
 
-## 🗓️ ROADMAP DE CORRECCIONES
+## ️ ROADMAP DE CORRECCIONES
 
-### 🔴 CRÍTICO — Semana 1 (6-12 Mayo)
+###  CRÍTICO — Semana 1 (6-12 Mayo)
 **Bloqueantes absolutos**
 
 | Día | Tarea | Tiempo | Responsable |
@@ -1162,7 +1162,7 @@ Archivos TypeScript: ~30
 
 ---
 
-### 🟠 ALTA PRIORIDAD — Semanas 2-3 (13-26 Mayo)
+###  ALTA PRIORIDAD — Semanas 2-3 (13-26 Mayo)
 
 **Semana 2:**
 - [ ] Activar remisión Verifactu a AEAT (con certificado)
@@ -1182,7 +1182,7 @@ Archivos TypeScript: ~30
 
 ---
 
-### 🟡 MEDIA PRIORIDAD — Semanas 4-6 (27 Mayo - 16 Junio)
+###  MEDIA PRIORIDAD — Semanas 4-6 (27 Mayo - 16 Junio)
 
 - [ ] Envío de factura por email al cliente
 - [ ] Validación NIF en tiempo real (API AEAT)
@@ -1198,7 +1198,7 @@ Archivos TypeScript: ~30
 
 ---
 
-### 🟢 BAJA PRIORIDAD — Post-Launch (Junio-Julio)
+###  BAJA PRIORIDAD — Post-Launch (Junio-Julio)
 
 - [ ] Flutter Web responsive + PWA
 - [ ] Firma digital en PDF de factura
@@ -1262,7 +1262,7 @@ Archivos TypeScript: ~30
 
 ---
 
-## 🎯 RECOMENDACIÓN FINAL
+##  RECOMENDACIÓN FINAL
 
 ### ❌ NO DESPLEGAR EN PRODUCCIÓN HOY
 
@@ -1279,11 +1279,11 @@ Archivos TypeScript: ~30
 ### ✅ LANZAMIENTO PARCIAL VIABLE (SOFT LAUNCH)
 
 **Perfil de cliente apto:**
-- 🟢 Pymes de Guadalajara/Cuenca/Toledo (Castilla-La Mancha)
-- 🟢 Sectores: hostelería, comercio, peluquería, estética
-- 🟢 Solo Android (hasta corregir iOS)
-- 🟢 Modo piloto con soporte directo
-- 🟢 Solo módulos: Dashboard, Clientes, Reservas (tras corrección), Valoraciones, Contenido Web
+-  Pymes de Guadalajara/Cuenca/Toledo (Castilla-La Mancha)
+-  Sectores: hostelería, comercio, peluquería, estética
+-  Solo Android (hasta corregir iOS)
+-  Modo piloto con soporte directo
+-  Solo módulos: Dashboard, Clientes, Reservas (tras corrección), Valoraciones, Contenido Web
 
 **EXCLUSIONES del soft launch:**
 - ❌ Facturación con Verifactu (advertir que es manual)
@@ -1310,15 +1310,15 @@ Archivos TypeScript: ~30
 6. ✅ 100 empresas piloto usando sin incidencias
 
 **Entonces:**
-- 🚀 Play Store: Lanzamiento público
-- 🚀 App Store: Lanzamiento público
-- 🚀 Marketing: Campaña completa
-- 🚀 Precios: Estructura final
-- 🚀 Soporte: Escalado a soporte estándar
+-  Play Store: Lanzamiento público
+-  App Store: Lanzamiento público
+-  Marketing: Campaña completa
+-  Precios: Estructura final
+-  Soporte: Escalado a soporte estándar
 
 ---
 
-## 📞 CONTACTOS TÉCNICOS
+##  CONTACTOS TÉCNICOS
 
 ### Equipo de Desarrollo
 - **Frontend (Flutter):** Samu
@@ -1335,7 +1335,7 @@ Archivos TypeScript: ~30
 
 ---
 
-## 📚 DOCUMENTACIÓN GENERADA
+##  DOCUMENTACIÓN GENERADA
 
 ### Documentos Técnicos Existentes
 ```
@@ -1356,7 +1356,7 @@ Archivos TypeScript: ~30
 
 ---
 
-## 🏁 CONCLUSIÓN
+##  CONCLUSIÓN
 
 **Fluix CRM es un proyecto sólido en fase Beta avanzada con ~70% de completitud.**
 
@@ -1393,4 +1393,3 @@ Archivos TypeScript: ~30
 ---
 
 *Para cualquier duda técnica sobre esta auditoría, consultar los documentos de referencia listados en la sección "Documentación Generada".*
-

@@ -1,4 +1,4 @@
-# 🖥️ ADAPTACIÓN DESKTOP COMPLETADA — Windows & macOS
+# ️ ADAPTACIÓN DESKTOP COMPLETADA — Windows & macOS
 
 > **Fecha**: 7 Mayo 2026  
 > **Estado**: ✅ FUNCIONAL  
@@ -6,7 +6,7 @@
 
 ---
 
-## 📋 RESUMEN EJECUTIVO
+##  RESUMEN EJECUTIVO
 
 La aplicación FluixCRM ahora es **completamente funcional en desktop** con un diseño responsive que se adapta automáticamente al tamaño de pantalla.
 
@@ -19,7 +19,7 @@ La aplicación FluixCRM ahora es **completamente funcional en desktop** con un d
 
 ---
 
-## 🎯 ARCHIVOS MODIFICADOS/CREADOS
+##  ARCHIVOS MODIFICADOS/CREADOS
 
 ### **1. Nuevo:** `lib/core/utils/platform_helper.dart`
 
@@ -120,7 +120,7 @@ build_windows.bat
 
 ---
 
-## 🚀 CÓMO EJECUTAR EN WINDOWS
+##  CÓMO EJECUTAR EN WINDOWS
 
 ### **Opción 1: Desde VS Code / JetBrains**
 1. Abrir proyecto
@@ -139,7 +139,7 @@ flutter run -d windows
 
 ---
 
-## 🍎 CÓMO EJECUTAR EN macOS
+##  CÓMO EJECUTAR EN macOS
 
 ```bash
 # Habilitar soporte macOS (solo primera vez)
@@ -156,7 +156,7 @@ flutter build macos --release
 
 ---
 
-## 🐧 CÓMO EJECUTAR EN LINUX
+##  CÓMO EJECUTAR EN LINUX
 
 ```bash
 # Habilitar soporte Linux (solo primera vez)
@@ -171,7 +171,7 @@ flutter run -d linux
 
 ---
 
-## 📊 COMPARATIVA UI: MÓVIL vs. DESKTOP
+##  COMPARATIVA UI: MÓVIL vs. DESKTOP
 
 ### **Móvil (iOS/Android)**
 ```
@@ -195,13 +195,13 @@ flutter run -d linux
 ┌──────────────────────────────────────────────┐
 │              AppBar con título                │
 ├──────┬───────────────────────────────────────┤
-│  📊  │   Tarjeta de bienvenida               │
+│    │   Tarjeta de bienvenida               │
 │      │   Banner suscripción                  │
-│  📅  │ ──────────────────────────────────── │
+│    │ ──────────────────────────────────── │
 │      │                                       │
-│  👥  │        Contenido del módulo           │
+│    │        Contenido del módulo           │
 │      │                                       │
-│  💰  │                                       │
+│    │                                       │
 │      │                                       │
 │  ⚙️  │                                       │
 │      │                                       │
@@ -212,7 +212,7 @@ NavigationRail lateral fijo
 
 ---
 
-## 🎨 CARACTERÍSTICAS DEL DISEÑO DESKTOP
+##  CARACTERÍSTICAS DEL DISEÑO DESKTOP
 
 ### **NavigationRail**
 - Iconos más grandes (28px seleccionado, 24px normal)
@@ -233,7 +233,7 @@ NavigationRail lateral fijo
 
 ---
 
-## 🔧 COMPATIBILIDAD DE PLUGINS
+##  COMPATIBILIDAD DE PLUGINS
 
 | Plugin | Windows | macOS | Linux | Notas |
 |---|---|---|---|---|
@@ -264,7 +264,7 @@ NavigationRail lateral fijo
 
 ---
 
-## 🧪 TESTING RECOMENDADO
+##  TESTING RECOMENDADO
 
 ### **Test 1: Redimensionar ventana (Windows/macOS)**
 1. Ejecutar app en desktop
@@ -295,7 +295,7 @@ NavigationRail lateral fijo
 
 ---
 
-## 📦 DISTRIBUCIÓN
+##  DISTRIBUCIÓN
 
 ### **Windows**
 
@@ -343,7 +343,7 @@ Resultado: `planeag_flutter.app` en `build/macos/Build/Products/Release/`
 
 ---
 
-## 🐛 SOLUCIÓN DE PROBLEMAS
+##  SOLUCIÓN DE PROBLEMAS
 
 ### **Error: "Could not find Windows SDK"**
 **Solución:**
@@ -381,7 +381,7 @@ FirebaseFirestore.instance.settings = const Settings(
 
 ---
 
-## 📈 MÉTRICAS DE RENDIMIENTO DESKTOP
+##  MÉTRICAS DE RENDIMIENTO DESKTOP
 
 **Tiempo de inicio (debug):**
 - Windows: ~3-5 segundos
@@ -399,7 +399,7 @@ FirebaseFirestore.instance.settings = const Settings(
 
 ---
 
-## 🎯 PRÓXIMOS PASOS OPCIONALES
+##  PRÓXIMOS PASOS OPCIONALES
 
 ### **Mejoras UX Desktop**
 - [ ] Atajos de teclado (Ctrl+1, Ctrl+2 para cambiar módulos)
@@ -432,7 +432,7 @@ FirebaseFirestore.instance.settings = const Settings(
 
 ---
 
-## 🚀 COMANDO RÁPIDO
+##  COMANDO RÁPIDO
 
 ```cmd
 # Ejecutar en Windows
@@ -445,4 +445,3 @@ ejecutar_windows.bat
 ---
 
 *✅ Adaptación Desktop completada al 100% — 7 Mayo 2026*
-

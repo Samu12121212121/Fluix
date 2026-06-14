@@ -1,11 +1,11 @@
-# 📟 Guía TPV Multi-Sector — PlaneaG
+#  Guía TPV Multi-Sector — PlaneaG
 
 > Versión 1.0 · Mayo 2026  
 > El sistema tiene **3 modos de TPV** que se activan según el tipo de negocio configurado en cada empresa. Un único acceso desde el dashboard, tres experiencias distintas.
 
 ---
 
-## 📌 Índice
+##  Índice
 
 1. [Cómo cambiar el tipo de TPV de una empresa](#1-cómo-cambiar-el-tipo-de-tpv-de-una-empresa)
 2. [TPV Bar / Restaurante](#2-tpv-bar--restaurante-)
@@ -26,9 +26,9 @@
 
 | Opción | Cuándo usarla |
 |---|---|
-| 🍺 **Bar / Restaurante** | Negocios con mesas, pedidos en sala, carta |
+|  **Bar / Restaurante** | Negocios con mesas, pedidos en sala, carta |
 | ✂️ **Peluquería / Estética** | Centros con sillones o cabinas, servicios por cliente |
-| 🛍️ **Tienda / Retail** | Tiendas físicas, venta directa, control de stock |
+| ️ **Tienda / Retail** | Tiendas físicas, venta directa, control de stock |
 
 4. Pulsa **"GUARDAR CONFIGURACIÓN"**.
 5. La próxima vez que alguien acceda al TPV desde el dashboard, se abrirá el modo correcto automáticamente.
@@ -44,7 +44,7 @@ empresas/{empresaId}
 
 ---
 
-## 2. TPV Bar / Restaurante 🍺
+## 2. TPV Bar / Restaurante 
 
 **Color:** Azul (color primario del tema)  
 **Acceso:** `TpvRootScreen`  
@@ -59,15 +59,15 @@ Plano de mesas → toca mesa → catálogo de carta → añade productos → Cob
 
 ### Funciones disponibles
 
-#### 🗺️ Plano de mesas
+#### ️ Plano de mesas
 - **Ver todas las mesas** organizadas en un grid por zonas (Salón, Terraza, etc.)
 - **Filtrar por zona** con chips horizontales scrollables
-- **Badges en tiempo real:** cuántas mesas están libres 🟢, ocupadas 🟠 o reservadas 🔵
+- **Badges en tiempo real:** cuántas mesas están libres , ocupadas  o reservadas 
 - **Tarjeta de mesa** muestra: número, zona, estado y — si está ocupada — el importe acumulado en tiempo real desde Firestore
 - **Añadir nueva mesa** (solo admin): botón `+` abre un diálogo con número, nombre, zona y capacidad
 - **Resumen del turno** en el panel lateral derecho: ventas del día en € (stream en tiempo real), número de tickets y mesas servidas
 
-#### 🧾 Comanda de mesa
+####  Comanda de mesa
 - Al tocar una mesa libre o ocupada se abre la vista **Catálogo + Comanda** (60/40)
 - El header muestra el **nombre real de la mesa** (leído en tiempo real de Firestore)
 - **Añadir productos**: tap en tarjeta de producto → si tiene variantes (talla, punto de cocción, etc.) abre un bottom sheet de selección
@@ -75,7 +75,7 @@ Plano de mesas → toca mesa → catálogo de carta → añade productos → Cob
 - **Subtotal, IVA y TOTAL** calculados automáticamente
 - La comanda se **sincroniza en Firestore** cada vez que cambia (así si el camarero cambia de dispositivo no pierde la comanda)
 
-#### 💳 Cobrar
+####  Cobrar
 1. Botón "Cobrar X €" → diálogo de método de pago
 2. Elige: **Efectivo** (calcula cambio automáticamente), **Tarjeta** o **Mixto** (reparte entre ambos)
 3. Al confirmar:
@@ -85,7 +85,7 @@ Plano de mesas → toca mesa → catálogo de carta → añade productos → Cob
    - Libera la mesa (estado → libre)
    - Imprime ticket por Bluetooth si hay impresora configurada
 
-#### 🔀 Transferir comanda
+####  Transferir comanda
 - Botón `⇄` en el header de la comanda activa
 - Lista las mesas **libres** disponibles
 - Mueve la comanda a la mesa seleccionada: batch update en Firestore (mesa origen libera, mesa destino ocupa)
@@ -102,7 +102,7 @@ Plano de mesas → toca mesa → catálogo de carta → añade productos → Cob
 - Venta directa sin asignar mesa (para llevar, mostrador, etc.)
 - Header "Venta directa" con icono ⚡
 
-#### 📊 Cierre de caja
+####  Cierre de caja
 - Accesible desde el icono de resumen en la parte inferior del NavigationRail
 - **Métricas del día:** total ventas, número de tickets, ticket medio
 - **Desglose por método de pago:** efectivo vs. tarjeta con porcentaje visual
@@ -129,10 +129,10 @@ Plano de sillones → toca sillón → catálogo de servicios → añade servici
 
 ### Funciones disponibles
 
-#### 💈 Plano de sillones
+####  Plano de sillones
 - **Grid de sillones** con el mismo sistema que las mesas pero con vocabulario de peluquería
 - **Tarjeta de sillón** muestra:
-  - Icono de silla 🪑
+  - Icono de silla 
   - Nombre del sillón
   - Estado (Libre / Ocupado) con colores verde / morado
   - **Nombre del profesional** asignado (si está ocupado)
@@ -148,7 +148,7 @@ Plano de sillones → toca sillón → catálogo de servicios → añade servici
 - Al iniciar la cita se crea una comanda en Firestore con `mesa_id = sillonId`
 - El sillón pasa a estado "ocupado" en Firestore
 
-#### 💳 Cobrar
+####  Cobrar
 - Mismo flujo que el bar pero con dialog en **morado**
 - Solo Efectivo o Tarjeta (sin mixto en esta versión)
 - Al cobrar:
@@ -161,7 +161,7 @@ Plano de sillones → toca sillón → catálogo de servicios → añade servici
 - Desde el NavigationRail, botón "Caja"
 - Venta sin asignar sillón (productos de mostrador, propinas, venta de champús, etc.)
 
-#### 📊 Cierre de caja
+####  Cierre de caja
 - Mismo sistema que el bar pero con acento morado
 - IVA al **21%** (servicios de peluquería son tipo general)
 - Z-Report PDF
@@ -169,7 +169,7 @@ Plano de sillones → toca sillón → catálogo de servicios → añade servici
 
 ---
 
-## 4. TPV Tienda / Retail 🛍️
+## 4. TPV Tienda / Retail ️
 
 **Color:** Verde oscuro `#1B5E20`  
 **Acceso:** `TpvTiendaScreen`  
@@ -185,16 +185,16 @@ Catálogo → busca / escanea producto → añade al ticket → Cobrar → (desc
 
 ### Funciones disponibles
 
-#### 🛒 Catálogo con stock
+####  Catálogo con stock
 - Layout 60/40 directo (sin navegación lateral)
 - **Grid de productos** con filtro por categoría y buscador
 - **Badge de stock** en cada tarjeta:
-  - 🟢 Verde → stock por encima del mínimo
-  - 🟡 Ámbar + ⚠️ → stock bajo (igual o menor que `stock_minimo`)
+  -  Verde → stock por encima del mínimo
+  -  Ámbar + ⚠️ → stock bajo (igual o menor que `stock_minimo`)
   - Tarjeta desaturada + "SIN STOCK" → stock = 0, no se puede añadir
 - El campo `stock_minimo` se configura directamente en Firestore en el documento del producto (`catalogo/{id}`)
 
-#### 📷 Lector de código de barras
+####  Lector de código de barras
 - El buscador funciona como input para lectores USB o Bluetooth:
   - El lector envía el código y pulsa **Enter** automáticamente
   - El sistema busca en `catalogo` por el campo `codigo_barras`
@@ -206,12 +206,12 @@ Catálogo → busca / escanea producto → añade al ticket → Cobrar → (desc
     └── codigo_barras: "8410000123456"
   ```
 
-#### 📋 Ticket de venta directa
-- Header fijo "🛒 Venta directa"
+####  Ticket de venta directa
+- Header fijo " Venta directa"
 - Líneas con `+` / `−` por artículo
 - Botón limpiar ticket (papelera)
 
-#### 💳 Cobrar con descuento de stock
+####  Cobrar con descuento de stock
 - **Efectivo**, **Tarjeta** o **Mixto**
 - Al confirmar el cobro, además de crear el pedido, **descuenta el stock** de cada producto vendido:
   ```
@@ -221,8 +221,8 @@ Catálogo → busca / escanea producto → añade al ticket → Cobrar → (desc
   - Si el campo `stock` no existe en el documento → se ignora silenciosamente (sin bloquear la venta)
   - Si el stock ya es 0 en el momento de la compra → la tarjeta estaba desactivada, no llega a cobrar
 
-#### 📊 Cierre de caja
-- Accesible desde el icono `📋` en el **AppBar** (toggle — no hay NavigationRail)
+####  Cierre de caja
+- Accesible desde el icono `` en el **AppBar** (toggle — no hay NavigationRail)
 - Al pulsar de nuevo vuelve a la pantalla de ventas
 - IVA al **21%** (retail tipo general)
 - Comparativa hoy vs. ayer
@@ -338,4 +338,3 @@ empresas/{empresaId}/catalogo/{nuevoId}
 ---
 
 *Documento generado automáticamente · PlaneaG v1.0.15 · 2026*
-

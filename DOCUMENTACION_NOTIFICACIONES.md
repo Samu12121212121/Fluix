@@ -1,4 +1,4 @@
-# 🔔 Documentación Completa de Notificaciones — Fluix CRM
+#  Documentación Completa de Notificaciones — Fluix CRM
 
 ## Índice
 1. [Arquitectura General](#arquitectura)
@@ -42,14 +42,14 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ## 3. Notificaciones por Módulo {#modulos}
 
-### 📅 Módulo RESERVAS
+###  Módulo RESERVAS
 
 #### 3.1 Nueva Reserva creada
 - **Trigger**: Documento creado en `empresas/{empresaId}/reservas/{reservaId}`
 - **Cloud Function**: `onNuevaReserva`
 - **Condición**: Siempre
 - **Contenido Push**:
-  - Título: `📅 Nueva Reserva`
+  - Título: ` Nueva Reserva`
   - Cuerpo: `{cliente} · {teléfono} · {N} pers. · {ubicación} — {fecha} · {servicio} · ⚠️ Alérgenos (si aplica)`
 - **In-App bandeja**: Sí, en `notificaciones/{empresaId}/items`
 - **Email empresa**: Sí, si `origen == "app_cliente" || "web_publica"` (función `onNuevaReservaEmail`)
@@ -59,7 +59,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 - **Trigger**: Documento creado en `empresas/{empresaId}/citas/{citaId}`
 - **Cloud Function**: `onNuevaCita`
 - **Contenido Push**:
-  - Título: `💈 Nueva Cita`
+  - Título: ` Nueva Cita`
   - Cuerpo: `{cliente} — {fecha} · {servicio}`
 - **In-App bandeja**: Sí
 - **Email empresa**: No (solo reservas con origen app_cliente)
@@ -90,27 +90,27 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ---
 
-### 💈 Módulo CITAS (Recordatorios)
+###  Módulo CITAS (Recordatorios)
 
 #### 3.6 Recordatorio de cita (24h antes)
 - **Trigger**: Scheduler cada 1 hora (cron)
 - **Cloud Function**: `enviarRecordatoriosCitas`
 - **Condición**: Citas con `fecha_hora` entre 23h y 25h en el futuro, y `recordatorioEnviado != true`
 - **Contenido Push (equipo empresa)**:
-  - Título: `📅 Cita mañana`
+  - Título: ` Cita mañana`
   - Cuerpo: `{cliente} tiene cita mañana a las {hora}`
 - **In-App bandeja**: Sí
 - **Marca**: Pone `recordatorioEnviado: true` en la cita
 
 ---
 
-### 🛒 Módulo PEDIDOS
+###  Módulo PEDIDOS
 
 #### 3.7 Nuevo Pedido
 - **Trigger**: Documento creado en `empresas/{empresaId}/pedidos/{pedidoId}`
 - **Cloud Function**: `onNuevoPedido`
 - **Contenido Push**:
-  - Título: `🛒 Nuevo Pedido`
+  - Título: ` Nuevo Pedido`
   - Cuerpo: `{cliente} — €{total} (vía {origen})`
 - **In-App bandeja**: Sí
 - **Factura**: Se genera automáticamente via `onNuevoPedidoGenerarFactura`
@@ -119,7 +119,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 - **Trigger**: Documento creado en `empresas/{empresaId}/pedidos_whatsapp/{pedidoId}`
 - **Cloud Function**: `onNuevoPedidoWhatsApp`
 - **Contenido Push**:
-  - Título: `💬 Pedido por WhatsApp`
+  - Título: ` Pedido por WhatsApp`
   - Cuerpo: `{cliente} — €{total}`
 
 ---
@@ -166,7 +166,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ---
 
-### 📝 Módulo TAREAS
+###  Módulo TAREAS
 
 #### 3.13 Tarea Asignada
 - **Trigger**: Documento creado/actualizado en `empresas/{empresaId}/tareas/{tareaId}`
@@ -188,23 +188,23 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 #### 3.15 Tareas que Vencen Hoy
 - **Trigger**: Scheduler diario a las 09:00 (Europe/Madrid)
 - **Cloud Function**: `scheduledTareasVencenHoy`
-- **Contenido Push**: `📋 Tareas de hoy: {N} tarea(s) programada(s) para hoy`
+- **Contenido Push**: ` Tareas de hoy: {N} tarea(s) programada(s) para hoy`
 
 #### 3.16 Nueva Sugerencia
 - **Trigger**: Documento creado (ruta de sugerencias de empleados)
 - **Cloud Function**: `onNuevaSugerencia`
 - **Destino**: Empresa (propietario)
-- **Contenido Push**: `💡 Nueva sugerencia de {empleado}`
+- **Contenido Push**: ` Nueva sugerencia de {empleado}`
 
 ---
 
-### 💬 Módulo CONTACTO WEB
+###  Módulo CONTACTO WEB
 
 #### 3.17 Nuevo Mensaje de Contacto
 - **Trigger**: Documento creado en `empresas/{empresaId}/contacto_web/{mensajeId}`
 - **Cloud Function**: `onNuevoMensajeContacto`
 - **Contenido Push (empresa)**:
-  - Título: `💬 Nuevo mensaje de contacto`
+  - Título: ` Nuevo mensaje de contacto`
   - Cuerpo: `De: {nombre} — {asunto}`
 - **Canal**: `fluix_general`
 - **Email empresa**: Sí, si tiene `email_notificaciones`
@@ -218,7 +218,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ---
 
-### 💳 Módulo SUSCRIPCIÓN
+###  Módulo SUSCRIPCIÓN
 
 #### 3.19 Suscripción por Vencer
 - **Trigger**: Scheduler diario (cada 24 horas)
@@ -239,12 +239,12 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 - **Condición**: Más de 7 días tras vencimiento y estado `ACTIVA`
 - **Acción**: Cambia estado a `VENCIDA` en Firestore
 - **Push**:
-  - Título: `🔒 Suscripción Vencida`
+  - Título: ` Suscripción Vencida`
   - Cuerpo: `Tu suscripción ha expirado. Renueva en fluixtech.com para seguir usando la app.`
 
 ---
 
-### 🏆 Módulo FIDELIZACIÓN
+###  Módulo FIDELIZACIÓN
 
 #### 3.22 Check-in / Sello de Fidelización
 - **Trigger**: `onCheckinFidelizacion` (Firestore)
@@ -257,7 +257,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ---
 
-### 🔒 Módulo FISCAL
+###  Módulo FISCAL
 
 #### 3.24 Alerta de Certificado por Vencer
 - **Cloud Function**: `scheduledAlertaCertificado`
@@ -271,7 +271,7 @@ Evento Firestore → Cloud Function → FCM Push → App (empresa)
 
 ---
 
-### 🗺️ Google My Business
+### ️ Google My Business
 
 #### 3.26 Resumen Semanal de Reseñas
 - **Cloud Function**: `resumenSemanalResenas`
@@ -329,8 +329,8 @@ usuarios/{uid}/notificaciones/{notifId}
 | `reserva_confirmada` | ✅ check_circle | Cian `#00FFC8` | La reserva fue confirmada por el negocio |
 | `reserva_cancelada` | ❌ cancel | Rojo `#FF2850` | La reserva fue cancelada |
 | `reserva_pendiente` | ⏳ schedule | Rosa `#FF4678` | Reserva pendiente de confirmación |
-| `promo` | 🏷️ local_offer | Magenta `#FF3296` | Promoción o flash slot disponible |
-| `info` (default) | 🔔 notifications | Gris `#B0B3C1` | Información general |
+| `promo` | ️ local_offer | Magenta `#FF3296` | Promoción o flash slot disponible |
+| `info` (default) |  notifications | Gris `#B0B3C1` | Información general |
 
 ### Badget de notificaciones:
 La pantalla explorar muestra en tiempo real el número de notificaciones no leídas en el ícono del campanita, usando `StreamBuilder` que escucha:
@@ -393,4 +393,3 @@ empresas/{empresaId}/configuracion/...
 ---
 
 *Documentación generada automáticamente — Fluix CRM v2026*
-

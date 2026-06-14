@@ -1,4 +1,4 @@
-# 📱 Guía de Instalación TPV PlaneaG en Tienda Física
+#  Guía de Instalación TPV PlaneaG en Tienda Física
 
 > **Versión:** 1.0.0 | **Fecha:** Mayo 2026
 > 
@@ -6,14 +6,14 @@
 
 ---
 
-## 📋 Índice
+##  Índice
 
 1. [Requisitos Previos](#requisitos-previos)
 2. [Tipos de Instalación según Cliente](#tipos-de-instalación)
 3. [Guía por Tipo de Negocio](#guía-por-tipo-de-negocio)
-   - [🏪 Tienda/Comercio](#-tiendacomercio)
-   - [🍽️ Bar/Restaurante](#-barrestaurante)
-   - [💇 Peluquería/Salón de Belleza](#-peluqueríasalón-de-belleza)
+   - [ Tienda/Comercio](#-tiendacomercio)
+   - [️ Bar/Restaurante](#-barrestaurante)
+   - [ Peluquería/Salón de Belleza](#-peluqueríasalón-de-belleza)
 4. [Hardware Recomendado](#hardware-recomendado)
 5. [Configuración Paso a Paso](#configuración-paso-a-paso)
 6. [Solución de Problemas](#solución-de-problemas)
@@ -21,7 +21,7 @@
 
 ---
 
-## 🎯 Requisitos Previos
+##  Requisitos Previos
 
 ### Hardware Mínimo
 
@@ -47,7 +47,7 @@
 
 ---
 
-## 🏢 Tipos de Instalación según Cliente
+##  Tipos de Instalación según Cliente
 
 ### Tipo 1: Cliente con Tablet Android (más común)
 **Ideal para:** Tiendas pequeñas, peluquerías, bares urbanos
@@ -87,11 +87,11 @@
 
 ---
 
-## 🏪 Guía por Tipo de Negocio
+##  Guía por Tipo de Negocio
 
 ---
 
-## 🏪 Tienda/Comercio
+##  Tienda/Comercio
 
 ### ¿Para quién es este TPV?
 - Tiendas de ropa, calzado, complementos
@@ -239,7 +239,7 @@ codigo,nombre,precio,stock,categoria,iva
 
 **Opción 2: Cámara del Dispositivo (sin hardware adicional)**
 ```
-1. Al buscar producto, pulsar botón "📷 Escanear"
+1. Al buscar producto, pulsar botón " Escanear"
 2. Dar permisos de cámara (1ª vez)
 3. Enfocar código de barras
 4. Se detecta automáticamente
@@ -264,7 +264,7 @@ codigo,nombre,precio,stock,categoria,iva
 #### Paso 8: Gestión de Stock
 
 ```
-📦 El stock se actualiza automáticamente con cada venta
+ El stock se actualiza automáticamente con cada venta
 
 Para ajustes manuales:
 1. Ir a "Productos" → Seleccionar producto
@@ -335,7 +335,7 @@ Para ajustes manuales:
 
 ---
 
-## 🍽️ Bar/Restaurante
+## ️ Bar/Restaurante
 
 ### ¿Para quién es este TPV?
 - Bares, cafeterías, cervecerías
@@ -402,18 +402,18 @@ Ver sección anterior para descarga e instalación básica.
 
 **Ejemplo de configuración:**
 ```
-📍 TERRAZA (10 mesas)
+ TERRAZA (10 mesas)
    Mesa 1 → 4 personas
    Mesa 2 → 4 personas
    Mesa 3 → 2 personas
    ...
 
-📍 SALA INTERIOR (15 mesas)
+ SALA INTERIOR (15 mesas)
    Mesa 11 → 6 personas
    Mesa 12 → 4 personas
    ...
 
-📍 BARRA (3 posiciones)
+ BARRA (3 posiciones)
    Barra 1 → 2 personas
    Barra 2 → 2 personas
    Barra 3 → 2 personas
@@ -424,20 +424,20 @@ Ver sección anterior para descarga e instalación básica.
 **Estructura recomendada:**
 
 ```
-📁 BEBIDAS
+ BEBIDAS
    ├─ Cervezas (Estrella, Mahou, Heineken...)
    ├─ Refrescos (Coca-Cola, Fanta, Agua...)
    ├─ Vinos (Tinto, Blanco, Rosado...)
    ├─ Licores (Gin, Vodka, Ron...)
    └─ Cafés e Infusiones
 
-📁 COMIDAS
+ COMIDAS
    ├─ Entrantes (Ensaladas, Croquetas...)
    ├─ Principales (Carnes, Pescados, Pasta...)
    ├─ Guarniciones (Patatas, Arroz...)
    └─ Postres
 
-📁 TAPAS & RACIONES
+ TAPAS & RACIONES
 ```
 
 **Productos con Variantes (importante para hostelería):**
@@ -527,17 +527,17 @@ Camarero en tablet:
 
 **Funcionamiento multi-dispositivo:**
 ```
-👨‍🍳 Tablet Caja (fijo en mostrador)
+‍ Tablet Caja (fijo en mostrador)
    → Ve todas las mesas
    → Puede cobrar desde aquí
    → Cierre de caja
 
-📱 Tablet Camarero 1
+ Tablet Camarero 1
    → Toma comandas de su zona
    → Envía a cocina
    → No puede hacer cierre de caja
 
-📱 Tablet Camarero 2
+ Tablet Camarero 2
    → Igual, independiente
    → Ve estado en tiempo real
 ```
@@ -547,12 +547,12 @@ Camarero en tablet:
 **Configuración recomendada:**
 
 ```
-🖨️ Impresora Cocina (WiFi)
+️ Impresora Cocina (WiFi)
    → Conectada a red del local
    → Recibe comandas automáticamente
    → Imprime: Fecha/hora, Mesa, Productos, Notas
 
-🖨️ Impresora Barra (WiFi)
+️ Impresora Barra (WiFi)
    → Para bebidas
    → Solo recibe productos de categoría "Bebidas"
 ```
@@ -654,7 +654,7 @@ Caso: Grupo quiere pagar por separado
 
 ---
 
-## 💇 Peluquería/Salón de Belleza
+##  Peluquería/Salón de Belleza
 
 ### ¿Para quién es este TPV?
 - Peluquerías
@@ -725,22 +725,22 @@ Ver sección de Tienda para descarga e instalación.
 
 **Ejemplo de equipo:**
 ```
-👤 Ana García
+ Ana García
    Especialidad: Corte y Color
    Horario: 09:00-20:00
-   Color: 🟣 Púrpura
+   Color:  Púrpura
    Comisión: 40%
 
-👤 Carlos López
+ Carlos López
    Especialidad: Barbería
    Horario: 10:00-19:00
-   Color: 🔵 Azul
+   Color:  Azul
    Comisión: 45%
 
-👤 María Torres
+ María Torres
    Especialidad: Estética facial
    Horario: 10:00-21:00
-   Color: 🟢 Verde
+   Color:  Verde
    Comisión: 35%
 ```
 
@@ -761,25 +761,25 @@ Ver sección de Tienda para descarga e instalación.
 **Ejemplo de servicios:**
 
 ```
-📁 CORTE
+ CORTE
    ├─ Corte Hombre → 15€ (30 min)
    ├─ Corte Mujer → 25€ (45 min)
    ├─ Corte Niño → 12€ (20 min)
    └─ Arreglo Barba → 8€ (15 min)
 
-📁 COLOR/TINTE
+ COLOR/TINTE
    ├─ Tinte Completo → 45€ (90 min)
    ├─ Mechas → 60€ (120 min)
    ├─ Baño de Color → 30€ (60 min)
    └─ Balayage → 80€ (150 min)
 
-📁 MANICURA/PEDICURA
+ MANICURA/PEDICURA
    ├─ Manicura Básica → 20€ (40 min)
    ├─ Manicura Gel → 30€ (60 min)
    ├─ Pedicura → 25€ (50 min)
    └─ Pack Mani+Pedi → 40€ (90 min)
 
-📁 TRATAMIENTOS
+ TRATAMIENTOS
    ├─ Facial Hidratante → 35€ (45 min)
    ├─ Masaje Capilar → 15€ (20 min)
    └─ Limpieza Facial → 40€ (60 min)
@@ -813,7 +813,7 @@ Ver sección de Tienda para descarga e instalación.
 │  HOY: Martes 13 Mayo 2026          [◀ Anterior | Siguiente ▶] │
 ├──────┬────────────┬────────────┬────────────┬────────────┐
 │ HORA │ Ana García │ Carlos López│ María Torres│ Recepción  │
-│      │    🟣      │     🔵      │     🟢      │            │
+│      │          │           │           │            │
 ├──────┼────────────┼────────────┼────────────┼────────────┤
 │ 09:00│ [Cliente 1]│            │            │            │
 │      │ Corte+Tinte│            │            │            │
@@ -826,15 +826,15 @@ Ver sección de Tienda para descarga e instalación.
 │ 10:30│ [Cliente 4]│            │            │            │
 │      │ Mechas     │            │            │            │
 ├──────┼────────────┼────────────┼────────────┼────────────┤
-│ 11:00│            │            │            │  🚶 Juan   │
+│ 11:00│            │            │            │   Juan   │
 │      │            │            │            │  (Walk-in) │
 └──────┴────────────┴────────────┴────────────┴────────────┘
 ```
 
 **Códigos de color por estado:**
 ```
-🟢 Verde → Cita Pendiente (aún no ha llegado)
-🔵 Azul → En Curso (cliente en tratamiento)
+ Verde → Cita Pendiente (aún no ha llegado)
+ Azul → En Curso (cliente en tratamiento)
 ✅ Gris → Completada (servicio terminado)
 ❌ Rojo → Cancelada o No Presentado
 ```
@@ -854,7 +854,7 @@ Recepcionista o auto-gestión online:
    │ Fecha: [13/05/2026]          │
    │ Hora: [11:00 ▼]              │
    │                              │
-   │ Cliente: [Buscar...🔍]       │
+   │ Cliente: [Buscar...]       │
    │ (Si no existe, crear nuevo)  │
    │                              │
    │ Servicios:                   │
@@ -873,7 +873,7 @@ Recepcionista o auto-gestión online:
 
 **Envío de recordatorio automático (si está configurado):**
 ```
-📧 Email/SMS → 24h antes:
+ Email/SMS → 24h antes:
 "Hola María, te recordamos tu cita mañana 
 a las 11:00 con Ana García en Peluquería Bella.
 Servicios: Corte + Tinte. ¡Te esperamos!"
@@ -925,7 +925,7 @@ Para clientes que llegan sin cita:
 **2. Marcar cita como "En Curso"**
 ```
 - Click en cita → Botón "Iniciar"
-- Estado cambia a 🔵 Azul
+- Estado cambia a  Azul
 - Si usa cabinas → Asignar cabina libre
 ```
 
@@ -972,7 +972,7 @@ Para clientes que llegan sin cita:
 
 **5. Comisión automática del profesional**
 ```
-💰 Sistema registra automáticamente:
+ Sistema registra automáticamente:
    Profesional: Ana García
    Servicio: Corte + Tinte
    Total venta: 70,00€
@@ -1013,17 +1013,17 @@ Panel de cabinas (vista opcional):
 ┌─────────────────────────────────────────┐
 │          ESTADO DE CABINAS              │
 ├──────────┬──────────────────────────────┤
-│ Cabina 1 │ 🟢 Libre                     │
+│ Cabina 1 │  Libre                     │
 │ (Corte)  │ Última limpieza: 10:45       │
 │          │ [Asignar cliente]            │
 ├──────────┼──────────────────────────────┤
-│ Cabina 2 │ 🔴 Ocupada                   │
+│ Cabina 2 │  Ocupada                   │
 │ (Color)  │ Cliente: María Ruiz          │
 │          │ Profesional: Ana García      │
 │          │ Tiempo restante: 35 min      │
 │          │ [Marcar como libre]          │
 ├──────────┼──────────────────────────────┤
-│ Cabina 3 │ 🟡 En Limpieza               │
+│ Cabina 3 │  En Limpieza               │
 │ (Estética)│ Limpiando...                │
 └──────────┴──────────────────────────────┘
 ```
@@ -1042,17 +1042,17 @@ Al final del día:
    
 3. COMISIONES POR PROFESIONAL:
    
-   👤 Ana García
+    Ana García
       Citas atendidas: 7
       Facturación total: 420€
       Comisión (40%): 168,00€
    
-   👤 Carlos López
+    Carlos López
       Citas atendidas: 5
       Facturación total: 280€
       Comisión (45%): 126,00€
    
-   👤 María Torres
+    María Torres
       Citas atendidas: 3
       Facturación total: 150€
       Comisión (35%): 52,50€
@@ -1132,11 +1132,11 @@ Al final del día:
 
 ---
 
-## 🖨️ Hardware Recomendado (Detallado)
+## ️ Hardware Recomendado (Detallado)
 
 ### Impresoras Térmicas
 
-#### 📋 Especificaciones Técnicas
+####  Especificaciones Técnicas
 
 **Impresoras 58mm (Bluetooth)**
 - **Para:** Tickets/recibos en tiendas pequeñas, peluquerías
@@ -1171,7 +1171,7 @@ Duración: 1 rollo = 100-200 tickets (según longitud)
 
 ### Lectores de Códigos de Barras
 
-#### 📋 Tipos
+####  Tipos
 
 **CCD (Contacto)**
 - **Precio:** 20-40€
@@ -1198,7 +1198,7 @@ Duración: 1 rollo = 100-200 tickets (según longitud)
 
 ### Cajones Portamonedas
 
-#### 📋 Características
+####  Características
 
 **Cajón Manual**
 - **Precio:** 30-60€
@@ -1223,7 +1223,7 @@ activa cajón automáticamente.
 
 ### Tablets y Dispositivos
 
-#### 📋 Recomendaciones por Presupuesto
+####  Recomendaciones por Presupuesto
 
 **Gama Baja (100-200€)**
 - Samsung Galaxy Tab A7 Lite (8,7")
@@ -1252,7 +1252,7 @@ activa cajón automáticamente.
 
 ### Conectividad de Red
 
-#### 📋 Requisitos
+####  Requisitos
 
 **Router WiFi para Negocio**
 - **Velocidad:** Mínimo 100 Mbps
@@ -1297,7 +1297,7 @@ activa cajón automáticamente.
 ```
 Ir a: "Configuración" → "Empresa"
 
-📝 Datos obligatorios:
+ Datos obligatorios:
 - Nombre comercial
 - CIF/NIF
 - Dirección completa
@@ -1305,7 +1305,7 @@ Ir a: "Configuración" → "Empresa"
 - Teléfono
 - Email de contacto
 
-🏢 Datos opcionales:
+ Datos opcionales:
 - Logo (recomendado, aparece en tickets)
 - Horario de apertura
 - Web / Redes sociales
@@ -1329,7 +1329,7 @@ Opciones:
 ```
 "Configuración" → "Facturación"
 
-📄 Datos para tickets y facturas:
+ Datos para tickets y facturas:
 - Régimen fiscal: [General / Autónomo / Recargo Equiv.]
 - Serie de facturación: [2026-]
 - Próximo número: [1]
@@ -1337,7 +1337,7 @@ Opciones:
 - ☑️ Incluir código QR
 - ☑️ Enviar copia por email al cliente
 
-💳 IVA por defecto:
+ IVA por defecto:
 - 21% (general)
 - 10% (alimentación, hostelería)
 - 4% (productos básicos)
@@ -1348,14 +1348,14 @@ Opciones:
 ```
 "Configuración" → "Impresoras"
 
-🖨️ Bluetooth (Android/iPhone):
+️ Bluetooth (Android/iPhone):
 1. Emparejar impresora en ajustes del dispositivo
 2. En PlaneaG: "Añadir impresora"
 3. Tipo: Bluetooth
 4. Seleccionar de lista
 5. "Test de impresión"
 
-🖨️ USB (Windows/Linux):
+️ USB (Windows/Linux):
 1. Conectar impresora por USB
 2. Esperar instalación de drivers
 3. En PlaneaG: "Añadir impresora"
@@ -1363,7 +1363,7 @@ Opciones:
 5. Seleccionar de lista
 6. "Test de impresión"
 
-🖨️ WiFi (Red local):
+️ WiFi (Red local):
 1. Conectar impresora a red WiFi del local
 2. Anotar IP de impresora (ver config impresora)
 3. En PlaneaG: "Añadir impresora"
@@ -1372,7 +1372,7 @@ Opciones:
 6. Puerto: 9100 (por defecto)
 7. "Test de impresión"
 
-💡 Múltiples impresoras (restaurantes):
+ Múltiples impresoras (restaurantes):
 - Añadir varias impresoras
 - Asignar por categoría:
   * Cocina → Productos "Comidas"
@@ -1435,7 +1435,7 @@ Plantillas disponibles para descarga.
 
 ---
 
-## 🆘 Solución de Problemas
+##  Solución de Problemas
 
 ### ❌ No se conecta la impresora Bluetooth
 
@@ -1649,9 +1649,9 @@ Plantillas disponibles para descarga.
 
 ---
 
-## 👨‍🏫 Capacitación del Personal
+## ‍ Capacitación del Personal
 
-### 📚 Formación Básica (30 minutos)
+###  Formación Básica (30 minutos)
 
 #### Para Empleados de Tienda
 
@@ -1755,7 +1755,7 @@ Módulo 6: Gestión de bonos (5 min)
 - Ver sesiones restantes
 ```
 
-### 📖 Manual de Usuario (PDF)
+###  Manual de Usuario (PDF)
 
 ```
 Crear documento interno con:
@@ -1770,7 +1770,7 @@ Crear documento interno con:
 **Descargar plantilla:** 
 `https://planeag.com/recursos/manual-tpv-empleados.pdf`
 
-### 🎓 Formación Avanzada (Opcional)
+###  Formación Avanzada (Opcional)
 
 ```
 Para encargados/gerentes:
@@ -1786,9 +1786,9 @@ Para encargados/gerentes:
 
 ---
 
-## 🔐 Seguridad y Backup
+##  Seguridad y Backup
 
-### 🛡️ Buenas Prácticas
+### ️ Buenas Prácticas
 
 ```
 ✅ Contraseñas seguras (8+ caracteres, mayúsculas, números)
@@ -1801,7 +1801,7 @@ Para encargados/gerentes:
 ✅ No conectar a WiFi públicas para cobrar
 ```
 
-### 💾 Backup Automático
+###  Backup Automático
 
 ```
 PlaneaG realiza backup automático en la nube:
@@ -1817,7 +1817,7 @@ Si cambias de dispositivo:
 3. Todos los datos se descargan automáticamente
 ```
 
-### 📥 Exportar Datos Localmente
+###  Exportar Datos Localmente
 
 ```
 Para tener copia adicional:
@@ -1837,28 +1837,28 @@ Para tener copia adicional:
 
 ---
 
-## 📞 Soporte y Contacto
+##  Soporte y Contacto
 
-### 🆘 Canales de Soporte
+###  Canales de Soporte
 
 ```
-📧 Email: soporte@planeag.com
+ Email: soporte@planeag.com
    Respuesta: 24-48h
 
-💬 Chat en vivo: https://planeag.com/chat
+ Chat en vivo: https://planeag.com/chat
    Horario: L-V 9:00-19:00
 
-📞 Teléfono: +34 912 345 678
+ Teléfono: +34 912 345 678
    Horario: L-V 9:00-14:00 y 16:00-19:00
 
-📚 Centro de ayuda: https://ayuda.planeag.com
+ Centro de ayuda: https://ayuda.planeag.com
    FAQs, tutoriales, vídeos
 
-🎥 YouTube: @PlaneaGTPV
+ YouTube: @PlaneaGTPV
    Video-tutoriales paso a paso
 ```
 
-### 🚀 Onboarding Personalizado
+###  Onboarding Personalizado
 
 ```
 Para negocios que contraten plan Premium o Enterprise:
@@ -1875,9 +1875,9 @@ Contactar: comercial@planeag.com
 
 ---
 
-## 💰 Planes y Precios
+##  Planes y Precios
 
-### 📊 Comparativa de Planes
+###  Comparativa de Planes
 
 ```
 ┌─────────────────┬──────────┬───────────┬─────────────┐
@@ -1980,9 +1980,9 @@ Contactar: comercial@planeag.com
 
 ---
 
-## 🎉 ¡Listo para Empezar!
+##  ¡Listo para Empezar!
 
-### 🚀 Próximos Pasos
+###  Próximos Pasos
 
 1. **Día 1-2:** Instalación y configuración básica
 2. **Día 3-5:** Carga de productos/servicios y pruebas
@@ -1990,7 +1990,7 @@ Contactar: comercial@planeag.com
 4. **Día 8:** Ventas de prueba con clientes reales (modo piloto)
 5. **Día 9+:** Operación normal
 
-### 📈 Optimización Continua
+###  Optimización Continua
 
 ```
 Semana 1: ✅ Operación básica funcionando
@@ -2000,7 +2000,7 @@ Mes 2: Análisis de rentabilidad, best sellers
 Mes 3: Integración con contabilidad (opcional)
 ```
 
-### 🌟 Consejos Finales
+###  Consejos Finales
 
 ```
 ✅ Empieza simple, no todo a la vez
@@ -2014,59 +2014,59 @@ Mes 3: Integración con contabilidad (opcional)
 
 ---
 
-## 📌 Recursos Adicionales
+##  Recursos Adicionales
 
-### 📥 Descargas
+###  Descargas
 
 ```
-🔗 PlaneaG TPV para Android
+ PlaneaG TPV para Android
 https://play.google.com/store/apps/details?id=com.planeag.tpv
 
-🔗 PlaneaG TPV para Windows
+ PlaneaG TPV para Windows
 https://planeag.com/descargas/windows
 
-🔗 Manual de Usuario (PDF)
+ Manual de Usuario (PDF)
 https://planeag.com/recursos/manual-completo.pdf
 
-🔗 Plantilla CSV Productos
+ Plantilla CSV Productos
 https://planeag.com/recursos/plantilla-productos.csv
 
-🔗 Plantilla CSV Clientes
+ Plantilla CSV Clientes
 https://planeag.com/recursos/plantilla-clientes.csv
 ```
 
-### 🎥 Video Tutoriales
+###  Video Tutoriales
 
 ```
-📺 Instalación y Configuración Inicial (15 min)
+ Instalación y Configuración Inicial (15 min)
 https://youtube.com/watch?v=xxxxx
 
-📺 TPV Tienda - Caso Práctico Completo (20 min)
+ TPV Tienda - Caso Práctico Completo (20 min)
 https://youtube.com/watch?v=xxxxx
 
-📺 TPV Bar - Gestión de Mesas y Comandas (25 min)
+ TPV Bar - Gestión de Mesas y Comandas (25 min)
 https://youtube.com/watch?v=xxxxx
 
-📺 TPV Peluquería - Agenda y Citas (30 min)
+ TPV Peluquería - Agenda y Citas (30 min)
 https://youtube.com/watch?v=xxxxx
 
-📺 Conectar Impresora Bluetooth (10 min)
+ Conectar Impresora Bluetooth (10 min)
 https://youtube.com/watch?v=xxxxx
 
-📺 Cierre de Caja Paso a Paso (12 min)
+ Cierre de Caja Paso a Paso (12 min)
 https://youtube.com/watch?v=xxxxx
 ```
 
-### 📚 Documentación Técnica
+###  Documentación Técnica
 
 ```
-🔗 API Documentation (para desarrolladores)
+ API Documentation (para desarrolladores)
 https://docs.planeag.com/api
 
-🔗 Integraciones (Contabilidad, E-commerce)
+ Integraciones (Contabilidad, E-commerce)
 https://docs.planeag.com/integraciones
 
-🔗 Changelog (Novedades y actualizaciones)
+ Changelog (Novedades y actualizaciones)
 https://planeag.com/changelog
 ```
 
@@ -2079,5 +2079,4 @@ https://planeag.com/changelog
 ---
 
 © 2026 PlaneaG - Todos los derechos reservados  
-📧 info@planeag.com | 🌐 www.planeag.com | ☎️ +34 912 345 678
-
+ info@planeag.com |  www.planeag.com | ☎️ +34 912 345 678

@@ -10,7 +10,7 @@
 ══ OPCIÓN 1: DESDE EL EXPLORADOR (MÁS FÁCIL) ══
 
 1. Hacer doble clic en:
-
+   
    ejecutar_windows.bat
 
 2. Esperar a que compile y se abra la app
@@ -23,7 +23,7 @@
 1. Abrir PowerShell o CMD
 
 2. Ejecutar:
-
+   
    cd C:\Users\Samu\AndroidStudioProjects\PlaneaG\planeag_flutter
    flutter run -d windows
 
@@ -44,7 +44,7 @@
 
 ══════════════════════════════════════════════════════════════
 
-📊 LO QUE VERÁS:
+ LO QUE VERÁS:
 
 - Ventana grande (>800px):
   • NavigationRail a la izquierda
@@ -77,7 +77,7 @@ automáticamente entre NavigationRail y TabBar.
 
 ══════════════════════════════════════════════════════════════
 
-📖 DOCUMENTACIÓN COMPLETA:
+ DOCUMENTACIÓN COMPLETA:
 
 • DESKTOP_RESUMEN_FINAL.md — Este archivo
 • DESKTOP_ADAPTACION_COMPLETA.md — Guía técnica detallada
@@ -87,9 +87,8 @@ automáticamente entre NavigationRail y TabBar.
 
 ══════════════════════════════════════════════════════════════
 
-🚀 ¡EMPIEZA AHORA!
+ ¡EMPIEZA AHORA!
 
    ejecutar_windows.bat
 
 ══════════════════════════════════════════════════════════════
-
