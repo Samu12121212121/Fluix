@@ -13,6 +13,7 @@ import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
 import 'pantalla_sonidos_notificacion.dart';
 import 'pantalla_auditoria.dart';
+import '../../soporte/soporte_screen.dart';
 import 'gestionar_cuentas_screen.dart';
 import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
 import '../../pdf_templates/presentation/screens/pdf_templates_list_screen.dart';
@@ -353,6 +354,24 @@ class _TabPerfilState extends State<_TabPerfil> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const PantallaSonidosNotificacion())),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Soporte
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey[200]!),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.support_agent, color: Color(0xFF25D366)),
+                title: const Text('Soporte técnico'),
+                subtitle: const Text('WhatsApp · FAQ · L-D 9:00–21:00'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SoporteScreen())),
               ),
             ),
             const SizedBox(height: 20),

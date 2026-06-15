@@ -874,6 +874,14 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
             ]),
           ),
         ),
+        // Cajón registradora
+        IconButton(
+          icon: const Icon(Icons.inventory_2_outlined, size: 18, color: Colors.white70),
+          onPressed: _abrirCajon,
+          tooltip: 'Abrir cajón',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
         IconButton(
           icon: Icon(Icons.print, size: 16,
               color: _btConectado ? Colors.white70 : Colors.white38),
@@ -905,34 +913,7 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
-          // Pedidos en espera (HoldPedidosWidget)
-          ListenableBuilder(
-            listenable: _holdNotifier,
-            builder: (_, __) => Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.pause_circle_outline, size: 16),
-                  onPressed: _mostrarPedidosEnEspera,
-                  tooltip: 'Pedidos en espera',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                if (_holdNotifier.pedidos.isNotEmpty)
-                  Positioned(
-                    right: 4,
-                    top: 4,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF3296),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          // Pedidos en espera: no aplica en el TPV de peluquería (flujo por citas)
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded, size: 16),
             onPressed: _mostrarEstadisticasEmpleados,
@@ -1122,6 +1103,26 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
         fecha: _fecha,
       ),
     );
+  }
+
+  // ── Cajón registradora ───────────────────────────────────────────────────────
+  bool _abriendo = false;
+
+  Future<void> _abrirCajon() async {
+    if (_abriendo) return;
+    setState(() => _abriendo = true);
+    try {
+      final cfg = await TpvFacturacionService().obtenerConfig(widget.empresaId);
+      await ImpresoraService().abrirCajonSiProcede(
+        config: cfg.copyWith(abrirCajonAlCobrar: true, abrirCajonSoloEfectivo: false),
+        metodoPago: 'efectivo',
+      );
+      if (mounted) FluxToast.exito(context, 'Cajón abierto');
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error al abrir cajón: $e');
+    } finally {
+      if (mounted) setState(() => _abriendo = false);
+    }
   }
 
   // ── Estadísticas de empleados ──────────────────────────────────────────────

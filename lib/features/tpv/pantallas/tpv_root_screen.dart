@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' show Random;
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,6 +18,7 @@ import '../../../services/pedidos_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
 import '../../../services/facturacion_service.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
+import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/impresora_windows_service.dart' show ImpresoraWindowsService;
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
@@ -34,6 +35,8 @@ import '../widgets/floor_plan_widget.dart';
 import '../widgets/mesa_theme_selector_bottom_sheet.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import '../../../widgets/tpv/historial_tickets_widget.dart';
 import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 import '../../../widgets/tpv/hold_pedidos_widget.dart';
@@ -172,68 +175,39 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
         toolbarHeight: 48,
         title: Row(
           children: [
+            // ── Izquierda: nav + modo ──────────────────────────────────
             IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, size: 18),
               onPressed: () => Navigator.of(context).pop(),
               tooltip: 'Salir del TPV',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
-            const Icon(Icons.point_of_sale, size: 18),
+            const Icon(Icons.point_of_sale, size: 16),
+            const SizedBox(width: 4),
+            const Text('TPV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(width: 6),
-            const Text('TPV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(_modoActual, style: const TextStyle(fontSize: 11)),
+              child: Text(_modoActual, style: const TextStyle(fontSize: 10)),
             ),
             const Spacer(),
-            // Botones de acción alineados a la derecha
-            IconButton(
-              icon: const Icon(Icons.history, size: 16),
-              onPressed: () => _mostrarHistorialVentas(context),
-              tooltip: 'Historial de ventas',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.receipt_long, size: 16),
-              onPressed: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
-              tooltip: 'Tickets del turno',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.bar_chart, size: 16),
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: const Color(0xFF0A0F23),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId),
-              ),
-              tooltip: 'Estadísticas del turno',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 4),
+            // ── Derecha: acciones críticas siempre visibles ───────────
+            // Hold — con badge
             ListenableBuilder(
               listenable: _holdNotifier,
               builder: (_, __) => Stack(
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.pause_circle_outline, size: 16),
+                    icon: const Icon(Icons.pause_circle_outline, size: 18),
                     onPressed: () async {
                       final pedido = await HoldPedidosWidget.mostrar(context, _holdNotifier);
                       if (pedido != null && mounted) {
-                        // Restaurar líneas del pedido en espera a la comanda activa
                         final lineas = pedido.lineas.map((l) => LineaComanda(
                           productoId: l['productoId'] as String? ?? '',
                           nombre: l['nombre'] as String? ?? '',
@@ -264,11 +238,9 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                   ),
                   if (_holdNotifier.pedidos.isNotEmpty)
                     Positioned(
-                      right: 0,
-                      top: 0,
+                      right: 0, top: 0,
                       child: Container(
-                        width: 14,
-                        height: 14,
+                        width: 14, height: 14,
                         decoration: const BoxDecoration(
                           color: Colors.orangeAccent,
                           shape: BoxShape.circle,
@@ -284,118 +256,140 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
+            // Cajón registradora
             IconButton(
-              icon: const Icon(Icons.palette_outlined, size: 16),
-              onPressed: () => mostrarMesaThemeSelector(context),
-              tooltip: 'Tema del plano',
+              icon: const Icon(Icons.inventory_2_outlined, size: 18),
+              onPressed: _abrirCajon,
+              tooltip: 'Abrir cajón',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.restaurant_menu, size: 16),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId),
-                  ),
-                );
-              },
-              tooltip: 'Pantalla de Cocina',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.keyboard_return, size: 16),
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) => DialogoDevoluciones(
-                  empresaId: widget.empresaId,
-                  colorPrimario: _tpvAppBarColor,
-                ),
-              ),
-              tooltip: 'Devoluciones',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 4),
+            // Caja
             GestureDetector(
               onTap: () => mostrarDialogoAperturaCaja(context, widget.empresaId),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _tpvAppBarColor.withValues(alpha: 0.25),
+                  color: _tpvAppBarColor.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
                 ),
                 child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.account_balance_wallet, size: 13, color: Colors.white70),
-                  SizedBox(width: 4),
+                  SizedBox(width: 3),
                   Text('Caja', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
+            // Cierre
             GestureDetector(
               onTap: () => mostrarPantallaCierreCaja(context, widget.empresaId),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _tpvAppBarColor.withValues(alpha: 0.15),
+                  color: _tpvAppBarColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                 ),
                 child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.summarize_outlined, size: 13, color: Colors.white70),
-                  SizedBox(width: 4),
+                  SizedBox(width: 3),
                   Text('Cierre', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(_horaActual, style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 8),
+            // Reloj + wifi
+            const SizedBox(width: 6),
+            Text(_horaActual, style: const TextStyle(fontSize: 11)),
+            const SizedBox(width: 4),
             Icon(
               _estaOnline ? Icons.wifi : Icons.wifi_off,
-              size: 15,
-              color: _estaOnline ? Colors.white70 : Colors.orangeAccent,
+              size: 14,
+              color: _estaOnline ? Colors.white54 : Colors.orangeAccent,
             ),
-            const SizedBox(width: 6),
-            // ── Botón impresora: abre diálogo de configuración BT ──
-            IconButton(
-              icon: Icon(Icons.print, 
-                  size: 16, 
-                  color: _btConectado ? Colors.white70 : Colors.white38),
-              onPressed: () => _mostrarConfigImpresora(),
-              tooltip: 'Impresora Bluetooth',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            if (widget.esAdmin) ...[
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.settings, size: 16),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
+            // ── Menú desbordamiento para acciones secundarias ─────────
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 18, color: Colors.white70),
+              color: const Color(0xFF1E2139),
+              onSelected: (v) {
+                switch (v) {
+                  case 'historial':
+                    _mostrarHistorialVentas(context);
+                  case 'tickets':
+                    HistorialTicketsWidget.mostrar(context, widget.empresaId);
+                  case 'stats':
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: const Color(0xFF0A0F23),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId),
+                    );
+                  case 'tema':
+                    mostrarMesaThemeSelector(context);
+                  case 'cocina':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId),
+                    ));
+                  case 'devoluciones':
+                    showDialog(
+                      context: context,
+                      builder: (_) => DialogoDevoluciones(
+                        empresaId: widget.empresaId,
+                        colorPrimario: _tpvAppBarColor,
+                      ),
+                    );
+                  case 'impresora':
+                    _mostrarConfigImpresora();
+                  case 'config':
+                    Navigator.push(context, MaterialPageRoute(
                       builder: (_) => ConfiguracionFacturacionTpvScreen(
                         empresaId: widget.empresaId,
                         esPropietario: widget.esPropietario,
                       ),
-                    ),
-                  );
-                },
-                tooltip: 'Configuración TPV',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-            ],
-            const SizedBox(width: 4),
+                    ));
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'historial', child: Row(children: [
+                  Icon(Icons.history, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Historial de ventas', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'tickets', child: Row(children: [
+                  Icon(Icons.receipt_long, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Tickets del turno', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'stats', child: Row(children: [
+                  Icon(Icons.bar_chart, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Estadísticas', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'cocina', child: Row(children: [
+                  Icon(Icons.restaurant_menu, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Pantalla de cocina', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'devoluciones', child: Row(children: [
+                  Icon(Icons.keyboard_return, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Devoluciones', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'tema', child: Row(children: [
+                  Icon(Icons.palette_outlined, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Tema del plano', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'impresora', child: Row(children: [
+                  Icon(Icons.print, size: 16, color: Colors.white70), SizedBox(width: 10),
+                  Text('Impresora', style: TextStyle(color: Colors.white)),
+                ])),
+                if (widget.esAdmin)
+                  const PopupMenuItem(value: 'config', child: Row(children: [
+                    Icon(Icons.settings, size: 16, color: Colors.white70), SizedBox(width: 10),
+                    Text('Configuración TPV', style: TextStyle(color: Colors.white)),
+                  ])),
+              ],
+            ),
           ],
         ),
       ),
@@ -645,6 +639,32 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
         'camarero_uid': _empleadoSeleccionadoId ?? FirebaseAuth.instance.currentUser?.uid ?? '',
         'fecha_apertura': FieldValue.serverTimestamp(),
       });
+    }
+  }
+
+  // ── Abrir cajón registradora ──────────────────────────────────────────────
+  Future<void> _abrirCajon() async {
+    try {
+      final cfg = await TpvFacturacionService().obtenerConfig(widget.empresaId);
+      await ImpresoraService().abrirCajonSiProcede(
+        config: cfg.copyWith(abrirCajonAlCobrar: true, abrirCajonSoloEfectivo: false),
+        metodoPago: 'efectivo',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cajón abierto'),
+            duration: Duration(seconds: 1),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al abrir cajón: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -1404,9 +1424,9 @@ class _ColumnaListaMesasState extends State<_ColumnaListaMesas> {
                           ],
                         ),
                         // ── Filtro de zonas + botón crear zona ────────────
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         SizedBox(
-                          height: 30,
+                          height: 26,
                           child: Row(
                             children: [
                               Expanded(
@@ -2016,14 +2036,15 @@ class _ResumenCounter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text('$count',
             style: TextStyle(
-                color: color, fontSize: 32, fontWeight: FontWeight.w800)),
+                color: color, fontSize: 22, fontWeight: FontWeight.w800)),
         Text(label,
             style: TextStyle(
                 color: color.withValues(alpha: 0.7),
-                fontSize: 9,
+                fontSize: 8,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5)),
       ],
@@ -3320,113 +3341,108 @@ class _ColumnaComandaActiva extends StatelessWidget {
     debugPrint('💰 [COBRO] ═══════════════════════════════════════');
 
     } catch (e, stackTrace) {
-      debugPrint('🔴🔴🔴 [COBRO] ═══════════════════════════════════════');
-      debugPrint('🔴🔴🔴 [COBRO] ERROR CRÍTICO EN PROCESO DE COBRO');
-      debugPrint('🔴🔴🔴 [COBRO] Error: $e');
-      debugPrint('🔴🔴🔴 [COBRO] StackTrace:');
-      debugPrint(stackTrace.toString());
-      debugPrint('🔴🔴🔴 [COBRO] ═══════════════════════════════════════');
-      
+      // Enviar a Crashlytics (siempre, en producción y debug)
+      FirebaseCrashlytics.instance.recordError(e, stackTrace,
+          reason: 'Error crítico en proceso de cobro TPV');
+
+      // Logs técnicos solo en debug
+      if (kDebugMode) {
+        debugPrint('🔴 [COBRO] ERROR CRÍTICO: $e');
+        debugPrint(stackTrace.toString());
+      }
+
       if (context.mounted) {
-        // Mostrar diálogo de error con detalles
+        final incId = 'INC-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.error, color: Colors.red, size: 32),
-                SizedBox(width: 12),
-                Text('Error al Procesar Cobro'),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Se produjo un error durante el proceso de cobro:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: SelectableText(
-                      e.toString(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Stack Trace:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        stackTrace.toString(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              FilledButton.icon(
-                icon: const Icon(Icons.close),
-                label: const Text('CERRAR'),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-        
-        // También mostrar snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al procesar el cobro: ${e.toString()}'),
-            backgroundColor: const Color(0xFFFF2850),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Ver detalles',
-              textColor: Colors.white,
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Error de Cobro'),
-                    content: SingleChildScrollView(child: Text('$e\n\n$stackTrace')),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          builder: (ctx) => _DialogoErrorCobro(incId: incId),
         );
       }
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIÁLOGO DE ERROR DE COBRO — sin datos técnicos para el usuario
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DialogoErrorCobro extends StatelessWidget {
+  final String incId;
+  const _DialogoErrorCobro({required this.incId});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red, size: 28),
+          SizedBox(width: 10),
+          Text('Error en el cobro', style: TextStyle(fontSize: 17)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ha ocurrido un error inesperado al procesar el cobro. '
+            'Por favor, inténtalo de nuevo.',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.tag, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    incId,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Proporciona este ID al soporte si el problema persiste.',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton.icon(
+          icon: const Icon(Icons.copy, size: 16),
+          label: const Text('Copiar ID'),
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: incId));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('ID copiado al portapapeles'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
   }
 }
 

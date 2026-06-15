@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
@@ -32,17 +33,7 @@ Future<void> main() async {
       defaultTargetPlatform == TargetPlatform.linux ||
       defaultTargetPlatform == TargetPlatform.macOS) {
     PlatformDispatcher.instance.onError = (error, stack) {
-      final msg = error.toString();
-      if (msg.contains('permission-denied') ||
-          msg.contains('firebase_auth') ||
-          msg.contains('unknown-error') ||
-          msg.contains('non-platform thread') ||
-          msg.contains('FirebaseFirestore') ||
-          msg.contains('cloud_firestore')) {
-        debugPrint('⚠️ Firebase error capturado (desktop): $error');
-        return true;
-      }
-      debugPrint('❌ Error no manejado: $error\n$stack');
+      debugPrint('⚠️ Error no manejado (desktop): $error');
       return true; // nunca cerrar la app en desktop
     };
   }
@@ -50,6 +41,27 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ── Crashlytics — solo en móvil release (no en Web ni Desktop) ────────────
+  if (!kIsWeb &&
+      !kDebugMode &&
+      defaultTargetPlatform != TargetPlatform.windows &&
+      defaultTargetPlatform != TargetPlatform.linux &&
+      defaultTargetPlatform != TargetPlatform.macOS) {
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+
+    // Captura errores de Flutter (widgets, renders, etc.)
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+    // Captura errores async no capturados (Dart isolate principal)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } else {
+    // En debug y desktop: deshabilitar envío a Crashlytics
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(false);
+  }
 
   await _configurarFirestore();
 
