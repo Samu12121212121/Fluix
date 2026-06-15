@@ -597,14 +597,13 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
             duration: const Duration(seconds: 4),
           ));
         }
-      }
-      if (mounted) {
-        if (_esEdicion) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura actualizada'), backgroundColor: Colors.green));
-          Navigator.pop(context, true);
-        } else {
+        if (mounted) {
           await _mostrarOpcionesPostGuardado(res.factura);
         }
+      }
+      if (mounted && _esEdicion) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura actualizada'), backgroundColor: Colors.green));
+        Navigator.pop(context, true);
       }
     } catch (e) {
       setState(() => _guardando = false);

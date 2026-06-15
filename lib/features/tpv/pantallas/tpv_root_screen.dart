@@ -33,6 +33,7 @@ import '../widgets/empleados_banner_widget.dart';
 import '../widgets/floor_plan_widget.dart';
 import '../widgets/mesa_theme_selector_bottom_sheet.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../widgets/tpv/historial_tickets_widget.dart';
 import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 import '../../../widgets/tpv/hold_pedidos_widget.dart';
@@ -1530,58 +1531,6 @@ class _ZonaChip extends StatelessWidget {
   }
 }
 
-// ── Botón toggle lista/plano ─────────────────────────────────────────────────
-class _ToggleVistaBtn extends StatelessWidget {
-  final bool vistaPlano;
-  final VoidCallback onToggle;
-
-  const _ToggleVistaBtn({required this.vistaPlano, required this.onToggle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: vistaPlano ? 'Vista lista' : 'Vista plano',
-      child: InkWell(
-        onTap: onToggle,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: vistaPlano
-                ? const Color(0xFF00FFC8).withValues(alpha: 0.2)
-                : const Color(0xFF333333),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: vistaPlano
-                  ? const Color(0xFF00FFC8).withValues(alpha: 0.5)
-                  : const Color(0xFF444444),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                vistaPlano ? Icons.view_list : Icons.grid_view,
-                size: 14,
-                color: vistaPlano ? const Color(0xFF00FFC8) : Colors.white54,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                vistaPlano ? 'Lista' : 'Plano',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: vistaPlano ? const Color(0xFF00FFC8) : Colors.white54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Botón activar/desactivar edición del plano ───────────────────────────────
 class _EditPlanoBtn extends StatelessWidget {
   final bool activo;
@@ -2739,13 +2688,16 @@ class _ColumnaComandaActiva extends StatelessWidget {
     );
   }
 
-  // ── IMPLEMENTADO: Producto libre (sin catálogo) ────────────────────────
+  // ── Producto libre (sin catálogo) — con selector de IVA ─────────────────
   Future<void> _agregarProductoLibre(BuildContext context) async {
     final nombreCtrl = TextEditingController();
     final precioCtrl = TextEditingController();
+    double ivaSeleccionado = 10;
+
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) => AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.add_circle_outline, color: Color(0xFFFFA000)),
@@ -2778,16 +2730,33 @@ class _ColumnaComandaActiva extends StatelessWidget {
                 keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Precio (€) *',
+                  labelText: 'Precio con IVA (€) *',
                   prefixIcon: Icon(Icons.euro),
                 ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<double>(
+                value: ivaSeleccionado,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo de IVA',
+                  prefixIcon: Icon(Icons.percent),
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 0,  child: Text('0% — Exento')),
+                  DropdownMenuItem(value: 4,  child: Text('4% — Superreducido')),
+                  DropdownMenuItem(value: 10, child: Text('10% — Reducido')),
+                  DropdownMenuItem(value: 21, child: Text('21% — General')),
+                ],
+                onChanged: (v) => setS(() => ivaSeleccionado = v ?? 10),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              onPressed: () => Navigator.pop(ctx2), child: const Text('Cancelar')),
           FilledButton(
             onPressed: () {
               final nombre = nombreCtrl.text.trim();
@@ -2801,7 +2770,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
                 nombre: nombre,
                 cantidad: 1,
                 precioUnitario: precio,
-                ivaPorcentaje: 10,
+                ivaPorcentaje: ivaSeleccionado,
                 esNuevo: true,
               );
 
@@ -2823,73 +2792,129 @@ class _ColumnaComandaActiva extends StatelessWidget {
                     importeTotal: 0,
                   );
               onComandaActualizada(base.copyWith(lineas: lineas));
-              Navigator.pop(ctx);
+              Navigator.pop(ctx2);
             },
             child: const Text('Añadir'),
           ),
         ],
       ),
+      ),
     );
+    nombreCtrl.dispose();
+    precioCtrl.dispose();
   }
 
-  // ── IMPLEMENTADO: Descuento sobre el total ─────────────────────────────
+  // ── Descuento sobre el total (% o importe fijo) ─────────────────────────
   Future<void> _aplicarDescuento(BuildContext context) async {
     double pct = 0;
+    bool modoPct = true;
+    final importeCtrl = TextEditingController();
+    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setS) => AlertDialog(
-          title: const Text('Aplicar descuento'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Total sin descuento: ${NumberFormat.currency(symbol: '€', decimalDigits: 2).format(comandaActiva!.total)}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              // Botones rápidos de porcentaje
-              Wrap(
-                spacing: 8,
-                children: [5, 10, 15, 20, 25, 50].map((p) {
-                  return ChoiceChip(
-                    label: Text('$p%'),
-                    selected: pct == p,
-                    onSelected: (_) => setS(() => pct = p.toDouble()),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                pct > 0
-                    ? 'Descuento: - ${NumberFormat.currency(symbol: '€', decimalDigits: 2).format(comandaActiva!.total * pct / 100)}'
-                : '',
-            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx2),
-            child: const Text('Cancelar')),
-        // TODO: Añadir campos descuento y descuentoPct al modelo Comanda
-        FilledButton(
-          onPressed: pct > 0
-              ? () {
-            final dto = comandaActiva!.total * pct / 100;
-            onComandaActualizada(comandaActiva!.copyWith(
-              descuento: dto,
-              descuentoPct: pct,
-            ));
-            Navigator.pop(ctx2);
+        builder: (ctx2, setS) {
+          final totalBase = comandaActiva!.total;
+          double descuentoPreview = 0;
+          if (modoPct && pct > 0) {
+            descuentoPreview = totalBase * pct / 100;
+          } else if (!modoPct) {
+            descuentoPreview = double.tryParse(
+                importeCtrl.text.replaceAll(',', '.')) ?? 0;
+            descuentoPreview = descuentoPreview.clamp(0, totalBase);
           }
-              : null,
-          child: const Text('Aplicar'),
-        ),
-      ],
-        ),
+
+          return AlertDialog(
+            title: const Text('Aplicar descuento'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Total: ${fmt.format(totalBase)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                // Toggle % vs €
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Porcentaje %')),
+                    ButtonSegment(value: false, label: Text('Importe €')),
+                  ],
+                  selected: {modoPct},
+                  onSelectionChanged: (s) => setS(() {
+                    modoPct = s.first;
+                    pct = 0;
+                    importeCtrl.clear();
+                  }),
+                ),
+                const SizedBox(height: 12),
+                if (modoPct) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [5, 10, 15, 20, 25, 50].map((p) {
+                      return ChoiceChip(
+                        label: Text('$p%'),
+                        selected: pct == p,
+                        onSelected: (_) => setS(() => pct = p.toDouble()),
+                      );
+                    }).toList(),
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: importeCtrl,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Importe a descontar (€)',
+                      prefixIcon: Icon(Icons.euro),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setS(() {}),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (descuentoPreview > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Descuento:', style: TextStyle(color: Colors.green)),
+                        Text('- ${fmt.format(descuentoPreview)}',
+                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx2),
+                  child: const Text('Cancelar')),
+              FilledButton(
+                onPressed: descuentoPreview > 0
+                    ? () {
+                        onComandaActualizada(comandaActiva!.copyWith(
+                          descuento: descuentoPreview,
+                          descuentoPct: modoPct ? pct : null,
+                        ));
+                        Navigator.pop(ctx2);
+                      }
+                    : null,
+                child: const Text('Aplicar'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    importeCtrl.dispose();
   }
 
   // ── IMPLEMENTADO: Editar precio de línea ──────────────────────────────
@@ -3443,12 +3468,29 @@ class _LineaComandaCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              // ── Indicador "enviado a cocina" ──
+              if (!linea.esNuevo)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Tooltip(
+                    message: 'Ya enviado a cocina',
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2E7D32),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check, size: 12, color: Colors.white),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: Text(linea.nombre,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                        color: linea.esNuevo ? Colors.white : Colors.white70)),
               ),
               // ── IMPLEMENTADO: Botón editar precio ──
               GestureDetector(
@@ -3608,15 +3650,22 @@ class _LineaComandaCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          // Indicador enviado a cocina (compacto)
+          if (!linea.esNuevo)
+            const Padding(
+              padding: EdgeInsets.only(right: 3),
+              child: Icon(Icons.check_circle, size: 12, color: Color(0xFF4CAF50)),
+            ),
           // Nombre
           Expanded(
             child: Text(
               linea.nombre,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: linea.esNuevo ? Colors.white : Colors.white60),
             ),
           ),
           const SizedBox(width: 4),
@@ -4065,7 +4114,7 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                 children: [
                   // ── Cabecera ──────────────────────────────────────────
                   Container(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                     decoration: const BoxDecoration(
                       color: Color(0xFF1A1A1A),
                       border: Border(bottom: BorderSide(color: Color(0xFF333333))),
@@ -4083,6 +4132,11 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.4)),
                             const Spacer(),
+                            _SelectorColumnas(
+                              columnas: _columnas,
+                              onChanged: (n) => setState(() => _columnas = n),
+                            ),
+                            const SizedBox(width: 4),
                             if (widget.esAdmin)
                               IconButton(
                                 icon: const Icon(Icons.add_circle_outline,
@@ -4094,6 +4148,60 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                               ),
                           ],
+                        ),
+                        const SizedBox(height: 6),
+                        // ── Buscador + scanner ────────────────────────────
+                        SizedBox(
+                          height: 32,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  onChanged: widget.onBusquedaChanged,
+                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                  decoration: InputDecoration(
+                                    hintText: 'Buscar producto…',
+                                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                                    prefixIcon: const Icon(Icons.search, size: 16, color: Colors.white38),
+                                    suffixIcon: widget.busqueda.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                                            onPressed: () => widget.onBusquedaChanged(''),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(minWidth: 28),
+                                          )
+                                        : null,
+                                    filled: true,
+                                    fillColor: const Color(0xFF252525),
+                                    contentPadding: EdgeInsets.zero,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              // ── Botón scanner de código de barras ────────
+                              Tooltip(
+                                message: 'Escanear código de barras',
+                                child: InkWell(
+                                  onTap: () => _abrirScanner(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF252525),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.qr_code_scanner,
+                                        size: 18, color: Color(0xFF00FFC8)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -4197,6 +4305,45 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
         },
       ),
     );
+  }
+
+  Future<void> _abrirScanner(BuildContext context) async {
+    final ctrl = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2139),
+        contentPadding: EdgeInsets.zero,
+        title: const Row(children: [
+          Icon(Icons.qr_code_scanner, color: Color(0xFF00FFC8), size: 20),
+          SizedBox(width: 8),
+          Text('Escanear código', style: TextStyle(color: Colors.white, fontSize: 15)),
+        ]),
+        content: SizedBox(
+          width: 300,
+          height: 260,
+          child: MobileScanner(
+            controller: ctrl,
+            onDetect: (capture) {
+              final barcode = capture.barcodes.firstOrNull;
+              if (barcode?.rawValue != null) {
+                ctrl.dispose();
+                Navigator.pop(ctx, barcode!.rawValue);
+              }
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { ctrl.dispose(); Navigator.pop(ctx); },
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+    if (resultado != null && resultado.isNotEmpty && mounted) {
+      widget.onBusquedaChanged(resultado);
+    }
   }
 
   Future<void> _guardarImagenDefecto(

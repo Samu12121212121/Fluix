@@ -53,14 +53,7 @@ service cloud.firestore {
   function esPlataformaAdmin() {
     return isAuth()
       && !esAnonimo()
-      && (
-        request.auth.token.plataforma_admin == true
-        || (existeUsuarioDoc() && getUserData().es_plataforma_admin == true)
-        // Propietario de la empresa de plataforma (37KyODVYpXYD04VwG3Vf) es siempre admin
-        || (existeUsuarioDoc()
-            && getUserData().empresa_id == '37KyODVYpXYD04VwG3Vf'
-            && getUserData().rol == 'propietario')
-      );
+      && request.auth.token.plataforma_admin == true;
   }
 
   function esPlataformaAdminConFallback() {
@@ -107,18 +100,21 @@ service cloud.firestore {
       && get(suscRef(empresaId)).data.get('es_demo', false) == true;
   }
 
+  function suscripcionValida(empresaId) {
+    return exists(suscRef(empresaId))
+      && get(suscRef(empresaId)).data.get('estado', '') in ['ACTIVA', 'PRUEBA'];
+  }
+
   function accesoModuloPremium(empresaId, packId) {
     return esPlataformaAdmin()
-      || !exists(suscRef(empresaId))
-      || tienePackActivo(empresaId, packId)
-      || esDemoSuscripcion(empresaId);
+      || esDemoSuscripcion(empresaId)
+      || (suscripcionValida(empresaId) && tienePackActivo(empresaId, packId));
   }
 
   function accesoAddonPremium(empresaId, addonId) {
     return esPlataformaAdmin()
-      || !exists(suscRef(empresaId))
-      || tieneAddonActivo(empresaId, addonId)
-      || esDemoSuscripcion(empresaId);
+      || esDemoSuscripcion(empresaId)
+      || (suscripcionValida(empresaId) && tieneAddonActivo(empresaId, addonId));
   }
 
   // ── VALIDACIÓN DE CAMPOS DE TRACKING ─────────────────────────────────────

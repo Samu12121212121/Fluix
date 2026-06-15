@@ -46,6 +46,7 @@ export {
 } from "./trofeos";
 export { onInvitacionCreada } from "./invitaciones";
 export { sendResetPasswordEmail } from "./resetPassword";
+export { asignarAdminPlataforma } from "./adminClaims";
 export {
   onNuevaReservaEmail,
   onNuevaNotificacionReserva,

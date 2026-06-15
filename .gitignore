@@ -80,3 +80,7 @@ fluix_release.jks
 # Firebase service account keys
 serviceAccountKey.json
 functions/serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Bootstrap scripts (eliminar tras uso)
+bootstrap_admin.js

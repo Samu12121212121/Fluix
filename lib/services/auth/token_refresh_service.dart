@@ -144,6 +144,39 @@ class TokenRefreshService {
     }
   }
 
+  // ── ADMIN CLAIM ───────────────────────────────────────────────────────────
+
+  /// Fuerza un refresh del token para que los custom claims recién asignados
+  /// (plataforma_admin, etc.) sean visibles en request.auth.token de Firestore.
+  ///
+  /// Llamar tras login si el usuario es admin de plataforma, o inmediatamente
+  /// después de que `asignarAdminPlataforma` devuelva ok.
+  Future<bool> refreshAdminClaim() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      await user.getIdToken(true);
+      debugPrint('🔑 Token refrescado — custom claims actualizados');
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Error al refrescar admin claim: $e');
+      return false;
+    }
+  }
+
+  /// Comprueba si el usuario actual tiene el claim plataforma_admin en su token.
+  Future<bool> tieneClaimAdminPlataforma() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      final result = await user.getIdTokenResult();
+      return result.claims?['plataforma_admin'] == true;
+    } catch (e) {
+      debugPrint('⚠️ Error leyendo claims: $e');
+      return false;
+    }
+  }
+
   // ── ESTADO ────────────────────────────────────────────────────────────────
 
   bool get estaActivo => _tokenSubscription != null;
