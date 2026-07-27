@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
 
 class OfflineQueueService {
@@ -16,6 +19,11 @@ class OfflineQueueService {
 
   Future<void> init() async {
     if (_db != null) return;
+    // Inicializar FFI para Windows/macOS/Linux
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
     final dbPath = await getDatabasesPath();
     final fullPath = p.join(dbPath, 'offline_queue.db');
     _db = await openDatabase(

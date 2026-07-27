@@ -103,6 +103,13 @@ class Producto {
   final String? codigoBarras;
   final List<VarianteProducto> variantes;
   final List<String> etiquetas;
+  final List<String> alergenos;     // códigos UE: 'gluten','huevos','leche'…
+  final String? destino;            // 'cocina' | 'barra' | null (= cocina)
+  final double? precioWeb;          // precio diferente para la tienda online (null = usa precio)
+  final int? stockMinimo;           // umbral de stock bajo (alerta y auto-pedido)
+  final double? precioCoste;        // precio de coste para calcular márgenes
+  final String? ubicacion;          // almacén/ubicación principal (estantería, almacén A…)
+  final Map<String, dynamic> atributosExtra; // campos sectoriales (autor, isbn, paginas…)
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
 
@@ -125,6 +132,13 @@ class Producto {
     this.codigoBarras,
     required this.variantes,
     required this.etiquetas,
+    this.alergenos = const [],
+    this.destino,
+    this.precioWeb,
+    this.stockMinimo,
+    this.precioCoste,
+    this.ubicacion,
+    this.atributosExtra = const {},
     required this.fechaCreacion,
     this.fechaActualizacion,
   });
@@ -193,6 +207,15 @@ class Producto {
           .map((v) => VarianteProducto.fromMap(v as Map<String, dynamic>))
           .toList(),
       etiquetas: List<String>.from(d['etiquetas'] ?? []),
+      alergenos: List<String>.from(d['alergenos'] ?? []),
+      destino: d['destino'] as String?,
+      precioWeb: (d['precio_web'] as num?)?.toDouble(),
+      stockMinimo: (d['stock_minimo'] as num?)?.toInt(),
+      precioCoste: (d['precio_coste'] as num?)?.toDouble(),
+      ubicacion: d['ubicacion'] as String?,
+      atributosExtra: d['atributos_extra'] != null
+          ? Map<String, dynamic>.from(d['atributos_extra'] as Map)
+          : const {},
       fechaCreacion: parseTimestamp(d['fecha_creacion']),
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? parseTimestamp(d['fecha_actualizacion'])
@@ -218,6 +241,13 @@ class Producto {
     'codigo_barras': codigoBarras,
     'variantes': variantes.map((v) => v.toMap()).toList(),
     'etiquetas': etiquetas,
+    'alergenos': alergenos,
+    if (destino != null) 'destino': destino,
+    if (precioWeb != null) 'precio_web': precioWeb,
+    if (stockMinimo != null) 'stock_minimo': stockMinimo,
+    if (precioCoste != null) 'precio_coste': precioCoste,
+    if (ubicacion != null) 'ubicacion': ubicacion,
+    if (atributosExtra.isNotEmpty) 'atributos_extra': atributosExtra,
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': fechaActualizacion != null
         ? Timestamp.fromDate(fechaActualizacion!)
@@ -241,6 +271,14 @@ class Producto {
     String? codigoBarras,
     List<VarianteProducto>? variantes,
     List<String>? etiquetas,
+    List<String>? alergenos,
+    String? destino,
+    double? precioWeb,
+    bool clearPrecioWeb = false,
+    int? stockMinimo,
+    double? precioCoste,
+    String? ubicacion,
+    Map<String, dynamic>? atributosExtra,
   }) => Producto(
     id: id,
     empresaId: empresaId,
@@ -260,6 +298,13 @@ class Producto {
     codigoBarras: codigoBarras ?? this.codigoBarras,
     variantes: variantes ?? this.variantes,
     etiquetas: etiquetas ?? this.etiquetas,
+    alergenos: alergenos ?? this.alergenos,
+    destino: destino ?? this.destino,
+    precioWeb: clearPrecioWeb ? null : (precioWeb ?? this.precioWeb),
+    stockMinimo: stockMinimo ?? this.stockMinimo,
+    precioCoste: precioCoste ?? this.precioCoste,
+    ubicacion: ubicacion ?? this.ubicacion,
+    atributosExtra: atributosExtra ?? this.atributosExtra,
     fechaCreacion: fechaCreacion,
     fechaActualizacion: this.fechaActualizacion,
   );

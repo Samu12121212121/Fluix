@@ -40,6 +40,10 @@ import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 import '../../../widgets/tpv/arqueo_caja_widget.dart';
 import '../../../widgets/tpv/descuento_linea_widget.dart';
 import '../../../widgets/tpv/cupon_input_widget.dart';
+import '../../../services/tpv/offline_queue_service.dart';
+import '../../../services/tpv/terminal_fisica_service.dart';
+import '../widgets/dialogo_devoluciones.dart';
+import 'pantalla_fiados_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEMA DINÁMICO — InheritedWidget para propagar colores a todos los hijos
@@ -463,6 +467,8 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
   Timer? _relojTimer;
   String _hora = '';
   bool _estaOnline = true;
+  bool _prevEstaOnline = true;
+  int _pendientesOffline = 0;
   bool _btConectado = false;
   bool _mostrandoCierre = false;
   StreamSubscription<List<ConnectivityResult>>? _connectSub;
@@ -496,8 +502,9 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
     });
     _connectSub = Connectivity().onConnectivityChanged.listen((r) {
       final online = !r.contains(ConnectivityResult.none);
+      if (online && !_prevEstaOnline) _sincronizarOffline();
+      _prevEstaOnline = online;
       if (mounted) setState(() => _estaOnline = online);
-      // Al reconectar, precargar para refrescar caché
       if (online) _prefetchParaOffline();
     });
     // Precargar al abrir si hay conexión
@@ -586,6 +593,25 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
   }
 
   // ── Precarga de datos para funcionar offline ──────────────────────────────
+
+  Future<void> _actualizarContadorOffline() async {
+    try {
+      final n = await OfflineQueueService().contarPendientes(widget.empresaId);
+      if (mounted) setState(() => _pendientesOffline = n);
+    } catch (_) {}
+  }
+
+  Future<void> _sincronizarOffline() async {
+    final n = await OfflineQueueService().contarPendientes(widget.empresaId);
+    if (n == 0) return;
+    try {
+      await OfflineQueueService().sincronizarTodos(widget.empresaId);
+      await _actualizarContadorOffline();
+      if (mounted) {
+        FluxToast.exito(context, '$n pedido${n > 1 ? 's' : ''} sincronizado${n > 1 ? 's' : ''} al recuperar conexión');
+      }
+    } catch (_) {}
+  }
 
   /// Lee las colecciones clave para asegurar que Firestore las guarda en caché.
   /// Se llama al abrir y al reconectar. Si falla (sin conexión), no importa.
@@ -828,6 +854,21 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
           size: 15,
           color: _estaOnline ? Colors.white70 : Colors.orangeAccent,
         ),
+        if (_pendientesOffline > 0) ...[
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _sincronizarOffline,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$_pendientesOffline offline',
+                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black)),
+            ),
+          ),
+        ],
         const SizedBox(width: 4),
         // Apertura de caja — color del tema
         GestureDetector(
@@ -913,7 +954,66 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
-          // Pedidos en espera: no aplica en el TPV de peluquería (flujo por citas)
+          // Pedidos en espera (Hold)
+          ListenableBuilder(
+            listenable: _holdNotifier,
+            builder: (_, __) {
+              final count = _holdNotifier.pedidos.length;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.pause_circle_outline, size: 16),
+                    onPressed: () async {
+                      final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+                      if (recuperado != null && mounted) {
+                        setState(() {
+                          _lineasTicket
+                            ..clear()
+                            ..addAll(recuperado.lineas.cast<Map<String, dynamic>>());
+                        });
+                      }
+                    },
+                    tooltip: 'Pedidos en espera',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 2, top: 2,
+                      child: Container(
+                        width: 14, height: 14,
+                        decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                        child: Text('$count',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black)),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // Devoluciones
+          IconButton(
+            icon: const Icon(Icons.keyboard_return, size: 16),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => DialogoDevoluciones(empresaId: widget.empresaId, colorPrimario: _colorPrimario),
+            ),
+            tooltip: 'Devoluciones',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          // Fiados
+          IconButton(
+            icon: const Icon(Icons.schedule, size: 16),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId),
+            )),
+            tooltip: 'Fiados pendientes',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          // Estadísticas
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded, size: 16),
             onPressed: _mostrarEstadisticasEmpleados,
@@ -1693,29 +1793,52 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
         );
       }).toList();
 
-      final pedido = await PedidosService().crearPedido(
-        empresaId: widget.empresaId,
-        clienteNombre: _extra.nombreCliente ?? 'Caja directa',
-        lineas: lineasPedido,
-        metodoPago: switch (pago['metodo'] as String? ?? 'efectivo') {
-          'efectivo'      => MetodoPago.efectivo,
-          'bizum'         => MetodoPago.bizum,
-          'paypal'        => MetodoPago.paypal,
-          'mixto'         => MetodoPago.mixto,
-          _               => MetodoPago.tarjeta,
-        },
-        origen: OrigenPedido.presencial,
-        numeroTicket: numTicket,
-        importeEfectivo: pago['importe_efectivo'],
-        importeTarjeta: pago['importe_tarjeta'],
-        importeTotal: _total,
-        importesPorMetodo: (pago['importes'] as Map?)
-            ?.cast<String, double>(),
-        mesaId: null,
-        estado: 'entregado',
-        estadoPago: 'pagado',
-        fechaHora: Timestamp.fromDate(ahora),
-      );
+      late final Pedido pedido;
+      try {
+        pedido = await PedidosService().crearPedido(
+          empresaId: widget.empresaId,
+          clienteNombre: _extra.nombreCliente ?? 'Caja directa',
+          lineas: lineasPedido,
+          metodoPago: switch (pago['metodo'] as String? ?? 'efectivo') {
+            'efectivo'      => MetodoPago.efectivo,
+            'bizum'         => MetodoPago.bizum,
+            'paypal'        => MetodoPago.paypal,
+            'mixto'         => MetodoPago.mixto,
+            _               => MetodoPago.tarjeta,
+          },
+          origen: OrigenPedido.presencial,
+          numeroTicket: numTicket,
+          importeEfectivo: pago['importe_efectivo'],
+          importeTarjeta: pago['importe_tarjeta'],
+          importeTotal: _total,
+          importesPorMetodo: (pago['importes'] as Map?)
+              ?.cast<String, double>(),
+          mesaId: null,
+          estado: 'entregado',
+          estadoPago: 'pagado',
+          fechaHora: Timestamp.fromDate(ahora),
+        );
+      } on FirebaseException catch (e) {
+        if (e.code == 'unavailable' || !_estaOnline) {
+          await OfflineQueueService().encolar(widget.empresaId, {
+            'cliente_nombre': _extra.nombreCliente ?? 'Caja directa',
+            'lineas': _lineasTicket,
+            'total': _total,
+            'metodo_pago': pago['metodo'] ?? 'efectivo',
+            'estado_pago': 'pagado',
+            'fecha_hora': ahora.toIso8601String(),
+            'numero_ticket': numTicket,
+            'es_offline': true,
+          });
+          await _actualizarContadorOffline();
+          if (mounted) {
+            _limpiarTicket();
+            FluxToast.exito(context, 'Sin conexión — cobro guardado localmente');
+          }
+          return;
+        }
+        rethrow;
+      }
 
       // QR AEAT (VeriFactu) — almacenar URL en el pedido
       try {
@@ -7373,15 +7496,24 @@ class _DialogoPagoState extends State<_DialogoPago> {
   final _ctrlMixto1 = TextEditingController();
   final _ctrlMixto2 = TextEditingController();
   double _cambio = 0;
+
+  // Terminal física
+  bool _terminalProcesando = false;
+  String _terminalEstado = ''; // '', 'procesando', 'manual', 'exito', 'error'
+  String? _terminalError;
+
   List<({String id, String emoji, String label})> _metodos = [
     (id: 'efectivo', emoji: '💵', label: 'Efectivo'),
     (id: 'tarjeta', emoji: '💳', label: 'Tarjeta'),
+    (id: 'terminal', emoji: '💳', label: 'Terminal'),
   ];
 
   @override
   void initState() {
     super.initState();
     _cargarMetodos();
+    final importe = (widget.total / _splitPersonas).toStringAsFixed(2);
+    _splitCtrls = List.generate(_splitPersonas, (_) => TextEditingController(text: importe));
   }
 
   Future<void> _cargarMetodos() async {
@@ -7418,12 +7550,44 @@ class _DialogoPagoState extends State<_DialogoPago> {
     } catch (_) {}
   }
 
+  // Split bill
+  int _splitPersonas = 2;
+  late List<TextEditingController> _splitCtrls;
+
+  void _setSplitPersonas(int n) {
+    for (final c in _splitCtrls) c.dispose();
+    final importe = (widget.total / n).toStringAsFixed(2);
+    setState(() {
+      _splitPersonas = n;
+      _splitCtrls = List.generate(n, (_) => TextEditingController(text: importe));
+    });
+  }
+
+  double get _totalSplit => _splitCtrls.fold(0.0, (s, c) => s + (double.tryParse(c.text.replaceAll(',', '.')) ?? 0));
+
   @override
   void dispose() {
     _ctrl.dispose();
     _ctrlMixto1.dispose();
     _ctrlMixto2.dispose();
+    for (final c in _splitCtrls) c.dispose();
     super.dispose();
+  }
+
+  Future<void> _iniciarCobroTerminal() async {
+    setState(() { _terminalProcesando = true; _terminalEstado = 'procesando'; _terminalError = null; });
+    final resultado = await TerminalFisicaService().cobrar(
+      widget.total,
+      descripcion: 'Servicio peluquería ${widget.total.toStringAsFixed(2)}€',
+    );
+    if (!mounted) return;
+    if (resultado.esManual) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'manual'; });
+    } else if (resultado.exito) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'exito'; });
+    } else {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'error'; _terminalError = resultado.error; });
+    }
   }
 
   @override
@@ -7461,7 +7625,8 @@ class _DialogoPagoState extends State<_DialogoPago> {
               style: TextStyle(fontSize: 11, color: tema.textoSecundario)),
           const SizedBox(height: 6),
           Wrap(spacing: 6, runSpacing: 6,
-            children: _metodos.map((m) => _PelChip(
+            children: [
+              ..._metodos.map((m) => _PelChip(
               label: '${m.emoji}  ${m.label}',
               icon: m.id == 'efectivo' ? Icons.payments_outlined : Icons.credit_card,
               selected: _metodo == m.id,
@@ -7469,7 +7634,15 @@ class _DialogoPagoState extends State<_DialogoPago> {
                 _metodo = m.id;
                 if (_metodoSecundario == m.id) _metodoSecundario = null;
               }),
-            )).toList(),
+            )),
+              // Chips especiales: Split
+              _PelChip(
+                label: '👥 Split',
+                icon: Icons.group,
+                selected: _metodo == 'split',
+                onTap: () => setState(() { _metodo = 'split'; _metodoSecundario = null; }),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           // Segundo método opcional
@@ -7542,6 +7715,74 @@ class _DialogoPagoState extends State<_DialogoPago> {
                         color: Theme.of(context).colorScheme.primary)),
               ]),
             ],
+            if (_metodo == 'split' && _metodoSecundario == null) ...[
+              const SizedBox(height: 12),
+              Text('Dividir entre:', style: TextStyle(fontSize: 11, color: tema.textoSecundario)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, children: [2, 3, 4, 5].map((n) => ChoiceChip(
+                label: Text('$n personas'),
+                selected: _splitPersonas == n,
+                onSelected: (_) => _setSplitPersonas(n),
+                selectedColor: tema.primario.withValues(alpha: 0.2),
+                labelStyle: TextStyle(
+                  color: _splitPersonas == n ? tema.primario : null,
+                  fontWeight: _splitPersonas == n ? FontWeight.bold : null,
+                ),
+                visualDensity: VisualDensity.compact,
+              )).toList()),
+              const SizedBox(height: 10),
+              ...List.generate(_splitPersonas, (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  Container(
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(color: tema.primario.withValues(alpha: 0.15), shape: BoxShape.circle),
+                    alignment: Alignment.center,
+                    child: Text('${i + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: tema.primario)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(
+                    controller: _splitCtrls[i],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Persona ${i + 1} (€)',
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.person_outline, size: 16),
+                    ),
+                  )),
+                ]),
+              )),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: (_totalSplit - widget.total).abs() < 0.01 ? Colors.green.shade50 : Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: (_totalSplit - widget.total).abs() < 0.01 ? Colors.green.shade300 : Colors.orange.shade300),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(
+                    (_totalSplit - widget.total).abs() < 0.01 ? '✓ Cuadra' : 'Falta ${(widget.total - _totalSplit).toStringAsFixed(2)} €',
+                    style: TextStyle(fontSize: 11, color: (_totalSplit - widget.total).abs() < 0.01 ? Colors.green.shade700 : Colors.orange.shade700),
+                  ),
+                  Text('${_totalSplit.toStringAsFixed(2)} / ${widget.total.toStringAsFixed(2)} €', style: const TextStyle(fontSize: 11)),
+                ]),
+              ),
+            ],
+            if (_metodo == 'terminal' && _metodoSecundario == null) ...[
+              const SizedBox(height: 12),
+              _TerminalPagoInline(
+                total: widget.total,
+                estado: _terminalEstado,
+                procesando: _terminalProcesando,
+                error: _terminalError,
+                tema: widget.tema,
+                onIniciar: _iniciarCobroTerminal,
+                onConfirmarManual: () => setState(() => _terminalEstado = 'exito'),
+                onRechazar: () => setState(() { _terminalEstado = 'error'; _terminalError = 'Pago rechazado'; }),
+              ),
+            ],
           ],
           // Con segundo método: campos de importe dividido
           if (_metodoSecundario != null) ...[
@@ -7598,7 +7839,19 @@ class _DialogoPagoState extends State<_DialogoPago> {
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: tema.primario),
-          onPressed: () {
+          onPressed: (_metodo == 'terminal' && _terminalEstado != 'exito') ||
+              (_metodo == 'split' && (_totalSplit - widget.total).abs() > 0.01) ? null : () {
+            if (_metodo == 'split') {
+              Navigator.pop(context, {
+                'metodo': 'split',
+                'importe_efectivo': widget.total,
+                'importe_tarjeta': 0.0,
+                'importes': <String, double>{'split': widget.total},
+                'split_personas': _splitPersonas,
+                'split_importes': _splitCtrls.map((c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0.0).toList(),
+              });
+              return;
+            }
             if (_metodoSecundario != null) {
               final imp1 = double.tryParse(
                   _ctrlMixto1.text.replaceAll(',', '.')) ?? 0;
@@ -7682,6 +7935,93 @@ class _PelChip extends StatelessWidget {
       ),
     ),
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TERMINAL FÍSICA — UI inline para _DialogoPago
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TerminalPagoInline extends StatelessWidget {
+  final double total;
+  final String estado;
+  final bool procesando;
+  final String? error;
+  final _TpvTema tema;
+  final VoidCallback onIniciar;
+  final VoidCallback onConfirmarManual;
+  final VoidCallback onRechazar;
+
+  const _TerminalPagoInline({
+    required this.total, required this.estado, required this.procesando,
+    required this.tema, required this.onIniciar,
+    required this.onConfirmarManual, required this.onRechazar,
+    this.error,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    Color bg, border;
+    if (estado == 'exito') { bg = Colors.green.shade50; border = Colors.green.shade300; }
+    else if (estado == 'error') { bg = Colors.red.shade50; border = Colors.red.shade300; }
+    else { bg = tema.primario.withValues(alpha: 0.05); border = tema.primario.withValues(alpha: 0.25); }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(fmt.format(total),
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900,
+                color: estado == 'exito' ? Colors.green.shade700 : estado == 'error' ? Colors.red.shade700 : tema.primario)),
+        const SizedBox(height: 10),
+        if (estado.isEmpty) ...[
+          Text('Pulsa para enviar el importe al terminal',
+              style: TextStyle(fontSize: 11, color: tema.textoSecundario), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          SizedBox(width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onIniciar,
+              icon: const Icon(Icons.credit_score, size: 16),
+              label: const Text('Cobrar en terminal'),
+              style: FilledButton.styleFrom(backgroundColor: tema.primario),
+            ),
+          ),
+        ] else if (estado == 'procesando') ...[
+          const CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 6),
+          const Text('Procesando en terminal…', style: TextStyle(fontSize: 12)),
+        ] else if (estado == 'manual') ...[
+          Text('Cobra en el datáfono y confirma aquí',
+              style: TextStyle(fontSize: 11, color: tema.textoSecundario), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: onRechazar, icon: const Icon(Icons.close, size: 14),
+              label: const Text('Rechazado'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: FilledButton.icon(
+              onPressed: onConfirmarManual, icon: const Icon(Icons.check, size: 14),
+              label: const Text('Cobrado ✓'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+            )),
+          ]),
+        ] else if (estado == 'exito') ...[
+          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
+          const Text('Pago completado', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+        ] else if (estado == 'error') ...[
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 24),
+          Text(error ?? 'Error en el terminal',
+              style: TextStyle(color: Colors.red.shade700, fontSize: 12), textAlign: TextAlign.center),
+          TextButton.icon(onPressed: onIniciar, icon: const Icon(Icons.refresh, size: 14), label: const Text('Reintentar')),
+        ],
+      ]),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -15,6 +15,7 @@ import '../../../features/pdf_templates/domain/models/pdf_template.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'importar_catalogo_csv_screen.dart';
 import '../../../core/widgets/flux_toast.dart';
+import '../../../services/tpv/terminal_fisica_service.dart';
 
 class ConfiguracionFacturacionTpvScreen extends StatefulWidget {
   final String empresaId;
@@ -67,6 +68,18 @@ class _ConfiguracionFacturacionTpvScreenState
   final _winIpCtrl = TextEditingController();
   final _winPortCtrl = TextEditingController(text: '9100');
   
+  // Estado impresora de barra
+  bool _barraUsaTcp = false;
+  final _barraPuertoCtrl = TextEditingController();
+  final _barraIpCtrl = TextEditingController();
+  final _barraPortCtrl = TextEditingController(text: '9100');
+
+  // Estado terminal física
+  final _terminalIpCtrl = TextEditingController();
+  final _terminalPuertoCtrl = TextEditingController(text: '8080');
+  bool _terminalTestando = false;
+  String? _terminalTestResultado;
+
   // Control de visualización
   bool _esDemo = false;
   bool get _puedeEditarTipoNegocio => widget.esPropietario || _esDemo;
@@ -134,10 +147,24 @@ class _ConfiguracionFacturacionTpvScreenState
     } catch (_) {}
 
     setState(() { _config = config; _plantillas = plantillas; _cargando = false; });
+    // Inicializar controles de impresora de barra
+    _barraPuertoCtrl.text = config.impresoraBarraPuerto;
+    _barraIpCtrl.text = config.impresoraBarraIp;
+    _barraUsaTcp = config.impresoraBarraIp.isNotEmpty;
+    // Inicializar controles de terminal física
+    _terminalIpCtrl.text = config.terminalFisicaIp;
+    _terminalPuertoCtrl.text = config.terminalFisicaPuerto.toString();
   }
 
   Future<void> _guardar() async {
     setState(() => _guardando = true);
+    // Sincronizar impresora de barra y terminal física desde controles de texto
+    _config = _config.copyWith(
+      impresoraBarraPuerto: !_barraUsaTcp ? _barraPuertoCtrl.text.trim().toUpperCase() : '',
+      impresoraBarraIp: _barraUsaTcp ? _barraIpCtrl.text.trim() : '',
+      terminalFisicaIp: _terminalIpCtrl.text.trim(),
+      terminalFisicaPuerto: int.tryParse(_terminalPuertoCtrl.text.trim()) ?? 8080,
+    );
     try {
       await _svc.guardarConfig(widget.empresaId, _config);
       // Guardar métodos de pago del TPV
@@ -332,6 +359,9 @@ class _ConfiguracionFacturacionTpvScreenState
         _seccionImpresoraWindows()
       else
         _seccionBluetooth(),
+      _seccionImpresoraBarra(),
+      _seccionConfigBarra(),
+      _seccionTerminalFisica(),
     ]),
   );
 
@@ -1216,6 +1246,315 @@ class _ConfiguracionFacturacionTpvScreenState
   );
 
   // ── IMPRESORA WINDOWS ─────────────────────────────────────────────────────────
+
+  // ── TERMINAL FÍSICA DE COBRO ────────────────────────────────────────────────
+
+  Widget _seccionTerminalFisica() {
+    final protocolo = _config.terminalFisicaProtocolo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _titulo('💳 TERMINAL FÍSICA (DATÁFONO)'),
+        _card(Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Conecta un datáfono WiFi para que el TPV envíe automáticamente el importe al terminal. '
+              'Sin configuración funciona en modo manual (el cajero confirma tras cobrar).',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            // Selector de protocolo
+            const Text('Tipo de terminal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                ('manual',   '🖐 Manual',       'Confirma tú mismo tras cobrar'),
+                ('sumup',    '📱 SumUp Solo',   'API local WiFi'),
+                ('generico', '🌐 Otro (HTTP)',  'Terminal con API REST genérica'),
+              ].map(((String id, String label, String desc) e) {
+                final sel = protocolo == e.$1;
+                return ChoiceChip(
+                  label: Text(e.$2, style: const TextStyle(fontSize: 12)),
+                  selected: sel,
+                  tooltip: e.$3,
+                  onSelected: (_) => setState(() => _config = _config.copyWith(terminalFisicaProtocolo: e.$1)),
+                  selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    color: sel ? const Color(0xFF1565C0) : null,
+                    fontWeight: sel ? FontWeight.bold : null,
+                  ),
+                );
+              }).toList(),
+            ),
+            if (protocolo != 'manual') ...[
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _terminalIpCtrl,
+                    onChanged: (_) => setState(() => _terminalTestResultado = null),
+                    decoration: const InputDecoration(
+                      labelText: 'IP del terminal',
+                      hintText: 'Ej: 192.168.1.50',
+                      prefixIcon: Icon(Icons.router_outlined),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _terminalPuertoCtrl,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() => _terminalTestResultado = null),
+                    decoration: const InputDecoration(
+                      labelText: 'Puerto',
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                FilledButton.icon(
+                  onPressed: _terminalTestando ? null : _testTerminal,
+                  icon: _terminalTestando
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.wifi_find, size: 16),
+                  label: Text(_terminalTestando ? 'Probando...' : 'Probar conexión'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                ),
+                if (_terminalTestResultado != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    _terminalTestResultado!.startsWith('✓') ? Icons.check_circle : Icons.error_outline,
+                    color: _terminalTestResultado!.startsWith('✓') ? Colors.green : Colors.red,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(_terminalTestResultado!, style: TextStyle(
+                    fontSize: 12,
+                    color: _terminalTestResultado!.startsWith('✓') ? Colors.green.shade700 : Colors.red,
+                  ))),
+                ],
+              ]),
+            ] else ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    'Modo manual: el TPV mostrará el importe en grande y esperará a que confirmes el cobro en el datáfono.',
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
+                  )),
+                ]),
+              ),
+            ],
+          ],
+        )),
+      ],
+    );
+  }
+
+  Future<void> _testTerminal() async {
+    final ip = _terminalIpCtrl.text.trim();
+    final puerto = int.tryParse(_terminalPuertoCtrl.text.trim()) ?? 8080;
+    final protocolo = _config.terminalFisicaProtocolo;
+    if (ip.isEmpty) {
+      setState(() => _terminalTestResultado = '✗ Introduce la IP del terminal');
+      return;
+    }
+    setState(() { _terminalTestando = true; _terminalTestResultado = null; });
+    TerminalFisicaService().configurar(
+      ip: ip,
+      puerto: puerto,
+      protocolo: ProtocoloTerminal.values.firstWhere(
+        (p) => p.name == protocolo, orElse: () => ProtocoloTerminal.manual,
+      ),
+    );
+    final ok = await TerminalFisicaService().verificarConexion();
+    if (mounted) {
+      setState(() {
+        _terminalTestando = false;
+        _terminalTestResultado = ok
+            ? '✓ Terminal accesible en $ip:$puerto'
+            : '✗ No se pudo conectar a $ip:$puerto';
+      });
+    }
+  }
+
+  // ── IMPRESORA DE BARRA (segunda impresora para bebidas) ────────────────────
+
+  Widget _seccionImpresoraBarra() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _titulo('🍺 IMPRESORA DE BARRA (opcional)'),
+      _card(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Impresora exclusiva para comandas de barra. Si no se configura, usa la impresora principal.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 14),
+          // Selector modo
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(children: [
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _barraUsaTcp = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: !_barraUsaTcp ? const Color(0xFF1565C0) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.usb, size: 16, color: !_barraUsaTcp ? Colors.white : Colors.black54),
+                    const SizedBox(width: 6),
+                    Text('Puerto COM', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: !_barraUsaTcp ? Colors.white : Colors.black54)),
+                  ]),
+                ),
+              )),
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _barraUsaTcp = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _barraUsaTcp ? const Color(0xFF1565C0) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.wifi, size: 16, color: _barraUsaTcp ? Colors.white : Colors.black54),
+                    const SizedBox(width: 6),
+                    Text('Red (WiFi)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: _barraUsaTcp ? Colors.white : Colors.black54)),
+                  ]),
+                ),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          if (!_barraUsaTcp)
+            TextField(
+              controller: _barraPuertoCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Puerto COM barra',
+                hintText: 'Ej: COM4',
+                prefixIcon: Icon(Icons.usb),
+              ),
+            )
+          else
+            Row(children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _barraIpCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'IP impresora barra',
+                    hintText: 'Ej: 192.168.1.101',
+                    prefixIcon: Icon(Icons.wifi),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _barraPortCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Puerto'),
+                ),
+              ),
+            ]),
+          const SizedBox(height: 8),
+          Text(
+            _barraUsaTcp
+                ? (_barraIpCtrl.text.isNotEmpty ? 'Impresora barra: ${_barraIpCtrl.text}:${_barraPortCtrl.text}' : 'Sin configurar')
+                : (_barraPuertoCtrl.text.isNotEmpty ? 'Impresora barra: ${_barraPuertoCtrl.text}' : 'Sin configurar — usará la impresora principal'),
+            style: TextStyle(
+              fontSize: 11,
+              color: (_barraUsaTcp ? _barraIpCtrl.text : _barraPuertoCtrl.text).isNotEmpty
+                  ? Colors.green.shade700
+                  : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      )),
+    ],
+  );
+
+  // ── CONFIG ESPECÍFICA DE BARRA ──────────────────────────────────────────────
+
+  Widget _seccionConfigBarra() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _titulo('⚙️ COMPORTAMIENTO DE BARRA'),
+      _card(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Notificación visual al llegar comandas'),
+            subtitle: const Text('Muestra un aviso en pantalla cuando llega un pedido nuevo a barra/cocina',
+                style: TextStyle(fontSize: 12)),
+            value: _config.notificacionVisualBarra,
+            onChanged: (v) => setState(() => _config = _config.copyWith(notificacionVisualBarra: v)),
+          ),
+          const Divider(height: 20),
+          Row(children: [
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Alerta de tiempo en barra', style: TextStyle(fontWeight: FontWeight.w500)),
+                Text('Minutos antes de marcar la comanda en rojo', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              ]),
+            ),
+            Row(children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                onPressed: _config.tiempoAlertaBarraMinutos > 1
+                    ? () => setState(() => _config = _config.copyWith(
+                        tiempoAlertaBarraMinutos: _config.tiempoAlertaBarraMinutos - 1))
+                    : null,
+              ),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  '${_config.tiempoAlertaBarraMinutos} min',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: _config.tiempoAlertaBarraMinutos < 30
+                    ? () => setState(() => _config = _config.copyWith(
+                        tiempoAlertaBarraMinutos: _config.tiempoAlertaBarraMinutos + 1))
+                    : null,
+              ),
+            ]),
+          ]),
+        ],
+      )),
+    ],
+  );
 
   Widget _seccionImpresoraWindows() {
     final conectadaColor = _winConectada ? Colors.green.shade700 : Colors.grey.shade600;

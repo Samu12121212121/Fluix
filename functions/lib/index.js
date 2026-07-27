@@ -36,8 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
-exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = void 0;
+exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
+exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -88,6 +88,8 @@ var invitaciones_1 = require("./invitaciones");
 Object.defineProperty(exports, "onInvitacionCreada", { enumerable: true, get: function () { return invitaciones_1.onInvitacionCreada; } });
 var resetPassword_1 = require("./resetPassword");
 Object.defineProperty(exports, "sendResetPasswordEmail", { enumerable: true, get: function () { return resetPassword_1.sendResetPasswordEmail; } });
+var adminClaims_1 = require("./adminClaims");
+Object.defineProperty(exports, "asignarAdminPlataforma", { enumerable: true, get: function () { return adminClaims_1.asignarAdminPlataforma; } });
 var notificacionesReservas_1 = require("./notificacionesReservas");
 Object.defineProperty(exports, "onNuevaReservaEmail", { enumerable: true, get: function () { return notificacionesReservas_1.onNuevaReservaEmail; } });
 Object.defineProperty(exports, "onNuevaNotificacionReserva", { enumerable: true, get: function () { return notificacionesReservas_1.onNuevaNotificacionReserva; } });
@@ -268,6 +270,8 @@ Object.defineProperty(exports, "resumenSemanalResenas", { enumerable: true, get:
 // Valores reales: edita functions/.env (no subir a git)
 const stripeSecretKey = { value: () => { var _a; return (_a = process.env.STRIPE_SECRET_KEY) !== null && _a !== void 0 ? _a : ""; } };
 const stripeWebhookSecret = { value: () => { var _a; return (_a = process.env.STRIPE_WEBHOOK_SECRET) !== null && _a !== void 0 ? _a : ""; } };
+// Secret para webhooks de tiendas de clientes — puede ser el mismo o uno propio
+const stripeTiendaWebhookSecret = { value: () => { var _a, _b; return (_b = (_a = process.env.STRIPE_TIENDA_WEBHOOK_SECRET) !== null && _a !== void 0 ? _a : process.env.STRIPE_WEBHOOK_SECRET) !== null && _b !== void 0 ? _b : ""; } };
 // Resend API key — configurado en functions/.env como RESEND_API_KEY
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
 async function obtenerTokensEmpresa(empresaId) {
@@ -375,6 +379,104 @@ async function enviarNotificacionEmpresa(empresaId, titulo, cuerpo, data = {}) {
         console.error("❌ Error enviando notificaciones:", error);
     }
 }
+// ── Sitemap.xml dinámico por empresa ─────────────────────────────────────────
+// GET /generarSitemap?empresa={empresaId}&base={baseUrl}
+// Devuelve un sitemap.xml con blog posts publicados + páginas estáticas.
+exports.generarSitemap = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a;
+    const empresaId = req.query.empresa;
+    const baseUrl = (req.query.base || '').replace(/\/$/, '');
+    if (!empresaId) {
+        res.status(400).send("Parámetro ?empresa=ID requerido");
+        return;
+    }
+    try {
+        // Posts del blog publicados
+        const blogSnap = await db
+            .collection("empresas").doc(empresaId)
+            .collection("blog")
+            .where("estado", "==", "publicado")
+            .get();
+        // Info empresa para schema
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        const dominio = baseUrl || ((_a = empresaDoc.data()) === null || _a === void 0 ? void 0 : _a.dominio_web) || "";
+        const ahora = new Date().toISOString().split("T")[0];
+        // Páginas estáticas
+        const paginas = [
+            { loc: `${dominio}/index.html`, priority: "1.0", changefreq: "weekly" },
+            { loc: `${dominio}/catalogo.html`, priority: "0.9", changefreq: "weekly" },
+            { loc: `${dominio}/blog.html`, priority: "0.9", changefreq: "daily" },
+            { loc: `${dominio}/autores.html`, priority: "0.7", changefreq: "monthly" },
+            { loc: `${dominio}/eventos.html`, priority: "0.8", changefreq: "weekly" },
+            { loc: `${dominio}/conocenos.html`, priority: "0.6", changefreq: "monthly" },
+            { loc: `${dominio}/contacto.html`, priority: "0.5", changefreq: "monthly" },
+        ];
+        // Blog posts
+        const blogsUrls = blogSnap.docs.map((d) => {
+            const data = d.data();
+            const slug = data.slug || d.id;
+            const fechaTs = data.fecha_publicacion;
+            const fechaStr = (fechaTs === null || fechaTs === void 0 ? void 0 : fechaTs.toDate)
+                ? fechaTs.toDate().toISOString().split("T")[0]
+                : ahora;
+            return {
+                loc: `${dominio}/blog-post.html?slug=${encodeURIComponent(slug)}`,
+                lastmod: fechaStr,
+                priority: "0.8",
+                changefreq: "monthly",
+            };
+        });
+        const toUrl = (u) => `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod || ahora}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
+        const xml = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+            ...paginas.map(toUrl),
+            ...blogsUrls.map(toUrl),
+            '</urlset>',
+        ].join("\n");
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        res.set("Cache-Control", "public, max-age=3600");
+        res.status(200).send(xml);
+    }
+    catch (err) {
+        console.error("Error generarSitemap:", err);
+        res.status(500).send("Error generando sitemap");
+    }
+});
+// ── Publicación programada de blogs ──────────────────────────────────────────
+// Ejecuta cada 10 minutos. Busca blogs con estado='programado' cuya
+// fecha_publicacion ya haya llegado y los cambia a 'publicado'.
+exports.publicarBlogsProgramados = (0, scheduler_1.onSchedule)({ schedule: "*/10 * * * *", timeZone: "Europe/Madrid", region: REGION }, async (_event) => {
+    const ahora = admin.firestore.Timestamp.now();
+    const snap = await db
+        .collectionGroup("blog")
+        .where("estado", "==", "programado")
+        .where("fecha_publicacion", "<=", ahora)
+        .get();
+    if (snap.empty)
+        return;
+    const batchSize = 500;
+    let batch = db.batch();
+    let ops = 0;
+    let total = 0;
+    for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+            estado: "publicado",
+            publicada: true,
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        ops++;
+        total++;
+        if (ops === batchSize) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+        }
+    }
+    if (ops > 0)
+        await batch.commit();
+    console.log(`publicarBlogsProgramados: ${total} blog(s) publicado(s)`);
+});
 /**
  * Helper compartido: procesa reserva/cita nueva → bandeja + push
  */
@@ -1960,6 +2062,362 @@ Object.defineProperty(exports, "crearCuentaConPlan", { enumerable: true, get: fu
 Object.defineProperty(exports, "actualizarPlanEmpresa", { enumerable: true, get: function () { return gestionCuentas_1.actualizarPlanEmpresa; } });
 Object.defineProperty(exports, "listarCuentasClientes", { enumerable: true, get: function () { return gestionCuentas_1.listarCuentasClientes; } });
 Object.defineProperty(exports, "webhookPagoWeb", { enumerable: true, get: function () { return gestionCuentas_1.webhookPagoWeb; } });
+// ── CATÁLOGO PÚBLICO — endpoint para webs de clientes ────────────────────────
+//
+// La web del cliente (ej: Nazari) puede llamar a:
+//   GET https://europe-west1-planeaapp-4bea4.cloudfunctions.net/catalogoPublico?empresa_id=XXX
+// para obtener el catálogo en JSON, respetando precio_web si existe.
+// Respeta CORS para dominios configurados en Firestore (empresa.sitio_web).
+//
+exports.catalogoPublico = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
+    var _a;
+    const empresaId = req.query.empresa_id;
+    if (!empresaId) {
+        res.status(400).json({ error: "empresa_id requerido" });
+        return;
+    }
+    // Verificar empresa y dominios permitidos
+    try {
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        if (!empresaDoc.exists) {
+            res.status(404).json({ error: "Empresa no encontrada" });
+            return;
+        }
+        const sitioWeb = (_a = empresaDoc.data()) === null || _a === void 0 ? void 0 : _a.sitio_web;
+        const origen = req.headers.origin;
+        if (sitioWeb && origen) {
+            // Permitir solo el dominio configurado + localhost para desarrollo
+            const dominioPermitido = sitioWeb.replace(/^https?:\/\//, '').split('/')[0];
+            if (!origen.includes(dominioPermitido) && !origen.includes('localhost')) {
+                res.setHeader("Access-Control-Allow-Origin", sitioWeb);
+            }
+            else {
+                res.setHeader("Access-Control-Allow-Origin", origen);
+            }
+        }
+        else {
+            res.setHeader("Access-Control-Allow-Origin", "*");
+        }
+    }
+    catch (_) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+    if (req.method === "OPTIONS") {
+        res.setHeader("Access-Control-Allow-Methods", "GET");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        res.status(204).send("");
+        return;
+    }
+    try {
+        const snap = await db
+            .collection("empresas").doc(empresaId)
+            .collection("catalogo")
+            .where("activo", "==", true)
+            .get();
+        const productos = snap.docs.map(d => {
+            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+            const data = d.data();
+            const precioTienda = (_a = data.precio) !== null && _a !== void 0 ? _a : 0;
+            const precioWeb = data.precio_web;
+            return {
+                id: d.id,
+                nombre: (_b = data.nombre) !== null && _b !== void 0 ? _b : "",
+                descripcion: (_c = data.descripcion) !== null && _c !== void 0 ? _c : "",
+                categoria: (_d = data.categoria) !== null && _d !== void 0 ? _d : "",
+                precio: precioWeb !== null && precioWeb !== void 0 ? precioWeb : precioTienda, // precio_web tiene prioridad
+                precio_tienda: precioTienda,
+                tiene_precio_web: !!precioWeb,
+                imagen_url: (_f = (_e = data.imagen_url) !== null && _e !== void 0 ? _e : data.thumbnail_url) !== null && _f !== void 0 ? _f : null,
+                iva_porcentaje: (_g = data.iva_porcentaje) !== null && _g !== void 0 ? _g : 21,
+                stock: (_h = data.stock) !== null && _h !== void 0 ? _h : null,
+                codigo_barras: (_j = data.codigo_barras) !== null && _j !== void 0 ? _j : null,
+                destacado: (_k = data.destacado) !== null && _k !== void 0 ? _k : false,
+                // catalogo_id incluido para que el checkout de Stripe pueda descuentar stock
+                catalogo_id: d.id,
+            };
+        });
+        res.setHeader("Cache-Control", "public, max-age=60"); // cache 1 min
+        res.status(200).json({ productos, total: productos.length });
+    }
+    catch (e) {
+        console.error("Error obteniendo catálogo público:", e);
+        res.status(500).json({ error: "Error interno" });
+    }
+});
+// ── ALERTA DE STOCK BAJO ──────────────────────────────────────────────────────
+//
+// Se dispara cuando se actualiza el campo `stock` de un producto del catálogo.
+// Si el stock nuevo <= stock_minimo, envía email al propietario de la empresa.
+// Se ignora si stock_minimo es 0 (sin control de stock configurado).
+//
+exports.alertaStockBajo = (0, firestore_1.onDocumentUpdated)("empresas/{empresaId}/catalogo/{productoId}", async (event) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    const stockAntes = (_c = before === null || before === void 0 ? void 0 : before.stock) !== null && _c !== void 0 ? _c : -1;
+    const stockAhora = (_d = after === null || after === void 0 ? void 0 : after.stock) !== null && _d !== void 0 ? _d : -1;
+    const stockMinimo = (_e = after === null || after === void 0 ? void 0 : after.stock_minimo) !== null && _e !== void 0 ? _e : 0;
+    // Solo actuar si el stock bajó y hay stock_minimo configurado
+    if (stockAhora < 0 || stockMinimo <= 0)
+        return;
+    if (stockAhora >= stockMinimo || stockAhora >= stockAntes)
+        return;
+    // Solo enviar la primera vez que cruce el umbral (no en cada venta)
+    if (stockAntes <= stockMinimo)
+        return;
+    const empresaId = event.params.empresaId;
+    const nombreProd = (_f = after === null || after === void 0 ? void 0 : after.nombre) !== null && _f !== void 0 ? _f : "Producto";
+    const categoria = (_g = after === null || after === void 0 ? void 0 : after.categoria) !== null && _g !== void 0 ? _g : "";
+    // Obtener email del propietario
+    let emailPropietario = null;
+    let nombreEmpresa = "Tu tienda";
+    try {
+        const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+        const eData = (_h = empresaDoc.data()) !== null && _h !== void 0 ? _h : {};
+        nombreEmpresa = (_j = eData.nombre) !== null && _j !== void 0 ? _j : nombreEmpresa;
+        // Buscar el propietario en la empresa
+        const usuariosSnap = await db.collection("usuarios")
+            .where("empresa_id", "==", empresaId)
+            .where("rol", "in", ["propietario", "admin"])
+            .limit(1).get();
+        if (!usuariosSnap.empty) {
+            emailPropietario = (_k = usuariosSnap.docs[0].data().email) !== null && _k !== void 0 ? _k : null;
+        }
+    }
+    catch (_) { }
+    if (!emailPropietario) {
+        console.warn(`⚠️ alertaStockBajo: no se encontró email para empresa ${empresaId}`);
+        return;
+    }
+    const alertaHtml = `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
+        <div style="background:#FFF3E0;border-left:4px solid #FF9800;padding:16px;border-radius:8px;">
+          <h2 style="color:#E65100;margin:0 0 8px;">⚠️ Stock bajo: ${nombreProd}</h2>
+          <p style="margin:4px 0;color:#333;">
+            <strong>Stock actual:</strong> ${stockAhora} unidades (mínimo: ${stockMinimo})
+          </p>
+          ${categoria ? `<p style="margin:4px 0;color:#666;font-size:13px;">Categoría: ${categoria}</p>` : ""}
+        </div>
+        <p style="margin:16px 0;color:#555;">
+          Es posible que necesites reponer existencias pronto.
+          Puedes actualizar el stock desde el TPV de ${nombreEmpresa}.
+        </p>
+        <p style="color:#999;font-size:11px;">— ${nombreEmpresa} · Alertas automáticas PlaneaG</p>
+      </div>
+    `;
+    try {
+        await (0, resend_service_1.enviarPdfGenerico)({
+            from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+            to: emailPropietario,
+            subject: `⚠️ Stock bajo: ${nombreProd} (${stockAhora} uds.) — ${nombreEmpresa}`,
+            html: alertaHtml,
+        });
+        console.log(`📉 Alerta stock bajo enviada: ${nombreProd} (${stockAhora}) → ${emailPropietario}`);
+    }
+    catch (e) {
+        console.error("Error enviando alerta de stock:", e);
+    }
+});
+// ── STRIPE WEBHOOK — PEDIDOS DE TIENDA DE CLIENTES ────────────────────────────
+//
+// Cómo funciona:
+//  1. La web del cliente (ej: Editorial Nazari) crea un Stripe Checkout Session
+//     incluyendo en metadata: { empresa_id: "ID_EN_PLANEAG", tipo: "pedido_tienda" }
+//  2. Stripe llama a este endpoint al completarse el pago
+//  3. La función crea el pedido en Firestore y descuenta el stock del catálogo
+//
+// Configuración (una sola vez por cliente):
+//  a) En el dashboard de Stripe del cliente: Developers → Webhooks → Add endpoint
+//     URL: https://europe-west1-planeaapp-4bea4.cloudfunctions.net/stripeWebhookTienda
+//     Events: checkout.session.completed
+//  b) Copiar el "Signing secret" del webhook y guardarlo en functions/.env como
+//     STRIPE_TIENDA_WEBHOOK_SECRET (o reutilizar STRIPE_WEBHOOK_SECRET)
+//  c) En la web del cliente añadir empresa_id y tipo a los metadatos del session:
+//     metadata: { empresa_id: "XXXXX", tipo: "pedido_tienda" }
+//
+exports.stripeWebhookTienda = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
+    var _a, _b, _c;
+    if (req.method !== "POST") {
+        res.status(405).send("Method Not Allowed");
+        return;
+    }
+    const secretKey = stripeSecretKey.value() || "";
+    const webhookSec = stripeTiendaWebhookSecret.value() || "";
+    if (!secretKey || !webhookSec) {
+        console.error("❌ STRIPE_SECRET_KEY o STRIPE_TIENDA_WEBHOOK_SECRET no configuradas");
+        res.status(500).json({ error: "Webhook de tienda no configurado" });
+        return;
+    }
+    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
+    let event;
+    try {
+        const sig = req.headers["stripe-signature"];
+        const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
+        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
+    }
+    catch (err) {
+        console.error("❌ Firma Stripe inválida en stripeWebhookTienda:", err);
+        res.status(400).json({ error: "Firma inválida" });
+        return;
+    }
+    // Idempotencia: ignorar eventos ya procesados
+    const eventDocRef = db.collection("stripe_processed_events").doc(`tienda_${event.id}`);
+    if ((await eventDocRef.get()).exists) {
+        console.log(`⏭️ Evento tienda ${event.id} ya procesado`);
+        res.status(200).json({ received: true, duplicado: true });
+        return;
+    }
+    try {
+        if (event.type === "checkout.session.completed") {
+            const session = event.data.object;
+            const empresaId = ((_b = session.metadata) === null || _b === void 0 ? void 0 : _b.empresa_id) || "";
+            const tipo = ((_c = session.metadata) === null || _c === void 0 ? void 0 : _c.tipo) || "";
+            if (!empresaId || tipo !== "pedido_tienda") {
+                console.log(`ℹ️ Session ${session.id} sin empresa_id o tipo!=pedido_tienda — ignorado`);
+                res.status(200).json({ received: true, ignorado: true });
+                return;
+            }
+            await _procesarPedidoTienda(session, stripe, empresaId, db);
+        }
+        await eventDocRef.set({ procesado: true, ts: admin.firestore.FieldValue.serverTimestamp() });
+        res.status(200).json({ received: true, tipo: event.type });
+    }
+    catch (error) {
+        console.error("❌ Error en stripeWebhookTienda:", error);
+        res.status(500).json({ error: "Error interno procesando pedido de tienda" });
+    }
+});
+async function _procesarPedidoTienda(session, stripe, empresaId, db) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    // ── Datos del cliente ──────────────────────────────────────────────────────
+    const clienteNombre = ((_a = session.customer_details) === null || _a === void 0 ? void 0 : _a.name) || "Cliente online";
+    const clienteEmail = ((_b = session.customer_details) === null || _b === void 0 ? void 0 : _b.email) || null;
+    const clienteTelefono = ((_c = session.customer_details) === null || _c === void 0 ? void 0 : _c.phone) || null;
+    const direccionEnvio = _formatearDireccion(session.shipping_details);
+    // ── Importe total ──────────────────────────────────────────────────────────
+    const totalEuros = ((_d = session.amount_total) !== null && _d !== void 0 ? _d : 0) / 100;
+    // ── Line items de Stripe ──────────────────────────────────────────────────
+    // Expandimos para obtener la info completa de cada ítem
+    let lineas = [];
+    try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100, expand: ["data.price.product"] });
+        lineas = lineItems.data.map((item) => {
+            var _a, _b, _c, _d, _e, _f, _g;
+            const prod = (_a = item.price) === null || _a === void 0 ? void 0 : _a.product;
+            const stripeProductId = (_b = prod === null || prod === void 0 ? void 0 : prod.id) !== null && _b !== void 0 ? _b : "";
+            // El metadata del producto puede incluir el catalogo_id de PlaneaG
+            const catalogoId = (_d = (_c = prod === null || prod === void 0 ? void 0 : prod.metadata) === null || _c === void 0 ? void 0 : _c.catalogo_id) !== null && _d !== void 0 ? _d : "";
+            return {
+                productoId: catalogoId || `stripe_${stripeProductId}`,
+                nombre: (prod === null || prod === void 0 ? void 0 : prod.name) || item.description || "Producto",
+                cantidad: (_e = item.quantity) !== null && _e !== void 0 ? _e : 1,
+                precioUnitario: (((_g = (_f = item.price) === null || _f === void 0 ? void 0 : _f.unit_amount) !== null && _g !== void 0 ? _g : 0) / 100),
+                stripeProductId,
+            };
+        });
+    }
+    catch (e) {
+        console.warn("⚠️ No se pudieron obtener line items de Stripe:", e);
+        // Fallback: creamos una línea resumen con el total
+        lineas = [{
+                productoId: `stripe_${session.id}`,
+                nombre: "Pedido online",
+                cantidad: 1,
+                precioUnitario: totalEuros,
+            }];
+    }
+    // ── Calcular número de ticket correlativo ─────────────────────────────────
+    const contadorRef = db.collection("empresas").doc(empresaId).collection("contadores").doc("tickets");
+    let numTicket = 1;
+    const contSnap = await contadorRef.get();
+    numTicket = contSnap.exists ? ((_f = (_e = contSnap.data()) === null || _e === void 0 ? void 0 : _e.ultimo) !== null && _f !== void 0 ? _f : 0) + 1 : 1;
+    await contadorRef.set({ ultimo: numTicket }, { merge: true });
+    // ── Crear pedido en Firestore ─────────────────────────────────────────────
+    const pedidoData = {
+        empresa_id: empresaId,
+        numero_ticket: numTicket,
+        cliente_nombre: clienteNombre,
+        cliente_email: clienteEmail,
+        cliente_telefono: clienteTelefono,
+        direccion_envio: direccionEnvio,
+        origen: "tienda_online",
+        estado: "pendiente",
+        estado_pago: "pagado",
+        metodo_pago: "tarjeta",
+        lineas: lineas.map((l) => ({
+            producto_id: l.productoId,
+            producto_nombre: l.nombre,
+            cantidad: l.cantidad,
+            precio_unitario: l.precioUnitario,
+            iva_porcentaje: 21,
+        })),
+        subtotal: parseFloat((totalEuros / 1.21).toFixed(2)),
+        importe_iva: parseFloat((totalEuros - totalEuros / 1.21).toFixed(2)),
+        total: totalEuros,
+        stripe_session_id: session.id,
+        stripe_payment_intent: session.payment_intent,
+        fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const pedidoRef = await db
+        .collection("empresas")
+        .doc(empresaId)
+        .collection("pedidos")
+        .add(pedidoData);
+    console.log(`✅ [TIENDA] Pedido #${numTicket} creado para empresa ${empresaId} — ${clienteNombre} — €${totalEuros} — id: ${pedidoRef.id}`);
+    // ── Descontar stock del catálogo ──────────────────────────────────────────
+    for (const linea of lineas) {
+        if (!linea.productoId || linea.productoId.startsWith("stripe_"))
+            continue;
+        try {
+            await db
+                .collection("empresas")
+                .doc(empresaId)
+                .collection("catalogo")
+                .doc(linea.productoId)
+                .update({ stock: admin.firestore.FieldValue.increment(-linea.cantidad) });
+            console.log(`📦 Stock decrementado: ${linea.nombre} -${linea.cantidad}`);
+        }
+        catch (e) {
+            console.warn(`⚠️ No se pudo decrementar stock de ${linea.productoId}:`, e);
+        }
+    }
+    // ── Email de confirmación al cliente ─────────────────────────────────────
+    if (clienteEmail) {
+        try {
+            const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+            const nombreEmpresa = ((_g = empresaDoc.data()) === null || _g === void 0 ? void 0 : _g.nombre) || "La tienda";
+            const lineasHtml = lineas.map((l) => `<tr><td style="padding:6px 0;">${l.nombre}</td><td style="text-align:right;padding:6px 0;">${l.cantidad}x ${l.precioUnitario.toFixed(2)} €</td></tr>`).join("");
+            await (0, resend_service_1.enviarPdfGenerico)({
+                from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+                to: clienteEmail,
+                subject: `✅ Pedido #${numTicket} confirmado — ${nombreEmpresa}`,
+                html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#1B5E20;">¡Pedido recibido!</h2>
+            <p>Hola ${clienteNombre}, hemos recibido tu pedido correctamente.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">${lineasHtml}</table>
+            <p style="font-size:18px;font-weight:bold;">Total: ${totalEuros.toFixed(2)} €</p>
+            ${direccionEnvio ? `<p>📦 Envío a: ${direccionEnvio}</p>` : ""}
+            <p>Te avisaremos cuando tu pedido esté preparado.</p>
+            <p style="color:#999;font-size:12px;">Pedido #${numTicket} · ${nombreEmpresa}</p>
+          </div>
+        `,
+            });
+        }
+        catch (e) {
+            console.warn("⚠️ Error enviando email de confirmación:", e);
+        }
+    }
+}
+function _formatearDireccion(shipping) {
+    if (!(shipping === null || shipping === void 0 ? void 0 : shipping.address))
+        return null;
+    const a = shipping.address;
+    return [shipping.name, a.line1, a.line2, a.postal_code, a.city, a.country]
+        .filter(Boolean)
+        .join(", ");
+}
 // ═══════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE VACACIONES — Cloud Functions
 // ═══════════════════════════════════════════════════════════════════════════════

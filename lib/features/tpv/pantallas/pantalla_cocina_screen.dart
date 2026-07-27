@@ -35,6 +35,11 @@ class PantallaCocinaScreen extends StatefulWidget {
 class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
   final _db = FirebaseFirestore.instance;
   final Map<String, String> _nombresMesa = {};
+  bool _inicializado = false;
+  Set<String> _idsPrevios = {};
+
+  // 'todos' | 'cocina' | 'barra'
+  String _filtroDestino = 'todos';
 
   Future<String> _nombreMesa(String mesaId) async {
     if (mesaId.isEmpty) return 'Sin mesa';
@@ -55,6 +60,17 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
   }
 
   String get empresaId => widget.empresaId;
+
+  List<ComandaCocina> _aplicarFiltroDestino(List<ComandaCocina> all) {
+    if (_filtroDestino == 'todos') return all;
+    return all.where((c) {
+      if (_filtroDestino == 'barra') {
+        return c.lineas.any((l) => l.destino == 'barra');
+      }
+      // 'cocina': tiene al menos una línea que NO es barra
+      return c.lineas.any((l) => l.destino != 'barra');
+    }).toList();
+  }
 
   Future<void> _cambiarEstado(String id, String estado) async {
     final u = <String, dynamic>{
@@ -103,6 +119,23 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
     }
   }
 
+  void _notificarNuevaComanda(int cantidad) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const Icon(Icons.notification_important_rounded, color: Colors.white),
+          const SizedBox(width: 8),
+          Text('$cantidad nueva${cantidad > 1 ? 's' : ''} comanda${cantidad > 1 ? 's' : ''} recibida${cantidad > 1 ? 's' : ''}'),
+        ]),
+        backgroundColor: _C.pendiente,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
   void _abrirDetalle(BuildContext ctx, ComandaCocina c) {
     showDialog(
       context: ctx,
@@ -123,6 +156,10 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
       backgroundColor: _C.bg,
       body: Column(children: [
         _AppBarCocina(),
+        _BarraFiltroDestino(
+          filtro: _filtroDestino,
+          onChanged: (v) => setState(() => _filtroDestino = v),
+        ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _db
@@ -144,12 +181,29 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
               final docs = snap.data?.docs ?? [];
               if (docs.isEmpty) return const _EstadoVacio();
 
+              // Detectar nuevas comandas pendientes y notificar
+              final pendienteIds = docs.where((d) {
+                final e = (d.data() as Map<String, dynamic>)['estado_cocina'];
+                return e == null || e == 'pendiente' || e == 'en_preparacion';
+              }).map((d) => d.id).toSet();
+              if (_inicializado) {
+                final nuevos = pendienteIds.difference(_idsPrevios).length;
+                if (nuevos > 0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _notificarNuevaComanda(nuevos));
+                }
+              } else {
+                _inicializado = true;
+              }
+              _idsPrevios = pendienteIds;
+
               final all = docs.map((d) => ComandaCocina.fromFirestore(d)).toList();
-              final pendientes = all.where((c) =>
+              final filtradas = _aplicarFiltroDestino(all);
+              if (filtradas.isEmpty) return const _EstadoVacio();
+              final pendientes = filtradas.where((c) =>
               c.estadoCocina == null ||
                   c.estadoCocina == 'pendiente' ||
                   c.estadoCocina == 'en_preparacion').toList();
-              final listas = all.where((c) => c.estadoCocina == 'terminada').toList();
+              final listas = filtradas.where((c) => c.estadoCocina == 'terminada').toList();
 
               return Row(children: [
                 // ── IZQUIERDA: Pendientes + Preparando ──────────────────
@@ -160,6 +214,7 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
                     onCambiarEstado: (c, e) => _cambiarEstado(c.id, e),
                     onTap: (c) => _abrirDetalle(ctx, c),
                     nombreMesa: _nombreMesa,
+                    filtroDestino: _filtroDestino,
                   ),
                 ),
                 // Divisor vertical
@@ -171,6 +226,7 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
                     onTap: (c) => _abrirDetalle(ctx, c),
                     onEliminar: (c) => _eliminarComanda(ctx, c.id),
                     nombreMesa: _nombreMesa,
+                    filtroDestino: _filtroDestino,
                   ),
                 ),
               ]);
@@ -230,10 +286,12 @@ class _ColPendientes extends StatelessWidget {
   final void Function(ComandaCocina, String) onCambiarEstado;
   final void Function(ComandaCocina) onTap;
   final Future<String> Function(String) nombreMesa;
+  final String filtroDestino;
 
   const _ColPendientes({
     required this.comandas, required this.onCambiarEstado,
     required this.onTap, required this.nombreMesa,
+    required this.filtroDestino,
   });
 
   @override
@@ -273,6 +331,7 @@ class _ColPendientes extends StatelessWidget {
             nombreMesa: nombreMesa,
             onTap: onTap,
             onCambiarEstado: onCambiarEstado,
+            filtroDestino: filtroDestino,
           );
         }),
       ),
@@ -286,11 +345,12 @@ class _WrapComandas extends StatelessWidget {
   final Future<String> Function(String) nombreMesa;
   final void Function(ComandaCocina) onTap;
   final void Function(ComandaCocina, String) onCambiarEstado;
+  final String filtroDestino;
 
   const _WrapComandas({
     required this.comandas, required this.ncols,
     required this.nombreMesa, required this.onTap,
-    required this.onCambiarEstado,
+    required this.onCambiarEstado, required this.filtroDestino,
   });
 
   @override
@@ -310,6 +370,7 @@ class _WrapComandas extends StatelessWidget {
               child: _TarjetaPendiente(
                 comanda: c,
                 nombreMesa: nombreMesa,
+                filtroDestino: filtroDestino,
                 onTap: () => onTap(c),
                 onAccion: () => onCambiarEstado(
                     c,
@@ -335,10 +396,12 @@ class _TarjetaPendiente extends StatelessWidget {
   final Future<String> Function(String) nombreMesa;
   final VoidCallback onTap;
   final VoidCallback onAccion;
+  final String filtroDestino;
 
   const _TarjetaPendiente({
     required this.comanda, required this.nombreMesa,
     required this.onTap, required this.onAccion,
+    required this.filtroDestino,
   });
 
   bool get _enPreparacion => comanda.estadoCocina == 'en_preparacion';
@@ -436,43 +499,69 @@ class _TarjetaPendiente extends StatelessWidget {
               ),
             ]),
           ),
-          // Productos — TODOS
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: comanda.lineas.map((l) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  Container(
-                    width: 26, height: 26,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
+          // Productos — filtrados por estación
+          Builder(builder: (_) {
+            final lineas = filtroDestino == 'todos'
+                ? comanda.lineas
+                : filtroDestino == 'barra'
+                    ? comanda.lineas.where((l) => l.destino == 'barra').toList()
+                    : comanda.lineas.where((l) => l.destino != 'barra').toList();
+            final ocultas = comanda.lineas.length - lineas.length;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...lineas.map((l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Container(
+                        width: 26, height: 26,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('${l.cantidad.toInt()}',
+                            style: TextStyle(
+                                color: accentColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(l.nombre,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 13),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      if (l.notas?.isNotEmpty ?? false) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.notes_rounded,
+                            size: 12, color: _C.pendiente),
+                      ],
+                      if (l.alergenos.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: l.alergenos.join(', '),
+                          child: const Icon(Icons.warning_amber_rounded,
+                              size: 12, color: Color(0xFFFF9800)),
+                        ),
+                      ],
+                    ]),
+                  )),
+                  if (ocultas > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '+$ocultas línea${ocultas > 1 ? 's' : ''} en otra estación',
+                        style: const TextStyle(color: Colors.white38, fontSize: 10, fontStyle: FontStyle.italic),
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text('${l.cantidad.toInt()}',
-                        style: TextStyle(
-                            color: accentColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900)),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(l.nombre,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 13),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (l.notas?.isNotEmpty ?? false) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.notes_rounded,
-                        size: 12, color: _C.pendiente),
-                  ],
-                ]),
-              )).toList(),
-            ),
-          ),
+                ],
+              ),
+            );
+          }),
           // Nota general
           if (comanda.notaGeneral?.isNotEmpty ?? false)
             Container(
@@ -538,10 +627,12 @@ class _ColListos extends StatelessWidget {
   final void Function(ComandaCocina) onTap;
   final void Function(ComandaCocina) onEliminar;
   final Future<String> Function(String) nombreMesa;
+  final String filtroDestino;
 
   const _ColListos({
     required this.comandas, required this.onTap,
     required this.onEliminar, required this.nombreMesa,
+    required this.filtroDestino,
   });
 
   @override
@@ -582,6 +673,7 @@ class _ColListos extends StatelessWidget {
           itemBuilder: (_, i) => _TarjetaLista(
             comanda: comandas[i],
             nombreMesa: nombreMesa,
+            filtroDestino: filtroDestino,
             onTap: () => onTap(comandas[i]),
             onEliminar: () => onEliminar(comandas[i]),
           ),
@@ -599,10 +691,12 @@ class _TarjetaLista extends StatelessWidget {
   final Future<String> Function(String) nombreMesa;
   final VoidCallback onTap;
   final VoidCallback onEliminar;
+  final String filtroDestino;
 
   const _TarjetaLista({
     required this.comanda, required this.nombreMesa,
     required this.onTap, required this.onEliminar,
+    required this.filtroDestino,
   });
 
   @override
@@ -659,30 +753,45 @@ class _TarjetaLista extends StatelessWidget {
               ),
             ]),
           ),
-          // Productos
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: comanda.lineas.map((l) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(children: [
-                  Text('${l.cantidad.toInt()}×',
-                      style: const TextStyle(
-                          color: _C.terminada,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(l.nombre,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 12),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ]),
-              )).toList(),
-            ),
-          ),
+          // Productos — filtrados por estación
+          Builder(builder: (_) {
+            final lineas = filtroDestino == 'todos'
+                ? comanda.lineas
+                : filtroDestino == 'barra'
+                    ? comanda.lineas.where((l) => l.destino == 'barra').toList()
+                    : comanda.lineas.where((l) => l.destino != 'barra').toList();
+            final ocultas = comanda.lineas.length - lineas.length;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...lineas.map((l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(children: [
+                      Text('${l.cantidad.toInt()}×',
+                          style: const TextStyle(
+                              color: _C.terminada,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(l.nombre,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ]),
+                  )),
+                  if (ocultas > 0)
+                    Text(
+                      '+$ocultas en otra estación',
+                      style: const TextStyle(color: Colors.white24, fontSize: 10, fontStyle: FontStyle.italic),
+                    ),
+                ],
+              ),
+            );
+          }),
         ]),
       ),
     );
@@ -877,6 +986,20 @@ class _ModalDetalle extends StatelessWidget {
                                           color: _C.cian,
                                           fontSize: 12,
                                           fontStyle: FontStyle.italic)),
+                                ],
+                                if (l.alergenos.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(spacing: 4, runSpacing: 4, children: l.alergenos.map((a) =>
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF9800).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4)),
+                                      ),
+                                      child: Text('⚠ $a', style: const TextStyle(color: Color(0xFFFF9800), fontSize: 10)),
+                                    ),
+                                  ).toList()),
                                 ],
                               ]),
                         ),
@@ -1177,14 +1300,88 @@ class LineaComandaCocina {
   final String nombre;
   final double cantidad;
   final String? notas;
+  final String? destino; // 'cocina' | 'barra' | null (= cocina por defecto)
+  final List<String> alergenos;
 
-  LineaComandaCocina(
-      {required this.nombre, required this.cantidad, this.notas});
+  LineaComandaCocina({
+    required this.nombre, required this.cantidad,
+    this.notas, this.destino, this.alergenos = const [],
+  });
 
   factory LineaComandaCocina.fromMap(Map<String, dynamic> m) =>
       LineaComandaCocina(
-        nombre:   m['nombre'] as String? ?? 'Producto',
-        cantidad: (m['cantidad'] as num? ?? 1).toDouble(),
-        notas:    m['notas'] as String?,
+        nombre:    m['nombre'] as String? ?? 'Producto',
+        cantidad:  (m['cantidad'] as num? ?? 1).toDouble(),
+        notas:     m['notas'] as String?,
+        destino:   m['destino'] as String?,
+        alergenos: (m['alergenos'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BARRA DE FILTRO DESTINO (Todos / Cocina / Barra)
+// ─────────────────────────────────────────────────────────────────────────────
+class _BarraFiltroDestino extends StatelessWidget {
+  final String filtro;
+  final ValueChanged<String> onChanged;
+
+  const _BarraFiltroDestino({required this.filtro, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      color: const Color(0xFF1A1A2E),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          _FiltroChip('todos',  Icons.grid_view_rounded,  'Todos',  filtro, onChanged),
+          const SizedBox(width: 8),
+          _FiltroChip('cocina', Icons.restaurant_rounded, 'Cocina', filtro, onChanged),
+          const SizedBox(width: 8),
+          _FiltroChip('barra',  Icons.local_bar_rounded,  'Barra',  filtro, onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _FiltroChip extends StatelessWidget {
+  final String value;
+  final IconData icon;
+  final String label;
+  final String current;
+  final ValueChanged<String> onChanged;
+
+  const _FiltroChip(this.value, this.icon, this.label, this.current, this.onChanged);
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = current == value;
+    const activeColor = Color(0xFF00FFC8);
+    return GestureDetector(
+      onTap: () => onChanged(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: selected ? activeColor.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? activeColor : Colors.white24,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 12, color: selected ? activeColor : Colors.white54),
+          const SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+                  color: selected ? activeColor : Colors.white54)),
+        ]),
+      ),
+    );
+  }
 }

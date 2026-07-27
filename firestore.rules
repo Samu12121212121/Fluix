@@ -674,6 +674,17 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // Blog público — lectura libre para la web del cliente
+    match /blog/{postId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    match /blog_categorias/{catId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     match /contacto_web/{mensajeId} {
       allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
         && request.resource.data.nombre is string

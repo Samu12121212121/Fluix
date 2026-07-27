@@ -9,6 +9,9 @@ import '../../../services/demo_cuenta_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
 import 'tab_config_web.dart';
 import 'tab_mensajes_contacto.dart';
+import 'tab_blog_web.dart';
+import 'tab_eventos_web.dart';
+import 'tab_analytics_web.dart';
 import 'pantalla_items_seccion.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -31,7 +34,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -63,6 +66,9 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.web, size: 17), text: 'Secciones'),
+            Tab(icon: Icon(Icons.article, size: 17), text: 'Blog'),
+            Tab(icon: Icon(Icons.event, size: 17), text: 'Eventos'),
+            Tab(icon: Icon(Icons.bar_chart, size: 17), text: 'Analytics'),
             Tab(icon: Icon(Icons.settings, size: 17), text: 'Config'),
             Tab(icon: Icon(Icons.mail_outline, size: 17), text: 'Mensajes'),
           ],
@@ -72,6 +78,9 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         controller: _tab,
         children: [
           _TabSecciones(empresaId: widget.empresaId, svc: _svc, color: color),
+          TabBlogWeb(empresaId: widget.empresaId, svc: _svc),
+          TabEventosWeb(empresaId: widget.empresaId, svc: _svc),
+          TabAnalyticsWeb(empresaId: widget.empresaId),
           TabConfigWeb(empresaId: widget.empresaId, svc: _svc),
           TabMensajesContacto(empresaId: widget.empresaId, color: color),
         ],

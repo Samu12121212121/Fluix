@@ -58,8 +58,11 @@ Future<void> main() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
-  } else {
-    // En debug y desktop: deshabilitar envío a Crashlytics
+  } else if (!kIsWeb &&
+      defaultTargetPlatform != TargetPlatform.windows &&
+      defaultTargetPlatform != TargetPlatform.linux &&
+      defaultTargetPlatform != TargetPlatform.macOS) {
+    // En debug móvil: deshabilitar envío a Crashlytics (desktop no tiene el plugin)
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(false);
   }
 

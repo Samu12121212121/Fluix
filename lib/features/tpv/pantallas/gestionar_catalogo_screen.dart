@@ -459,12 +459,32 @@ class _DialogoEditarProducto extends StatefulWidget {
       _DialogoEditarProductoState();
 }
 
+// Los 14 alergenos de obligatoria declaración (Reglamento UE 1169/2011)
+const _kAlergenos = [
+  ('gluten',      '🌾', 'Gluten'),
+  ('crustaceos',  '🦐', 'Crustáceos'),
+  ('huevos',      '🥚', 'Huevos'),
+  ('pescado',     '🐟', 'Pescado'),
+  ('cacahuetes',  '🥜', 'Cacahuetes'),
+  ('soja',        '🌱', 'Soja'),
+  ('leche',       '🥛', 'Leche'),
+  ('frutos_secos','🌰', 'Frutos secos'),
+  ('apio',        '🥬', 'Apio'),
+  ('mostaza',     '🟡', 'Mostaza'),
+  ('sesamo',      '🫘', 'Sésamo'),
+  ('sulfitos',    '🍷', 'Sulfitos'),
+  ('altramuces',  '🫛', 'Altramuces'),
+  ('moluscos',    '🦑', 'Moluscos'),
+];
+
 class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
   late final TextEditingController _nombreCtrl;
   late final TextEditingController _precioCtrl;
   late final TextEditingController _categoriaCtrl;
   late final TextEditingController _imagenCtrl;
   late double _iva;
+  late List<String> _alergenos;
+  late String _destino;
   bool _guardando = false;
 
   @override
@@ -479,6 +499,8 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
     _imagenCtrl = TextEditingController(
         text: widget.data['imagen_url'] as String? ?? '');
     _iva = (widget.data['iva_porcentaje'] as num?)?.toDouble() ?? 10;
+    _alergenos = List<String>.from(widget.data['alergenos'] ?? []);
+    _destino = widget.data['destino'] as String? ?? 'cocina';
   }
 
   @override
@@ -513,6 +535,8 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         'categoria': _categoriaCtrl.text.trim(),
         'iva_porcentaje': _iva,
         'activo': true,
+        'alergenos': _alergenos,
+        'destino': _destino,
         if (imgUrl != null) 'imagen_url': imgUrl,
         if (imgUrl != null) 'thumbnail_url': imgUrl,
       };
@@ -579,6 +603,62 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
                   ),
                 )),
               ]),
+              const SizedBox(height: 16),
+              // Destino cocina / barra
+              Row(children: [
+                const Icon(Icons.restaurant_rounded, size: 18, color: Colors.grey),
+                const SizedBox(width: 8),
+                const Text('Destino:', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 12),
+                ChoiceChip(
+                  label: const Text('Cocina', style: TextStyle(fontSize: 11)),
+                  selected: _destino == 'cocina',
+                  onSelected: (_) => setState(() => _destino = 'cocina'),
+                  selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  visualDensity: VisualDensity.compact,
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Barra', style: TextStyle(fontSize: 11)),
+                  selected: _destino == 'barra',
+                  onSelected: (_) => setState(() => _destino = 'barra'),
+                  selectedColor: const Color(0xFFFF3296).withValues(alpha: 0.2),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ]),
+              const SizedBox(height: 16),
+              // Alergenos (14 UE)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  const Text('Alergenos (Reg. UE 1169/2011)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _kAlergenos.map((a) {
+                  final (codigo, emoji, nombre) = a;
+                  final sel = _alergenos.contains(codigo);
+                  return FilterChip(
+                    label: Text('$emoji $nombre',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: sel ? Colors.black : null,
+                            fontWeight: sel ? FontWeight.w700 : null)),
+                    selected: sel,
+                    onSelected: (_) => setState(() {
+                      sel ? _alergenos.remove(codigo) : _alergenos.add(codigo);
+                    }),
+                    selectedColor: Colors.orange.withValues(alpha: 0.3),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+              ),
             ],
           ),
         ),

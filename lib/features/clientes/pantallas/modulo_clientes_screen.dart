@@ -1,2387 +1,799 @@
-import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/firebase/firestore_stream_helper.dart';
 import '../../../core/platform/platform_data_source.dart';
 import '../../../core/utils/permisos_service.dart';
-import '../../../domain/modelos/cliente.dart';
-import '../../../domain/modelos/factura.dart';
-import '../../../domain/modelos/interaccion_cliente.dart';
 import '../../../services/clientes_service.dart';
-import '../../../services/facturacion_service.dart';
-import '../../../services/bulk_actions_service.dart';
-import '../../../services/exportacion_clientes_service.dart';
-import '../../../widgets/estado_cliente_badge.dart';
-import '../../../widgets/bulk_actions_bar.dart';
-import '../../../widgets/timeline_actividad_widget.dart';
-import '../../facturacion/pantallas/detalle_factura_screen.dart';
-import 'clientes_silenciosos_screen.dart';
-import 'duplicados_cliente_screen.dart';
-import 'importar_csv_screen.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MÓDULO CLIENTES — blue accent, dark/light, tarjetas compactas
+// ═════════════════════════════════════════════════════════════════════════════
 
 class ModuloClientesScreen extends StatefulWidget {
   final String empresaId;
   final SesionUsuario? sesion;
   const ModuloClientesScreen({super.key, required this.empresaId, this.sesion});
-
   @override
   State<ModuloClientesScreen> createState() => _ModuloClientesScreenState();
 }
 
 class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
   final _firestore = FirebaseFirestore.instance;
-  final _firestoreHelper = FirestoreStreamHelper();
-  final _busquedaCtrl = TextEditingController();
-  String _filtro = '';
+  final _helper    = FirestoreStreamHelper();
+  bool   _dark     = false;
+  String _busqueda = '';
+  String _filtroTag = 'todos';
+  String _sortBy   = 'nombre'; // 'nombre' | 'total' | 'visita' | 'reciente'
 
-  // ── Filtros de segmentación ──────────────────────────────────────────────────
-  final Set<String> _etiquetasActivas = {};
-  double? _minFacturacion;
-  int? _mesesActividad; // +N = activo últimos N meses; -N = inactivo N meses
-  String _localidadFiltro = '';
+  static const _kAzul   = Color(0xFF3B82F6);
+  static const _kVerde  = Color(0xFF22C55E);
+  static const _kAmbar  = Color(0xFFEAB308);
+  static const _kRojo   = Color(0xFFEF4444);
+  static const _kMorado = Color(0xFF8B5CF6);
+  static const _kRosa   = Color(0xFFEC4899);
 
-  bool get _hayFiltrosActivos =>
-      _etiquetasActivas.isNotEmpty ||
-      _minFacturacion != null ||
-      _mesesActividad != null ||
-      _localidadFiltro.isNotEmpty;
+  Color get _bg      => _dark ? const Color(0xFF05060A) : const Color(0xFFF4F6FB);
+  Color get _panel   => _dark ? const Color(0xFF0D1117) : Colors.white;
+  Color get _border  => _dark ? const Color(0x14FFFFFF) : const Color(0x14000000);
+  Color get _text    => _dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _soft    => _dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+  Color get _inputBg => _dark ? const Color(0x08FFFFFF) : const Color(0xFFF8FAFC);
 
-  int get _numFiltrosAvanzados =>
-      (_minFacturacion != null ? 1 : 0) +
-      (_mesesActividad != null ? 1 : 0) +
-      (_localidadFiltro.isNotEmpty ? 1 : 0);
+  Color _avatarColor(String nombre) {
+    const cols = [_kAzul, _kVerde, _kAmbar, _kMorado, _kRosa, _kRojo,
+                  Color(0xFF0891B2), Color(0xFF16A34A), Color(0xFF9333EA)];
+    if (nombre.isEmpty) return _kAzul;
+    return cols[nombre.codeUnitAt(0) % cols.length];
+  }
 
-  void _limpiarFiltros() => setState(() {
-        _etiquetasActivas.clear();
-        _minFacturacion = null;
-        _mesesActividad = null;
-        _localidadFiltro = '';
-      });
-
-  bool get _puedeGestionar =>
-      widget.sesion?.puedeGestionarClientes ?? true;
-
-  @override
-  void dispose() {
-    _busquedaCtrl.dispose();
-    super.dispose();
+  // ── Parseo seguro de fechas Firestore (Timestamp o String) ────────────────
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is Timestamp) return v.toDate();
+    if (v is String) return DateTime.tryParse(v);
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      behavior: HitTestBehavior.opaque,
-      child: Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Clientes', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          if (_puedeGestionar)
-            IconButton(
-              icon: const Icon(Icons.upload_file),
-              tooltip: 'Importar clientes desde CSV',
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ImportarCsvScreen(empresaId: widget.empresaId),
-                  ),
-                );
-                // Si retorna true, la lista se actualiza sola por el StreamBuilder
-                if (result == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Importación completada')),
-                  );
-                }
-              },
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Stack(children: [
+        _glow(_kAzul,   top: -160, left: -100),
+        _glow(_kMorado, top:  200, right: -120),
+        SafeArea(child: Column(children: [
+          _buildTopBar(),
+          Expanded(child: StreamBuilder<QuerySnapshot>(
+            stream: _helper.collectionStream(
+              _firestore.collection('empresas').doc(widget.empresaId)
+                  .collection('clientes').orderBy('nombre'),
+              priority: PollingPriority.high,
             ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestoreHelper.collectionStream(
-          _firestore
-              .collection('empresas')
-              .doc(widget.empresaId)
-              .collection('clientes')
-              .orderBy('nombre'),
-          priority: PollingPriority.high,
-        ),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+            builder: (ctx, snap) {
+              if (snap.connectionState == ConnectionState.waiting && (snap.data?.docs.isEmpty ?? true)) {
+                return const Center(child: CircularProgressIndicator(color: _kAzul));
+              }
+              final docs = snap.data?.docs ?? [];
+              var clientes = ClientesService.filtrarClientes(
+                docs: docs, textoBusqueda: _busqueda,
+                etiquetasActivas: _filtroTag == 'todos' ? {} : {_filtroTag},
+              );
 
-          var clientes = snapshot.data?.docs ?? [];
+              // Ordenación
+              clientes = _sortClientes(clientes);
 
-          // Aplicar todos los filtros de segmentación
-          clientes = ClientesService.filtrarClientes(
-            docs: clientes,
-            textoBusqueda: _filtro,
-            etiquetasActivas: _etiquetasActivas,
-            minFacturacion: _minFacturacion,
-            mesesActividad: _mesesActividad,
-            localidad: _localidadFiltro,
-          );
+              // KPIs
+              final total   = docs.length;
+              final mes30   = DateTime.now().subtract(const Duration(days: 30));
+              final activos = docs.where((d) {
+                final m = d.data() as Map<String, dynamic>;
+                final uv = _parseDate(m['ultima_visita'] ?? m['ultima_actividad']);
+                return uv != null && uv.isAfter(mes30);
+              }).length;
+              final vips    = docs.where((d) =>
+                ((d.data() as Map)['etiquetas'] as List?)?.contains('VIP') == true).length;
+              final nuevos  = docs.where((d) {
+                final dt = _parseDate((d.data() as Map)['fecha_registro']);
+                return dt != null && dt.isAfter(mes30);
+              }).length;
+              final totalGasto = docs.fold(0.0, (s, d) =>
+                s + (((d.data() as Map)['total_gastado'] ?? 0) as num).toDouble());
 
-          return CustomScrollView(
-            slivers: [
-              // Buscador
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _busquedaCtrl,
-                    onChanged: (v) => setState(() => _filtro = v.toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar cliente por nombre o teléfono...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _filtro.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _busquedaCtrl.clear();
-                                setState(() => _filtro = '');
-                              })
-                          : null,
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Barra de filtros de segmentación
-              SliverToBoxAdapter(child: _buildFiltrosBar()),
-
-              // Lista vacía o contenido
-              if (clientes.isEmpty)
-                SliverFillRemaining(child: _buildVacio())
-              else ...[
-                // Resumen estadístico
-                SliverToBoxAdapter(child: _buildResumen(clientes)),
-                // Tarjetas de clientes
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        final data =
-                            clientes[i].data() as Map<String, dynamic>;
-                        return _TarjetaCliente(
-                          id: clientes[i].id,
-                          data: data,
-                          onTap: () => _verDetalle(clientes[i].id, data),
+              return CustomScrollView(slivers: [
+                // KPIs
+                SliverToBoxAdapter(child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                  child: Row(children: [
+                    _kpi('$total',    'Clientes',  _kAzul),   const SizedBox(width: 8),
+                    _kpi('$activos',  'Activos',   _kVerde),  const SizedBox(width: 8),
+                    _kpi('$vips',     'VIP',       _kAmbar),  const SizedBox(width: 8),
+                    _kpi('${totalGasto.toStringAsFixed(0)}€', 'Facturado', _kRosa),
+                  ]),
+                )),
+                // Toolbar: búsqueda + sort + añadir
+                SliverToBoxAdapter(child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: Row(children: [
+                    Expanded(child: _searchBox()),
+                    const SizedBox(width: 8),
+                    _sortBtn(),
+                    const SizedBox(width: 8),
+                    _addBtn(() => _mostrarPopupCliente()),
+                  ]),
+                )),
+                // Filtro etiquetas
+                SliverToBoxAdapter(child: _buildTagFilter(docs)),
+                // Contador
+                if (clientes.isNotEmpty)
+                  SliverToBoxAdapter(child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                    child: Text('${clientes.length} cliente${clientes.length != 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 11.5, color: _soft, fontFamily: 'monospace')),
+                  )),
+                // Lista
+                if (clientes.isEmpty)
+                  SliverFillRemaining(child: _empty())
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 80),
+                    sliver: SliverList(delegate: SliverChildBuilderDelegate(
+                      (_, i) {
+                        final d = clientes[i].data() as Map<String, dynamic>;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _clienteCard(clientes[i].id, d),
                         );
                       },
                       childCount: clientes.length,
-                    ),
+                    )),
                   ),
-                ),
-              ],
-            ],
+              ]);
+            },
+          )),
+        ])),
+      ]),
+    );
+  }
+
+  List<QueryDocumentSnapshot> _sortClientes(List<QueryDocumentSnapshot> list) {
+    final sorted = List<QueryDocumentSnapshot>.from(list);
+    sorted.sort((a, b) {
+      final ma = a.data() as Map<String, dynamic>;
+      final mb = b.data() as Map<String, dynamic>;
+      switch (_sortBy) {
+        case 'total':
+          final ta = ((ma['total_gastado'] ?? 0) as num).toDouble();
+          final tb = ((mb['total_gastado'] ?? 0) as num).toDouble();
+          return tb.compareTo(ta);
+        case 'visita':
+          final va = _parseDate(ma['ultima_visita']) ?? DateTime(2000);
+          final vb = _parseDate(mb['ultima_visita']) ?? DateTime(2000);
+          return vb.compareTo(va);
+        case 'reciente':
+          final ra = _parseDate(ma['fecha_registro']) ?? DateTime(2000);
+          final rb = _parseDate(mb['fecha_registro']) ?? DateTime(2000);
+          return rb.compareTo(ra);
+        default: // nombre
+          return (ma['nombre'] ?? '').toString().toLowerCase()
+              .compareTo((mb['nombre'] ?? '').toString().toLowerCase());
+      }
+    });
+    return sorted;
+  }
+
+  // ── Glow ─────────────────────────────────────────────────────────────────
+  Widget _glow(Color c, {double? top, double? left, double? right}) =>
+      Positioned(top: top, left: left, right: right,
+        child: IgnorePointer(child: Container(width: 340, height: 340,
+          decoration: BoxDecoration(shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: c.withValues(alpha: _dark ? 0.18 : 0.06),
+              blurRadius: 110, spreadRadius: 40)]))));
+
+  // ── Top bar ───────────────────────────────────────────────────────────────
+  Widget _buildTopBar() => Container(
+    padding: const EdgeInsets.fromLTRB(4, 6, 12, 6),
+    decoration: BoxDecoration(
+      color: _panel.withValues(alpha: 0.9),
+      border: Border(bottom: BorderSide(color: _border))),
+    child: Row(children: [
+      IconButton(
+        icon: Icon(Icons.arrow_back_ios_new_rounded, color: _soft, size: 18),
+        onPressed: () => Navigator.of(context).pop()),
+      Container(width: 32, height: 32,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(9),
+          gradient: LinearGradient(colors: [_kAzul.withValues(alpha: 0.18), _kAzul.withValues(alpha: 0.04)]),
+          border: Border.all(color: _kAzul.withValues(alpha: 0.35))),
+        child: const Icon(Icons.people_alt_rounded, color: _kAzul, size: 16)),
+      const SizedBox(width: 10),
+      Text('Clientes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _text)),
+      const Spacer(),
+      GestureDetector(
+        onTap: () => setState(() => _dark = !_dark),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          width: 44, height: 22,
+          decoration: BoxDecoration(
+            color: _dark ? const Color(0xFF1E2A3A) : const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: _dark ? _kAzul.withValues(alpha: 0.4) : const Color(0xFFCBD5E1))),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 280), curve: Curves.easeInOutCubic,
+            alignment: _dark ? Alignment.centerLeft : Alignment.centerRight,
+            child: Container(width: 16, height: 16, margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(shape: BoxShape.circle,
+                gradient: LinearGradient(colors: _dark
+                  ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
+                  : [const Color(0xFFF59E0B), const Color(0xFFD97706)])),
+              child: Icon(_dark ? Icons.nights_stay_rounded : Icons.wb_sunny_rounded, size: 9, color: Colors.white)),
+          ),
+        ),
+      ),
+    ]),
+  );
+
+  // ── Filtro etiquetas ──────────────────────────────────────────────────────
+  Widget _buildTagFilter(List<QueryDocumentSnapshot> docs) {
+    final allTags = <String>{};
+    for (final d in docs) {
+      final m = d.data() as Map<String, dynamic>;
+      final tags = (m['etiquetas'] as List?)?.cast<String>() ?? [];
+      allTags.addAll(tags);
+    }
+    if (allTags.isEmpty) return const SizedBox(height: 8);
+    final tags = ['todos', ...allTags];
+    return SizedBox(height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemCount: tags.length,
+        itemBuilder: (_, i) {
+          final tag = tags[i];
+          final sel = _filtroTag == tag;
+          return GestureDetector(
+            onTap: () => setState(() => _filtroTag = tag),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: BoxDecoration(
+                color: sel ? _kAzul : _inputBg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: sel ? _kAzul : _border)),
+              child: Text(tag == 'todos' ? 'Todos' : tag,
+                style: TextStyle(fontSize: 11.5, fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
+                  color: sel ? Colors.white : _soft)),
+            ),
           );
         },
       ),
-      floatingActionButton: (widget.sesion?.puedeGestionarClientes ?? true)
-          ? FloatingActionButton.extended(
-              heroTag: 'fab_clientes',
-              onPressed: _abrirFormulario,
-              backgroundColor: const Color(0xFF00796B),
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Nuevo cliente'),
-            )
-          : null,
-    ),
     );
   }
 
-  // ── Barra de filtros de segmentación ─────────────────────────────────────────
+  // ── Tarjeta compacta y profesional ────────────────────────────────────────
+  Widget _clienteCard(String id, Map<String, dynamic> d) {
+    final nombre    = (d['nombre'] ?? '') as String;
+    final telefono  = (d['telefono'] ?? '') as String;
+    final correo    = (d['correo'] ?? '') as String;
+    final total     = ((d['total_gastado'] ?? 0) as num).toDouble();
+    final reservas  = ((d['numero_reservas'] ?? 0) as num).toInt();
+    final etiquetas = (d['etiquetas'] as List?)?.cast<String>() ?? <String>[];
+    final ultimaVisita  = _parseDate(d['ultima_visita'] ?? d['ultima_actividad']);
+    final fechaRegistro = _parseDate(d['fecha_registro']);
+    final avatarColor   = _avatarColor(nombre);
+    final iniciales     = nombre.trim().split(' ').take(2)
+        .map((w) => w.isEmpty ? '' : w[0].toUpperCase()).join();
+    final mes30    = DateTime.now().subtract(const Duration(days: 30));
+    final isActivo = ultimaVisita != null && ultimaVisita.isAfter(mes30);
+    final ticketMedio = reservas > 0 ? (total / reservas) : 0.0;
 
-  Widget _buildFiltrosBar() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            // ── Botón filtros avanzados ──────────────────────────────────────
-            GestureDetector(
-              onTap: _abrirFiltrosAvanzados,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: _numFiltrosAvanzados > 0
-                      ? const Color(0xFF00796B)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _numFiltrosAvanzados > 0
-                        ? const Color(0xFF00796B)
-                        : Colors.grey[300]!,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.tune,
-                        size: 14,
-                        color: _numFiltrosAvanzados > 0
-                            ? Colors.white
-                            : Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Filtros',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _numFiltrosAvanzados > 0
-                            ? Colors.white
-                            : Colors.grey[700],
-                      ),
-                    ),
-                    if (_numFiltrosAvanzados > 0) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '$_numFiltrosAvanzados',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00796B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            // Separador visual
-            Container(width: 1, height: 22, color: Colors.grey[300]),
-            const SizedBox(width: 6),
-
-            // ── Chips de etiquetas predefinidas ──────────────────────────────
-            ...kEtiquetasPredefinidas.map((tag) {
-              final activo = _etiquetasActivas.contains(tag);
-              final color = ClientesService.colorEtiqueta(tag);
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: Text(
-                    tag,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: activo ? color : Colors.grey[700],
-                      fontWeight:
-                          activo ? FontWeight.w700 : FontWeight.normal,
-                    ),
-                  ),
-                  selected: activo,
-                  onSelected: (v) => setState(
-                      () => v ? _etiquetasActivas.add(tag) : _etiquetasActivas.remove(tag)),
-                  selectedColor: color.withValues(alpha: 0.14),
-                  checkmarkColor: color,
-                  backgroundColor: Colors.grey[100],
-                  side: BorderSide(
-                      color: activo ? color : Colors.grey[300]!),
-                  avatar: activo
-                      ? null
-                      : Icon(ClientesService.iconoEtiqueta(tag),
-                          size: 13, color: Colors.grey[500]),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 0),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            }),
-
-            // ── Chips de filtros avanzados activos ───────────────────────────
-            if (_minFacturacion != null)
-              _chipFiltroActivo(
-                _labelFacturacion(_minFacturacion!),
-                () => setState(() => _minFacturacion = null),
-              ),
-            if (_mesesActividad != null)
-              _chipFiltroActivo(
-                _labelActividad(_mesesActividad!),
-                () => setState(() => _mesesActividad = null),
-              ),
-            if (_localidadFiltro.isNotEmpty)
-              _chipFiltroActivo(
-                '📍 $_localidadFiltro',
-                () => setState(() => _localidadFiltro = ''),
-              ),
-
-            // ── Botón limpiar todo ───────────────────────────────────────────
-            if (_hayFiltrosActivos) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: _limpiarFiltros,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.clear_all, size: 13, color: Colors.red[700]),
-                      const SizedBox(width: 3),
-                      Text('Limpiar',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.red[700])),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chipFiltroActivo(String label, VoidCallback onClear) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Chip(
-        label: Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: Color(0xFF00796B))),
-        deleteIcon: const Icon(Icons.close, size: 13, color: Color(0xFF00796B)),
-        onDeleted: onClear,
-        backgroundColor: const Color(0xFF00796B).withValues(alpha: 0.1),
-        side: const BorderSide(color: Color(0xFF00796B)),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-      ),
-    );
-  }
-
-  String _labelFacturacion(double min) {
-    if (min >= 5000) return '>5.000 €';
-    if (min >= 1000) return '>1.000 €';
-    return '>500 €';
-  }
-
-  String _labelActividad(int meses) =>
-      meses > 0 ? 'Activos ${meses}m' : 'Inactivos +${meses.abs()}m';
-
-  Future<void> _abrirFiltrosAvanzados() async {
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PanelFiltrosAvanzados(
-        minFacturacion: _minFacturacion,
-        mesesActividad: _mesesActividad,
-        localidad: _localidadFiltro,
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        _minFacturacion = result['min_facturacion'] as double?;
-        _mesesActividad = result['meses_actividad'] as int?;
-        _localidadFiltro = (result['localidad'] as String?) ?? '';
-      });
-    }
-  }
-
-  Widget _buildResumen(List<QueryDocumentSnapshot> clientes) {
-    final activos = clientes.where((c) {
-      final d = c.data() as Map<String, dynamic>;
-      return d['activo'] != false;
-    }).length;
-
-    final totalGastado = clientes.fold<double>(0, (sum, c) {
-      final d = c.data() as Map<String, dynamic>;
-      return sum + ((d['total_gastado'] ?? 0.0) as num).toDouble();
-    });
-
-    final frecuentes = clientes.where((c) {
-      final d = c.data() as Map<String, dynamic>;
-      return (d['numero_reservas'] ?? 0) >= 5;
-    }).length;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00796B), Color(0xFF26A69A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _StatChip(label: 'Total', valor: '${clientes.length}', icono: Icons.people),
-          _StatChip(label: 'Activos', valor: '$activos', icono: Icons.check_circle),
-          _StatChip(label: 'Frecuentes', valor: '$frecuentes', icono: Icons.star),
-          _StatChip(label: 'Facturado', valor: '€${totalGastado.toStringAsFixed(0)}', icono: Icons.euro),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVacio() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.people_outline, size: 72, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            _filtro.isNotEmpty ? 'No se encontraron clientes' : 'No hay clientes registrados',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _filtro.isNotEmpty ? 'Prueba con otro término de búsqueda' : 'Pulsa el botón para añadir el primero',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _verDetalle(String id, Map<String, dynamic> data) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _DetalleCliente(
-        empresaId: widget.empresaId,
-        id: id,
-        data: data,
-        puedeEditar: _puedeGestionar,
-        onEditar: () => _abrirFormulario(id: id, data: data),
-      ),
-    );
-  }
-
-  Future<void> _abrirFormulario({String? id, Map<String, dynamic>? data}) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _FormularioCliente(
-        empresaId: widget.empresaId,
-        id: id,
-        data: data,
-      ),
-    );
-  }
-}
-
-// ── TARJETA CLIENTE ───────────────────────────────────────────────────────────
-
-class _TarjetaCliente extends StatelessWidget {
-  final String id;
-  final Map<String, dynamic> data;
-  final VoidCallback onTap;
-
-  const _TarjetaCliente({required this.id, required this.data, required this.onTap});
-
-  String get _iniciales {
-    final nombre = data['nombre'] ?? '';
-    final partes = nombre.split(' ');
-    if (partes.length >= 2) return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
-    return nombre.isNotEmpty ? nombre[0].toUpperCase() : 'C';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reservas = data['numero_reservas'] ?? 0;
-    final totalGastado = (data['total_gastado'] ?? 0.0 as num).toDouble();
-    final esFrecuente = reservas >= 5;
-    final esVip = totalGastado >= 1000;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Avatar
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00796B).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    _iniciales,
-                    style: const TextStyle(color: Color(0xFF00796B), fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            data['nombre'] ?? 'Sin nombre',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                          ),
-                        ),
-                        if (esVip) const Icon(Icons.diamond, color: Color(0xFF7B1FA2), size: 16),
-                        if (esFrecuente && !esVip) const Icon(Icons.star, color: Color(0xFFF57C00), size: 16),
-                      ],
-                    ),
-                    if (data['telefono'] != null && data['telefono'] != '')
-                      Text(data['telefono'], style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today, size: 12, color: Colors.grey[500]),
-                        const SizedBox(width: 4),
-                        Text('$reservas reservas', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                        const SizedBox(width: 12),
-                        Icon(Icons.euro, size: 12, color: Colors.grey[500]),
-                        Text(totalGastado.toStringAsFixed(2), style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                      ],
-                    ),
-                    // ── Etiquetas ─────────────────────────────────────────
-                    if ((data['etiquetas'] as List?)?.isNotEmpty == true) ...[
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 3,
-                        children: (data['etiquetas'] as List)
-                            .take(4)
-                            .map((e) {
-                              final color = ClientesService.colorEtiqueta(e.toString());
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  e.toString(),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: color,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              );
-                            })
-                            .toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── DETALLE CLIENTE (tabbed bottom-sheet) ────────────────────────────────────
-
-class _DetalleCliente extends StatelessWidget {
-  final String empresaId;
-  final String id;
-  final Map<String, dynamic> data;
-  final VoidCallback onEditar;
-  final bool puedeEditar;
-
-  const _DetalleCliente({
-    required this.empresaId,
-    required this.id,
-    required this.data,
-    required this.onEditar,
-    this.puedeEditar = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-    return DefaultTabController(
-      length: 2,
+    return GestureDetector(
+      onTap: () => _mostrarDetalleCliente(id, d),
       child: Container(
-        height: h * 0.88,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: _panel, borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: _border),
+          boxShadow: _dark ? [] : [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
         ),
-        child: Column(
-          children: [
-            // ── Drag handle ──────────────────────────────────────────────
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 40, height: 4,
+        child: Column(children: [
+          // Fila superior: avatar + nombre/correo + etiqueta + acciones
+          Row(children: [
+            // Avatar con indicador de actividad
+            Stack(children: [
+              Container(width: 40, height: 40, decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(11), color: avatarColor),
+                child: Center(child: Text(iniciales.isEmpty ? '?' : iniciales,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
+              Positioned(bottom: 1, right: 1, child: Container(
+                width: 10, height: 10,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Cabecera: avatar + nombre + botón editar ─────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    width: 56, height: 56,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00796B).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(
-                        (data['nombre'] ?? 'C')[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFF00796B),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['nombre'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if ((data['correo'] ?? '').toString().isNotEmpty)
-                          Text(
-                            data['correo'],
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (puedeEditar)
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        onEditar();
-                      },
-                      icon: const Icon(Icons.edit),
-                      tooltip: 'Editar cliente',
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // ── TabBar ───────────────────────────────────────────────────
-            const TabBar(
-              indicatorColor: Color(0xFF00796B),
-              labelColor: Color(0xFF00796B),
-              unselectedLabelColor: Colors.grey,
-              labelStyle: TextStyle(fontWeight: FontWeight.w600),
-              tabs: [
-                Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Información'),
-                Tab(icon: Icon(Icons.receipt_long_outlined, size: 18), text: 'Historial'),
-              ],
-            ),
-
-            // ── TabBarView ────────────────────────────────────────────────
-            Expanded(
-              child: TabBarView(
-                children: [
-                  // Tab 0 — Información
-                  _TabInfoCliente(data: data),
-                  // Tab 1 — Historial de facturas
-                  _TabHistorialCliente(
-                    empresaId: empresaId,
-                    clienteId: id,
-                    clienteData: data,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── TAB INFO ──────────────────────────────────────────────────────────────────
-
-class _TabInfoCliente extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _TabInfoCliente({required this.data});
-
-  /// Parsea un campo de fecha que puede ser Timestamp, String o null
-  static DateTime? _parseDate(dynamic v) {
-    if (v == null) return null;
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    return DateTime.tryParse(v.toString());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final totalGastado = ((data['total_gastado'] ?? 0.0) as num).toDouble();
-    final reservas = data['numero_reservas'] ?? 0;
-    final fmt = DateFormat('dd/MM/yyyy');
-    final _dtVisita = _parseDate(data['ultima_visita']);
-    final ultimaVisita = _dtVisita != null ? fmt.format(_dtVisita) : 'Sin visitas';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats
-          Row(
-            children: [
-              _InfoCard(
-                label: 'Reservas',
-                valor: '$reservas',
-                icono: Icons.calendar_today,
-                color: const Color(0xFF0D47A1),
-              ),
-              const SizedBox(width: 12),
-              _InfoCard(
-                label: 'Total gastado',
-                valor: '€${totalGastado.toStringAsFixed(2)}',
-                icono: Icons.euro,
-                color: const Color(0xFF00796B),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          _Fila(icono: Icons.phone, label: 'Teléfono', valor: data['telefono'] ?? 'No registrado'),
-          if ((data['nif'] ?? '').toString().isNotEmpty)
-            _Fila(icono: Icons.badge, label: 'NIF/CIF', valor: data['nif'].toString()),
-          _Fila(icono: Icons.location_on, label: 'Dirección', valor: data['direccion'] ?? 'No registrada'),
-          if ((data['localidad'] ?? '').toString().isNotEmpty)
-            _Fila(icono: Icons.place, label: 'Localidad', valor: data['localidad'].toString()),
-          _Fila(icono: Icons.access_time, label: 'Última visita', valor: ultimaVisita),
-          if ((data['notas'] ?? '').toString().isNotEmpty)
-            _Fila(icono: Icons.notes, label: 'Notas', valor: data['notas']),
-
-          if (data['etiquetas'] != null &&
-              (data['etiquetas'] as List).isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: (data['etiquetas'] as List)
-                  .map((e) => Chip(
-                        label: Text(e.toString()),
-                        backgroundColor:
-                            const Color(0xFF0D47A1).withValues(alpha: 0.1),
-                        labelStyle: const TextStyle(
-                          color: Color(0xFF0D47A1),
-                          fontSize: 12,
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── TAB HISTORIAL ─────────────────────────────────────────────────────────────
-
-class _TabHistorialCliente extends StatefulWidget {
-  final String empresaId;
-  final String clienteId;
-  final Map<String, dynamic> clienteData;
-
-  const _TabHistorialCliente({
-    required this.empresaId,
-    required this.clienteId,
-    required this.clienteData,
-  });
-
-  @override
-  State<_TabHistorialCliente> createState() => _TabHistorialClienteState();
-}
-
-class _TabHistorialClienteState extends State<_TabHistorialCliente>
-    with AutomaticKeepAliveClientMixin {
-  final _svc = FacturacionService();
-
-  Map<String, dynamic>? _resumen;
-  bool _cargando = true;
-  String? _error;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _cargar();
-  }
-
-  Future<void> _cargar() async {
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
-    try {
-      final resumen = await _svc.resumenClienteFacturas(
-        empresaId: widget.empresaId,
-        clienteNombre: widget.clienteData['nombre'] ?? '',
-        clienteCorreo: widget.clienteData['correo']?.toString(),
-      );
-      if (mounted) setState(() {
-        _resumen = resumen;
-        _cargando = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString();
-        _cargando = false;
-      });
-    }
-  }
-
-  // ── Formato moneda ──────────────────────────────────────────────────────────
-  static final _fmtEur = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-  static final _fmtFecha = DateFormat('dd/MM/yyyy');
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    if (_cargando) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 8),
-            Text(_error!, textAlign: TextAlign.center),
-            TextButton(onPressed: _cargar, child: const Text('Reintentar')),
-          ],
-        ),
-      );
-    }
-
-    final facturas = (_resumen!['facturas'] as List<Factura>);
-    final totalFacturado = _resumen!['total_facturado'] as double;
-    final pendienteCobro = _resumen!['pendiente_cobro'] as double;
-    final ultimaFactura = _resumen!['ultima_factura'] as Factura?;
-    final facturacionMensual =
-        _resumen!['facturacion_mensual'] as Map<String, double>;
-
-    if (facturas.isEmpty) {
-      return _buildVacio();
-    }
-
-    return RefreshIndicator(
-      onRefresh: _cargar,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          // ── KPIs ──────────────────────────────────────────────────────────
-          _buildKpis(totalFacturado, pendienteCobro, ultimaFactura),
-          const SizedBox(height: 16),
-
-          // ── Gráfico barras mensual ────────────────────────────────────────
-          _buildGrafico(facturacionMensual),
-          const SizedBox(height: 16),
-
-          // ── Lista facturas ────────────────────────────────────────────────
-          Row(
-            children: [
-              const Icon(Icons.receipt_long, size: 16, color: Color(0xFF0D47A1)),
-              const SizedBox(width: 6),
-              Text(
-                '${facturas.length} factura${facturas.length != 1 ? 's' : ''}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...facturas.map((f) => _TarjetaFacturaCliente(
-                factura: f,
-                empresaId: widget.empresaId,
+                  color: isActivo ? _kVerde : _soft.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _panel, width: 1.5)),
               )),
-        ],
-      ),
-    );
-  }
-
-  // ── Vacío ───────────────────────────────────────────────────────────────────
-  Widget _buildVacio() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            'Sin facturas registradas',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[500],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Las facturas emitidas a este cliente\naparecerán aquí automáticamente.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[400], fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── KPIs ────────────────────────────────────────────────────────────────────
-  Widget _buildKpis(double total, double pendiente, Factura? ultima) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            _KpiCard(
-              label: 'Total facturado',
-              valor: _fmtEur.format(total),
-              icono: Icons.euro_symbol,
-              color: const Color(0xFF00796B),
-            ),
-            const SizedBox(width: 10),
-            _KpiCard(
-              label: 'Pendiente cobro',
-              valor: _fmtEur.format(pendiente),
-              icono: Icons.hourglass_empty,
-              color: pendiente > 0
-                  ? const Color(0xFFE65100)
-                  : const Color(0xFF388E3C),
-            ),
-          ],
-        ),
-        if (ultima != null) ...[
+            ]),
+            const SizedBox(width: 11),
+            // Nombre + correo/teléfono
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(nombre.isEmpty ? 'Sin nombre' : nombre,
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: _text),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (correo.isNotEmpty || telefono.isNotEmpty)
+                Text(correo.isNotEmpty ? correo : telefono,
+                  style: TextStyle(fontSize: 11, color: _soft),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ])),
+            // Etiqueta (si tiene)
+            if (etiquetas.isNotEmpty) ...[
+              _tag(etiquetas.first),
+              const SizedBox(width: 4),
+            ],
+            // Acciones rápidas
+            if (telefono.isNotEmpty)
+              _iconAction(Icons.phone_outlined, _kVerde, () =>
+                launchUrl(Uri.parse('tel:$telefono'))),
+            if (correo.isNotEmpty)
+              _iconAction(Icons.email_outlined, _kAzul, () =>
+                launchUrl(Uri.parse('mailto:$correo'))),
+          ]),
           const SizedBox(height: 10),
+          // Fila inferior: stats
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1).withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF0D47A1).withValues(alpha: 0.15),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.access_time,
-                    size: 16, color: Color(0xFF0D47A1)),
-                const SizedBox(width: 8),
-                const Text(
-                  'Última factura: ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '${ultima.numeroFactura} · ${_fmtFecha.format(ultima.fechaEmision)} · ${_fmtEur.format(ultima.total)}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0D47A1),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+            padding: const EdgeInsets.fromLTRB(0, 9, 0, 0),
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: _border))),
+            child: Row(children: [
+              _stat('VISITAS', '$reservas'),
+              _statDiv(),
+              _stat('GASTO', '${total.toStringAsFixed(0)}€'),
+              if (ticketMedio > 0) ...[
+                _statDiv(),
+                _stat('TICKET MEDIO', '${ticketMedio.toStringAsFixed(0)}€'),
               ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ── Gráfico de barras (últimos 6 meses) ─────────────────────────────────────
-  Widget _buildGrafico(Map<String, double> datos) {
-    final entradas = datos.entries.toList();
-    final maxValor = entradas.fold(0.0, (m, e) => e.value > m ? e.value : m);
-    final nombresMes = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-
-    final grupos = entradas.asMap().entries.map((entry) {
-      final idx = entry.key;
-      return BarChartGroupData(
-        x: idx,
-        barRods: [
-          BarChartRodData(
-            toY: entry.value.value,
-            color: entry.value.value > 0
-                ? const Color(0xFF00796B)
-                : const Color(0xFFB0BEC5),
-            width: 20,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-          ),
-        ],
-        showingTooltipIndicators: entry.value.value > 0 ? [] : [],
-      );
-    }).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.bar_chart, size: 16, color: Color(0xFF00796B)),
-              const SizedBox(width: 6),
-              const Text(
-                'Facturación últimos 6 meses',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: Color(0xFF37474F),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 140,
-            child: maxValor == 0
-                ? Center(
-                    child: Text(
-                      'Sin facturación en este período',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    ),
-                  )
-                : BarChart(
-                    BarChartData(
-                      maxY: maxValor * 1.25,
-                      gridData: FlGridData(
-                        drawVerticalLine: false,
-                        getDrawingHorizontalLine: (_) => FlLine(
-                          color: Colors.grey.withValues(alpha: 0.15),
-                          strokeWidth: 1,
-                        ),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      barGroups: grupos,
-                      titlesData: FlTitlesData(
-                        leftTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, meta) {
-                              final idx = value.toInt();
-                              if (idx < 0 || idx >= entradas.length) {
-                                return const SizedBox.shrink();
-                              }
-                              final mesKey = entradas[idx].key;
-                              final mesNum =
-                                  int.tryParse(mesKey.split('-')[1]) ?? 1;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  nombresMes[mesNum - 1],
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF78909C),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      barTouchData: BarTouchData(
-                        touchTooltipData: BarTouchTooltipData(
-                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                            if (rod.toY == 0) return null;
-                            return BarTooltipItem(
-                              _fmtEur.format(rod.toY),
-                              const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── TARJETA FACTURA EN HISTORIAL CLIENTE ──────────────────────────────────────
-
-class _TarjetaFacturaCliente extends StatelessWidget {
-  final Factura factura;
-  final String empresaId;
-
-  const _TarjetaFacturaCliente({
-    required this.factura,
-    required this.empresaId,
-  });
-
-  static final _fmtEur = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-  static final _fmtFecha = DateFormat('dd/MM/yyyy');
-
-  Color get _colorEstado {
-    switch (factura.estado) {
-      case EstadoFactura.pagada:
-        return const Color(0xFF388E3C);
-      case EstadoFactura.pendiente:
-        return const Color(0xFFF57C00);
-      case EstadoFactura.vencida:
-        return const Color(0xFFD32F2F);
-      case EstadoFactura.anulada:
-        return Colors.grey;
-      case EstadoFactura.rectificada:
-        return const Color(0xFF7B1FA2);
-    }
-  }
-
-  IconData get _iconoEstado {
-    switch (factura.estado) {
-      case EstadoFactura.pagada:
-        return Icons.check_circle;
-      case EstadoFactura.pendiente:
-        return Icons.hourglass_empty;
-      case EstadoFactura.vencida:
-        return Icons.warning_amber;
-      case EstadoFactura.anulada:
-        return Icons.cancel;
-      case EstadoFactura.rectificada:
-        return Icons.swap_horiz;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DetalleFacturaScreen(
-              factura: factura,
-              empresaId: empresaId,
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              // Icono estado
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _colorEstado.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(_iconoEstado, color: _colorEstado, size: 20),
-              ),
-              const SizedBox(width: 12),
-
-              // Número + fecha
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      factura.numeroFactura,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          _fmtFecha.format(factura.fechaEmision),
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _colorEstado.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            factura.estado.etiqueta,
-                            style: TextStyle(
-                              color: _colorEstado,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Importe
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _fmtEur.format(factura.total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── KPI CARD ──────────────────────────────────────────────────────────────────
-
-class _KpiCard extends StatelessWidget {
-  final String label;
-  final String valor;
-  final IconData icono;
-  final Color color;
-
-  const _KpiCard({
-    required this.label,
-    required this.valor,
-    required this.icono,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icono, color: color, size: 18),
-            const SizedBox(height: 6),
-            Text(
-              valor,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                color: color.withValues(alpha: 0.7),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final String label;
-  final String valor;
-  final IconData icono;
-  final Color color;
-
-  const _InfoCard({required this.label, required this.valor, required this.icono, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icono, color: color, size: 20),
-            const SizedBox(height: 6),
-            Text(valor, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Fila extends StatelessWidget {
-  final IconData icono;
-  final String label;
-  final String valor;
-
-  const _Fila({required this.icono, required this.label, required this.valor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icono, size: 18, color: Colors.grey[500]),
-          const SizedBox(width: 10),
-          Text('$label: ', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Expanded(child: Text(valor, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-        ],
-      ),
-    );
-  }
-}
-
-// ── FORMULARIO CLIENTE ────────────────────────────────────────────────────────
-
-class _FormularioCliente extends StatefulWidget {
-  final String empresaId;
-  final String? id;
-  final Map<String, dynamic>? data;
-
-  const _FormularioCliente({required this.empresaId, this.id, this.data});
-
-  @override
-  State<_FormularioCliente> createState() => _FormularioClienteState();
-}
-
-class _FormularioClienteState extends State<_FormularioCliente> {
-  final _formKey = GlobalKey<FormState>();
-  final _firestore = FirebaseFirestore.instance;
-  late TextEditingController _nombreCtrl;
-  late TextEditingController _telefonoCtrl;
-  late TextEditingController _correoCtrl;
-  late TextEditingController _direccionCtrl;
-  late TextEditingController _localidadCtrl;
-  late TextEditingController _notasCtrl;
-  final TextEditingController _etiquetaCustomCtrl = TextEditingController();
-  List<String> _etiquetasSeleccionadas = [];
-  bool _guardando = false;
-
-  bool get _esEdicion => widget.id != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _nombreCtrl = TextEditingController(text: widget.data?['nombre'] ?? '');
-    _telefonoCtrl = TextEditingController(text: widget.data?['telefono'] ?? '');
-    _correoCtrl = TextEditingController(text: widget.data?['correo'] ?? '');
-    _direccionCtrl = TextEditingController(text: widget.data?['direccion'] ?? '');
-    _localidadCtrl = TextEditingController(text: widget.data?['localidad'] ?? '');
-    _notasCtrl = TextEditingController(text: widget.data?['notas'] ?? '');
-    _etiquetasSeleccionadas = List<String>.from(widget.data?['etiquetas'] ?? []);
-  }
-
-  @override
-  void dispose() {
-    _nombreCtrl.dispose();
-    _telefonoCtrl.dispose();
-    _correoCtrl.dispose();
-    _direccionCtrl.dispose();
-    _localidadCtrl.dispose();
-    _notasCtrl.dispose();
-    _etiquetaCustomCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _guardando = true);
-
-    try {
-      final datos = {
-        'nombre': _nombreCtrl.text.trim(),
-        'telefono': _telefonoCtrl.text.trim(),
-        'correo': _correoCtrl.text.trim(),
-        'direccion': _direccionCtrl.text.trim(),
-        'localidad': _localidadCtrl.text.trim(),
-        'notas': _notasCtrl.text.trim(),
-        'etiquetas': _etiquetasSeleccionadas,
-        'activo': true,
-      };
-
-      final ref = _firestore.collection('empresas').doc(widget.empresaId).collection('clientes');
-
-      if (_esEdicion) {
-        await ref.doc(widget.id).update(datos);
-      } else {
-        await ref.add({
-          ...datos,
-          'total_gastado': 0.0,
-          'numero_reservas': 0,
-          'fecha_registro': DateTime.now().toIso8601String(),
-        });
-        // Registrar etiquetas custom en el catálogo de la empresa
-        final svc = ClientesService();
-        for (final tag in _etiquetasSeleccionadas) {
-          if (!kEtiquetasPredefinidas.contains(tag)) {
-            unawaited(svc.agregarEtiquetaCustom(widget.empresaId, tag));
-          }
-        }
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_esEdicion ? '✅ Cliente actualizado' : '✅ Cliente registrado'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _guardando = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 24, right: 24, top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _esEdicion ? 'Editar Cliente' : 'Nuevo Cliente',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 20),
-
-              TextFormField(
-                controller: _nombreCtrl,
-                decoration: _inputDeco('Nombre completo *', Icons.person),
-                validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _telefonoCtrl,
-                decoration: _inputDeco('Teléfono', Icons.phone),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _correoCtrl,
-                decoration: _inputDeco('Correo electrónico', Icons.email),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _direccionCtrl,
-                decoration: _inputDeco('Dirección', Icons.location_on),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _localidadCtrl,
-                decoration: _inputDeco('Localidad / Ciudad', Icons.place),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notasCtrl,
-                decoration: _inputDeco('Notas internas', Icons.notes),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-
-              // ── Etiquetas ──────────────────────────────────────────────────
-              _buildSeccionEtiquetas(),
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _guardando ? null : _guardar,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00796B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _guardando
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(_esEdicion ? 'Guardar cambios' : 'Registrar cliente', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Sección etiquetas ─────────────────────────────────────────────────────
-
-  Widget _buildSeccionEtiquetas() {
-    final customTags = _etiquetasSeleccionadas
-        .where((e) => !kEtiquetasPredefinidas.contains(e))
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Etiquetas',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          'Segmenta al cliente con etiquetas predefinidas o crea las tuyas',
-          style: TextStyle(color: Colors.grey[500], fontSize: 12),
-        ),
-        const SizedBox(height: 12),
-
-        // Predefinidas
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: kEtiquetasPredefinidas.map((tag) {
-            final activa = _etiquetasSeleccionadas.contains(tag);
-            final color = ClientesService.colorEtiqueta(tag);
-            return FilterChip(
-              label: Text(tag,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: activa ? color : Colors.grey[700],
-                    fontWeight:
-                        activa ? FontWeight.w600 : FontWeight.normal,
-                  )),
-              selected: activa,
-              avatar: Icon(ClientesService.iconoEtiqueta(tag),
-                  size: 14,
-                  color: activa ? color : Colors.grey[500]),
-              onSelected: (v) => setState(() =>
-                  v ? _etiquetasSeleccionadas.add(tag) : _etiquetasSeleccionadas.remove(tag)),
-              selectedColor: color.withValues(alpha: 0.14),
-              checkmarkColor: color,
-              backgroundColor: Colors.grey[100],
-              side: BorderSide(color: activa ? color : Colors.grey[300]!),
-            );
-          }).toList(),
-        ),
-
-        // Etiquetas personalizadas seleccionadas
-        if (customTags.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: customTags
-                .map((tag) => Chip(
-                      label: Text(tag,
-                          style: TextStyle(
-                              fontSize: 13, color: Colors.grey[800])),
-                      deleteIcon:
-                          const Icon(Icons.close, size: 13),
-                      onDeleted: () => setState(
-                          () => _etiquetasSeleccionadas.remove(tag)),
-                      backgroundColor: Colors.grey[100],
-                      side: BorderSide(color: Colors.grey[350]!),
-                    ))
-                .toList(),
-          ),
-        ],
-
-        const SizedBox(height: 10),
-        // Añadir etiqueta personalizada
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _etiquetaCustomCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Nueva etiqueta personalizada...',
-                  prefixIcon:
-                      const Icon(Icons.label_outline, size: 18),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                ),
-                textCapitalization: TextCapitalization.words,
-                onSubmitted: (_) => _agregarEtiquetaCustom(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: _agregarEtiquetaCustom,
-              icon: const Icon(Icons.add_circle,
-                  color: Color(0xFF00796B), size: 28),
-              tooltip: 'Añadir etiqueta',
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _agregarEtiquetaCustom() {
-    final tag = _etiquetaCustomCtrl.text.trim();
-    if (tag.isNotEmpty && !_etiquetasSeleccionadas.contains(tag)) {
-      setState(() {
-        _etiquetasSeleccionadas.add(tag);
-        _etiquetaCustomCtrl.clear();
-      });
-    }
-  }
-
-  InputDecoration _inputDeco(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    );
-  }
-}
-
-// ── PANEL FILTROS AVANZADOS ───────────────────────────────────────────────────
-
-class _PanelFiltrosAvanzados extends StatefulWidget {
-  final double? minFacturacion;
-  final int? mesesActividad;
-  final String localidad;
-
-  const _PanelFiltrosAvanzados({
-    this.minFacturacion,
-    this.mesesActividad,
-    required this.localidad,
-  });
-
-  @override
-  State<_PanelFiltrosAvanzados> createState() =>
-      _PanelFiltrosAvanzadosState();
-}
-
-class _PanelFiltrosAvanzadosState extends State<_PanelFiltrosAvanzados> {
-  double? _minFacturacion;
-  int? _mesesActividad;
-  late TextEditingController _localidadCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _minFacturacion = widget.minFacturacion;
-    _mesesActividad = widget.mesesActividad;
-    _localidadCtrl = TextEditingController(text: widget.localidad);
-  }
-
-  @override
-  void dispose() {
-    _localidadCtrl.dispose();
-    super.dispose();
-  }
-
-  bool get _hayAlgunFiltro =>
-      _minFacturacion != null ||
-      _mesesActividad != null ||
-      _localidadCtrl.text.isNotEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Filtros avanzados',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
-                if (_hayAlgunFiltro)
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _minFacturacion = null;
-                      _mesesActividad = null;
-                      _localidadCtrl.clear();
-                    }),
-                    child: const Text('Limpiar todo',
-                        style: TextStyle(color: Color(0xFF00796B))),
-                  ),
+              if (ultimaVisita != null) ...[
+                _statDiv(),
+                _stat('ÚLTIMA', DateFormat('dd/MM/yy').format(ultimaVisita)),
+              ] else if (fechaRegistro != null) ...[
+                _statDiv(),
+                _stat('REGISTRO', DateFormat('dd/MM/yy').format(fechaRegistro)),
               ],
-            ),
-            const SizedBox(height: 20),
-
-            // ── Sección: Volumen de facturación ──────────────────────────────
-            _seccion(
-              titulo: 'Volumen de facturación',
-              icono: Icons.euro_symbol,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: kOpcionesFacturacion
-                    .map((op) => ChoiceChip(
-                          label: Text(op.label),
-                          selected: _minFacturacion == op.value,
-                          onSelected: (v) => setState(
-                              () => _minFacturacion = v ? op.value : null),
-                          selectedColor: const Color(0xFF00796B)
-                              .withValues(alpha: 0.14),
-                          checkmarkColor: const Color(0xFF00796B),
-                          labelStyle: TextStyle(
-                            color: _minFacturacion == op.value
-                                ? const Color(0xFF00796B)
-                                : Colors.grey[700],
-                            fontWeight: _minFacturacion == op.value
-                                ? FontWeight.w700
-                                : FontWeight.normal,
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-
-            // ── Sección: Última actividad ────────────────────────────────────
-            _seccion(
-              titulo: 'Última actividad',
-              icono: Icons.access_time,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: kOpcionesActividad
-                    .map((op) {
-                      final esInactivo = op.value < 0;
-                      final colorActivo = esInactivo
-                          ? const Color(0xFFD32F2F)
-                          : const Color(0xFF0D47A1);
-                      return ChoiceChip(
-                        label: Text(op.label),
-                        selected: _mesesActividad == op.value,
-                        onSelected: (v) => setState(
-                            () => _mesesActividad = v ? op.value : null),
-                        selectedColor:
-                            colorActivo.withValues(alpha: 0.12),
-                        checkmarkColor: colorActivo,
-                        labelStyle: TextStyle(
-                          color: _mesesActividad == op.value
-                              ? colorActivo
-                              : Colors.grey[700],
-                          fontWeight: _mesesActividad == op.value
-                              ? FontWeight.w700
-                              : FontWeight.normal,
-                        ),
-                      );
-                    })
-                    .toList(),
-              ),
-            ),
-
-            // ── Sección: Localidad ───────────────────────────────────────────
-            _seccion(
-              titulo: 'Localidad',
-              icono: Icons.place,
-              child: TextField(
-                controller: _localidadCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Filtrar por ciudad o localidad...',
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  suffixIcon: _localidadCtrl.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () {
-                            _localidadCtrl.clear();
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-
-            // ── Botón Aplicar ─────────────────────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context, {
-                  'min_facturacion': _minFacturacion,
-                  'meses_actividad': _mesesActividad,
-                  'localidad': _localidadCtrl.text.trim(),
-                }),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00796B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.check),
-                label: const Text('Aplicar filtros',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
+            ]),
+          ),
+        ]),
       ),
     );
   }
 
-  Widget _seccion({
-    required String titulo,
-    required IconData icono,
-    required Widget child,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icono, size: 16, color: const Color(0xFF00796B)),
-            const SizedBox(width: 6),
-            Text(titulo,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Color(0xFF37474F))),
-          ],
-        ),
-        const SizedBox(height: 10),
-        child,
-        const SizedBox(height: 16),
-        Divider(color: Colors.grey[200]),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-}
+  Widget _stat(String label, String value) => Expanded(child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 8.5, color: _soft, fontFamily: 'monospace', letterSpacing: 0.3)),
+      const SizedBox(height: 2),
+      Text(value, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _text),
+        overflow: TextOverflow.ellipsis),
+    ]));
 
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String valor;
-  final IconData icono;
+  Widget _statDiv() => Container(width: 1, height: 26, margin: const EdgeInsets.symmetric(horizontal: 8),
+    color: _border);
 
-  const _StatChip({required this.label, required this.valor, required this.icono});
+  Widget _iconAction(IconData icon, Color color, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 30, height: 30, margin: const EdgeInsets.only(left: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.2))),
+          child: Icon(icon, color: color, size: 14)));
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icono, color: Colors.white70, size: 18),
-        const SizedBox(height: 4),
-        Text(valor, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-      ],
-    );
-  }
-}
-
-// ── TAB INTERACCIONES ─────────────────────────────────────────────────────────
-
-class _TabInteracciones extends StatefulWidget {
-  final String empresaId;
-  final String clienteId;
-  final String usuarioNombre;
-
-  const _TabInteracciones({
-    required this.empresaId,
-    required this.clienteId,
-    required this.usuarioNombre,
-  });
-
-  @override
-  State<_TabInteracciones> createState() => _TabInteraccionesState();
-}
-
-class _TabInteraccionesState extends State<_TabInteracciones>
-    with AutomaticKeepAliveClientMixin {
-  final _svc = ClientesService();
-
-  @override
-  bool get wantKeepAlive => true;
-
-  static const _iconos = {
-    TipoInteraccion.llamada:  (icon: Icons.phone,         color: Color(0xFF2E7D32)),
-    TipoInteraccion.email:    (icon: Icons.email_outlined, color: Color(0xFF1976D2)),
-    TipoInteraccion.whatsapp: (icon: Icons.chat_bubble_outline, color: Color(0xFF25D366)),
-    TipoInteraccion.nota:     (icon: Icons.sticky_note_2_outlined, color: Color(0xFF607D8B)),
-    TipoInteraccion.reunion:  (icon: Icons.groups_outlined, color: Color(0xFF7B1FA2)),
-    TipoInteraccion.reserva:  (icon: Icons.event_outlined, color: Color(0xFFF57C00)),
-  };
-
-  String _formatFecha(DateTime fecha) {
-    final dif = DateTime.now().difference(fecha);
-    if (dif.inMinutes < 1) return 'Ahora';
-    if (dif.inMinutes < 60) return 'Hace ${dif.inMinutes}min';
-    if (dif.inHours < 24) return 'Hace ${dif.inHours}h';
-    if (dif.inDays == 1) return 'Ayer';
-    if (dif.inDays < 7) return 'Hace ${dif.inDays} días';
-    return DateFormat('dd/MM/yyyy').format(fecha);
+  Widget _tag(String tag) {
+    const colors = {
+      'VIP': _kAmbar, 'Frecuente': _kVerde, 'Moroso': _kRojo,
+      'Proveedor': _kAzul, 'Potencial': _kMorado,
+    };
+    final color = colors[tag] ?? _kAzul;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withValues(alpha: 0.35))),
+      child: Text(tag, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: color)));
   }
 
-  Future<void> _abrirFormulario() async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _SheetNuevaInteraccion(
-        empresaId: widget.empresaId,
-        clienteId: widget.clienteId,
-        usuarioNombre: widget.usuarioNombre,
-      ),
-    );
-  }
+  // ── Detalle cliente ───────────────────────────────────────────────────────
+  void _mostrarDetalleCliente(String id, Map<String, dynamic> d) {
+    final nombre    = (d['nombre'] ?? '') as String;
+    final telefono  = (d['telefono'] ?? '') as String;
+    final correo    = (d['correo'] ?? '') as String;
+    final notas     = (d['notas'] ?? '') as String;
+    final total     = ((d['total_gastado'] ?? 0) as num).toDouble();
+    final reservas  = ((d['numero_reservas'] ?? 0) as num).toInt();
+    final etiquetas = (d['etiquetas'] as List?)?.cast<String>() ?? <String>[];
+    final ultima    = _parseDate(d['ultima_visita'] ?? d['ultima_actividad']);
+    final registro  = _parseDate(d['fecha_registro']);
+    final avatar    = _avatarColor(nombre);
+    final iniciales = nombre.trim().split(' ').take(2)
+        .map((w) => w.isEmpty ? '' : w[0].toUpperCase()).join();
+    final ticketMedio = reservas > 0 ? (total / reservas) : 0.0;
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return StreamBuilder<List<InteraccionCliente>>(
-      stream: _svc.watchInteracciones(widget.empresaId, widget.clienteId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final items = snapshot.data ?? [];
-        return Stack(
-          children: [
-            if (items.isEmpty)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.forum_outlined, size: 60, color: Colors.grey[300]),
-                    const SizedBox(height: 12),
-                    Text('Sin interacciones registradas',
-                        style: TextStyle(color: Colors.grey[500])),
-                    const SizedBox(height: 4),
-                    Text('Pulsa + para registrar una llamada, nota...',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                  ],
-                ),
-              )
-            else
-              ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final item = items[i];
-                  final meta = _iconos[item.tipo] ??
-                      (icon: Icons.label_outline, color: const Color(0xFF607D8B));
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 4),
-                    leading: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: meta.color.withValues(alpha: 0.12),
-                      child: Icon(meta.icon, color: meta.color, size: 18),
-                    ),
-                    title: Text(
-                      item.descripcion,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    subtitle: Row(
-                      children: [
-                        Text(_formatFecha(item.fecha),
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.grey)),
-                        if (item.usuarioNombre.isNotEmpty) ...[
-                          const Text(' · ',
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
-                          Text(item.usuarioNombre,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.82),
+        decoration: BoxDecoration(color: _panel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          border: Border.all(color: _border)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 10),
+          Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(children: [
+              Container(width: 52, height: 52, decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14), color: avatar),
+                child: Center(child: Text(iniciales.isEmpty ? '?' : iniciales,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)))),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(nombre.isEmpty ? 'Sin nombre' : nombre,
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _text)),
+                if (correo.isNotEmpty) Text(correo, style: TextStyle(fontSize: 12, color: _soft)),
+                if (etiquetas.isNotEmpty)
+                  Padding(padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(spacing: 4, children: etiquetas.map(_tag).toList())),
+              ])),
+              GestureDetector(
+                onTap: () { Navigator.pop(ctx); _mostrarPopupCliente({'id': id, ...d}); },
+                child: Container(width: 30, height: 30, decoration: BoxDecoration(
+                  color: _inputBg, borderRadius: BorderRadius.circular(8), border: Border.all(color: _border)),
+                  child: Icon(Icons.edit_outlined, size: 15, color: _soft))),
+            ])),
+          // Stats rápidos
+          Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: Row(children: [
+              _detailKpi(Icons.shopping_bag_outlined, _kAzul, '$reservas', 'Visitas'),
+              const SizedBox(width: 10),
+              _detailKpi(Icons.euro_rounded, _kVerde, '${total.toStringAsFixed(0)}€', 'Facturado'),
+              const SizedBox(width: 10),
+              if (ticketMedio > 0)
+                _detailKpi(Icons.receipt_outlined, _kAmbar, '${ticketMedio.toStringAsFixed(0)}€', 'Ticket medio'),
+            ])),
+          Divider(height: 24, indent: 20, endIndent: 20, color: _border),
+          Flexible(child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            child: Column(children: [
+              if (telefono.isNotEmpty)
+                _infoRow(Icons.phone_outlined, 'TELÉFONO', telefono,
+                  onTap: () => launchUrl(Uri.parse('tel:$telefono'))),
+              if (correo.isNotEmpty)
+                _infoRow(Icons.email_outlined, 'CORREO', correo,
+                  onTap: () => launchUrl(Uri.parse('mailto:$correo'))),
+              if (ultima != null)
+                _infoRow(Icons.schedule_outlined, 'ÚLTIMA VISITA',
+                  DateFormat('dd MMMM yyyy', 'es').format(ultima)),
+              if (registro != null)
+                _infoRow(Icons.person_add_outlined, 'CLIENTE DESDE',
+                  DateFormat('dd MMMM yyyy', 'es').format(registro)),
+              if (notas.isNotEmpty)
+                Padding(padding: const EdgeInsets.only(top: 12),
+                  child: Container(width: double.infinity, padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(color: _inputBg, borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _border)),
+                    child: Text(notas, style: TextStyle(fontSize: 13, color: _soft, height: 1.5)))),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final ok = await showDialog<bool>(context: context,
+                      builder: (c) => AlertDialog(
+                        backgroundColor: _panel,
+                        title: Text('Eliminar cliente', style: TextStyle(color: _text)),
+                        content: Text('¿Eliminar a $nombre?', style: TextStyle(color: _soft)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+                          TextButton(onPressed: () => Navigator.pop(c, true),
+                            style: TextButton.styleFrom(foregroundColor: _kRojo),
+                            child: const Text('Eliminar')),
                         ],
-                      ],
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: meta.color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        item.tipo.label,
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: meta.color,
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            // FAB
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: FloatingActionButton.small(
-                heroTag: 'fab_interaccion_${widget.clienteId}',
-                onPressed: _abrirFormulario,
-                backgroundColor: const Color(0xFF00796B),
-                foregroundColor: Colors.white,
-                tooltip: 'Registrar interacción',
-                child: const Icon(Icons.add),
-              ),
-            ),
-          ],
-        );
-      },
+                    );
+                    if (ok == true) {
+                      await _firestore.collection('empresas').doc(widget.empresaId)
+                          .collection('clientes').doc(id).delete();
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 15),
+                  label: const Text('Eliminar'),
+                  style: OutlinedButton.styleFrom(foregroundColor: _kRojo,
+                    side: BorderSide(color: _kRojo.withValues(alpha: 0.4))),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: ElevatedButton.icon(
+                  onPressed: () { Navigator.pop(ctx); _mostrarPopupCliente({'id': id, ...d}); },
+                  icon: const Icon(Icons.edit_outlined, size: 15),
+                  label: const Text('Editar'),
+                  style: ElevatedButton.styleFrom(backgroundColor: _kAzul, foregroundColor: Colors.white,
+                    elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                )),
+              ]),
+              const SizedBox(height: 8),
+            ]),
+          )),
+        ]),
+      ),
     );
   }
-}
 
-// ── SHEET NUEVA INTERACCIÓN ───────────────────────────────────────────────────
+  Widget _detailKpi(IconData icon, Color color, String value, String label) => Expanded(child: Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withValues(alpha: 0.2))),
+    child: Row(children: [
+      Icon(icon, color: color, size: 16),
+      const SizedBox(width: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _text)),
+        Text(label, style: TextStyle(fontSize: 10, color: _soft)),
+      ]),
+    ]),
+  ));
 
-class _SheetNuevaInteraccion extends StatefulWidget {
-  final String empresaId;
-  final String clienteId;
-  final String usuarioNombre;
+  Widget _infoRow(IconData icon, String label, String value, {VoidCallback? onTap}) => GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(children: [
+        Icon(icon, size: 16, color: _soft),
+        const SizedBox(width: 12),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 9.5, color: _soft, fontFamily: 'monospace')),
+          const SizedBox(height: 1),
+          Text(value, style: TextStyle(fontSize: 13, color: onTap != null ? _kAzul : _text,
+            decoration: onTap != null ? TextDecoration.underline : null)),
+        ]),
+      ]),
+    ),
+  );
 
-  const _SheetNuevaInteraccion({
-    required this.empresaId,
-    required this.clienteId,
-    required this.usuarioNombre,
-  });
+  // ── Popup añadir / editar ─────────────────────────────────────────────────
+  void _mostrarPopupCliente([Map<String, dynamic>? data]) {
+    final esEdicion  = data != null && data.containsKey('id');
+    final id         = esEdicion ? data['id'] as String : null;
+    final nombreCtrl = TextEditingController(text: data?['nombre'] ?? '');
+    final telCtrl    = TextEditingController(text: data?['telefono'] ?? '');
+    final correoCtrl = TextEditingController(text: data?['correo'] ?? '');
+    final nifCtrl    = TextEditingController(text: data?['nif'] ?? '');
+    final dirCtrl    = TextEditingController(text: data?['direccion'] ?? '');
+    final notasCtrl  = TextEditingController(text: data?['notas'] ?? '');
+    final etiqSel    = <String>{...((data?['etiquetas'] as List?)?.cast<String>() ?? <String>[])};
+    bool guardando   = false;
 
-  @override
-  State<_SheetNuevaInteraccion> createState() => _SheetNuevaInteraccionState();
-}
-
-class _SheetNuevaInteraccionState extends State<_SheetNuevaInteraccion> {
-  final _svc = ClientesService();
-  final _descCtrl = TextEditingController();
-  TipoInteraccion _tipo = TipoInteraccion.nota;
-  bool _guardando = false;
-
-  @override
-  void dispose() {
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _guardar() async {
-    final desc = _descCtrl.text.trim();
-    if (desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Escribe una descripción')),
-      );
-      return;
-    }
-    setState(() => _guardando = true);
-    try {
-      await _svc.agregarInteraccion(
-        widget.empresaId,
-        widget.clienteId,
-        InteraccionCliente(
-          id: '',
-          tipo: _tipo,
-          fecha: DateTime.now(),
-          descripcion: desc,
-          usuarioNombre: widget.usuarioNombre,
-        ),
-      );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tipos = TipoInteraccion.values;
-    return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Registrar interacción',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-
-            // Selector de tipo
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: tipos.map((t) {
-                  final sel = _tipo == t;
-                  const colors = {
-                    TipoInteraccion.llamada:  Color(0xFF2E7D32),
-                    TipoInteraccion.email:    Color(0xFF1976D2),
-                    TipoInteraccion.whatsapp: Color(0xFF25D366),
-                    TipoInteraccion.nota:     Color(0xFF607D8B),
-                    TipoInteraccion.reunion:  Color(0xFF7B1FA2),
-                    TipoInteraccion.reserva:  Color(0xFFF57C00),
-                  };
-                  final color = colors[t] ?? const Color(0xFF607D8B);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(t.label),
-                      selected: sel,
-                      onSelected: (_) => setState(() => _tipo = t),
-                      selectedColor: color.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: sel ? color : Colors.grey[700],
-                        fontWeight:
-                            sel ? FontWeight.w700 : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                      side: BorderSide(
-                          color: sel ? color : Colors.grey[300]!),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Campo descripción
-            TextField(
-              controller: _descCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Descripción...',
-                filled: true,
-                fillColor: const Color(0xFFF5F7FA),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Botón guardar
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _guardando ? null : _guardar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00796B),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _guardando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Guardar',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.9),
+            decoration: BoxDecoration(color: _panel,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              border: Border.all(color: _border)),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 10),
+              Container(width: 36, height: 4,
+                decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+              Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Row(children: [
+                  Container(width: 32, height: 32, decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(9),
+                    gradient: LinearGradient(colors: [_kAzul.withValues(alpha: 0.18), _kAzul.withValues(alpha: 0.04)]),
+                    border: Border.all(color: _kAzul.withValues(alpha: 0.3))),
+                    child: const Icon(Icons.person_add_alt_1_rounded, color: _kAzul, size: 16)),
+                  const SizedBox(width: 10),
+                  Text(esEdicion ? 'Editar cliente' : 'Nuevo cliente',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _text)),
+                  const Spacer(),
+                  GestureDetector(onTap: () => Navigator.pop(ctx),
+                    child: Icon(Icons.close_rounded, size: 20, color: _soft)),
+                ])),
+              Divider(height: 20, indent: 20, endIndent: 20, color: _border),
+              Flexible(child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _popupField(nombreCtrl, 'NOMBRE *', 'Ej. Juan García'),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _popupField(telCtrl, 'TELÉFONO', '+34 600 000 000')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _popupField(correoCtrl, 'CORREO', 'juan@mail.com')),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: _popupField(nifCtrl, 'NIF / CIF', '12345678A')),
+                    const SizedBox(width: 10),
+                    Expanded(child: _popupField(dirCtrl, 'DIRECCIÓN', 'Calle...')),
+                  ]),
+                  const SizedBox(height: 10),
+                  _popupField(notasCtrl, 'NOTAS', 'Preferencias, observaciones...', maxLines: 2),
+                  const SizedBox(height: 12),
+                  Text('ETIQUETAS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                    color: _soft, letterSpacing: 0.4, fontFamily: 'monospace')),
+                  const SizedBox(height: 7),
+                  Wrap(spacing: 7, runSpacing: 7,
+                    children: kEtiquetasPredefinidas.map((tag) {
+                      final sel = etiqSel.contains(tag);
+                      const colors = {'VIP': _kAmbar, 'Frecuente': _kVerde, 'Moroso': _kRojo,
+                        'Proveedor': _kAzul, 'Potencial': _kMorado};
+                      final color = colors[tag] ?? _kAzul;
+                      return GestureDetector(
+                        onTap: () => setS(() { sel ? etiqSel.remove(tag) : etiqSel.add(tag); }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: sel ? color.withValues(alpha: 0.15) : _inputBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? color.withValues(alpha: 0.5) : _border)),
+                          child: Text(tag, style: TextStyle(fontSize: 12,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
+                            color: sel ? color : _soft))));
+                    }).toList()),
+                  const SizedBox(height: 20),
+                ]),
+              )),
+              Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                child: Row(children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(foregroundColor: _soft),
+                    child: const Text('Cancelar')),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: guardando ? null : () async {
+                      final nombre = nombreCtrl.text.trim();
+                      if (nombre.isEmpty) return;
+                      setS(() => guardando = true);
+                      try {
+                        final datos = {
+                          'nombre': nombre,
+                          'telefono': telCtrl.text.trim(),
+                          'correo': correoCtrl.text.trim(),
+                          if (nifCtrl.text.trim().isNotEmpty) 'nif': nifCtrl.text.trim(),
+                          if (dirCtrl.text.trim().isNotEmpty) 'direccion': dirCtrl.text.trim(),
+                          if (notasCtrl.text.trim().isNotEmpty) 'notas': notasCtrl.text.trim(),
+                          'etiquetas': etiqSel.toList(),
+                          'activo': true,
+                        };
+                        final col = _firestore.collection('empresas')
+                            .doc(widget.empresaId).collection('clientes');
+                        if (esEdicion) {
+                          await col.doc(id).update(datos);
+                        } else {
+                          datos['fecha_registro'] = Timestamp.now();
+                          datos['total_gastado']  = 0.0;
+                          datos['numero_reservas'] = 0;
+                          await col.add(datos);
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } finally {
+                        if (ctx.mounted) setS(() => guardando = false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: _kAzul, foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
+                    child: guardando
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(esEdicion ? 'Guardar' : 'Crear cliente',
+                          style: const TextStyle(fontWeight: FontWeight.w700))),
+                ])),
+            ]),
+          ),
         ),
       ),
     );
   }
+
+  Widget _popupField(TextEditingController ctrl, String label, String hint, {int maxLines = 1}) =>
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+        color: _soft, letterSpacing: 0.4, fontFamily: 'monospace')),
+      const SizedBox(height: 5),
+      TextField(controller: ctrl, maxLines: maxLines,
+        style: TextStyle(color: _text, fontSize: 13.5),
+        decoration: InputDecoration(
+          hintText: hint, hintStyle: TextStyle(color: _soft.withValues(alpha: 0.5), fontSize: 13),
+          filled: true, fillColor: _inputBg,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _kAzul, width: 1.5)))),
+    ]);
+
+  // ── Helpers UI ────────────────────────────────────────────────────────────
+  Widget _kpi(String num, String label, Color color) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+      decoration: BoxDecoration(color: _panel, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border)),
+      child: Stack(clipBehavior: Clip.none, children: [
+        Positioned(top: -12, right: -12, child: Container(width: 44, height: 44,
+          decoration: BoxDecoration(shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.30), blurRadius: 16, spreadRadius: 8)]))),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(num, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _text),
+            overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 1),
+          Text(label, style: TextStyle(fontSize: 9.5, color: _soft), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
+      ]),
+    ),
+  );
+
+  Widget _searchBox() => Container(
+    height: 36,
+    decoration: BoxDecoration(color: _inputBg, borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _border)),
+    child: TextField(
+      onChanged: (v) => setState(() => _busqueda = v.toLowerCase()),
+      style: TextStyle(color: _text, fontSize: 13),
+      decoration: InputDecoration(
+        hintText: 'Buscar cliente...',
+        hintStyle: TextStyle(color: _soft, fontSize: 12.5),
+        prefixIcon: Icon(Icons.search, color: _soft, size: 16),
+        border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 8)),
+    ),
+  );
+
+  Widget _sortBtn() => PopupMenuButton<String>(
+    onSelected: (v) => setState(() => _sortBy = v),
+    color: _panel,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: _border)),
+    child: Container(height: 36, width: 36,
+      decoration: BoxDecoration(color: _inputBg, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border)),
+      child: Icon(Icons.sort_rounded, color: _soft, size: 18)),
+    itemBuilder: (_) => [
+      _sortItem('nombre',  'Nombre',         Icons.sort_by_alpha),
+      _sortItem('total',   'Mayor gasto',    Icons.euro_rounded),
+      _sortItem('visita',  'Última visita',  Icons.schedule_outlined),
+      _sortItem('reciente','Más recientes',  Icons.fiber_new_outlined),
+    ],
+  );
+
+  PopupMenuItem<String> _sortItem(String val, String label, IconData icon) =>
+    PopupMenuItem(value: val, child: Row(children: [
+      Icon(icon, size: 16, color: _sortBy == val ? _kAzul : _soft),
+      const SizedBox(width: 10),
+      Text(label, style: TextStyle(fontSize: 13, color: _sortBy == val ? _kAzul : _text,
+        fontWeight: _sortBy == val ? FontWeight.w700 : FontWeight.normal)),
+    ]));
+
+  Widget _addBtn(VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 36, width: 36,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [_kAzul, Color(0xFF2563EB)]),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [BoxShadow(color: _kAzul.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: const Icon(Icons.add_rounded, color: Colors.white, size: 18)),
+  );
+
+  Widget _empty() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Icon(Icons.people_outline, size: 44, color: _soft.withValues(alpha: 0.3)),
+    const SizedBox(height: 8),
+    Text('No hay clientes', style: TextStyle(fontSize: 13, color: _soft)),
+    const SizedBox(height: 12),
+    GestureDetector(
+      onTap: () => _mostrarPopupCliente(),
+      child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [_kAzul, Color(0xFF2563EB)]),
+          borderRadius: BorderRadius.circular(10)),
+        child: const Text('Añadir primer cliente',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)))),
+  ]));
 }
-
-
-
-
-
-
-

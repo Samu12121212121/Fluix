@@ -1,7 +1,9 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
+import 'catalogo_csv_parser.dart';
 
 // ── MODELOS DE VALIDACIÓN ─────────────────────────────────────────────────────
 
@@ -38,28 +40,41 @@ class ImportacionCatalogoService {
 
   // ── PLANTILLA CSV ─────────────────────────────────────────────────────────
 
-  /// Genera el contenido CSV de la plantilla de ejemplo.
+  /// Plantilla universal — solo nombre y precio son obligatorios.
   String generarPlantillaCsv() {
     const converter = ListToCsvConverter();
     final filas = [
-      // Cabecera
       [
-        'nombre',
-        'tipo',
-        'categoria',
-        'precio',
-        'iva_porcentaje',
-        'duracion_minutos',
+        'nombre',         // OBLIGATORIO
+        'precio',         // OBLIGATORIO
+        'tipo',           // producto | servicio  (default: producto)
+        'categoria',      // (default: General)
+        'iva_porcentaje', // 0 / 4 / 10 / 21      (default: 21)
         'descripcion',
         'sku',
-        'codigo_barras',
-        'activo',
+        'codigo_barras',  // también acepta: isbn, ean, barcode
+        'stock',
+        'coste',
+        'precio_web',
+        'duracion_minutos',
+        'activo',         // true | false          (default: true)
+        'destacado',      // true | false          (default: false)
+        'alergenos',      // separados por ; ej: gluten;leche
+        'etiquetas',      // separados por ; ej: vegano;sin_gluten
+        'destino',        // cocina | barra  (solo restaurantes)
       ],
-      // Ejemplos
-      ['Café con leche', 'producto', 'Bebidas', '1.80', '10', '', 'Café con leche entera', 'CAF001', '', 'true'],
-      ['Corte de cabello', 'servicio', 'Cabello', '25.00', '21', '45', 'Corte y lavado incluido', 'COR001', '', 'true'],
-      ['Chuletón 500g', 'producto', 'Carnes', '18.50', '10', '', 'Chuletón de buey 500g', 'CHU001', '8412345678901', 'true'],
-      ['Masaje relajante', 'servicio', 'Masajes', '50.00', '21', '60', 'Masaje corporal completo', 'MAS001', '', 'true'],
+      // Producto normal (tienda/restaurante)
+      ['Café con leche', '1.80', 'producto', 'Bebidas', '10',
+       'Café con leche entera', 'CAF001', '', '', '0.30', '', '', 'true', 'false', '', '', 'barra'],
+      // Servicio (peluquería/estética)
+      ['Corte de cabello', '25.00', 'servicio', 'Cabello', '21',
+       'Corte y peinado', 'COR001', '', '', '', '', '45', 'true', 'false', '', '', ''],
+      // Producto con código de barras (retail)
+      ['Camiseta blanca M', '19.95', 'producto', 'Ropa', '21',
+       'Camiseta algodón 100%', 'CAM001', '8412345678901', '50', '8.00', '17.95', '', 'true', 'false', '', '', ''],
+      // Libro (editorial) — isbn en columna codigo_barras; autor va como columna extra
+      ['El nombre de la rosa', '18.95', 'producto', 'Novela histórica', '4',
+       'Un monje investiga crímenes en una abadía', 'NAZ001', '9788435014243', '30', '', '', '', 'true', 'true', '', '', ''],
     ];
     return converter.convert(filas);
   }
@@ -67,37 +82,40 @@ class ImportacionCatalogoService {
   // ── PARSEAR CSV ───────────────────────────────────────────────────────────
 
   List<FilaImportacion> parsearCsv(String contenido) {
-    const converter = CsvToListConverter(eol: '\n', fieldDelimiter: ',');
-    List<List<dynamic>> filas;
-    try {
-      filas = converter.convert(contenido.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
-    } catch (e) {
-      throw Exception('Error al parsear CSV: $e');
-    }
-
-    if (filas.isEmpty) return [];
-
-    // Primera fila = cabeceras
-    final cabeceras = filas.first
-        .map((c) => c.toString().trim().toLowerCase())
-        .toList();
-
-    return filas
-        .skip(1)
-        .toList()
-        .asMap()
-        .entries
-        .where((e) => e.value.any((c) => c.toString().trim().isNotEmpty))
-        .map((e) {
-          final fila = e.value;
-          final datos = <String, String>{};
-          for (int i = 0; i < cabeceras.length; i++) {
-            datos[cabeceras[i]] = i < fila.length ? fila[i].toString().trim() : '';
-          }
-          return FilaImportacion(numero: e.key + 2, datos: datos);
-        })
-        .toList();
+    final bytes = Uint8List.fromList(contenido.codeUnits);
+    final resultado = CatalogoCsvParser.parsear(bytes);
+    return resultado.filas.map((f) {
+      final datos = <String, String>{
+        'nombre':             f.nombre,
+        'precio':             f.precio.toString(),
+        'tipo':               f.tipo,
+        'categoria':          f.categoria,
+        'iva_porcentaje':     f.ivaPorcentaje.toString(),
+        'descripcion':        f.descripcion ?? '',
+        'sku':                f.sku ?? '',
+        'codigo_barras':      f.codigoBarras ?? '',
+        'stock':              f.stock?.toString() ?? '',
+        'coste':              f.coste?.toString() ?? '',
+        'precio_web':         f.precioWeb?.toString() ?? '',
+        'duracion_minutos':   f.duracionMinutos?.toString() ?? '',
+        'activo':             f.activo.toString(),
+        'destacado':          f.destacado.toString(),
+        'alergenos':          f.alergenos.join(';'),
+        'etiquetas':          f.etiquetas.join(';'),
+        'destino':            f.destino ?? '',
+        ..._extraComoStrings(f.atributosExtra),
+      };
+      return FilaImportacion(
+        numero: f.fila,
+        datos: datos,
+        errores: List<String>.from(f.errores),
+        valida: f.esValido,
+      );
+    }).toList();
   }
+
+  Map<String, String> _extraComoStrings(Map<String, dynamic> extra) =>
+      extra.map((k, v) => MapEntry(k, v.toString()));
 
   // ── VALIDAR ───────────────────────────────────────────────────────────────
 
@@ -106,63 +124,19 @@ class ImportacionCatalogoService {
     final skusEnImportacion = <String>{};
 
     for (final fila in filas) {
-      final errores = <String>[];
-
-      // nombre obligatorio
-      if ((fila.datos['nombre'] ?? '').isEmpty) {
-        errores.add('Nombre vacío');
-      }
-
-      // tipo
-      final tipo = fila.datos['tipo']?.toLowerCase() ?? '';
-      if (tipo.isNotEmpty && tipo != 'producto' && tipo != 'servicio') {
-        errores.add('Tipo debe ser "producto" o "servicio"');
-      }
-
-      // precio
-      final precioStr = fila.datos['precio'] ?? '';
-      final precio = double.tryParse(precioStr.replaceAll(',', '.'));
-      if (precioStr.isEmpty) {
-        errores.add('Precio vacío');
-      } else if (precio == null || precio < 0) {
-        errores.add('Precio inválido: $precioStr');
-      }
-
-      // iva_porcentaje
-      final ivaStr = fila.datos['iva_porcentaje'] ?? '';
-      if (ivaStr.isNotEmpty) {
-        final iva = double.tryParse(ivaStr);
-        if (iva == null || ![0.0, 4.0, 10.0, 21.0].contains(iva)) {
-          errores.add('IVA debe ser 0, 4, 10 o 21. Valor: $ivaStr');
-        }
-      }
-
-      // duracion_minutos (solo para servicios)
-      final duracionStr = fila.datos['duracion_minutos'] ?? '';
-      if (duracionStr.isNotEmpty) {
-        final dur = int.tryParse(duracionStr);
-        if (dur == null || dur < 0) {
-          errores.add('Duración inválida: $duracionStr');
-        }
-      }
-
-      // SKU duplicado
+      // El parser ya validó nombre y precio; solo revalidamos duplicados de SKU
       final sku = fila.datos['sku'] ?? '';
       if (sku.isNotEmpty) {
         if (skusExistentes.contains(sku)) {
-          errores.add('SKU "$sku" ya existe en el catálogo');
-        }
-        if (skusEnImportacion.contains(sku)) {
-          errores.add('SKU "$sku" duplicado en el CSV');
+          fila.errores.add('SKU "$sku" ya existe en el catálogo');
+          fila.valida = false;
+        } else if (skusEnImportacion.contains(sku)) {
+          fila.errores.add('SKU "$sku" duplicado en el CSV');
+          fila.valida = false;
         } else {
           skusEnImportacion.add(sku);
         }
       }
-
-      fila.errores
-        ..clear()
-        ..addAll(errores);
-      fila.valida = errores.isEmpty;
     }
 
     return filas;
@@ -204,30 +178,46 @@ class ImportacionCatalogoService {
             .collection('catalogo')
             .doc();
 
-        final nombre = fila.datos['nombre']!;
-        final categoria =
-            fila.datos['categoria']?.trim().isEmpty == true ||
-                    fila.datos['categoria'] == null
-                ? 'General'
-                : fila.datos['categoria']!.trim();
-        final precio =
-            double.parse(fila.datos['precio']!.replaceAll(',', '.'));
-        final iva = double.tryParse(fila.datos['iva_porcentaje'] ?? '') ?? 21;
-        final duracion = int.tryParse(fila.datos['duracion_minutos'] ?? '');
-        final sku = fila.datos['sku']?.trim().isEmpty == true
-            ? null
-            : fila.datos['sku']?.trim();
-        final codigoBarras =
-            fila.datos['codigo_barras']?.trim().isEmpty == true
-                ? null
-                : fila.datos['codigo_barras']?.trim();
-        final activo =
-            (fila.datos['activo'] ?? 'true').toLowerCase() != 'false';
-        final descripcion = fila.datos['descripcion']?.trim().isEmpty == true
-            ? null
-            : fila.datos['descripcion']?.trim();
+        String? _d(String k) {
+          final v = fila.datos[k]?.trim();
+          return (v == null || v.isEmpty) ? null : v;
+        }
 
-        // Crear categoría si no existe
+        final nombre    = fila.datos['nombre']!;
+        final categoria = _d('categoria') ?? 'General';
+        final precio    = double.parse(fila.datos['precio']!.replaceAll(',', '.'));
+        final iva       = double.tryParse(fila.datos['iva_porcentaje'] ?? '') ?? 21;
+        final activo    = (fila.datos['activo'] ?? 'true').toLowerCase() != 'false';
+        final destacado = (fila.datos['destacado'] ?? 'false').toLowerCase() == 'true';
+
+        final duracion    = int.tryParse(fila.datos['duracion_minutos'] ?? '');
+        final stockVal    = int.tryParse(fila.datos['stock'] ?? '');
+        final costeVal    = double.tryParse(fila.datos['coste']?.replaceAll(',', '.') ?? '');
+        final precioWebVal= double.tryParse(fila.datos['precio_web']?.replaceAll(',', '.') ?? '');
+
+        final destinoRaw  = _d('destino')?.toLowerCase();
+        final destino     = (destinoRaw == 'barra' || destinoRaw == 'cocina') ? destinoRaw : null;
+
+        List<String> _lista(String k) =>
+            (fila.datos[k] ?? '').split(';').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+        final alergenos = _lista('alergenos');
+        final etiquetas = _lista('etiquetas');
+
+        // Atributos extra: cualquier clave no estándar que esté en datos
+        final camposEstandar = {
+          'nombre', 'precio', 'tipo', 'categoria', 'iva_porcentaje', 'descripcion',
+          'sku', 'codigo_barras', 'stock', 'coste', 'precio_web', 'duracion_minutos',
+          'activo', 'destacado', 'alergenos', 'etiquetas', 'destino',
+        };
+        final atributosExtra = <String, dynamic>{};
+        if (costeVal != null) atributosExtra['coste'] = costeVal;
+        for (final entry in fila.datos.entries) {
+          if (!camposEstandar.contains(entry.key) && entry.value.isNotEmpty) {
+            atributosExtra[entry.key] = entry.value;
+          }
+        }
+
         if (!categoriasExistentes.contains(categoria)) {
           categoriasExistentes.add(categoria);
         }
@@ -236,16 +226,22 @@ class ImportacionCatalogoService {
           id: ref.id,
           empresaId: empresaId,
           nombre: nombre,
-          descripcion: descripcion,
+          descripcion: _d('descripcion'),
           categoria: categoria,
           precio: precio,
           ivaPorcentaje: iva,
           duracionMinutos: duracion,
-          sku: sku,
-          codigoBarras: codigoBarras,
+          sku: _d('sku'),
+          codigoBarras: _d('codigo_barras'),
+          stock: stockVal,
           activo: activo,
+          destacado: destacado,
+          destino: destino,
+          precioWeb: precioWebVal,
+          alergenos: alergenos,
+          etiquetas: etiquetas,
+          atributosExtra: atributosExtra,
           variantes: const [],
-          etiquetas: const [],
           fechaCreacion: DateTime.now(),
         ).toFirestore();
 

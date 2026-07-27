@@ -428,6 +428,8 @@ class Factura {
   final DateTime? fechaVencimiento;
   final DateTime? fechaPago;
   final DateTime? fechaActualizacion;
+  /// 'ingreso' (factura emitida) | 'gasto' (factura recibida/compra)
+  final String flujo;
 
   const Factura({
     required this.id,
@@ -470,6 +472,7 @@ class Factura {
     this.fechaVencimiento,
     this.fechaPago,
     this.fechaActualizacion,
+    this.flujo = 'ingreso',
   });
 
   bool get esPendiente => estado == EstadoFactura.pendiente;
@@ -524,6 +527,7 @@ class Factura {
     DateTime? fechaEmision,
     DateTime? fechaVencimiento,
     DateTime? fechaActualizacion,
+    String? flujo,
   }) => Factura(
     id: id ?? this.id,
     empresaId: empresaId ?? this.empresaId,
@@ -564,6 +568,7 @@ class Factura {
     fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
     fechaPago: fechaPago ?? this.fechaPago,
     fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+    flujo: flujo ?? this.flujo,
   );
 
   factory Factura.fromFirestore(DocumentSnapshot doc) {
@@ -622,6 +627,7 @@ class Factura {
       retencionIrpf: (d['retencion_irpf'] as num?)?.toDouble() ?? 0,
       totalRecargoEquivalencia: (d['total_recargo_equivalencia'] as num?)?.toDouble() ?? 0,
       diasVencimiento: (d['dias_vencimiento'] as num?)?.toInt() ?? 30,
+      flujo: d['flujo'] as String? ?? 'ingreso',
       metodoPago: d['metodo_pago'] != null
           ? MetodoPagoFactura.values.firstWhere(
               (e) => e.name == d['metodo_pago'],

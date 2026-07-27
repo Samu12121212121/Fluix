@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist TPV — PlaneaG</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; }
+    h1 { color: #00ffc8; font-size: 1.5rem; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 28px; }
+    .section { background: #1a1e2e; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; border-left: 3px solid #1565c0; }
+    .section.bar { border-left-color: #00ffc8; }
+    .section.cocina { border-left-color: #ff9800; }
+    .section.cobro { border-left-color: #e040fb; }
+    .section.config { border-left-color: #29b6f6; }
+    .section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #888; margin-bottom: 12px; }
+    .item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #252840; cursor: pointer; user-select: none; }
+    .item:last-child { border-bottom: none; }
+    .item input[type=checkbox] { width: 17px; height: 17px; margin-top: 2px; accent-color: #00ffc8; flex-shrink: 0; cursor: pointer; }
+    .item label { cursor: pointer; font-size: 0.9rem; line-height: 1.4; }
+    .item label span { display: block; font-size: 0.77rem; color: #666; margin-top: 2px; }
+    .item.done label { text-decoration: line-through; color: #555; }
+    .badge { display: inline-block; font-size: 0.65rem; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+    .badge.critico { background: #ff2850; color: #fff; }
+    .badge.recomendado { background: #1565c0; color: #fff; }
+    .progress-bar { height: 6px; background: #252840; border-radius: 6px; margin: 18px 0 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00ffc8; border-radius: 6px; transition: width 0.3s; }
+    .progress-text { font-size: 0.8rem; color: #888; text-align: right; margin-bottom: 24px; }
+    .reset-btn { background: none; border: 1px solid #333; color: #888; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; float: right; }
+    .reset-btn:hover { border-color: #555; color: #ccc; }
+  </style>
+</head>
+<body>
+
+<h1>✅ Checklist TPV — PlaneaG</h1>
+<p class="subtitle">Verifica cada punto antes de usar el TPV en un negocio real</p>
+
+<button class="reset-btn" onclick="resetAll()">↺ Reiniciar todo</button>
+
+<div class="progress-bar"><div class="progress-fill" id="bar"></div></div>
+<div class="progress-text" id="progress">0 / 0 completados</div>
+
+<!-- ───── CONFIG INICIAL ───── -->
+<div class="section config">
+  <div class="section-title">⚙️ Configuración inicial</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Empresa registrada y sesión iniciada<span>El usuario ve su empresa en el selector de negocio</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Serie de factura configurada <span class="badge critico">crítico</span><span>Ej: TPV- o FAC-. Sin esto la facturación no funciona</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Tipo de documento seleccionado<span>Ticket / Factura simplificada / Factura completa</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>IVA configurado correctamente<span>Marcar si los precios ya incluyen IVA o no</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Métodos de pago habilitados<span>Al menos Efectivo y Tarjeta activos en Config → Cobro</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>PIN de acceso configurado (opcional) <span class="badge recomendado">recomendado</span><span>Evita que empleados accedan a configuración</span></label>
+  </div>
+</div>
+
+<!-- ───── CATÁLOGO ───── -->
+<div class="section">
+  <div class="section-title">📦 Catálogo de productos</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Al menos un producto creado con nombre y precio<span>Gestionar catálogo → añadir producto</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Destino de cada producto asignado (Barra / Cocina) <span class="badge critico">crítico</span><span>Sin esto las comandas no se enrutan bien</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Categorías creadas y productos agrupados<span>Facilita encontrar productos rápido en el TPV</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Productos con IVA correcto asignado<span>8% bebidas, 10% comida, 21% según tipo</span></label>
+  </div>
+</div>
+
+<!-- ───── MESAS ───── -->
+<div class="section">
+  <div class="section-title">🪑 Mesas y zonas</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Mesas creadas con nombre y zona<span>Salón, Terraza, Barra, VIP… según el negocio</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Abrir una mesa y añadir comensales<span>Pulsar en mesa → número de comensales</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Añadir productos a la mesa desde el TPV<span>Buscar producto → pulsar → aparece en el ticket</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Enviar comanda a cocina/barra <span class="badge critico">crítico</span><span>Pulsar "Enviar" — la comanda debe aparecer en Pantalla Cocina</span></label>
+  </div>
+</div>
+
+<!-- ───── BARRA Y COCINA ───── -->
+<div class="section cocina">
+  <div class="section-title">🍺 Pantalla cocina / barra</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>La comanda enviada aparece en "Pendientes"<span>Si no aparece: revisar que el producto tiene destino asignado</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Filtros Todos / Cocina / Barra funcionan<span>Al filtrar "Barra" solo deben verse líneas de bebidas</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Comanda mixta muestra "+N líneas en otra estación"<span>Un pedido con plato+bebida debe separarse visualmente</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Botón "Iniciar" → estado "Haciendo" funciona<span>La tarjeta cambia de color naranja a cian</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Botón "Listo" → comanda pasa a columna derecha<span>Aparece en "Listos" con borde verde</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Notificación visual al llegar comanda nueva<span>SnackBar naranja debe aparecer cuando llega un pedido nuevo</span></label>
+  </div>
+</div>
+
+<!-- ───── COBRO ───── -->
+<div class="section cobro">
+  <div class="section-title">💳 Proceso de cobro</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Cobrar en efectivo con cambio correcto <span class="badge critico">crítico</span><span>Total 12,50€ → cliente da 15€ → cambio = 2,50€</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Cobrar con tarjeta<span>Debe registrarse el cobro y cerrar la mesa</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Cobro mixto (parte efectivo + parte tarjeta)<span>Introducir ambos importes — la suma debe ser igual al total</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Descuento aplicado correctamente<span>Descuento % y € en línea y en total del ticket</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Ticket generado tras cobrar<span>PDF o vista previa del ticket con datos correctos</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Mesa vuelve a estado "libre" tras cobrar <span class="badge critico">crítico</span><span>El plano de mesas debe actualizarse</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Fiado registrado con nombre de cliente<span>Pantalla Fiados → aparece el cobro pendiente</span></label>
+  </div>
+</div>
+
+<!-- ───── BARRA ESPECÍFICO ───── -->
+<div class="section bar">
+  <div class="section-title">🍻 Flujo específico de barra</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Caja rápida funciona (sin mesa) <span class="badge recomendado">recomendado</span><span>Pedido rápido de barra sin asignar mesa</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Impresora de barra configurada si hay segunda impresora<span>Config → Hardware → Impresora de barra → Puerto COM o IP</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Tiempo de alerta configurado (default 5 min)<span>Config → Hardware → Comportamiento de barra</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Resumen de barra del día consultado<span>Botón "Resumen barra" → muestra comandas + productos más servidos</span></label>
+  </div>
+</div>
+
+<!-- ───── CIERRE ───── -->
+<div class="section">
+  <div class="section-title">🔐 Cierre de caja</div>
+
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Apertura de caja registrada con fondo inicial<span>Antes de empezar el turno: indicar efectivo inicial</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Cierre de caja genera resumen correcto<span>Total efectivo, tarjeta, bizum… debe cuadrar con ventas</span></label>
+  </div>
+  <div class="item" onclick="toggle(this)">
+    <input type="checkbox">
+    <label>Historial de ventas visible<span>Las ventas del día deben aparecer en el historial</span></label>
+  </div>
+</div>
+
+<script>
+  const KEY = 'tpv_checklist_v1';
+
+  function getState() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  function getId(item) {
+    return item.querySelector('label').textContent.trim().substring(0, 40);
+  }
+
+  function toggle(item) {
+    const cb = item.querySelector('input[type=checkbox]');
+    cb.checked = !cb.checked;
+    item.classList.toggle('done', cb.checked);
+    const state = getState();
+    state[getId(item)] = cb.checked;
+    saveState(state);
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const all = document.querySelectorAll('.item');
+    const done = document.querySelectorAll('.item.done');
+    const pct = all.length ? Math.round(done.length / all.length * 100) : 0;
+    document.getElementById('bar').style.width = pct + '%';
+    document.getElementById('progress').textContent = `${done.length} / ${all.length} completados (${pct}%)`;
+  }
+
+  function resetAll() {
+    if (!confirm('¿Reiniciar todos los checks?')) return;
+    localStorage.removeItem(KEY);
+    document.querySelectorAll('.item').forEach(item => {
+      item.querySelector('input').checked = false;
+      item.classList.remove('done');
+    });
+    updateProgress();
+  }
+
+  // Restaurar estado al cargar
+  window.addEventListener('DOMContentLoaded', () => {
+    const state = getState();
+    document.querySelectorAll('.item').forEach(item => {
+      if (state[getId(item)]) {
+        item.querySelector('input').checked = true;
+        item.classList.add('done');
+      }
+    });
+    updateProgress();
+  });
+</script>
+</body>
+</html>

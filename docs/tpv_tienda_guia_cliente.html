@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TPV Tienda — Guía Completa de Funcionalidades y Vinculación Web</title>
+<style>
+  :root {
+    --verde: #1B5E20;
+    --verde-claro: #43A047;
+    --azul: #1565C0;
+    --gris-oscuro: #1A1A2E;
+    --gris: #555;
+    --fondo: #F8F9FA;
+    --blanco: #FFFFFF;
+    --borde: #E0E0E0;
+    --amarillo: #F57F17;
+    --rojo: #B71C1C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    color: var(--gris-oscuro);
+    background: var(--blanco);
+    line-height: 1.55;
+  }
+
+  /* ── PORTADA ── */
+  .portada {
+    background: linear-gradient(135deg, var(--verde) 0%, var(--azul) 100%);
+    color: white;
+    padding: 80px 60px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    page-break-after: always;
+  }
+  .portada .logo-area {
+    margin-bottom: 48px;
+    font-size: 13pt;
+    opacity: 0.85;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .portada h1 {
+    font-size: 36pt;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 20px;
+  }
+  .portada .subtitulo {
+    font-size: 16pt;
+    opacity: 0.9;
+    margin-bottom: 48px;
+  }
+  .portada .meta {
+    font-size: 10pt;
+    opacity: 0.7;
+    border-top: 1px solid rgba(255,255,255,0.3);
+    padding-top: 24px;
+  }
+
+  /* ── ÍNDICE ── */
+  .indice {
+    padding: 60px;
+    page-break-after: always;
+  }
+  .indice h2 { font-size: 22pt; color: var(--verde); margin-bottom: 32px; }
+  .indice ol { list-style: none; }
+  .indice li {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--borde);
+    font-size: 11pt;
+  }
+  .indice li .num { color: var(--verde); font-weight: 700; margin-right: 12px; }
+  .indice li .pg { color: var(--gris); font-size: 10pt; }
+  .indice .seccion-grupo {
+    font-weight: 700;
+    font-size: 12pt;
+    margin-top: 16px;
+    color: var(--gris-oscuro);
+  }
+  .indice .subseccion { padding-left: 24px; font-size: 10pt; color: var(--gris); }
+
+  /* ── PÁGINA NORMAL ── */
+  .pagina {
+    padding: 50px 60px;
+    page-break-before: always;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .pagina:first-of-type { page-break-before: avoid; }
+
+  /* ── CABECERA DE SECCIÓN ── */
+  .seccion-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 3px solid var(--verde);
+  }
+  .seccion-header .num-grande {
+    background: var(--verde);
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18pt;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .seccion-header h2 {
+    font-size: 20pt;
+    color: var(--verde);
+    font-weight: 700;
+  }
+
+  h3 {
+    font-size: 13pt;
+    color: var(--azul);
+    margin: 24px 0 10px;
+    font-weight: 700;
+  }
+  h4 {
+    font-size: 11pt;
+    color: var(--gris-oscuro);
+    margin: 16px 0 6px;
+    font-weight: 600;
+  }
+
+  p { margin-bottom: 10px; }
+
+  /* ── CAJAS ── */
+  .box {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 14px 0;
+  }
+  .box-verde { background: #E8F5E9; border-left: 4px solid var(--verde); }
+  .box-azul  { background: #E3F2FD; border-left: 4px solid var(--azul); }
+  .box-amarillo { background: #FFF8E1; border-left: 4px solid var(--amarillo); }
+  .box-rojo  { background: #FFEBEE; border-left: 4px solid var(--rojo); }
+  .box-gris  { background: var(--fondo); border: 1px solid var(--borde); }
+
+  /* ── TABLA ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 10pt;
+  }
+  th {
+    background: var(--verde);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--borde);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--fondo); }
+
+  /* ── CHIPS / BADGES ── */
+  .chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 9pt;
+    font-weight: 600;
+  }
+  .chip-verde  { background: #C8E6C9; color: var(--verde); }
+  .chip-azul   { background: #BBDEFB; color: var(--azul); }
+  .chip-naranja{ background: #FFE0B2; color: #E65100; }
+  .chip-nuevo  { background: #F3E5F5; color: #6A1B9A; }
+
+  /* ── LISTA FEATURE ── */
+  .feature-list { list-style: none; margin: 8px 0; }
+  .feature-list li {
+    padding: 6px 0;
+    padding-left: 26px;
+    position: relative;
+    border-bottom: 1px solid #F0F0F0;
+  }
+  .feature-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--verde-claro);
+    font-weight: 700;
+    font-size: 12pt;
+  }
+
+  /* ── FLUJO DE PASOS ── */
+  .pasos { counter-reset: paso; }
+  .paso {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+  }
+  .paso-num {
+    counter-increment: paso;
+    background: var(--azul);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-size: 12pt;
+  }
+  .paso-contenido h4 { margin-top: 4px; }
+
+  /* ── DIAGRAMA SIMPLE ── */
+  .diagrama {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .diagrama-nodo {
+    background: white;
+    border: 2px solid var(--verde);
+    border-radius: 10px;
+    padding: 12px 18px;
+    text-align: center;
+    font-size: 10pt;
+    font-weight: 600;
+    min-width: 110px;
+  }
+  .diagrama-nodo.azul { border-color: var(--azul); color: var(--azul); }
+  .diagrama-nodo.verde { border-color: var(--verde); color: var(--verde); }
+  .diagrama-nodo.naranja { border-color: #E65100; color: #E65100; }
+  .diagrama-flecha {
+    font-size: 20pt;
+    color: var(--gris);
+    padding: 0 8px;
+    line-height: 1;
+  }
+
+  /* ── CARD DOBLE COLUMNA ── */
+  .cols-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .card {
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: white;
+  }
+  .card h4 { color: var(--azul); margin-top: 0; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { font-size: 10pt; }
+    .portada { min-height: auto; padding: 60px 50px; }
+    .pagina { padding: 40px 50px; }
+    a { color: inherit; text-decoration: none; }
+    .no-print { display: none; }
+  }
+
+  /* ── FOOTER ── */
+  .pie-pagina {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 1px solid var(--borde);
+    font-size: 9pt;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .aviso-importante {
+    background: #FFF3E0;
+    border: 1px solid #FFB74D;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 10pt;
+  }
+  .aviso-importante strong { color: #E65100; }
+
+  /* columna estrecha */
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ PORTADA ══════════════════ -->
+<div class="portada">
+  <div class="logo-area">PlaneaG — Software de Gestión</div>
+  <h1>TPV Tienda</h1>
+  <div class="subtitulo">Guía completa de funcionalidades y vinculación con la web del cliente</div>
+  <div class="meta">
+    <p>Versión: Julio 2026 &nbsp;·&nbsp; Confidencial — Uso interno y presentación a clientes</p>
+  </div>
+</div>
+
+<!-- ══════════════════ ÍNDICE ══════════════════ -->
+<div class="indice">
+  <h2>Contenido</h2>
+  <ol>
+    <li><span><span class="num">1.</span> ¿Qué es el TPV Tienda?</span></li>
+    <li><span><span class="num">2.</span> Cómo funciona — Flujo de una venta</span></li>
+    <li><span><span class="num">3.</span> Funcionalidades del catálogo y gestión de productos</span></li>
+    <li><span><span class="num">4.</span> Gestión del ticket y opciones de cobro</span></li>
+    <li><span><span class="num">5.</span> Documentos fiscales — Ticket, factura y Veri*Factu</span></li>
+    <li><span><span class="num">6.</span> Hardware compatible (impresoras y datáfono)</span></li>
+    <li><span><span class="num">7.</span> Vinculación con la web del cliente</span></li>
+    <li><span><span class="num">8.</span> Configuración del TPV — Guía de opciones</span></li>
+    <li><span><span class="num">9.</span> Roles y permisos</span></li>
+    <li><span><span class="num">10.</span> Próximas funcionalidades — Hoja de ruta</span></li>
+  </ol>
+</div>
+
+<!-- ══════════════════ 1. QUÉ ES ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">1</div>
+    <h2>¿Qué es el TPV Tienda?</h2>
+  </div>
+
+  <p>El <strong>TPV Tienda</strong> es el módulo de punto de venta presencial de PlaneaG diseñado específicamente para comercio minorista, tiendas físicas y cualquier negocio que venda productos directamente al cliente en mostrador.</p>
+
+  <p>A diferencia del TPV de hostelería (mesas y comandas), el TPV Tienda es una <strong>venta directa en caja</strong>: catálogo a la izquierda, ticket a la derecha, cobro inmediato.</p>
+
+  <div class="box box-verde">
+    <strong>Propuesta de valor principal:</strong> Un único sistema que gestiona la venta presencial, genera automáticamente las facturas/tickets, descuenta el stock y sincroniza los pedidos con la web del cliente — todo en tiempo real y sin introducir datos dos veces.
+  </div>
+
+  <h3>¿Para qué tipo de negocio está pensado?</h3>
+  <div class="cols-2">
+    <div class="card">
+      <h4>Encaja muy bien en</h4>
+      <ul class="feature-list">
+        <li>Tiendas de ropa / moda</li>
+        <li>Ópticas y farmacias</li>
+        <li>Papelerías y librerías</li>
+        <li>Tiendas de decoración</li>
+        <li>Herbolarios y dietéticas</li>
+        <li>Comercio electrónico + tienda física</li>
+        <li>Talleres con venta de repuestos</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Características que lo definen</h4>
+      <ul class="feature-list">
+        <li>Pantalla horizontal (tablet/PC)</li>
+        <li>Catálogo visual con imágenes</li>
+        <li>Control de stock integrado</li>
+        <li>Lectura de códigos de barras</li>
+        <li>Múltiples métodos de pago</li>
+        <li>Sincronización web bidireccional</li>
+        <li>Funciona sin conexión (offline queue)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Arquitectura general</h3>
+  <div class="diagrama">
+    <div class="diagrama-nodo verde">App PlaneaG<br><small>TPV Tienda</small></div>
+    <div class="diagrama-flecha">⇄</div>
+    <div class="diagrama-nodo azul">Firebase<br><small>Base de datos en nube</small></div>
+    <div class="diagrama-flecha">⇄</div>
+    <div class="diagrama-nodo naranja">Web del cliente<br><small>catálogo + pedidos</small></div>
+  </div>
+  <p style="text-align:center;font-size:9pt;color:#999;">Todo se sincroniza en tiempo real. El stock que se vende en caja se refleja al instante en la web.</p>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 2. FLUJO DE VENTA ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">2</div>
+    <h2>Cómo funciona — Flujo de una venta</h2>
+  </div>
+
+  <p>El proceso completo desde que el cliente llega al mostrador hasta que sale con su ticket dura habitualmente <strong>menos de 30 segundos</strong>.</p>
+
+  <div class="pasos">
+    <div class="paso">
+      <div class="paso-num">1</div>
+      <div class="paso-contenido">
+        <h4>Empleado abre el TPV y selecciona su turno</h4>
+        <p>Al arrancar, aparece un banner superior con los empleados dados de alta. El cajero se identifica tocando su nombre para que las ventas queden registradas a su turno.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">2</div>
+      <div class="paso-contenido">
+        <h4>Selección de productos del catálogo</h4>
+        <p>El panel izquierdo muestra el catálogo completo en un grid de tarjetas con imagen, nombre, precio y stock. El empleado puede:</p>
+        <ul class="feature-list">
+          <li>Tocar la tarjeta del producto</li>
+          <li>Escanear el código de barras con lector USB/Bluetooth</li>
+          <li>Escanear con la cámara del dispositivo</li>
+          <li>Buscar por nombre en el campo de búsqueda</li>
+          <li>Añadir un "producto libre" (precio manual, sin catálogo)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">3</div>
+      <div class="paso-contenido">
+        <h4>Gestión del ticket (panel derecho)</h4>
+        <p>Cada producto añadido aparece en el ticket. El cajero puede ajustar cantidad, editar precio, aplicar descuentos por línea o un descuento global porcentual, y aplicar un cupón de descuento.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">4</div>
+      <div class="paso-contenido">
+        <h4>Vincular cliente (opcional)</h4>
+        <p>Se puede buscar y asociar un cliente de la base de datos al ticket. El nombre del cliente queda registrado en el pedido y puede recibir la factura por email automáticamente.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">5</div>
+      <div class="paso-contenido">
+        <h4>Cobro</h4>
+        <p>Se pulsa "Cobrar X €" y aparece el diálogo de pago donde el cajero selecciona el método (efectivo, tarjeta, Bizum…). Si paga en efectivo, el sistema calcula el cambio automáticamente.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">6</div>
+      <div class="paso-contenido">
+        <h4>Post-cobro automático</h4>
+        <p>Al confirmar el cobro, el sistema ejecuta todas estas acciones de forma automática y simultánea:</p>
+        <div class="cols-2">
+          <div class="box box-verde" style="margin:4px 0;">
+            <ul class="feature-list">
+              <li>Genera el ticket/factura en PDF</li>
+              <li>Descuenta el stock del catálogo</li>
+              <li>Registra el pedido en Firestore</li>
+            </ul>
+          </div>
+          <div class="box box-azul" style="margin:4px 0;">
+            <ul class="feature-list">
+              <li>Imprime el ticket en la impresora</li>
+              <li>Abre el cajón registradora (si aplica)</li>
+              <li>Envía el PDF por email al cliente</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Modo "Pedido en espera"</h3>
+  <p>Si hay un cliente esperando mientras se atiende a otro, el cajero puede pausar el ticket actual (con una etiqueta identificativa), atender al nuevo cliente y retomar el ticket pausado en cualquier momento. <span class="chip chip-verde">Sin límite de tickets en espera</span></p>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 3. CATÁLOGO ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">3</div>
+    <h2>Catálogo y gestión de productos</h2>
+  </div>
+
+  <h3>Estructura del catálogo</h3>
+  <p>El catálogo es compartido entre el TPV presencial y la web del cliente. Cualquier cambio en un producto se refleja instantáneamente en ambos canales.</p>
+
+  <table>
+    <tr>
+      <th>Campo</th>
+      <th>Descripción</th>
+      <th>Obligatorio</th>
+    </tr>
+    <tr>
+      <td><strong>Nombre</strong></td>
+      <td>Nombre del producto tal como aparece en el ticket y la web</td>
+      <td><span class="chip chip-verde">Sí</span></td>
+    </tr>
+    <tr>
+      <td><strong>Precio</strong></td>
+      <td>Precio de venta al público (puede ser con o sin IVA según configuración)</td>
+      <td><span class="chip chip-verde">Sí</span></td>
+    </tr>
+    <tr>
+      <td><strong>Categoría</strong></td>
+      <td>Agrupa productos en pestañas/filtros en el catálogo</td>
+      <td><span class="chip chip-naranja">Recomendado</span></td>
+    </tr>
+    <tr>
+      <td><strong>IVA (%)</strong></td>
+      <td>Porcentaje de IVA aplicable: 4%, 10%, 21%</td>
+      <td><span class="chip chip-verde">Sí</span></td>
+    </tr>
+    <tr>
+      <td><strong>Stock</strong></td>
+      <td>Unidades disponibles. Se decrementa automáticamente al vender</td>
+      <td><span class="chip chip-azul">Opcional</span></td>
+    </tr>
+    <tr>
+      <td><strong>Stock mínimo</strong></td>
+      <td>Umbral de aviso: el producto aparece en amarillo cuando baja de este valor</td>
+      <td><span class="chip chip-azul">Opcional</span></td>
+    </tr>
+    <tr>
+      <td><strong>Código de barras</strong></td>
+      <td>EAN-13 o cualquier formato. Permite escanear con lector o cámara</td>
+      <td><span class="chip chip-azul">Opcional</span></td>
+    </tr>
+    <tr>
+      <td><strong>Imagen</strong></td>
+      <td>Foto del producto. Se muestra en la tarjeta del catálogo y en la web</td>
+      <td><span class="chip chip-azul">Opcional</span></td>
+    </tr>
+    <tr>
+      <td><strong>Variantes</strong></td>
+      <td>Tallas, colores, sabores… cada variante puede tener precio diferente</td>
+      <td><span class="chip chip-azul">Opcional</span></td>
+    </tr>
+  </table>
+
+  <h3>Gestión del catálogo desde el TPV</h3>
+  <ul class="feature-list">
+    <li><strong>Crear producto:</strong> botón "Nuevo producto" en la barra de categorías (solo admin)</li>
+    <li><strong>Editar producto:</strong> mantener pulsado la tarjeta del producto en el catálogo</li>
+    <li><strong>Importar CSV:</strong> sube un fichero CSV para cargar o actualizar todo el catálogo de una vez</li>
+    <li><strong>Subir imágenes:</strong> herramienta para subir imágenes en bloque a todos los productos</li>
+    <li><strong>Código no encontrado:</strong> si se escanea un código que no existe, el sistema ofrece crear el producto al instante con ese código prerellenado</li>
+  </ul>
+
+  <h3>Control de stock en tiempo real</h3>
+  <div class="cols-2">
+    <div class="box box-verde">
+      <strong>Stock normal</strong><br>
+      Tarjeta en verde con el número de unidades disponibles.
+    </div>
+    <div class="box box-amarillo">
+      <strong>Stock bajo</strong><br>
+      Tarjeta en amarillo con icono de advertencia cuando el stock ≤ stock mínimo.
+    </div>
+  </div>
+  <div class="box box-rojo">
+    <strong>Sin stock:</strong> La tarjeta aparece oscurecida con el texto "SIN STOCK" y no se puede añadir al ticket. Configurable: se puede permitir la venta igualmente desactivando el bloqueo en la configuración.
+  </div>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 4. TICKET Y COBRO ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">4</div>
+    <h2>Gestión del ticket y opciones de cobro</h2>
+  </div>
+
+  <h3>Acciones disponibles en el ticket</h3>
+  <table>
+    <tr>
+      <th>Acción</th>
+      <th>Descripción</th>
+    </tr>
+    <tr>
+      <td><strong>+/− cantidad</strong></td>
+      <td>Botones de incremento/decremento rápido en cada línea</td>
+    </tr>
+    <tr>
+      <td><strong>Editar cantidad</strong></td>
+      <td>Toca el número de cantidad para introducir el valor directamente con teclado</td>
+    </tr>
+    <tr>
+      <td><strong>Editar precio</strong></td>
+      <td>Toca el precio unitario para modificarlo manualmente (override del catálogo)</td>
+    </tr>
+    <tr>
+      <td><strong>Descuento por línea</strong></td>
+      <td>Aplica un descuento en % o importe fijo a un producto concreto del ticket</td>
+    </tr>
+    <tr>
+      <td><strong>Descuento global</strong></td>
+      <td>Descuento porcentual sobre el total: 5%, 10%, 15%, 20%, 25%, 50%</td>
+    </tr>
+    <tr>
+      <td><strong>Cupón de descuento</strong></td>
+      <td>Campo para introducir un código de cupón válido. El sistema verifica y aplica el descuento</td>
+    </tr>
+    <tr>
+      <td><strong>Vincular cliente</strong></td>
+      <td>Búsqueda de cliente en la base de datos para asociar el pedido</td>
+    </tr>
+    <tr>
+      <td><strong>Producto libre</strong></td>
+      <td>Añade un artículo con nombre y precio manual, sin necesidad de estar en el catálogo</td>
+    </tr>
+    <tr>
+      <td><strong>Poner en espera</strong></td>
+      <td>Pausa el ticket activo con una etiqueta para recuperarlo después</td>
+    </tr>
+    <tr>
+      <td><strong>Limpiar ticket</strong></td>
+      <td>Vacía el ticket actual para empezar de cero</td>
+    </tr>
+  </table>
+
+  <h3>Métodos de pago disponibles</h3>
+  <div class="tag-row">
+    <span class="chip chip-verde">💵 Efectivo</span>
+    <span class="chip chip-azul">💳 Tarjeta</span>
+    <span class="chip chip-azul">📱 Bizum</span>
+    <span class="chip chip-azul">🏦 Transferencia</span>
+    <span class="chip chip-azul">🎁 Cheque regalo</span>
+    <span class="chip chip-naranja">⚡ Personalizado</span>
+  </div>
+  <p style="margin-top:10px;">Cada negocio configura qué métodos activa. Se pueden añadir métodos personalizados (ej: "Pago con vale empleado").</p>
+
+  <h3>Cobro mixto</h3>
+  <p>El cajero puede dividir el pago entre varios métodos. Por ejemplo, 30 € en efectivo y el resto con tarjeta. Cada importe parcial queda registrado en el pedido.</p>
+
+  <h3>Cierre de caja</h3>
+  <p>Al final del turno el empleado realiza el cierre de caja desde el botón del resumen en la barra superior. El informe incluye:</p>
+  <ul class="feature-list">
+    <li>Total vendido desglosado por método de pago</li>
+    <li>Número de tickets del turno</li>
+    <li>Importe en caja (fondo inicial + efectivo cobrado)</li>
+    <li>Devoluciones realizadas</li>
+    <li>Estadísticas por empleado</li>
+  </ul>
+
+  <h3>Devoluciones</h3>
+  <p>Accesibles desde el icono de devolución en la barra superior. Se localiza el ticket original por número y se gestiona la devolución total o parcial. Queda registrada y el stock se repone automáticamente.</p>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 5. DOCUMENTOS FISCALES ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">5</div>
+    <h2>Documentos fiscales</h2>
+  </div>
+
+  <p>Al cobrar, el TPV puede generar automáticamente el documento fiscal adecuado. El tipo se configura según el perfil del negocio.</p>
+
+  <h3>Tipos de documento</h3>
+  <table>
+    <tr>
+      <th>Tipo</th>
+      <th>Cuándo usarlo</th>
+      <th>Límite</th>
+    </tr>
+    <tr>
+      <td><strong>🧾 Ticket</strong></td>
+      <td>Venta al público sin datos de cliente. No tiene desglose fiscal explícito.</td>
+      <td>Sin límite</td>
+    </tr>
+    <tr>
+      <td><strong>📄 Factura simplificada</strong></td>
+      <td>Venta con IVA desglosado. No necesita NIF del cliente. Válida para la mayoría de comercios.</td>
+      <td>Hasta 3.000 €</td>
+    </tr>
+    <tr>
+      <td><strong>📋 Factura completa</strong></td>
+      <td>Requiere NIF y datos del cliente. El cliente puede deducirse el IVA. Uso B2B o clientes empresa.</td>
+      <td>Sin límite</td>
+    </tr>
+  </table>
+
+  <h3>Modos de facturación</h3>
+  <div class="cols-2">
+    <div class="card">
+      <h4>Por cada venta</h4>
+      <p>Se genera un documento por cada pedido, en el momento de cobrar. Ideal para negocios B2B donde cada cliente quiere su factura inmediata.</p>
+    </div>
+    <div class="card">
+      <h4>Resumen diario <span class="chip chip-verde">Recomendado</span></h4>
+      <p>Agrupa todas las ventas del día en una sola factura al cierre. Ideal para comercio minorista y hostelería. Reduce el número de documentos.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:8px;">
+    <h4>Manual</h4>
+    <p>El usuario decide cuándo generar la factura desde el menú de configuración del TPV. Máxima flexibilidad.</p>
+  </div>
+
+  <h3>Plantillas PDF personalizadas</h3>
+  <p>Cada tipo de documento (ticket, factura simplificada, factura completa) puede tener su propia plantilla PDF con el logo, colores y datos de la empresa. Las plantillas se gestionan en <strong>Perfil → Plantillas PDF</strong> y se asignan en la configuración del TPV.</p>
+
+  <h3>Veri*Factu <span class="chip chip-nuevo">Normativa 2025</span></h3>
+  <div class="aviso-importante">
+    <strong>Obligatorio para muchos negocios a partir de 2025.</strong> Cuando está activado, el sistema añade a cada factura un <strong>código QR</strong> y una <strong>huella digital</strong> conforme al Real Decreto 1007/2023 que permite a la AEAT verificar la autenticidad del documento. Requiere certificado digital instalado en la empresa.
+  </div>
+
+  <h3>Serie de facturación</h3>
+  <p>El TPV usa una serie propia configurable (ej: <code>TPV-</code>) para no mezclar la numeración de facturas manuales con las del punto de venta. La numeración es correlativa y automática.</p>
+
+  <h3>Envío por email</h3>
+  <p>Si el pedido tiene cliente vinculado con email, el sistema puede enviar automáticamente el PDF de la factura al terminar de cobrar. Configurable como automático o bajo demanda.</p>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 6. HARDWARE ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">6</div>
+    <h2>Hardware compatible</h2>
+  </div>
+
+  <h3>Impresoras de tickets</h3>
+  <table>
+    <tr>
+      <th>Tipo</th>
+      <th>Conexión</th>
+      <th>Formatos</th>
+      <th>Notas</th>
+    </tr>
+    <tr>
+      <td><strong>Impresora Bluetooth</strong></td>
+      <td>Bluetooth</td>
+      <td>Ticket 80mm / 58mm</td>
+      <td>Se vincula desde la app. Ideal para tablets. Detecta las impresoras emparejadas en el sistema.</td>
+    </tr>
+    <tr>
+      <td><strong>Impresora Windows</strong></td>
+      <td>USB (puerto COM) o Red WiFi (TCP/IP)</td>
+      <td>Ticket 80mm / 58mm / PDF A4</td>
+      <td>Para uso en PC de mostrador. Auto-detección de puertos COM1–COM20.</td>
+    </tr>
+    <tr>
+      <td><strong>Impresora de barra</strong></td>
+      <td>COM o Red WiFi</td>
+      <td>Comandas de barra</td>
+      <td>Segunda impresora exclusiva para la zona de bebidas o cocina. Si no se configura, usa la principal.</td>
+    </tr>
+  </table>
+
+  <h3>Cajón registradora</h3>
+  <p>Compatible con cualquier cajón ESC/POS estándar conectado a la impresora. El sistema lo abre automáticamente al cobrar (configurable: solo en efectivo, o siempre). Soporta Pin 2 y Pin 5.</p>
+
+  <h3>Datáfono (terminal física de cobro)</h3>
+  <table>
+    <tr>
+      <th>Modo</th>
+      <th>Descripción</th>
+    </tr>
+    <tr>
+      <td><strong>Manual</strong></td>
+      <td>El TPV muestra el importe en grande y el cajero lo introduce manualmente en el datáfono. No requiere ninguna configuración adicional.</td>
+    </tr>
+    <tr>
+      <td><strong>SumUp Solo</strong></td>
+      <td>El TPV envía el importe automáticamente al terminal SumUp vía WiFi (API local). El cajero solo confirma en el lector de tarjetas.</td>
+    </tr>
+    <tr>
+      <td><strong>Terminal genérico HTTP</strong></td>
+      <td>Integración con cualquier datáfono que exponga una API REST en la red local. Se configura IP y puerto.</td>
+    </tr>
+  </table>
+
+  <h3>Lector de código de barras</h3>
+  <ul class="feature-list">
+    <li><strong>Lector USB o Bluetooth:</strong> funciona como teclado físico. El código se introduce en el campo de búsqueda automáticamente.</li>
+    <li><strong>Cámara del dispositivo:</strong> botón de cámara en el buscador que abre un escáner de código de barras en tiempo real.</li>
+  </ul>
+
+  <div class="box box-azul">
+    <strong>Consejo de instalación:</strong> Para la mayoría de tiendas recomendamos un PC de mostrador con Windows + impresora USB 80mm + cajón registradora. Para tiendas con tablet, la combinación Bluetooth es más limpia estéticamente.
+  </div>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 7. VINCULACIÓN WEB ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">7</div>
+    <h2>Vinculación con la web del cliente</h2>
+  </div>
+
+  <p>Esta es una de las grandes ventajas de PlaneaG respecto a TPVs standalone: el catálogo, el stock y los pedidos son <strong>los mismos datos</strong> tanto para la tienda física como para la tienda online del cliente. No hay doble entrada, no hay sincronizaciones manuales.</p>
+
+  <h3>¿Qué se sincroniza automáticamente?</h3>
+  <table>
+    <tr>
+      <th>Dato</th>
+      <th>Dirección</th>
+      <th>Qué significa en la práctica</th>
+    </tr>
+    <tr>
+      <td><strong>Catálogo de productos</strong></td>
+      <td>TPV ↔ Web</td>
+      <td>Un producto creado o modificado en el TPV aparece en la web al instante. Y viceversa.</td>
+    </tr>
+    <tr>
+      <td><strong>Stock</strong></td>
+      <td>TPV → Web</td>
+      <td>Cada venta en caja descuenta el stock. Si un producto se agota en tienda, desaparece o se marca como "Sin stock" en la web.</td>
+    </tr>
+    <tr>
+      <td><strong>Pedidos web</strong></td>
+      <td>Web → TPV</td>
+      <td>Los pedidos que llegan de la tienda online aparecen en el panel de gestión de PlaneaG para ser preparados y despachados.</td>
+    </tr>
+    <tr>
+      <td><strong>Imágenes de productos</strong></td>
+      <td>TPV → Web</td>
+      <td>Las fotos subidas al catálogo se muestran en la web automáticamente.</td>
+    </tr>
+    <tr>
+      <td><strong>Precios y categorías</strong></td>
+      <td>TPV ↔ Web</td>
+      <td>Un cambio de precio es inmediato en ambos canales.</td>
+    </tr>
+  </table>
+
+  <h3>Opciones de integración web</h3>
+  <div class="cols-2">
+    <div class="card">
+      <h4>Opción A — Widget embebible</h4>
+      <p>PlaneaG proporciona un <strong>formulario/widget JavaScript</strong> que el cliente (o su agencia web) pega en su web existente (WordPress, Wix, etc.). El catálogo se carga dinámicamente desde Firebase.</p>
+      <p><em>Ventaja:</em> el cliente mantiene su web actual.</p>
+      <p><em>Requisito:</em> acceso al código de la web para insertar el script.</p>
+    </div>
+    <div class="card">
+      <h4>Opción B — Web independiente</h4>
+      <p>PlaneaG puede generar una <strong>página web de tienda propia</strong> alojada en la nube (Firebase Hosting o dominio personalizado) que muestra el catálogo y recibe pedidos.</p>
+      <p><em>Ventaja:</em> no necesita web previa.</p>
+      <p><em>Requisito:</em> configurar el dominio del cliente (puede ser un subdominio).</p>
+    </div>
+  </div>
+
+  <h3>Cómo configurar la vinculación — Pasos</h3>
+  <div class="pasos">
+    <div class="paso">
+      <div class="paso-num">1</div>
+      <div class="paso-contenido">
+        <h4>Obtener el ID de empresa</h4>
+        <p>En PlaneaG, cada empresa tiene un <code>empresaId</code> único. Es el identificador que conecta el TPV con la web. Se obtiene desde el panel de administración.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">2</div>
+      <div class="paso-contenido">
+        <h4>Elegir el tipo de integración (A o B)</h4>
+        <p>Si el cliente ya tiene web: Opción A (widget). Si necesita web nueva o prefiere una tienda online completa: Opción B.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">3</div>
+      <div class="paso-contenido">
+        <h4>Configurar los permisos de Firestore</h4>
+        <p>La base de datos de PlaneaG está en Firebase. Para que la web lea el catálogo público, el administrador activa los permisos de lectura pública sobre la colección <code>catalogo</code> de esa empresa.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">4</div>
+      <div class="paso-contenido">
+        <h4>Configurar el método de pago online</h4>
+        <p>Los pedidos online se pagan a través de <strong>Stripe</strong> (pasarela de pago integrada). Se necesita una cuenta Stripe del cliente y configurar las claves API en PlaneaG.</p>
+      </div>
+    </div>
+    <div class="paso">
+      <div class="paso-num">5</div>
+      <div class="paso-contenido">
+        <h4>Pruebas y puesta en marcha</h4>
+        <p>Verificar que un producto creado en el TPV aparece en la web, que una compra online llega al panel y que el stock se decrementa correctamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Pedidos online en el TPV</h3>
+  <p>Los pedidos que llegan de la tienda online (con Stripe) aparecen en PlaneaG con el estado "pendiente de preparar". El equipo los puede preparar, marcar como enviados y generar la factura correspondiente, todo desde la misma app.</p>
+
+  <div class="aviso-importante">
+    <strong>Punto clave para el cliente:</strong> No hay que usar dos sistemas diferentes. Con un solo acceso a PlaneaG, el negocio gestiona tanto la caja física como la tienda online, ve todos los pedidos (presenciales y web) en un solo historial y controla el stock de manera unificada.
+  </div>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 8. CONFIGURACIÓN ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">8</div>
+    <h2>Configuración del TPV</h2>
+  </div>
+
+  <p>Toda la configuración del TPV se centraliza en la pantalla <strong>Configuración TPV</strong>, organizada en 5 pestañas:</p>
+
+  <h3>Pestaña 1 — Hardware</h3>
+  <ul class="feature-list">
+    <li>Formato de impresión: Ticket 80mm, Ticket 58mm o PDF A4</li>
+    <li>Impresora Bluetooth (Android/iOS) o Windows (USB COM / Red WiFi)</li>
+    <li>Impresora de barra secundaria (COM o WiFi)</li>
+    <li>Notificación visual y tiempo de alerta de barra</li>
+    <li>Terminal física de cobro (Manual / SumUp / Genérico HTTP)</li>
+    <li>Cajón registradora: abrir siempre o solo en efectivo, Pin 2/5</li>
+  </ul>
+
+  <h3>Pestaña 2 — Documentos</h3>
+  <ul class="feature-list">
+    <li>Tipo de documento al cobrar: Ticket / Factura simplificada / Factura completa</li>
+    <li>Plantillas PDF personalizadas por tipo de documento</li>
+    <li>Mensaje al pie del ticket</li>
+    <li>Número de copias al imprimir (1, 2 ó 3)</li>
+    <li>Serie de facturación y prefijo (ej: TPV-2025-)</li>
+    <li>Días de vencimiento de facturas</li>
+  </ul>
+
+  <h3>Pestaña 3 — Cobro</h3>
+  <ul class="feature-list">
+    <li>Métodos de pago activos en la pantalla de cobro</li>
+    <li>Pedir datos del cliente al cobrar (para factura completa)</li>
+    <li>Imprimir automáticamente al cobrar</li>
+    <li>Enviar PDF por email automáticamente</li>
+    <li>Propina: mostrar campo, porcentajes sugeridos</li>
+    <li>Descuento máximo por línea que puede aplicar un cajero</li>
+    <li>Bloquear venta si stock es 0</li>
+    <li>Pedir motivo al anular un ticket</li>
+  </ul>
+
+  <h3>Pestaña 4 — Negocio</h3>
+  <ul class="feature-list">
+    <li>Nombre de empresa, NIF/CIF y dirección fiscal para los PDFs</li>
+    <li>Modo de facturación: Por venta / Resumen diario / Manual</li>
+    <li>Para resumen diario: hora de generación automática</li>
+    <li>Métodos de pago a incluir en la facturación automática</li>
+  </ul>
+
+  <h3>Pestaña 5 — Avanzado</h3>
+  <ul class="feature-list">
+    <li>PIN de acceso al TPV (4 dígitos)</li>
+    <li>Precios con o sin IVA incluido (PVP)</li>
+    <li>Activar Veri*Factu (cumplimiento RD 1007/2023)</li>
+    <li>Generar factura de resumen del día manualmente</li>
+    <li>Importar catálogo desde fichero CSV</li>
+    <li>Subir imágenes en bloque para los productos</li>
+  </ul>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 9. ROLES Y PERMISOS ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">9</div>
+    <h2>Roles y permisos</h2>
+  </div>
+
+  <p>El TPV Tienda tiene tres niveles de acceso que determinan qué puede hacer cada persona:</p>
+
+  <table>
+    <tr>
+      <th>Rol</th>
+      <th>Puede hacer</th>
+      <th>No puede hacer</th>
+    </tr>
+    <tr>
+      <td><strong>Cajero</strong><br><small>Empleado básico</small></td>
+      <td>
+        · Vender y cobrar<br>
+        · Escanear productos<br>
+        · Añadir producto libre<br>
+        · Aplicar descuentos (hasta el máximo configurado)<br>
+        · Realizar devoluciones<br>
+        · Ver historial de tickets de su turno
+      </td>
+      <td>
+        · Crear/editar productos<br>
+        · Cambiar precios del catálogo<br>
+        · Acceder a la configuración del TPV<br>
+        · Ver estadísticas de otros empleados
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Administrador</strong><br><small>Encargado de tienda</small></td>
+      <td>
+        · Todo lo del cajero<br>
+        · Crear y editar productos<br>
+        · Gestionar categorías<br>
+        · Ver estadísticas completas del turno<br>
+        · Acceso a la configuración del TPV
+      </td>
+      <td>
+        · Cambiar el tipo de negocio<br>
+        · Modificar ciertos ajustes reservados al propietario
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Propietario</strong><br><small>Dueño del negocio</small></td>
+      <td>
+        · Acceso total sin restricciones<br>
+        · Cambiar tipo de negocio<br>
+        · Ver todos los informes y estadísticas<br>
+        · Modificar cualquier configuración
+      </td>
+      <td>—</td>
+    </tr>
+  </table>
+
+  <h3>Bandera de empleado activo</h3>
+  <p>En la parte superior del TPV hay una barra con los empleados fichados. El cajero activo se marca visualmente. Todas las ventas del turno quedan asociadas al empleado seleccionado, lo que permite desglosar las estadísticas por persona.</p>
+
+  <h3>PIN de acceso</h3>
+  <p>Se puede activar un PIN de 4 dígitos que el cajero debe introducir cada vez que abre el TPV. Útil para negocios con varios turnos o donde el dispositivo es compartido.</p>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ 10. HOJA DE RUTA ══════════════════ -->
+<div class="pagina">
+  <div class="seccion-header">
+    <div class="num-grande">10</div>
+    <h2>Funcionalidades en desarrollo — Hoja de ruta</h2>
+  </div>
+
+  <p>El módulo TPV Tienda está en evolución activa. A continuación las funcionalidades planificadas o en desarrollo que pueden ser relevantes para la propuesta con el nuevo cliente:</p>
+
+  <table>
+    <tr>
+      <th>Funcionalidad</th>
+      <th>Estado</th>
+      <th>Descripción</th>
+    </tr>
+    <tr>
+      <td><strong>Programa de fidelización / Monedero</strong></td>
+      <td><span class="chip chip-azul">En base</span></td>
+      <td>Sistema de puntos o monedero del cliente. El modelo ya existe en la base de datos.</td>
+    </tr>
+    <tr>
+      <td><strong>Tienda online completa con Stripe</strong></td>
+      <td><span class="chip chip-azul">Parcial</span></td>
+      <td>Pedidos online con pago Stripe ya registrados en el sistema. Pendiente UI de gestión de envíos.</td>
+    </tr>
+    <tr>
+      <td><strong>Gestión de envíos</strong></td>
+      <td><span class="chip chip-naranja">Planificado</span></td>
+      <td>Integración con transportistas para generar etiquetas de envío desde el pedido web.</td>
+    </tr>
+    <tr>
+      <td><strong>Informes avanzados de ventas</strong></td>
+      <td><span class="chip chip-naranja">Planificado</span></td>
+      <td>Dashboard con gráficas de ventas por período, producto más vendido, hora punta, etc.</td>
+    </tr>
+    <tr>
+      <td><strong>Multi-almacén</strong></td>
+      <td><span class="chip chip-naranja">Planificado</span></td>
+      <td>Gestión de stock en múltiples ubicaciones (tienda física + almacén + tienda online).</td>
+    </tr>
+    <tr>
+      <td><strong>Pedidos por WhatsApp</strong></td>
+      <td><span class="chip chip-azul">Base existente</span></td>
+      <td>El modelo de pedido WhatsApp ya existe. Pendiente integración con TPV Tienda.</td>
+    </tr>
+    <tr>
+      <td><strong>Tarjetas regalo / Gift cards</strong></td>
+      <td><span class="chip chip-naranja">Planificado</span></td>
+      <td>Emisión y canje de tarjetas regalo físicas o digitales desde el TPV.</td>
+    </tr>
+  </table>
+
+  <h3>¿Qué podemos construir a medida para el cliente?</h3>
+  <div class="box box-verde">
+    <p>PlaneaG es un sistema en activo desarrollo. Si el cliente necesita una funcionalidad específica que no está en la lista, podemos evaluarla e incorporarla en la hoja de ruta. Las funcionalidades que encajan con el producto base tienen prioridad alta.</p>
+  </div>
+
+  <h3>Resumen de lo que tenemos HOY</h3>
+  <ul class="feature-list">
+    <li>Catálogo con imágenes, categorías, variantes y control de stock</li>
+    <li>Venta presencial completa con escaneo de código de barras</li>
+    <li>Múltiples métodos de pago configurables</li>
+    <li>Descuentos globales, por línea y cupones</li>
+    <li>Gestión de devoluciones</li>
+    <li>Documentos fiscales: ticket, factura simplificada y factura completa</li>
+    <li>Impresión en ticket (Bluetooth, USB, WiFi) y PDF A4</li>
+    <li>Cajón registradora y datáfono WiFi</li>
+    <li>Cierre de caja con informe de turno</li>
+    <li>Sincronización en tiempo real con la web del cliente</li>
+    <li>Pedidos online vía Stripe con gestión unificada</li>
+    <li>Veri*Factu (cumplimiento fiscal RD 1007/2023)</li>
+    <li>Funcionamiento offline con cola de sincronización</li>
+    <li>Roles: cajero, administrador, propietario</li>
+    <li>Empleados con seguimiento por turno</li>
+    <li>PIN de acceso al TPV</li>
+  </ul>
+
+  <div class="pie-pagina">
+    <span>TPV Tienda — Guía de Funcionalidades</span>
+    <span>PlaneaG · Julio 2026</span>
+  </div>
+</div>
+
+<!-- ══════════════════ CONTRAPORTADA ══════════════════ -->
+<div class="portada" style="page-break-before: always;">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <h2 style="font-size:28pt;margin-bottom:16px;">¿Tienes alguna pregunta?</h2>
+    <p style="font-size:14pt;opacity:0.9;max-width:500px;margin-bottom:40px;">
+      Estamos disponibles para adaptar el TPV Tienda a las necesidades concretas de tu negocio.
+    </p>
+    <div style="font-size:12pt;opacity:0.8;">
+      <p>Samuel Corcho · PlaneaG</p>
+      <p>sacoor80@gmail.com</p>
+    </div>
+  </div>
+  <div style="opacity:0.6;font-size:9pt;border-top:1px solid rgba(255,255,255,0.3);padding-top:16px;margin-top:40px;">
+    Documento confidencial · PlaneaG Software de Gestión · Julio 2026
+  </div>
+</div>
+
+<div class="no-print" style="position:fixed;bottom:20px;right:20px;background:#1B5E20;color:white;padding:12px 20px;border-radius:10px;font-size:12pt;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.3);" onclick="window.print()">
+  🖨️ Imprimir / Guardar PDF
+</div>
+
+</body>
+</html>

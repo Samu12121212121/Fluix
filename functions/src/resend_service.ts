@@ -476,21 +476,23 @@ export async function enviarCancelacionReserva(opts: {
   });
 }
 
-/** PDF genérico con adjunto (para compatibilidad con enviarEmailConPdf) */
+/** PDF genérico con adjunto opcional (para compatibilidad con enviarEmailConPdf) */
 export async function enviarPdfGenerico(opts: {
   from: string;
   to: string;
   subject: string;
   html: string;
-  pdf: Buffer;
-  nombreArchivo: string;
+  pdf?: Buffer;
+  nombreArchivo?: string;
 }): Promise<EmailResult> {
   return enviar({
     from: opts.from,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
-    attachments: [{ filename: opts.nombreArchivo, content: opts.pdf }],
+    ...(opts.pdf && opts.nombreArchivo
+      ? { attachments: [{ filename: opts.nombreArchivo, content: opts.pdf }] }
+      : {}),
   });
 }
 

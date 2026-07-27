@@ -9,6 +9,7 @@ class LineaComanda {
   final double ivaPorcentaje;
   final String? notas;
   final bool esNuevo; // badge "nuevo" en UI
+  final String? destino; // 'cocina' | 'barra' | null (= cocina)
 
   const LineaComanda({
     required this.productoId,
@@ -18,6 +19,7 @@ class LineaComanda {
     this.ivaPorcentaje = 21,
     this.notas,
     this.esNuevo = false,
+    this.destino,
   });
 
   double get total => precioUnitario * cantidad;
@@ -35,6 +37,7 @@ class LineaComanda {
         ?? (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
     notas: m['notas'] as String?,
     esNuevo: m['es_nuevo'] as bool? ?? m['esNuevo'] as bool? ?? false,
+    destino: m['destino'] as String?,
   );
 
 
@@ -47,6 +50,7 @@ class LineaComanda {
     'subtotal': total,
     'notas': notas,
     'es_nuevo': esNuevo,
+    if (destino != null) 'destino': destino,
   };
 
   LineaComanda copyWith({
@@ -56,6 +60,7 @@ class LineaComanda {
     String? notas,
     bool clearNotas = false,
     bool? esNuevo,
+    String? destino,
   }) => LineaComanda(
     productoId: productoId,
     nombre: nombre,
@@ -64,6 +69,7 @@ class LineaComanda {
     ivaPorcentaje: ivaPorcentaje ?? this.ivaPorcentaje,
     notas: clearNotas ? null : (notas ?? this.notas),
     esNuevo: esNuevo ?? this.esNuevo,
+    destino: destino ?? this.destino,
   );
 }
 

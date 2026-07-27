@@ -51,6 +51,9 @@ class PedidosService {
     String? descripcion,
     String? imagenUrl,
     int? stock,
+    int? stockMinimo,
+    double? precioCoste,
+    String? ubicacion,
     bool destacado = false,
     bool tieneVariantes = false,
     int? duracionMinutos,
@@ -70,6 +73,9 @@ class PedidosService {
       precio: precio,
       imagenUrl: imagenUrl,
       stock: stock,
+      stockMinimo: stockMinimo,
+      precioCoste: precioCoste,
+      ubicacion: ubicacion,
       activo: true,
       destacado: destacado,
       tieneVariantes: tieneVariantes,
@@ -260,6 +266,24 @@ class PedidosService {
       'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
       'historial': FieldValue.arrayUnion([entrada.toMap()]),
     });
+
+    // ── Descontar stock al entregar ──────────────────────────────────────────
+    // Solo descuenta UNA VEZ: cuando el estado cambia a "entregado".
+    // Usa transacción para evitar concurrencia.
+    if (nuevoEstado == EstadoPedido.entregado) {
+      final pedidoDoc = await _pedidos(empresaId).doc(pedidoId).get();
+      final lineas = (pedidoDoc.data()?['lineas'] as List<dynamic>? ?? []);
+      final batch  = _db.batch();
+      for (final l in lineas) {
+        final productoId = l['producto_id'] as String?;
+        if (productoId == null || productoId.isEmpty) continue;
+        final cant = (l['cantidad'] as num?)?.toInt() ?? 0;
+        if (cant <= 0) continue;
+        final prodRef = _productos(empresaId).doc(productoId);
+        batch.update(prodRef, {'stock': FieldValue.increment(-cant)});
+      }
+      await batch.commit();
+    }
   }
 
   Future<void> cambiarEstadoPago(

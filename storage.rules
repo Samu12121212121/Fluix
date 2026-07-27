@@ -59,6 +59,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Imágenes de blog (ruta directa — compatible con todas las versiones del app)
+    match /empresas/{empresaId}/blog/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // ── RUTAS PROTEGIDAS (solo usuarios autenticados) ───────────────────────
 
     // Documentos de empleados (foto, contratos, etc.)

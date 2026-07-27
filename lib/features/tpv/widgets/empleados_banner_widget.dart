@@ -2,6 +2,7 @@
 // Se puede añadir a cualquier TPV (bar, tienda, peluquería)
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class EmpleadosBannerWidget extends StatelessWidget {
   final String empresaId;
@@ -107,10 +108,24 @@ class EmpleadosBannerWidget extends StatelessWidget {
                         ? '${partes[0][0]}${partes[1][0]}'.toUpperCase()
                         : nombre.substring(0, nombre.length.clamp(0, 2)).toUpperCase();
 
+                    final turnoInicio = data['turno_inicio'] as Timestamp?;
+                    final turnoActivo = turnoInicio != null;
+                    final turnoStr = turnoActivo
+                        ? _duracionTurno(turnoInicio.toDate())
+                        : null;
+
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: GestureDetector(
                         onTap: () => onEmpleadoChanged(seleccionado ? null : doc.id),
+                        onLongPress: () => _mostrarDialogoTurno(
+                          context,
+                          empleadoId: doc.id,
+                          nombre: nombre,
+                          turnoActivo: turnoActivo,
+                          turnoInicio: turnoInicio?.toDate(),
+                          empresaId: empresaId,
+                        ),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -156,7 +171,18 @@ class EmpleadosBannerWidget extends StatelessWidget {
                                         : FontWeight.normal,
                                   ),
                                 ),
-                                if (puesto.isNotEmpty)
+                                if (turnoStr != null)
+                                  Text(
+                                    turnoStr,
+                                    style: TextStyle(
+                                      color: turnoActivo
+                                          ? color.withValues(alpha: 0.85)
+                                          : Colors.white38,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  )
+                                else if (puesto.isNotEmpty)
                                   Text(
                                     puesto,
                                     style: TextStyle(
@@ -171,6 +197,10 @@ class EmpleadosBannerWidget extends StatelessWidget {
                             if (seleccionado) ...[
                               const SizedBox(width: 6),
                               Icon(Icons.check_circle, color: color, size: 14),
+                            ],
+                            if (turnoActivo) ...[
+                              const SizedBox(width: 4),
+                              Icon(Icons.timer_rounded, color: color.withValues(alpha: 0.7), size: 12),
                             ],
                           ]),
                         ),
@@ -189,5 +219,103 @@ class EmpleadosBannerWidget extends StatelessWidget {
       },
     );
   }
+}
+
+// ─── Utilidades de turno ─────────────────────────────────────────────────────
+
+String _duracionTurno(DateTime inicio) {
+  final elapsed = DateTime.now().difference(inicio);
+  final h = elapsed.inHours;
+  final m = elapsed.inMinutes % 60;
+  if (h == 0) return '${m}m';
+  return '${h}h ${m}m';
+}
+
+Future<void> _mostrarDialogoTurno(
+  BuildContext context, {
+  required String empleadoId,
+  required String nombre,
+  required bool turnoActivo,
+  required DateTime? turnoInicio,
+  required String empresaId,
+}) async {
+  final fmt = DateFormat('HH:mm');
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1E2139),
+      title: Row(children: [
+        const Icon(Icons.timer_rounded, color: Color(0xFF00FFC8), size: 20),
+        const SizedBox(width: 8),
+        Expanded(child: Text('Turno de $nombre',
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            overflow: TextOverflow.ellipsis)),
+      ]),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (turnoActivo && turnoInicio != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00FFC8).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00FFC8).withValues(alpha: 0.3)),
+            ),
+            child: Column(children: [
+              const Text('TURNO ACTIVO', style: TextStyle(
+                  color: Color(0xFF00FFC8), fontSize: 10,
+                  fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+              const SizedBox(height: 6),
+              Text('Entrada: ${fmt.format(turnoInicio)}',
+                  style: const TextStyle(color: Colors.white, fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              Text('Duración: ${_duracionTurno(turnoInicio)}',
+                  style: const TextStyle(color: Color(0xFF00FFC8), fontSize: 14)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const Text('¿Cerrar turno ahora?',
+              style: TextStyle(color: Color(0xFFB0B3C1), fontSize: 13)),
+        ] else
+          const Text('¿Iniciar turno ahora?',
+              style: TextStyle(color: Color(0xFFB0B3C1), fontSize: 13)),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancelar', style: TextStyle(color: Color(0xFFB0B3C1))),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final ref = FirebaseFirestore.instance
+                .collection('empresas')
+                .doc(empresaId)
+                .collection('empleados')
+                .doc(empleadoId);
+
+            if (turnoActivo) {
+              await ref.update({
+                'turno_inicio': null,
+                'ultimo_turno_fin': FieldValue.serverTimestamp(),
+              });
+            } else {
+              await ref.update({
+                'turno_inicio': FieldValue.serverTimestamp(),
+              });
+            }
+          },
+          icon: Icon(turnoActivo ? Icons.stop_rounded : Icons.play_arrow_rounded,
+              size: 16),
+          label: Text(turnoActivo ? 'Cerrar turno' : 'Iniciar turno',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          style: FilledButton.styleFrom(
+            backgroundColor: turnoActivo ? const Color(0xFFFF2850) : const Color(0xFF00FFC8),
+            foregroundColor: turnoActivo ? Colors.white : Colors.black,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reservas · Dama Juana</title>
+<title>Reservas</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -171,10 +171,10 @@ textarea { resize: vertical; min-height: 80px; }
 <div class="reservas-inner">
 
   <div class="reservas-logo">
-    <h1>Dama Juana</h1>
-    <p class="subtitle">Restaurante · Guadalajara</p>
+    <h1 id="empresa-nombre">Cargando...</h1>
+    <p class="subtitle" id="empresa-subtitulo"></p>
   </div>
-  <p class="form-title">Reserva tu mesa</p>
+  <p class="form-title" id="form-titulo">Haz tu reserva</p>
   <div class="divider"></div>
 
   <p id="reservaDesactivadoAviso">Las reservas no están disponibles en este momento.</p>
@@ -265,10 +265,37 @@ textarea { resize: vertical; min-height: 80px; }
 <script>
 (function () {
 
-  var EMPRESA_ID = 'TUz8GOnQ6OX8ejiov7c5GM9LFPl2';
+  /* ── Leer empresa desde URL (?id=EMPRESA_ID) ────────────────────── */
+  var EMPRESA_ID = new URLSearchParams(window.location.search).get('id') || '';
+
+  if (!EMPRESA_ID) {
+    document.getElementById('empresa-nombre').textContent = 'ID de empresa no especificado';
+    document.getElementById('empresa-nombre').style.color = '#e07070';
+    document.getElementById('reservaForm').style.display = 'none';
+    throw new Error('Falta el parámetro ?id= en la URL');
+  }
 
   var db   = firebase.firestore();
   var auth = firebase.auth();
+
+  /* ── Cargar nombre y datos del negocio desde Firestore ──────────── */
+  db.collection('empresas').doc(EMPRESA_ID).get().then(function(doc) {
+    var nombre = 'Reservas';
+    var subtitulo = '';
+    var tituloForm = 'Haz tu reserva';
+    if (doc.exists) {
+      var d = doc.data();
+      nombre = d.nombre || d.nombre_empresa || d.name || nombre;
+      subtitulo = d.categoria || d.tipo_negocio || d.ciudad || '';
+      tituloForm = d.titulo_formulario_reservas || tituloForm;
+    }
+    document.getElementById('empresa-nombre').textContent = nombre;
+    document.getElementById('empresa-subtitulo').textContent = subtitulo;
+    document.getElementById('form-titulo').textContent = tituloForm;
+    document.title = 'Reservas · ' + nombre;
+  }).catch(function() {
+    document.getElementById('empresa-nombre').textContent = 'Reservas';
+  });
 
   /* ── currentUser guardado en variable para usarlo de forma síncrona ── */
   var _currentUser = null;
@@ -284,11 +311,17 @@ textarea { resize: vertical; min-height: 80px; }
     msgSlotLleno: '⚠ Esta franja está completa',
     fechasBloqueadas: [],
     motivosCierre: {},
+    diasActivos: [],
+    diasRecurrentesCerrados: [],
+    intervalosCerrados: [],
     duracionSlotMinutos: 30,
     horarioPorDia: {},
     horariosReservaPorDia: {},
     activo: true
   };
+
+  /* Conteos de reservas por slot cargados desde Firestore */
+  var _slotCounts = {};
 
   /* ── Obtener día de la semana ISO (1=Lun, 7=Dom) ──────────────────── */
   function getDiaISO(fecha) {
@@ -301,7 +334,33 @@ textarea { resize: vertical; min-height: 80px; }
   function getMensajeBloqueo(fechaStr) {
     if (!fechaStr) return null;
 
-    /* 1. Fechas específicas bloqueadas desde Firestore */
+    var partes = fechaStr.split('-');
+    var fechaUTC = new Date(Date.UTC(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10), 12, 0, 0));
+    var diaISO = getDiaISO(fechaUTC);
+
+    /* 1. Día de la semana no activo */
+    if (_config.diasActivos.length > 0 && _config.diasActivos.indexOf(diaISO) === -1) {
+      return '⛔ Cerrado este día de la semana';
+    }
+
+    /* 2. Día recurrente cerrado (ej: todos los martes) */
+    if (_config.diasRecurrentesCerrados.indexOf(diaISO) !== -1) {
+      return '⛔ Cerrado habitualmente este día';
+    }
+
+    /* 3. Intervalo de fechas cerradas */
+    for (var i = 0; i < _config.intervalosCerrados.length; i++) {
+      var iv = _config.intervalosCerrados[i];
+      if (iv.inicio && iv.fin) {
+        var ivInicio = new Date(iv.inicio + 'T00:00:00');
+        var ivFin = new Date(iv.fin + 'T23:59:59');
+        if (fechaUTC >= ivInicio && fechaUTC <= ivFin) {
+          return iv.motivo ? '⛔ ' + iv.motivo : '⛔ Cerrado temporalmente';
+        }
+      }
+    }
+
+    /* 4. Fecha específica bloqueada */
     if (_config.fechasBloqueadas.indexOf(fechaStr) !== -1) {
       var motivo = _config.motivosCierre[fechaStr];
       if (motivo && motivo.trim()) {
@@ -362,24 +421,77 @@ textarea { resize: vertical; min-height: 80px; }
     return n < 10 ? '0' + n : n.toString();
   }
 
+  /* ── Cargar conteos reales de Firestore para una fecha ──────────── */
+  function cargarReservasPorFecha(fechaStr, callback) {
+    var partes = fechaStr.split('-');
+    var inicio = new Date(Date.UTC(parseInt(partes[0],10), parseInt(partes[1],10)-1, parseInt(partes[2],10), 0, 0, 0));
+    var fin = new Date(Date.UTC(parseInt(partes[0],10), parseInt(partes[1],10)-1, parseInt(partes[2],10), 23, 59, 59));
+
+    db.collection('empresas').doc(EMPRESA_ID)
+      .collection('reservas')
+      .where('fecha_hora', '>=', firebase.firestore.Timestamp.fromDate(inicio))
+      .where('fecha_hora', '<=', firebase.firestore.Timestamp.fromDate(fin))
+      .get()
+      .then(function(snap) {
+        var counts = {};
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          var estado = (d.estado || '').toLowerCase();
+          if (estado === 'cancelada' || estado === 'rechazada') return;
+          var hora = d.hora;
+          if (!hora && d.fecha_hora) {
+            var ts = d.fecha_hora.toDate();
+            hora = pad(ts.getUTCHours()) + ':' + pad(ts.getUTCMinutes());
+          }
+          if (hora) counts[hora] = (counts[hora] || 0) + 1;
+        });
+        _slotCounts = counts;
+        if (callback) callback();
+      })
+      .catch(function() { if (callback) callback(); });
+  }
+
+  function getCount(hora) {
+    return _slotCounts[hora] || 0;
+  }
+
+  function addLocalReserva(hora) {
+    _slotCounts[hora] = (getCount(hora)) + 1;
+  }
+
   /* ── Actualizar opciones del select de hora ─────────────────────── */
   function actualizarOpcionesHora(fechaStr) {
     var selectHora = document.getElementById('hora');
-    selectHora.innerHTML = '<option value="">Seleccionar hora</option>';
+    selectHora.innerHTML = '<option value="">Cargando...</option>';
 
-    if (!fechaStr) return;
-
-    var horarios = generarHorarios(fechaStr);
-    if (horarios.length === 0) {
-      selectHora.innerHTML = '<option value="">No hay horarios disponibles</option>';
+    if (!fechaStr) {
+      selectHora.innerHTML = '<option value="">Selecciona una fecha primero</option>';
       return;
     }
 
-    horarios.forEach(function (hora) {
-      var opt = document.createElement('option');
-      opt.value = hora;
-      opt.text = hora;
-      selectHora.appendChild(opt);
+    var bloqueo = getMensajeBloqueo(fechaStr);
+    if (bloqueo) {
+      selectHora.innerHTML = '<option value="">No disponible</option>';
+      updateSlotInfo();
+      return;
+    }
+
+    cargarReservasPorFecha(fechaStr, function() {
+      var horarios = generarHorarios(fechaStr);
+      if (horarios.length === 0) {
+        selectHora.innerHTML = '<option value="">No hay horarios disponibles</option>';
+        return;
+      }
+      selectHora.innerHTML = '<option value="">Seleccionar hora</option>';
+      horarios.forEach(function (hora) {
+        var lleno = getCount(hora) >= _config.aforoMax;
+        var opt = document.createElement('option');
+        opt.value = hora;
+        opt.text = lleno ? hora + ' (completo)' : hora;
+        opt.disabled = lleno;
+        selectHora.appendChild(opt);
+      });
+      updateSlotInfo();
     });
   }
 
@@ -395,6 +507,9 @@ textarea { resize: vertical; min-height: 80px; }
         _config.msgSlotLleno = cfg.mensaje_slot_lleno || '⚠ Esta franja está completa';
         _config.fechasBloqueadas = cfg.fechas_bloqueadas || [];
         _config.motivosCierre = cfg.motivos_cierre || {};
+        _config.diasActivos = cfg.dias_activos || [];
+        _config.diasRecurrentesCerrados = cfg.dias_recurrentes_cerrados || [];
+        _config.intervalosCerrados = cfg.intervalos_cerrados || [];
         _config.duracionSlotMinutos = cfg.duracion_slot_minutos || 30;
         _config.horarioPorDia = cfg.horario_por_dia || {};
         _config.horariosReservaPorDia = cfg.horarios_reserva_por_dia || {};
@@ -423,24 +538,6 @@ textarea { resize: vertical; min-height: 80px; }
       console.error('❌ Error al cargar configuración:', error);
     });
 
-  /* ── localStorage helpers ────────────────────────────────────────── */
-  function getReservas() {
-    try { return JSON.parse(localStorage.getItem('dj_reservas') || '{}'); }
-    catch (e) { return {}; }
-  }
-  function saveReservas(d) { localStorage.setItem('dj_reservas', JSON.stringify(d)); }
-  function getCount(fecha, hora) {
-    if (!fecha || !hora) return 0;
-    var r = getReservas();
-    return (r[fecha] && r[fecha][hora]) ? r[fecha][hora] : 0;
-  }
-  function addReserva(fecha, hora) {
-    var r = getReservas();
-    if (!r[fecha]) r[fecha] = {};
-    r[fecha][hora] = (r[fecha][hora] || 0) + 1;
-    saveReservas(r);
-  }
-
   /* ── updateSlotInfo ──────────────────────────────────────────────── */
   function updateSlotInfo() {
     var fecha = document.getElementById('fecha').value;
@@ -467,7 +564,7 @@ textarea { resize: vertical; min-height: 80px; }
       return;
     }
 
-    var count = getCount(fecha, hora);
+    var count = getCount(hora);
     if (count >= _config.aforoMax) {
       if (info) { info.textContent = _config.msgSlotLleno; info.className = 'slot-info full'; }
       if (btn)  btn.disabled = true;
@@ -556,7 +653,7 @@ textarea { resize: vertical; min-height: 80px; }
       return;
     }
 
-    if (getCount(fecha, hora) >= _config.aforoMax) {
+    if (getCount(hora) >= _config.aforoMax) {
       msg.textContent = 'Lo sentimos, esta franja ya no tiene disponibilidad.';
       msg.className = 'form-msg error';
       return;
@@ -576,7 +673,7 @@ textarea { resize: vertical; min-height: 80px; }
     };
 
     guardarReservaFirestore(formData);
-    addReserva(fecha, hora);
+    addLocalReserva(hora);
 
     var ubi = formData.ubicacion;
     msg.textContent = '¡Reserva recibida, ' + nombre + '! Te esperamos el '

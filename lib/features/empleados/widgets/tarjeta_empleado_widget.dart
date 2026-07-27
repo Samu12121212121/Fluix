@@ -58,7 +58,7 @@ class TarjetaEmpleado extends StatelessWidget {
     return nombre.isNotEmpty ? nombre[0].toUpperCase() : 'E';
   }
 
-  void _mostrarOpciones(BuildContext context) {
+  void mostrarOpciones(BuildContext context) {
     final activo = data['activo'] ?? true;
     showModalBottomSheet(
       context: context,
@@ -218,7 +218,7 @@ class TarjetaEmpleado extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: esPropietario ? () => _mostrarOpciones(context) : null,
+        onTap: esPropietario ? () => mostrarOpciones(context) : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),

@@ -351,8 +351,13 @@ class WidgetManagerService {
                   (s) => s['id'] == base.id,
               orElse: () => <String, dynamic>{});
 
-          final activo = guardado['activo'] as bool? ??
-              _esActivoPorDefecto(base);
+          // Si el módulo es 'web' y está guardado como false pero es del plan base,
+          // forzar a true (corrección retroactiva para cuentas creadas antes del fix)
+          bool activo = guardado['activo'] as bool? ?? _esActivoPorDefecto(base);
+          if (!activo && ModulosDisponibles.activosPorDefecto.contains(base.id)) {
+            activo = true;
+            _corregirModulo(empresaId, base.id);
+          }
 
           return base.copyWith(activo: activo);
         }).where((m) => m.activo).toList();
@@ -467,6 +472,30 @@ class WidgetManagerService {
     } catch (e) {
       debugPrint('❌ Error toggle modulo: $e');
       rethrow;
+    }
+  }
+
+  /// Corrige en Firestore un módulo que debería estar activo pero no lo está
+  Future<void> _corregirModulo(String empresaId, String moduloId) async {
+    try {
+      final docRef = _firestore
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('configuracion')
+          .doc('modulos');
+      final doc = await docRef.get();
+      if (!doc.exists) return;
+      final data = doc.data();
+      if (data == null) return;
+      final modulos = _obtenerModulosGuardados(data);
+      final idx = modulos.indexWhere((m) => m['id'] == moduloId);
+      if (idx >= 0) {
+        modulos[idx] = {...modulos[idx], 'activo': true};
+        await docRef.update({'modulos': modulos});
+        debugPrint('✅ Módulo "$moduloId" corregido a activo=true para $empresaId');
+      }
+    } catch (e) {
+      debugPrint('⚠️ No se pudo corregir módulo $moduloId: $e');
     }
   }
 

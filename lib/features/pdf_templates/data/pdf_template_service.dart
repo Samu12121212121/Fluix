@@ -15,6 +15,23 @@ class PdfTemplateService {
         .map((s) => s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList());
   }
 
+  /// Devuelve TODAS las plantillas (activas e inactivas) para gestión del usuario.
+  Stream<List<PdfTemplate>> watchTodasPlantillas(String empresaId) {
+    return _db
+        .collection(_col)
+        .where('empresa_id', isEqualTo: empresaId)
+        .orderBy('fecha_modificacion', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList());
+  }
+
+  Future<void> toggleActiva(String plantillaId, bool nuevaActiva) async {
+    await _db.collection(_col).doc(plantillaId).update({
+      'activa': nuevaActiva,
+      'fecha_modificacion': Timestamp.now(),
+    });
+  }
+
   Future<List<PdfTemplate>> getPlantillas(String empresaId) async {
     final snap = await _db
         .collection(_col)

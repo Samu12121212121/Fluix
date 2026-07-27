@@ -28,8 +28,11 @@ class PantallaItemsSeccion extends StatefulWidget {
 class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
   late List<Map<String, dynamic>> _items;
   late TextEditingController _nombreCtrl;
+  final TextEditingController _searchCtrl = TextEditingController();
   bool _editandoNombre = false;
   bool _guardando = false;
+  String? _categoriaActiva; // null = vista de categorías
+  String _query = '';
 
   @override
   void initState() {
@@ -38,10 +41,12 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
       widget.seccion.contenido.items.map((e) => Map<String, dynamic>.from(e)),
     );
     _nombreCtrl = TextEditingController(text: widget.seccion.nombre);
+    _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text.trim().toLowerCase()));
   }
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _nombreCtrl.dispose();
     super.dispose();
   }
@@ -92,12 +97,10 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
 
   void _anadirItem() {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final nuevoItem = <String, dynamic>{
-      'id': id,
-      'nombre': '',
-      'disponible': true,
-    };
-    setState(() => _items.add(nuevoItem));
+    setState(() => _items.add({
+      'id': id, 'titulo': '', 'autor': '', 'genero': '',
+      'precio': '', 'imagen_url': '', 'slug': id, 'disponible': true,
+    }));
     _editarItem(_items.length - 1);
   }
 
@@ -150,9 +153,12 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
 
     // Si es un item nuevo sin campos, añadir los básicos
     if (controllers.isEmpty) {
-      controllers['nombre'] = TextEditingController();
-      controllers['precio'] = TextEditingController();
-      controllers['descripcion'] = TextEditingController();
+      controllers['titulo']     = TextEditingController();
+      controllers['autor']      = TextEditingController();
+      controllers['genero']     = TextEditingController();
+      controllers['precio']     = TextEditingController();
+      controllers['imagen_url'] = TextEditingController();
+      controllers['slug']       = TextEditingController();
     }
 
     bool disponible = item['disponible'] as bool? ?? true;
@@ -517,12 +523,25 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     const tipoColor = Color(0xFF455A64);
 
+    // Título del AppBar según el contexto
+    String appBarTitle() {
+      if (_categoriaActiva != null) return _categoriaActiva!;
+      if (_editandoNombre) return '';
+      return _nombreCtrl.text;
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF7F3EE),
       appBar: AppBar(
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: _categoriaActiva != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                onPressed: () => setState(() { _categoriaActiva = null; _searchCtrl.clear(); }),
+              )
+            : null,
         title: _editandoNombre
             ? TextField(
                 controller: _nombreCtrl,
@@ -536,196 +555,547 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
                 onSubmitted: (_) => _guardarNombre(),
               )
             : GestureDetector(
-                onTap: () => setState(() => _editandoNombre = true),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _nombreCtrl.text,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.edit, size: 16, color: Colors.white70),
-                  ],
-                ),
+                onTap: _categoriaActiva == null
+                    ? () => setState(() => _editandoNombre = true)
+                    : null,
+                child: Text(appBarTitle(), overflow: TextOverflow.ellipsis),
               ),
         actions: [
           if (_editandoNombre)
+            IconButton(icon: const Icon(Icons.check), onPressed: _guardarNombre)
+          else if (_categoriaActiva == null) ...[
             IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _guardarNombre,
-            )
-          else ...[
-            // Botón Ver HTML
-            IconButton(
-              icon: const Icon(Icons.code, size: 22),
-              tooltip: 'Ver HTML de ejemplo',
-              onPressed: () => _mostrarHtmlEjemplo(context),
-            ),
-            // Botón Ver HTML
-            IconButton(
-              icon: const Icon(Icons.code, size: 22),
-              tooltip: 'Ver HTML de ejemplo',
+              icon: const Icon(Icons.code, size: 20),
+              tooltip: 'Ver HTML',
               onPressed: () => _mostrarHtmlEjemplo(context),
             ),
             if (_guardando)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                ),
+                child: SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
               ),
           ],
         ],
       ),
-      body: _items.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 12),
-                  Text('Sin items todavía',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[600])),
-                  const SizedBox(height: 6),
-                  Text('Pulsa + Añadir para crear el primero',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                ],
-              ),
-            )
-          : ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-              itemCount: _items.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex--;
-                  final item = _items.removeAt(oldIndex);
-                  _items.insert(newIndex, item);
-                });
-                _guardarItems();
-              },
-              itemBuilder: (ctx, i) {
-                final item = _items[i];
-                final nombre =
-                    item['nombre']?.toString() ?? 'Sin nombre';
-                final precio = item['precio'];
-                final disponible = item['disponible'] as bool? ?? true;
-                final imagen = item['imagen'] as String? ??
-                    item['imagen_url'] as String?;
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _anadirItem,
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Añadir'),
+        elevation: 4,
+      ),
+      body: _items.isEmpty ? _buildVacio(color) : _buildCatalogo(color),
+    );
+  }
 
-                return Container(
-                  key: ValueKey(item['id'] ?? i),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    border: !disponible
-                        ? Border.all(
-                            color: Colors.orange.withValues(alpha: 0.3))
-                        : null,
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 4),
-                    leading: imagen != null && imagen.startsWith('http')
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              imagen,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: tipoColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.image,
-                                    color: tipoColor, size: 24),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: tipoColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.edit_note,
-                                color: tipoColor, size: 24),
+  // ── Estado vacío ──────────────────────────────────────────────────────────
+  Widget _buildVacio(Color color) => Center(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 88, height: 88,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.07), shape: BoxShape.circle),
+        child: Icon(Icons.menu_book_rounded, size: 44, color: color.withValues(alpha: 0.35)),
+      ),
+      const SizedBox(height: 18),
+      Text('Sin entradas todavía',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+      const SizedBox(height: 6),
+      Text('Pulsa + Añadir para crear la primera',
+          style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+    ]),
+  );
+
+  // ── Agrupa items por genero/categoria ─────────────────────────────────────
+
+  Map<String, List<Map<String, dynamic>>> _agruparPorCategoria() {
+    final grupos = <String, List<Map<String, dynamic>>>{};
+    for (final item in _items) {
+      final cat = item['genero']?.toString().isNotEmpty == true
+          ? item['genero'].toString()
+          : item['categoria']?.toString().isNotEmpty == true
+              ? item['categoria'].toString()
+              : 'Sin categoría';
+      grupos.putIfAbsent(cat, () => []).add(item);
+    }
+    return grupos;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // VISTAS PRINCIPALES
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCatalogo(Color color) {
+    // Búsqueda activa → resultados flat
+    if (_query.isNotEmpty) return _buildResultadosBusqueda(color);
+    // Categoría seleccionada → fichas de esa categoría
+    if (_categoriaActiva != null) return _buildVistaCategoria(color);
+    // Por defecto → grid de tarjetas de categoría
+    return _buildGridCategorias(color);
+  }
+
+  // ── Buscador + lógica de búsqueda ────────────────────────────────────────
+  Widget _buildBarraBusqueda(Color color) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 2))],
+      ),
+      child: TextField(
+        controller: _searchCtrl,
+        decoration: InputDecoration(
+          hintText: 'Buscar por título, autor…',
+          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+          prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400], size: 20),
+          suffixIcon: _query.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.close_rounded, color: Colors.grey[400], size: 18),
+                  onPressed: () => _searchCtrl.clear(),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 13),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildResultadosBusqueda(Color color) {
+    final q = _query;
+    final hits = _items.where((item) {
+      final t = (item['titulo'] ?? item['nombre'] ?? '').toString().toLowerCase();
+      final a = (item['autor'] ?? '').toString().toLowerCase();
+      return t.contains(q) || a.contains(q);
+    }).toList();
+
+    return Column(children: [
+      _buildBarraBusqueda(color),
+      const SizedBox(height: 8),
+      Expanded(
+        child: hits.isEmpty
+            ? Center(child: Text('Sin resultados para "$_query"',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14)))
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                itemCount: hits.length,
+                itemBuilder: (_, i) => _buildResultadoItem(hits[i], color),
+              ),
+      ),
+    ]);
+  }
+
+  Widget _buildResultadoItem(Map<String, dynamic> item, Color color) {
+    final titulo = (item['titulo']?.toString().isNotEmpty == true
+        ? item['titulo'].toString() : item['nombre']?.toString() ?? '').trim();
+    final autor   = item['autor']?.toString() ?? '';
+    final genero  = item['genero']?.toString() ?? '';
+    final imagen  = (item['imagen_url'] as String?)?.isNotEmpty == true
+        ? item['imagen_url'] as String : item['imagen'] as String?;
+    final idx     = _items.indexWhere((e) => e['id'] == item['id']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: imagen != null && imagen.startsWith('http')
+              ? Image.network(imagen, width: 40, height: 56, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _miniPlaceholder(color))
+              : _miniPlaceholder(color),
+        ),
+        title: Text(titulo, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        subtitle: Row(children: [
+          if (autor.isNotEmpty) Flexible(child: Text(autor, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic))),
+          if (genero.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(20)),
+              child: Text(genero, style: TextStyle(fontSize: 9.5, color: color, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ]),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(icon: Icon(Icons.edit_outlined, size: 18, color: color),
+              onPressed: () { if (idx >= 0) _editarItem(idx); }),
+          IconButton(icon: Icon(Icons.delete_outline, size: 18, color: Colors.red[400]),
+              onPressed: () { if (idx >= 0) _eliminarItem(idx); }),
+        ]),
+      ),
+    );
+  }
+
+  Widget _miniPlaceholder(Color color) => Container(
+    width: 40, height: 56,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Icon(Icons.menu_book_rounded, size: 18, color: color.withValues(alpha: 0.3)),
+  );
+
+  // ── Grid de categorías (vista home del catálogo) ──────────────────────────
+  Widget _buildGridCategorias(Color color) {
+    final grupos = _agruparPorCategoria();
+    return Column(children: [
+      _buildBarraBusqueda(color),
+      const SizedBox(height: 6),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(children: [
+          Text('${_items.length} libros', style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+          const SizedBox(width: 6),
+          Container(width: 3, height: 3, decoration: BoxDecoration(color: Colors.grey[400], shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text('${grupos.length} géneros', style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+        ]),
+      ),
+      Expanded(
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            final cols = constraints.maxWidth > 600 ? 3 : 2;
+            final cardW = (constraints.maxWidth - 16 * 2 - (cols - 1) * 12) / cols;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 14,
+                children: grupos.entries.map((e) =>
+                    _buildTarjetaCategoria(e.key, e.value, cardW, color)).toList(),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildTarjetaCategoria(String genero, List<Map<String, dynamic>> items,
+      double w, Color color) {
+    final coverH = w * 1.35;
+    // Tomar las primeras 4 portadas disponibles
+    final covers = items
+        .map((i) => (i['imagen_url'] as String?)?.isNotEmpty == true
+            ? i['imagen_url'] as String
+            : i['imagen'] as String?)
+        .where((u) => u != null && u.startsWith('http'))
+        .take(4)
+        .cast<String>()
+        .toList();
+
+    return GestureDetector(
+      onTap: () => setState(() { _categoriaActiva = genero; _searchCtrl.clear(); }),
+      child: SizedBox(
+        width: w,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.09), blurRadius: 14, offset: const Offset(0, 4)),
+            ],
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            children: [
+              // Fondo: mosaico de portadas o placeholder
+              SizedBox(
+                width: w, height: coverH,
+                child: covers.isEmpty
+                    ? Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft, end: Alignment.bottomRight,
+                            colors: [color.withValues(alpha: 0.12), color.withValues(alpha: 0.28)],
                           ),
-                    title: Text(
-                      nombre.isEmpty ? 'Sin nombre' : nombre,
+                        ),
+                        child: Icon(Icons.menu_book_rounded, size: w * 0.35, color: Colors.white.withValues(alpha: 0.5)),
+                      )
+                    : covers.length == 1
+                        ? Image.network(covers[0], width: w, height: coverH, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _catPlaceholder(w, coverH, color))
+                        : GridView.count(
+                            crossAxisCount: 2,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            mainAxisSpacing: 2,
+                            crossAxisSpacing: 2,
+                            childAspectRatio: (w / 2) / (coverH / 2),
+                            children: [
+                              for (int i = 0; i < 4; i++)
+                                i < covers.length
+                                    ? Image.network(covers[i], fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(color: color.withValues(alpha: 0.1)))
+                                    : Container(color: color.withValues(alpha: 0.06)),
+                            ],
+                          ),
+              ),
+              // Gradiente inferior
+              Positioned(
+                left: 0, right: 0, bottom: 0, height: coverH * 0.65,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.75)],
+                    ),
+                  ),
+                ),
+              ),
+              // Texto sobre el gradiente
+              Positioned(
+                left: 0, right: 0, bottom: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(genero,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.2,
+                            shadows: [Shadow(blurRadius: 4, color: Colors.black38)],
+                          )),
+                      const SizedBox(height: 3),
+                      Row(children: [
+                        Text('${items.length} ${items.length == 1 ? "título" : "títulos"}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 0.8),
+                          ),
+                          child: const Text('Ver  ›', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _catPlaceholder(double w, double h, Color color) => Container(
+    width: w, height: h,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.22)],
+      ),
+    ),
+    child: Icon(Icons.menu_book_rounded, size: w * 0.3, color: Colors.white.withValues(alpha: 0.45)),
+  );
+
+  // ── Vista interior de una categoría ──────────────────────────────────────
+  Widget _buildVistaCategoria(Color color) {
+    final grupos = _agruparPorCategoria();
+    final catItems = grupos[_categoriaActiva!] ?? [];
+    return Column(children: [
+      _buildBarraBusqueda(color),
+      const SizedBox(height: 6),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(children: [
+          Text('${catItems.length} ${catItems.length == 1 ? "título" : "títulos"}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        ]),
+      ),
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+          child: Wrap(
+            spacing: 10, runSpacing: 12,
+            children: catItems.map((item) => _buildFicha(item, color)).toList(),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  // ── Ficha individual de un item ───────────────────────────────────────────
+
+  Widget _buildFicha(Map<String, dynamic> item, Color color) {
+    final titulo = (item['titulo']?.toString().isNotEmpty == true
+            ? item['titulo'].toString()
+            : item['nombre']?.toString() ?? '')
+        .trim();
+    final autor      = item['autor']?.toString() ?? '';
+    final precio     = item['precio'];
+    final disponible = item['disponible'] as bool? ?? true;
+    final imagen     = (item['imagen_url'] as String?)?.isNotEmpty == true
+        ? item['imagen_url'] as String
+        : item['imagen'] as String?;
+    final idx = _items.indexWhere((e) => e['id'] == item['id']);
+
+    String precioStr() {
+      if (precio == null) return '';
+      if (precio is num) return '${precio.toStringAsFixed(2)}€';
+      final s = precio.toString();
+      return s.contains('€') ? s : '$s€';
+    }
+
+    const cardW = 150.0;
+    const coverH = 200.0;
+    const infoH  = 108.0;
+
+    Widget placeholder() => Container(
+      width: cardW,
+      height: coverH,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withValues(alpha: 0.06), color.withValues(alpha: 0.14)],
+        ),
+      ),
+      child: Icon(Icons.menu_book_rounded, color: color.withValues(alpha: 0.3), size: 44),
+    );
+
+    return SizedBox(
+      width: cardW,
+      height: coverH + infoH,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: !disponible
+              ? Border.all(color: Colors.orange.withValues(alpha: 0.5))
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Portada (altura fija) ─────────────────────────────────────
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: imagen != null && imagen.startsWith('http')
+                  ? Image.network(
+                      imagen,
+                      width: cardW,
+                      height: coverH,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => placeholder(),
+                    )
+                  : placeholder(),
+            ),
+            // ── Info (altura fija, botones siempre al fondo) ──────────────
+            SizedBox(
+              height: infoH,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo.isEmpty ? 'Sin título' : titulo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                        height: 1.3,
                         color: disponible ? Colors.black87 : Colors.grey,
-                        decoration: disponible
-                            ? null
-                            : TextDecoration.lineThrough,
+                        decoration: disponible ? null : TextDecoration.lineThrough,
                       ),
                     ),
-                    subtitle: precio != null
-                        ? Text(
-                            '${precio is num ? precio.toStringAsFixed(2) : precio}€',
-                            style: const TextStyle(
-                              color: tipoColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          )
-                        : null,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!disponible)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text('Oculto',
-                                style: TextStyle(
-                                    color: Colors.orange, fontSize: 10)),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          color: tipoColor,
-                          onPressed: () => _editarItem(i),
+                    if (autor.isNotEmpty)
+                      Text(
+                        autor,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          color: Colors.red,
-                          onPressed: () => _eliminarItem(i),
+                      ),
+                    const Spacer(),
+                    if (precioStr().isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3E5F5),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          precioStr(),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF6A1B9A),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () { if (idx >= 0) _editarItem(idx); },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 5),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Icon(Icons.edit_outlined, size: 14, color: color),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () { if (idx >= 0) _eliminarItem(idx); },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Icon(Icons.delete_outline, size: 14, color: Colors.red[400]),
+                          ),
                         ),
                       ],
                     ),
-                    onTap: () => _editarItem(i),
-                  ),
-                );
-              },
+                  ],
+                ),
+              ),
             ),
+          ],
+        ),
+      ),
     );
   }
+
 }
 
 

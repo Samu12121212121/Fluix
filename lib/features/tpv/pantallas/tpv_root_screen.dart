@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' show Random;
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,7 +27,8 @@ import 'package:intl/intl.dart';
 import 'tpv_peluqueria_screen.dart' hide Producto, ImpressoraBluetooth, LineaTicket, TicketData, CierreCajaService;
 import 'tpv_tienda_screen.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
-import 'pantalla_cocina_screen.dart'; // ← NUEVO: Pantalla de cocina (KDS)
+import 'pantalla_cocina_screen.dart';
+import 'pantalla_fiados_screen.dart';
 import '../widgets/tpv_type_switcher.dart';
 import '../widgets/dialogo_devoluciones.dart';
 import '../widgets/empleados_banner_widget.dart';
@@ -41,6 +42,8 @@ import '../../../widgets/tpv/historial_tickets_widget.dart';
 import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 import '../../../widgets/tpv/hold_pedidos_widget.dart';
 import '../../../widgets/tpv/arqueo_caja_widget.dart';
+import '../../../services/tpv/offline_queue_service.dart';
+import '../../../services/tpv/terminal_fisica_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROOT SCREEN
@@ -91,6 +94,8 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _estaOnline = true;
+  bool _prevEstaOnline = true;
+  int _pendientesOffline = 0;
   bool _btConectado = false;
 
   static const _tpvAppBarColor = Color(0xFF1565C0);
@@ -106,13 +111,29 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
     ]);
     _iniciarReloj();
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
-      if (mounted) setState(() => _estaOnline = !results.contains(ConnectivityResult.none));
+      final online = !results.contains(ConnectivityResult.none);
+      if (online && !_prevEstaOnline) _sincronizarOffline();
+      _prevEstaOnline = online;
+      if (mounted) setState(() => _estaOnline = online);
     });
     Connectivity().checkConnectivity().then((results) {
       if (mounted) setState(() => _estaOnline = !results.contains(ConnectivityResult.none));
     });
     ImpressoraBluetooth().estaConectada().then((conectada) {
       if (mounted) setState(() => _btConectado = conectada);
+    });
+    // Cargar config del terminal física
+    TpvFacturacionService().obtenerConfig(widget.empresaId).then((cfg) {
+      if (cfg.terminalFisicaIp.isNotEmpty) {
+        TerminalFisicaService().configurar(
+          ip: cfg.terminalFisicaIp,
+          puerto: cfg.terminalFisicaPuerto,
+          protocolo: ProtocoloTerminal.values.firstWhere(
+            (p) => p.name == cfg.terminalFisicaProtocolo,
+            orElse: () => ProtocoloTerminal.manual,
+          ),
+        );
+      }
     });
     
     // Inicializar servicio de impresión Windows
@@ -140,6 +161,31 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
     _holdNotifier.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
+  }
+
+  Future<void> _actualizarContadorOffline() async {
+    try {
+      final n = await OfflineQueueService().contarPendientes(widget.empresaId);
+      if (mounted) setState(() => _pendientesOffline = n);
+    } catch (_) {}
+  }
+
+  Future<void> _sincronizarOffline() async {
+    final n = await OfflineQueueService().contarPendientes(widget.empresaId);
+    if (n == 0) return;
+    try {
+      await OfflineQueueService().sincronizarTodos(widget.empresaId);
+      await _actualizarContadorOffline();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$n pedido${n > 1 ? 's' : ''} sincronizado${n > 1 ? 's' : ''} al recuperar conexión'),
+            backgroundColor: const Color(0xFF00FFC8),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   void _iniciarReloj() {
@@ -309,6 +355,23 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
               size: 14,
               color: _estaOnline ? Colors.white54 : Colors.orangeAccent,
             ),
+            if (_pendientesOffline > 0) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _sincronizarOffline,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$_pendientesOffline offline',
+                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black),
+                  ),
+                ),
+              ),
+            ],
             // ── Menú desbordamiento para acciones secundarias ─────────
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 18, color: Colors.white70),
@@ -334,6 +397,10 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                   case 'cocina':
                     Navigator.push(context, MaterialPageRoute(
                       builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId),
+                    ));
+                  case 'fiados':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId),
                     ));
                   case 'devoluciones':
                     showDialog(
@@ -370,6 +437,10 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                 const PopupMenuItem(value: 'cocina', child: Row(children: [
                   Icon(Icons.restaurant_menu, size: 16, color: Colors.white70), SizedBox(width: 10),
                   Text('Pantalla de cocina', style: TextStyle(color: Colors.white)),
+                ])),
+                const PopupMenuItem(value: 'fiados', child: Row(children: [
+                  Icon(Icons.schedule_rounded, size: 16, color: Color(0xFFFFCC00)), SizedBox(width: 10),
+                  Text('Fiados pendientes', style: TextStyle(color: Colors.white)),
                 ])),
                 const PopupMenuItem(value: 'devoluciones', child: Row(children: [
                   Icon(Icons.keyboard_return, size: 16, color: Colors.white70), SizedBox(width: 10),
@@ -414,6 +485,8 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
               empresaId: widget.empresaId,
               comandaActiva: _comandaActiva,
               mesaId: _mesaSeleccionadaId,
+              estaOnline: _estaOnline,
+              onActualizarOffline: _actualizarContadorOffline,
               onComandaActualizada: (comanda) {
                 setState(() => _comandaActiva = comanda);
                 _sincronizarComanda();
@@ -521,6 +594,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
       precioUnitario: precioUnitario,
       ivaPorcentaje: producto.ivaPorcentaje,
       esNuevo: true,
+      destino: producto.destino,
     );
 
     final lineasActualizadas = List<LineaComanda>.from(_comandaActiva?.lineas ?? []);
@@ -638,6 +712,8 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
         'comanda_id': _comandaActiva!.id,
         'camarero_uid': _empleadoSeleccionadoId ?? FirebaseAuth.instance.currentUser?.uid ?? '',
         'fecha_apertura': FieldValue.serverTimestamp(),
+        if (_empleadoSeleccionadoId != null)
+          'asignado_a_uid': _empleadoSeleccionadoId,
       });
     }
   }
@@ -1347,8 +1423,12 @@ class _ColumnaListaMesasState extends State<_ColumnaListaMesas> {
               final mesasPorEmpleado = widget.empleadoFiltroUid == null
                   ? mesas
                   : mesas.where((m) {
-                      final uid = (m.asignadoAUid ?? '').trim();
-                      return uid.isEmpty || uid == widget.empleadoFiltroUid!.trim();
+                      final asig = (m.asignadoAUid ?? '').trim();
+                      final cam  = (m.camareroUid   ?? '').trim();
+                      final uid  = widget.empleadoFiltroUid!.trim();
+                      // Muestra la mesa si está permanentemente asignada a este camarero,
+                      // si él la está atendiendo ahora, o si no tiene asignación permanente.
+                      return asig.isEmpty || asig == uid || cam == uid;
                     }).toList();
 
               final mesasFiltradas = widget.zonaFiltro.isEmpty
@@ -2066,6 +2146,8 @@ class _ColumnaComandaActiva extends StatelessWidget {
   final ValueChanged<String>? onTransferirComanda;
   final HoldPedidosNotifier? holdNotifier;
   final VoidCallback? onEnEspera;
+  final bool estaOnline;
+  final VoidCallback? onActualizarOffline;
 
   const _ColumnaComandaActiva({
     required this.empresaId,
@@ -2077,6 +2159,8 @@ class _ColumnaComandaActiva extends StatelessWidget {
     this.onTransferirComanda,
     this.holdNotifier,
     this.onEnEspera,
+    this.estaOnline = true,
+    this.onActualizarOffline,
   });
 
   @override
@@ -2187,6 +2271,13 @@ class _ColumnaComandaActiva extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         _AccionIconBtn(
+                          icon: Icons.merge_type,
+                          tooltip: 'Fusionar mesa',
+                          enabled: mesaId != null,
+                          onTap: () => _fusionarConMesa(context),
+                        ),
+                        const SizedBox(width: 4),
+                        _AccionIconBtn(
                           icon: Icons.call_split,
                           tooltip: 'Dividir',
                           enabled: comandaActiva != null &&
@@ -2196,6 +2287,17 @@ class _ColumnaComandaActiva extends StatelessWidget {
                               ? () => _mostrarDividirComanda(
                               context, empresaId, mesaId!,
                               comandaActiva!, onComandaActualizada)
+                              : () {},
+                        ),
+                        const SizedBox(width: 4),
+                        _AccionIconBtn(
+                          icon: Icons.receipt_outlined,
+                          tooltip: 'Pago parcial',
+                          enabled: comandaActiva != null &&
+                              comandaActiva!.lineas.length > 1,
+                          onTap: comandaActiva != null &&
+                              comandaActiva!.lineas.length > 1
+                              ? () => _cobroParcialLineas(context)
                               : () {},
                         ),
                         const SizedBox(width: 4),
@@ -2231,6 +2333,13 @@ class _ColumnaComandaActiva extends StatelessWidget {
                               comandaActiva!.lineas.isNotEmpty
                               ? () => onEnEspera?.call()
                               : () {},
+                        ),
+                        const SizedBox(width: 4),
+                        _AccionIconBtn(
+                          icon: Icons.print_outlined,
+                          tooltip: 'Reimprimir ticket',
+                          enabled: mesaId != null,
+                          onTap: () => _reimprimirUltimoTicket(context),
                         ),
                       ],
                     ),   // close Row
@@ -2602,6 +2711,436 @@ class _ColumnaComandaActiva extends StatelessWidget {
     }
   }
 
+  // ── FUSIONAR MESAS: une la comanda de otra mesa ocupada a la actual ────────
+  Future<void> _fusionarConMesa(BuildContext context) async {
+    if (mesaId == null) return;
+
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('mesas')
+        .where('estado', isEqualTo: 'ocupada')
+        .get();
+
+    final mesasOcupadas = snap.docs
+        .where((d) => d.id != mesaId)
+        .map((d) => {'id': d.id, ...d.data()})
+        .toList();
+
+    if (!context.mounted) return;
+
+    if (mesasOcupadas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay otras mesas ocupadas para fusionar'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final mesaOrigenId = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E2139),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36, height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                Icon(Icons.merge_type, color: Color(0xFFFF3296), size: 18),
+                SizedBox(width: 8),
+                Text('Fusionar con mesa',
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          const Divider(color: Color(0xFF2A2E45), height: 1),
+          ...mesasOcupadas.map((m) {
+            final nombre = (m['nombre'] as String?) ?? 'Mesa';
+            final zona = m['zona'] as String? ?? '';
+            return ListTile(
+              leading: const Icon(Icons.table_restaurant, color: Color(0xFFFF3296), size: 20),
+              title: Text(nombre, style: const TextStyle(color: Colors.white, fontSize: 14)),
+              subtitle: zona.isNotEmpty
+                  ? Text(zona, style: const TextStyle(color: Colors.white38, fontSize: 11))
+                  : null,
+              onTap: () => Navigator.pop(context, m['id'] as String),
+            );
+          }),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+
+    if (mesaOrigenId == null || !context.mounted) return;
+
+    // Cargar la comanda de la mesa origen
+    final comandasOrigen = await FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('comandas')
+        .where('mesa_id', isEqualTo: mesaOrigenId)
+        .where('estado', isEqualTo: 'abierta')
+        .limit(1)
+        .get();
+
+    if (comandasOrigen.docs.isEmpty || !context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La mesa seleccionada no tiene comanda activa'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final comandaOrigenDoc = comandasOrigen.docs.first;
+    final lineasOrigen = (comandaOrigenDoc.data()['lineas'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+
+    // Fusionar: unir las líneas de la comanda origen a la comanda actual
+    final lineasActuales = (comandaActiva?.lineas ?? []).map((l) => {
+      'producto_id': l.productoId,
+      'nombre': l.nombre,
+      'cantidad': l.cantidad,
+      'precio_unitario': l.precioUnitario,
+      'iva_porcentaje': l.ivaPorcentaje,
+      'notas': l.notas,
+      'es_nuevo': l.esNuevo,
+      'subtotal': l.total,
+    }).toList();
+
+    final lineasFusionadas = [...lineasActuales, ...lineasOrigen];
+    final nuevoTotal = lineasFusionadas.fold<double>(
+        0.0, (s, l) => s + ((l['subtotal'] as num?)?.toDouble() ?? 0));
+
+    final db = FirebaseFirestore.instance.collection('empresas').doc(empresaId);
+    final batch = FirebaseFirestore.instance.batch();
+
+    // Actualizar comanda actual con líneas fusionadas
+    if (comandaActiva != null) {
+      batch.update(db.collection('comandas').doc(comandaActiva!.id), {
+        'lineas': lineasFusionadas,
+        'importe_total': nuevoTotal,
+        'ultima_actualizacion': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Cerrar comanda origen
+    batch.update(db.collection('comandas').doc(comandaOrigenDoc.id), {
+      'estado': 'fusionada',
+      'fusionada_en': comandaActiva?.id ?? '',
+      'fecha_fusion': FieldValue.serverTimestamp(),
+    });
+
+    // Liberar mesa origen
+    batch.update(db.collection('mesas').doc(mesaOrigenId), {
+      'estado': 'libre',
+      'comanda_id': null,
+      'camarero_uid': null,
+      'fecha_apertura': null,
+    });
+
+    await batch.commit();
+
+    // Recargar la comanda actual
+    if (comandaActiva != null) {
+      final doc = await db.collection('comandas').doc(comandaActiva!.id).get();
+      if (doc.exists) {
+        final lineasNuevas = (doc.data()!['lineas'] as List<dynamic>? ?? [])
+            .map((l) => LineaComanda(
+              productoId: l['producto_id'] as String? ?? '',
+              nombre: l['nombre'] as String? ?? '',
+              precioUnitario: (l['precio_unitario'] as num?)?.toDouble() ?? 0,
+              cantidad: (l['cantidad'] as num?)?.toInt() ?? 1,
+              ivaPorcentaje: (l['iva_porcentaje'] as num?)?.toDouble() ?? 21,
+              notas: l['notas'] as String?,
+            )).toList();
+        onComandaActualizada(comandaActiva!.copyWith(
+            lineas: lineasNuevas, importeTotal: nuevoTotal));
+      }
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Mesas fusionadas'),
+          backgroundColor: Color(0xFFFF3296),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // ── COBRO PARCIAL: pagar líneas seleccionadas sin cerrar la mesa ──────────
+  Future<void> _cobroParcialLineas(BuildContext context) async {
+    if (comandaActiva == null || mesaId == null) return;
+
+    final selectedIndices = <int>{};
+    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) {
+          final totalSeleccionado = selectedIndices.fold<double>(
+              0, (s, i) => s + comandaActiva!.lineas[i].total);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E2139),
+            title: const Row(children: [
+              Icon(Icons.receipt_outlined, color: Color(0xFF00FFC8), size: 18),
+              SizedBox(width: 8),
+              Text('Pago parcial', style: TextStyle(color: Colors.white, fontSize: 16)),
+            ]),
+            content: SizedBox(
+              width: 340,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Selecciona los artículos que se van a cobrar ahora.\nLos restantes quedan en la mesa.',
+                      style: TextStyle(color: Color(0xFFB0B3C1), fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    ...comandaActiva!.lineas.asMap().entries.map((e) =>
+                        CheckboxListTile(
+                          dense: true,
+                          checkColor: const Color(0xFF0A0F23),
+                          activeColor: const Color(0xFF00FFC8),
+                          tileColor: Colors.transparent,
+                          title: Text(
+                              '${e.value.nombre} ×${e.value.cantidad}',
+                              style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          subtitle: Text(
+                              fmt.format(e.value.total),
+                              style: const TextStyle(color: Color(0xFFB0B3C1), fontSize: 11)),
+                          value: selectedIndices.contains(e.key),
+                          onChanged: (v) => setS(() {
+                            if (v == true) selectedIndices.add(e.key);
+                            else selectedIndices.remove(e.key);
+                          }),
+                        )),
+                    if (selectedIndices.isNotEmpty) ...[
+                      const Divider(color: Color(0xFF2A2E45)),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        const Text('A cobrar:', style: TextStyle(color: Color(0xFFB0B3C1))),
+                        Text(fmt.format(totalSeleccionado),
+                            style: const TextStyle(
+                                color: Color(0xFF00FFC8),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold)),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx2, false),
+                  child: const Text('Cancelar', style: TextStyle(color: Color(0xFFB0B3C1)))),
+              FilledButton(
+                onPressed: selectedIndices.isEmpty ? null : () => Navigator.pop(ctx2, true),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00FFC8)),
+                child: const Text('Cobrar selección',
+                    style: TextStyle(color: Color(0xFF0A0F23), fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmar != true || selectedIndices.isEmpty || !context.mounted) return;
+
+    final lineasACobrar = selectedIndices.map((i) => comandaActiva!.lineas[i]).toList();
+    final subtotalParcial = lineasACobrar.fold<double>(0, (s, l) => s + l.total);
+
+    // Mostrar diálogo de método de pago
+    final pago = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _DialogoMetodoPago(total: subtotalParcial, empresaId: empresaId),
+    );
+
+    if (pago == null || !context.mounted) return;
+
+    try {
+      final numeroTicket = await _obtenerSiguienteNumeroTicket(empresaId);
+      if (!context.mounted) return;
+
+      final lineasPedido = lineasACobrar.map((l) => LineaPedido(
+        productoId: l.productoId,
+        productoNombre: l.nombre,
+        cantidad: l.cantidad,
+        precioUnitario: l.precioUnitario,
+        ivaPorcentaje: l.ivaPorcentaje,
+        notasLinea: l.notas?.isNotEmpty == true ? l.notas : null,
+      )).toList();
+
+      await PedidosService().crearPedido(
+        empresaId: empresaId,
+        clienteNombre: 'Pago parcial',
+        lineas: lineasPedido,
+        metodoPago: pago['metodo'] == 'efectivo'
+            ? MetodoPago.efectivo
+            : pago['metodo'] == 'tarjeta'
+            ? MetodoPago.tarjeta
+            : MetodoPago.mixto,
+        origen: OrigenPedido.presencial,
+        numeroTicket: numeroTicket,
+        importeEfectivo: pago['importe_efectivo'],
+        importeTarjeta: pago['importe_tarjeta'],
+        importeTotal: subtotalParcial,
+        mesaId: mesaId,
+        estado: 'entregado',
+        estadoPago: 'pagado',
+        fechaHora: Timestamp.now(),
+      );
+
+      // Eliminar las líneas cobradas de la comanda
+      final lineasRestantes = comandaActiva!.lineas
+          .asMap()
+          .entries
+          .where((e) => !selectedIndices.contains(e.key))
+          .map((e) => e.value)
+          .toList();
+
+      final totalRestante = lineasRestantes.fold<double>(0, (s, l) => s + l.total);
+
+      final db = FirebaseFirestore.instance.collection('empresas').doc(empresaId);
+
+      if (lineasRestantes.isEmpty) {
+        // Si no quedan líneas, cerrar la mesa normal
+        await db.collection('comandas').doc(comandaActiva!.id).update({
+          'estado': 'cerrada',
+          'fecha_cierre': FieldValue.serverTimestamp(),
+        });
+        await db.collection('mesas').doc(mesaId).update({
+          'estado': 'libre',
+          'comanda_id': null,
+          'camarero_uid': null,
+        });
+        onCobrado();
+      } else {
+        // Actualizar comanda con líneas restantes
+        await db.collection('comandas').doc(comandaActiva!.id).update({
+          'lineas': lineasRestantes.map((l) => {
+            'producto_id': l.productoId,
+            'nombre': l.nombre,
+            'cantidad': l.cantidad,
+            'precio_unitario': l.precioUnitario,
+            'iva_porcentaje': l.ivaPorcentaje,
+            'notas': l.notas,
+            'es_nuevo': l.esNuevo,
+            'subtotal': l.total,
+          }).toList(),
+          'importe_total': totalRestante,
+          'ultima_actualizacion': FieldValue.serverTimestamp(),
+        });
+        onComandaActualizada(comandaActiva!.copyWith(
+            lineas: lineasRestantes, importeTotal: totalRestante));
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Cobro parcial realizado · Quedan ${fmt.format(totalRestante)} en mesa'),
+              backgroundColor: const Color(0xFF00FFC8),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error en pago parcial: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── REIMPRIMIR ÚLTIMO TICKET DE ESTA MESA ────────────────────────────────
+  Future<void> _reimprimirUltimoTicket(BuildContext context) async {
+    if (mesaId == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('pedidos')
+          .where('mesa_id', isEqualTo: mesaId)
+          .where('estado_pago', isEqualTo: 'pagado')
+          .orderBy('fecha_creacion', descending: true)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No hay tickets anteriores para esta mesa'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final data = snap.docs.first.data();
+      final nombre = (data['cliente_nombre'] as String?) ?? 'Mesa';
+      final total = (data['total'] as num?)?.toDouble() ?? 0;
+      final metodo = (data['metodo_pago'] as String?) ?? 'efectivo';
+      final lineasRaw = data['lineas'] as List<dynamic>? ?? [];
+      final lineasTicket = lineasRaw.map((l) {
+        final m = l as Map<String, dynamic>;
+        return LineaTicket(
+          nombre: m['producto_nombre'] as String? ?? m['nombre'] as String? ?? '',
+          cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
+          precioUnitario: (m['precio_unitario'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
+
+      final ticketData = TicketData(
+        nombreEmpresa: nombre,
+        numeroTicket: (data['numero_ticket'] as num?)?.toInt() ?? 0,
+        fecha: DateTime.now(),
+        lineas: lineasTicket,
+        total: total,
+        metodoPago: metodo,
+      );
+
+      await ImpressoraBluetooth().imprimirTicket(ticketData);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🖨️ Ticket reimpreso'),
+            backgroundColor: Color(0xFF1565C0),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al reimprimir: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _enviarACocina(BuildContext context) async {
     if (comandaActiva == null || comandaActiva!.lineas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2628,8 +3167,9 @@ class _ColumnaComandaActiva extends StatelessWidget {
             'precio_unitario': l.precioUnitario,
             'iva_porcentaje': l.ivaPorcentaje,
             'notas': l.notas,
-            'es_nuevo': false, // ya enviado
+            'es_nuevo': false,
             'subtotal': l.total,
+            if (l.destino != null) 'destino': l.destino,
           }).toList(),
           'nota_general': comandaActiva!.notaGeneral, // ← NUEVO: Incluir nota
         });
@@ -3027,7 +3567,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
       final pago = await showDialog<Map<String, dynamic>>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _DialogoMetodoPago(total: comanda.total),
+        builder: (_) => _DialogoMetodoPago(total: comanda.total, empresaId: empresaId),
       );
       if (pago == null) {
         debugPrint('💰 [COBRO] Usuario canceló el pago');
@@ -3070,25 +3610,57 @@ class _ColumnaComandaActiva extends StatelessWidget {
     debugPrint('💰 [COBRO] ✅ ${lineasPedido.length} líneas preparadas');
 
     debugPrint('💰 [COBRO] Paso 5: Creando pedido en Firestore...');
-    final pedidoCreado = await PedidosService().crearPedido(
-      empresaId: empresaId,
-      clienteNombre: mesaId != null ? 'Mesa $mesaId' : 'Caja rápida',
-      lineas: lineasPedido,
-      metodoPago: pago['metodo'] == 'efectivo'
-          ? MetodoPago.efectivo
-          : pago['metodo'] == 'tarjeta'
-          ? MetodoPago.tarjeta
-          : MetodoPago.mixto,
-      origen: OrigenPedido.presencial,
-      numeroTicket: numeroTicket,
-      importeEfectivo: pago['importe_efectivo'],
-      importeTarjeta: pago['importe_tarjeta'],
-      importeTotal: comanda.total,
-      mesaId: mesaId,
-      estado: 'entregado',
-      estadoPago: 'pagado',
-      fechaHora: fechaHoraTs,
-    );
+    late final Pedido pedidoCreado;
+    try {
+      pedidoCreado = await PedidosService().crearPedido(
+        empresaId: empresaId,
+        clienteNombre: mesaId != null ? 'Mesa $mesaId' : 'Caja rápida',
+        lineas: lineasPedido,
+        metodoPago: pago['metodo'] == 'efectivo'
+            ? MetodoPago.efectivo
+            : pago['metodo'] == 'tarjeta'
+            ? MetodoPago.tarjeta
+            : MetodoPago.mixto,
+        origen: OrigenPedido.presencial,
+        numeroTicket: numeroTicket,
+        importeEfectivo: pago['importe_efectivo'],
+        importeTarjeta: pago['importe_tarjeta'],
+        importeTotal: (pago['total_final'] as double?) ?? comanda.total,
+        mesaId: mesaId,
+        estado: 'entregado',
+        estadoPago: 'pagado',
+        fechaHora: fechaHoraTs,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable' || !estaOnline) {
+        // Sin conexión — guardar localmente
+        await OfflineQueueService().encolar(empresaId, {
+          'mesa_id': mesaId ?? '',
+          'mesa_nombre': mesaId != null ? 'Mesa $mesaId' : 'Caja rápida',
+          'lineas': comanda.lineas.map((l) => {
+            'nombre': l.nombre, 'cantidad': l.cantidad,
+            'precio_unitario': l.precioUnitario,
+          }).toList(),
+          'total': comanda.total,
+          'metodo_pago': pago['metodo'],
+          'estado_pago': 'pagado',
+          'fecha_hora': ahora.toIso8601String(),
+          'numero_ticket': numeroTicket,
+          'es_offline': true,
+        });
+        onActualizarOffline?.call();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Sin conexión — cobro guardado localmente. Se subirá al recuperar WiFi.'),
+            backgroundColor: Colors.orangeAccent,
+            duration: Duration(seconds: 5),
+          ));
+          onCobrado();
+        }
+        return;
+      }
+      rethrow;
+    }
     debugPrint('💰 [COBRO] ✅ Pedido creado: ${pedidoCreado.id}');
 
     if (!context.mounted) { 
@@ -3341,9 +3913,14 @@ class _ColumnaComandaActiva extends StatelessWidget {
     debugPrint('💰 [COBRO] ═══════════════════════════════════════');
 
     } catch (e, stackTrace) {
-      // Enviar a Crashlytics (siempre, en producción y debug)
-      FirebaseCrashlytics.instance.recordError(e, stackTrace,
-          reason: 'Error crítico en proceso de cobro TPV');
+      // Enviar a Crashlytics solo en móvil (desktop no tiene el plugin)
+      if (!kIsWeb &&
+          defaultTargetPlatform != TargetPlatform.windows &&
+          defaultTargetPlatform != TargetPlatform.linux &&
+          defaultTargetPlatform != TargetPlatform.macOS) {
+        FirebaseCrashlytics.instance.recordError(e, stackTrace,
+            reason: 'Error crítico en proceso de cobro TPV');
+      }
 
       // Logs técnicos solo en debug
       if (kDebugMode) {
@@ -4808,17 +5385,53 @@ class _ProductoCardBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      producto.nombre,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        height: 1.1,
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          producto.nombre,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      // Badge barra
+                      if (producto.destino == 'barra')
+                        const Padding(
+                          padding: EdgeInsets.only(left: 2),
+                          child: Tooltip(
+                            message: 'Va a barra',
+                            child: Icon(Icons.local_bar_rounded,
+                                size: 10, color: Color(0xFFFF3296)),
+                          ),
+                        ),
+                      // Badge alergenos
+                      if (producto.alergenos.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 2),
+                          child: Tooltip(
+                            message: 'Contiene alergenos',
+                            child: Container(
+                              width: 12, height: 12,
+                              decoration: const BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Text('!',
+                                    style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.black)),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ]),
                     Text(
                       fmt.format(producto.precio),
                       style: const TextStyle(
@@ -5313,7 +5926,13 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
 
 class _DialogoMetodoPago extends StatefulWidget {
   final double total;
-  const _DialogoMetodoPago({required this.total});
+  final String empresaId;
+  final bool mostrarPropina;
+  const _DialogoMetodoPago({
+    required this.total,
+    required this.empresaId,
+    this.mostrarPropina = true,
+  });
 
   @override
   State<_DialogoMetodoPago> createState() => _DialogoMetodoPagoState();
@@ -5326,18 +5945,90 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
   final _tarjetaMixtoCtrl = TextEditingController();
   double _cambio = 0;
 
+  // Propina
+  double _propina = 0.0;
+  final _propinaCtrl = TextEditingController();
+
+  // Métodos extra (Bizum, Transferencia, etc. desde config)
+  List<({String id, String emoji, String label})> _metodosExtra = const [];
+
+  // Split bill
+  int _splitPersonas = 2;
+  late List<TextEditingController> _splitCtrls;
+
+  // Terminal física
+  bool _terminalProcesando = false;
+  String _terminalEstado = '';
+  String? _terminalError;
+
+  double get _totalFinal => widget.total + _propina;
   double get _efectivoMixto =>
       double.tryParse(_efectivoMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
   double get _tarjetaMixto =>
       double.tryParse(_tarjetaMixtoCtrl.text.replaceAll(',', '.')) ?? 0;
   double get _restoMixto =>
-      (widget.total - _efectivoMixto - _tarjetaMixto);
+      (_totalFinal - _efectivoMixto - _tarjetaMixto);
+
+  @override
+  void initState() {
+    super.initState();
+    final importe = (widget.total / _splitPersonas).toStringAsFixed(2);
+    _splitCtrls = List.generate(_splitPersonas, (_) => TextEditingController(text: importe));
+    _cargarMetodosExtra();
+    // Recalcular split cuando cambia la propina
+  }
+
+  Future<void> _cargarMetodosExtra() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('configuracion').doc('tpv_cobro').get();
+      if (!doc.exists || !mounted) return;
+      final habilitados = (doc.data()?['metodos_habilitados'] as List?)
+          ?.map((e) => e.toString()).toSet() ?? {};
+      const candidatos = [
+        (id: 'bizum',         emoji: '📱', label: 'Bizum'),
+        (id: 'transferencia', emoji: '🏦', label: 'Transferencia'),
+        (id: 'cheque_regalo', emoji: '🎁', label: 'Cheque regalo'),
+      ];
+      setState(() => _metodosExtra = candidatos.where((m) => habilitados.contains(m.id)).toList());
+    } catch (_) {}
+  }
+
+  Future<void> _iniciarCobroTerminal() async {
+    setState(() { _terminalProcesando = true; _terminalEstado = 'procesando'; _terminalError = null; });
+    final resultado = await TerminalFisicaService().cobrar(
+      widget.total,
+      descripcion: 'Venta TPV ${widget.total.toStringAsFixed(2)}€',
+    );
+    if (!mounted) return;
+    if (resultado.esManual) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'manual'; });
+    } else if (resultado.exito) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'exito'; });
+    } else {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'error'; _terminalError = resultado.error; });
+    }
+  }
+
+  void _setSplitPersonas(int n) {
+    for (final c in _splitCtrls) c.dispose();
+    final importe = (_totalFinal / n).toStringAsFixed(2);
+    setState(() {
+      _splitPersonas = n;
+      _splitCtrls = List.generate(n, (_) => TextEditingController(text: importe));
+    });
+  }
+
+  double get _totalSplit => _splitCtrls.fold(0.0, (s, c) => s + (double.tryParse(c.text.replaceAll(',', '.')) ?? 0));
 
   @override
   void dispose() {
     _entregaCtrl.dispose();
+    _propinaCtrl.dispose();
     _efectivoMixtoCtrl.dispose();
     _tarjetaMixtoCtrl.dispose();
+    for (final c in _splitCtrls) c.dispose();
     super.dispose();
   }
 
@@ -5388,16 +6079,42 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
                       style: TextStyle(
                           fontSize: 12, color: cs.onPrimaryContainer)),
                   Text(
-                    '${widget.total.toStringAsFixed(2)} €',
+                    '${(widget.total + _propina).toStringAsFixed(2)} €',
                     style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
                         color: cs.onPrimaryContainer),
                   ),
+                  if (_propina > 0)
+                    Text('incl. propina ${_propina.toStringAsFixed(2)} €',
+                        style: TextStyle(fontSize: 11, color: cs.onPrimaryContainer.withValues(alpha: 0.7))),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            // ── Propina ──────────────────────────────────────────────────────
+            if (widget.mostrarPropina) ...[
+              const SizedBox(height: 10),
+              TextField(
+                controller: _propinaCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (v) => setState(() => _propina = double.tryParse(v.replaceAll(',', '.')) ?? 0),
+                decoration: const InputDecoration(
+                  labelText: 'Propina (opcional)',
+                  prefixIcon: Icon(Icons.volunteer_activism),
+                  suffixText: '€',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Wrap(spacing: 6, children: [1.0, 2.0, 5.0].map((v) =>
+                ActionChip(
+                  label: Text('$v €', style: const TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() { _propina = v; _propinaCtrl.text = v.toString(); }),
+                )).toList()),
+            ],
+            const SizedBox(height: 12),
+            // ── Métodos principales ───────────────────────────────────────────
             Row(
               children: [
                 _PagoChip(
@@ -5417,8 +6134,41 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
                     icon: Icons.swap_horiz,
                     selected: _metodo == 'mixto',
                     onTap: () => setState(() => _metodo = 'mixto')),
+                const SizedBox(width: 8),
+                _PagoChip(
+                    label: 'Split',
+                    icon: Icons.group,
+                    selected: _metodo == 'split',
+                    onTap: () => setState(() => _metodo = 'split')),
+                const SizedBox(width: 8),
+                _PagoChip(
+                    label: 'Terminal',
+                    icon: Icons.credit_score,
+                    selected: _metodo == 'terminal',
+                    onTap: () => setState(() {
+                      _metodo = 'terminal';
+                      _terminalEstado = '';
+                      _terminalError = null;
+                    })),
               ],
             ),
+            // ── Métodos extra (Bizum, Transferencia…) ────────────────────────
+            if (_metodosExtra.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 6, children: _metodosExtra.map((m) {
+                final icons = {
+                  'bizum': Icons.qr_code,
+                  'transferencia': Icons.account_balance,
+                  'cheque_regalo': Icons.card_giftcard,
+                };
+                return _PagoChip(
+                  label: '${m.emoji} ${m.label}',
+                  icon: icons[m.id] ?? Icons.payment,
+                  selected: _metodo == m.id,
+                  onTap: () => setState(() => _metodo = m.id),
+                );
+              }).toList()),
+            ],
             const SizedBox(height: 16),
             if (_metodo == 'efectivo') ...[
               TextField(
@@ -5582,6 +6332,97 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
                 ],
               ),
             ],
+            if (_metodo == 'split') ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                const Text('Personas:', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
+                ...[2, 3, 4, 5, 6].map((n) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('$n'),
+                    selected: _splitPersonas == n,
+                    onSelected: (_) => _setSplitPersonas(n),
+                    selectedColor: cs.primaryContainer,
+                    labelStyle: TextStyle(
+                      color: _splitPersonas == n ? cs.onPrimaryContainer : null,
+                      fontWeight: _splitPersonas == n ? FontWeight.bold : null,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                )),
+              ]),
+              const SizedBox(height: 10),
+              ...List.generate(_splitPersonas, (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('${i + 1}', style: TextStyle(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer, fontSize: 12)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _splitCtrls[i],
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Persona ${i + 1} (€)',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.person_outline, size: 18),
+                      ),
+                    ),
+                  ),
+                ]),
+              )),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: (_totalSplit - _totalFinal).abs() < 0.01
+                      ? Colors.green.shade50 : Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: (_totalSplit - _totalFinal).abs() < 0.01
+                        ? Colors.green.shade300 : Colors.orange.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      (_totalSplit - _totalFinal).abs() < 0.01
+                          ? '✓ Suma correcta'
+                          : 'Falta ${(_totalFinal - _totalSplit).toStringAsFixed(2)} € por repartir',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: (_totalSplit - _totalFinal).abs() < 0.01
+                            ? Colors.green.shade700 : Colors.orange.shade700,
+                      ),
+                    ),
+                    Text('${_totalSplit.toStringAsFixed(2)} / ${_totalFinal.toStringAsFixed(2)} €',
+                        style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+            if (_metodo == 'terminal') ...[
+              const SizedBox(height: 16),
+              _UiTerminalFisica(
+                total: _totalFinal,
+                estado: _terminalEstado,
+                error: _terminalError,
+                procesando: _terminalProcesando,
+                onIniciarCobro: _iniciarCobroTerminal,
+                onConfirmarManual: () => setState(() => _terminalEstado = 'exito'),
+                onRechazar: () => setState(() { _terminalEstado = 'error'; _terminalError = 'Pago rechazado'; }),
+              ),
+            ],
           ],
         ),
       ),
@@ -5590,12 +6431,22 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar')),
         FilledButton(
-          onPressed: () {
+          onPressed: _metodo == 'terminal' && _terminalEstado != 'exito' ? null : () {
             double efectivo = 0, tarjeta = 0;
             if (_metodo == 'efectivo') {
-              efectivo = widget.total;
+              efectivo = _totalFinal;
             } else if (_metodo == 'tarjeta') {
-              tarjeta = widget.total;
+              tarjeta = _totalFinal;
+            } else if (_metodo == 'terminal') {
+              tarjeta = _totalFinal;
+            } else if (_metodo == 'split') {
+              if ((_totalSplit - _totalFinal).abs() > 0.01) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Los importes del split no suman el total')),
+                );
+                return;
+              }
+              efectivo = _totalFinal;
             } else {
               efectivo = double.tryParse(
                   _efectivoMixtoCtrl.text.replaceAll(',', '.')) ??
@@ -5603,7 +6454,7 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
               tarjeta = double.tryParse(
                   _tarjetaMixtoCtrl.text.replaceAll(',', '.')) ??
                   0;
-              if ((efectivo + tarjeta - widget.total).abs() > 0.01) {
+              if ((efectivo + tarjeta - _totalFinal).abs() > 0.01) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                       content: Text('Los importes no suman el total')),
@@ -5615,9 +6466,18 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
               'metodo': _metodo,
               'importe_efectivo': efectivo,
               'importe_tarjeta': tarjeta,
+              'propina': _propina,
+              'total_final': _totalFinal,
+              if (_metodo == 'split') ...{
+                'split_personas': _splitPersonas,
+                'split_importes': _splitCtrls.map((c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0.0).toList(),
+              },
+              // Métodos extra (Bizum, Transferencia, etc.)
+              if (_metodosExtra.any((m) => m.id == _metodo))
+                'importes': <String, double>{_metodo: _totalFinal},
             });
           },
-          child: const Text('Confirmar cobro'),
+          child: Text('Confirmar cobro ${_totalFinal.toStringAsFixed(2)} €'),
         ),
       ],
     );
@@ -5673,6 +6533,156 @@ class _PagoChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI TERMINAL FÍSICA
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _UiTerminalFisica extends StatelessWidget {
+  final double total;
+  final String estado; // '', 'procesando', 'manual', 'exito', 'error'
+  final bool procesando;
+  final String? error;
+  final VoidCallback onIniciarCobro;
+  final VoidCallback onConfirmarManual;
+  final VoidCallback onRechazar;
+
+  const _UiTerminalFisica({
+    required this.total,
+    required this.estado,
+    required this.procesando,
+    required this.onIniciarCobro,
+    required this.onConfirmarManual,
+    required this.onRechazar,
+    this.error,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2, locale: 'es_ES');
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _colorFondo(cs),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _colorBorde(cs)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Importe grande
+          Text(
+            fmt.format(total),
+            style: TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.w900,
+              color: _colorImporte(cs),
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Estado
+          if (estado.isEmpty) ...[
+            Text('Pulsa "Cobrar en terminal" para enviar el importe al datáfono',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onIniciarCobro,
+                icon: const Icon(Icons.credit_score, size: 18),
+                label: const Text('Cobrar en terminal'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ] else if (estado == 'procesando') ...[
+            const SizedBox(height: 8),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 8),
+            const Text('Procesando pago en el terminal…',
+                style: TextStyle(fontSize: 13)),
+            const Text('El cliente debe introducir la tarjeta en el datáfono',
+                style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ] else if (estado == 'manual') ...[
+            const SizedBox(height: 4),
+            Text('Cobra este importe en tu datáfono y confirma aquí',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onRechazar,
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Rechazado'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onConfirmarManual,
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Cobrado ✓'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                ),
+              ),
+            ]),
+          ] else if (estado == 'exito') ...[
+            const SizedBox(height: 4),
+            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 36),
+            const SizedBox(height: 4),
+            const Text('¡Pago completado!',
+                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+            Text('Pulsa "Confirmar cobro" para cerrar la mesa',
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          ] else if (estado == 'error') ...[
+            const Icon(Icons.error_outline, color: Colors.red, size: 28),
+            const SizedBox(height: 4),
+            Text(error ?? 'Error en el terminal',
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: onIniciarCobro,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _colorFondo(ColorScheme cs) {
+    if (estado == 'exito') return Colors.green.shade50;
+    if (estado == 'error') return Colors.red.shade50;
+    return cs.surfaceVariant.withValues(alpha: 0.4);
+  }
+
+  Color _colorBorde(ColorScheme cs) {
+    if (estado == 'exito') return Colors.green.shade300;
+    if (estado == 'error') return Colors.red.shade300;
+    if (estado == 'manual') return cs.primary.withValues(alpha: 0.4);
+    return cs.outline.withValues(alpha: 0.3);
+  }
+
+  Color _colorImporte(ColorScheme cs) {
+    if (estado == 'exito') return Colors.green.shade700;
+    if (estado == 'error') return Colors.red.shade700;
+    return cs.onSurface;
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../domain/modelos/seccion_web.dart';
+import '../domain/modelos/evento_web.dart';
 
 // ignore_for_file: avoid_print
 
@@ -366,6 +367,9 @@ class ContenidoWebService {
       }
       buf.writeln('<!-- Blog / Noticias -->');
       buf.writeln('<div id="fluixcrm_blog"></div>');
+      buf.writeln('');
+      buf.writeln('<!-- Reseñas de clientes (sincronizadas con la app) -->');
+      buf.writeln('<div id="fluixcrm_resenas"></div>');
       buf.writeln('<!-- ────────────────────────────────────────────────────── -->');
       buf.writeln();
     }
@@ -461,6 +465,41 @@ class ContenidoWebService {
     buf.writeln('      render(doc.id, html, true);');
     buf.writeln('    });');
     buf.writeln('  });');
+
+    // Reseñas / Valoraciones
+    buf.writeln('  (function(){');
+    buf.writeln('    var el=document.getElementById("fluixcrm_resenas");if(!el)return;');
+    buf.writeln('    el.innerHTML="<p style=\'color:#999;text-align:center\'>Cargando reseñas…</p>";');
+    buf.writeln('    db.collection("empresas").doc(EMPRESA).collection("valoraciones").orderBy("fecha_creacion","desc").limit(10).get().then(function(snap){');
+    buf.writeln('      if(snap.empty){el.innerHTML="";return;}');
+    buf.writeln('      var total=snap.size,suma=0;');
+    buf.writeln('      var items=snap.docs.map(function(d){var v=d.data();suma+=v.estrellas||v.calificacion||0;return v;});');
+    buf.writeln('      var media=(suma/total).toFixed(1);');
+    buf.writeln('      var estrellas=function(n){var s="";for(var i=1;i<=5;i++)s+=\'<svg width="14" height="14" viewBox="0 0 24 24" fill="\'+(i<=Math.round(n)?"#c9a24a":"#e2d8c9")+\'" xmlns="http://www.w3.org/2000/svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>\';return s;};');
+    buf.writeln('      var html=\'<div style="font-family:var(--font-sans,sans-serif)">\'+');
+    buf.writeln('        \'<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border,#e2d8c9)">\'+');
+    buf.writeln('          \'<span style="font-family:var(--font-serif,serif);font-size:3rem;font-weight:400;line-height:1">\'+media+\'</span>\'+');
+    buf.writeln('          \'<div><div style="display:flex;gap:2px">\'+estrellas(parseFloat(media))+\'</div><div style="font-size:12px;color:var(--muted,#8a7b6e);margin-top:4px">\'+total+\' reseña\'+(total!==1?"s":"")+\'</div></div>\'+');
+    buf.writeln('        \'</div>\'+');
+    buf.writeln('        items.slice(0,5).map(function(v){');
+    buf.writeln('          var stars=v.estrellas||v.calificacion||0;');
+    buf.writeln('          var nombre=v.cliente_nombre||v.nombre||v.autor||"Cliente";');
+    buf.writeln('          var texto=v.comentario||v.texto||v.resena||"";');
+    buf.writeln('          var fecha=v.fecha_creacion?.toDate?v.fecha_creacion.toDate().toLocaleDateString("es-ES"):"";');
+    buf.writeln('          return\'<div style="padding:1rem 0;border-bottom:1px solid var(--border,#e2d8c9)">\'+');
+    buf.writeln('            \'<div style="display:flex;justify-content:space-between;margin-bottom:6px">\'+');
+    buf.writeln('              \'<div style="display:flex;gap:2px">\'+estrellas(stars)+\'</div>\'+');
+    buf.writeln('              \'<span style="font-size:11px;color:var(--muted,#8a7b6e)">\'+fecha+\'</span>\'+');
+    buf.writeln('            \'</div>\'+');
+    buf.writeln('            (texto?\'<p style="font-size:.88rem;line-height:1.6;margin:0 0 6px">\'+texto+\'</p>\':\'\') +');
+    buf.writeln('            \'<span style="font-size:.78rem;font-weight:600;color:var(--primary,#6b1e2a)">\'+nombre+\'</span>\'+');
+    buf.writeln('          \'</div>\';');
+    buf.writeln('        }).join("")+');
+    buf.writeln('      \'</div>\';');
+    buf.writeln('      el.innerHTML=html;');
+    buf.writeln('    }).catch(function(){el.innerHTML="";});');
+    buf.writeln('  })();');
+    buf.writeln('');
 
     // Blog
     buf.writeln('  db.collection("empresas").doc(EMPRESA).collection("blog").where("publicada","==",true).orderBy("fecha_publicacion","desc").limit(6).onSnapshot(snap=>{');
@@ -559,28 +598,58 @@ class ContenidoWebService {
     buf.writeln('  }');
     buf.writeln('');
     // ── Listener tiempo real: actualiza HTML cuando cambia Firestore ──
+    // Soporta dos modos:
+    //  · Plantilla: <template data-fluix-plantilla> + <div data-fluix-lista>
+    //    → crea/elimina nodos DOM dinámicamente. El usuario añade/quita desde
+    //      la app y la web se actualiza sin tocar HTML.
+    //  · Clásico: [data-fluix-item="id"] ya presentes en el HTML
+    //    → actualiza los campos de elementos existentes (comportamiento anterior).
     buf.writeln('  function escucharSeccion(seccionEl,seccionId){');
+    buf.writeln('    var tpl=seccionEl.querySelector("template[data-fluix-plantilla]");');
+    buf.writeln('    var lista=tpl?seccionEl.querySelector("[data-fluix-lista]"):null;');
     buf.writeln('    db.collection("empresas").doc(EMPRESA)');
     buf.writeln('      .collection("contenido_web").doc(seccionId)');
     buf.writeln('      .onSnapshot(function(doc){');
     buf.writeln('        if(!doc.exists) return;');
-    buf.writeln('        var data=doc.data();');
-    buf.writeln('        seccionEl.style.display=(data.activa===false)?"none":"";');
-    buf.writeln('        var tituloEl=seccionEl.querySelector("[data-fluix-titulo]");');
-    buf.writeln('        if(tituloEl&&data.nombre) tituloEl.textContent=data.nombre;');
-    buf.writeln('        var items=(data.contenido&&data.contenido.items)||[];');
-    buf.writeln('        seccionEl.querySelectorAll("[data-fluix-item]").forEach(function(itemEl){');
-    buf.writeln('          var itemId=itemEl.getAttribute("data-fluix-item");');
-    buf.writeln('          var item=items.find(function(i){return i.id===itemId;});');
-    buf.writeln('          if(!item) return;');
-    buf.writeln('          itemEl.style.opacity=(item.disponible===false)?"0.5":"";');
-    buf.writeln('          if(item.disponible===false) itemEl.classList.add("fluix-no-disponible");');
-    buf.writeln('          else itemEl.classList.remove("fluix-no-disponible");');
-    buf.writeln('          itemEl.querySelectorAll("[data-fluix-campo]").forEach(function(campoEl){');
-    buf.writeln('            var campo=campoEl.getAttribute("data-fluix-campo");');
-    buf.writeln('            escribirCampo(campoEl,campo,item[campo]);');
+    buf.writeln('        var d=doc.data();');
+    buf.writeln('        seccionEl.style.display=(d.activa===false)?"none":"";');
+    buf.writeln('        var te=seccionEl.querySelector("[data-fluix-titulo]");');
+    buf.writeln('        if(te&&d.nombre) te.textContent=d.nombre;');
+    buf.writeln('        var items=(d.contenido&&d.contenido.items)||[];');
+    buf.writeln('        if(tpl&&lista){');
+    buf.writeln('          // MODO PLANTILLA — crea, actualiza y elimina nodos');
+    buf.writeln('          var cur={};');
+    buf.writeln('          lista.querySelectorAll("[data-fluix-item]").forEach(function(el){cur[el.getAttribute("data-fluix-item")]=el;});');
+    buf.writeln('          var toDelete=Object.assign({},cur);');
+    buf.writeln('          items.forEach(function(item){');
+    buf.writeln('            var el=cur[item.id];');
+    buf.writeln('            if(!el){');
+    buf.writeln('              var clone=tpl.content.cloneNode(true);');
+    buf.writeln('              el=clone.firstElementChild;');
+    buf.writeln('              el.setAttribute("data-fluix-item",item.id);');
+    buf.writeln('              lista.appendChild(el);');
+    buf.writeln('            }');
+    buf.writeln('            delete toDelete[item.id];');
+    buf.writeln('            el.style.display=(item.disponible===false)?"none":"";');
+    buf.writeln('            el.querySelectorAll("[data-fluix-campo]").forEach(function(ce){');
+    buf.writeln('              escribirCampo(ce,ce.getAttribute("data-fluix-campo"),item[ce.getAttribute("data-fluix-campo")]);');
+    buf.writeln('            });');
     buf.writeln('          });');
-    buf.writeln('        });');
+    buf.writeln('          Object.values(toDelete).forEach(function(el){el.remove();});');
+    buf.writeln('        } else {');
+    buf.writeln('          // MODO CLÁSICO — actualiza elementos existentes en el HTML');
+    buf.writeln('          seccionEl.querySelectorAll("[data-fluix-item]").forEach(function(el){');
+    buf.writeln('            var id=el.getAttribute("data-fluix-item");');
+    buf.writeln('            var item=items.find(function(i){return i.id===id;});');
+    buf.writeln('            if(!item) return;');
+    buf.writeln('            el.style.opacity=(item.disponible===false)?"0.5":"";');
+    buf.writeln('            if(item.disponible===false) el.classList.add("fluix-no-disponible");');
+    buf.writeln('            else el.classList.remove("fluix-no-disponible");');
+    buf.writeln('            el.querySelectorAll("[data-fluix-campo]").forEach(function(ce){');
+    buf.writeln('              escribirCampo(ce,ce.getAttribute("data-fluix-campo"),item[ce.getAttribute("data-fluix-campo")]);');
+    buf.writeln('            });');
+    buf.writeln('          });');
+    buf.writeln('        }');
     buf.writeln('      });');
     buf.writeln('  }');
     buf.writeln('');
@@ -610,25 +679,235 @@ class ContenidoWebService {
   CollectionReference<Map<String, dynamic>> _blogCol(String empresaId) =>
       _firestore.collection('empresas').doc(empresaId).collection('blog');
 
+  CollectionReference<Map<String, dynamic>> _categoriasCol(String empresaId) =>
+      _firestore.collection('empresas').doc(empresaId).collection('blog_categorias');
+
+  /// Stream de entradas NO eliminadas, filtrado en cliente para evitar índice compuesto
   Stream<List<EntradaBlog>> obtenerBlog(String empresaId) {
     return _blogCol(empresaId)
         .orderBy('fecha_publicacion', descending: true)
         .snapshots()
         .map((s) => s.docs
             .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
+            .where((e) => !e.eliminado)
             .toList());
   }
 
   Future<void> guardarEntradaBlog(String empresaId, EntradaBlog entrada) async {
     final data = entrada.toMap();
-    data['fecha_publicacion'] = FieldValue.serverTimestamp();
+    data.remove('id');
+    if (entrada.id.isEmpty) {
+      data['fecha_creacion'] = FieldValue.serverTimestamp();
+    }
+    data['fecha_actualizacion'] = FieldValue.serverTimestamp();
+    // Guardar fecha_publicacion como Timestamp para índices
+    data['fecha_publicacion'] = Timestamp.fromDate(entrada.fechaPublicacion);
     await _blogCol(empresaId)
         .doc(entrada.id.isEmpty ? null : entrada.id)
         .set(data, SetOptions(merge: true));
   }
 
+  /// Soft-delete: marca eliminado=true en lugar de borrar físicamente
   Future<void> eliminarEntradaBlog(String empresaId, String entradaId) async {
-    await _blogCol(empresaId).doc(entradaId).delete();
+    await _blogCol(empresaId).doc(entradaId).update({
+      'eliminado': true,
+      'fecha_eliminacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> togglePublicarBlog(
+      String empresaId, String entradaId, bool publicar) async {
+    await _blogCol(empresaId).doc(entradaId).update({
+      'estado': publicar ? 'publicado' : 'borrador',
+      'publicada': publicar,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> toggleDestacadoBlog(
+      String empresaId, String entradaId, bool destacado) async {
+    await _blogCol(empresaId).doc(entradaId).update({
+      'destacado': destacado,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Aplica una operación en lote a una lista de entradas
+  Future<void> accionEnLote({
+    required String empresaId,
+    required List<String> ids,
+    required String accion, // 'publicar' | 'borrador' | 'eliminar' | 'categoria:{id}'
+  }) async {
+    final batches = <WriteBatch>[];
+    var batch = _firestore.batch();
+    var ops = 0;
+    for (final id in ids) {
+      final ref = _blogCol(empresaId).doc(id);
+      if (accion == 'publicar') {
+        batch.update(ref, {
+          'estado': 'publicado', 'publicada': true,
+          'fecha_actualizacion': FieldValue.serverTimestamp(),
+        });
+      } else if (accion == 'borrador') {
+        batch.update(ref, {
+          'estado': 'borrador', 'publicada': false,
+          'fecha_actualizacion': FieldValue.serverTimestamp(),
+        });
+      } else if (accion == 'eliminar') {
+        batch.update(ref, {
+          'eliminado': true,
+          'fecha_eliminacion': FieldValue.serverTimestamp(),
+        });
+      } else if (accion.startsWith('categoria:')) {
+        batch.update(ref, {
+          'categoria_id': accion.substring(10),
+          'fecha_actualizacion': FieldValue.serverTimestamp(),
+        });
+      }
+      ops++;
+      if (ops == 500) {
+        batches.add(batch);
+        batch = _firestore.batch();
+        ops = 0;
+      }
+    }
+    if (ops > 0) batches.add(batch);
+    for (final b in batches) {
+      await b.commit();
+    }
+  }
+
+  /// Duplica una entrada: nuevo slug con sufijo -copia, estado borrador
+  Future<void> duplicarEntradaBlog(String empresaId, EntradaBlog original) async {
+    final baseSlug = original.slug.isEmpty
+        ? _slugFromTitle(original.titulo)
+        : original.slug;
+    final newSlug = await _slugUnico(empresaId, baseSlug);
+    final data = original.toMap();
+    data.remove('id');
+    data['titulo'] = '${original.titulo} (copia)';
+    data['slug'] = newSlug;
+    data['estado'] = 'borrador';
+    data['publicada'] = false;
+    data['eliminado'] = false;
+    data['fecha_creacion'] = FieldValue.serverTimestamp();
+    data['fecha_actualizacion'] = FieldValue.serverTimestamp();
+    data['fecha_publicacion'] = Timestamp.fromDate(DateTime.now());
+    data['visitas'] = 0;
+    await _blogCol(empresaId).add(data);
+  }
+
+  Future<bool> slugDisponible(
+      String empresaId, String slug, {String? excludeId}) async {
+    final snap = await _blogCol(empresaId)
+        .where('slug', isEqualTo: slug)
+        .limit(5)
+        .get();
+    final docs = snap.docs.where((d) {
+      if (d.id == excludeId) return false;
+      return d.data()['eliminado'] != true;
+    }).toList();
+    return docs.isEmpty;
+  }
+
+  Future<String> _slugUnico(String empresaId, String base) async {
+    if (await slugDisponible(empresaId, base)) return base;
+    var i = 2;
+    while (true) {
+      final candidate = '$base-copia${i > 2 ? '-$i' : ''}';
+      if (await slugDisponible(empresaId, candidate)) return candidate;
+      i++;
+    }
+  }
+
+  String slugFromTituloPublic(String titulo) => _slugFromTitle(titulo);
+
+  String _slugFromTitle(String titulo) {
+    return titulo
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàä]'), 'a')
+        .replaceAll(RegExp(r'[éèë]'), 'e')
+        .replaceAll(RegExp(r'[íìï]'), 'i')
+        .replaceAll(RegExp(r'[óòö]'), 'o')
+        .replaceAll(RegExp(r'[úùü]'), 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '-');
+  }
+
+  // ── Eventos ─────────────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _eventosCol(String empresaId) =>
+      _firestore.collection('empresas').doc(empresaId).collection('eventos');
+
+  Stream<List<EventoWeb>> obtenerEventos(String empresaId) {
+    return _eventosCol(empresaId)
+        .orderBy('fecha')
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => EventoWeb.fromMap({...d.data(), 'id': d.id}))
+            .where((e) => !e.eliminado)
+            .toList());
+  }
+
+  Future<void> guardarEvento(String empresaId, EventoWeb evento) async {
+    final data = evento.toMap();
+    data['fecha_actualizacion'] = FieldValue.serverTimestamp();
+    if (evento.id.isEmpty) data['fecha_creacion'] = FieldValue.serverTimestamp();
+    await _eventosCol(empresaId)
+        .doc(evento.id.isEmpty ? null : evento.id)
+        .set(data, SetOptions(merge: true));
+  }
+
+  Future<void> eliminarEvento(String empresaId, String eventoId) async {
+    await _eventosCol(empresaId).doc(eventoId).update({'eliminado': true});
+  }
+
+  Future<void> toggleActivoEvento(String empresaId, String eventoId, bool activo) async {
+    await _eventosCol(empresaId).doc(eventoId).update({
+      'activo': activo,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Categorías ──────────────────────────────────────────────────────────────
+
+  Stream<List<CategoriaBlog>> obtenerCategorias(String empresaId) {
+    return _categoriasCol(empresaId)
+        .orderBy('orden')
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => CategoriaBlog.fromMap({...d.data(), 'id': d.id}))
+            .where((c) => !c.eliminado)
+            .toList())
+        .handleError((_) {
+          // Sin índice: fallback sin orden
+          return _categoriasCol(empresaId).snapshots().map((s) => s.docs
+              .map((d) => CategoriaBlog.fromMap({...d.data(), 'id': d.id}))
+              .where((c) => !c.eliminado)
+              .toList());
+        });
+  }
+
+  Future<void> guardarCategoria(String empresaId, CategoriaBlog cat) async {
+    final data = cat.toMap();
+    await _categoriasCol(empresaId)
+        .doc(cat.id.isEmpty ? null : cat.id)
+        .set(data, SetOptions(merge: true));
+  }
+
+  Future<void> eliminarCategoria(String empresaId, String catId) async {
+    // Verifica si hay artículos en uso (filtro eliminado en cliente)
+    final uso = await _blogCol(empresaId)
+        .where('categoria_id', isEqualTo: catId)
+        .limit(5)
+        .get();
+    final enUso = uso.docs.any((d) => d.data()['eliminado'] != true);
+    if (enUso) {
+      throw Exception('No se puede eliminar: hay artículos en esta categoría');
+    }
+    await _categoriasCol(empresaId).doc(catId).update({'eliminado': true});
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

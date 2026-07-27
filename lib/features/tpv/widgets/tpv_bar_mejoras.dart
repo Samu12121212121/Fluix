@@ -1,5 +1,185 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RESUMEN DE BARRA DEL DÍA
+// ═════════════════════════════════════════════════════════════════════════════
+
+Future<void> mostrarResumenBarraDia(BuildContext context, String empresaId) async {
+  await showDialog(
+    context: context,
+    builder: (_) => _DialogoResumenBarra(empresaId: empresaId),
+  );
+}
+
+class _DialogoResumenBarra extends StatefulWidget {
+  final String empresaId;
+  const _DialogoResumenBarra({required this.empresaId});
+
+  @override
+  State<_DialogoResumenBarra> createState() => _DialogoResumenBarraState();
+}
+
+class _DialogoResumenBarraState extends State<_DialogoResumenBarra> {
+  bool _cargando = true;
+  int _totalComandas = 0;
+  int _pendientes = 0;
+  int _enPreparacion = 0;
+  int _terminadas = 0;
+  final Map<String, int> _productosFrecuentes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    try {
+      final hoyInicio = DateTime.now().copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('comandas')
+          .where('fecha_envio_cocina', isGreaterThanOrEqualTo: Timestamp.fromDate(hoyInicio))
+          .get();
+
+      final barraComandas = snap.docs.where((d) {
+        final data = d.data();
+        final lineas = (data['lineas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        return lineas.any((l) => l['destino'] == 'barra');
+      }).toList();
+
+      int pendientes = 0, enPrep = 0, terminadas = 0;
+      final frecuentes = <String, int>{};
+
+      for (final doc in barraComandas) {
+        final data = doc.data();
+        final estado = data['estado_cocina'] as String? ?? 'pendiente';
+        if (estado == 'terminada') {
+          terminadas++;
+        } else if (estado == 'en_preparacion') {
+          enPrep++;
+        } else {
+          pendientes++;
+        }
+        final lineas = (data['lineas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        for (final l in lineas) {
+          if (l['destino'] == 'barra') {
+            final nombre = l['nombre'] as String? ?? 'Producto';
+            final cantidad = (l['cantidad'] as num?)?.toInt() ?? 1;
+            frecuentes[nombre] = (frecuentes[nombre] ?? 0) + cantidad;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _totalComandas = barraComandas.length;
+          _pendientes = pendientes;
+          _enPreparacion = enPrep;
+          _terminadas = terminadas;
+          final sorted = frecuentes.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          _productosFrecuentes
+            ..clear()
+            ..addEntries(sorted.take(5));
+          _cargando = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hoy = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    return AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.local_bar_rounded, color: Color(0xFF00FFC8)),
+        const SizedBox(width: 8),
+        Text('Resumen barra — $hoy'),
+      ]),
+      content: _cargando
+          ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
+          : SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Contadores
+                  Row(children: [
+                    _ContadorChip(label: 'Pendientes', valor: _pendientes, color: Colors.orangeAccent),
+                    const SizedBox(width: 8),
+                    _ContadorChip(label: 'Haciendo', valor: _enPreparacion, color: const Color(0xFF00BCD4)),
+                    const SizedBox(width: 8),
+                    _ContadorChip(label: 'Listos', valor: _terminadas, color: const Color(0xFF00FFC8)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('Total comandas de barra hoy: $_totalComandas',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  if (_productosFrecuentes.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    const Text('Productos más servidos en barra',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    ..._productosFrecuentes.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Expanded(child: Text(e.key, style: const TextStyle(fontSize: 13))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00FFC8).withValues(alpha:0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text('${e.value}×',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF00897B),
+                                  fontSize: 12)),
+                        ),
+                      ]),
+                    )),
+                  ],
+                ],
+              ),
+            ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00FFC8)),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContadorChip extends StatelessWidget {
+  final String label;
+  final int valor;
+  final Color color;
+  const _ContadorChip({required this.label, required this.valor, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha:0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha:0.3)),
+      ),
+      child: Column(children: [
+        Text('$valor', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
+        Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha:0.8))),
+      ]),
+    ),
+  );
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // DIÁLOGO: CREAR/EDITAR MESA

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reservas · Restaurante Ejemplo</title>
+<!--
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  PLANTILLA: RESTAURANTE                                             │
+  │  Campos: nombre, telefono, email, fecha, hora, personas, ubicacion,│
+  │          alergenos, comentarios                                     │
+  │                                                                     │
+  │  Para vincular a otra empresa solo cambia EMPRESA_ID (línea ~130)  │
+  └─────────────────────────────────────────────────────────────────────┘
+-->
+<style>
+/* ── CSS PROPIO DEL RESTAURANTE (cambia esto libremente) ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Georgia', serif;
+  background: #1a0a00;
+  color: #f5e6c8;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+.wrap { max-width: 520px; width: 100%; }
+h1 { font-size: 2.4rem; color: #d4a450; text-align: center; margin-bottom: .3rem; }
+.subtitulo { text-align: center; font-size: .75rem; letter-spacing: .25em; color: #9e7c4a; margin-bottom: 2rem; text-transform: uppercase; }
+.form-titulo { text-align: center; font-size: 1rem; letter-spacing: .18em; color: #c8a060; margin-bottom: 1.5rem; text-transform: uppercase; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+.full { grid-column: 1 / -1; }
+label { display: block; font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; color: #9e7c4a; margin-bottom: .3rem; }
+input, select, textarea {
+  width: 100%; padding: .7rem .9rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(212,164,80,.25);
+  border-radius: 4px; color: #f5e6c8;
+  font-size: .88rem; outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus, textarea:focus { border-color: #d4a450; }
+textarea { min-height: 80px; resize: vertical; }
+.toggle-group { display: flex; border: 1px solid rgba(212,164,80,.25); border-radius: 4px; overflow: hidden; }
+.toggle-group input[type="radio"] { display: none; }
+.toggle-btn { flex: 1; padding: .65rem; text-align: center; cursor: pointer; font-size: .82rem; color: #9e7c4a; background: transparent; border: none; font-family: inherit; }
+.toggle-group input[type="radio"]:checked + .toggle-btn { background: #d4a450; color: #1a0a00; font-weight: 600; }
+.fluix-slot-info { font-size: .72rem; min-height: 1rem; margin-top: .2rem; }
+.fluix-slot-info.fluix-ok     { color: #7ec87e; }
+.fluix-slot-info.fluix-full   { color: #e07070; }
+.fluix-slot-info.fluix-closed { color: #e07070; font-weight: 600; }
+.btn-enviar {
+  width: 100%; margin-top: .8rem; padding: .9rem;
+  background: #d4a450; border: none; border-radius: 4px;
+  color: #1a0a00; font-size: .72rem; font-weight: 700;
+  letter-spacing: .25em; text-transform: uppercase; cursor: pointer;
+}
+.btn-enviar:hover { background: #e8c070; }
+.btn-enviar:disabled { opacity: .45; cursor: not-allowed; }
+.form-msg { text-align: center; font-size: .84rem; padding: .8rem; border-radius: 4px; display: none; margin-top: .8rem; }
+.form-msg.success { background: rgba(126,200,126,.08); color: #7ec87e; border: 1px solid rgba(126,200,126,.3); display: block; }
+.form-msg.error   { background: rgba(224,112,112,.08); color: #e07070; border: 1px solid rgba(224,112,112,.3); display: block; }
+#reservaDesactivadoAviso { display: none!important; text-align: center; color: #e07070; padding: 2rem; }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .full { grid-column: 1; } }
+</style>
+</head>
+<body>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Script compartido de lógica de reservas -->
+<script src="fluix-reservas-core.js"></script>
+
+<div class="wrap">
+
+  <h1>El Rincón</h1>
+  <p class="subtitulo">Restaurante · Madrid</p>
+  <p class="form-titulo">Reserva tu mesa</p>
+
+  <p id="reservaDesactivadoAviso">Las reservas no están disponibles en este momento.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       CAMPOS DEL FORMULARIO — personalizables por empresa
+       Los ids de cada campo se declaran en camposExtra (abajo)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <form id="reservaForm">
+    <div class="grid">
+
+      <div>
+        <label for="nombre">Nombre *</label>
+        <input type="text" id="nombre" placeholder="Tu nombre" required>
+      </div>
+
+      <div>
+        <label for="telefono">Teléfono *</label>
+        <input type="tel" id="telefono" placeholder="+34 600 000 000" required>
+      </div>
+
+      <div class="full">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="tu@email.com">
+      </div>
+
+      <!-- fecha y hora son OBLIGATORIOS — el script los gestiona -->
+      <div>
+        <label for="fecha">Fecha *</label>
+        <input type="date" id="fecha" required>
+      </div>
+
+      <div>
+        <label for="personas">Personas *</label>
+        <select id="personas" required>
+          <option value="">Seleccionar</option>
+          <option value="1">1 persona</option>
+          <option value="2">2 personas</option>
+          <option value="3">3 personas</option>
+          <option value="4">4 personas</option>
+          <option value="5">5 personas</option>
+          <option value="6">6 personas</option>
+          <option value="7">7 personas</option>
+          <option value="8">8+ personas</option>
+        </select>
+      </div>
+
+      <div class="full">
+        <label for="hora">Horario *</label>
+        <select id="hora" required>
+          <option value="">Selecciona una fecha primero</option>
+        </select>
+        <span class="fluix-slot-info" id="slotInfo"></span>
+      </div>
+
+      <!-- Campo propio de este restaurante: zona -->
+      <div class="full">
+        <label>Zona preferida</label>
+        <div class="toggle-group">
+          <input type="radio" name="zona" id="zonaSalon" value="salon" checked>
+          <label for="zonaSalon" class="toggle-btn">Salón</label>
+          <input type="radio" name="zona" id="zonaTerraza" value="terraza">
+          <label for="zonaTerraza" class="toggle-btn">Terraza</label>
+          <input type="radio" name="zona" id="zonaBarra" value="barra">
+          <label for="zonaBarra" class="toggle-btn">Barra</label>
+        </div>
+      </div>
+
+      <!-- Campo propio de este restaurante: alergenos -->
+      <div class="full">
+        <label for="comentarios">Ocasión especial / Alergias (opcional)</label>
+        <textarea id="comentarios" placeholder="Cumpleaños, alergias, peticiones especiales..."></textarea>
+      </div>
+
+    </div>
+
+    <button type="submit" class="btn-enviar" id="btnReservar">Solicitar reserva</button>
+    <div class="form-msg" id="formMsg"></div>
+  </form>
+
+</div>
+
+<script>
+  /* ════════════════════════════════════════════════════════════════════
+     CONFIGURACIÓN DE LA EMPRESA
+     Solo cambia EMPRESA_ID. Todo lo demás (horarios, bloqueos, aforo)
+     viene automáticamente de Firestore.
+  ════════════════════════════════════════════════════════════════════ */
+  var EMPRESA_ID = 'PONER_AQUI_EL_ID_DE_LA_EMPRESA'; // ← única línea a cambiar
+
+  FluixReservas.init(EMPRESA_ID, {
+    /* IDs del formulario (coinciden con los id= de arriba) */
+    formId:          'reservaForm',
+    campoFecha:      'fecha',
+    campoHora:       'hora',
+    idSlotInfo:      'slotInfo',
+    idBotonEnviar:   'btnReservar',
+    idMensaje:       'formMsg',
+    idAvisoInactivo: 'reservaDesactivadoAviso',
+
+    /* Campos extra a guardar en Firestore (además de fecha y hora) */
+    camposExtra: ['nombre', 'telefono', 'email', 'personas', 'zona', 'comentarios'],
+
+    /* Mensaje de éxito personalizado (opcional) */
+    mensajeExito: function (datos) {
+      return '✅ Reserva recibida, ' + datos.nombre + '. Te esperamos el '
+        + datos.fecha + ' a las ' + datos.hora + '. Te confirmaremos por teléfono.';
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,5 +1,6 @@
 // tpv_tienda_screen.dart — versión completa
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -30,6 +31,9 @@ import '../../../widgets/tpv/hold_pedidos_widget.dart';
 import '../../../widgets/tpv/descuento_linea_widget.dart';
 import '../../../widgets/tpv/cupon_input_widget.dart';
 import '../../../widgets/tpv/estadisticas_turno_widget.dart';
+import '../../../widgets/tpv/arqueo_caja_widget.dart';
+import '../../../widgets/tpv/pedidos_web_widget.dart';
+import '../../../core/widgets/flux_toast.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ESTADO EXTENDIDO DEL TICKET (descuento + cliente — sin tocar modelos)
@@ -118,6 +122,9 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
   // Hold (pedidos en espera)
   final _holdNotifier = HoldPedidosNotifier();
 
+  // Pedidos web (tienda online)
+  final _pedidosWebNotifier = PedidosWebNotifier();
+
   // Cupón
   String? _cuponId;
   double _cuponDescuento = 0;
@@ -159,6 +166,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
     ImpressoraBluetooth()
         .estaConectada()
         .then((v) => mounted ? setState(() => _btConectado = v) : null);
+    _pedidosWebNotifier.iniciar(widget.empresaId);
   }
 
   @override
@@ -166,6 +174,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
     _relojTimer?.cancel();
     _connectivitySub?.cancel();
     _holdNotifier.dispose();
+    _pedidosWebNotifier.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
@@ -194,7 +203,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: const Color(0xFFF0F7F4),  // Sage Green fondo
       appBar: _buildAppBar(),
       body: _mostrandoCierre
           ? _TiendaCierreDeCaja(empresaId: widget.empresaId)
@@ -204,8 +213,8 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
                 empresaId: widget.empresaId,
                 empleadoSeleccionadoId: _empleadoSeleccionadoId,
                 onEmpleadoChanged: (id) => setState(() => _empleadoSeleccionadoId = id),
-                colorPrimario: const Color(0xFF43A047),
-                colorFondo: const Color(0xFF1B5E20),
+                colorPrimario: const Color(0xFF81B29A),
+                colorFondo: const Color(0xFF1A3A27),
               ),
               // ── Layout principal ───────────────────────────────────────────
               Expanded(
@@ -242,6 +251,8 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
                   onLimpiar: _limpiarTicket,
                   onProductoLibre: () => _agregarProductoLibre(),
                   holdNotifier: _holdNotifier,
+                  onNuevoTicket: _nuevoTicket,
+                  onSwitchToHold: _switchToHold,
                   cuponId: _cuponId,
                   cuponDescuento: _cuponDescuento,
                   onCuponAplicado: (id, desc) => setState(() {
@@ -263,162 +274,165 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
     );
   }
 
+  // Sage Green — paleta del template de peluquería
+  static const _kBg      = Color(0xFF1A3A27);  // AppBar — texto oscuro sage
+  static const _kBg2     = Color(0xFF1F3D29);  // AppBar sección secundaria
+  static const _kAccent  = Color(0xFF81B29A);  // Sage secundario
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: const Color(0xFF1B5E20),
+      backgroundColor: _kBg,
       foregroundColor: Colors.white,
       elevation: 0,
       automaticallyImplyLeading: false,
-      toolbarHeight: 48,
-      title: Row(children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
+      toolbarHeight: 52,
+      title: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        // ── Volver ─────────────────────────────────────────────────────────
+        Material(
+          color: Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => Navigator.of(context).pop(),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
+            ),
+          ),
         ),
-        const Icon(Icons.store, size: 20),
-        const SizedBox(width: 8),
-        const Text('TPV Tienda',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        const SizedBox(width: 12),
-        // Nombre empresa
+        const SizedBox(width: 14),
+        // ── Logo + nombre empresa ───────────────────────────────────────────
         StreamBuilder<DocumentSnapshot>(
           stream: _db.collection('empresas').doc(widget.empresaId).snapshots(),
           builder: (_, snap) {
-            if (!snap.hasData || !snap.data!.exists)
-              return const SizedBox.shrink();
-            final data = snap.data!.data() as Map<String, dynamic>;
-            final nombre = data['nombre'] as String? ?? 'Mi Tienda';
-            final logo = data['logo_url'] as String?;
+            final data = snap.hasData && snap.data!.exists
+                ? snap.data!.data() as Map<String, dynamic>
+                : <String, dynamic>{};
+            final nombre = data['nombre'] as String? ?? 'TPV Tienda';
+            final logo   = data['logo_url'] as String?;
             return Row(children: [
               CircleAvatar(
-                radius: 13,
-                backgroundColor: Colors.white24,
+                radius: 15,
+                backgroundColor: _kAccent.withValues(alpha: 0.2),
                 backgroundImage: logo != null ? NetworkImage(logo) : null,
                 child: logo == null
                     ? Text(nombre[0].toUpperCase(),
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700))
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _kAccent))
                     : null,
               ),
-              const SizedBox(width: 6),
-              Text(nombre,
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 10),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(nombre,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.3)),
+                const Text('TPV Tienda',
+                    style: TextStyle(fontSize: 9, color: Colors.white38, letterSpacing: 0.5)),
+              ]),
             ]);
           },
         ),
         const Spacer(),
-        // Devoluciones
-        IconButton(
-          icon: const Icon(Icons.keyboard_return, size: 16),
-          onPressed: () => showDialog(
+        // ── Grupo acciones ─────────────────────────────────────────────────
+        _AppBarGroup(children: [
+          _AppBarBtn(Icons.keyboard_return_outlined, 'Devoluciones', () => showDialog(
             context: context,
-            builder: (_) => DialogoDevoluciones(
-              empresaId: widget.empresaId,
-              colorPrimario: const Color(0xFF1B5E20),
-            ),
-          ),
-          tooltip: 'Devoluciones',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 4),
-        // Apertura de caja
-        IconButton(
-          icon: const Icon(Icons.account_balance_wallet, size: 16),
-          onPressed: () => _mostrarAperturaCaja(),
-          tooltip: 'Apertura de caja',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 4),
-        // Historial de tickets
-        IconButton(
-          icon: const Icon(Icons.receipt_long, size: 16),
-          tooltip: 'Historial de tickets',
-          onPressed: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 4),
-        // Pedidos en espera (con badge)
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.pause_circle_outline, size: 16),
-              tooltip: 'Pedidos en espera',
-              onPressed: () async {
-                final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
-                if (recuperado != null && mounted) {
-                  final lineas = recuperado.lineas
-                      .map((m) => LineaComanda(
-                            productoId: m['productoId'] as String? ?? '',
-                            nombre: m['nombre'] as String? ?? '',
-                            cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
-                            precioUnitario: (m['precioUnitario'] as num?)?.toDouble() ?? 0,
-                            ivaPorcentaje: (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
-                            notas: m['notas'] as String?,
-                            esNuevo: false,
-                          ))
-                      .toList();
-                  final base = _comandaActiva ??
-                      Comanda(
-                        id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
-                        mesaId: null,
-                        camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
-                        lineas: [],
-                        estado: 'abierta',
-                        apertura: Timestamp.now(),
-                        importeTotal: 0,
-                      );
-                  setState(() => _comandaActiva = base.copyWith(lineas: [...base.lineas, ...lineas]));
-                }
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
+            builder: (_) => DialogoDevoluciones(empresaId: widget.empresaId, colorPrimario: _kAccent),
+          )),
+          _AppBarBtn(Icons.account_balance_wallet_outlined, 'Apertura caja', _mostrarAperturaCaja),
+          _AppBarBtn(Icons.calculate_outlined, 'Arqueo de caja', _mostrarArqueoIntermedio),
+          _AppBarBtn(Icons.receipt_long_outlined, 'Historial', () => HistorialTicketsWidget.mostrar(context, widget.empresaId)),
+        ]),
+        const SizedBox(width: 8),
+        // ── Hold badge ─────────────────────────────────────────────────────
+        _AppBarGroup(children: [
+          Stack(clipBehavior: Clip.none, children: [
+            _AppBarBtn(Icons.pause_circle_outline, 'En espera', () async {
+              final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+              if (recuperado != null && mounted) {
+                final lineas = recuperado.lineas.map((m) => LineaComanda(
+                  productoId: m['productoId'] as String? ?? '',
+                  nombre: m['nombre'] as String? ?? '',
+                  cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
+                  precioUnitario: (m['precioUnitario'] as num?)?.toDouble() ?? 0,
+                  ivaPorcentaje: (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
+                  notas: m['notas'] as String?,
+                  esNuevo: false,
+                )).toList();
+                final base = _comandaActiva ?? Comanda(
+                  id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
+                  mesaId: null,
+                  camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+                  lineas: [], estado: 'abierta', apertura: Timestamp.now(), importeTotal: 0,
+                );
+                setState(() => _comandaActiva = base.copyWith(lineas: [...base.lineas, ...lineas]));
+              }
+            }),
             ListenableBuilder(
               listenable: _holdNotifier,
-              builder: (_, __) => _holdNotifier.pedidos.isEmpty
-                  ? const SizedBox.shrink()
-                  : Positioned(
-                      top: 2,
-                      right: 2,
-                      child: CircleAvatar(
-                        radius: 7,
-                        backgroundColor: Colors.red,
-                        child: Text(
-                          '${_holdNotifier.pedidos.length}',
-                          style: const TextStyle(fontSize: 9, color: Colors.white),
-                        ),
-                      ),
-                    ),
+              builder: (_, __) => _holdNotifier.pedidos.isEmpty ? const SizedBox.shrink()
+                  : Positioned(top: 2, right: 2,
+                      child: CircleAvatar(radius: 6, backgroundColor: Colors.red,
+                          child: Text('${_holdNotifier.pedidos.length}',
+                              style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w700)))),
             ),
-          ],
-        ),
-        const SizedBox(width: 4),
-        Text(_horaActual, style: const TextStyle(fontSize: 11)),
+          ]),
+          // Pedidos web badge
+          Stack(clipBehavior: Clip.none, children: [
+            _AppBarBtn(Icons.shopping_bag_outlined, 'Pedidos online',
+                () => PedidosWebWidget.mostrar(context, widget.empresaId)),
+            ListenableBuilder(
+              listenable: _pedidosWebNotifier,
+              builder: (_, __) => _pedidosWebNotifier.pendientes == 0 ? const SizedBox.shrink()
+                  : Positioned(top: 2, right: 2,
+                      child: CircleAvatar(radius: 6, backgroundColor: Colors.orange,
+                          child: Text('${_pedidosWebNotifier.pendientes}',
+                              style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.w700)))),
+            ),
+          ]),
+        ]),
         const SizedBox(width: 8),
-        Icon(_estaOnline ? Icons.wifi : Icons.wifi_off,
-            size: 14,
-            color: _estaOnline ? Colors.white70 : Colors.orangeAccent),
-        const SizedBox(width: 6),
-        Icon(Icons.print,
-            size: 14,
-            color: _btConectado ? Colors.white70 : Colors.white38),
-        const SizedBox(width: 4),
-        IconButton(
-          icon: Icon(Icons.summarize_outlined,
-              size: 18,
-              color: _mostrandoCierre ? Colors.amber : Colors.white70),
-          onPressed: () =>
-              setState(() => _mostrandoCierre = !_mostrandoCierre),
-          tooltip: _mostrandoCierre ? 'Volver a ventas' : 'Cierre de caja',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        // ── Info barra ─────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _kBg2,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          child: Row(children: [
+            Text(_horaActual, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.5)),
+            const SizedBox(width: 8),
+            Icon(_estaOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                size: 13, color: _estaOnline ? _kAccent : Colors.orange),
+            const SizedBox(width: 6),
+            Icon(Icons.print_rounded, size: 13,
+                color: _btConectado ? Colors.white54 : Colors.white24),
+          ]),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
+        // ── Cierre de caja ─────────────────────────────────────────────────
+        Tooltip(
+          message: _mostrandoCierre ? 'Volver a ventas' : 'Cierre de caja',
+          child: Material(
+            color: _mostrandoCierre ? _kAccent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => setState(() => _mostrandoCierre = !_mostrandoCierre),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(children: [
+                  Icon(Icons.summarize_outlined, size: 14,
+                      color: _mostrandoCierre ? _kAccent : Colors.white54),
+                  const SizedBox(width: 5),
+                  Text(_mostrandoCierre ? 'Ventas' : 'Cierre',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                          color: _mostrandoCierre ? _kAccent : Colors.white54)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
       ]),
     );
   }
@@ -546,7 +560,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20)),
+                backgroundColor: const Color(0xFF4A7C59)),
             child: const Text('Añadir'),
           ),
         ],
@@ -574,6 +588,103 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
       )
           : null,
     ));
+  }
+
+  // ── Nuevo ticket (guarda el actual en hold y abre uno vacío) ─────────────
+
+  void _nuevoTicket() {
+    if (_comandaActiva != null && _comandaActiva!.lineas.isNotEmpty) {
+      _holdNotifier.guardar(
+        etiqueta: 'Ticket',
+        lineas: _comandaActiva!.lineas.map((l) => {
+          'productoId': l.productoId, 'nombre': l.nombre,
+          'cantidad': l.cantidad, 'precioUnitario': l.precioUnitario,
+          'ivaPorcentaje': l.ivaPorcentaje, 'notas': l.notas,
+        }).toList(),
+        total: _totalConDescuento,
+      );
+    }
+    setState(() {
+      _comandaActiva = null;
+      _extra = const _TicketExtra();
+      _cuponId = null;
+      _cuponDescuento = 0;
+      _descuentosLinea.clear();
+    });
+  }
+
+  // ── Cambiar al ticket en hold ─────────────────────────────────────────────
+
+  void _switchToHold(String holdId) {
+    // Guardar el actual si tiene líneas
+    if (_comandaActiva != null && _comandaActiva!.lineas.isNotEmpty) {
+      _holdNotifier.guardar(
+        etiqueta: 'Ticket',
+        lineas: _comandaActiva!.lineas.map((l) => {
+          'productoId': l.productoId, 'nombre': l.nombre,
+          'cantidad': l.cantidad, 'precioUnitario': l.precioUnitario,
+          'ivaPorcentaje': l.ivaPorcentaje, 'notas': l.notas,
+        }).toList(),
+        total: _totalConDescuento,
+      );
+    }
+    // Recuperar el hold seleccionado
+    final recuperado = _holdNotifier.recuperar(holdId);
+    if (recuperado == null) return;
+    final lineas = recuperado.lineas.map((m) => LineaComanda(
+      productoId: m['productoId'] as String? ?? '',
+      nombre: m['nombre'] as String? ?? '',
+      cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
+      precioUnitario: (m['precioUnitario'] as num?)?.toDouble() ?? 0,
+      ivaPorcentaje: (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
+      notas: m['notas'] as String?,
+      esNuevo: false,
+    )).toList();
+    final base = Comanda(
+      id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
+      mesaId: null,
+      camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+      lineas: lineas,
+      estado: 'abierta',
+      apertura: Timestamp.now(),
+      importeTotal: 0,
+    );
+    setState(() {
+      _comandaActiva = base;
+      _extra = const _TicketExtra();
+      _cuponId = null;
+      _cuponDescuento = 0;
+      _descuentosLinea.clear();
+    });
+  }
+
+  // ── Arqueo intermedio (sin cerrar caja) ────────────────────────────────────
+
+  Future<void> _mostrarArqueoIntermedio() async {
+    // Calcular efectivo del turno actual (ventas en efectivo de hoy)
+    final hoy = DateTime.now();
+    final inicio = DateTime(hoy.year, hoy.month, hoy.day);
+    double totalEfectivo = 0;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('pedidos')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+          .get();
+      for (final d in snap.docs) {
+        final m = d.data();
+        if (m['estado_pago'] != 'pagado') continue;
+        final met = m['metodo_pago'] as String? ?? '';
+        if (met == 'efectivo') {
+          totalEfectivo += (m['total'] as num?)?.toDouble() ?? 0;
+        } else if (met == 'mixto') {
+          totalEfectivo += (m['importe_efectivo'] as num?)?.toDouble() ?? 0;
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    await ArqueoCajaWidget.mostrar(context, totalSistema: totalEfectivo);
   }
 
   // ── Apertura de caja ──────────────────────────────────────────────────────
@@ -634,7 +745,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
               }
             },
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20)),
+                backgroundColor: const Color(0xFF4A7C59)),
             child: const Text('Abrir caja'),
           ),
         ],
@@ -653,6 +764,48 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
       ),
     );
   }
+}
+
+// ── AppBar helpers ────────────────────────────────────────────────────────────
+
+class _AppBarGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _AppBarGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFF162A1B),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: children),
+  );
+}
+
+class _AppBarBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _AppBarBtn(this.icon, this.tooltip, this.onTap);
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(7),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(7),
+          child: Icon(icon, size: 16, color: Colors.white60),
+        ),
+      ),
+    ),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -845,6 +998,162 @@ class _DialogoConfigImpresoraState extends State<_DialogoConfigImpresora> {
 // ═══════════════════════════════════════════════════════════════════════════
 // CATÁLOGO DE PRODUCTOS — con botón crear + toast código no encontrado
 // ═══════════════════════════════════════════════════════════════════════════
+// MINI-DASHBOARD DE TURNO — franja compacta sobre el catálogo
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MiniDashboardTurno extends StatelessWidget {
+  final String empresaId;
+  const _MiniDashboardTurno({required this.empresaId});
+
+  static const _primario  = Color(0xFF4A7C59);
+  static const _superfcie = Color(0xFFDCF0E6);
+  static const _texto     = Color(0xFF1A3A27);
+  static const _muted     = Color(0xFF81B29A);
+
+  @override
+  Widget build(BuildContext context) {
+    final hoy   = DateTime.now();
+    final inicio = DateTime(hoy.year, hoy.month, hoy.day);
+    final fin    = inicio.add(const Duration(days: 1));
+    final fmt    = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    final fmtH   = DateFormat('HH:mm');
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('pedidos')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(fin))
+          .where('estado_pago', isEqualTo: 'pagado')
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox(height: 40);
+
+        final docs = snap.data!.docs;
+        double total = 0;
+        Map<String, dynamic>? ultimoPedido;
+        DateTime? ultimaHora;
+
+        for (final d in docs) {
+          final m = d.data() as Map<String, dynamic>;
+          total += (m['total'] as num?)?.toDouble() ?? 0;
+          final ts = m['fecha_hora'] as Timestamp?;
+          if (ts != null && (ultimaHora == null || ts.toDate().isAfter(ultimaHora!))) {
+            ultimaHora = ts.toDate();
+            ultimoPedido = m;
+          }
+        }
+
+        final numTickets = docs.length;
+        final ticketMedio = numTickets > 0 ? total / numTickets : 0.0;
+        final ultimaVentaHora = ultimaHora != null ? fmtH.format(ultimaHora!) : '—';
+        final ultimaVentaCliente = ultimoPedido?['cliente_nombre'] as String? ?? 'Caja directa';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _superfcie,
+            border: const Border(bottom: BorderSide(color: Color(0xFFBDD8C4))),
+          ),
+          child: Row(children: [
+            // Total del día
+            _Stat(
+              label: 'HOY',
+              valor: fmt.format(total),
+              icon: Icons.euro_rounded,
+              color: _primario,
+              grande: true,
+            ),
+            const _Divider(),
+            // Tickets
+            _Stat(
+              label: 'TICKETS',
+              valor: '$numTickets',
+              icon: Icons.receipt_long_outlined,
+              color: _texto,
+            ),
+            const _Divider(),
+            // Ticket medio
+            _Stat(
+              label: 'MEDIA',
+              valor: fmt.format(ticketMedio),
+              icon: Icons.show_chart,
+              color: _texto,
+            ),
+            const _Divider(),
+            // Última venta
+            Expanded(
+              child: Row(children: [
+                Icon(Icons.access_time_rounded, size: 12, color: _muted),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('ÚLTIMA', style: TextStyle(fontSize: 9, color: _muted,
+                          fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                      Row(children: [
+                        Text(ultimaVentaHora,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                                color: _texto)),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(ultimaVentaCliente,
+                            style: TextStyle(fontSize: 10, color: _muted),
+                            overflow: TextOverflow.ellipsis)),
+                      ]),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final String label;
+  final String valor;
+  final IconData icon;
+  final Color color;
+  final bool grande;
+  const _Stat({required this.label, required this.valor, required this.icon,
+      required this.color, this.grande = false});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, size: 11, color: const Color(0xFF81B29A)),
+        const SizedBox(width: 3),
+        Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF81B29A),
+            fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+      ]),
+      Text(valor, style: TextStyle(
+        fontSize: grande ? 15 : 13,
+        fontWeight: FontWeight.w800,
+        color: color,
+      )),
+    ]),
+  );
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 1, height: 28,
+    margin: const EdgeInsets.symmetric(horizontal: 2),
+    color: const Color(0xFFBDD8C4),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _TiendaCatalogoPanel extends StatefulWidget {
   final String empresaId;
@@ -938,9 +1247,11 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
         }).toList();
 
         return Column(children: [
+          // ── Mini-dashboard de turno ──────────────────────────────────────
+          _MiniDashboardTurno(empresaId: widget.empresaId),
           // Barra de búsqueda / lector
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
             child: TextField(
               controller: _searchCtrl,
               onChanged: widget.onBusquedaChanged,
@@ -1021,35 +1332,88 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
               ),
             ),
           ),
-          // Chips de categoría + botón nueva categoría (admin)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(children: [
-              ...categorias.map((c) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(c),
-                  selected: widget.categoriaFiltro == c,
-                  onSelected: (_) => widget.onCategoriaChanged(c),
-                ),
-              )),
+          // Tabs de categorías con contador de productos
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(children: [
+                ...categorias.map((c) {
+                  final count = c == 'Todos'
+                      ? todos.length
+                      : todos.where((p) => p.producto.categoria == c).length;
+                  final sel = widget.categoriaFiltro == c;
+                  return GestureDetector(
+                    onTap: () => widget.onCategoriaChanged(c),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      margin: const EdgeInsets.only(right: 2),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: sel ? const Color(0xFF4A7C59) : Colors.transparent,
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(c,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                              color: sel ? const Color(0xFF4A7C59) : const Color(0xFF64748B),
+                            )),
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? const Color(0xFF4A7C59).withValues(alpha: 0.12)
+                                : const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text('$count',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: sel ? const Color(0xFF4A7C59) : const Color(0xFF94A3B8),
+                              )),
+                        ),
+                      ]),
+                    ),
+                  );
+                }),
               if (widget.esAdmin)
                 Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: ActionChip(
-                    avatar: const Icon(Icons.add, size: 14),
-                    label: const Text('Nuevo producto',
-                        style: TextStyle(fontSize: 11)),
-                    onPressed: () => showDialog(
+                  padding: const EdgeInsets.only(left: 4, bottom: 4, top: 4),
+                  child: GestureDetector(
+                    onTap: () => showDialog(
                       context: context,
-                      builder: (_) => _DialogoNuevoProducto(
-                          empresaId: widget.empresaId),
+                      builder: (_) => _DialogoNuevoProducto(empresaId: widget.empresaId),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCF0E6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFBDD8C4)),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.add, size: 13, color: Color(0xFF4A7C59)),
+                        SizedBox(width: 4),
+                        Text('Nuevo', style: TextStyle(fontSize: 11, color: Color(0xFF4A7C59),
+                            fontWeight: FontWeight.w600)),
+                      ]),
                     ),
                   ),
                 ),
             ]),
-          ),
+            ),  // SingleChildScrollView
+          ),  // Container borde categorías
           const SizedBox(height: 8),
           // Estado vacío
           if (filtrados.isEmpty)
@@ -1076,7 +1440,7 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                       icon: const Icon(Icons.add),
                       label: const Text('Añadir primer producto'),
                       style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF1B5E20)),
+                          backgroundColor: const Color(0xFF4A7C59)),
                     ),
                   ],
                 ]),
@@ -1089,8 +1453,8 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                 padding: const EdgeInsets.all(12),
                 gridDelegate:
                 const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 155,
-                  childAspectRatio: 0.72,
+                  maxCrossAxisExtent: 190,
+                  childAspectRatio: 0.68,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
@@ -1172,148 +1536,413 @@ class _TiendaProductoCard extends StatelessWidget {
     final stockBajo =
         stock != null && stock! > 0 && stock! <= stockMinimo && stockMinimo > 0;
 
-    return Opacity(
-      opacity: sinStock ? 0.5 : 1.0,
-      child: GestureDetector(
-        onTap: sinStock ? null : onTap,
-        onLongPress: onEditar,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Imagen / placeholder
-            Expanded(
-              child: Stack(children: [
-                Container(
+    return GestureDetector(
+      onTap: sinStock ? null : onTap,
+      onLongPress: onEditar,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: sinStock ? const Color(0xFFF5F5F5) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: sinStock ? [] : [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 10, offset: const Offset(0, 3)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 2, offset: const Offset(0, 1)),
+          ],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Imagen ────────────────────────────────────────────────────
+          Expanded(
+            flex: 7,
+            child: Stack(children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                child: Container(
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10)),
-                  ),
+                  color: const Color(0xFFF0F4F8),
                   child: producto.thumbnailUrl != null
-                      ? ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(10)),
-                      child: Image.network(producto.thumbnailUrl!,
+                      ? Image.network(
+                          producto.thumbnailUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _placeholder()))
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (_, __, ___) => _placeholder(),
+                        )
                       : _placeholder(),
                 ),
-                // Overlay sin stock
-                if (sinStock)
-                  Positioned.fill(
+              ),
+              // Overlay agotado
+              if (sinStock)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(10)),
-                      ),
+                      color: Colors.black.withValues(alpha: 0.55),
                       alignment: Alignment.center,
-                      child: const Text('SIN STOCK',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                // Badge editar (admin, long press)
-                if (esAdmin)
-                  Positioned(
-                    top: 4, right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.black38,
-                        borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade700,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text('AGOTADO',
+                            style: TextStyle(color: Colors.white, fontSize: 9,
+                                fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                       ),
-                      child: const Icon(Icons.edit,
-                          size: 10, color: Colors.white70),
                     ),
                   ),
-              ]),
-            ),
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(6),
+                ),
+              // Stock badge (esquina superior derecha)
+              if (stock != null && !sinStock)
+                Positioned(
+                  top: 6, right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: stockBajo ? Colors.amber.shade700 : const Color(0xFF166534),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+                    ),
+                    child: Text('$stock',
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              // Admin edit hint
+              if (esAdmin)
+                Positioned(
+                  bottom: 5, right: 5,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4)],
+                    ),
+                    child: const Icon(Icons.edit_outlined, size: 10, color: Color(0xFF64748B)),
+                  ),
+                ),
+            ]),
+          ),
+          // ── Info ──────────────────────────────────────────────────────
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(9, 6, 9, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     producto.nombre,
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      color: sinStock ? Colors.grey.shade400 : const Color(0xFF0F172A),
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(fmt.format(producto.precio),
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1B5E20))),
-                      if (stock != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: stockBajo
-                                ? Colors.amber.shade100
-                                : sinStock
-                                ? Colors.red.shade100
-                                : Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            if (stockBajo)
-                              Icon(Icons.warning_amber,
-                                  size: 9,
-                                  color: Colors.amber.shade700),
-                            Text(
-                              '$stock',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: stockBajo
-                                    ? Colors.amber.shade800
-                                    : sinStock
-                                    ? Colors.red.shade700
-                                    : Colors.green.shade700,
-                              ),
-                            ),
-                          ]),
-                        ),
-                    ],
+                  Text(
+                    fmt.format(producto.precio),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: sinStock ? Colors.grey.shade400 : const Color(0xFF166534),
+                    ),
                   ),
                 ],
               ),
             ),
-          ]),
-        ),
+          ),
+        ]),
       ),
     );
   }
 
   Widget _placeholder() => Center(
-    child: Text(
-      producto.nombre.isNotEmpty
-          ? producto.nombre[0].toUpperCase()
-          : '?',
-      style: const TextStyle(
-          fontSize: 30, fontWeight: FontWeight.w700, color: Colors.grey),
-    ),
+    child: Icon(Icons.image_not_supported_outlined, size: 32, color: Colors.grey.shade300),
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PANEL DE TICKET — con descuento, cliente, editar precio y cantidad manual
+// ═══════════════════════════════════════════════════════════════════════════
+// MONEDERO / FIDELIZACIÓN EN EL TICKET
+// Ratio: 1€ gastado = 1 punto · 100 puntos = 1€ de descuento (1% cashback)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MonederoTienda extends StatelessWidget {
+  final String empresaId;
+  final String clienteId;
+  final double totalTicket;
+  final ValueChanged<double> onCanjear;
+
+  static const _ptsPorEuro  = 1;    // puntos que se dan por cada euro gastado
+  static const _euroPorPts  = 100;  // puntos necesarios para obtener 1€ de descuento
+  static const _primario    = Color(0xFF4A7C59);
+  static const _superficie  = Color(0xFFDCF0E6);
+  static const _texto       = Color(0xFF1A3A27);
+
+  const _MonederoTienda({
+    required this.empresaId,
+    required this.clienteId,
+    required this.totalTicket,
+    required this.onCanjear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId)
+          .collection('clientes').doc(clienteId)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+        final puntos = (data['puntos'] as num?)?.toInt() ?? 0;
+        if (puntos <= 0) return const SizedBox.shrink();
+
+        final maxCanjeableEuros = (puntos / _euroPorPts).floorToDouble();
+        final puntosGanar = (totalTicket * _ptsPorEuro).floor();
+
+        return Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: _superficie,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFBDD8C4)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.stars_rounded, size: 16, color: _primario),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$puntos puntos disponibles',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                        color: _texto)),
+                Text('Vale ${maxCanjeableEuros.toStringAsFixed(2)} € en descuento  ·  '
+                    'Ganará +$puntosGanar pts hoy',
+                    style: TextStyle(fontSize: 9, color: _primario.withValues(alpha: 0.7))),
+              ]),
+            ),
+            if (maxCanjeableEuros > 0)
+              GestureDetector(
+                onTap: () => _mostrarDialogoCanje(context, puntos, maxCanjeableEuros),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _primario,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('Canjear',
+                      style: TextStyle(fontSize: 11, color: Colors.white,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ),
+          ]),
+        );
+      },
+    );
+  }
+
+  void _mostrarDialogoCanje(BuildContext ctx, int puntos, double maxEuros) {
+    double selectedEuros = maxEuros.clamp(0, totalTicket);
+    showDialog(
+      context: ctx,
+      builder: (dCtx) => StatefulBuilder(
+        builder: (dCtx, setS) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.stars_rounded, color: _primario, size: 20),
+            SizedBox(width: 8),
+            Text('Canjear puntos', style: TextStyle(fontSize: 15)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Tienes $puntos puntos = ${maxEuros.toStringAsFixed(2)} € disponibles',
+                style: const TextStyle(fontSize: 12, color: _texto)),
+            const SizedBox(height: 16),
+            Text('Aplicar descuento de:',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              GestureDetector(
+                onTap: () => setS(() => selectedEuros = (selectedEuros - 1).clamp(0, maxEuros)),
+                child: const Icon(Icons.remove_circle_outline, color: _primario),
+              ),
+              const SizedBox(width: 16),
+              Text('${selectedEuros.toStringAsFixed(2)} €',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _primario)),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: () => setS(() => selectedEuros = (selectedEuros + 1).clamp(0, maxEuros.clamp(0, totalTicket))),
+                child: const Icon(Icons.add_circle_outline, color: _primario),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text('= ${(selectedEuros * _euroPorPts).toInt()} puntos',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: selectedEuros > 0
+                  ? () { Navigator.pop(dCtx); onCanjear(selectedEuros); }
+                  : null,
+              style: FilledButton.styleFrom(backgroundColor: _primario),
+              child: const Text('Aplicar descuento'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS DE TICKETS ACTIVOS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TabsTicket extends StatelessWidget {
+  final Comanda? comandaActiva;
+  final HoldPedidosNotifier holdNotifier;
+  final double totalActual;
+  final VoidCallback? onNuevoTicket;
+  final ValueChanged<String>? onSwitchToHold;
+
+  const _TabsTicket({
+    required this.comandaActiva,
+    required this.holdNotifier,
+    required this.totalActual,
+    this.onNuevoTicket,
+    this.onSwitchToHold,
+  });
+
+  static const _primario   = Color(0xFF4A7C59);
+  static const _superficie = Color(0xFFDCF0E6);
+  static const _divisor    = Color(0xFFBDD8C4);
+  static const _texto      = Color(0xFF1A3A27);
+  static const _muted      = Color(0xFF81B29A);
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+
+    return ListenableBuilder(
+      listenable: holdNotifier,
+      builder: (context, _) {
+        final pedidosHold = holdNotifier.pedidos;
+        final tieneActivo = comandaActiva != null && comandaActiva!.lineas.isNotEmpty;
+
+        // Si no hay hold ni ticket activo, no mostrar la barra de tabs
+        if (!tieneActivo && pedidosHold.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: _superficie,
+            border: Border(bottom: BorderSide(color: _divisor)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(left: 8, top: 6, bottom: 0, right: 4),
+            child: Row(children: [
+              // ── Tab activo ────────────────────────────────────────────
+              _Tab(
+                etiqueta: tieneActivo
+                    ? '${fmt.format(totalActual)}'
+                    : 'Vacío',
+                activo: true,
+                color: _primario,
+              ),
+              // ── Tabs de holds ─────────────────────────────────────────
+              ...pedidosHold.map((p) {
+                final fmtP = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+                return _Tab(
+                  etiqueta: p.etiqueta.length > 12
+                      ? '${p.etiqueta.substring(0, 10)}…'
+                      : p.etiqueta,
+                  subLabel: fmtP.format(p.total),
+                  activo: false,
+                  color: _muted,
+                  onTap: () => onSwitchToHold?.call(p.id),
+                );
+              }),
+              // ── Botón + nuevo ticket ────────────────────────────────
+              GestureDetector(
+                onTap: onNuevoTicket,
+                child: Container(
+                  margin: const EdgeInsets.only(left: 4, bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _divisor),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.add, size: 14, color: _muted),
+                    const SizedBox(width: 3),
+                    Text('Nuevo', style: TextStyle(fontSize: 10, color: _muted,
+                        fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  final String etiqueta;
+  final String? subLabel;
+  final bool activo;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _Tab({
+    required this.etiqueta,
+    this.subLabel,
+    required this.activo,
+    required this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 4, bottom: 0),
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+        decoration: BoxDecoration(
+          color: activo ? Colors.white : Colors.transparent,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+          border: activo
+              ? Border(
+                  top: BorderSide(color: color, width: 2),
+                  left: BorderSide(color: const Color(0xFFBDD8C4)),
+                  right: BorderSide(color: const Color(0xFFBDD8C4)),
+                )
+              : null,
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(etiqueta,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: activo ? FontWeight.w700 : FontWeight.w500,
+                color: activo ? color : const Color(0xFF81B29A),
+              )),
+          if (subLabel != null)
+            Text(subLabel!,
+                style: const TextStyle(fontSize: 9, color: Color(0xFF81B29A))),
+        ]),
+      ),
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _TiendaComandaPanel extends StatelessWidget {
@@ -1326,8 +1955,10 @@ class _TiendaComandaPanel extends StatelessWidget {
   final VoidCallback onCobrado;
   final VoidCallback onLimpiar;
   final VoidCallback onProductoLibre;
-  // Hold
+  // Hold + tabs
   final HoldPedidosNotifier holdNotifier;
+  final VoidCallback? onNuevoTicket;        // abre ticket vacío guardando el actual
+  final ValueChanged<String>? onSwitchToHold; // cambia al hold con ese id
   // Cupón
   final String? cuponId;
   final double cuponDescuento;
@@ -1348,6 +1979,8 @@ class _TiendaComandaPanel extends StatelessWidget {
     required this.onLimpiar,
     required this.onProductoLibre,
     required this.holdNotifier,
+    this.onNuevoTicket,
+    this.onSwitchToHold,
     this.cuponId,
     this.cuponDescuento = 0,
     required this.onCuponAplicado,
@@ -1356,240 +1989,297 @@ class _TiendaComandaPanel extends StatelessWidget {
     required this.onDescuentoLineaChanged,
   });
 
+  // Colores EXACTOS del template Sage Green de peluquería
+  static const _kFondo     = Color(0xFFF0F7F4);  // sage fondo
+  static const _kSuperficie= Color(0xFFDCF0E6);  // sage superficie
+  static const _kDivisor   = Color(0xFFBDD8C4);  // sage divisor (entre fondo y superficie)
+  static const _kCian      = Color(0xFF4A7C59);  // sage primario
+  static const _kTexto     = Color(0xFF1A3A27);  // sage texto oscuro
+  static const _kTextoSec  = Color(0xFF81B29A);  // sage secundario (texto suave)
+
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
-    final cs = Theme.of(context).colorScheme;
+    final tieneLineas = comandaActiva != null && comandaActiva!.lineas.isNotEmpty;
 
-    return Column(children: [
-      // ── Header ────────────────────────────────────────────────────────
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor)),
+    return Container(
+      color: _kFondo,
+      child: Column(children: [
+        // ── Tabs de tickets ────────────────────────────────────────────────
+        _TabsTicket(
+          comandaActiva: comandaActiva,
+          holdNotifier: holdNotifier,
+          totalActual: totalConDescuento,
+          onNuevoTicket: onNuevoTicket,
+          onSwitchToHold: onSwitchToHold,
         ),
-        child: Row(children: [
-          const Icon(Icons.shopping_cart_outlined, size: 16),
-          const SizedBox(width: 6),
-          const Text('Venta directa',
-              style:
-              TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const Spacer(),
-          // Producto libre
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, size: 18),
-            tooltip: 'Producto libre',
-            onPressed: onProductoLibre,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        // ── Cliente ────────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+          decoration: BoxDecoration(
+            color: _kSuperficie,
+            border: Border(bottom: BorderSide(color: _kDivisor)),
           ),
-          // Descuento
-          IconButton(
-            icon: Icon(
-              Icons.discount_outlined,
-              size: 18,
-              color: extra.descuento > 0 ? Colors.green : null,
+          child: Column(children: [
+            Row(children: [
+              Icon(Icons.person_outline, size: 14, color: _kTextoSec),
+              const SizedBox(width: 6),
+              Text(
+                extra.clienteNombre ?? 'Sin cliente',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: extra.clienteNombre != null ? _kTexto : _kTextoSec,
+                  fontWeight: extra.clienteNombre != null ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              const Spacer(),
+              if (extra.clienteNombre != null)
+                GestureDetector(
+                  onTap: () => onExtraChanged(extra.copyWith(limpiarCliente: true)),
+                  child: Icon(Icons.close, size: 14, color: _kTextoSec),
+                ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onProductoLibre,
+                child: Icon(Icons.add_circle_outline, size: 16, color: _kTextoSec),
+              ),
+              const SizedBox(width: 4),
+              if (tieneLineas)
+                GestureDetector(
+                  onTap: onLimpiar,
+                  child: const Text('Limpiar', style: TextStyle(fontSize: 10, color: Colors.red)),
+                ),
+            ]),
+            const SizedBox(height: 6),
+            _ClienteBuscadorTienda(
+              empresaId: empresaId,
+              clienteActual: extra.clienteNombre,
+              onSeleccionado: (c) => onExtraChanged(extra.copyWith(
+                clienteNombre: c['nombre'] as String?,
+                clienteId: c['id'] as String?,
+              )),
+              onLimpiar: () => onExtraChanged(extra.copyWith(limpiarCliente: true)),
+              dark: false,
             ),
-            tooltip: 'Descuento',
-            onPressed: (comandaActiva?.lineas.isNotEmpty ?? false)
-                ? () => _aplicarDescuento(context)
-                : null,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-          // Limpiar
-          if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18),
-              tooltip: 'Limpiar ticket',
-              onPressed: onLimpiar,
-              padding: EdgeInsets.zero,
-              constraints:
-              const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-        ]),
-      ),
-
-      // ── Buscador de cliente ───────────────────────────────────────────
-      Container(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
-        child: _ClienteBuscadorTienda(
-          empresaId: empresaId,
-          clienteActual: extra.clienteNombre,
-          onSeleccionado: (c) => onExtraChanged(extra.copyWith(
-            clienteNombre: c['nombre'] as String?,
-            clienteId: c['id'] as String?,
-          )),
-          onLimpiar: () => onExtraChanged(extra.copyWith(limpiarCliente: true)),
-        ),
-      ),
-
-      // ── Líneas ────────────────────────────────────────────────────────
-      Expanded(
-        child: (comandaActiva == null || comandaActiva!.lineas.isEmpty)
-            ? Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.shopping_cart_outlined,
-                size: 48, color: Colors.grey.shade300),
-            const SizedBox(height: 8),
-            const Text('Ticket vacío',
-                style: TextStyle(color: Colors.grey, fontSize: 14)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onProductoLibre,
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Añadir producto libre',
-                  style: TextStyle(fontSize: 12)),
-            ),
+            // ── Monedero del cliente ────────────────────────────────────
+            if (extra.clienteId != null)
+              _MonederoTienda(
+                empresaId: empresaId,
+                clienteId: extra.clienteId!,
+                totalTicket: totalConDescuento,
+                onCanjear: (descuento) => onExtraChanged(extra.copyWith(
+                  descuento: (extra.descuento + descuento).clamp(0, totalConDescuento),
+                )),
+              ),
           ]),
-        )
-            : ListView.builder(
-          itemCount: comandaActiva!.lineas.length,
-          itemBuilder: (context, idx) {
-            final linea = comandaActiva!.lineas[idx];
-            return _TiendaLineaCard(
-              linea: linea,
-              descuentoAplicado: descuentosLinea[linea.productoId] ?? 0,
-              onCantidadChanged: (delta) {
-                final nueva = linea.cantidad + delta;
-                final lineas = List<LineaComanda>.from(
-                    comandaActiva!.lineas);
-                if (nueva <= 0) {
-                  lineas.removeAt(idx);
-                } else {
-                  lineas[idx] = linea.copyWith(cantidad: nueva);
-                }
-                onComandaActualizada(
-                    comandaActiva!.copyWith(lineas: lineas));
-              },
-              onEditarPrecio: () =>
-                  _editarPrecio(context, idx, linea),
-              onEditarCantidad: () =>
-                  _editarCantidad(context, idx, linea),
-              onDescuento: () async {
-                final resultado = await DescuentoLineaWidget.mostrar(
-                  context,
-                  nombreProducto: linea.nombre,
-                  precioOriginal: linea.precioUnitario,
-                  cantidad: linea.cantidad,
-                );
-                if (resultado != null) {
-                  onDescuentoLineaChanged(linea.productoId, resultado.importe);
-                }
-              },
-            );
-          },
         ),
-      ),
 
-      // ── Footer ───────────────────────────────────────────────────────
-      if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty)
+        // ── Líneas ────────────────────────────────────────────────────────
+        Expanded(
+          child: !tieneLineas
+              ? Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.shopping_cart_outlined, size: 42, color: _kTextoSec),
+                    const SizedBox(height: 10),
+                    Text('Ticket vacío', style: TextStyle(fontSize: 13, color: _kTextoSec)),
+                  ]),
+                )
+              : ListView.separated(
+                  itemCount: comandaActiva!.lineas.length,
+                  separatorBuilder: (_, __) => Divider(height: 1, thickness: 0.5, color: _kDivisor, indent: 12, endIndent: 12),
+                  itemBuilder: (context, idx) {
+                    final linea = comandaActiva!.lineas[idx];
+                    return _TiendaLineaCard(
+                      linea: linea,
+                      descuentoAplicado: descuentosLinea[linea.productoId] ?? 0,
+                      onCantidadChanged: (delta) {
+                        final nueva = linea.cantidad + delta;
+                        final lineas = List<LineaComanda>.from(comandaActiva!.lineas);
+                        if (nueva <= 0) {
+                          lineas.removeAt(idx);
+                        } else {
+                          lineas[idx] = linea.copyWith(cantidad: nueva);
+                        }
+                        onComandaActualizada(comandaActiva!.copyWith(lineas: lineas));
+                      },
+                      onEditarPrecio: () => _editarPrecio(context, idx, linea),
+                      onEditarCantidad: () => _editarCantidad(context, idx, linea),
+                      onEliminar: () {
+                        final lineas = List<LineaComanda>.from(comandaActiva!.lineas)..removeAt(idx);
+                        onComandaActualizada(comandaActiva!.copyWith(lineas: lineas));
+                      },
+                      onNotaChanged: (nota) {
+                        final lineas = List<LineaComanda>.from(comandaActiva!.lineas);
+                        lineas[idx] = lineas[idx].copyWith(notas: nota);
+                        onComandaActualizada(comandaActiva!.copyWith(lineas: lineas));
+                      },
+                      onDescuento: () async {
+                        final resultado = await DescuentoLineaWidget.mostrar(
+                          context,
+                          nombreProducto: linea.nombre,
+                          precioOriginal: linea.precioUnitario,
+                          cantidad: linea.cantidad,
+                        );
+                        if (resultado != null) {
+                          onDescuentoLineaChanged(linea.productoId, resultado.importe);
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+
+        // ── Ticket summary (descuentos globales visibles) ──────────────────
+        if (tieneLineas && (extra.descuento > 0 || cuponDescuento > 0))
+          Container(
+            color: _kSuperficie.withValues(alpha: 0.5),
+            child: Column(children: [
+              if (extra.descuento > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Row(children: [
+                    const Text('Descuento',
+                        style: TextStyle(fontSize: 11, color: Colors.orange)),
+                    const Spacer(),
+                    Text('−${fmt.format(extra.descuento)}',
+                        style: const TextStyle(fontSize: 11, color: Colors.orange)),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => onExtraChanged(extra.copyWith(limpiarDescuento: true)),
+                      child: const Icon(Icons.close, size: 12, color: Colors.orange),
+                    ),
+                  ]),
+                ),
+              if (cuponDescuento > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Row(children: [
+                    const Text('Cupón', style: TextStyle(fontSize: 11, color: Colors.lightBlue)),
+                    const Spacer(),
+                    Text('−${fmt.format(cuponDescuento)}',
+                        style: const TextStyle(fontSize: 11, color: Colors.lightBlue)),
+                  ]),
+                ),
+              Divider(height: 1, thickness: 0.5, color: _kDivisor),
+            ]),
+          ),
+
+        // ── Footer ────────────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            border: Border(
-                top: BorderSide(color: Theme.of(context).dividerColor)),
+            color: _kSuperficie,
+            border: Border(top: BorderSide(color: _kDivisor)),
           ),
           child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Subtotal:',
-                  style: TextStyle(fontSize: 12)),
-              Text(fmt.format(comandaActiva!.baseImponible),
-                  style: const TextStyle(fontSize: 12)),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('IVA:', style: TextStyle(fontSize: 12)),
-              Text(fmt.format(comandaActiva!.cuotaIva),
-                  style: const TextStyle(fontSize: 12)),
-            ]),
-            if (extra.descuento > 0)
-              Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Descuento (${extra.descuentoPct.toStringAsFixed(0)}%):',
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.green),
+            // Píldoras: Descuento + Cupón (igual que peluquería)
+            if (tieneLineas)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _aplicarDescuento(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: extra.descuento > 0
+                              ? Colors.orange.withValues(alpha: 0.1)
+                              : _kTextoSec.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: extra.descuento > 0 ? Colors.orange : _kDivisor),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(extra.descuento > 0 ? Icons.local_offer : Icons.add_circle_outline,
+                              size: 13,
+                              color: extra.descuento > 0 ? Colors.orange : _kTextoSec),
+                          const SizedBox(width: 5),
+                          Flexible(child: Text(
+                            extra.descuento > 0
+                                ? '−${fmt.format(extra.descuento)}'
+                                : 'Descuento',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                                color: extra.descuento > 0 ? Colors.orange : _kTextoSec),
+                            overflow: TextOverflow.ellipsis,
+                          )),
+                        ]),
+                      ),
                     ),
-                    Text(
-                      '- ${fmt.format(extra.descuento)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.green),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CuponInputWidget(
+                      empresaId: empresaId,
+                      totalBase: comandaActiva!.total - extra.descuento,
+                      onAplicado: onCuponAplicado,
+                      onRetirar: onCuponRetirado,
                     ),
-                  ]),
-            if (cuponDescuento > 0)
-              Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Cupón:',
-                        style: TextStyle(fontSize: 12, color: Colors.teal)),
-                    Text('- ${fmt.format(cuponDescuento)}',
-                        style: const TextStyle(fontSize: 12, color: Colors.teal)),
-                  ]),
-            // Cupón input
-            CuponInputWidget(
-              empresaId: empresaId,
-              totalBase: comandaActiva!.total - extra.descuento,
-              onAplicado: onCuponAplicado,
-              onRetirar: onCuponRetirado,
-            ),
-            const Divider(),
+                  ),
+                ]),
+              ),
+            // Total
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('TOTAL:',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-              Text(fmt.format(totalConDescuento),
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w700)),
+              Text('Total',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                      color: tieneLineas ? _kTexto : _kTextoSec)),
+              Text(
+                fmt.format(totalConDescuento),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700,
+                    color: tieneLineas ? _kCian : _kTextoSec),
+              ),
             ]),
-            const SizedBox(height: 8),
-            // Botón "En espera"
-            OutlinedButton.icon(
-              icon: const Icon(Icons.pause_circle_outline, size: 16),
-              label: const Text('En espera', style: TextStyle(fontSize: 12)),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 36),
-                visualDensity: VisualDensity.compact,
+            const SizedBox(height: 10),
+            // Botones: En espera + Cobrar (igual que peluquería)
+            Row(children: [
+              OutlinedButton.icon(
+                onPressed: tieneLineas ? () async {
+                  final label = await showDialog<String>(
+                    context: context,
+                    builder: (_) => const _DialogoEtiquetaEspera(),
+                  );
+                  if (label == null) return;
+                  holdNotifier.guardar(
+                    etiqueta: label,
+                    lineas: comandaActiva!.lineas.map((l) => {
+                      'productoId': l.productoId, 'nombre': l.nombre,
+                      'cantidad': l.cantidad, 'precioUnitario': l.precioUnitario,
+                      'ivaPorcentaje': l.ivaPorcentaje, 'notas': l.notas,
+                    }).toList(),
+                    total: totalConDescuento,
+                  );
+                  onLimpiar();
+                } : null,
+                icon: const Icon(Icons.pause_circle_outline, size: 15),
+                label: const Text('En espera', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kCian,
+                  side: BorderSide(color: _kCian.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
-              onPressed: () async {
-                final label = await showDialog<String>(
-                  context: context,
-                  builder: (_) => const _DialogoEtiquetaEspera(),
-                );
-                if (label == null) return;
-                holdNotifier.guardar(
-                  etiqueta: label,
-                  lineas: comandaActiva!.lineas
-                      .map((l) => {
-                            'productoId': l.productoId,
-                            'nombre': l.nombre,
-                            'cantidad': l.cantidad,
-                            'precioUnitario': l.precioUnitario,
-                            'ivaPorcentaje': l.ivaPorcentaje,
-                            'notas': l.notas,
-                          })
-                      .toList(),
-                  total: totalConDescuento,
-                );
-                onLimpiar();
-              },
-            ),
-            const SizedBox(height: 6),
-            FilledButton(
-              onPressed: () => _cobrar(context),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-                backgroundColor: const Color(0xFF1B5E20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: tieneLineas ? () => _cobrar(context) : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kCian,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Cobrar ${fmt.format(totalConDescuento)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                ),
               ),
-              child: Text('Cobrar ${fmt.format(totalConDescuento)}'),
-            ),
+            ]),
           ]),
         ),
-    ]);
+      ]),
+    );
   }
+
 
   // ── Descuento ─────────────────────────────────────────────────────────
 
@@ -1651,7 +2341,7 @@ class _TiendaComandaPanel extends StatelessWidget {
               }
                   : null,
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B5E20)),
+                  backgroundColor: const Color(0xFF4A7C59)),
               child: const Text('Aplicar'),
             ),
           ],
@@ -1697,7 +2387,7 @@ class _TiendaComandaPanel extends StatelessWidget {
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20)),
+                backgroundColor: const Color(0xFF4A7C59)),
             child: const Text('Guardar'),
           ),
         ],
@@ -1743,7 +2433,7 @@ class _TiendaComandaPanel extends StatelessWidget {
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20)),
+                backgroundColor: const Color(0xFF4A7C59)),
             child: const Text('Guardar'),
           ),
         ],
@@ -1867,10 +2557,28 @@ class _TiendaComandaPanel extends StatelessWidget {
         );
       } catch (_) {}
 
+      // ── Acumular puntos al cliente si está identificado ───────────────
+      if (extra.clienteId != null) {
+        try {
+          final puntosGanados = totalConDescuento.floor().clamp(1, 9999);
+          final clienteRef = FirebaseFirestore.instance
+              .collection('empresas').doc(empresaId)
+              .collection('clientes').doc(extra.clienteId!);
+          await clienteRef.update({
+            'puntos': FieldValue.increment(puntosGanados),
+            'puntos_totales_ganados': FieldValue.increment(puntosGanados),
+            'ultima_compra_tpv': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
+      }
+
       if (context.mounted) {
+        final puntosMsg = extra.clienteId != null
+            ? ' · +${totalConDescuento.floor()} pts'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'Ticket #$numTicket cobrado — ${totalConDescuento.toStringAsFixed(2)} €'),
+              'Ticket #$numTicket cobrado — ${totalConDescuento.toStringAsFixed(2)} €$puntosMsg'),
           backgroundColor: Colors.green.shade700,
         ));
         onCobrado();
@@ -1895,6 +2603,8 @@ class _TiendaLineaCard extends StatelessWidget {
   final VoidCallback onEditarPrecio;
   final VoidCallback onEditarCantidad;
   final VoidCallback? onDescuento;
+  final VoidCallback? onEliminar;
+  final ValueChanged<String?>? onNotaChanged;
 
   const _TiendaLineaCard({
     required this.linea,
@@ -1903,251 +2613,423 @@ class _TiendaLineaCard extends StatelessWidget {
     required this.onEditarPrecio,
     required this.onEditarCantidad,
     this.onDescuento,
+    this.onEliminar,
+    this.onNotaChanged,
   });
+
+  static const _kCian    = Color(0xFF4A7C59);  // Sage primario
+  static const _kDivisor = Color(0xFFBDD8C4);  // Sage divisor
+  static const _kTexto   = Color(0xFF1A3A27);  // Sage texto
+  static const _kTextoSec= Color(0xFF81B29A);  // Sage secundario
 
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    final total = (linea.total - descuentoAplicado).clamp(0, double.infinity);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-          border: Border(
-              bottom:
-              BorderSide(color: Theme.of(context).dividerColor))),
-      child: Row(children: [
-        // Nombre + precio editable
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        // ── Nombre + nota + descuento ────────────────────────────────────
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(linea.nombre,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 2),
-            GestureDetector(
-              onTap: onEditarPrecio,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.edit, size: 10, color: Colors.grey),
-                  const SizedBox(width: 3),
-                  Text(fmt.format(linea.precioUnitario),
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.grey)),
-                ]),
-              ),
-            ),
-            if (descuentoAplicado > 0)
+          child: GestureDetector(
+            onLongPress: onNotaChanged != null
+                ? () => _editarNota(context)
+                : null,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                '- ${fmt.format(descuentoAplicado)}',
-                style: const TextStyle(fontSize: 10, color: Colors.green),
+                linea.cantidad > 1
+                    ? '${linea.nombre}  ×${linea.cantidad}'
+                    : linea.nombre,
+                style: const TextStyle(fontSize: 11, color: _kTexto),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-          ]),
-        ),
-        // Botón descuento por línea
-        if (onDescuento != null)
-          IconButton(
-            icon: Icon(
-              Icons.discount_outlined,
-              size: 16,
-              color: descuentoAplicado > 0 ? Colors.green : Colors.grey,
-            ),
-            tooltip: 'Descuento en línea',
-            onPressed: onDescuento,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+              if (linea.notas != null && linea.notas!.isNotEmpty)
+                Row(children: [
+                  const Icon(Icons.sticky_note_2_outlined, size: 10, color: _kCian),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(linea.notas!,
+                      style: const TextStyle(fontSize: 10, color: _kCian,
+                          fontStyle: FontStyle.italic),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ]),
+              if (descuentoAplicado > 0)
+                Text('−${fmt.format(descuentoAplicado)}',
+                    style: const TextStyle(fontSize: 10, color: Colors.orange)),
+            ]),
           ),
-        // Controles de cantidad
-        GestureDetector(
-          onTap: onEditarCantidad, // tap en número → editar manualmente
-          child: Row(children: [
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline, size: 18),
-              onPressed: () => onCantidadChanged(-1),
-              padding: EdgeInsets.zero,
-              constraints:
-              const BoxConstraints(minWidth: 28, minHeight: 28),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text('${linea.cantidad}',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700)),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              onPressed: () => onCantidadChanged(1),
-              padding: EdgeInsets.zero,
-              constraints:
-              const BoxConstraints(minWidth: 28, minHeight: 28),
-            ),
-          ]),
         ),
-        // Total línea
-        SizedBox(
-          width: 64,
+        // ── Precio total ─────────────────────────────────────────────────
+        GestureDetector(
+          onTap: onEditarPrecio,
           child: Text(
-            fmt.format((linea.total - descuentoAplicado).clamp(0, double.infinity)),
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600)),
+            fmt.format(total),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500,
+                color: _kTexto),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // ── Descuento por línea ──────────────────────────────────────────
+        GestureDetector(
+          onTap: onDescuento,
+          child: Icon(Icons.local_offer_outlined, size: 14,
+              color: descuentoAplicado > 0 ? Colors.orange : _kTextoSec),
+        ),
+        const SizedBox(width: 2),
+        // ── +/− cantidad compacto ─────────────────────────────────────────
+        GestureDetector(
+          onTap: () => onCantidadChanged(-1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+            child: Icon(Icons.remove, size: 13, color: _kTextoSec),
+          ),
+        ),
+        GestureDetector(
+          onTap: onEditarCantidad,
+          child: Text('${linea.cantidad}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                  color: _kCian)),
+        ),
+        GestureDetector(
+          onTap: () => onCantidadChanged(1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+            child: Icon(Icons.add, size: 13, color: _kTextoSec),
+          ),
+        ),
+        // ── Eliminar ─────────────────────────────────────────────────────
+        GestureDetector(
+          onTap: onEliminar,
+          child: Icon(Icons.close, size: 14, color: Colors.red.shade300),
         ),
       ]),
     );
   }
+
+  Future<void> _editarNota(BuildContext context) async {
+    final ctrl = TextEditingController(text: linea.notas ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.sticky_note_2_outlined, color: _kCian, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Nota — ${linea.nombre}',
+              style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis)),
+        ]),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            hintText: 'Ej: dedicatoria, envolver para regalo…',
+            hintStyle: const TextStyle(fontSize: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: _kCian, width: 1.5)),
+          ),
+        ),
+        actions: [
+          if (linea.notas != null && linea.notas!.isNotEmpty)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Quitar nota', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: _kCian),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      onNotaChanged?.call(result.isEmpty ? null : result);
+    }
+  }
 }
 
-// ── Buscador de cliente (tienda) ─────────────────────────────────────────────
+// ── Buscador de cliente (tienda) — igual que peluquería ──────────────────────
+// Pre-carga clientes, filtrado instantáneo, fallback Firestore, avatar inicial,
+// opción de crear cliente nuevo. Usa Sage Green como acento.
 
 class _ClienteBuscadorTienda extends StatefulWidget {
   final String empresaId;
   final String? clienteActual;
   final ValueChanged<Map<String, dynamic>> onSeleccionado;
   final VoidCallback onLimpiar;
+  final bool dark;
 
   const _ClienteBuscadorTienda({
     required this.empresaId,
     this.clienteActual,
     required this.onSeleccionado,
     required this.onLimpiar,
+    this.dark = false,
   });
 
   @override
-  State<_ClienteBuscadorTienda> createState() =>
-      _ClienteBuscadorTiendaState();
+  State<_ClienteBuscadorTienda> createState() => _ClienteBuscadorTiendaState();
 }
 
 class _ClienteBuscadorTiendaState extends State<_ClienteBuscadorTienda> {
+  static const _kPrimario = Color(0xFF4A7C59);   // Sage primario
+  static const _kSecundario = Color(0xFF81B29A); // Sage secundario
+
   final _ctrl = TextEditingController();
+  final _focus = FocusNode();
+  List<Map<String, dynamic>> _todos = [];
   List<Map<String, dynamic>> _resultados = [];
+  bool _buscando = false;
+  bool _cargadoTodos = false;
   Timer? _debounce;
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _buscar(String valor) {
-    _debounce?.cancel();
-    if (valor.length < 2) {
-      setState(() => _resultados = []);
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 300), () async {
-      final snap = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .collection('clientes')
-          .where('nombre_lower',
-          isGreaterThanOrEqualTo: valor.toLowerCase())
-          .where('nombre_lower',
-          isLessThan: '${valor.toLowerCase()}z')
-          .limit(5)
-          .get();
-      if (mounted) {
-        setState(() {
-          _resultados = snap.docs
-              .map((d) =>
-          {'id': d.id, ...d.data() as Map<String, dynamic>})
-              .toList();
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (_focus.hasFocus) {
+        if (!_cargadoTodos) _cargarTodos();
+        if (_ctrl.text.isEmpty) setState(() => _resultados = List.from(_todos));
+      } else {
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) setState(() => _resultados = []);
         });
       }
     });
   }
 
+  Future<void> _cargarTodos() async {
+    setState(() => _buscando = true);
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId).collection('clientes')
+          .orderBy('nombre').limit(50).get();
+      if (mounted) {
+        final lista = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+        setState(() {
+          _todos = lista;
+          _cargadoTodos = true;
+          if (_ctrl.text.isEmpty) _resultados = List.from(lista);
+          _buscando = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _buscando = false);
+    }
+  }
+
+  void _onChanged(String valor) {
+    _debounce?.cancel();
+    if (valor.isEmpty) {
+      setState(() => _resultados = List.from(_todos));
+      return;
+    }
+    final filtroLocal = _todos.where((c) =>
+        ((c['nombre'] ?? '') as String).toLowerCase().contains(valor.toLowerCase())).toList();
+    setState(() => _resultados = filtroLocal);
+
+    if (filtroLocal.length < 3 && valor.length >= 2) {
+      _debounce = Timer(const Duration(milliseconds: 350), () async {
+        setState(() => _buscando = true);
+        final q = FirebaseFirestore.instance
+            .collection('empresas').doc(widget.empresaId).collection('clientes');
+        var snap = await q
+            .where('nombre_lower', isGreaterThanOrEqualTo: valor.toLowerCase())
+            .where('nombre_lower', isLessThan: '${valor.toLowerCase()}z')
+            .limit(10).get();
+        if (snap.docs.isEmpty) {
+          snap = await q
+              .where('nombre', isGreaterThanOrEqualTo: valor)
+              .where('nombre', isLessThan: '${valor}z')
+              .limit(10).get();
+        }
+        final remotos = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+        final ids = filtroLocal.map((c) => c['id']).toSet();
+        final merged = [...filtroLocal, ...remotos.where((c) => !ids.contains(c['id']))];
+        if (mounted) setState(() { _resultados = merged; _buscando = false; });
+      });
+    }
+  }
+
+  Future<void> _crearNuevoCliente(String nombre) async {
+    try {
+      final ref = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId).collection('clientes').add({
+        'nombre': nombre,
+        'nombre_lower': nombre.toLowerCase(),
+        'fecha_creacion': FieldValue.serverTimestamp(),
+      });
+      final nuevo = {'id': ref.id, 'nombre': nombre};
+      widget.onSeleccionado(nuevo);
+      _ctrl.text = nombre;
+      setState(() { _resultados = []; _todos.add(nuevo); });
+      _focus.unfocus();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dk = widget.dark;
+    final colorTexto = dk ? Colors.white : const Color(0xFF1A3A27);
+    final colorMuted = dk ? _kSecundario.withValues(alpha: 0.6) : Colors.grey.shade500;
+    final colorFillField = dk ? const Color(0xFF2D4A35).withValues(alpha: 0.4) : Colors.transparent;
+    final colorBorde = dk ? const Color(0xFF2D4A35) : Colors.grey.shade300;
+
+    // Si hay cliente seleccionado → mostrar pill (sin campo de búsqueda)
     if (widget.clienteActual != null) {
       return Container(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
-          color: Colors.green.shade50,
+          color: _kPrimario.withValues(alpha: dk ? 0.15 : 0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.shade200),
+          border: Border.all(color: _kPrimario.withValues(alpha: dk ? 0.4 : 0.3)),
         ),
         child: Row(children: [
-          const Icon(Icons.person, size: 14, color: Colors.green),
-          const SizedBox(width: 6),
+          Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              color: _kPrimario.withValues(alpha: 0.2), shape: BoxShape.circle),
+            child: Center(child: Text(
+              widget.clienteActual!.isNotEmpty ? widget.clienteActual![0].toUpperCase() : '?',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: dk ? _kSecundario : _kPrimario),
+            )),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(widget.clienteActual!,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorTexto)),
           ),
           GestureDetector(
-            onTap: () {
-              _ctrl.clear();
-              widget.onLimpiar();
-            },
-            child: const Icon(Icons.close, size: 14, color: Colors.grey),
+            onTap: () { _ctrl.clear(); widget.onLimpiar(); },
+            child: Icon(Icons.close_rounded, size: 14, color: colorMuted),
           ),
         ]),
       );
     }
 
+    // Campo de búsqueda + dropdown
     return Column(children: [
       TextField(
         controller: _ctrl,
-        onChanged: _buscar,
+        focusNode: _focus,
+        onChanged: _onChanged,
+        style: TextStyle(fontSize: 12, color: colorTexto),
         decoration: InputDecoration(
           hintText: 'Buscar cliente…',
-          hintStyle: const TextStyle(fontSize: 11),
-          prefixIcon: const Icon(Icons.person_search, size: 16),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8)),
-          contentPadding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          hintStyle: TextStyle(fontSize: 11, color: colorMuted),
+          prefixIcon: Icon(Icons.search, size: 16, color: colorMuted),
+          suffixIcon: _buscando
+              ? const Padding(padding: EdgeInsets.all(12),
+                  child: SizedBox(width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)))
+              : _ctrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, size: 14, color: colorMuted),
+                      onPressed: () { _ctrl.clear(); setState(() => _resultados = List.from(_todos)); },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28))
+                  : null,
+          filled: true,
+          fillColor: colorFillField,
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: colorBorde)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: _kPrimario, width: 1.5)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 12),
       ),
-      if (_resultados.isNotEmpty)
-        Container(
-          margin: const EdgeInsets.only(top: 2),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: _resultados
-                .map((c) => InkWell(
-              onTap: () {
-                widget.onSeleccionado(c);
-                _ctrl.clear();
-                setState(() => _resultados = []);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 8),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(c['nombre'] as String? ?? '',
-                        style:
-                        const TextStyle(fontSize: 12)),
+      if (_resultados.isNotEmpty || (_ctrl.text.length >= 2 && !_buscando))
+        Builder(builder: (ctx) {
+          const alturaItem = 52.0;
+          final visibles = _resultados.take(5).toList();
+          final hayMas = _resultados.length > 5;
+          final maxH = (visibles.length * alturaItem + (hayMas ? 30 : 0) + 40).clamp(0.0, 5 * alturaItem + 70.0);
+          return Container(
+            margin: const EdgeInsets.only(top: 4),
+            constraints: BoxConstraints(maxHeight: maxH),
+            decoration: BoxDecoration(
+              color: dk ? const Color(0xFF233A29) : Colors.white,
+              border: Border.all(color: colorBorde),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6)],
+            ),
+            child: ListView(shrinkWrap: true, padding: EdgeInsets.zero, children: [
+              ...visibles.map((c) {
+                final nombre = c['nombre'] as String? ?? '';
+                final telefono = c['telefono'] as String? ?? '';
+                return InkWell(
+                  onTap: () {
+                    widget.onSeleccionado(c);
+                    _ctrl.text = nombre;
+                    setState(() => _resultados = []);
+                    _focus.unfocus();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Row(children: [
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: _kPrimario.withValues(alpha: 0.15), shape: BoxShape.circle),
+                        child: Center(child: Text(
+                          nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                              color: dk ? _kSecundario : _kPrimario),
+                        )),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(nombre, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: colorTexto)),
+                        if (telefono.isNotEmpty)
+                          Text(telefono, style: TextStyle(fontSize: 10, color: colorMuted)),
+                      ])),
+                    ]),
                   ),
-                  Text(c['telefono'] as String? ?? '',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade500)),
-                ]),
-              ),
-            ))
-                .toList(),
-          ),
-        ),
-      const SizedBox(height: 6),
+                );
+              }),
+              if (hayMas)
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Text('+${_resultados.length - 5} resultados más — escribe para filtrar',
+                      style: TextStyle(fontSize: 10, color: colorMuted, fontStyle: FontStyle.italic))),
+              if (_ctrl.text.length >= 2 &&
+                  !_resultados.any((c) => ((c['nombre'] ?? '') as String).toLowerCase() ==
+                      _ctrl.text.trim().toLowerCase()) &&
+                  !_todos.any((c) => ((c['nombre'] ?? '') as String).toLowerCase() ==
+                      _ctrl.text.trim().toLowerCase()))
+                InkWell(
+                  onTap: () => _crearNuevoCliente(_ctrl.text.trim()),
+                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    child: Row(children: [
+                      Container(width: 28, height: 28,
+                        decoration: BoxDecoration(color: _kPrimario.withValues(alpha: 0.12), shape: BoxShape.circle),
+                        child: const Icon(Icons.person_add_outlined, size: 16, color: _kPrimario)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('Crear "${_ctrl.text.trim()}"',
+                          style: const TextStyle(fontSize: 12, color: _kPrimario, fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+                ),
+            ]),
+          );
+        }),
     ]);
   }
 }
@@ -2173,6 +3055,7 @@ class _DialogoNuevoProducto extends StatefulWidget {
 class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
   final _nomCtrl = TextEditingController();
   final _prcCtrl = TextEditingController();
+  final _prcWebCtrl = TextEditingController();
   final _catCtrl = TextEditingController();
   final _cbCtrl = TextEditingController();
   final _stockCtrl = TextEditingController(text: '0');
@@ -2234,12 +3117,27 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
                   keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'Precio (€) *',
-                    prefixIcon: Icon(Icons.euro),
+                    labelText: 'Precio tienda (€) *',
+                    prefixIcon: Icon(Icons.store_outlined),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _prcWebCtrl,
+                  keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Precio web (€)',
+                    hintText: 'Vacío = igual tienda',
+                    prefixIcon: Icon(Icons.language_outlined),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
               Expanded(
                 child: TextField(
                   controller: _cbCtrl,
@@ -2330,7 +3228,7 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
         FilledButton(
           onPressed: _guardando ? null : _guardar,
           style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1B5E20)),
+              backgroundColor: const Color(0xFF4A7C59)),
           child: _guardando
               ? const SizedBox(
               width: 16,
@@ -2374,6 +3272,8 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
         'activo': true,
         'tiene_variantes': false,
         'variantes': [],
+        if (_prcWebCtrl.text.trim().isNotEmpty)
+          'precio_web': double.tryParse(_prcWebCtrl.text.replaceAll(',', '.')),
         'created_at': FieldValue.serverTimestamp(),
       });
       if (mounted) {
@@ -2568,7 +3468,7 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         FilledButton(
           onPressed: _guardando ? null : _guardar,
           style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1B5E20)),
+              backgroundColor: const Color(0xFF4A7C59)),
           child: const Text('Guardar'),
         ),
       ],
@@ -2805,7 +3705,7 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
             });
           },
           style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1B5E20)),
+              backgroundColor: const Color(0xFF4A7C59)),
           child: const Text('Confirmar cobro'),
         ),
       ],
@@ -2878,14 +3778,26 @@ class _TiendaCierreDeCaja extends StatefulWidget {
   const _TiendaCierreDeCaja({required this.empresaId});
 
   @override
-  State<_TiendaCierreDeCaja> createState() =>
-      _TiendaCierreDeCajaState();
+  State<_TiendaCierreDeCaja> createState() => _TiendaCierreDeCajaState();
 }
 
 class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
   Map<String, dynamic>? _datos;
-  bool _cargando = true;
-  bool _cerrando = false;
+  Map<String, dynamic>? _empresa;
+  bool _cargando = true, _cerrando = false;
+  bool _abriendo = false;
+  bool _historialExpandido = false;
+  List<Map<String, dynamic>> _ticketsDia = [];
+  double _totalAyer = 0;
+  final _efectivoContadoCtrl = TextEditingController();
+
+  static const _kCian = Color(0xFF4A7C59);  // Sage primario (para fondos blancos)
+
+  @override
+  void dispose() {
+    _efectivoContadoCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -2895,372 +3807,818 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
-    final hoy = DateTime.now();
-    final inicio = DateTime(hoy.year, hoy.month, hoy.day);
-    final fin = inicio.add(const Duration(days: 1));
-
-    final snapHoy = await FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(widget.empresaId)
-        .collection('pedidos')
-        .where('fecha_hora',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
-        .where('fecha_hora', isLessThan: Timestamp.fromDate(fin))
-        .where('estado_pago', isEqualTo: 'pagado')
-        .get();
-
-    final snapAyer = await FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(widget.empresaId)
-        .collection('pedidos')
-        .where('fecha_hora',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(
-            inicio.subtract(const Duration(days: 1))))
-        .where('fecha_hora', isLessThan: Timestamp.fromDate(inicio))
-        .where('estado_pago', isEqualTo: 'pagado')
-        .get();
-
-    double ef = 0, tj = 0;
-    final top = <String, int>{};
-
-    for (final doc in snapHoy.docs) {
-      final d = doc.data() as Map<String, dynamic>;
-      final met = d['metodo_pago'] as String? ?? 'efectivo';
-      if (met == 'efectivo') {
-        ef += (d['importe_efectivo'] as num?)?.toDouble() ??
-            (d['importe_total'] as num?)?.toDouble() ??
-            0;
-      } else if (met == 'tarjeta') {
-        tj += (d['importe_tarjeta'] as num?)?.toDouble() ??
-            (d['importe_total'] as num?)?.toDouble() ??
-            0;
-      } else {
-        ef += (d['importe_efectivo'] as num?)?.toDouble() ?? 0;
-        tj += (d['importe_tarjeta'] as num?)?.toDouble() ?? 0;
-      }
-      for (final l in d['lineas'] as List? ?? []) {
-        final nombre = l['producto_nombre'] as String? ?? '';
-        top[nombre] =
-            (top[nombre] ?? 0) + ((l['cantidad'] as num?)?.toInt() ?? 1);
-      }
-    }
-
-    double totalAyer = 0;
-    for (final doc in snapAyer.docs) {
-      totalAyer +=
-          ((doc.data() as Map<String, dynamic>)['importe_total'] as num?)
-              ?.toDouble() ??
-              0;
-    }
-
-    final total = ef + tj;
-    if (mounted) {
-      setState(() {
-        _datos = {
-          'total': total,
-          'efectivo': ef,
-          'tarjeta': tj,
-          'num_tickets': snapHoy.docs.length,
-          'ticket_medio':
-          snapHoy.docs.isEmpty ? 0.0 : total / snapHoy.docs.length,
-          'base_imponible': total / 1.21,
-          'cuota_iva': total - total / 1.21,
-          'total_ayer': totalAyer,
-          'top': (top.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value)))
-              .take(3)
-              .toList(),
-        };
-        _cargando = false;
-      });
-    }
-  }
-
-  Future<void> _confirmarCierre() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar cierre de caja'),
-        content: const Text('¿Registrar el cierre del día?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Confirmar')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => _cerrando = true);
     try {
-      final svc = CierreCajaService();
-      final cierre =
-      await svc.calcularCierreCaja(widget.empresaId, DateTime.now());
-      await svc.guardarCierreCaja(widget.empresaId, cierre);
+      final hoy = DateTime.now();
+      final inicio = DateTime(hoy.year, hoy.month, hoy.day);
+      final fin = inicio.add(const Duration(days: 1));
+
+      // ── Métodos de pago configurados ──────────────────────────────────────
+      const _baseMetodos = [
+        (id: 'efectivo', label: 'Efectivo'), (id: 'tarjeta', label: 'Tarjeta'),
+        (id: 'bizum', label: 'Bizum'), (id: 'transferencia', label: 'Transferencia'),
+        (id: 'cheque_regalo', label: 'Cheque regalo'),
+      ];
+      List<({String id, String label})> metodosConfig = [(id: 'efectivo', label: 'Efectivo'), (id: 'tarjeta', label: 'Tarjeta')];
+      try {
+        final cfgDoc = await FirebaseFirestore.instance.collection('empresas')
+            .doc(widget.empresaId).collection('configuracion').doc('tpv_cobro').get();
+        if (cfgDoc.exists) {
+          final habilitados = (cfgDoc.data()?['metodos_habilitados'] as List?)?.map((e) => e.toString()).toSet() ?? {};
+          final custom = (cfgDoc.data()?['metodos_custom'] as List?)?.map((e) => e.toString()).toList() ?? [];
+          if (habilitados.isNotEmpty) {
+            metodosConfig = [
+              ..._baseMetodos.where((m) => habilitados.contains(m.id)),
+              ...custom.asMap().entries.where((e) => habilitados.contains('custom_${e.key}'))
+                  .map((e) => (id: 'custom_${e.key}', label: e.value)),
+            ];
+          }
+        }
+      } catch (_) {}
+
+      final snap = await FirebaseFirestore.instance.collection('empresas')
+          .doc(widget.empresaId).collection('pedidos')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(fin)).get();
+
+      final Map<String, double> porMetodo = {};
+      double baseImponibleTotal = 0, cuotaIvaTotal = 0;
+      final top = <String, int>{};
+      int ticketsPagados = 0, ticketsAnulados = 0;
+
+      for (final d in snap.docs) {
+        final m = d.data();
+        if (m['estado_pago'] == 'anulado') { ticketsAnulados++; continue; }
+        if (m['estado_pago'] != 'pagado') continue;
+        ticketsPagados++;
+        final pedTotal = (m['total'] as num?)?.toDouble() ?? 0.0;
+        final met = m['metodo_pago'] as String? ?? 'efectivo';
+        if (met == 'mixto') {
+          final importes = (m['importes_por_metodo'] as Map?)?.cast<String, dynamic>();
+          if (importes != null && importes.isNotEmpty) {
+            for (final e in importes.entries) {
+              final v = (e.value as num?)?.toDouble() ?? 0;
+              if (v > 0) porMetodo[e.key] = (porMetodo[e.key] ?? 0) + v;
+            }
+          } else {
+            final ef = (m['importe_efectivo'] as num?)?.toDouble() ?? 0;
+            final tj = (m['importe_tarjeta'] as num?)?.toDouble() ?? 0;
+            porMetodo['efectivo'] = (porMetodo['efectivo'] ?? 0) + (ef == 0 && tj == 0 ? pedTotal / 2 : ef);
+            porMetodo['tarjeta'] = (porMetodo['tarjeta'] ?? 0) + (ef == 0 && tj == 0 ? pedTotal / 2 : tj);
+          }
+        } else {
+          porMetodo[met] = (porMetodo[met] ?? 0) + pedTotal;
+        }
+        for (final l in m['lineas'] as List? ?? []) {
+          final n = (l['producto_nombre'] as String?) ?? (l['nombre'] as String?) ?? '';
+          if (n.isNotEmpty) top[n] = (top[n] ?? 0) + ((l['cantidad'] as num?)?.toInt() ?? 1);
+          final base = (l['precio_unitario'] as num?)?.toDouble() ?? 0.0;
+          final cant = (l['cantidad'] as num?)?.toDouble() ?? 1.0;
+          final iva = ((l['iva_porcentaje'] ?? l['porcentaje_iva'] ?? 21.0) as num).toDouble();
+          baseImponibleTotal += base * cant;
+          cuotaIvaTotal += base * cant * iva / 100;
+        }
+      }
+
+      final total = porMetodo.values.fold(0.0, (a, b) => a + b);
+      if (baseImponibleTotal == 0 && total > 0) {
+        baseImponibleTotal = total / 1.21;
+        cuotaIvaTotal = total - baseImponibleTotal;
+      }
+
+      // ── Apertura de caja ──
+      double fondoInicial = 0;
+      String? aperturaUsuario;
+      int numZ = 1;
+      try {
+        final aperturasSnap = await FirebaseFirestore.instance.collection('empresas')
+            .doc(widget.empresaId).collection('aperturas_caja')
+            .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+            .where('fecha', isLessThan: Timestamp.fromDate(fin))
+            .orderBy('fecha', descending: true).limit(1).get();
+        if (aperturasSnap.docs.isNotEmpty) {
+          final ap = aperturasSnap.docs.first.data();
+          fondoInicial = (ap['fondo_inicial'] as num?)?.toDouble() ?? 0;
+          final uid = ap['camarero_uid'] as String? ?? '';
+          if (uid.isNotEmpty) {
+            try {
+              final uDoc = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+              final ud = uDoc.data();
+              aperturaUsuario = (ud?['nombre'] as String?) ?? (ud?['email'] as String?) ?? uid;
+            } catch (_) { aperturaUsuario = uid; }
+          }
+        }
+        final todosSnap = await FirebaseFirestore.instance.collection('empresas')
+            .doc(widget.empresaId).collection('cierres_caja').get();
+        numZ = todosSnap.docs.length + 1;
+      } catch (_) {}
+
+      // ── Historial tickets ──
+      final List<Map<String, dynamic>> ticketsDia = [];
+      try {
+        final tickSnap = await FirebaseFirestore.instance.collection('empresas')
+            .doc(widget.empresaId).collection('pedidos')
+            .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+            .where('fecha_hora', isLessThan: Timestamp.fromDate(fin))
+            .orderBy('fecha_hora', descending: true).get();
+        for (final d in tickSnap.docs) {
+          final m = d.data();
+          ticketsDia.add({
+            'id': d.id,
+            'num': m['numero_ticket'] ?? '',
+            'cliente': m['cliente_nombre'] ?? 'Caja directa',
+            'total': (m['total'] as num?)?.toDouble() ?? 0,
+            'metodo': m['metodo_pago'] ?? 'efectivo',
+            'estado': m['estado_pago'] ?? '',
+            'hora': (m['fecha_hora'] as Timestamp?)?.toDate(),
+          });
+        }
+      } catch (_) {}
+
+      // ── Total ayer ──
+      double totalAyer = 0;
+      try {
+        final ayerStr = DateFormat('yyyy-MM-dd').format(hoy.subtract(const Duration(days: 1)));
+        final ayerDoc = await FirebaseFirestore.instance.collection('empresas')
+            .doc(widget.empresaId).collection('cierres_caja').doc(ayerStr).get();
+        if (ayerDoc.exists) totalAyer = (ayerDoc.data()?['cierre']?['total'] as num?)?.toDouble() ?? 0;
+      } catch (_) {}
+
+      // ── Empresa ──
+      Map<String, dynamic> empresaData = {};
+      try {
+        final eDoc = await FirebaseFirestore.instance.collection('empresas').doc(widget.empresaId).get();
+        empresaData = eDoc.data() ?? {};
+      } catch (_) {}
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Cierre registrado'),
-            backgroundColor: Colors.green));
+        setState(() {
+          _empresa = empresaData;
+          _ticketsDia = ticketsDia;
+          _totalAyer = totalAyer;
+          _datos = {
+            'total': total,
+            'efectivo': porMetodo['efectivo'] ?? 0,
+            'tarjeta': porMetodo['tarjeta'] ?? 0,
+            'por_metodo': porMetodo,
+            'metodos_config': metodosConfig.map((m) => {'id': m.id, 'label': m.label}).toList(),
+            'num_tickets': ticketsPagados,
+            'tickets_anulados': ticketsAnulados,
+            'ticket_medio': ticketsPagados == 0 ? 0.0 : total / ticketsPagados,
+            'base_imponible': baseImponibleTotal,
+            'cuota_iva': cuotaIvaTotal,
+            'fondo_inicial': fondoInicial,
+            'efectivo_esperado': fondoInicial + (porMetodo['efectivo'] ?? 0),
+            'apertura_usuario': aperturaUsuario ?? 'Sin registrar',
+            'num_z': numZ,
+            'top': (top.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(5).toList(),
+          };
+          _cargando = false;
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() {
+          _datos = {'total': 0.0, 'efectivo': 0.0, 'tarjeta': 0.0, 'por_metodo': <String, double>{},
+            'num_tickets': 0, 'ticket_medio': 0.0, 'base_imponible': 0.0, 'cuota_iva': 0.0,
+            'top': <MapEntry<String, int>>[], 'num_z': 1};
+          _cargando = false;
+        });
+        FluxToast.aviso(context, 'Error al cargar datos: $e');
       }
+    }
+  }
+
+  Future<void> _cerrar() async {
+    final totalSistema = (_datos?['efectivo'] as num?)?.toDouble() ?? 0.0;
+    final arqueoResult = await ArqueoCajaWidget.mostrar(context, totalSistema: totalSistema);
+    if (!mounted || arqueoResult == null) return;
+
+    final hayDescuadre = _efectivoContado >= 0 && _descuadre.abs() >= 0.01;
+    String? motivoDescuadre;
+    if (hayDescuadre) {
+      final motivo = await _dialogoDescuadre();
+      if (motivo == null) return;
+      motivoDescuadre = motivo;
+    } else {
+      final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+        title: const Text('Confirmar cierre de caja'),
+        content: const Text('¿Registrar el cierre del día?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cerrar caja')),
+        ],
+      ));
+      if (ok != true) return;
+    }
+
+    setState(() => _cerrando = true);
+    try {
+      final d = _datos!;
+      final fechaStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final contado = _efectivoContado >= 0 ? _efectivoContado : null;
+      final docRef = FirebaseFirestore.instance.collection('empresas')
+          .doc(widget.empresaId).collection('cierres_caja').doc(fechaStr);
+      final existing = await docRef.get();
+      if (existing.exists && existing.data()?.containsKey('cierre') == true) {
+        if (mounted) FluxToast.aviso(context, 'La caja ya fue cerrada hoy');
+        return;
+      }
+      await docRef.set({'fecha': fechaStr, 'cierre': {
+        'fecha_hora': FieldValue.serverTimestamp(),
+        'usuario': uid, 'total': d['total'],
+        'efectivo': d['efectivo'], 'tarjeta': d['tarjeta'],
+        'por_metodo': d['por_metodo'] ?? {'efectivo': d['efectivo'], 'tarjeta': d['tarjeta']},
+        'num_tickets': d['num_tickets'],
+        'base_imponible': d['base_imponible'], 'cuota_iva': d['cuota_iva'],
+        'fondo_inicial': (d['fondo_inicial'] as num?)?.toDouble() ?? 0,
+        if (contado != null) ...{
+          'efectivo_contado': contado,
+          'efectivo_esperado': (d['efectivo_esperado'] as num?)?.toDouble() ?? 0,
+          'descuadre': _descuadre, 'hay_descuadre': hayDescuadre,
+          if (motivoDescuadre != null) 'motivo_descuadre': motivoDescuadre,
+        },
+      }}, SetOptions(merge: true));
+      if (mounted) {
+        hayDescuadre
+          ? FluxToast.aviso(context, 'Cierre registrado con descuadre de ${_descuadre.abs().toStringAsFixed(2)} EUR')
+          : FluxToast.exito(context, 'Cierre de caja registrado');
+      }
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error al cerrar caja: $e');
     } finally {
       if (mounted) setState(() => _cerrando = false);
     }
   }
 
-  Future<void> _generarZReport() async {
+  Future<String?> _dialogoDescuadre() async {
+    final ctrl = TextEditingController();
+    final descuadreAbs = _descuadre.abs();
+    final esSobrante = _descuadre > 0;
+    return showDialog<String>(
+      context: context, barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 22),
+          SizedBox(width: 8), Text('Descuadre detectado'),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade200)),
+            child: Row(children: [
+              Text(esSobrante ? 'Sobrante:' : 'Falta:', style: const TextStyle(fontSize: 13)),
+              const Spacer(),
+              Text('${descuadreAbs.toStringAsFixed(2)} EUR',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+                      color: esSobrante ? Colors.green.shade700 : Colors.red.shade700)),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          const Text('Indica el motivo del descuadre (obligatorio):', style: TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+          TextField(controller: ctrl, maxLines: 3, autofocus: true,
+              decoration: InputDecoration(hintText: 'Ej: Error al dar cambio…',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          StatefulBuilder(builder: (ctx, setSt) => FilledButton(
+            onPressed: () {
+              if (ctrl.text.trim().isEmpty) { setSt(() {}); return; }
+              Navigator.pop(context, ctrl.text.trim());
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade700),
+            child: const Text('Registrar con descuadre'),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _abrirCajon() async {
+    if (_abriendo) return;
+    setState(() => _abriendo = true);
+    try {
+      final cfg = await TpvFacturacionService().obtenerConfig(widget.empresaId);
+      await ImpresoraService().abrirCajonSiProcede(
+        config: cfg.copyWith(abrirCajonAlCobrar: true, abrirCajonSoloEfectivo: false),
+        metodoPago: 'efectivo',
+      );
+      if (mounted) FluxToast.exito(context, 'Comando enviado al cajón');
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _abriendo = false);
+    }
+  }
+
+  Future<void> _imprimirZPdf() async {
     if (_datos == null) return;
+    final bytes = await _buildPdfBytes();
+    await Printing.layoutPdf(onLayout: (_) async => Uint8List.fromList(bytes));
+  }
+
+  Future<List<int>> _buildPdfBytes() async {
     final d = _datos!;
-    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
-    final hoy = DateTime.now();
-    final fecha =
-        '${hoy.day.toString().padLeft(2, '0')}/${hoy.month.toString().padLeft(2, '0')}/${hoy.year}';
+    final e = _empresa ?? {};
+    String fmtEur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')} EUR';
+    final now = DateTime.now();
+    final numZ = d['num_z'] as int? ?? 1;
+    final empresaNombre = e['nombre'] as String? ?? 'Sin nombre';
+    final empresaNif = e['nif'] as String? ?? e['cif'] as String? ?? 'Sin NIF';
+    final empresaDireccion = e['direccion'] as String? ?? '';
     final doc = pw.Document();
     doc.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
-      build: (c) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Center(
-              child: pw.Text('Z-REPORT — TIENDA',
-                  style: pw.TextStyle(
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold))),
-          pw.Center(
-              child: pw.Text('Fecha: $fecha',
-                  style: pw.TextStyle(
-                      fontSize: 13, color: PdfColors.grey600))),
-          pw.SizedBox(height: 20),
-          pw.Divider(),
-          pw.SizedBox(height: 12),
-          _pRow('Total ventas', fmt.format(d['total'])),
-          _pRow('Tickets', '${d['num_tickets']}'),
-          _pRow('Ticket medio', fmt.format(d['ticket_medio'])),
-          pw.SizedBox(height: 10),
-          _pRow('Efectivo', fmt.format(d['efectivo'])),
-          _pRow('Tarjeta', fmt.format(d['tarjeta'])),
-          pw.SizedBox(height: 10),
-          _pRow('Base imponible', fmt.format(d['base_imponible'])),
-          _pRow('Cuota IVA (21%)', fmt.format(d['cuota_iva'])),
-          pw.SizedBox(height: 10),
-          _pRow('Total ayer', fmt.format(d['total_ayer'])),
-          pw.SizedBox(height: 16),
-          pw.Divider(),
-          pw.SizedBox(height: 8),
-          pw.Text('TOP PRODUCTOS',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-          ...(d['top'] as List).asMap().entries.map((e) {
-            final entry = e.value as MapEntry<String, int>;
-            return pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('${e.key + 1}. ${entry.key}'),
-                pw.Text('×${entry.value}'),
-              ],
-            );
-          }),
-        ],
-      ),
+      margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 36),
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Text(empresaNombre, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            if (empresaDireccion.isNotEmpty)
+              pw.Text(empresaDireccion, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+            pw.Text('NIF: $empresaNif', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          ])),
+          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+            pw.Text('Z-REPORT Nº $numZ', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Fecha: $_hoy  ${DateFormat('HH:mm').format(now)}',
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          ]),
+        ]),
+        pw.SizedBox(height: 6), pw.Divider(thickness: 1.5), pw.SizedBox(height: 8),
+        _pSeccion('RESUMEN DE VENTAS'),
+        _pRow('Tickets cobrados', '${d['num_tickets']}'),
+        _pRow('Ticket medio', fmtEur((d['ticket_medio'] as num).toDouble())),
+        _pRowBold('TOTAL VENTAS', fmtEur((d['total'] as num).toDouble())),
+        pw.SizedBox(height: 10),
+        _pSeccion('COBROS POR FORMA DE PAGO'),
+        ...(() {
+          final pm = d['por_metodo'] as Map<String, double>? ?? <String, double>{};
+          final cfg = (d['metodos_config'] as List?)?.map((e) => (id: e['id'] as String, label: e['label'] as String)).toList()
+              ?? [(id: 'efectivo', label: 'Efectivo'), (id: 'tarjeta', label: 'Tarjeta')];
+          return cfg.map((m) => _pRow(m.label, fmtEur(pm[m.id] ?? 0)));
+        })(),
+        pw.SizedBox(height: 10),
+        _pSeccion('DESGLOSE IVA'),
+        _pRow('Base imponible', fmtEur((d['base_imponible'] as num).toDouble())),
+        _pRow('Cuota IVA (21%)', fmtEur((d['cuota_iva'] as num).toDouble())),
+        pw.SizedBox(height: 10),
+        _pSeccion('TOP PRODUCTOS'),
+        ...(d['top'] as List).asMap().entries.map((e) {
+          final entry = e.value as MapEntry<String, int>;
+          return pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('${e.key + 1}. ${entry.key}', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('×${entry.value}', style: const pw.TextStyle(fontSize: 10)),
+          ]);
+        }),
+      ]),
     ));
-    await Printing.layoutPdf(onLayout: (_) => doc.save());
+    return doc.save();
   }
 
-  pw.Widget _pRow(String l, String v) => pw.Row(
-    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-    children: [pw.Text(l), pw.Text(v)],
-  );
+  pw.Widget _pSeccion(String t) => pw.Padding(padding: const pw.EdgeInsets.only(bottom: 4),
+    child: pw.Text(t, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
+        color: PdfColors.blueGrey700)));
+  pw.Widget _pRow(String l, String v) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    children: [pw.Text(l, style: const pw.TextStyle(fontSize: 10)),
+               pw.Text(v, style: const pw.TextStyle(fontSize: 10))]);
+  pw.Widget _pRowBold(String l, String v) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    children: [pw.Text(l, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+               pw.Text(v, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))]);
+
+  String get _hoy {
+    final h = DateTime.now();
+    return '${h.day.toString().padLeft(2, '0')}/${h.month.toString().padLeft(2, '0')}/${h.year}';
+  }
+
+  double get _efectivoContado =>
+      double.tryParse(_efectivoContadoCtrl.text.replaceAll(',', '.')) ?? -1;
+  double get _descuadre =>
+      _efectivoContado < 0 ? 0 : _efectivoContado - (_datos?['efectivo_esperado'] as double? ?? 0);
 
   @override
   Widget build(BuildContext context) {
-    if (_cargando)
-      return const Center(child: CircularProgressIndicator());
+    if (_cargando) return const Center(child: CircularProgressIndicator(color: _kCian));
     final d = _datos!;
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
-    final hoy = DateTime.now();
-    final fecha =
-        '${hoy.day.toString().padLeft(2, '0')}/${hoy.month.toString().padLeft(2, '0')}/${hoy.year}';
-    final cs = Theme.of(context).colorScheme;
+    double n(String k) => (d[k] as num?)?.toDouble() ?? 0.0;
+    final total = n('total');
+    final ef = n('efectivo');
+    final numTickets = (d['num_tickets'] as num?)?.toInt() ?? 0;
+    final anulados = (d['tickets_anulados'] as num?)?.toInt() ?? 0;
+    final fondoInicial = n('fondo_inicial');
+    final efectivoEsperado = n('efectivo_esperado');
+    final baseImp = n('base_imponible');
+    final cuotaIva = n('cuota_iva');
+    final numZ = (d['num_z'] as num?)?.toInt() ?? 1;
+    final pctVsAyer = _totalAyer > 0 ? ((total - _totalAyer) / _totalAyer * 100) : null;
 
     return Column(children: [
-      Padding(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // ── Toolbar ────────────────────────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+        ),
         child: Row(children: [
-          Flexible(
-            child: Text('Cierre — $fecha',
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
-                overflow: TextOverflow.ellipsis),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: _kCian.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6)),
+            child: Text('Z-$numZ · $_hoy',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF4A7C59))),
           ),
-          const SizedBox(width: 8),
+          const Spacer(),
+          _toolBtn(Icons.refresh, 'Actualizar', _cargarDatos),
+          const SizedBox(width: 4),
+          _toolBtn(Icons.print_outlined, 'Imprimir Z-PDF', _imprimirZPdf, color: _kCian),
+          const SizedBox(width: 6),
           OutlinedButton.icon(
-            onPressed: _generarZReport,
-            icon: const Icon(Icons.download_outlined, size: 14),
-            label:
-            const Text('Z-PDF', style: TextStyle(fontSize: 11)),
+            onPressed: _abriendo ? null : _abrirCajon,
+            icon: _abriendo
+                ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.inventory_2_outlined, size: 14),
+            label: const Text('Abrir cajón', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
+              foregroundColor: Colors.orange.shade800,
+              side: BorderSide(color: Colors.orange.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               visualDensity: VisualDensity.compact,
             ),
           ),
           const SizedBox(width: 6),
-          FilledButton(
-            onPressed: _cerrando ? null : _confirmarCierre,
+          FilledButton.icon(
+            onPressed: _cerrando ? null : _cerrar,
+            icon: _cerrando
+                ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black87))
+                : const Icon(Icons.lock_outline, size: 14, color: Colors.black87),
+            label: const Text('Cerrar caja', style: TextStyle(fontSize: 12, color: Colors.black87)),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
+              backgroundColor: _kCian,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               visualDensity: VisualDensity.compact,
-              backgroundColor: const Color(0xFF1B5E20),
             ),
-            child: _cerrando
-                ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
-                : const Text('Cerrar caja',
-                style: TextStyle(fontSize: 12)),
-          ),
-          const SizedBox(width: 6),
-          TextButton.icon(
-            onPressed: _cargarDatos,
-            icon: const Icon(Icons.refresh, size: 14),
-            label: const Text('Refrescar',
-                style: TextStyle(fontSize: 11)),
           ),
         ]),
       ),
-      const Divider(height: 1),
+
       Expanded(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              EstadisticasTurnoWidget(empresaId: widget.empresaId),
-              const SizedBox(height: 12),
-              Wrap(spacing: 12, runSpacing: 12, children: [
-            _cifra('Total ventas', fmt.format(d['total']),
-                color: const Color(0xFF1B5E20)),
-            _cifra('Tickets', '${d['num_tickets']}'),
-            _cifra('Ticket medio', fmt.format(d['ticket_medio'])),
-            _tarjeta('Método de pago', [
-              _fila('Efectivo', fmt.format(d['efectivo'])),
-              const SizedBox(height: 4),
-              _fila('Tarjeta', fmt.format(d['tarjeta'])),
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            // ── KPIs ──────────────────────────────────────────────────
+            Row(children: [
+              _kpi('Total ventas', fmt.format(total), Icons.euro_rounded,
+                  color: _kCian,
+                  sub: pctVsAyer != null ? '${pctVsAyer >= 0 ? '+' : ''}${pctVsAyer.toStringAsFixed(1)}% vs ayer' : null,
+                  subColor: pctVsAyer == null ? null : (pctVsAyer >= 0 ? Colors.green : Colors.red)),
+              const SizedBox(width: 8),
+              _kpi('Tickets', '$numTickets', Icons.receipt_long_rounded,
+                  sub: anulados > 0 ? '$anulados anulados' : null, subColor: Colors.orange),
+              const SizedBox(width: 8),
+              _kpi('Ticket medio', fmt.format(n('ticket_medio')), Icons.show_chart, color: _kCian),
             ]),
-            _tarjeta('Desglose IVA (21%)', [
-              _fila('Base imponible', fmt.format(d['base_imponible'])),
-              const SizedBox(height: 4),
-              _fila('Cuota IVA', fmt.format(d['cuota_iva'])),
-            ]),
-            _tarjeta('Comparativa', [
-              _fila('Hoy', fmt.format(d['total'])),
-              const SizedBox(height: 4),
-              _fila('Ayer', fmt.format(d['total_ayer'])),
-            ]),
-            _tarjeta('Top productos', [
-              ...(d['top'] as List).asMap().entries.map((e) {
-                final entry = e.value as MapEntry<String, int>;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(children: [
-                    Text('${e.key + 1}.',
-                        style: TextStyle(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12)),
+            const SizedBox(height: 10),
+
+            // ── Cobros por forma de pago ───────────────────────────────
+            _seccion('Cobros por forma de pago', [
+              LayoutBuilder(builder: (ctx, constraints) {
+                final pm = (d['por_metodo'] as Map<String, double>?) ?? {'efectivo': ef};
+                final todosIds = <String>{
+                  ...(d['metodos_config'] as List?)?.map((e) => e['id'] as String)
+                      .where((k) => k != 'mixto') ?? const ['efectivo', 'tarjeta'],
+                  ...pm.keys.where((k) => k != 'mixto'),
+                };
+                final metodos = todosIds
+                    .where((k) => (pm[k] ?? 0) > 0.001)
+                    .map((k) => (id: k, label: _labelMetodo(k), valor: pm[k] ?? 0))
+                    .toList()..sort((a, b) => b.valor.compareTo(a.valor));
+                if (metodos.isEmpty) {
+                  return Text('Sin cobros hoy', style: TextStyle(color: Colors.grey.shade500, fontSize: 12));
+                }
+                final w = constraints.maxWidth;
+                final itemW = metodos.length > 1 ? (w - 8) / 2 : w;
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Wrap(spacing: 8, runSpacing: 8, children: metodos.map((m) =>
+                    SizedBox(width: itemW, child: _barraMetodo(m.label, m.valor, total, _colorMetodo(m.id), _iconMetodo(m.id)))).toList()),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.euro_rounded, size: 14),
                     const SizedBox(width: 6),
-                    Expanded(
-                        child: Text(entry.key,
-                            style: const TextStyle(fontSize: 12))),
-                    Text('×${entry.value}',
-                        style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 12)),
+                    const Expanded(child: Text('TOTAL VENTAS DEL DÍA',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.3))),
+                    Text(fmt.format(total),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF4A7C59))),
                   ]),
-                );
+                ]);
               }),
             ]),
-          ]),
+            const SizedBox(height: 10),
+
+            // ── Cuadre de caja ─────────────────────────────────────────
+            _seccion('Cuadre de caja', [
+              Row(children: [
+                Expanded(child: _filaCuadre('Fondo apertura', fondoInicial)),
+                const SizedBox(width: 12),
+                Expanded(child: _filaCuadre('+ Efectivo cobrado', ef)),
+              ]),
+              const SizedBox(height: 6),
+              _filaCuadreDestacada('Efectivo esperado en caja', efectivoEsperado),
+              const SizedBox(height: 10),
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                const Text('Efectivo real contado:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                const SizedBox(width: 8),
+                SizedBox(width: 120, child: TextField(
+                  controller: _efectivoContadoCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  decoration: InputDecoration(
+                    prefixText: '€ ', hintText: '0,00', isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: _kCian)),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                )),
+                const SizedBox(width: 12),
+                if (_efectivoContado >= 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _descuadre.abs() < 0.01 ? Colors.green.shade50 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _descuadre.abs() < 0.01 ? Colors.green.shade300 : Colors.red.shade300),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(_descuadre.abs() < 0.01 ? Icons.check_circle : Icons.warning_amber_rounded,
+                          size: 14, color: _descuadre.abs() < 0.01 ? Colors.green.shade700 : Colors.red.shade700),
+                      const SizedBox(width: 5),
+                      Text(
+                        _descuadre.abs() < 0.01 ? 'Cuadra ✓'
+                            : 'Descuadre: ${fmt.format(_descuadre.abs())}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                            color: _descuadre.abs() < 0.01 ? Colors.green.shade700 : Colors.red.shade700),
+                      ),
+                    ]),
+                  ),
+              ]),
+            ]),
+            const SizedBox(height: 10),
+
+            // ── IVA fiscal ─────────────────────────────────────────────
+            _seccion('Desglose IVA (art. 164 Ley 37/1992)', [
+              Table(
+                columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(3),
+                    2: FlexColumnWidth(3), 3: FlexColumnWidth(3)},
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: _kCian.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6)),
+                    children: ['Tipo', 'Base imp.', 'Cuota IVA', 'Total']
+                        .map((h) => Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            child: Text(h, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))))
+                        .toList(),
+                  ),
+                  TableRow(children: ['21%', fmt.format(baseImp), fmt.format(cuotaIva), fmt.format(total)]
+                      .map((v) => Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          child: Text(v, style: const TextStyle(fontSize: 11)))).toList()),
+                ],
+              ),
+            ]),
+            const SizedBox(height: 10),
+
+            // ── Top productos ──────────────────────────────────────────
+            if ((d['top'] as List).isNotEmpty)
+              _seccion('Top productos del día', [
+                ...(d['top'] as List).asMap().entries.map((e) {
+                  final entry = e.value as MapEntry<String, int>;
+                  final maxCnt = ((d['top'] as List).first as MapEntry<String, int>).value;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Container(width: 18, height: 18,
+                          decoration: BoxDecoration(color: const Color(0xFF4A7C59), borderRadius: BorderRadius.circular(4)),
+                          child: Center(child: Text('${e.key + 1}',
+                              style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w800)))),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 12))),
+                        Text('×${entry.value}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF4A7C59))),
+                      ]),
+                      const SizedBox(height: 3),
+                      ClipRRect(borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: entry.value / maxCnt,
+                          backgroundColor: _kCian.withValues(alpha: 0.1),
+                          valueColor: const AlwaysStoppedAnimation(Color(0xFF4A7C59)),
+                          minHeight: 3,
+                        ),
+                      ),
+                    ]),
+                  );
+                }),
+              ]),
+            if ((d['top'] as List).isNotEmpty) const SizedBox(height: 10),
+
+            // ── Historial tickets ──────────────────────────────────────
+            GestureDetector(
+              onTap: () => setState(() => _historialExpandido = !_historialExpandido),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _kCian.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _kCian.withValues(alpha: 0.2)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.receipt_long, size: 15, color: Color(0xFF4A7C59)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Historial del día — ${_ticketsDia.length} tickets',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4A7C59)))),
+                  GestureDetector(
+                    onTap: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _kCian.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _kCian.withValues(alpha: 0.3)),
+                      ),
+                      child: const Text('Ver completo', style: TextStyle(fontSize: 10, color: Color(0xFF4A7C59), fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(_historialExpandido ? Icons.expand_less : Icons.expand_more,
+                      size: 16, color: const Color(0xFF4A7C59)),
+                ]),
+              ),
+            ),
+            if (_historialExpandido && _ticketsDia.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
+                child: Column(children: _ticketsDia.asMap().entries.map((e) {
+                  final t = e.value;
+                  final hora = t['hora'] as DateTime?;
+                  final horaStr = hora != null ? DateFormat('HH:mm').format(hora) : '';
+                  final ticketTotal = t['total'] as double;
+                  final pagado = t['estado'] == 'pagado';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: e.key.isEven ? Colors.white : Colors.grey.shade50,
+                      borderRadius: e.key == _ticketsDia.length - 1
+                          ? const BorderRadius.vertical(bottom: Radius.circular(8)) : null,
+                    ),
+                    child: Row(children: [
+                      Text(horaStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      const SizedBox(width: 8),
+                      Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle,
+                          color: pagado ? Colors.green : Colors.red)),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(t['cliente'] as String,
+                          style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis)),
+                      Text(_metodoPagoEmoji(t['metodo'] as String), style: const TextStyle(fontSize: 11)),
+                      const SizedBox(width: 6),
+                      Text(fmt.format(ticketTotal), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: pagado ? Colors.green.shade700 : Colors.red.shade400)),
+                    ]),
+                  );
+                }).toList()),
+              ),
             ],
-          ),
+            const SizedBox(height: 24),
+          ]),
         ),
       ),
     ]);
   }
 
-  Widget _cifra(String label, String valor, {Color? color}) => SizedBox(
-    width: 160,
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant)),
-        const SizedBox(height: 4),
-        Text(valor,
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: color)),
+  String _metodoPagoEmoji(String m) => switch (m) {
+    'efectivo' => '💵', 'tarjeta' => '💳', 'bizum' => '📱',
+    'transferencia' => '🏦', _ => '💰',
+  };
+
+  Widget _toolBtn(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) =>
+      IconButton(icon: Icon(icon, size: 17, color: color), tooltip: tooltip, onPressed: onTap,
+          padding: const EdgeInsets.all(6), constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          visualDensity: VisualDensity.compact);
+
+  Widget _kpi(String label, String valor, IconData icon,
+      {Color? color, String? sub, Color? subColor}) =>
+      Expanded(child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: (color ?? Colors.grey).withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: (color ?? Colors.grey).withValues(alpha: 0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 14, color: color ?? Colors.grey.shade600),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          ]),
+          const SizedBox(height: 4),
+          Text(valor, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+              color: color != null ? const Color(0xFF4A7C59) : Colors.black87)),
+          if (sub != null) ...[
+            const SizedBox(height: 2),
+            Text(sub, style: TextStyle(fontSize: 10, color: subColor ?? Colors.grey.shade500)),
+          ],
+        ]),
+      ));
+
+  static String _labelMetodo(String id) => switch (id) {
+    'efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'bizum' => 'Bizum',
+    'transferencia' => 'Transferencia', 'cheque_regalo' => 'Cheque regalo', 'mixto' => 'Mixto',
+    _ => id.startsWith('custom_') ? id.replaceFirst('custom_', 'Otro ') : id,
+  };
+
+  static Color _colorMetodo(String id) => switch (id) {
+    'efectivo' => const Color(0xFF2E7D32), 'tarjeta' => const Color(0xFF1565C0),
+    'bizum' => const Color(0xFF7B1FA2), 'transferencia' => const Color(0xFF00838F),
+    'cheque_regalo' => const Color(0xFFF57F17), _ => const Color(0xFF546E7A),
+  };
+
+  static IconData _iconMetodo(String id) => switch (id) {
+    'efectivo' => Icons.payments_outlined, 'tarjeta' => Icons.credit_card,
+    'bizum' => Icons.smartphone_outlined, 'transferencia' => Icons.account_balance_outlined,
+    'cheque_regalo' => Icons.card_giftcard_outlined, _ => Icons.payment_outlined,
+  };
+
+  Widget _barraMetodo(String label, double valor, double total, Color color, IconData icon) {
+    final pct = total > 0 ? (valor / total).clamp(0.0, 1.0) : 0.0;
+    final fmt2 = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withValues(alpha: 0.2))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          Text('${(pct * 100).toInt()}%', style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+        ]),
+        const SizedBox(height: 5),
+        Text(fmt2.format(valor), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(height: 5),
+        ClipRRect(borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(value: pct, backgroundColor: color.withValues(alpha: 0.1),
+                valueColor: AlwaysStoppedAnimation(color), minHeight: 4)),
       ]),
-    ),
-  );
+    );
+  }
 
-  Widget _tarjeta(String titulo, List<Widget> children) => SizedBox(
-    width: 200,
-    child: Container(
-      padding: const EdgeInsets.all(12),
+  Widget _filaCuadre(String label, double valor) {
+    final fmt2 = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        const SizedBox(height: 2),
+        Text(fmt2.format(valor), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+
+  Widget _filaCuadreDestacada(String label, double valor) {
+    final fmt2 = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color:
-            Theme.of(context).colorScheme.outlineVariant,
-            width: 0.5),
+        color: _kCian.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kCian.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(titulo,
-              style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 10),
-          ...children,
-        ],
-      ),
-    ),
-  );
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(fmt2.format(valor),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF4A7C59))),
+      ]),
+    );
+  }
 
-  Widget _fila(String label, String valor) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label,
-          style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant)),
-      Text(valor,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w500)),
-    ],
+  Widget _seccion(String titulo, List<Widget> children) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(titulo, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+          color: Colors.grey.shade600, letterSpacing: 0.3)),
+      const SizedBox(height: 8),
+      ...children,
+    ]),
   );
 }
 
@@ -3421,7 +4779,7 @@ class _DialogoEtiquetaEsperaState extends State<_DialogoEtiquetaEspera> {
             final v = _ctrl.text.trim();
             Navigator.pop(context, v.isEmpty ? 'En espera' : v);
           },
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A7C59)),
           child: const Text('Guardar'),
         ),
       ],

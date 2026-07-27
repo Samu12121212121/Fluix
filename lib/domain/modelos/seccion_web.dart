@@ -480,73 +480,215 @@ class SeoConfig {
   bool get tituloOk => caracteresTitulo >= 30 && caracteresTitulo <= 60;
 }
 
+// ── Estado del blog ───────────────────────────────────────────────────────────
+enum EstadoBlog { borrador, publicado, programado }
+
+extension EstadoBlogExt on EstadoBlog {
+  String get id {
+    switch (this) {
+      case EstadoBlog.borrador:   return 'borrador';
+      case EstadoBlog.publicado:  return 'publicado';
+      case EstadoBlog.programado: return 'programado';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case EstadoBlog.borrador:   return 'Borrador';
+      case EstadoBlog.publicado:  return 'Publicado';
+      case EstadoBlog.programado: return 'Programado';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case EstadoBlog.borrador:   return const Color(0xFFFF8F00);
+      case EstadoBlog.publicado:  return const Color(0xFF2E7D32);
+      case EstadoBlog.programado: return const Color(0xFF1565C0);
+    }
+  }
+
+  static EstadoBlog fromId(String? id) {
+    switch (id) {
+      case 'publicado':  return EstadoBlog.publicado;
+      case 'programado': return EstadoBlog.programado;
+      default:           return EstadoBlog.borrador;
+    }
+  }
+}
+
+// ── Categoría de Blog ─────────────────────────────────────────────────────────
+class CategoriaBlog {
+  final String id;
+  final String nombre;
+  final String slug;
+  final int orden;
+  final bool eliminado;
+
+  const CategoriaBlog({
+    required this.id,
+    required this.nombre,
+    required this.slug,
+    this.orden = 0,
+    this.eliminado = false,
+  });
+
+  factory CategoriaBlog.fromMap(Map<String, dynamic> m) => CategoriaBlog(
+    id:        m['id'] as String? ?? '',
+    nombre:    m['nombre'] as String? ?? '',
+    slug:      m['slug'] as String? ?? '',
+    orden:     (m['orden'] as num?)?.toInt() ?? 0,
+    eliminado: m['eliminado'] as bool? ?? false,
+  );
+
+  Map<String, dynamic> toMap() => {
+    'nombre':    nombre,
+    'slug':      slug,
+    'orden':     orden,
+    'eliminado': eliminado,
+  };
+
+  CategoriaBlog copyWith({String? nombre, String? slug, int? orden, bool? eliminado}) =>
+      CategoriaBlog(
+        id: id,
+        nombre: nombre ?? this.nombre,
+        slug: slug ?? this.slug,
+        orden: orden ?? this.orden,
+        eliminado: eliminado ?? this.eliminado,
+      );
+}
+
 // ── Entrada de Blog ───────────────────────────────────────────────────────────
 class EntradaBlog {
   final String id;
   final String titulo;
+  final String slug;
   final String resumen;
   final String contenido; // Markdown
   final String? imagenUrl;
-  final bool publicada;
+  final EstadoBlog estado;
   final DateTime fechaPublicacion;
   final List<String> etiquetas;
   final String autor;
+  final String categoriaId;
+  // SEO
+  final String seoMetaTitle;
+  final String seoMetaDescription;
+  final List<String> seoKeywords;
+  // Soft-delete
+  final bool eliminado;
+  final DateTime? fechaEliminacion;
+  final bool destacado;
   final int visitas;
 
   const EntradaBlog({
     required this.id,
     required this.titulo,
+    this.slug = '',
     this.resumen = '',
     this.contenido = '',
     this.imagenUrl,
-    this.publicada = false,
+    this.estado = EstadoBlog.borrador,
     required this.fechaPublicacion,
     this.etiquetas = const [],
     this.autor = '',
+    this.categoriaId = '',
+    this.seoMetaTitle = '',
+    this.seoMetaDescription = '',
+    this.seoKeywords = const [],
+    this.eliminado = false,
+    this.fechaEliminacion,
+    this.destacado = false,
     this.visitas = 0,
   });
 
-  factory EntradaBlog.fromMap(Map<String, dynamic> m) => EntradaBlog(
-    id:                m['id'] as String? ?? '',
-    titulo:            m['titulo'] as String? ?? '',
-    resumen:           m['resumen'] as String? ?? '',
-    contenido:         m['contenido'] as String? ?? '',
-    imagenUrl:         m['imagen_url'] as String?,
-    publicada:         m['publicada'] as bool? ?? false,
-    fechaPublicacion:  _parseFecha(m['fecha_publicacion']),
-    etiquetas:         (m['etiquetas'] as List<dynamic>?)?.cast<String>() ?? [],
-    autor:             m['autor'] as String? ?? '',
-    visitas:           (m['visitas'] as num?)?.toInt() ?? 0,
-  );
+  // Compatibilidad con código legacy que usa .publicada
+  bool get publicada => estado == EstadoBlog.publicado;
+
+  factory EntradaBlog.fromMap(Map<String, dynamic> m) {
+    // Compatibilidad: si sólo hay campo 'publicada' legacy, inferir estado
+    EstadoBlog estado;
+    if (m.containsKey('estado')) {
+      estado = EstadoBlogExt.fromId(m['estado'] as String?);
+    } else {
+      estado = (m['publicada'] as bool? ?? false)
+          ? EstadoBlog.publicado
+          : EstadoBlog.borrador;
+    }
+    final seo = m['seo'] as Map<String, dynamic>? ?? {};
+    return EntradaBlog(
+      id:                  m['id'] as String? ?? '',
+      titulo:              m['titulo'] as String? ?? '',
+      slug:                m['slug'] as String? ?? '',
+      resumen:             m['resumen'] as String? ?? '',
+      contenido:           m['contenido'] as String? ?? '',
+      imagenUrl:           m['imagen_url'] as String?,
+      estado:              estado,
+      fechaPublicacion:    _parseFecha(m['fecha_publicacion']),
+      etiquetas:           (m['etiquetas'] as List<dynamic>?)?.cast<String>() ?? [],
+      autor:               m['autor'] as String? ?? '',
+      categoriaId:         m['categoria_id'] as String? ?? '',
+      seoMetaTitle:        seo['meta_title'] as String? ?? '',
+      seoMetaDescription:  seo['meta_description'] as String? ?? '',
+      seoKeywords:         (seo['keywords'] as List<dynamic>?)?.cast<String>() ?? [],
+      eliminado:           m['eliminado'] as bool? ?? false,
+      fechaEliminacion:    m['fecha_eliminacion'] != null
+          ? _parseFecha(m['fecha_eliminacion'])
+          : null,
+      destacado:           m['destacado'] as bool? ?? false,
+      visitas:             (m['visitas'] as num?)?.toInt() ?? 0,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
-    'id':                 id,
     'titulo':             titulo,
+    'slug':               slug,
     'resumen':            resumen,
     'contenido':          contenido,
     if (imagenUrl != null) 'imagen_url': imagenUrl,
-    'publicada':          publicada,
+    'estado':             estado.id,
+    'publicada':          estado == EstadoBlog.publicado,
     'fecha_publicacion':  fechaPublicacion.toIso8601String(),
     'etiquetas':          etiquetas,
     'autor':              autor,
+    'categoria_id':       categoriaId,
+    'seo': {
+      'meta_title':        seoMetaTitle,
+      'meta_description':  seoMetaDescription,
+      'keywords':          seoKeywords,
+    },
+    'eliminado':          eliminado,
+    if (fechaEliminacion != null)
+      'fecha_eliminacion': fechaEliminacion!.toIso8601String(),
+    'destacado':          destacado,
     'visitas':            visitas,
   };
 
   EntradaBlog copyWith({
-    String? titulo, String? resumen, String? contenido, String? imagenUrl,
-    bool? publicada, DateTime? fechaPublicacion, List<String>? etiquetas,
-    String? autor,
+    String? titulo, String? slug, String? resumen, String? contenido,
+    String? imagenUrl, EstadoBlog? estado, DateTime? fechaPublicacion,
+    List<String>? etiquetas, String? autor, String? categoriaId,
+    String? seoMetaTitle, String? seoMetaDescription, List<String>? seoKeywords,
+    bool? eliminado, DateTime? fechaEliminacion, bool? destacado,
   }) => EntradaBlog(
-    id: id,
-    titulo: titulo ?? this.titulo,
-    resumen: resumen ?? this.resumen,
-    contenido: contenido ?? this.contenido,
-    imagenUrl: imagenUrl ?? this.imagenUrl,
-    publicada: publicada ?? this.publicada,
-    fechaPublicacion: fechaPublicacion ?? this.fechaPublicacion,
-    etiquetas: etiquetas ?? this.etiquetas,
-    autor: autor ?? this.autor,
-    visitas: visitas,
+    id:                 id,
+    titulo:             titulo ?? this.titulo,
+    slug:               slug ?? this.slug,
+    resumen:            resumen ?? this.resumen,
+    contenido:          contenido ?? this.contenido,
+    imagenUrl:          imagenUrl ?? this.imagenUrl,
+    estado:             estado ?? this.estado,
+    fechaPublicacion:   fechaPublicacion ?? this.fechaPublicacion,
+    etiquetas:          etiquetas ?? this.etiquetas,
+    autor:              autor ?? this.autor,
+    categoriaId:        categoriaId ?? this.categoriaId,
+    seoMetaTitle:       seoMetaTitle ?? this.seoMetaTitle,
+    seoMetaDescription: seoMetaDescription ?? this.seoMetaDescription,
+    seoKeywords:        seoKeywords ?? this.seoKeywords,
+    eliminado:          eliminado ?? this.eliminado,
+    fechaEliminacion:   fechaEliminacion ?? this.fechaEliminacion,
+    destacado:          destacado ?? this.destacado,
+    visitas:            visitas,
   );
 
   static DateTime _parseFecha(dynamic v) {

@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:convert';
 
 // Colores del dark theme TPV
 const _kBg = Color(0xFF0A0F23);
@@ -171,6 +173,84 @@ class HistorialTicketsWidget extends StatelessWidget {
     );
   }
 
+  Future<void> _reenviarEmail(BuildContext context, Map<String, dynamic> data) async {
+    final email = data['cliente_email'] as String? ??
+        data['email_cliente'] as String?;
+    if (email == null || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Este ticket no tiene email de cliente registrado'),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+
+    // Generar PDF del ticket
+    final nombre = await _nombreEmpresa();
+    final ticket = data['numero_ticket'] ?? '';
+    final lineas = (data['lineas'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final total = (data['total'] as num?)?.toDouble() ?? 0.0;
+    final metodo = data['metodo_pago'] ?? '';
+    final fmtFecha = DateFormat('dd/MM/yyyy HH:mm');
+    final fecha = data['fecha_creacion'] is Timestamp
+        ? (data['fecha_creacion'] as Timestamp).toDate() : DateTime.now();
+
+    final doc = pw.Document();
+    doc.addPage(pw.Page(
+      pageFormat: PdfPageFormat.roll80,
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Center(child: pw.Text(nombre, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))),
+        pw.SizedBox(height: 4),
+        pw.Center(child: pw.Text('TICKET #$ticket')),
+        pw.Center(child: pw.Text(fmtFecha.format(fecha))),
+        pw.Divider(),
+        ...lineas.map((l) {
+          final qty = l['cantidad'] ?? 1;
+          final nom = l['producto_nombre'] ?? '';
+          final precio = (l['precio_unitario'] as num?)?.toDouble() ?? 0.0;
+          return pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('$qty x $nom', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('${(precio * qty).toStringAsFixed(2)} EUR', style: const pw.TextStyle(fontSize: 10)),
+          ]);
+        }),
+        pw.Divider(),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('TOTAL', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.Text('${total.toStringAsFixed(2)} EUR', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+        ]),
+        pw.SizedBox(height: 4),
+        pw.Text('Pago: $metodo', style: const pw.TextStyle(fontSize: 10)),
+      ]),
+    ));
+
+    try {
+      final pdfBytes = await doc.save();
+      final pdfBase64 = base64Encode(pdfBytes);
+      await FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('enviarEmailConPdf')
+          .call({
+        'destinatario': email,
+        'asunto': '🧾 Tu ticket #$ticket — $nombre',
+        'cuerpoHtml': '<p>Adjuntamos el ticket de tu compra del ${fmtFecha.format(fecha)}.</p><p>Total: ${total.toStringAsFixed(2)} €</p><p>— $nombre</p>',
+        'pdfBase64': pdfBase64,
+        'nombreArchivo': 'ticket_$ticket.pdf',
+        'empresaId': empresaId,
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Ticket enviado a $email'),
+          backgroundColor: Colors.green.shade700,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error enviando email: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmtHora = DateFormat('HH:mm');
@@ -279,29 +359,33 @@ class HistorialTicketsWidget extends StatelessWidget {
                                   _reimprimir(context, data);
                                 } else if (v == 'detalle') {
                                   _verDetalle(context, data);
+                                } else if (v == 'email') {
+                                  _reenviarEmail(context, data);
                                 }
                               },
                               itemBuilder: (_) => [
                                 const PopupMenuItem(
                                   value: 'reimprimir',
                                   child: Row(children: [
-                                    Icon(Icons.print_outlined,
-                                        color: Colors.white, size: 16),
+                                    Icon(Icons.print_outlined, color: Colors.white, size: 16),
                                     SizedBox(width: 8),
-                                    Text('Reimprimir',
-                                        style:
-                                            TextStyle(color: Colors.white)),
+                                    Text('Reimprimir', style: TextStyle(color: Colors.white)),
+                                  ]),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'email',
+                                  child: Row(children: [
+                                    Icon(Icons.email_outlined, color: _kVerde, size: 16),
+                                    SizedBox(width: 8),
+                                    Text('Reenviar email', style: TextStyle(color: Colors.white)),
                                   ]),
                                 ),
                                 const PopupMenuItem(
                                   value: 'detalle',
                                   child: Row(children: [
-                                    Icon(Icons.list_alt_outlined,
-                                        color: Colors.white, size: 16),
+                                    Icon(Icons.list_alt_outlined, color: Colors.white, size: 16),
                                     SizedBox(width: 8),
-                                    Text('Ver detalle',
-                                        style:
-                                            TextStyle(color: Colors.white)),
+                                    Text('Ver detalle', style: TextStyle(color: Colors.white)),
                                   ]),
                                 ),
                               ],

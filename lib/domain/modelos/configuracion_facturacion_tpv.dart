@@ -161,6 +161,24 @@ class ConfiguracionFacturacionTpv {
   /// Pide justificación obligatoria al anular un ticket
   final bool pedirMotivoCancelacion;
 
+  // ── Terminal física de cobro con tarjeta ─────────────────────────────────
+  /// IP del terminal en la red local (vacío = solo manual)
+  final String terminalFisicaIp;
+  /// Puerto del terminal (default 8080)
+  final int terminalFisicaPuerto;
+  /// Protocolo: 'manual' | 'sumup' | 'generico'
+  final String terminalFisicaProtocolo;
+
+  // ── Configuración específica de barra ─────────────────────────────────────
+  /// Minutos antes de mostrar alerta de tiempo en comandas de barra
+  final int tiempoAlertaBarraMinutos;
+  /// Muestra notificación visual al llegar nuevas comandas de barra
+  final bool notificacionVisualBarra;
+  /// Puerto COM para impresora exclusiva de barra (vacío = usa impresora principal)
+  final String impresoraBarraPuerto;
+  /// IP de impresora de barra vía red (vacío = usa impresora principal)
+  final String impresoraBarraIp;
+
   const ConfiguracionFacturacionTpv({
     this.modo = ModoFacturacionTpv.resumenDiario,
     this.tipoDocumento = TipoDocumentoTpv.facturaSimplificada,
@@ -196,6 +214,13 @@ class ConfiguracionFacturacionTpv {
     this.descuentoMaximoPct = 100,
     this.bloquearVentaSinStock = false,
     this.pedirMotivoCancelacion = false,
+    this.tiempoAlertaBarraMinutos = 5,
+    this.notificacionVisualBarra = true,
+    this.impresoraBarraPuerto = '',
+    this.impresoraBarraIp = '',
+    this.terminalFisicaIp = '',
+    this.terminalFisicaPuerto = 8080,
+    this.terminalFisicaProtocolo = 'manual',
   });
 
   factory ConfiguracionFacturacionTpv.fromMap(Map<String, dynamic> d) {
@@ -241,6 +266,13 @@ class ConfiguracionFacturacionTpv {
       descuentoMaximoPct: (d['descuento_maximo_pct'] as num?)?.toInt() ?? 100,
       bloquearVentaSinStock: d['bloquear_venta_sin_stock'] as bool? ?? false,
       pedirMotivoCancelacion: d['pedir_motivo_cancelacion'] as bool? ?? false,
+      tiempoAlertaBarraMinutos: (d['tiempo_alerta_barra_minutos'] as num?)?.toInt() ?? 5,
+      notificacionVisualBarra: d['notificacion_visual_barra'] as bool? ?? true,
+      impresoraBarraPuerto: d['impresora_barra_puerto'] as String? ?? '',
+      impresoraBarraIp: d['impresora_barra_ip'] as String? ?? '',
+      terminalFisicaIp: d['terminal_fisica_ip'] as String? ?? '',
+      terminalFisicaPuerto: (d['terminal_fisica_puerto'] as num?)?.toInt() ?? 8080,
+      terminalFisicaProtocolo: d['terminal_fisica_protocolo'] as String? ?? 'manual',
     );
   }
 
@@ -279,6 +311,13 @@ class ConfiguracionFacturacionTpv {
     'descuento_maximo_pct':     descuentoMaximoPct,
     'bloquear_venta_sin_stock': bloquearVentaSinStock,
     'pedir_motivo_cancelacion': pedirMotivoCancelacion,
+    'tiempo_alerta_barra_minutos': tiempoAlertaBarraMinutos,
+    'notificacion_visual_barra': notificacionVisualBarra,
+    'impresora_barra_puerto': impresoraBarraPuerto,
+    'impresora_barra_ip': impresoraBarraIp,
+    'terminal_fisica_ip': terminalFisicaIp,
+    'terminal_fisica_puerto': terminalFisicaPuerto,
+    'terminal_fisica_protocolo': terminalFisicaProtocolo,
   };
 
   ConfiguracionFacturacionTpv copyWith({
@@ -316,6 +355,13 @@ class ConfiguracionFacturacionTpv {
     int?    descuentoMaximoPct,
     bool?   bloquearVentaSinStock,
     bool?   pedirMotivoCancelacion,
+    int?    tiempoAlertaBarraMinutos,
+    bool?   notificacionVisualBarra,
+    String? impresoraBarraPuerto,
+    String? impresoraBarraIp,
+    String? terminalFisicaIp,
+    int?    terminalFisicaPuerto,
+    String? terminalFisicaProtocolo,
   }) => ConfiguracionFacturacionTpv(
     modo: modo ?? this.modo,
     tipoDocumento: tipoDocumento ?? this.tipoDocumento,
@@ -351,5 +397,12 @@ class ConfiguracionFacturacionTpv {
     descuentoMaximoPct:     descuentoMaximoPct ?? this.descuentoMaximoPct,
     bloquearVentaSinStock:  bloquearVentaSinStock ?? this.bloquearVentaSinStock,
     pedirMotivoCancelacion: pedirMotivoCancelacion ?? this.pedirMotivoCancelacion,
+    tiempoAlertaBarraMinutos: tiempoAlertaBarraMinutos ?? this.tiempoAlertaBarraMinutos,
+    notificacionVisualBarra: notificacionVisualBarra ?? this.notificacionVisualBarra,
+    impresoraBarraPuerto: impresoraBarraPuerto ?? this.impresoraBarraPuerto,
+    impresoraBarraIp: impresoraBarraIp ?? this.impresoraBarraIp,
+    terminalFisicaIp: terminalFisicaIp ?? this.terminalFisicaIp,
+    terminalFisicaPuerto: terminalFisicaPuerto ?? this.terminalFisicaPuerto,
+    terminalFisicaProtocolo: terminalFisicaProtocolo ?? this.terminalFisicaProtocolo,
   );
 }

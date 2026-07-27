@@ -1,73 +1,443 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
+import 'pantalla_editor_blog.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TAB BLOG / NOTICIAS
+// TAB BLOG — listado principal con búsqueda, filtros y acciones
 // ═════════════════════════════════════════════════════════════════════════════
 
-class TabBlogWeb extends StatelessWidget {
+class TabBlogWeb extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
 
   const TabBlogWeb({super.key, required this.empresaId, required this.svc});
 
   @override
+  State<TabBlogWeb> createState() => _TabBlogWebState();
+}
+
+class _TabBlogWebState extends State<TabBlogWeb> {
+  String _busqueda = '';
+  EstadoBlog? _filtroEstado;
+  String? _filtroCategoria;
+  final _buscadorCtrl = TextEditingController();
+
+  // Selección múltiple
+  bool _modoSeleccion = false;
+  final Set<String> _seleccionados = {};
+
+  @override
+  void dispose() {
+    _buscadorCtrl.dispose();
+    super.dispose();
+  }
+
+  void _toggleSeleccion(String id) {
+    setState(() {
+      if (_seleccionados.contains(id)) {
+        _seleccionados.remove(id);
+      } else {
+        _seleccionados.add(id);
+      }
+    });
+  }
+
+  void _salirModoSeleccion() =>
+      setState(() { _modoSeleccion = false; _seleccionados.clear(); });
+
+  Future<void> _accionLote(BuildContext context, String accion,
+      List<EntradaBlog> todas) async {
+    if (_seleccionados.isEmpty) return;
+    final ids = _seleccionados.toList();
+    _salirModoSeleccion();
+    try {
+      await widget.svc.accionEnLote(
+        empresaId: widget.empresaId, ids: ids, accion: accion);
+      if (context.mounted) {
+        final label = accion == 'publicar' ? 'publicados'
+            : accion == 'borrador' ? 'en borrador'
+            : accion == 'eliminar' ? 'eliminados' : 'actualizados';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ ${ids.length} artículo(s) $label'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final color = context.watch<AppConfigProvider>().colorPrimario;
 
-    return StreamBuilder<List<EntradaBlog>>(
-      stream: svc.obtenerBlog(empresaId),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final entradas = snap.data ?? [];
+    return StreamBuilder<List<CategoriaBlog>>(
+      stream: widget.svc.obtenerCategorias(widget.empresaId),
+      builder: (context, catSnap) {
+        final categorias = catSnap.data ?? [];
 
-        return Stack(
-          children: [
-            entradas.isEmpty
-                ? _buildVacio(context, color)
-                : _buildLista(context, entradas, color),
-            Positioned(
-              right: 16, bottom: 16,
-              child: FloatingActionButton.extended(
-                heroTag: 'fab_nueva_entrada',
-                onPressed: () => _abrirEditor(context, null, color),
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.edit_note),
-                label: const Text('Nueva entrada'),
-              ),
-            ),
-          ],
+        return StreamBuilder<List<EntradaBlog>>(
+          stream: widget.svc.obtenerBlog(widget.empresaId),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final todas = snap.data ?? [];
+            final entradas = _filtrar(todas);
+
+            return Stack(
+              children: [
+                Column(
+                  children: [
+                    // Barra de selección múltiple
+                    if (_modoSeleccion)
+                      _buildBarraSeleccion(context, todas, color)
+                    else
+                      _buildBuscador(color, categorias),
+                    if (!_modoSeleccion) _buildFiltros(color, categorias),
+                    _buildKpis(todas, color),
+                    Expanded(
+                      child: entradas.isEmpty
+                          ? _buildVacio(color)
+                          : _buildLista(entradas, categorias, color),
+                    ),
+                  ],
+                ),
+                if (!_modoSeleccion)
+                  Positioned(
+                    right: 16, bottom: 16,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: 'fab_sel',
+                          onPressed: () => setState(() => _modoSeleccion = true),
+                          backgroundColor: Colors.grey[700],
+                          foregroundColor: Colors.white,
+                          tooltip: 'Selección múltiple',
+                          child: const Icon(Icons.checklist),
+                        ),
+                        const SizedBox(height: 6),
+                        FloatingActionButton.small(
+                          heroTag: 'fab_categorias',
+                          onPressed: () => _abrirCategorias(context, categorias, color),
+                          backgroundColor: Colors.grey[600],
+                          foregroundColor: Colors.white,
+                          tooltip: 'Gestionar categorías',
+                          child: const Icon(Icons.category_outlined),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.extended(
+                          heroTag: 'fab_nuevo_blog',
+                          onPressed: () => _abrirEditor(context, null, categorias, color),
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          icon: const Icon(Icons.edit_note),
+                          label: const Text('Nuevo artículo'),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Barra flotante de acciones en lote
+                if (_modoSeleccion && _seleccionados.isNotEmpty)
+                  Positioned(
+                    left: 12, right: 12, bottom: 16,
+                    child: _buildAccionesLote(context, todas, categorias, color),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildVacio(BuildContext context, Color color) {
+  List<EntradaBlog> _filtrar(List<EntradaBlog> todas) {
+    return todas.where((e) {
+      if (_busqueda.isNotEmpty) {
+        final q = _busqueda.toLowerCase();
+        if (!e.titulo.toLowerCase().contains(q) &&
+            !e.slug.toLowerCase().contains(q)) return false;
+      }
+      if (_filtroEstado != null && e.estado != _filtroEstado) return false;
+      if (_filtroCategoria != null && e.categoriaId != _filtroCategoria) return false;
+      return true;
+    }).toList();
+  }
+
+  Widget _buildBarraSeleccion(
+      BuildContext context, List<EntradaBlog> todas, Color color) {
+    return Container(
+      color: color,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: _salirModoSeleccion,
+          visualDensity: VisualDensity.compact,
+        ),
+        Text(
+          _seleccionados.isEmpty
+              ? 'Selecciona artículos'
+              : '${_seleccionados.length} seleccionado(s)',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: () => setState(() {
+            if (_seleccionados.length == todas.length) {
+              _seleccionados.clear();
+            } else {
+              _seleccionados.addAll(todas.map((e) => e.id));
+            }
+          }),
+          child: Text(
+            _seleccionados.length == todas.length ? 'Deselect. todo' : 'Sel. todo',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildAccionesLote(BuildContext context, List<EntradaBlog> todas,
+      List<CategoriaBlog> categorias, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20, offset: const Offset(0, 6))],
+      ),
+      child: Row(children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              _LoteBtn(
+                icon: Icons.public, label: 'Publicar',
+                color: EstadoBlog.publicado.color,
+                onTap: () => _accionLote(context, 'publicar', todas),
+              ),
+              const SizedBox(width: 8),
+              _LoteBtn(
+                icon: Icons.edit_note, label: 'Borrador',
+                color: EstadoBlog.borrador.color,
+                onTap: () => _accionLote(context, 'borrador', todas),
+              ),
+              if (categorias.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                PopupMenuButton<String>(
+                  tooltip: 'Cambiar categoría',
+                  onSelected: (catId) =>
+                      _accionLote(context, 'categoria:$catId', todas),
+                  itemBuilder: (_) => categorias.map((c) =>
+                    PopupMenuItem(value: c.id, child: Text(c.nombre))).toList(),
+                  child: _LoteBtn(
+                    icon: Icons.category_outlined, label: 'Categoría',
+                    color: Colors.blueGrey,
+                    onTap: null,
+                  ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              _LoteBtn(
+                icon: Icons.delete_outline, label: 'Eliminar',
+                color: Colors.red[400]!,
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Eliminar seleccionados'),
+                    content: Text(
+                        '¿Eliminar ${_seleccionados.length} artículo(s)?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancelar')),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _accionLote(context, 'eliminar', todas);
+                        },
+                        child: const Text('Eliminar',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildBuscador(Color color, List<CategoriaBlog> categorias) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: TextField(
+        controller: _buscadorCtrl,
+        decoration: InputDecoration(
+          hintText: 'Buscar por título o slug...',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _busqueda.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _buscadorCtrl.clear();
+                    setState(() => _busqueda = '');
+                  })
+              : null,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey[300]!)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          isDense: true,
+        ),
+        onChanged: (v) => setState(() => _busqueda = v),
+      ),
+    );
+  }
+
+  Widget _buildFiltros(Color color, List<CategoriaBlog> categorias) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _chipFiltro(
+              label: 'Todos',
+              selected: _filtroEstado == null && _filtroCategoria == null,
+              onTap: () => setState(() {
+                _filtroEstado = null;
+                _filtroCategoria = null;
+              }),
+              color: color,
+            ),
+            const SizedBox(width: 6),
+            for (final estado in EstadoBlog.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _chipFiltro(
+                  label: estado.label,
+                  selected: _filtroEstado == estado,
+                  onTap: () => setState(() {
+                    _filtroEstado = _filtroEstado == estado ? null : estado;
+                    _filtroCategoria = null;
+                  }),
+                  color: estado.color,
+                ),
+              ),
+            if (categorias.isNotEmpty) ...[
+              Container(width: 1, height: 20, color: Colors.grey[300],
+                  margin: const EdgeInsets.symmetric(horizontal: 4)),
+              for (final cat in categorias)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _chipFiltro(
+                    label: cat.nombre,
+                    selected: _filtroCategoria == cat.id,
+                    onTap: () => setState(() {
+                      _filtroCategoria = _filtroCategoria == cat.id ? null : cat.id;
+                      _filtroEstado = null;
+                    }),
+                    color: color,
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chipFiltro({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? color : color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? color : color.withValues(alpha: 0.3)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              color: selected ? Colors.white : color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            )),
+      ),
+    );
+  }
+
+  Widget _buildKpis(List<EntradaBlog> todas, Color color) {
+    final pub = todas.where((e) => e.estado == EstadoBlog.publicado).length;
+    final bor = todas.where((e) => e.estado == EstadoBlog.borrador).length;
+    final pro = todas.where((e) => e.estado == EstadoBlog.programado).length;
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(children: [
+        _kpi('Publicados', '$pub', EstadoBlog.publicado.color),
+        _divV(),
+        _kpi('Borradores', '$bor', EstadoBlog.borrador.color),
+        _divV(),
+        _kpi('Programados', '$pro', EstadoBlog.programado.color),
+        _divV(),
+        _kpi('Total', '${todas.length}', color),
+      ]),
+    );
+  }
+
+  Widget _kpi(String label, String valor, Color c) => Expanded(
+        child: Column(children: [
+          Text(valor, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c)),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+        ]),
+      );
+
+  Widget _divV() => Container(width: 1, height: 28, color: Colors.grey[200]);
+
+  Widget _buildVacio(Color color) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.article_outlined, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Sin entradas de blog',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text('Crea noticias y artículos que aparecerán en tu web',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _abrirEditor(context, null, color),
-            icon: const Icon(Icons.add),
-            label: const Text('Crear primera entrada'),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: color, foregroundColor: Colors.white),
+          Text(
+            _busqueda.isNotEmpty || _filtroEstado != null || _filtroCategoria != null
+                ? 'Sin resultados'
+                : 'Sin artículos de blog',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _busqueda.isNotEmpty
+                ? 'Prueba con otro término de búsqueda'
+                : 'Crea tu primer artículo para aparecer en la web',
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -75,95 +445,150 @@ class TabBlogWeb extends StatelessWidget {
   }
 
   Widget _buildLista(
-      BuildContext context, List<EntradaBlog> entradas, Color color) {
-    final publicadas = entradas.where((e) => e.publicada).length;
-    return Column(
-      children: [
-        // Stats bar
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(children: [
-            _kpi('Publicadas', '$publicadas', Colors.green),
-            _divV(),
-            _kpi('Borradores', '${entradas.length - publicadas}', Colors.orange),
-            _divV(),
-            _kpi('Total', '${entradas.length}', color),
-          ]),
-        ),
-        const Divider(height: 1),
-        // Lista
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-            itemCount: entradas.length,
-            itemBuilder: (ctx, i) =>
-                _TarjetaEntrada(
-                  entrada: entradas[i],
-                  color: color,
-                  onTap: () => _abrirEditor(context, entradas[i], color),
-                  onToggle: (v) =>
-                      svc.togglePublicarBlog(empresaId, entradas[i].id, v),
-                  onEliminar: () =>
-                      svc.eliminarEntradaBlog(empresaId, entradas[i].id),
-                ),
-          ),
-        ),
-      ],
+      List<EntradaBlog> entradas, List<CategoriaBlog> categorias, Color color) {
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(12, 10, 12, _modoSeleccion ? 90 : 120),
+      itemCount: entradas.length,
+      itemBuilder: (ctx, i) {
+        final e = entradas[i];
+        final cat = categorias.where((c) => c.id == e.categoriaId).firstOrNull;
+        final seleccionado = _seleccionados.contains(e.id);
+        return _TarjetaEntrada(
+          entrada: e,
+          categoria: cat,
+          color: color,
+          seleccionado: seleccionado,
+          modoSeleccion: _modoSeleccion,
+          onTap: _modoSeleccion
+              ? () => _toggleSeleccion(e.id)
+              : () => _abrirEditor(context, e, categorias, color),
+          onToggle: (v) =>
+              widget.svc.togglePublicarBlog(widget.empresaId, e.id, v),
+          onEliminar: () => _confirmarEliminar(context, e),
+          onDuplicar: () => _duplicar(context, e),
+          onToggleDestacado: () => widget.svc.toggleDestacadoBlog(
+              widget.empresaId, e.id, !e.destacado),
+        );
+      },
     );
   }
 
-  Widget _kpi(String label, String valor, Color c) => Expanded(
-        child: Column(children: [
-          Text(valor,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: c)),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ]),
-      );
-
-  Widget _divV() => Container(width: 1, height: 32, color: Colors.grey[200]);
-
-  void _abrirEditor(BuildContext context, EntradaBlog? entrada, Color color) {
+  void _abrirEditor(BuildContext context, EntradaBlog? entrada,
+      List<CategoriaBlog> categorias, Color color) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _PantallaEditorBlog(
-          empresaId: empresaId,
-          svc: svc,
+        builder: (_) => PantallaEditorBlog(
+          empresaId: widget.empresaId,
+          svc: widget.svc,
           entrada: entrada,
+          categorias: categorias,
         ),
+      ),
+    );
+  }
+
+  void _abrirCategorias(
+      BuildContext context, List<CategoriaBlog> categorias, Color color) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _PantallaCategoriasScreen(
+          empresaId: widget.empresaId,
+          svc: widget.svc,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _duplicar(BuildContext context, EntradaBlog entrada) async {
+    try {
+      await widget.svc.duplicarEntradaBlog(widget.empresaId, entrada);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Artículo duplicado como borrador'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  void _confirmarEliminar(BuildContext context, EntradaBlog entrada) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar artículo'),
+        content: Text(
+            '¿Eliminar "${entrada.titulo}"?\n\nEl artículo se marcará como eliminado y desaparecerá de la web.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await widget.svc.eliminarEntradaBlog(widget.empresaId, entrada.id);
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Tarjeta de entrada blog ───────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// TARJETA de entrada en la lista
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _TarjetaEntrada extends StatelessWidget {
   final EntradaBlog entrada;
+  final CategoriaBlog? categoria;
   final Color color;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggle;
   final VoidCallback onEliminar;
+  final VoidCallback onDuplicar;
+  final VoidCallback onToggleDestacado;
+  final bool seleccionado;
+  final bool modoSeleccion;
 
   const _TarjetaEntrada({
     required this.entrada,
+    required this.categoria,
     required this.color,
     required this.onTap,
     required this.onToggle,
     required this.onEliminar,
+    required this.onDuplicar,
+    required this.onToggleDestacado,
+    this.seleccionado = false,
+    this.modoSeleccion = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final estadoColor = entrada.estado.color;
+    return GestureDetector(
+      onLongPress: modoSeleccion ? null : onTap,
+      child: _buildCard(estadoColor),
+    );
+  }
+
+  Widget _buildCard(Color estadoColor) => Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: seleccionado ? color.withValues(alpha: 0.06) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: entrada.publicada
-            ? Border.all(color: Colors.green.withValues(alpha: 0.2))
-            : null,
+        border: Border.all(
+          color: seleccionado ? color : estadoColor.withValues(alpha: 0.15),
+          width: seleccionado ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -173,80 +598,109 @@ class _TarjetaEntrada extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Imagen + contenido
           ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             leading: entrada.imagenUrl != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       entrada.imagenUrl!,
-                      width: 56,
-                      height: 56,
+                      width: 52, height: 52,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _imagenFallback(),
+                      errorBuilder: (_, __, ___) => _fallback(),
                     ),
                   )
-                : _imagenFallback(),
-            title: Text(
-              entrada.titulo.isEmpty ? 'Sin título' : entrada.titulo,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+                : _fallback(),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    entrada.titulo.isEmpty ? 'Sin título' : entrada.titulo,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: estadoColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(entrada.estado.label,
+                      style: TextStyle(
+                          color: estadoColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (entrada.resumen.isNotEmpty)
-                  Text(
-                    entrada.resumen,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Text(
-                    entrada.fechaFormateada,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                  ),
-                  if (entrada.autor.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Text('· ${entrada.autor}',
+                  Text(entrada.resumen,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                const SizedBox(height: 3),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    Text(entrada.fechaFormateada,
                         style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                    if (entrada.autor.isNotEmpty)
+                      Text('· ${entrada.autor}',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                    if (categoria != null)
+                      Text('· ${categoria!.nombre}',
+                          style: TextStyle(color: color, fontSize: 10)),
+                    if (entrada.slug.isNotEmpty)
+                      Text('/${entrada.slug}',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 10)),
                   ],
-                  const SizedBox(width: 8),
-                  Text('· ${entrada.tiempoLecturaMin} min lectura',
-                      style:
-                          TextStyle(color: Colors.grey[400], fontSize: 10)),
-                  if (entrada.etiquetas.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Wrap(
-                      spacing: 4,
-                      children: entrada.etiquetas.take(2).map((t) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(t,
-                                style: TextStyle(
-                                    fontSize: 9,
-                                    color: color)),
-                          )).toList(),
-                    ),
-                  ],
-                ]),
+                ),
+                if (entrada.etiquetas.isNotEmpty)
+                  Wrap(
+                    spacing: 4,
+                    children: entrada.etiquetas.take(3).map((t) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(t,
+                              style: TextStyle(fontSize: 9, color: color)),
+                        )).toList(),
+                  ),
               ],
             ),
-            trailing: Switch(
-              value: entrada.publicada,
-              onChanged: onToggle,
-              activeThumbColor: Colors.green,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+            trailing: modoSeleccion
+                ? Checkbox(
+                    value: seleccionado,
+                    onChanged: (_) => onTap(),
+                    activeColor: color,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                  )
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(
+                      icon: Icon(
+                        entrada.destacado ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: entrada.destacado ? const Color(0xFFFFC107) : Colors.grey[400],
+                        size: 22,
+                      ),
+                      tooltip: entrada.destacado ? 'Quitar destacado' : 'Destacar',
+                      onPressed: onToggleDestacado,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    Switch(
+                      value: entrada.estado == EstadoBlog.publicado,
+                      onChanged: onToggle,
+                      activeThumbColor: EstadoBlog.publicado.color,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ]),
             onTap: onTap,
           ),
           const Divider(height: 1),
@@ -254,547 +708,295 @@ class _TarjetaEntrada extends StatelessWidget {
             Expanded(
               child: TextButton.icon(
                 onPressed: onTap,
-                icon: Icon(Icons.edit, size: 15, color: color),
-                label: Text('Editar', style: TextStyle(color: color, fontSize: 12)),
+                icon: Icon(Icons.edit, size: 14, color: color),
+                label: Text('Editar', style: TextStyle(color: color, fontSize: 11)),
               ),
             ),
-            Container(width: 1, height: 30, color: Colors.grey[200]),
+            Container(width: 1, height: 28, color: Colors.grey[200]),
             Expanded(
               child: TextButton.icon(
-                onPressed: () => _confirmarEliminar(context),
-                icon: const Icon(Icons.delete_outline, size: 15, color: Colors.red),
+                onPressed: onDuplicar,
+                icon: Icon(Icons.copy, size: 14, color: Colors.blueGrey[600]),
+                label: Text('Duplicar',
+                    style: TextStyle(color: Colors.blueGrey[600], fontSize: 11)),
+              ),
+            ),
+            Container(width: 1, height: 28, color: Colors.grey[200]),
+            Expanded(
+              child: TextButton.icon(
+                onPressed: onEliminar,
+                icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
                 label: const Text('Eliminar',
-                    style: TextStyle(color: Colors.red, fontSize: 12)),
+                    style: TextStyle(color: Colors.red, fontSize: 11)),
               ),
             ),
           ]),
         ],
       ),
     );
-  }
 
-  Widget _imagenFallback() => Container(
-        width: 56,
-        height: 56,
+  Widget _fallback() => Container(
+        width: 52, height: 52,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(Icons.article, color: color, size: 24),
+        child: Icon(Icons.article, color: color, size: 22),
       );
+} // fin _TarjetaEntrada
 
-  void _confirmarEliminar(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar entrada'),
-        content: Text(
-            '¿Eliminar "${entrada.titulo}"? Esta acción no se puede deshacer.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onEliminar();
-            },
-            child: const Text('Eliminar',
-                style: TextStyle(color: Colors.red)),
-          ),
-        ],
+// ── Botón de acción en lote ───────────────────────────────────────────────────
+
+class _LoteBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+  const _LoteBtn({required this.icon, required this.label,
+      required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-    );
-  }
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(color: color, fontSize: 12,
+            fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// EDITOR DE ENTRADA BLOG con Markdown simple
+// GESTIÓN DE CATEGORÍAS
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _PantallaEditorBlog extends StatefulWidget {
+class _PantallaCategoriasScreen extends StatelessWidget {
   final String empresaId;
   final ContenidoWebService svc;
-  final EntradaBlog? entrada;
+  final Color color;
 
-  const _PantallaEditorBlog(
-      {required this.empresaId, required this.svc, this.entrada});
-
-  @override
-  State<_PantallaEditorBlog> createState() => _PantallaEditorBlogState();
-}
-
-class _PantallaEditorBlogState extends State<_PantallaEditorBlog> {
-  final _formKey = GlobalKey<FormState>();
-  final _tituloCtrl = TextEditingController();
-  final _resumenCtrl = TextEditingController();
-  final _contenidoCtrl = TextEditingController();
-  final _autorCtrl = TextEditingController();
-  final _etiquetasCtrl = TextEditingController();
-
-  String? _imagenUrl;
-  bool _publicada = false;
-  bool _preview = false;
-  bool _guardando = false;
-  bool _subiendoImagen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.entrada != null) {
-      final e = widget.entrada!;
-      _tituloCtrl.text = e.titulo;
-      _resumenCtrl.text = e.resumen;
-      _contenidoCtrl.text = e.contenido;
-      _autorCtrl.text = e.autor;
-      _etiquetasCtrl.text = e.etiquetas.join(', ');
-      _imagenUrl = e.imagenUrl;
-      _publicada = e.publicada;
-    }
-  }
-
-  @override
-  void dispose() {
-    _tituloCtrl.dispose();
-    _resumenCtrl.dispose();
-    _contenidoCtrl.dispose();
-    _autorCtrl.dispose();
-    _etiquetasCtrl.dispose();
-    super.dispose();
-  }
+  const _PantallaCategoriasScreen({
+    required this.empresaId,
+    required this.svc,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = context.watch<AppConfigProvider>().colorPrimario;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: Text(widget.entrada == null ? 'Nueva entrada' : 'Editar entrada'),
+        title: const Text('Categorías del blog'),
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          // Toggle preview
-          IconButton(
-            icon: Icon(_preview ? Icons.edit : Icons.visibility),
-            tooltip: _preview ? 'Editar' : 'Vista previa',
-            onPressed: () => setState(() => _preview = !_preview),
-          ),
-          TextButton(
-            onPressed: _guardando ? null : () => _guardar(context),
-            child: Text(
-              _guardando ? '...' : 'Guardar',
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
-      body: _preview
-          ? _buildPreview()
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab_nueva_cat',
+        onPressed: () => _abrirFormulario(context, null),
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Nueva categoría'),
+      ),
+      body: StreamBuilder<List<CategoriaBlog>>(
+        stream: svc.obtenerCategorias(empresaId),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final cats = snap.data ?? [];
+          if (cats.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Imagen destacada
-                  _buildImagenDestacada(color),
+                  Icon(Icons.category_outlined, size: 56, color: Colors.grey[300]),
                   const SizedBox(height: 12),
-
-                  // Datos básicos
-                  _buildCard(child: Column(children: [
-                    TextFormField(
-                      controller: _tituloCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Título de la entrada *',
-                          border: InputBorder.none,
-                          prefixIcon: Icon(Icons.title)),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obligatorio' : null,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const Divider(height: 1),
-                    TextFormField(
-                      controller: _resumenCtrl,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                          labelText: 'Resumen / extracto',
-                          border: InputBorder.none,
-                          alignLabelWithHint: true,
-                          prefixIcon: Icon(Icons.short_text)),
-                    ),
-                    const Divider(height: 1),
-                    TextFormField(
-                      controller: _autorCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Autor',
-                          border: InputBorder.none,
-                          prefixIcon: Icon(Icons.person_outline)),
-                    ),
-                    const Divider(height: 1),
-                    TextFormField(
-                      controller: _etiquetasCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Etiquetas (separadas por coma)',
-                          border: InputBorder.none,
-                          prefixIcon: Icon(Icons.label_outline)),
-                    ),
-                  ])),
-                  const SizedBox(height: 12),
-
-                  // Editor de contenido con toolbar Markdown
-                  _buildEditorContenido(color),
-                  const SizedBox(height: 12),
-
-                  // Publicar switch
-                  _buildCard(
-                    child: SwitchListTile(
-                      value: _publicada,
-                      onChanged: (v) => setState(() => _publicada = v),
-                      activeThumbColor: Colors.green,
-                      title: Text(
-                        _publicada ? '✅ Publicada en tu web' : '📝 Borrador (no visible)',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        _publicada
-                            ? 'Los visitantes pueden leer esta entrada'
-                            : 'Solo tú puedes ver este borrador',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
+                  Text('Sin categorías',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 15)),
                 ],
               ),
-            ),
-    );
-  }
-
-  Widget _buildImagenDestacada(Color color) {
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Imagen destacada',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          if (_imagenUrl != null && _imagenUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(_imagenUrl!,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover),
-            ),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                  child: TextButton.icon(
-                onPressed: () => _subirImagen(),
-                icon: Icon(Icons.swap_horiz, color: color),
-                label: Text('Cambiar', style: TextStyle(color: color)),
-              )),
-              TextButton.icon(
-                onPressed: () => setState(() => _imagenUrl = null),
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label:
-                    const Text('Quitar', style: TextStyle(color: Colors.red)),
-              ),
-            ]),
-          ] else
-            OutlinedButton.icon(
-              onPressed: _subiendoImagen ? null : _subirImagen,
-              icon: _subiendoImagen
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(Icons.add_photo_alternate, color: color),
-              label: Text(
-                  _subiendoImagen ? 'Subiendo...' : 'Añadir imagen destacada',
-                  style: TextStyle(color: color)),
-              style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: color.withValues(alpha: 0.4))),
-            ),
-        ],
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 100),
+            itemCount: cats.length,
+            itemBuilder: (ctx, i) {
+              final cat = cats[i];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 6, offset: const Offset(0, 2))
+                  ],
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                        child: Text('${i + 1}',
+                            style: TextStyle(color: color,
+                                fontWeight: FontWeight.bold))),
+                  ),
+                  title: Text(cat.nombre,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('/${cat.slug}',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit_outlined, color: color, size: 20),
+                        onPressed: () => _abrirFormulario(context, cat),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.red, size: 20),
+                        onPressed: () => _eliminar(context, cat),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildEditorContenido(Color color) {
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const Text('Contenido',
-                style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: () => setState(() => _preview = true),
-              icon: Icon(Icons.visibility_outlined, size: 14, color: color),
-              label: Text('Preview', style: TextStyle(color: color, fontSize: 12)),
+  void _abrirFormulario(BuildContext context, CategoriaBlog? cat) {
+    final nombreCtrl = TextEditingController(text: cat?.nombre ?? '');
+    final slugCtrl = TextEditingController(text: cat?.slug ?? '');
+    bool slugManual = cat?.slug.isNotEmpty ?? false;
+
+    nombreCtrl.addListener(() {
+      if (!slugManual) {
+        slugCtrl.text = nombreCtrl.text
+            .toLowerCase()
+            .replaceAll(RegExp(r'[áàä]'), 'a')
+            .replaceAll(RegExp(r'[éèë]'), 'e')
+            .replaceAll(RegExp(r'[íìï]'), 'i')
+            .replaceAll(RegExp(r'[óòö]'), 'o')
+            .replaceAll(RegExp(r'[úùü]'), 'u')
+            .replaceAll('ñ', 'n')
+            .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
+            .trim()
+            .replaceAll(RegExp(r'\s+'), '-');
+      }
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              left: 20, right: 20, top: 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text(cat == null ? 'Nueva categoría' : 'Editar categoría',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nombreCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Nombre',
+                  border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: slugCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Slug (URL)',
+                  border: OutlineInputBorder(),
+                  prefixText: '/blog/'),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9\-]')),
+              ],
+              onChanged: (_) => slugManual = true,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final nombre = nombreCtrl.text.trim();
+                  if (nombre.isEmpty) return;
+                  final nueva = CategoriaBlog(
+                    id: cat?.id ?? '',
+                    nombre: nombre,
+                    slug: slugCtrl.text.trim(),
+                    orden: cat?.orden ?? 0,
+                  );
+                  await svc.guardarCategoria(empresaId, nueva);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                child: Text(cat == null ? 'Crear' : 'Guardar'),
+              ),
             ),
           ]),
-          // Toolbar Markdown
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _toolbarBtn('H1', '# '),
-                _toolbarBtn('H2', '## '),
-                _toolbarBtn('B', '**texto**'),
-                _toolbarBtn('I', '_texto_'),
-                _toolbarBtn('🔗', '[texto](url)'),
-                _toolbarBtn('•', '\n- '),
-                _toolbarBtn('—', '\n---\n'),
-                _toolbarBtn('💬', '\n> '),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: _contenidoCtrl,
-            maxLines: null,
-            minLines: 12,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: '# Escribe tu artículo aquí...\n\nSoporta Markdown básico:\n**negrita**, _cursiva_, # Encabezado\n\n[enlace](url) · - lista',
-              hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            onChanged: (_) => setState(() {}),
+        ),
+      ),
+    );
+  }
+
+  void _eliminar(BuildContext context, CategoriaBlog cat) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar categoría'),
+        content: Text(
+            '¿Eliminar "${cat.nombre}"?\n\nNo se puede eliminar si tiene artículos asignados.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await svc.eliminarCategoria(empresaId, cat.id);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('$e'), backgroundColor: Colors.red));
+                }
+              }
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
-
-  Widget _toolbarBtn(String label, String insertar) => InkWell(
-        onTap: () {
-          final ctrl = _contenidoCtrl;
-          final sel = ctrl.selection;
-          if (!sel.isValid) {
-            ctrl.text = ctrl.text + insertar;
-            ctrl.selection = TextSelection.collapsed(
-                offset: ctrl.text.length);
-          } else {
-            final text = ctrl.text;
-            final antes = text.substring(0, sel.start);
-            final despues = text.substring(sel.end);
-            ctrl.text = antes + insertar + despues;
-            ctrl.selection = TextSelection.collapsed(
-                offset: sel.start + insertar.length);
-          }
-          setState(() {});
-        },
-        child: Container(
-          margin: const EdgeInsets.only(right: 4, bottom: 4),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Text(label,
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ),
-      );
-
-  Widget _buildPreview() {
-    final lines = _contenidoCtrl.text.split('\n');
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_imagenUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(_imagenUrl!,
-                  width: double.infinity, height: 200, fit: BoxFit.cover),
-            ),
-          const SizedBox(height: 16),
-          Text(_tituloCtrl.text.isEmpty ? 'Sin título' : _tituloCtrl.text,
-              style: const TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold)),
-          if (_autorCtrl.text.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text('Por ${_autorCtrl.text}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          ],
-          const SizedBox(height: 16),
-          ...lines.map((line) => _renderLinea(line)),
-        ],
-      ),
-    );
-  }
-
-  Widget _renderLinea(String line) {
-    if (line.startsWith('# ')) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 8),
-        child: Text(line.substring(2),
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-      );
-    }
-    if (line.startsWith('## ')) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 6),
-        child: Text(line.substring(3),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      );
-    }
-    if (line.startsWith('### ')) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(line.substring(4),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      );
-    }
-    if (line.startsWith('> ')) {
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: const Border(left: BorderSide(color: Colors.blue, width: 3)),
-          color: Colors.blue.withValues(alpha: 0.05),
-        ),
-        child: Text(line.substring(2),
-            style: const TextStyle(
-                fontStyle: FontStyle.italic, color: Colors.blue)),
-      );
-    }
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 8, top: 2, bottom: 2),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('• ',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: _renderInline(line.substring(2))),
-        ]),
-      );
-    }
-    if (line.trim() == '---' || line.trim() == '___') {
-      return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Divider());
-    }
-    if (line.isEmpty) return const SizedBox(height: 8);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: _renderInline(line),
-    );
-  }
-
-  Widget _renderInline(String text) {
-    // Bold **...**
-    final spans = <InlineSpan>[];
-    final re = RegExp(r'\*\*(.+?)\*\*|_(.+?)_|\[(.+?)\]\((.+?)\)');
-    int last = 0;
-    for (final m in re.allMatches(text)) {
-      if (m.start > last) {
-        spans.add(TextSpan(text: text.substring(last, m.start)));
-      }
-      if (m.group(1) != null) {
-        spans.add(TextSpan(
-            text: m.group(1),
-            style: const TextStyle(fontWeight: FontWeight.bold)));
-      } else if (m.group(2) != null) {
-        spans.add(TextSpan(
-            text: m.group(2),
-            style: const TextStyle(fontStyle: FontStyle.italic)));
-      } else if (m.group(3) != null) {
-        spans.add(TextSpan(
-            text: m.group(3),
-            style: const TextStyle(
-                color: Colors.blue,
-                decoration: TextDecoration.underline)));
-      }
-      last = m.end;
-    }
-    if (last < text.length) {
-      spans.add(TextSpan(text: text.substring(last)));
-    }
-    return RichText(
-        text: TextSpan(
-            children: spans,
-            style: const TextStyle(
-                color: Colors.black87, fontSize: 14, height: 1.6)));
-  }
-
-  Future<void> _subirImagen() async {
-    setState(() => _subiendoImagen = true);
-    final url = await widget.svc
-        .subirImagenDesdeGaleria(widget.empresaId, 'blog');
-    if (mounted) setState(() {
-      _imagenUrl = url;
-      _subiendoImagen = false;
-    });
-  }
-
-  Future<void> _guardar(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _guardando = true);
-
-    final etiquetas = _etiquetasCtrl.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    final entrada = EntradaBlog(
-      id: widget.entrada?.id ?? '',
-      titulo: _tituloCtrl.text.trim(),
-      resumen: _resumenCtrl.text.trim(),
-      contenido: _contenidoCtrl.text,
-      imagenUrl: _imagenUrl,
-      publicada: _publicada,
-      fechaPublicacion: widget.entrada?.fechaPublicacion ?? DateTime.now(),
-      etiquetas: etiquetas,
-      autor: _autorCtrl.text.trim(),
-    );
-
-    try {
-      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('✅ Entrada guardada'),
-          backgroundColor: Colors.green,
-        ));
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-      }
-    } finally {
-      if (mounted) setState(() => _guardando = false);
-    }
-  }
-
-  Widget _buildCard({required Widget child}) => Container(
-        margin: const EdgeInsets.only(bottom: 0),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2))
-          ],
-        ),
-        child: child,
-      );
 }
-

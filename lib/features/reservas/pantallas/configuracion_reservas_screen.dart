@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -170,6 +171,8 @@ class _ConfiguracionReservasScreenState
 
   bool _cargando = true;
   bool _guardando = false;
+  bool _activoWeb = true;
+  int _aforoMaximo = 2;
   late ConfigReservas _config;
   late TabController _tabCtrl;
 
@@ -190,7 +193,7 @@ class _ConfiguracionReservasScreenState
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _cargar();
   }
 
@@ -205,10 +208,15 @@ class _ConfiguracionReservasScreenState
   Future<void> _cargar() async {
     try {
       final snap = await _ref.get();
+      final data = snap.exists ? snap.data() as Map<String, dynamic> : null;
       setState(() {
-        _config = snap.exists
-            ? ConfigReservas.fromMap(snap.data() as Map<String, dynamic>)
+        _config = data != null
+            ? ConfigReservas.fromMap(data)
             : ConfigReservas.porDefecto();
+        if (data != null) {
+          _activoWeb = (data['activo'] as bool?) ?? true;
+          _aforoMaximo = (data['aforo_maximo_por_franja'] as num?)?.toInt() ?? 2;
+        }
         _cargando = false;
       });
     } catch (_) {
@@ -220,7 +228,12 @@ class _ConfiguracionReservasScreenState
     setState(() => _guardando = true);
     try {
       // 1. Guardar configuración principal
-      await _ref.set(_config.toMap(), SetOptions(merge: true));
+      final dataToSave = {
+        ..._config.toMap(),
+        'activo': _activoWeb,
+        'aforo_maximo_por_franja': _aforoMaximo,
+      };
+      await _ref.set(dataToSave, SetOptions(merge: true));
       
       // 2. Sincronizar con reservas_web para el formulario HTML
       await _sincronizarConfigWeb();
@@ -246,6 +259,9 @@ class _ConfiguracionReservasScreenState
   /// Sincroniza la configuración con el documento reservas_web usado por el formulario HTML
   Future<void> _sincronizarConfigWeb() async {
     final webConfig = {
+      'activo': _activoWeb,
+      'aforo_maximo_por_franja': _aforoMaximo,
+      'dias_activos': _config.diasActivos,
       'fechas_bloqueadas': _config.diasCerrados,
       'motivos_cierre': _config.motivosCierre,
       'dias_recurrentes_cerrados': _config.diasRecurrentesCerrados,
@@ -610,6 +626,7 @@ class _ConfiguracionReservasScreenState
             Tab(icon: Icon(Icons.calendar_today, size: 18), text: 'Horarios'),
             Tab(icon: Icon(Icons.access_time, size: 18), text: 'Slots'),
             Tab(icon: Icon(Icons.event_busy, size: 18), text: 'Vacaciones'),
+            Tab(icon: Icon(Icons.language, size: 18), text: 'Web'),
           ],
         ),
       ),
@@ -619,6 +636,7 @@ class _ConfiguracionReservasScreenState
           _tabHorarios(),
           _tabSlots(),
           _tabVacaciones(),
+          _tabFormularioWeb(),
         ],
       ),
     );
@@ -1315,6 +1333,350 @@ class _ConfiguracionReservasScreenState
           onPressed: () => _eliminarDiaCerrado(fechaStr),
           tooltip: 'Eliminar',
         ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TAB 4: FORMULARIO WEB
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _tabFormularioWeb() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      children: [
+        _seccionHeader(Icons.language, 'Formulario web de reservas'),
+        const SizedBox(height: 4),
+        Text(
+          'Controla cómo aparece el formulario de reservas en tu web. '
+          'Los cambios se sincronizan automáticamente al guardar.',
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Toggle activo ──────────────────────────────────────────────────
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _activoWeb ? _color.withValues(alpha: 0.35) : Colors.grey[200]!,
+              width: _activoWeb ? 1.5 : 1,
+            ),
+            boxShadow: _activoWeb
+                ? [BoxShadow(color: _color.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
+                : [],
+          ),
+          child: SwitchListTile(
+            value: _activoWeb,
+            onChanged: (v) => setState(() => _activoWeb = v),
+            activeColor: _color,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            title: Text(
+              _activoWeb ? 'Reservas web activas' : 'Reservas web desactivadas',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _activoWeb
+                    ? 'Los clientes pueden hacer reservas desde tu web'
+                    : 'El formulario mostrará un aviso de no disponibilidad',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+            secondary: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_activoWeb ? _color : Colors.grey).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _activoWeb ? Icons.public : Icons.public_off,
+                color: _activoWeb ? _color : Colors.grey,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Aforo máximo ───────────────────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.people_outline, size: 18, color: Color(0xFF0D47A1)),
+                  SizedBox(width: 8),
+                  Text('Aforo máximo por franja horaria',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Número máximo de reservas simultáneas por cada horario.',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: [1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map((n) {
+                  final sel = _aforoMaximo == n;
+                  return ChoiceChip(
+                    label: Text('$n ${n == 1 ? "reserva" : "reservas"}',
+                        style: const TextStyle(fontSize: 12)),
+                    selected: sel,
+                    onSelected: (_) => setState(() => _aforoMaximo = n),
+                    selectedColor: _color,
+                    labelStyle: TextStyle(
+                      color: sel ? Colors.white : Colors.black87,
+                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // ── ID de empresa / integración ────────────────────────────────────
+        _seccionHeader(Icons.link, 'Tu URL de reservas'),
+        const SizedBox(height: 4),
+        Text(
+          'El formulario lee automáticamente tu configuración. Sólo necesitas el ID de tu empresa en la URL.',
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+
+        // Paso 1: ID
+        _tarjetaIntegracion(
+          paso: '1',
+          titulo: 'Tu ID de empresa',
+          subtitulo: 'Identifica tu negocio en el formulario web',
+          contenido: widget.empresaId,
+          botonLabel: 'Copiar ID',
+          onCopiar: () => widget.empresaId,
+        ),
+        const SizedBox(height: 10),
+
+        // Paso 2: URL con parámetro
+        _tarjetaIntegracion(
+          paso: '2',
+          titulo: 'URL del formulario',
+          subtitulo: 'Abre esto en el navegador o ponlo en un iframe',
+          contenido: 'formulario_reservas_dinamico.html?id=${widget.empresaId}',
+          botonLabel: 'Copiar URL',
+          onCopiar: () => 'formulario_reservas_dinamico.html?id=${widget.empresaId}',
+        ),
+        const SizedBox(height: 10),
+
+        // Paso 3: Iframe
+        _tarjetaIntegracion(
+          paso: '3',
+          titulo: 'Incrustar en tu web (iframe)',
+          subtitulo: 'Pega este código en tu página HTML',
+          contenido: '<iframe\n'
+              '  src="formulario_reservas_dinamico.html?id=${widget.empresaId}"\n'
+              '  width="100%" height="800"\n'
+              '  style="border:none; border-radius:12px;"\n'
+              '  title="Reservas">\n'
+              '</iframe>',
+          botonLabel: 'Copiar iframe',
+          onCopiar: () => '<iframe src="formulario_reservas_dinamico.html?id=${widget.empresaId}" '
+              'width="100%" height="800" style="border:none; border-radius:12px;" title="Reservas"></iframe>',
+        ),
+        const SizedBox(height: 20),
+
+        // ── Resumen de configuración sincronizada ──────────────────────────
+        _seccionHeader(Icons.sync, 'Resumen sincronizado con web'),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F2FD),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              _filaResumen(
+                Icons.power_settings_new,
+                'Estado web',
+                _activoWeb ? 'Activo' : 'Desactivado',
+                _activoWeb ? const Color(0xFF2E7D32) : Colors.grey,
+              ),
+              _filaResumen(
+                Icons.people,
+                'Aforo por franja',
+                '$_aforoMaximo ${_aforoMaximo == 1 ? "reserva" : "reservas"}',
+                _color,
+              ),
+              _filaResumen(
+                Icons.schedule,
+                'Duración slot',
+                _config.duracionSlotMinutos < 60
+                    ? '${_config.duracionSlotMinutos} min'
+                    : '${_config.duracionSlotMinutos ~/ 60}h',
+                _color,
+              ),
+              _filaResumen(
+                Icons.calendar_today,
+                'Días activos',
+                '${_config.diasActivos.length} de 7 días',
+                _color,
+              ),
+              if (_config.diasCerrados.isNotEmpty)
+                _filaResumen(
+                  Icons.event_busy,
+                  'Fechas bloqueadas',
+                  '${_config.diasCerrados.length} fecha${_config.diasCerrados.length != 1 ? 's' : ''}',
+                  Colors.orange[700]!,
+                ),
+              if (_config.diasRecurrentesCerrados.isNotEmpty)
+                _filaResumen(
+                  Icons.repeat_on,
+                  'Cierres recurrentes',
+                  '${_config.diasRecurrentesCerrados.length} día${_config.diasRecurrentesCerrados.length != 1 ? 's' : ''}',
+                  Colors.orange[700]!,
+                ),
+              if (_config.intervalosCerrados.isNotEmpty)
+                _filaResumen(
+                  Icons.date_range,
+                  'Intervalos cerrados',
+                  '${_config.intervalosCerrados.length} intervalo${_config.intervalosCerrados.length != 1 ? 's' : ''}',
+                  Colors.purple[700]!,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.amber[800]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Pulsa "Guardar" (arriba) para sincronizar estos ajustes con el formulario web en tiempo real.',
+                  style: TextStyle(fontSize: 12, color: Colors.amber[900]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tarjetaIntegracion({
+    required String paso,
+    required String titulo,
+    required String subtitulo,
+    required String contenido,
+    required String botonLabel,
+    required String Function() onCopiar,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  color: _color.withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(paso,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titulo,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    Text(subtitulo,
+                        style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: onCopiar()));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('$botonLabel copiado'),
+                    duration: const Duration(seconds: 2),
+                  ));
+                },
+                child: const Row(
+                  children: [
+                    Icon(Icons.copy_outlined, size: 13, color: Color(0xFF58A6FF)),
+                    SizedBox(width: 4),
+                    Text('Copiar',
+                        style: TextStyle(color: Color(0xFF58A6FF), fontSize: 11)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SelectableText(
+            contenido,
+            style: const TextStyle(
+              color: Color(0xFFE6EDF3),
+              fontSize: 11,
+              fontFamily: 'monospace',
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filaResumen(IconData icono, String label, String valor, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Icon(icono, size: 15, color: const Color(0xFF0D47A1)),
+          const SizedBox(width: 8),
+          Text(label,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E))),
+          const Spacer(),
+          Text(valor,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        ],
       ),
     );
   }

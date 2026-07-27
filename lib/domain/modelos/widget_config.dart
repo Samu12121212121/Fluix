@@ -302,7 +302,8 @@ class ModulosDisponibles {
       .toList();
 
   static const List<String> siempreActivos = ['dashboard'];
-  static List<String> get activosPorDefecto => ['dashboard', 'app'];
+  // 'web' incluido en plan base → activo por defecto para todas las cuentas
+  static List<String> get activosPorDefecto => ['dashboard', 'app', 'web'];
 }
 
 // ── WIDGET CONFIG ─────────────────────────────────────────────────────────────
