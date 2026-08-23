@@ -26,6 +26,7 @@ import '../widgets/empleados_banner_widget.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
+import '../../../services/tpv/offline_queue_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
@@ -1923,7 +1924,14 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                     stockMinimo: item.stockMinimo,
                     esAdmin: widget.esAdmin,
                     onTap: () async {
-                      if (item.stock == 0) return;
+                      if (item.stock == 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('${item.producto.nombre}: sin stock disponible'),
+                          backgroundColor: Colors.orange.shade700,
+                          duration: const Duration(seconds: 2),
+                        ));
+                        return;
+                      }
                       if (item.producto.tieneVariantes &&
                           item.producto.variantesDisponibles.isNotEmpty) {
                         final v = await VarianteSelectorWidget.mostrar(
@@ -2882,6 +2890,34 @@ class _TiendaComandaPanel extends StatelessWidget {
   Future<void> _cobrar(BuildContext context, {String metodoInicial = 'efectivo'}) async {
     if (comandaActiva == null || comandaActiva!.lineas.isEmpty) return;
 
+    // Validar que el descuento no supera el total
+    if (totalConDescuento <= 0 && comandaActiva!.total > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('El descuento no puede igualar o superar el total del ticket'),
+        backgroundColor: Colors.orange.shade700,
+      ));
+      return;
+    }
+
+    // Validar que la caja esté abierta hoy
+    try {
+      final cajaAbierta = await CierreCajaService().hayCajaAbiertaHoy(empresaId);
+      if (!cajaAbierta && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Abre la caja antes de cobrar'),
+          backgroundColor: Colors.orange.shade700,
+          action: SnackBarAction(
+            label: 'Abrir',
+            textColor: Colors.white,
+            onPressed: () {},  // El botón de apertura está en el header
+          ),
+        ));
+        return;
+      }
+    } catch (_) {
+      // Sin conexión: permitir cobrar y encolar offline
+    }
+
     final pago = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
@@ -2891,25 +2927,30 @@ class _TiendaComandaPanel extends StatelessWidget {
 
     final ahora = DateTime.now();
 
+    // Número de ticket con fallback offline
+    int numTicket = 1;
     final ref = FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
         .collection('contadores')
         .doc('tickets');
-    int numTicket = 1;
-    
-    // WINDOWS DESKTOP FIX: Sin transacciones (evita threading issues)
-    final snap = await ref.get();
-    numTicket = snap.exists
-        ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
-        : 1;
-    await ref.set({'ultimo': numTicket}, SetOptions(merge: true));
+    try {
+      final snap = await ref.get();
+      numTicket = snap.exists
+          ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
+          : 1;
+      await ref.set({'ultimo': numTicket}, SetOptions(merge: true));
+    } catch (_) {
+      // Sin acceso a Firestore: usar timestamp como número único
+      numTicket = ahora.millisecondsSinceEpoch % 100000;
+    }
 
-    final empresaSnap = await FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(empresaId)
-        .get();
-    final empresaData = empresaSnap.data() ?? {};
+    Map<String, dynamic> empresaData = {};
+    try {
+      final empresaSnap = await FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId).get();
+      empresaData = empresaSnap.data() ?? {};
+    } catch (_) {}
 
     final lineasPedido = comandaActiva!.lineas
         .map((l) => LineaPedido(
@@ -2993,14 +3034,14 @@ class _TiendaComandaPanel extends StatelessWidget {
         );
       } catch (_) {}
 
-      // ── Acumular puntos al cliente si está identificado ───────────────
+      // Acumular puntos al cliente si está identificado
       if (extra.clienteId != null) {
         try {
           final puntosGanados = totalConDescuento.floor().clamp(1, 9999);
-          final clienteRef = FirebaseFirestore.instance
+          await FirebaseFirestore.instance
               .collection('empresas').doc(empresaId)
-              .collection('clientes').doc(extra.clienteId!);
-          await clienteRef.update({
+              .collection('clientes').doc(extra.clienteId!)
+              .update({
             'puntos': FieldValue.increment(puntosGanados),
             'puntos_totales_ganados': FieldValue.increment(puntosGanados),
             'ultima_compra_tpv': FieldValue.serverTimestamp(),
@@ -3020,11 +3061,43 @@ class _TiendaComandaPanel extends StatelessWidget {
         onCobrado();
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error al cobrar: $e'),
-          backgroundColor: Colors.red,
-        ));
+      // Sin conexión: guardar en cola offline para sincronizar después
+      try {
+        await OfflineQueueService().encolar(empresaId, {
+          'cliente_nombre': extra.clienteNombre ?? 'Caja rápida',
+          'cliente_id': extra.clienteId,
+          'metodo_pago': pago['metodo'] ?? 'efectivo',
+          'importe_efectivo': pago['importe_efectivo'],
+          'importe_tarjeta': pago['importe_tarjeta'],
+          'total': totalConDescuento,
+          'numero_ticket': numTicket,
+          'fecha_hora': ahora.toIso8601String(),
+          'es_offline': true,
+          'estado': 'entregado',
+          'estado_pago': 'pagado',
+          'lineas': lineasPedido.map((l) => {
+            'producto_id': l.productoId,
+            'producto_nombre': l.productoNombre,
+            'cantidad': l.cantidad,
+            'precio_unitario': l.precioUnitario,
+            'iva_porcentaje': l.ivaPorcentaje,
+          }).toList(),
+        });
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Sin conexión — ticket #$numTicket guardado. Se sincronizará al recuperar red.'),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 5),
+          ));
+          onCobrado();
+        }
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error al cobrar: $e'),
+            backgroundColor: Colors.red,
+          ));
+        }
       }
     }
   }

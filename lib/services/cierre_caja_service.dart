@@ -66,6 +66,7 @@ class CierreCajaService {
       String empresaId, Map<String, dynamic> cierre) async {
     final fechaStr = cierre['fecha_legible'] as String;
     final fechaActual = DateTime.parse(fechaStr);
+    final ahora = DateTime.now();
 
     // Recalcula el día anterior por si hubo ventas después del último cierre
     final fechaAyer = fechaActual.subtract(const Duration(days: 1));
@@ -78,15 +79,36 @@ class CierreCajaService {
     final snapAyer = await docAyer.get();
     if (snapAyer.exists) {
       final cierreAyer = await calcularCierreCaja(empresaId, fechaAyer);
-      await docAyer.set(cierreAyer, SetOptions(merge: true));
+      await docAyer.set(
+        {...cierreAyer, 'actualizado_en': Timestamp.fromDate(ahora)},
+        SetOptions(merge: true),
+      );
     }
 
-    await FirebaseFirestore.instance
+    // Protección contra escrituras concurrentes: solo actualiza si el documento
+    // no existe o si el nuevo cierre tiene más tickets que el guardado.
+    final docHoy = FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
         .collection('cierres_caja')
-        .doc(fechaStr)
-        .set(cierre, SetOptions(merge: true));
+        .doc(fechaStr);
+    final snapHoy = await docHoy.get();
+
+    final cierreConTimestamp = {
+      ...cierre,
+      'generado_en': Timestamp.fromDate(ahora),
+    };
+
+    if (!snapHoy.exists) {
+      await docHoy.set(cierreConTimestamp);
+    } else {
+      final ticketsExistentes = (snapHoy.data()?['num_tickets'] as num?)?.toInt() ?? 0;
+      final ticketsNuevos = (cierre['num_tickets'] as num?)?.toInt() ?? 0;
+      // Solo sobreescribir si hay más datos (más tickets procesados)
+      if (ticketsNuevos >= ticketsExistentes) {
+        await docHoy.set(cierreConTimestamp, SetOptions(merge: true));
+      }
+    }
   }
 
   /// Devuelve true si existe una apertura de caja para [fecha] (default: hoy).
