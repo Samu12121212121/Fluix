@@ -511,7 +511,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             SizedBox(height: 2),
             Text('Limita el % que un cajero puede aplicar. 100 = sin límite.',
-                style: TextStyle(fontSize: 11, _sub)),
+                style: TextStyle(fontSize: 11, color: _sub)),
           ])),
           const SizedBox(width: 12),
           SizedBox(
@@ -957,7 +957,7 @@ class _ConfiguracionFacturacionTpvScreenState
         const Text(
           'Selecciona qué plantilla usar para cada tipo de documento. '
           'Si no seleccionas ninguna, se usa la marcada como "Por defecto".',
-          style: TextStyle(fontSize: 12, _sub),
+          style: TextStyle(fontSize: 12, color: _sub),
         ),
         const SizedBox(height: 12),
         _plantillaSelector('📋 Factura completa', _config.plantillaIdFactura,
@@ -1090,7 +1090,7 @@ class _ConfiguracionFacturacionTpvScreenState
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
               'En este modo, cada pedido genera su propia factura inmediatamente al cobrar.',
-              style: TextStyle(fontSize: 12, _sub),
+              style: TextStyle(fontSize: 12, color: _sub),
             ),
           ),
         ],
@@ -1109,7 +1109,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Selecciona qué métodos de pago incluir en la facturación automática:',
-            style: TextStyle(fontSize: 12, _sub),
+            style: TextStyle(fontSize: 12, color: _sub),
           ),
           const SizedBox(height: 12),
           CheckboxListTile(
@@ -1146,7 +1146,7 @@ class _ConfiguracionFacturacionTpvScreenState
           const Text(
             'Si el nombre de empresa aparece incorrecto en los PDFs, '
             'escríbelo aquí. Tiene prioridad sobre el documento de Firestore.',
-            style: TextStyle(fontSize: 12, _sub),
+            style: TextStyle(fontSize: 12, color: _sub),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -1758,12 +1758,12 @@ class _ConfiguracionFacturacionTpvScreenState
               ]),
               const SizedBox(height: 6),
               const Text('Puerto RAW estándar: 9100. Asegúrate de que la impresora está en la misma red.',
-                  style: TextStyle(fontSize: 11, _sub)),
+                  style: TextStyle(fontSize: 11, color: _sub)),
             ],
             const Divider(height: 28),
             _titulo('🗄️ CAJÓN REGISTRADORA'),
             const Text('Ajustes guardados en la nube por empresa.',
-                style: TextStyle(fontSize: 11, _sub)),
+                style: TextStyle(fontSize: 11, color: _sub)),
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -1886,7 +1886,7 @@ class _ConfiguracionFacturacionTpvScreenState
           else
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.bluetooth_disabled, color: _sub, size: 28),
+              leading: Icon(Icons.bluetooth_disabled, color: _sub, size: 28),
               title: const Text('Sin impresora conectada'),
               subtitle: const Text('Conecta una impresora Bluetooth para imprimir tickets', style: TextStyle(fontSize: 12)),
             ),
@@ -1977,7 +1977,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Importa productos en masa desde un archivo CSV o Excel.',
-            style: TextStyle(fontSize: 13, _sub),
+            style: TextStyle(fontSize: 13, color: _sub),
           ),
           const SizedBox(height: 12),
           Row(
@@ -2045,7 +2045,7 @@ class _ConfiguracionFacturacionTpvScreenState
               const Text(
                 'Copia este contenido y pégalo en Excel o Google Sheets. '
                 'Guarda como CSV y súbelo desde "Importar CSV".',
-                style: TextStyle(fontSize: 12, _sub),
+                style: TextStyle(fontSize: 12, color: _sub),
               ),
             ],
           ),
@@ -2080,7 +2080,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Gestiona las imágenes de los productos de tu catálogo.',
-            style: TextStyle(fontSize: 13, _sub),
+            style: TextStyle(fontSize: 13, color: _sub),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -2179,15 +2179,15 @@ class _DialogoGestionImagenesState extends State<_DialogoGestionImagenes> {
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: _bdr,
+                          color: const Color(0xFFE5E7EB),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Icon(Icons.image, _sub),
+                        child: const Icon(Icons.image, color: Color(0xFF9CA3AF)),
                       ),
                 title: Text(nombre),
                 subtitle: imagenUrl != null && imagenUrl.isNotEmpty
                     ? const Text('Imagen asignada', style: TextStyle(color: Colors.green, fontSize: 11))
-                    : const Text('Sin imagen', style: TextStyle(color: _sub, fontSize: 11)),
+                    : const Text('Sin imagen', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
