@@ -506,10 +506,10 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _ch('Descuentos', icon: Icons.local_offer_outlined),
         Row(children: [
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Descuento máximo por línea',
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Descuento máximo por línea',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text('Limita el % que un cajero puede aplicar. 100 = sin límite.',
                 style: TextStyle(fontSize: 11, color: _sub)),
           ])),
@@ -1086,8 +1086,8 @@ class _ConfiguracionFacturacionTpvScreenState
             value: _config.generarAutomaticamente,
             onChanged: (v) => setState(() => _config = _config.copyWith(generarAutomaticamente: v)),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               'En este modo, cada pedido genera su propia factura inmediatamente al cobrar.',
               style: TextStyle(fontSize: 12, color: _sub),
@@ -1574,9 +1574,9 @@ class _ConfiguracionFacturacionTpvScreenState
           ),
           const Divider(height: 20),
           Row(children: [
-            const Expanded(
+            Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Alerta de tiempo en barra', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Text('Alerta de tiempo en barra', style: TextStyle(fontWeight: FontWeight.w500)),
                 Text('Minutos antes de marcar la comanda en rojo', style: TextStyle(fontSize: 12, color: _sub)),
               ]),
             ),
