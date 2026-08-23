@@ -1288,7 +1288,7 @@ class PdfService {
               else
                 pw.Container(
                   width: 48, height: 48,
-                  decoration: pw.BoxDecoration(color: PdfColors.white.withOpacity(0.2), borderRadius: pw.BorderRadius.circular(8)),
+                  decoration: pw.BoxDecoration(color: PdfColor(1, 1, 1, 0.2), borderRadius: pw.BorderRadius.circular(8)),
                   alignment: pw.Alignment.center,
                   child: pw.Text(
                     nombreEmpresa.substring(0, 1).toUpperCase(),
@@ -1296,24 +1296,24 @@ class PdfService {
                   ),
                 ),
               pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                pw.Text('FAC-$anio-0001', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.9), fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('FAC-$anio-0001', style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.9), fontSize: 11, fontWeight: pw.FontWeight.bold)),
                 pw.Text('Fecha: ${DateTime.now().day}/${DateTime.now().month}/$anio',
-                    style: pw.TextStyle(color: PdfColors.white.withOpacity(0.7), fontSize: 9)),
+                    style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.7), fontSize: 9)),
               ]),
             ]),
             pw.SizedBox(height: 20),
-            pw.Text('FACTURA', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.55), fontSize: 10, letterSpacing: 4, fontWeight: pw.FontWeight.bold)),
+            pw.Text('FACTURA', style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.55), fontSize: 10, letterSpacing: 4, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 4),
             pw.Text(nombreEmpresa, style: pw.TextStyle(color: PdfColors.white, fontSize: 26, fontWeight: pw.FontWeight.bold)),
             if (cifEmpresa?.isNotEmpty == true)
-              pw.Text(cifEmpresa!, style: pw.TextStyle(color: PdfColors.white.withOpacity(0.65), fontSize: 10)),
+              pw.Text(cifEmpresa!, style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.65), fontSize: 10)),
             pw.SizedBox(height: 16),
             // Total destacado en la cabecera
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: pw.BoxDecoration(color: PdfColors.white.withOpacity(0.15), borderRadius: pw.BorderRadius.circular(8)),
+              decoration: pw.BoxDecoration(color: PdfColor(1, 1, 1, 0.15), borderRadius: pw.BorderRadius.circular(8)),
               child: pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
-                pw.Text('TOTAL A PAGAR: ', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.8), fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('TOTAL A PAGAR: ', style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.8), fontSize: 11, fontWeight: pw.FontWeight.bold)),
                 pw.Text('${(subtotal + iva).toStringAsFixed(2)} €',
                     style: pw.TextStyle(color: PdfColors.white, fontSize: 18, fontWeight: pw.FontWeight.bold)),
               ]),
