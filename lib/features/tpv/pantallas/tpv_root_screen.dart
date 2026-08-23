@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' show Random;
 import 'dart:io' show Platform;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,6 +47,63 @@ import '../../../services/tpv/offline_queue_service.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEMA DEL TPV ROOT — paleta claro / oscuro (login palette)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TpvRootTema {
+  final Color fondo;
+  final Color superficie;
+  final Color borde;
+  final Color texto;
+  final Color textoMuted;
+  final Color primario;
+  final bool isDark;
+
+  const _TpvRootTema._({
+    required this.fondo,
+    required this.superficie,
+    required this.borde,
+    required this.texto,
+    required this.textoMuted,
+    required this.primario,
+    required this.isDark,
+  });
+
+  static const claro = _TpvRootTema._(
+    fondo:       Colors.white,
+    superficie:  Color(0xFFF5F7FA),
+    borde:       Color(0xFFE0E3EC),
+    texto:       Color(0xFF0A0F23),
+    textoMuted:  Color(0xFF6B7280),
+    primario:    Color(0xFF00FFC8),
+    isDark:      false,
+  );
+
+  // Paleta del login — navy + cian
+  static const oscuro = _TpvRootTema._(
+    fondo:       Color(0xFF0A0F23),
+    superficie:  Color(0xFF1E2139),
+    borde:       Color(0xFF2A2E45),
+    texto:       Colors.white,
+    textoMuted:  Color(0xFFB0B3C1),
+    primario:    Color(0xFF00FFC8),
+    isDark:      true,
+  );
+}
+
+class _TpvRootTemaScope extends InheritedWidget {
+  final _TpvRootTema tema;
+  const _TpvRootTemaScope({required this.tema, required super.child});
+
+  static _TpvRootTema of(BuildContext ctx) =>
+      ctx.dependOnInheritedWidgetOfExactType<_TpvRootTemaScope>()?.tema ??
+      _TpvRootTema.claro;
+
+  @override
+  bool updateShouldNotify(_TpvRootTemaScope old) => tema.fondo != old.tema.fondo;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ROOT SCREEN
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -63,6 +121,9 @@ class TpvRootScreen extends StatefulWidget {
   /// Nombre del TPV personalizado (para mostrarlo en el AppBar).
   final String? tpvPersonalizadoNombre;
 
+  final bool embedded;
+  final void Function(TpvEmbedActions)? onEmbedReady;
+
   const TpvRootScreen({
     super.key,
     required this.empresaId,
@@ -71,6 +132,8 @@ class TpvRootScreen extends StatefulWidget {
     this.mesaInicialId,
     this.tpvPersonalizadoId,
     this.tpvPersonalizadoNombre,
+    this.embedded = false,
+    this.onEmbedReady,
   });
 
   @override
@@ -97,18 +160,31 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
   bool _prevEstaOnline = true;
   int _pendientesOffline = 0;
   bool _btConectado = false;
+  bool _oscuro = false; // tema manual: false = claro (blanco por defecto)
+  late final ValueNotifier<bool> _oscuroNotifier;
 
   static const _tpvAppBarColor = Color(0xFF1565C0);
 
   final _holdNotifier = HoldPedidosNotifier();
+  late final ValueNotifier<int> _holdCountNotifier;
+
+  void _toggleTema() {
+    setState(() => _oscuro = !_oscuro);
+    _oscuroNotifier.value = _oscuro;
+  }
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    _oscuroNotifier = ValueNotifier(_oscuro);
+    _holdCountNotifier = ValueNotifier(0);
+    _holdNotifier.addListener(() => _holdCountNotifier.value = _holdNotifier.pedidos.length);
+    if (!widget.embedded) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _iniciarReloj();
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final online = !results.contains(ConnectivityResult.none);
@@ -152,6 +228,134 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
         }
       });
     }
+    // Registrar acciones en el header del dashboard (solo modo embebido)
+    if (widget.embedded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onEmbedReady?.call(TpvEmbedActions(
+          abrirCajon: _abrirCajon,
+          aperturaCaja: () => mostrarDialogoAperturaCaja(context, widget.empresaId),
+          cierreCaja: () => mostrarPantallaCierreCaja(context, widget.empresaId),
+          verHistorial: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
+          verHold: () async {
+            final pedido = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+            if (pedido != null && mounted) {
+              final lineas = pedido.lineas.map((m) => LineaComanda(
+                productoId: m['productoId'] as String? ?? '',
+                nombre: m['nombre'] as String? ?? '',
+                precioUnitario: (m['precioUnitario'] as num?)?.toDouble() ?? 0,
+                cantidad: (m['cantidad'] as num?)?.toInt() ?? 1,
+                ivaPorcentaje: (m['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
+                notas: m['notas'] as String?,
+              )).toList();
+              final base = _comandaActiva ?? Comanda(
+                id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
+                camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+                lineas: [], estado: 'abierta', apertura: Timestamp.now(), importeTotal: 0,
+              );
+              setState(() => _comandaActiva = base.copyWith(lineas: [...base.lineas, ...lineas]));
+              _sincronizarComanda();
+            }
+          },
+          holdCount: _holdCountNotifier,
+          masOpciones: () => _mostrarMasOpcionesTPV(context),
+          toggleTema: _toggleTema,
+          temaOscuro: _oscuroNotifier,
+        ));
+      });
+    }
+  }
+
+  Future<void> _mostrarMasOpcionesTPV(BuildContext ctx) async {
+    await showModalBottomSheet(
+      context: ctx,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Historial de ventas'),
+              onTap: () { Navigator.pop(ctx); _mostrarHistorialVentas(ctx); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Tickets del turno'),
+              onTap: () { Navigator.pop(ctx); HistorialTicketsWidget.mostrar(ctx, widget.empresaId); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Estadísticas del turno'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showModalBottomSheet(context: ctx, isScrollControlled: true,
+                    backgroundColor: const Color(0xFF0A0F23),
+                    shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                    builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Personalizar tema'),
+              onTap: () { Navigator.pop(ctx); mostrarMesaThemeSelector(ctx); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restaurant_menu),
+              title: const Text('Pantalla de cocina'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(ctx, MaterialPageRoute(
+                    builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId)));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.schedule_rounded),
+              title: const Text('Fiados pendientes'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(ctx, MaterialPageRoute(
+                    builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId)));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.keyboard_return_outlined),
+              title: const Text('Devoluciones'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showDialog(context: ctx,
+                    builder: (_) => DialogoDevoluciones(
+                        empresaId: widget.empresaId,
+                        colorPrimario: _tpvAppBarColor));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.print_outlined),
+              title: const Text('Configurar impresora'),
+              onTap: () { Navigator.pop(ctx); _mostrarConfigImpresora(); },
+            ),
+            if (widget.esAdmin)
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Configuración TPV'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(ctx, MaterialPageRoute(
+                      builder: (_) => ConfiguracionFacturacionTpvScreen(
+                          empresaId: widget.empresaId,
+                          esPropietario: widget.esPropietario)));
+                },
+              ),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,7 +363,11 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
     _relojTimer?.cancel();
     _connectivitySub?.cancel();
     _holdNotifier.dispose();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    _holdCountNotifier.dispose();
+    _oscuroNotifier.dispose();
+    if (!widget.embedded) {
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
     super.dispose();
   }
 
@@ -209,26 +417,37 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = Color(0xFF111111);
-    return Scaffold(
+    final tema = _oscuro ? _TpvRootTema.oscuro : _TpvRootTema.claro;
+    final bgColor = tema.fondo;
+
+    return _TpvRootTemaScope(
+      tema: tema,
+      child: Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: _tpvAppBarColor,
-        foregroundColor: Colors.white,
+      appBar: widget.embedded ? null : AppBar(
+        backgroundColor: tema.isDark ? const Color(0xFF0A0F23) : Colors.white,
+        foregroundColor: tema.texto,
         elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: tema.borde),
+        ),
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         toolbarHeight: 48,
         title: Row(
           children: [
             // ── Izquierda: nav + modo ──────────────────────────────────
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: () => Navigator.of(context).pop(),
-              tooltip: 'Salir del TPV',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            ),
+            if (!widget.embedded)
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Salir del TPV',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
             const Icon(Icons.point_of_sale, size: 16),
             const SizedBox(width: 4),
             const Text('TPV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
@@ -236,10 +455,11 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: tema.primario.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: tema.primario.withValues(alpha: 0.4)),
               ),
-              child: Text(_modoActual, style: const TextStyle(fontSize: 10)),
+              child: Text(_modoActual, style: TextStyle(fontSize: 10, color: tema.isDark ? Colors.white : tema.texto)),
             ),
             const Spacer(),
             // ── Derecha: acciones críticas siempre visibles ───────────
@@ -317,14 +537,14 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _tpvAppBarColor.withValues(alpha: 0.35),
+                  color: tema.primario.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                  border: Border.all(color: tema.primario.withValues(alpha: 0.4)),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.account_balance_wallet, size: 13, color: Colors.white70),
-                  SizedBox(width: 3),
-                  Text('Caja', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.account_balance_wallet, size: 13, color: tema.primario),
+                  const SizedBox(width: 3),
+                  Text('Caja', style: TextStyle(fontSize: 11, color: tema.primario, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
@@ -335,25 +555,25 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _tpvAppBarColor.withValues(alpha: 0.2),
+                  color: tema.superficie,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  border: Border.all(color: tema.borde),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.summarize_outlined, size: 13, color: Colors.white70),
-                  SizedBox(width: 3),
-                  Text('Cierre', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.summarize_outlined, size: 13, color: tema.textoMuted),
+                  const SizedBox(width: 3),
+                  Text('Cierre', style: TextStyle(fontSize: 11, color: tema.textoMuted, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
             // Reloj + wifi
             const SizedBox(width: 6),
-            Text(_horaActual, style: const TextStyle(fontSize: 11)),
+            Text(_horaActual, style: TextStyle(fontSize: 11, color: tema.textoMuted)),
             const SizedBox(width: 4),
             Icon(
               _estaOnline ? Icons.wifi : Icons.wifi_off,
               size: 14,
-              color: _estaOnline ? Colors.white54 : Colors.orangeAccent,
+              color: _estaOnline ? tema.textoMuted : Colors.orangeAccent,
             ),
             if (_pendientesOffline > 0) ...[
               const SizedBox(width: 4),
@@ -372,10 +592,38 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                 ),
               ),
             ],
+            // ── Toggle claro/oscuro ────────────────────────────────────
+            _TemaToggleBtn(
+              oscuro: _oscuro,
+              onToggle: _toggleTema,
+              tema: tema,
+            ),
+            // ── Configuración TPV — acceso directo (admin) ────────────
+            if (widget.esAdmin) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'Configuración TPV',
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => ConfiguracionFacturacionTpvScreen(
+                            empresaId: widget.empresaId,
+                            esPropietario: widget.esPropietario))),
+                    child: Padding(
+                      padding: const EdgeInsets.all(7),
+                      child: Icon(Icons.settings_outlined, size: 16, color: tema.textoMuted),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             // ── Menú desbordamiento para acciones secundarias ─────────
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 18, color: Colors.white70),
-              color: const Color(0xFF1E2139),
+              icon: Icon(Icons.more_vert, size: 18, color: tema.textoMuted),
+              color: tema.superficie,
               onSelected: (v) {
                 switch (v) {
                   case 'historial':
@@ -421,59 +669,34 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
                     ));
                 }
               },
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'historial', child: Row(children: [
-                  Icon(Icons.history, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Historial de ventas', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'tickets', child: Row(children: [
-                  Icon(Icons.receipt_long, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Tickets del turno', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'stats', child: Row(children: [
-                  Icon(Icons.bar_chart, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Estadísticas', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'cocina', child: Row(children: [
-                  Icon(Icons.restaurant_menu, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Pantalla de cocina', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'fiados', child: Row(children: [
-                  Icon(Icons.schedule_rounded, size: 16, color: Color(0xFFFFCC00)), SizedBox(width: 10),
-                  Text('Fiados pendientes', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'devoluciones', child: Row(children: [
-                  Icon(Icons.keyboard_return, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Devoluciones', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'tema', child: Row(children: [
-                  Icon(Icons.palette_outlined, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Tema del plano', style: TextStyle(color: Colors.white)),
-                ])),
-                const PopupMenuItem(value: 'impresora', child: Row(children: [
-                  Icon(Icons.print, size: 16, color: Colors.white70), SizedBox(width: 10),
-                  Text('Impresora', style: TextStyle(color: Colors.white)),
-                ])),
-                if (widget.esAdmin)
-                  const PopupMenuItem(value: 'config', child: Row(children: [
-                    Icon(Icons.settings, size: 16, color: Colors.white70), SizedBox(width: 10),
-                    Text('Configuración TPV', style: TextStyle(color: Colors.white)),
-                  ])),
-              ],
+              itemBuilder: (ctx) {
+                final t = _TpvRootTemaScope.of(ctx);
+                PopupMenuEntry<String> item(String val, IconData ic, String lbl, {Color? iconColor}) =>
+                  PopupMenuItem<String>(value: val, child: Row(children: [
+                    Icon(ic, size: 16, color: iconColor ?? t.textoMuted), const SizedBox(width: 10),
+                    Text(lbl, style: TextStyle(color: t.texto)),
+                  ]));
+                return [
+                  item('historial', Icons.history, 'Historial de ventas'),
+                  item('tickets', Icons.receipt_long, 'Tickets del turno'),
+                  item('stats', Icons.bar_chart, 'Estadísticas'),
+                  item('cocina', Icons.restaurant_menu, 'Pantalla de cocina'),
+                  item('fiados', Icons.schedule_rounded, 'Fiados pendientes', iconColor: const Color(0xFFFFCC00)),
+                  item('devoluciones', Icons.keyboard_return, 'Devoluciones'),
+                  item('tema', Icons.palette_outlined, 'Tema del plano'),
+                  item('impresora', Icons.print, 'Impresora'),
+                  if (widget.esAdmin)
+                    item('config', Icons.settings, 'Configuración TPV'),
+                ];
+              },
             ),
           ],
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // ── Franja de empleados activos ──────────────────────────────────
-          EmpleadosBannerWidget(
-            empresaId: widget.empresaId,
-            empleadoSeleccionadoId: _empleadoSeleccionadoId,
-            onEmpleadoChanged: (id) => setState(() => _empleadoSeleccionadoId = id),
-            colorPrimario: const Color(0xFF00BCD4),
-            colorFondo: const Color(0xFF0D1B2A),
-          ),
+          Column(
+        children: [
           // ── Layout principal del TPV ─────────────────────────────────────
           Expanded(
             child: Row(
@@ -487,6 +710,10 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
               mesaId: _mesaSeleccionadaId,
               estaOnline: _estaOnline,
               onActualizarOffline: _actualizarContadorOffline,
+              onAbrirConfig: widget.esAdmin ? () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ConfiguracionFacturacionTpvScreen(
+                      empresaId: widget.empresaId,
+                      esPropietario: widget.esPropietario))) : null,
               onComandaActualizada: (comanda) {
                 setState(() => _comandaActiva = comanda);
                 _sincronizarComanda();
@@ -530,7 +757,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
               },
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF333333)),
+          VerticalDivider(width: 1, thickness: 1, color: _TpvRootTemaScope.of(context).borde),
           // COLUMNA CENTRAL (45%): PLANO DE MESAS
           Expanded(
             flex: 45,
@@ -547,7 +774,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
               mesaSeleccionadaId: _mesaSeleccionadaId,
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF333333)),
+          VerticalDivider(width: 1, thickness: 1, color: _TpvRootTemaScope.of(context).borde),
           // COLUMNA DERECHA (30%): CATÁLOGO DE PRODUCTOS
           Expanded(
             flex: 30,
@@ -568,8 +795,11 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
       ),          // cierre Row
           ),     // cierre Expanded
         ],
-      ),         // cierre Column (body)
-    );
+      ),         // cierre Column interna del Stack
+        ],
+      ),         // cierre Stack (body)
+    ),           // cierre Scaffold
+    );           // cierre _TpvRootTemaScope
   }
 
   void _agregarProductoAComanda(BuildContext context, Producto producto, VarianteProducto? variante) {
@@ -1362,10 +1592,11 @@ class _ColumnaListaMesasState extends State<_ColumnaListaMesas> {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Stack(
       children: [
         Container(
-          color: const Color(0xFF1A1A1A),
+          color: tema.fondo,
           child: StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('empresas')
@@ -1434,117 +1665,145 @@ class _ColumnaListaMesasState extends State<_ColumnaListaMesas> {
               final mesasFiltradas = widget.zonaFiltro.isEmpty
                   ? mesasPorEmpleado
                   : mesasPorEmpleado.where((m) => m.zona == widget.zonaFiltro).toList();
-              final libres = mesasPorEmpleado.where((m) => m.esLibre).length;
-              final ocupadas = mesasPorEmpleado.where((m) => m.esOcupada).length;
+              final libres     = mesasPorEmpleado.where((m) => m.esLibre).length;
+              final ocupadas   = mesasPorEmpleado.where((m) => m.esOcupada).length;
+              final reservadas = mesasPorEmpleado.where((m) => m.esReservada).length;
+              final bloqueadas = mesasPorEmpleado.where((m) => !m.esLibre && !m.esOcupada && !m.esReservada).length;
+              final zonaLabel  = widget.zonaFiltro.isEmpty ? 'TODAS LAS SALAS' : widget.zonaFiltro.toUpperCase();
+              final hasMesa    = widget.mesaSeleccionadaId != null;
 
+              final tema = _TpvRootTemaScope.of(context);
               return ClipRect(
                 child: Column(
                 children: [
-                  // ── Cabecera ──────────────────────────────────────────────
+                  // ── Cabecera — Resumen + Acciones rápidas ─────────────────
                   Container(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1A1A2E),
-                      border: Border(bottom: BorderSide(color: Color(0xFF333333))),
+                    decoration: BoxDecoration(
+                      color: tema.superficie,
+                      border: Border(bottom: BorderSide(color: tema.borde)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Fila superior: título + edit
-                        Row(
-                          children: [
-                            const Icon(Icons.table_restaurant, size: 14, color: Color(0xFF00FFC8)),
-                            const SizedBox(width: 6),
-                            const Text('PLANO DE MESAS',
-                                style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.4)),
-                            const Spacer(),
-                            if (widget.esAdmin) ...[
-                              _EditPlanoBtn(
-                                activo: _modoEdicionPlano,
-                                onToggle: () => setState(
-                                    () => _modoEdicionPlano = !_modoEdicionPlano),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        // Fila de contadores + botones añadir mesa
-                        Row(
-                          children: [
-                            _ResumenCounter(count: libres, label: 'LIBRES', color: Colors.green),
-                            const SizedBox(width: 12),
-                            _ResumenCounter(count: ocupadas, label: 'OCUPADAS', color: Colors.red),
-                            const Spacer(),
-                            if (widget.esAdmin) ...[
-                              _BtnAddMesa(
-                                tooltip: 'Mesa rectangular',
-                                icono: Icons.crop_square,
-                                color: const Color(0xFF00FFC8),
-                                onTap: () => _crearMesaConForma('rect'),
-                              ),
-                              const SizedBox(width: 4),
-                              _BtnAddMesa(
-                                tooltip: 'Mesa redonda',
-                                icono: Icons.circle_outlined,
-                                color: const Color(0xFF00FFC8),
-                                onTap: () => _crearMesaConForma('circle'),
-                              ),
-                              const SizedBox(width: 4),
-                              _BtnAddMesa(
-                                tooltip: 'Barra (mesa larga)',
-                                icono: Icons.horizontal_rule,
-                                color: const Color(0xFFEF9F27),
-                                onTap: () => _crearMesaConForma('bar'),
-                              ),
-                            ],
-                          ],
-                        ),
-                        // ── Filtro de zonas + botón crear zona ────────────
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          height: 26,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  children: [
-                                    // Chips de zonas reales
-                                    ...zonas.map((zona) => _ZonaChip(
-                                      zona: zona,
-                                      seleccionada: widget.zonaFiltro == zona,
-                                      onTap: () => widget.onZonaChanged(zona),
-                                    )),
-                                  ],
-                                ),
-                              ),
-                              // ── Botón "+" crear zona ──────────────────────
-                              Tooltip(
-                                message: 'Nueva zona',
-                                child: InkWell(
-                                  onTap: () => _crearZona(context),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2A2A2A),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: const Color(0xFF00FFC8).withValues(alpha: 0.5)),
-                                    ),
-                                    child: const Icon(Icons.add, size: 14, color: Color(0xFF00FFC8)),
-                                  ),
-                                ),
-                              ),
-                            ],
+                    child: Column(children: [
+                      // Fila 1: stats | acciones rápidas
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          // ── Stats ───────────────────────────────────────────
+                          Expanded(
+                            flex: 6,
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('RESUMEN $zonaLabel',
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                                      color: tema.textoMuted, letterSpacing: 1.2)),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                _StatTile(count: libres,     label: 'Libres',     color: const Color(0xFF22C55E)),
+                                const SizedBox(width: 8),
+                                _StatTile(count: ocupadas,   label: 'Ocupadas',   color: const Color(0xFFEF4444)),
+                                const SizedBox(width: 8),
+                                _StatTile(count: reservadas, label: 'Reservadas', color: const Color(0xFFF59E0B)),
+                                const SizedBox(width: 8),
+                                _StatTile(count: bloqueadas, label: 'Bloqueadas', color: const Color(0xFF94A3B8)),
+                              ]),
+                            ]),
                           ),
-                        ),
-                      ],
-                    ),
+                          Container(width: 1, height: 44, color: tema.borde, margin: const EdgeInsets.symmetric(horizontal: 12)),
+                          // ── Acciones rápidas ────────────────────────────────
+                          Expanded(
+                            flex: 5,
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('ACCIONES RÁPIDAS',
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                                      color: tema.textoMuted, letterSpacing: 1.2)),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                _AccionRapida(
+                                  icon: Icons.merge_type,
+                                  label: 'Unir mesas',
+                                  enabled: hasMesa,
+                                  onTap: hasMesa ? () => _mostrarMenuContextualMesa(context, mesasFiltradas.firstWhere((m) => m.id == widget.mesaSeleccionadaId, orElse: () => mesasFiltradas.first), widget.empresaId) : null,
+                                ),
+                                const SizedBox(width: 10),
+                                _AccionRapida(
+                                  icon: Icons.call_split,
+                                  label: 'Dividir',
+                                  enabled: hasMesa,
+                                  onTap: hasMesa ? () {} : null,
+                                ),
+                                const SizedBox(width: 10),
+                                _AccionRapida(
+                                  icon: Icons.discount_outlined,
+                                  label: 'Descuento',
+                                  enabled: hasMesa,
+                                  onTap: hasMesa ? () {} : null,
+                                ),
+                                const SizedBox(width: 10),
+                                _AccionRapida(
+                                  icon: Icons.swap_horiz,
+                                  label: 'Trasladar',
+                                  enabled: hasMesa,
+                                  onTap: hasMesa ? () {} : null,
+                                ),
+                              ]),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                      // Fila 2: zonas + controles
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 8, 8),
+                        decoration: BoxDecoration(border: Border(top: BorderSide(color: tema.borde))),
+                        child: Row(children: [
+                          // Chips de zonas
+                          Expanded(
+                            child: SizedBox(
+                              height: 26,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: zonas.map((zona) => _ZonaChip(
+                                  zona: zona,
+                                  seleccionada: widget.zonaFiltro == zona,
+                                  onTap: () => widget.onZonaChanged(zona),
+                                )).toList(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Botón + crear zona
+                          Tooltip(
+                            message: 'Nueva zona',
+                            child: InkWell(
+                              onTap: () => _crearZona(context),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                width: 26, height: 26,
+                                decoration: BoxDecoration(
+                                  color: tema.superficie,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: tema.primario.withValues(alpha: 0.5)),
+                                ),
+                                child: Icon(Icons.add, size: 13, color: tema.primario),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Editar plano
+                          if (widget.esAdmin)
+                            _EditPlanoBtn(
+                              activo: _modoEdicionPlano,
+                              onToggle: () => setState(() => _modoEdicionPlano = !_modoEdicionPlano),
+                            ),
+                          const SizedBox(width: 4),
+                          // Botones añadir mesa (solo en modo edición)
+                          if (widget.esAdmin && _modoEdicionPlano) ...[
+                            _BtnAddMesa(tooltip: 'Rect', icono: Icons.crop_square, color: const Color(0xFF00FFC8), onTap: () => _crearMesaConForma('rect')),
+                            const SizedBox(width: 3),
+                            _BtnAddMesa(tooltip: 'Redonda', icono: Icons.circle_outlined, color: const Color(0xFF00FFC8), onTap: () => _crearMesaConForma('circle')),
+                            const SizedBox(width: 3),
+                            _BtnAddMesa(tooltip: 'Barra', icono: Icons.horizontal_rule, color: const Color(0xFFEF9F27), onTap: () => _crearMesaConForma('bar')),
+                          ],
+                        ]),
+                      ),
+                    ]),
                   ),
                   // ── Plano de mesas ────────────────────────────────────
                   Expanded(
@@ -1564,6 +1823,23 @@ class _ColumnaListaMesasState extends State<_ColumnaListaMesas> {
                                   .update({'pos_x': newX, 'pos_y': newY});
                             }
                           : null,
+                    ),
+                  ),
+                  // ── Leyenda de estados ────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: tema.superficie,
+                      border: Border(top: BorderSide(color: tema.borde)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _LeyendaItem(color: const Color(0xFF4CAF50), label: 'Libre', muted: tema.textoMuted),
+                        _LeyendaItem(color: Colors.redAccent, label: 'Ocupada', muted: tema.textoMuted),
+                        _LeyendaItem(color: Colors.orange, label: 'Reservada', muted: tema.textoMuted),
+                        _LeyendaItem(color: Colors.grey, label: 'Bloqueada', muted: tema.textoMuted),
+                      ],
                     ),
                   ),
                 ],
@@ -1603,6 +1879,7 @@ class _ZonaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Padding(
       padding: const EdgeInsets.only(right: 5),
       child: GestureDetector(
@@ -1611,16 +1888,16 @@ class _ZonaChip extends StatelessWidget {
           duration: const Duration(milliseconds: 130),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
-            color: seleccionada ? const Color(0xFFFFA000) : const Color(0xFF2A2A2A),
+            color: seleccionada ? const Color(0xFFFFA000) : tema.superficie,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: seleccionada ? const Color(0xFFFFA000) : const Color(0xFF444444),
+              color: seleccionada ? const Color(0xFFFFA000) : tema.borde,
             ),
           ),
           child: Text(
             zona,
             style: TextStyle(
-              color: seleccionada ? Colors.black : Colors.white70,
+              color: seleccionada ? Colors.black : tema.textoMuted,
               fontSize: 11,
               fontWeight: seleccionada ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -1640,6 +1917,7 @@ class _EditPlanoBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Tooltip(
       message: activo ? 'Bloquear posiciones' : 'Mover mesas',
       child: InkWell(
@@ -1650,18 +1928,18 @@ class _EditPlanoBtn extends StatelessWidget {
           decoration: BoxDecoration(
             color: activo
                 ? Colors.orange.withValues(alpha: 0.2)
-                : const Color(0xFF333333),
+                : tema.superficie,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: activo
                   ? Colors.orange.withValues(alpha: 0.5)
-                  : const Color(0xFF444444),
+                  : tema.borde,
             ),
           ),
           child: Icon(
             activo ? Icons.lock_open : Icons.edit_location_alt,
             size: 14,
-            color: activo ? Colors.orange : Colors.white54,
+            color: activo ? Colors.orange : tema.textoMuted,
           ),
         ),
       ),
@@ -2148,6 +2426,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
   final VoidCallback? onEnEspera;
   final bool estaOnline;
   final VoidCallback? onActualizarOffline;
+  final VoidCallback? onAbrirConfig;
 
   const _ColumnaComandaActiva({
     required this.empresaId,
@@ -2161,22 +2440,23 @@ class _ColumnaComandaActiva extends StatelessWidget {
     this.onEnEspera,
     this.estaOnline = true,
     this.onActualizarOffline,
+    this.onAbrirConfig,
   });
 
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    final tema = _TpvRootTemaScope.of(context);
 
     return Container(
-      color: const Color(0xFF111111),
+      color: tema.superficie,
       child: Column(
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A1A1A),
-              border: Border(bottom: BorderSide(color: Color(0xFF333333))),
+            decoration: BoxDecoration(
+              color: tema.fondo,
+              border: Border(bottom: BorderSide(color: tema.borde)),
             ),
             child: mesaId != null
                 ? StreamBuilder<DocumentSnapshot>(
@@ -2188,73 +2468,143 @@ class _ColumnaComandaActiva extends StatelessWidget {
                   .snapshots(),
               builder: (ctx, snap) {
                 String nombre = 'Mesa';
+                int? numero;
                 if (snap.hasData && snap.data!.exists) {
                   final d = snap.data!.data() as Map<String, dynamic>;
                   nombre = d['nombre'] as String? ?? 'Mesa ${d['numero']}';
+                  numero = d['numero'] as int?;
                 }
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            nombre.toUpperCase(),
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 1.0),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                return Column(mainAxisSize: MainAxisSize.min, children: [
+                  // ── Fila 1: Comanda # + menú ──────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 0),
+                    child: Row(children: [
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: tema.primario.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        // ── Camarero asignado ──────────────────────────
-                        if (comandaActiva?.camareroUid.isNotEmpty == true)
-                          StreamBuilder<DocumentSnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('empresas')
-                                .doc(empresaId)
-                                .collection('empleados')
-                                .doc(comandaActiva!.camareroUid)
-                                .snapshots(),
-                            builder: (_, empSnap) {
-                              String empNombre = '';
-                              if (empSnap.hasData && empSnap.data!.exists) {
-                                final d = empSnap.data!.data() as Map<String, dynamic>;
-                                empNombre = (d['nombre'] as String?) ?? '';
-                              }
-                              if (empNombre.isEmpty) return const SizedBox.shrink();
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                margin: const EdgeInsets.only(left: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1565C0).withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFF1565C0)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.person, size: 11, color: Color(0xFF90CAF9)),
-                                    const SizedBox(width: 4),
-                                    Text(empNombre,
-                                        style: const TextStyle(
-                                            color: Color(0xFF90CAF9),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600)),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
+                        child: Icon(Icons.receipt_long, size: 14, color: tema.primario),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          numero != null ? 'Comanda #$numero' : nombre,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: tema.texto),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, size: 18, color: tema.textoMuted),
+                        color: tema.superficie,
+                        itemBuilder: (ctx2) {
+                          final t = _TpvRootTemaScope.of(ctx2);
+                          return [
+                            PopupMenuItem(value: 'cocina', child: Row(children: [
+                              Icon(Icons.send, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Enviar a cocina', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'nota', child: Row(children: [
+                              Icon(Icons.note_add, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Añadir nota', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'libre', child: Row(children: [
+                              Icon(Icons.add_circle_outline, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Producto libre', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'descuento', child: Row(children: [
+                              Icon(Icons.discount_outlined, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Aplicar descuento', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'espera', child: Row(children: [
+                              Icon(Icons.pause_circle_outline, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Poner en espera', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'dividir', child: Row(children: [
+                              Icon(Icons.call_split, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Dividir comanda', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                            PopupMenuItem(value: 'transferir', child: Row(children: [
+                              Icon(Icons.swap_horiz, size: 14, color: t.textoMuted), const SizedBox(width: 8),
+                              Text('Trasladar mesa', style: TextStyle(color: t.texto, fontSize: 13)),
+                            ])),
+                          ];
+                        },
+                        onSelected: (v) {
+                          switch (v) {
+                            case 'cocina':    _enviarACocina(context);
+                            case 'nota':      _agregarNotaGeneral(context);
+                            case 'libre':     _agregarProductoLibre(context);
+                            case 'descuento': if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty) _aplicarDescuento(context);
+                            case 'espera':    if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty) onEnEspera?.call();
+                            case 'dividir':   if (comandaActiva != null && comandaActiva!.lineas.length > 1) _mostrarDividirComanda(context, empresaId, mesaId!, comandaActiva!, onComandaActualizada);
+                            case 'transferir': _transferirComanda(context);
+                          }
+                        },
+                      ),
+                    ]),
+                  ),
+                  // ── Fila 2: cliente + personas ─────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                    child: Row(children: [
+                      Icon(Icons.person_outline, size: 14, color: tema.textoMuted),
+                      const SizedBox(width: 6),
+                      Text('Cliente', style: TextStyle(fontSize: 11, color: tema.textoMuted)),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text('Walk-in',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: tema.texto),
+                          overflow: TextOverflow.ellipsis)),
+                      Icon(Icons.people_outline, size: 13, color: tema.textoMuted),
+                      const SizedBox(width: 4),
+                      Text('Personas', style: TextStyle(fontSize: 10, color: tema.textoMuted)),
+                    ]),
+                  ),
+                  // ── Fila 3: camarero ──────────────────────────────────
+                  if (comandaActiva?.camareroUid.isNotEmpty == true)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+                      child: StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('empresas').doc(empresaId)
+                            .collection('empleados').doc(comandaActiva!.camareroUid).snapshots(),
+                        builder: (_, empSnap) {
+                          String empNombre = '';
+                          if (empSnap.hasData && empSnap.data!.exists) {
+                            empNombre = (empSnap.data!.data() as Map<String, dynamic>)['nombre'] as String? ?? '';
+                          }
+                          if (empNombre.isEmpty) return const SizedBox.shrink();
+                          final inicial = empNombre.isNotEmpty ? empNombre[0].toUpperCase() : '?';
+                          return Row(children: [
+                            Container(
+                              width: 24, height: 24,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF3B82F6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(child: Text(inicial,
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+                            ),
+                            const SizedBox(width: 6),
+                            Text('Camarero', style: TextStyle(fontSize: 11, color: tema.textoMuted)),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(empNombre,
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: tema.texto),
+                                overflow: TextOverflow.ellipsis)),
+                          ]);
+                        },
+                      ),
+                    )
+                  else
                     const SizedBox(height: 6),
-                    // Botones de acción: FittedBox garantiza una sola línea
-                    FittedBox(
+                  // ── Fila 4: botones de acción compactos ───────────────
+                  Container(
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: tema.borde))),
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                    child: FittedBox(
                       alignment: Alignment.centerLeft,
-                      child: Row(
-                      children: [
+                      child: Row(children: [
                         _AccionIconBtn(
                           icon: Icons.send,
                           tooltip: 'Cocina',
@@ -2344,31 +2694,34 @@ class _ColumnaComandaActiva extends StatelessWidget {
                       ],
                     ),   // close Row
                   ),     // close FittedBox
-                  ],
-                );
+                  ),     // close actions Container
+                ]);      // close mesa Column
               },
             )
-                : Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fila 1: icono + título
-                const Row(
-                  children: [
-                    Icon(Icons.bolt_rounded, color: Colors.orange, size: 20),
-                    SizedBox(width: 6),
+                : Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Fila 1: ⚡ VENTA DIRECTA
+                  Row(children: [
+                    Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.bolt_rounded, color: Colors.orange, size: 16),
+                    ),
+                    const SizedBox(width: 8),
                     Text('VENTA DIRECTA',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: 0.6)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // Fila 2: botones de acción
-                Row(
-                  children: [
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                            color: tema.texto, letterSpacing: 0.4)),
+                  ]),
+                  const SizedBox(height: 10),
+                  // Fila 2: botones de acción
+                  Row(children: [
                     _BotonAccion(
                       icon: Icons.add_circle_outline,
                       label: 'Libre',
@@ -2378,30 +2731,31 @@ class _ColumnaComandaActiva extends StatelessWidget {
                     _BotonAccion(
                       icon: Icons.discount_outlined,
                       label: 'Dto.',
-                      onTap: comandaActiva != null &&
-                          comandaActiva!.lineas.isNotEmpty
+                      onTap: comandaActiva != null && comandaActiva!.lineas.isNotEmpty
                           ? () => _aplicarDescuento(context)
                           : () {},
                     ),
                     const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.white54, size: 18),
-                      tooltip: 'Limpiar',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      onPressed: () => onComandaActualizada(Comanda(
-                        id: '',
-                        camareroUid: '',
-                        lineas: [],
-                        estado: 'abierta',
-                        apertura: Timestamp.now(),
-                        importeTotal: 0,
-                      )),
-                    ),
-                  ],
-                ),
-              ],
+                    if (onAbrirConfig != null)
+                      Tooltip(
+                        message: 'Configuración TPV',
+                        child: GestureDetector(
+                          onTap: onAbrirConfig,
+                          child: Icon(Icons.settings_outlined, size: 17, color: tema.textoMuted.withValues(alpha: 0.7)),
+                        ),
+                      ),
+                    if (onAbrirConfig != null) const SizedBox(width: 8),
+                    if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => onComandaActualizada(Comanda(
+                          id: '', camareroUid: '', lineas: [],
+                          estado: 'abierta', apertura: Timestamp.now(), importeTotal: 0,
+                        )),
+                        child: Icon(Icons.delete_outline, size: 18, color: tema.textoMuted.withValues(alpha: 0.6)),
+                      ),
+                  ]),
+                ],
+              ),
             ),
           ),
           // Lista de productos — compacto cuando hay >5
@@ -2413,13 +2767,13 @@ class _ColumnaComandaActiva extends StatelessWidget {
                       children: [
                         Icon(Icons.receipt_long_outlined,
                             size: 64,
-                            color: Colors.white.withValues(alpha: 0.1)),
+                            color: tema.textoMuted.withValues(alpha: 0.2)),
                         const SizedBox(height: 16),
-                        const Text('Comanda vacía',
-                            style: TextStyle(color: Colors.white38, fontSize: 16)),
+                        Text('Comanda vacía',
+                            style: TextStyle(color: tema.textoMuted, fontSize: 16)),
                         const SizedBox(height: 8),
-                        const Text('Selecciona productos del catálogo',
-                            style: TextStyle(color: Colors.white24, fontSize: 12)),
+                        Text('Selecciona productos del catálogo',
+                            style: TextStyle(color: tema.textoMuted.withValues(alpha: 0.6), fontSize: 12)),
                       ],
                     ),
                   )
@@ -2455,140 +2809,130 @@ class _ColumnaComandaActiva extends StatelessWidget {
                     },
                   ),
           ),
-          // Total y botón cobro
+          // ── Panel total + cobrar ─────────────────────────────────────────
           if (comandaActiva != null && comandaActiva!.lineas.isNotEmpty)
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A1A1A),
-                border: Border(
-                    top: BorderSide(color: Color(0xFF333333), width: 2)),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              decoration: BoxDecoration(
+                color: tema.superficie,
+                border: Border(top: BorderSide(color: tema.borde)),
               ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Subtotal:',
-                          style:
-                          TextStyle(color: Colors.white70, fontSize: 14)),
-                      Text(fmt.format(comandaActiva!.baseImponible),
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('IVA:',
-                          style:
-                          TextStyle(color: Colors.white70, fontSize: 14)),
-                      Text(fmt.format(comandaActiva!.cuotaIva),
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14)),
-                    ],
-                  ),
-                  // Descuento si existe
-                  if ((comandaActiva!.descuento ?? 0) > 0) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(children: [
-                          const Text('Descuento:',
-                              style: TextStyle(color: Colors.greenAccent, fontSize: 14)),
-                          if (comandaActiva!.descuentoPct != null)
-                            Text('  (${comandaActiva!.descuentoPct!.toStringAsFixed(0)}%)',
-                                style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                        ]),
-                        Text('- ${fmt.format(comandaActiva!.descuento!)}',
-                            style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                    TextButton(
-                      onPressed: () => onComandaActualizada(
-                          comandaActiva!.copyWith(clearDescuento: true)),
-                      style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                      child: const Text('Quitar descuento',
-                          style: TextStyle(color: Colors.red, fontSize: 10)),
-                    ),
-                  ],
-                  // Nota general si existe
-                  if ((comandaActiva!.notaGeneral ?? '').isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(children: [
-                        const Icon(Icons.note, size: 13, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Expanded(child: Text(
-                          comandaActiva!.notaGeneral!,
-                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontStyle: FontStyle.italic),
-                        )),
-                      ]),
-                    ),
-                  const Divider(color: Color(0xFF444444), height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Flexible(
-                        child: Text('TOTAL:',
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white)),
+              child: Column(children: [
+                // Subtotal
+                _totalRow('Subtotal', fmt.format(comandaActiva!.baseImponible), tema),
+                const SizedBox(height: 3),
+                // Descuento
+                if ((comandaActiva!.descuento ?? 0) > 0) ...[
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Row(children: [
+                      Text(
+                        'Descuento${comandaActiva!.descuentoPct != null ? " (${comandaActiva!.descuentoPct!.toStringAsFixed(0)}%)" : ""}',
+                        style: const TextStyle(color: Color(0xFF22C55E), fontSize: 12),
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            fmt.format(comandaActiva!.total),
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFFFA000),
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => onComandaActualizada(comandaActiva!.copyWith(clearDescuento: true)),
+                        child: const Icon(Icons.close, size: 12, color: Colors.redAccent),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: () => _cobrar(context, empresaId,
-                          comandaActiva!, mesaId, onCobrado),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'COBRAR ${fmt.format(comandaActiva!.total)}',
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1),
-                        ),
-                      ),
-                    ),
-                  ),
+                    ]),
+                    Text('- ${fmt.format(comandaActiva!.descuento!)}',
+                        style: const TextStyle(color: Color(0xFF22C55E), fontSize: 12, fontWeight: FontWeight.w600)),
+                  ]),
+                  const SizedBox(height: 3),
                 ],
-              ),
+                // IVA
+                _totalRow('Impuestos', fmt.format(comandaActiva!.cuotaIva), tema),
+                // Nota
+                if ((comandaActiva!.notaGeneral ?? '').isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(children: [
+                      const Icon(Icons.note, size: 12, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(comandaActiva!.notaGeneral!,
+                          style: const TextStyle(color: Colors.amber, fontSize: 10, fontStyle: FontStyle.italic),
+                          overflow: TextOverflow.ellipsis)),
+                    ]),
+                  ),
+                Divider(color: tema.borde, height: 14),
+                // TOTAL
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('TOTAL', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: tema.textoMuted)),
+                  FittedBox(fit: BoxFit.scaleDown,
+                    child: Text(fmt.format(comandaActiva!.total),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1D4ED8)))),
+                ]),
+                const SizedBox(height: 10),
+                // Botón Cobrar
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => _cobrar(context, empresaId, comandaActiva!, mesaId, onCobrado),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: FittedBox(fit: BoxFit.scaleDown,
+                      child: Text('Cobrar ${fmt.format(comandaActiva!.total)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1D4ED8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Botón Enviar a cocina
+                SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _enviarACocina(context),
+                    icon: Icon(Icons.restaurant_outlined, size: 16, color: tema.textoMuted),
+                    label: Text('Enviar a cocina',
+                        style: TextStyle(fontSize: 13, color: tema.texto, fontWeight: FontWeight.w500)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: tema.borde),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Barra de acciones rápidas
+                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                  _miniAccion(Icons.discount_outlined, 'Descuento', tema,
+                      onTap: () => _aplicarDescuento(context)),
+                  _miniAccion(Icons.note_add_outlined, 'Nota', tema,
+                      onTap: () => _agregarNotaGeneral(context)),
+                  _miniAccion(Icons.call_split, 'Dividir', tema,
+                      enabled: (comandaActiva?.lineas.length ?? 0) > 1,
+                      onTap: comandaActiva != null && comandaActiva!.lineas.length > 1
+                          ? () => _mostrarDividirComanda(context, empresaId, mesaId ?? '', comandaActiva!, onComandaActualizada)
+                          : () {}),
+                  _miniAccion(Icons.more_horiz, 'Más', tema,
+                      onTap: () {}),
+                ]),
+              ]),
             ),
         ],
       ),
     );
   }
+
+  Widget _totalRow(String label, String valor, _TpvRootTema t) =>
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: TextStyle(fontSize: 12, color: t.textoMuted)),
+        Text(valor,  style: TextStyle(fontSize: 12, color: t.textoMuted)),
+      ]);
+
+  Widget _miniAccion(IconData icon, String label, _TpvRootTema t,
+      {VoidCallback? onTap, bool enabled = true}) =>
+    GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 20, color: enabled ? t.texto : t.textoMuted.withValues(alpha: 0.4)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 9, color: enabled ? t.textoMuted : t.textoMuted.withValues(alpha: 0.4))),
+      ]),
+    );
 
   // ── IMPLEMENTADO: Enviar comanda a impresora de cocina ─────────────────
   Future<void> _transferirComanda(BuildContext context) async {
@@ -4045,16 +4389,17 @@ class _LineaComandaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
+    final tema = _TpvRootTemaScope.of(context);
 
-    if (compact) return _buildCompact(fmt);
+    if (compact) return _buildCompact(fmt, tema);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: tema.superficie,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF333333)),
+        border: Border.all(color: tema.borde),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4083,7 +4428,7 @@ class _LineaComandaCard extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: linea.esNuevo ? Colors.white : Colors.white70)),
+                        color: linea.esNuevo ? tema.texto : tema.textoMuted)),
               ),
               // ── IMPLEMENTADO: Botón editar precio ──
               GestureDetector(
@@ -4092,18 +4437,17 @@ class _LineaComandaCard extends StatelessWidget {
                   padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
+                    color: tema.fondo,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF555555)),
+                    border: Border.all(color: tema.borde),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.edit, size: 11, color: Colors.white38),
+                      Icon(Icons.edit, size: 11, color: tema.textoMuted.withValues(alpha: 0.5)),
                       const SizedBox(width: 4),
                       Text(fmt.format(linea.precioUnitario),
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.white54)),
+                          style: TextStyle(fontSize: 11, color: tema.textoMuted)),
                     ],
                   ),
                 ),
@@ -4132,14 +4476,14 @@ class _LineaComandaCard extends StatelessWidget {
               // Botones cantidad
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: tema.fondo,
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: tema.borde),
                 ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove, size: 18),
-                      color: Colors.white70,
+                      icon: Icon(Icons.remove, size: 18, color: tema.textoMuted),
                       onPressed: () => onCantidadChanged(-1),
                       padding: const EdgeInsets.all(8),
                       constraints:
@@ -4148,14 +4492,13 @@ class _LineaComandaCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: Text('${linea.cantidad}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
-                              color: Colors.white)),
+                              color: tema.texto)),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add, size: 18),
-                      color: Colors.white70,
+                      icon: Icon(Icons.add, size: 18, color: tema.primario),
                       onPressed: () => onCantidadChanged(1),
                       padding: const EdgeInsets.all(8),
                       constraints:
@@ -4172,7 +4515,7 @@ class _LineaComandaCard extends StatelessWidget {
                   size: 18,
                   color: (linea.notas?.isNotEmpty == true)
                       ? Colors.amber
-                      : Colors.white38,
+                      : tema.textoMuted.withValues(alpha: 0.4),
                 ),
                 tooltip: 'Añadir nota',
                 onPressed: onEditarNota,
@@ -4197,21 +4540,21 @@ class _LineaComandaCard extends StatelessWidget {
   }
 
   // ── Layout compacto (cuando hay muchos ítems y hay que encoger) ────────────
-  Widget _buildCompact(NumberFormat fmt) {
+  Widget _buildCompact(NumberFormat fmt, _TpvRootTema tema) {
     return Container(
       margin: const EdgeInsets.only(bottom: 3),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: tema.superficie,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2E2E2E)),
+        border: Border.all(color: tema.borde),
       ),
       child: Row(
         children: [
           // Botones cantidad compactos
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
+              color: tema.fondo,
               borderRadius: BorderRadius.circular(5),
             ),
             child: Row(
@@ -4219,9 +4562,9 @@ class _LineaComandaCard extends StatelessWidget {
               children: [
                 InkWell(
                   onTap: () => onCantidadChanged(-1),
-                  child: const SizedBox(
+                  child: SizedBox(
                     width: 26, height: 26,
-                    child: Icon(Icons.remove, size: 13, color: Colors.white70),
+                    child: Icon(Icons.remove, size: 13, color: tema.textoMuted),
                   ),
                 ),
                 SizedBox(
@@ -4229,15 +4572,15 @@ class _LineaComandaCard extends StatelessWidget {
                   child: Text(
                     '${linea.cantidad}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w800, color: tema.texto),
                   ),
                 ),
                 InkWell(
                   onTap: () => onCantidadChanged(1),
-                  child: const SizedBox(
+                  child: SizedBox(
                     width: 26, height: 26,
-                    child: Icon(Icons.add, size: 13, color: Colors.white70),
+                    child: Icon(Icons.add, size: 13, color: tema.primario),
                   ),
                 ),
               ],
@@ -4258,7 +4601,7 @@ class _LineaComandaCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w600,
-                  color: linea.esNuevo ? Colors.white : Colors.white60),
+                  color: linea.esNuevo ? tema.texto : tema.textoMuted),
             ),
           ),
           const SizedBox(width: 4),
@@ -4280,7 +4623,7 @@ class _LineaComandaCard extends StatelessWidget {
               size: 14,
               color: (linea.notas?.isNotEmpty == true)
                   ? Colors.amber
-                  : Colors.white24,
+                  : tema.textoMuted.withValues(alpha: 0.35),
             ),
           ),
         ],
@@ -4627,8 +4970,9 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
     required Map<String, dynamic> imagenes,
     required List<Producto> extras,
   }) {
+    final temaOuter = _TpvRootTemaScope.of(context);
     return Container(
-      color: const Color(0xFF111111),
+      color: temaOuter.fondo,
       // ── Stream externo: productos activos ────────────────────────────────
       child: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -4703,24 +5047,25 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                 return true;
               }).toList();
 
+              final tema = _TpvRootTemaScope.of(context);
               return Column(
                 children: [
                   // ── Cabecera ──────────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1A1A1A),
-                      border: Border(bottom: BorderSide(color: Color(0xFF333333))),
+                    decoration: BoxDecoration(
+                      color: tema.superficie,
+                      border: Border(bottom: BorderSide(color: tema.borde)),
                     ),
                     child: Column(
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.storefront, size: 14, color: Color(0xFFFFA000)),
+                            Icon(Icons.storefront, size: 14, color: tema.primario),
                             const SizedBox(width: 6),
-                            const Text('CATÁLOGO',
+                            Text('CATÁLOGO',
                                 style: TextStyle(
-                                    color: Colors.white70,
+                                    color: tema.textoMuted,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.4)),
@@ -4732,8 +5077,8 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                             const SizedBox(width: 4),
                             if (widget.esAdmin)
                               IconButton(
-                                icon: const Icon(Icons.add_circle_outline,
-                                    color: Color(0xFF00FFC8), size: 18),
+                                icon: Icon(Icons.add_circle_outline,
+                                    color: tema.primario, size: 18),
                                 tooltip: 'Nuevo producto',
                                 onPressed: () =>
                                     _mostrarDialogoNuevoProducto(context, widget.empresaId),
@@ -4751,21 +5096,21 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                               Expanded(
                                 child: TextField(
                                   onChanged: widget.onBusquedaChanged,
-                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                  style: TextStyle(color: tema.texto, fontSize: 12),
                                   decoration: InputDecoration(
                                     hintText: 'Buscar producto…',
-                                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
-                                    prefixIcon: const Icon(Icons.search, size: 16, color: Colors.white38),
+                                    hintStyle: TextStyle(color: tema.textoMuted, fontSize: 12),
+                                    prefixIcon: Icon(Icons.search, size: 16, color: tema.textoMuted),
                                     suffixIcon: widget.busqueda.isNotEmpty
                                         ? IconButton(
-                                            icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                                            icon: Icon(Icons.clear, size: 14, color: tema.textoMuted),
                                             onPressed: () => widget.onBusquedaChanged(''),
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(minWidth: 28),
                                           )
                                         : null,
                                     filled: true,
-                                    fillColor: const Color(0xFF252525),
+                                    fillColor: tema.fondo,
                                     contentPadding: EdgeInsets.zero,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
@@ -4785,11 +5130,12 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                                     width: 32,
                                     height: 32,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF252525),
+                                      color: tema.superficie,
                                       borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: tema.primario.withValues(alpha: 0.4)),
                                     ),
-                                    child: const Icon(Icons.qr_code_scanner,
-                                        size: 18, color: Color(0xFF00FFC8)),
+                                    child: Icon(Icons.qr_code_scanner,
+                                        size: 18, color: tema.primario),
                                   ),
                                 ),
                               ),
@@ -4816,11 +5162,11 @@ class _ColumnaCatalogoProductosState extends State<_ColumnaCatalogoProductos> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.inventory_2_outlined,
-                                    size: 48, color: Colors.white.withValues(alpha: 0.1)),
+                                    size: 48, color: tema.textoMuted.withValues(alpha: 0.2)),
                                 const SizedBox(height: 8),
                                 Text(
                                   widget.busqueda.isNotEmpty ? 'Sin resultados' : 'Sin productos',
-                                  style: const TextStyle(color: Colors.white24, fontSize: 13),
+                                  style: TextStyle(color: tema.textoMuted, fontSize: 13),
                                 ),
                                 if (widget.esAdmin && widget.busqueda.isEmpty) ...[
                                   const SizedBox(height: 12),
@@ -4968,6 +5314,7 @@ class _SelectorColumnas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [3, 4].map((n) {
@@ -4984,13 +5331,11 @@ class _SelectorColumnas extends StatelessWidget {
                 height: 22,
                 decoration: BoxDecoration(
                   color: sel
-                      ? const Color(0xFFFFA000).withValues(alpha: 0.25)
-                      : const Color(0xFF333333),
+                      ? const Color(0xFFFFA000).withValues(alpha: 0.2)
+                      : tema.superficie,
                   borderRadius: BorderRadius.circular(5),
                   border: Border.all(
-                    color: sel
-                        ? const Color(0xFFFFA000)
-                        : const Color(0xFF444444),
+                    color: sel ? const Color(0xFFFFA000) : tema.borde,
                   ),
                 ),
                 child: Center(
@@ -4999,7 +5344,7 @@ class _SelectorColumnas extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: sel ? const Color(0xFFFFA000) : Colors.white54,
+                      color: sel ? const Color(0xFFFFA000) : tema.textoMuted,
                     ),
                   ),
                 ),
@@ -5033,9 +5378,10 @@ class _BarraCategorias extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Container(
       height: 78,
-      color: const Color(0xFF1A1A1A),
+      color: tema.superficie,
       padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
       child: Row(
         children: [
@@ -5047,7 +5393,7 @@ class _BarraCategorias extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 5,
                 mainAxisSpacing: 6,
-                childAspectRatio: 0.36, // height/width → chips ~92px ancho
+                childAspectRatio: 0.36,
               ),
               itemCount: categorias.length,
               itemBuilder: (_, i) {
@@ -5073,7 +5419,7 @@ class _BarraCategorias extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: sel ? Colors.white : Colors.white70,
+                        color: sel ? Colors.white : tema.textoMuted,
                         fontSize: 11,
                         fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                       ),
@@ -5094,7 +5440,7 @@ class _BarraCategorias extends StatelessWidget {
                   height: double.infinity,
                   margin: const EdgeInsets.only(left: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
+                    color: tema.fondo,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                         color: const Color(0xFFFFA000).withValues(alpha: 0.5)),
@@ -5315,18 +5661,19 @@ class _ProductoCardBar extends StatelessWidget {
         : imagenAutoUrl;
     final usandoImagenAuto = !tieneImagenPropia && imagenAutoUrl != null;
 
+    final tema = _TpvRootTemaScope.of(context);
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: tema.superficie,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: usandoImagenAuto
                 ? const Color(0xFFFFA000).withValues(alpha: 0.4)
-                : const Color(0xFF2E2E2E),
+                : tema.borde,
           ),
         ),
         child: Column(
@@ -5341,13 +5688,15 @@ class _ProductoCardBar extends StatelessWidget {
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(7)),
                     child: urlImagen != null
-                        ? Image.network(
-                            urlImagen,
+                        ? CachedNetworkImage(
+                            imageUrl: urlImagen,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
-                            errorBuilder: (_, __, ___) =>
-                                _inicialBox(colorCategoria, inicial),
+                            placeholder: (_, __) => _inicialBox(colorCategoria, inicial),
+                            errorWidget: (_, __, ___) => _inicialBox(colorCategoria, inicial),
+                            memCacheWidth: 400,
+                            memCacheHeight: 400,
                           )
                         : _inicialBox(colorCategoria, inicial),
                   ),
@@ -5389,10 +5738,10 @@ class _ProductoCardBar extends StatelessWidget {
                       Expanded(
                         child: Text(
                           producto.nombre,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: tema.texto,
                             height: 1.1,
                           ),
                           maxLines: 1,
@@ -5434,10 +5783,12 @@ class _ProductoCardBar extends StatelessWidget {
                     ]),
                     Text(
                       fmt.format(producto.precio),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF1565C0),
+                        color: tema.primario == const Color(0xFF00FFC8)
+                            ? const Color(0xFF059669)  // verde oscuro en modo claro (legible)
+                            : const Color(0xFF00FFC8), // cian en modo oscuro
                       ),
                     ),
                   ],
@@ -8077,6 +8428,116 @@ class _DividerTicket extends StatelessWidget {
 
 // ───────────────────────────────────────────────────────────────────────────
 
+// ── Stat tile del resumen sala ────────────────────────────────────────────────
+class _StatTile extends StatelessWidget {
+  final int count;
+  final String label;
+  final Color color;
+  const _StatTile({required this.count, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+      Text(label, style: TextStyle(fontSize: 9, color: tema.textoMuted, fontWeight: FontWeight.w500)),
+    ]);
+  }
+}
+
+// ── Botón acción rápida del plano ─────────────────────────────────────────────
+class _AccionRapida extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback? onTap;
+  const _AccionRapida({required this.icon, required this.label, required this.enabled, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
+    final color = enabled ? tema.texto : tema.textoMuted.withValues(alpha: 0.4);
+    return Tooltip(
+      message: enabled ? label : '$label (selecciona una mesa)',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: enabled ? tema.primario.withValues(alpha: 0.1) : tema.borde.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: enabled ? tema.primario.withValues(alpha: 0.3) : tema.borde),
+            ),
+            child: Icon(icon, size: 16, color: enabled ? tema.primario : tema.textoMuted.withValues(alpha: 0.4)),
+          ),
+          const SizedBox(height: 3),
+          Text(label, style: TextStyle(fontSize: 8, color: color, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Leyenda item (punto de color + etiqueta) ──────────────────────────────────
+class _LeyendaItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final Color muted;
+  const _LeyendaItem({required this.color, required this.label, required this.muted});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8, height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(label, style: TextStyle(fontSize: 11, color: muted, fontWeight: FontWeight.w500)),
+    ],
+  );
+}
+
+// ── Botón toggle claro / oscuro ───────────────────────────────────────────────
+class _TemaToggleBtn extends StatelessWidget {
+  final bool oscuro;
+  final VoidCallback onToggle;
+  final _TpvRootTema tema;
+
+  const _TemaToggleBtn({
+    required this.oscuro,
+    required this.onToggle,
+    required this.tema,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 36,
+          height: 32,
+          decoration: BoxDecoration(
+            color: tema.superficie,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: tema.borde),
+          ),
+          child: Icon(
+            oscuro ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            size: 16,
+            color: oscuro ? const Color(0xFF00FFC8) : tema.textoMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Botón de icono compacto para acciones de comanda ─────────────────────────
 class _AccionIconBtn extends StatelessWidget {
   final IconData icon;
@@ -8093,7 +8554,8 @@ class _AccionIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? Colors.white70 : Colors.white24;
+    final tema = _TpvRootTemaScope.of(context);
+    final color = enabled ? tema.textoMuted : tema.textoMuted.withValues(alpha: 0.3);
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -8103,11 +8565,9 @@ class _AccionIconBtn extends StatelessWidget {
           width: 32,
           height: 28,
           decoration: BoxDecoration(
-            color: enabled
-                ? const Color(0xFF2A2A2A)
-                : const Color(0xFF222222),
+            color: tema.superficie,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF444444)),
+            border: Border.all(color: tema.borde),
           ),
           child: Icon(icon, size: 15, color: color),
         ),
@@ -8125,6 +8585,7 @@ class _BotonAccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tema = _TpvRootTemaScope.of(context);
     return Tooltip(
       message: label,
       child: InkWell(
@@ -8133,18 +8594,18 @@ class _BotonAccion extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
+            color: tema.superficie,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF444444)),
+            border: Border.all(color: tema.borde),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: Colors.white70),
+              Icon(icon, size: 14, color: tema.textoMuted),
               const SizedBox(width: 4),
               Text(label,
-                  style: const TextStyle(
-                      color: Colors.white70,
+                  style: TextStyle(
+                      color: tema.textoMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600)),
             ],
