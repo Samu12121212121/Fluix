@@ -15,6 +15,8 @@ import '../../../features/pdf_templates/domain/models/pdf_template.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'importar_catalogo_csv_screen.dart';
 import '../../../core/widgets/flux_toast.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../core/utils/app_settings.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
 
 class ConfiguracionFacturacionTpvScreen extends StatefulWidget {
@@ -83,14 +85,41 @@ class _ConfiguracionFacturacionTpvScreenState
   // Control de visualización
   bool _esDemo = false;
   bool get _puedeEditarTipoNegocio => widget.esPropietario || _esDemo;
+  bool _isDark = false;
+
+  // Colores adaptativos
+  Color get _bg   => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF0F2F5);
+  Color get _surf => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _bdr  => _isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+  Color get _txt  => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1A1A2E);
+  Color get _sub  => _isDark ? const Color(0xFF94A3B8) : _sub;
 
   @override
   void initState() {
     super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDark);
     _cargar();
     _verificarBluetooth();
     _verificarWindows();
     _verificarDemo();
+  }
+
+  void _onDark() { if (mounted) setState(() => _isDark = AppSettings.darkMode.value); }
+
+  @override
+  void dispose() {
+    AppSettings.darkMode.removeListener(_onDark);
+    _nuevoMetodoCtrl.dispose();
+    _winPuertoCtrl.dispose();
+    _winIpCtrl.dispose();
+    _winPortCtrl.dispose();
+    _barraPuertoCtrl.dispose();
+    _barraIpCtrl.dispose();
+    _barraPortCtrl.dispose();
+    _terminalIpCtrl.dispose();
+    _terminalPuertoCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _verificarDemo() async {
@@ -185,8 +214,6 @@ class _ConfiguracionFacturacionTpvScreenState
   }
 
   static const _primario = Color(0xFF1565C0);
-  static const _fondo = Color(0xFFF0F2F5);
-  static const _txtDark = Color(0xFF1A1A2E);
 
   static const _navDestinos = [
     (icon: Icons.hardware_outlined,       sel: Icons.hardware,          label: 'Hardware'),
@@ -199,13 +226,10 @@ class _ConfiguracionFacturacionTpvScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _fondo,
-      appBar: AppBar(
-        title: const Text('Configuración TPV',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        backgroundColor: _primario,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      backgroundColor: _bg,
+      appBar: FluixAppBar(
+        titulo: 'Configuración TPV',
+        showLeading: true,
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator(color: _primario))
@@ -221,43 +245,65 @@ class _ConfiguracionFacturacionTpvScreenState
     );
   }
 
-  // ── Layout desktop: NavigationRail + contenido ────────────────────────────
+  // ── Layout desktop: sidebar + contenido ──────────────────────────────────
 
   Widget _layoutDesktop() => Row(children: [
     Container(
-      width: 100,
-      color: Colors.white,
-      child: Column(children: [
+      width: 152,
+      color: _isDark ? const Color(0xFF0F172A) : const Color(0xFFF8F9FC),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header del sidebar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Configuración',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                    color: _sub, letterSpacing: 0.5)),
+            Text('TPV',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+                    color: _txt, letterSpacing: -0.3)),
+          ]),
+        ),
+        Divider(height: 1, color: _bdr),
         const SizedBox(height: 8),
+        // Items de navegación
         ..._navDestinos.asMap().entries.map((e) {
           final i = e.key;
           final d = e.value;
           final sel = _navIdx == i;
-          return Tooltip(
-            message: d.label,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             child: InkWell(
               onTap: () => setState(() => _navIdx = i),
+              borderRadius: BorderRadius.circular(8),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                 decoration: BoxDecoration(
-                  color: sel ? _primario.withValues(alpha: 0.1) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: sel ? Border.all(color: _primario.withValues(alpha: 0.3)) : null,
+                  color: sel
+                      ? _primario.withValues(alpha: _isDark ? 0.18 : 0.10)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: sel
+                      ? Border.all(color: _primario.withValues(alpha: 0.3))
+                      : null,
                 ),
-                child: Column(children: [
-                  Icon(sel ? d.sel : d.icon, size: 20,
-                      color: sel ? _primario : Colors.grey.shade500),
-                  const SizedBox(height: 4),
-                  Text(d.label,
+                child: Row(children: [
+                  Icon(sel ? d.sel : d.icon, size: 17,
+                      color: sel ? _primario : _sub),
+                  const SizedBox(width: 9),
+                  Expanded(child: Text(d.label,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? _primario : Colors.grey.shade500,
+                        color: sel ? _primario : _sub,
                       ),
-                      textAlign: TextAlign.center),
+                      overflow: TextOverflow.ellipsis)),
+                  if (sel)
+                    Container(width: 4, height: 4,
+                        decoration: BoxDecoration(
+                            color: _primario, shape: BoxShape.circle)),
                 ]),
               ),
             ),
@@ -265,7 +311,7 @@ class _ConfiguracionFacturacionTpvScreenState
         }),
       ]),
     ),
-    Container(width: 1, color: Colors.grey.shade200),
+    Container(width: 1, color: _bdr),
     Expanded(child: _tabContent(_navIdx)),
   ]);
 
@@ -276,14 +322,15 @@ class _ConfiguracionFacturacionTpvScreenState
       length: 5,
       child: Column(children: [
         Material(
-          color: Colors.white,
+          color: _surf,
           child: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             labelColor: _primario,
-            unselectedLabelColor: Colors.grey.shade500,
+            unselectedLabelColor: _sub,
             indicatorColor: _primario,
             indicatorWeight: 2.5,
+            dividerColor: _bdr,
             labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             unselectedLabelStyle: const TextStyle(fontSize: 12),
             tabs: _navDestinos.map((d) => Tab(
@@ -327,10 +374,10 @@ class _ConfiguracionFacturacionTpvScreenState
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: sel ? _primario.withValues(alpha: 0.06) : _fondo,
+                color: sel ? _primario.withValues(alpha: 0.06) : _bg,
                 borderRadius: BorderRadius.circular(9),
                 border: Border.all(
-                  color: sel ? _primario : Colors.grey.shade200,
+                  color: sel ? _primario : _bdr,
                   width: sel ? 1.5 : 1,
                 ),
               ),
@@ -341,7 +388,7 @@ class _ConfiguracionFacturacionTpvScreenState
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: sel ? _primario : _txtDark,
+                      color: sel ? _primario : _txt,
                     ))),
                 if (sel)
                   Container(
@@ -394,15 +441,15 @@ class _ConfiguracionFacturacionTpvScreenState
                 margin: const EdgeInsets.only(left: 8),
                 width: 40, height: 36,
                 decoration: BoxDecoration(
-                  color: sel ? _primario : _fondo,
+                  color: sel ? _primario : _bg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                      color: sel ? _primario : Colors.grey.shade300),
+                      color: sel ? _primario : _bdr),
                 ),
                 child: Center(child: Text('$n',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: sel ? Colors.white : Colors.grey.shade700,
+                      color: sel ? Colors.white : _txt,
                     ))),
               ),
             );
@@ -453,7 +500,7 @@ class _ConfiguracionFacturacionTpvScreenState
           ),
           const SizedBox(height: 4),
           Text('Aparecen como botones rápidos en la pantalla de cobro.',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              style: TextStyle(fontSize: 11, color: _sub)),
         ],
       ])),
       _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -464,7 +511,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             SizedBox(height: 2),
             Text('Limita el % que un cajero puede aplicar. 100 = sin límite.',
-                style: TextStyle(fontSize: 11, color: Colors.grey)),
+                style: TextStyle(fontSize: 11, _sub)),
           ])),
           const SizedBox(width: 12),
           SizedBox(
@@ -531,7 +578,7 @@ class _ConfiguracionFacturacionTpvScreenState
         ),
         const SizedBox(height: 4),
         Text('El operario deberá introducir el PIN al abrir el TPV.',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            style: TextStyle(fontSize: 11, color: _sub)),
       ])),
       _seccionOpciones(),
       _seccionGenerarFacturaDia(),
@@ -545,8 +592,9 @@ class _ConfiguracionFacturacionTpvScreenState
   Widget _pieGuardar() => Container(
     padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
     decoration: BoxDecoration(
-      color: Colors.white,
-      boxShadow: [BoxShadow(
+      color: _surf,
+      border: Border(top: BorderSide(color: _bdr)),
+      boxShadow: _isDark ? [] : [BoxShadow(
         color: Colors.black.withValues(alpha: 0.06),
         blurRadius: 8,
         offset: const Offset(0, -2),
@@ -578,9 +626,9 @@ class _ConfiguracionFacturacionTpvScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _titulo('🧾 FACTURA DE LO QUE SE LLEVA HOY'),
-        const Text(
+        Text(
           'Genera una factura resumen con todos los tickets cobrados hoy que aún no tienen factura.',
-          style: TextStyle(fontSize: 13, color: Colors.black54),
+          style: TextStyle(fontSize: 13, color: _sub),
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -638,9 +686,10 @@ class _ConfiguracionFacturacionTpvScreenState
     margin: const EdgeInsets.only(bottom: 14),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: _surf,
       borderRadius: BorderRadius.circular(12),
-      boxShadow: [BoxShadow(
+      border: Border.all(color: _bdr),
+      boxShadow: _isDark ? [] : [BoxShadow(
         color: Colors.black.withValues(alpha: 0.05),
         blurRadius: 10,
         offset: const Offset(0, 2),
@@ -664,10 +713,10 @@ class _ConfiguracionFacturacionTpvScreenState
         ),
         const SizedBox(width: 10),
       ],
-      Text(titulo, style: const TextStyle(
+      Text(titulo, style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: _txtDark,
+        color: _txt,
         letterSpacing: -0.1,
       )),
     ]),
@@ -684,9 +733,9 @@ class _ConfiguracionFacturacionTpvScreenState
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         dense: true,
-        title: Text(titulo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        title: Text(titulo, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _txt)),
         subtitle: sub != null
-            ? Text(sub, style: TextStyle(fontSize: 11, color: Colors.grey.shade500))
+            ? Text(sub, style: TextStyle(fontSize: 11, color: _sub))
             : null,
         value: val,
         activeColor: _primario,
@@ -697,9 +746,14 @@ class _ConfiguracionFacturacionTpvScreenState
   InputDecoration _deco(String label, {String? hint}) => InputDecoration(
     labelText: label,
     hintText: hint,
-    hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-    labelStyle: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+    hintStyle: TextStyle(fontSize: 12, color: _sub),
+    labelStyle: TextStyle(fontSize: 13, color: _sub),
+    filled: true,
+    fillColor: _isDark ? const Color(0xFF0F172A) : const Color(0xFFF9FAFB),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(9),
+        borderSide: BorderSide(color: _bdr)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(9),
+        borderSide: BorderSide(color: _bdr)),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(9),
       borderSide: const BorderSide(color: _primario, width: 1.5),
@@ -717,9 +771,9 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Elige qué métodos de pago aparecen en la pantalla de cobro:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: _sub),
           ),
           const SizedBox(height: 8),
           // Métodos predefinidos
@@ -843,7 +897,7 @@ class _ConfiguracionFacturacionTpvScreenState
                         ],
                       ]),
                       const SizedBox(height: 2),
-                      Text(modo.descripcion, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(modo.descripcion, style: TextStyle(fontSize: 12, color: _sub)),
                       const SizedBox(height: 6),
                     ],
                   ),
@@ -882,7 +936,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(tipo.nombre, style: TextStyle(fontWeight: FontWeight.w600,
                       color: sel ? const Color(0xFF1565C0) : null)),
-                  Text(tipo.descripcion, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text(tipo.descripcion, style: TextStyle(fontSize: 11, color: _sub)),
                 ])),
                 if (sel) const Icon(Icons.check_circle, color: Color(0xFF1565C0)),
               ]),
@@ -903,7 +957,7 @@ class _ConfiguracionFacturacionTpvScreenState
         const Text(
           'Selecciona qué plantilla usar para cada tipo de documento. '
           'Si no seleccionas ninguna, se usa la marcada como "Por defecto".',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, _sub),
         ),
         const SizedBox(height: 12),
         _plantillaSelector('📋 Factura completa', _config.plantillaIdFactura,
@@ -1036,7 +1090,7 @@ class _ConfiguracionFacturacionTpvScreenState
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
               'En este modo, cada pedido genera su propia factura inmediatamente al cobrar.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, _sub),
             ),
           ),
         ],
@@ -1055,7 +1109,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Selecciona qué métodos de pago incluir en la facturación automática:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, _sub),
           ),
           const SizedBox(height: 12),
           CheckboxListTile(
@@ -1092,7 +1146,7 @@ class _ConfiguracionFacturacionTpvScreenState
           const Text(
             'Si el nombre de empresa aparece incorrecto en los PDFs, '
             'escríbelo aquí. Tiene prioridad sobre el documento de Firestore.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, _sub),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -1205,7 +1259,7 @@ class _ConfiguracionFacturacionTpvScreenState
               ),
               child: const Text(
                 'Ejemplo con IVA 21%: Precio 12,10€ → Base 10€ + IVA 2,10€',
-                style: TextStyle(fontSize: 11, color: Colors.black87),
+                style: TextStyle(fontSize: 11, color: _txt),
               ),
             ),
           const Divider(height: 20),
@@ -1261,7 +1315,7 @@ class _ConfiguracionFacturacionTpvScreenState
             const Text(
               'Conecta un datáfono WiFi para que el TPV envíe automáticamente el importe al terminal. '
               'Sin configuración funciona en modo manual (el cajero confirma tras cobrar).',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: TextStyle(fontSize: 12, color: _sub),
             ),
             const SizedBox(height: 16),
             // Selector de protocolo
@@ -1407,13 +1461,13 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Impresora exclusiva para comandas de barra. Si no se configura, usa la impresora principal.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(fontSize: 12, color: _sub),
           ),
           const SizedBox(height: 14),
           // Selector modo
           Container(
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: (_isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6)),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(children: [
@@ -1426,10 +1480,10 @@ class _ConfiguracionFacturacionTpvScreenState
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.usb, size: 16, color: !_barraUsaTcp ? Colors.white : Colors.black54),
+                    Icon(Icons.usb, size: 16, color: !_barraUsaTcp ? Colors.white : _sub),
                     const SizedBox(width: 6),
                     Text('Puerto COM', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                        color: !_barraUsaTcp ? Colors.white : Colors.black54)),
+                        color: !_barraUsaTcp ? Colors.white : _sub)),
                   ]),
                 ),
               )),
@@ -1442,10 +1496,10 @@ class _ConfiguracionFacturacionTpvScreenState
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.wifi, size: 16, color: _barraUsaTcp ? Colors.white : Colors.black54),
+                    Icon(Icons.wifi, size: 16, color: _barraUsaTcp ? Colors.white : _sub),
                     const SizedBox(width: 6),
                     Text('Red (WiFi)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                        color: _barraUsaTcp ? Colors.white : Colors.black54)),
+                        color: _barraUsaTcp ? Colors.white : _sub)),
                   ]),
                 ),
               )),
@@ -1493,7 +1547,7 @@ class _ConfiguracionFacturacionTpvScreenState
               fontSize: 11,
               color: (_barraUsaTcp ? _barraIpCtrl.text : _barraPuertoCtrl.text).isNotEmpty
                   ? Colors.green.shade700
-                  : Colors.grey.shade500,
+                  : _sub,
             ),
           ),
         ],
@@ -1523,7 +1577,7 @@ class _ConfiguracionFacturacionTpvScreenState
             const Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Alerta de tiempo en barra', style: TextStyle(fontWeight: FontWeight.w500)),
-                Text('Minutos antes de marcar la comanda en rojo', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                Text('Minutos antes de marcar la comanda en rojo', style: TextStyle(fontSize: 12, color: _sub)),
               ]),
             ),
             Row(children: [
@@ -1557,7 +1611,7 @@ class _ConfiguracionFacturacionTpvScreenState
   );
 
   Widget _seccionImpresoraWindows() {
-    final conectadaColor = _winConectada ? Colors.green.shade700 : Colors.grey.shade600;
+    final conectadaColor = _winConectada ? Colors.green.shade700 : _sub;
     final estadoTexto = _winConectada
         ? (_winUsaTcp
             ? 'Conectada vía red (${_winIpCtrl.text})'
@@ -1584,7 +1638,7 @@ class _ConfiguracionFacturacionTpvScreenState
             // Selector de modo
             Container(
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: (_isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(children: [
@@ -1598,11 +1652,11 @@ class _ConfiguracionFacturacionTpvScreenState
                     ),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Icon(Icons.usb, size: 16,
-                          color: !_winUsaTcp ? Colors.white : Colors.black54),
+                          color: !_winUsaTcp ? Colors.white : _sub),
                       const SizedBox(width: 6),
                       Text('Bluetooth / USB',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                              color: !_winUsaTcp ? Colors.white : Colors.black54)),
+                              color: !_winUsaTcp ? Colors.white : _sub)),
                     ]),
                   ),
                 )),
@@ -1616,11 +1670,11 @@ class _ConfiguracionFacturacionTpvScreenState
                     ),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Icon(Icons.wifi, size: 16,
-                          color: _winUsaTcp ? Colors.white : Colors.black54),
+                          color: _winUsaTcp ? Colors.white : _sub),
                       const SizedBox(width: 6),
                       Text('Red (WiFi)',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                              color: _winUsaTcp ? Colors.white : Colors.black54)),
+                              color: _winUsaTcp ? Colors.white : _sub)),
                     ]),
                   ),
                 )),
@@ -1704,12 +1758,12 @@ class _ConfiguracionFacturacionTpvScreenState
               ]),
               const SizedBox(height: 6),
               const Text('Puerto RAW estándar: 9100. Asegúrate de que la impresora está en la misma red.',
-                  style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  style: TextStyle(fontSize: 11, _sub)),
             ],
             const Divider(height: 28),
             _titulo('🗄️ CAJÓN REGISTRADORA'),
             const Text('Ajustes guardados en la nube por empresa.',
-                style: TextStyle(fontSize: 11, color: Colors.grey)),
+                style: TextStyle(fontSize: 11, _sub)),
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -1832,7 +1886,7 @@ class _ConfiguracionFacturacionTpvScreenState
           else
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.bluetooth_disabled, color: Colors.grey, size: 28),
+              leading: const Icon(Icons.bluetooth_disabled, color: _sub, size: 28),
               title: const Text('Sin impresora conectada'),
               subtitle: const Text('Conecta una impresora Bluetooth para imprimir tickets', style: TextStyle(fontSize: 12)),
             ),
@@ -1923,7 +1977,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Importa productos en masa desde un archivo CSV o Excel.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(fontSize: 13, _sub),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1979,7 +2033,7 @@ class _ConfiguracionFacturacionTpvScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: (_isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SelectableText(
@@ -1991,7 +2045,7 @@ class _ConfiguracionFacturacionTpvScreenState
               const Text(
                 'Copia este contenido y pégalo en Excel o Google Sheets. '
                 'Guarda como CSV y súbelo desde "Importar CSV".',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, _sub),
               ),
             ],
           ),
@@ -2026,7 +2080,7 @@ class _ConfiguracionFacturacionTpvScreenState
         children: [
           const Text(
             'Gestiona las imágenes de los productos de tu catálogo.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(fontSize: 13, _sub),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -2125,15 +2179,15 @@ class _DialogoGestionImagenesState extends State<_DialogoGestionImagenes> {
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
+                          color: _bdr,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Icon(Icons.image, color: Colors.grey),
+                        child: const Icon(Icons.image, _sub),
                       ),
                 title: Text(nombre),
                 subtitle: imagenUrl != null && imagenUrl.isNotEmpty
                     ? const Text('Imagen asignada', style: TextStyle(color: Colors.green, fontSize: 11))
-                    : const Text('Sin imagen', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    : const Text('Sin imagen', style: TextStyle(color: _sub, fontSize: 11)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -2172,7 +2226,8 @@ class _DialogoGestionImagenesState extends State<_DialogoGestionImagenes> {
   Future<void> _subirImagen(String productoId, String nombreProducto) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
         withData: true,
       );
 
@@ -2186,11 +2241,21 @@ class _DialogoGestionImagenesState extends State<_DialogoGestionImagenes> {
           .ref()
           .child('empresas/${widget.empresaId}/catalogo/$fileName');
 
+      // Detectar content-type por extensión
+      final ext = file.extension?.toLowerCase() ?? '';
+      final contentType = switch (ext) {
+        'webp' => 'image/webp',
+        'png'  => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        _ => 'image/jpeg',
+      };
+      final meta = SettableMetadata(contentType: contentType);
+
       // Subir archivo — usa bytes siempre que estén disponibles (funciona en Web, Windows, Android, iOS)
       if (kIsWeb || file.bytes != null) {
-        await storageRef.putData(file.bytes!);
+        await storageRef.putData(file.bytes!, meta);
       } else if (file.path != null) {
-        await storageRef.putFile(File(file.path!));
+        await storageRef.putFile(File(file.path!), meta);
       } else {
         throw Exception('No se pudieron leer los bytes del archivo');
       }
