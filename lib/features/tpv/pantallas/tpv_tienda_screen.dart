@@ -27,6 +27,7 @@ import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../../services/tpv/offline_queue_service.dart';
+import '../../../services/verifactu/qr_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
@@ -2984,6 +2985,24 @@ class _TiendaComandaPanel extends StatelessWidget {
         estadoPago: 'pagado',
         fechaHora: Timestamp.fromDate(ahora),
       );
+
+      // QR AEAT (VeriFactu) — solo si el NIF de la empresa está configurado
+      try {
+        final nif = (empresaData['nif'] as String?)?.trim() ?? '';
+        if (nif.isNotEmpty) {
+          final qrUrl = QrService().generarUrl(
+            nifEmisor: nif,
+            serie: 'TPV',
+            numero: pedido.id.substring(0, 8).toUpperCase(),
+            fecha: ahora,
+            importeTotal: totalConDescuento,
+          );
+          await FirebaseFirestore.instance
+              .collection('empresas').doc(empresaId)
+              .collection('pedidos').doc(pedido.id)
+              .update({'qr_aeat_url': qrUrl});
+        }
+      } catch (_) {}
 
       // Preguntar si desea factura
       if (context.mounted) {

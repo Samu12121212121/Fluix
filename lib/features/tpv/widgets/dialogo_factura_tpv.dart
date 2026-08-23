@@ -184,11 +184,21 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
               TextFormField(
                 controller: _nifCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'NIF / CIF (opcional)',
+                  labelText: 'NIF / CIF (obligatorio para empresa)',
+                  hintText: 'Ej: B12345678 · 12345678A',
                   prefixIcon: Icon(Icons.badge_outlined),
                   border: OutlineInputBorder(),
                 ),
                 textCapitalization: TextCapitalization.characters,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null; // opcional
+                  final nif = v.trim().toUpperCase();
+                  // Formato básico: NIF (8d+1l), CIF (1l+7d+1d/l), NIE (X/Y/Z+7d+1l)
+                  final valido = RegExp(
+                      r'^([A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])$')
+                      .hasMatch(nif);
+                  return valido ? null : 'Formato inválido (ej: B12345678 o 12345678A)';
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(

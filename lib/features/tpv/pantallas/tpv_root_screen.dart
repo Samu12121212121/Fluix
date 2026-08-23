@@ -45,6 +45,7 @@ import '../../../widgets/tpv/hold_pedidos_widget.dart';
 import '../../../widgets/tpv/arqueo_caja_widget.dart';
 import '../../../services/tpv/offline_queue_service.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
+import '../../../services/verifactu/qr_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEMA DEL TPV ROOT — paleta claro / oscuro (login palette)
@@ -4007,10 +4008,28 @@ class _ColumnaComandaActiva extends StatelessWidget {
     }
     debugPrint('💰 [COBRO] ✅ Pedido creado: ${pedidoCreado.id}');
 
-    if (!context.mounted) { 
+    // QR AEAT (VeriFactu) — solo si el NIF de la empresa está configurado
+    try {
+      final nif = (empresaData['nif'] as String?)?.trim() ?? '';
+      if (nif.isNotEmpty) {
+        final qrUrl = QrService().generarUrl(
+          nifEmisor: nif,
+          serie: 'TPV',
+          numero: pedidoCreado.id.substring(0, 8).toUpperCase(),
+          fecha: ahora,
+          importeTotal: (pago['total_final'] as double?) ?? comanda.total,
+        );
+        await FirebaseFirestore.instance
+            .collection('empresas').doc(empresaId)
+            .collection('pedidos').doc(pedidoCreado.id)
+            .update({'qr_aeat_url': qrUrl});
+      }
+    } catch (_) {}
+
+    if (!context.mounted) {
       debugPrint('💰 [COBRO] Context desmontado después de crear pedido');
-      onCobrado(); 
-      return; 
+      onCobrado();
+      return;
     }
 
     debugPrint('💰 [COBRO] Paso 6: Omitido (factura opcional, se pregunta al final)');
