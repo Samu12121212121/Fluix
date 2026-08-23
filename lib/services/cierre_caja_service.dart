@@ -65,6 +65,22 @@ class CierreCajaService {
   Future<void> guardarCierreCaja(
       String empresaId, Map<String, dynamic> cierre) async {
     final fechaStr = cierre['fecha_legible'] as String;
+    final fechaActual = DateTime.parse(fechaStr);
+
+    // Recalcula el día anterior por si hubo ventas después del último cierre
+    final fechaAyer = fechaActual.subtract(const Duration(days: 1));
+    final ayerStr = DateFormat('yyyy-MM-dd').format(fechaAyer);
+    final docAyer = FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('cierres_caja')
+        .doc(ayerStr);
+    final snapAyer = await docAyer.get();
+    if (snapAyer.exists) {
+      final cierreAyer = await calcularCierreCaja(empresaId, fechaAyer);
+      await docAyer.set(cierreAyer, SetOptions(merge: true));
+    }
+
     await FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
