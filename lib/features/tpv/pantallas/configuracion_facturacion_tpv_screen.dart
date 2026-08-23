@@ -954,7 +954,7 @@ class _ConfiguracionFacturacionTpvScreenState
     children: [
       _titulo('PLANTILLAS PDF VINCULADAS'),
       _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text(
+        Text(
           'Selecciona qué plantilla usar para cada tipo de documento. '
           'Si no seleccionas ninguna, se usa la marcada como "Por defecto".',
           style: TextStyle(fontSize: 12, color: _sub),
@@ -1107,7 +1107,7 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Selecciona qué métodos de pago incluir en la facturación automática:',
             style: TextStyle(fontSize: 12, color: _sub),
           ),
@@ -1143,7 +1143,7 @@ class _ConfiguracionFacturacionTpvScreenState
       _titulo('DATOS DE EMPRESA EN FACTURAS'),
       _card(Column(
         children: [
-          const Text(
+          Text(
             'Si el nombre de empresa aparece incorrecto en los PDFs, '
             'escríbelo aquí. Tiene prioridad sobre el documento de Firestore.',
             style: TextStyle(fontSize: 12, color: _sub),
@@ -1257,7 +1257,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue.shade200),
               ),
-              child: const Text(
+              child: Text(
                 'Ejemplo con IVA 21%: Precio 12,10€ → Base 10€ + IVA 2,10€',
                 style: TextStyle(fontSize: 11, color: _txt),
               ),
@@ -1312,7 +1312,7 @@ class _ConfiguracionFacturacionTpvScreenState
         _card(Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Conecta un datáfono WiFi para que el TPV envíe automáticamente el importe al terminal. '
               'Sin configuración funciona en modo manual (el cajero confirma tras cobrar).',
               style: TextStyle(fontSize: 12, color: _sub),
@@ -1459,7 +1459,7 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Impresora exclusiva para comandas de barra. Si no se configura, usa la impresora principal.',
             style: TextStyle(fontSize: 12, color: _sub),
           ),
@@ -1757,12 +1757,12 @@ class _ConfiguracionFacturacionTpvScreenState
                 ),
               ]),
               const SizedBox(height: 6),
-              const Text('Puerto RAW estándar: 9100. Asegúrate de que la impresora está en la misma red.',
+              Text('Puerto RAW estándar: 9100. Asegúrate de que la impresora está en la misma red.',
                   style: TextStyle(fontSize: 11, color: _sub)),
             ],
             const Divider(height: 28),
             _titulo('🗄️ CAJÓN REGISTRADORA'),
-            const Text('Ajustes guardados en la nube por empresa.',
+            Text('Ajustes guardados en la nube por empresa.',
                 style: TextStyle(fontSize: 11, color: _sub)),
             const SizedBox(height: 8),
             SwitchListTile(
@@ -1975,7 +1975,7 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Importa productos en masa desde un archivo CSV o Excel.',
             style: TextStyle(fontSize: 13, color: _sub),
           ),
@@ -2042,7 +2042,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Copia este contenido y pégalo en Excel o Google Sheets. '
                 'Guarda como CSV y súbelo desde "Importar CSV".',
                 style: TextStyle(fontSize: 12, color: _sub),
@@ -2078,7 +2078,7 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Gestiona las imágenes de los productos de tu catálogo.',
             style: TextStyle(fontSize: 13, color: _sub),
           ),

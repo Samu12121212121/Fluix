@@ -1082,16 +1082,14 @@ class PdfService {
         clienteTelefono: '+34 600 000 000',
         clienteCorreo: 'cliente@ejemplo.com',
         datosFiscales: const DatosFiscales(nif: 'B12345678'),
-        lineas: [
+        lineas: const [
           LineaFactura(
-            id: '1', productoId: '', descripcion: 'Servicio de diseño web',
+            descripcion: 'Servicio de diseño web',
             cantidad: 3, precioUnitario: 250.0, porcentajeIva: 21.0,
-            baseImponible: 750.0, cuotaIva: 157.5, total: 907.5, orden: 0,
           ),
           LineaFactura(
-            id: '2', productoId: '', descripcion: 'Mantenimiento mensual',
+            descripcion: 'Mantenimiento mensual',
             cantidad: 1, precioUnitario: 150.0, porcentajeIva: 21.0,
-            baseImponible: 150.0, cuotaIva: 31.5, total: 181.5, orden: 1,
           ),
         ],
         subtotal: 900.0, totalIva: 189.0, total: 1089.0,
