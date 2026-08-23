@@ -1054,7 +1054,7 @@ class PdfService {
 
   // ── PREVISUALIZAR PLANTILLA ──────────────────────────────────────────────────
 
-  /// Genera los bytes del PDF de muestra con los colores/diseño del template.
+  /// Genera los bytes del PDF de muestra con el layout seleccionado del template.
   static Future<Uint8List> generarPreviewBytes(
     uiTpl.PdfTemplate plantilla,
     String empresaId,
@@ -1062,36 +1062,346 @@ class PdfService {
     final empresa = await _cargarDatosEmpresa(empresaId);
     final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
     final ahora = DateTime.now();
-    final facturaMustra = Factura(
-      id: 'preview', empresaId: empresaId,
-      numeroFactura: 'FAC-${ahora.year}-0001',
-      tipo: TipoFactura.venta_directa, estado: EstadoFactura.pagada,
-      clienteNombre: 'Cliente Ejemplo S.L.',
-      clienteCorreo: 'cliente@ejemplo.com',
-      datosFiscales: const DatosFiscales(nif: 'B12345678'),
-      lineas: const [
-        LineaFactura(descripcion: 'Servicio de diseño web', cantidad: 3, precioUnitario: 250.0),
-        LineaFactura(descripcion: 'Mantenimiento mensual', cantidad: 1, precioUnitario: 150.0),
+    final nombreEmpresa = empresa['nombre'] ?? 'Fluix Studio';
+    final cifEmpresa    = empresa['cif'] as String?;
+    final dir           = empresa['direccion'] as String?;
+    final tel           = empresa['telefono'] as String?;
+    final correo        = empresa['correo'] as String?;
+    final iban          = empresa['iban'] as String?;
+
+    switch (plantilla.estiloLayout) {
+      case 'linea':
+        return _generarPdfLinea(
+          primario: plantilla.colorPrimario, secundario: plantilla.colorSecundario,
+          nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+          logoBytes: logoBytes, anio: ahora.year,
+        );
+      case 'bold':
+        return _generarPdfBold(
+          primario: plantilla.colorPrimario, secundario: plantilla.colorSecundario,
+          nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+          logoBytes: logoBytes, anio: ahora.year,
+        );
+      default: // 'clasico'
+        final facturaMustra = Factura(
+          id: 'preview', empresaId: empresaId,
+          numeroFactura: 'FAC-${ahora.year}-0001',
+          tipo: TipoFactura.venta_directa, estado: EstadoFactura.pagada,
+          clienteNombre: 'Cliente Ejemplo S.L.', clienteCorreo: 'cliente@ejemplo.com',
+          datosFiscales: const DatosFiscales(nif: 'B12345678'),
+          lineas: const [
+            LineaFactura(descripcion: 'Servicio de diseño web', cantidad: 3, precioUnitario: 250.0),
+            LineaFactura(descripcion: 'Mantenimiento mensual', cantidad: 1, precioUnitario: 150.0),
+          ],
+          subtotal: 900.0, totalIva: 189.0, total: 1089.0,
+          descuentoGlobal: 0, importeDescuentoGlobal: 0,
+          porcentajeIrpf: 0, retencionIrpf: 0, totalRecargoEquivalencia: 0,
+          diasVencimiento: 30, metodoPago: MetodoPagoFactura.transferencia,
+          historial: [], fechaEmision: ahora,
+          fechaVencimiento: ahora.add(const Duration(days: 30)), flujo: 'ingreso',
+        );
+        return _generarPdfBytes(
+          factura: facturaMustra,
+          nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+          direccionEmpresa: dir, telefonoEmpresa: tel,
+          correoEmpresa: correo, ibanEmpresa: iban,
+          logoBytes: logoBytes,
+          colorPrimarioTemplate: plantilla.colorPrimario,
+          colorSecundarioTemplate: plantilla.colorSecundario,
+        );
+    }
+  }
+
+  // ── Layout 'linea' — minimalista con acento de línea ─────────────────────
+  static Future<Uint8List> _generarPdfLinea({
+    required String primario, required String secundario,
+    required String nombreEmpresa, String? cifEmpresa,
+    Uint8List? logoBytes, required int anio,
+  }) async {
+    final colPrim = PdfColor.fromHex(primario);
+    final fontR = await PdfGoogleFonts.nunitoRegular();
+    final fontB = await PdfGoogleFonts.nunitoBold();
+    final pdf = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
+    final lineas = [
+      ('Servicio de consultoría', 5, 180.0, 21.0),
+      ('Diseño de identidad corporativa', 1, 1200.0, 21.0),
+      ('Hosting y mantenimiento web', 12, 45.0, 21.0),
+    ];
+    final subtotal = lineas.fold(0.0, (s, l) => s + l.$2 * l.$3);
+    final iva = subtotal * 0.21;
+    final total = subtotal + iva;
+
+    pdf.addPage(pw.MultiPage(
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 48, vertical: 44),
+      ),
+      build: (ctx) => [
+        // Línea de color en la parte superior
+        pw.Container(height: 4, color: colPrim),
+        pw.SizedBox(height: 24),
+        // Header: logo/nombre empresa + número factura a la derecha
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              if (logoBytes != null)
+                pw.Image(pw.MemoryImage(logoBytes), width: 56, height: 56)
+              else
+                pw.Container(
+                  width: 50, height: 50,
+                  decoration: pw.BoxDecoration(color: colPrim, borderRadius: pw.BorderRadius.circular(6)),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    nombreEmpresa.substring(0, 1).toUpperCase(),
+                    style: pw.TextStyle(color: PdfColors.white, fontSize: 22, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+              pw.SizedBox(height: 8),
+              pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#111827'))),
+              if (cifEmpresa?.isNotEmpty == true)
+                pw.Text(cifEmpresa!, style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#9CA3AF'))),
+            ]),
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Text('FACTURA', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: colPrim, letterSpacing: 3)),
+              pw.Text('FAC-$anio-0001', style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#374151'))),
+              pw.SizedBox(height: 4),
+              pw.Text('Fecha: ${DateTime.now().day}/${DateTime.now().month}/$anio', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+              pw.Text('Vence: 30 días', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+            ]),
+          ],
+        ),
+        pw.SizedBox(height: 28),
+        // Línea divisora sutil
+        pw.Divider(color: PdfColor.fromHex('#E5E7EB'), thickness: 1),
+        pw.SizedBox(height: 16),
+        // Sección cliente
+        pw.Text('FACTURAR A:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: colPrim, letterSpacing: 1.5)),
+        pw.SizedBox(height: 4),
+        pw.Text('Cliente Ejemplo S.L.', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#111827'))),
+        pw.Text('CIF: B12345678  ·  cliente@ejemplo.com  ·  +34 600 000 000',
+            style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+        pw.SizedBox(height: 24),
+        // Tabla
+        pw.Table(
+          border: pw.TableBorder(bottom: pw.BorderSide(color: PdfColor.fromHex('#E5E7EB'))),
+          columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FlexColumnWidth(1), 2: const pw.FlexColumnWidth(2), 3: const pw.FlexColumnWidth(2)},
+          children: [
+            // Cabecera
+            pw.TableRow(
+              decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: colPrim, width: 2))),
+              children: [
+                for (final h in ['DESCRIPCIÓN', 'CANT.', 'PRECIO', 'IMPORTE'])
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 6), child:
+                    pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#374151'), letterSpacing: 0.5))),
+              ],
+            ),
+            // Líneas
+            ...lineas.map((l) => pw.TableRow(
+              decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromHex('#F3F4F6'), width: 1))),
+              children: [
+                pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8), child:
+                  pw.Text(l.$1, style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#111827')))),
+                pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8), child:
+                  pw.Text('${l.$2}', style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#374151')))),
+                pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8), child:
+                  pw.Text('${l.$3.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#374151')))),
+                pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 8), child:
+                  pw.Text('${(l.$2 * l.$3).toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#111827'), fontWeight: pw.FontWeight.bold))),
+              ],
+            )),
+          ],
+        ),
+        pw.SizedBox(height: 16),
+        // Totales (alineados a la derecha)
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+          pw.SizedBox(width: 220, child: pw.Column(children: [
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Subtotal', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+              pw.Text('${subtotal.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#374151'))),
+            ]),
+            pw.SizedBox(height: 4),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('IVA 21%', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+              pw.Text('${iva.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#374151'))),
+            ]),
+            pw.SizedBox(height: 6),
+            pw.Divider(color: colPrim, thickness: 1.5),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('TOTAL', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#111827'))),
+              pw.Text('${total.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: colPrim)),
+            ]),
+          ])),
+        ]),
+        pw.SizedBox(height: 32),
+        // Footer minimalista
+        pw.Divider(color: PdfColor.fromHex('#E5E7EB')),
+        pw.SizedBox(height: 8),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('Pago por transferencia bancaria', style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#9CA3AF'))),
+          pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: colPrim)),
+        ]),
       ],
-      subtotal: 900.0, totalIva: 189.0, total: 1089.0,
-      descuentoGlobal: 0, importeDescuentoGlobal: 0,
-      porcentajeIrpf: 0, retencionIrpf: 0, totalRecargoEquivalencia: 0,
-      diasVencimiento: 30, metodoPago: MetodoPagoFactura.transferencia,
-      historial: [], fechaEmision: ahora,
-      fechaVencimiento: ahora.add(const Duration(days: 30)), flujo: 'ingreso',
-    );
-    return _generarPdfBytes(
-      factura: facturaMustra,
-      nombreEmpresa: empresa['nombre'] ?? 'Mi Empresa',
-      cifEmpresa: empresa['cif'],
-      direccionEmpresa: empresa['direccion'],
-      telefonoEmpresa: empresa['telefono'],
-      correoEmpresa: empresa['correo'],
-      ibanEmpresa: empresa['iban'],
-      logoBytes: logoBytes,
-      colorPrimarioTemplate: plantilla.colorPrimario,
-      colorSecundarioTemplate: plantilla.colorSecundario,
-    );
+    ));
+    return pdf.save();
+  }
+
+  // ── Layout 'bold' — cabecera grande, tipografía impactante ───────────────
+  static Future<Uint8List> _generarPdfBold({
+    required String primario, required String secundario,
+    required String nombreEmpresa, String? cifEmpresa,
+    Uint8List? logoBytes, required int anio,
+  }) async {
+    final colPrim  = PdfColor.fromHex(primario);
+    final colSecun = PdfColor.fromHex(secundario);
+    final fontR = await PdfGoogleFonts.nunitoRegular();
+    final fontB = await PdfGoogleFonts.nunitoBold();
+    final pdf = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
+    final lineas = [
+      ('Consultoría estratégica', 8, 120.0),
+      ('Desarrollo de plataforma digital', 1, 3500.0),
+      ('Soporte técnico mensual', 6, 90.0),
+      ('Formación del equipo', 2, 450.0),
+    ];
+    final subtotal = lineas.fold(0.0, (s, l) => s + l.$2 * l.$3);
+    final iva = subtotal * 0.21;
+
+    pdf.addPage(pw.MultiPage(
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: pw.EdgeInsets.zero,
+      ),
+      build: (ctx) => [
+        // Cabecera full-width con mucho color
+        pw.Container(
+          width: double.infinity, padding: const pw.EdgeInsets.fromLTRB(40, 36, 40, 32),
+          color: colPrim,
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              if (logoBytes != null)
+                pw.Container(
+                  decoration: pw.BoxDecoration(color: PdfColors.white, borderRadius: pw.BorderRadius.circular(8)),
+                  padding: const pw.EdgeInsets.all(6),
+                  child: pw.Image(pw.MemoryImage(logoBytes), width: 44, height: 44),
+                )
+              else
+                pw.Container(
+                  width: 48, height: 48,
+                  decoration: pw.BoxDecoration(color: PdfColors.white.withOpacity(0.2), borderRadius: pw.BorderRadius.circular(8)),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    nombreEmpresa.substring(0, 1).toUpperCase(),
+                    style: pw.TextStyle(color: PdfColors.white, fontSize: 24, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                pw.Text('FAC-$anio-0001', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.9), fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Fecha: ${DateTime.now().day}/${DateTime.now().month}/$anio',
+                    style: pw.TextStyle(color: PdfColors.white.withOpacity(0.7), fontSize: 9)),
+              ]),
+            ]),
+            pw.SizedBox(height: 20),
+            pw.Text('FACTURA', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.55), fontSize: 10, letterSpacing: 4, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 4),
+            pw.Text(nombreEmpresa, style: pw.TextStyle(color: PdfColors.white, fontSize: 26, fontWeight: pw.FontWeight.bold)),
+            if (cifEmpresa?.isNotEmpty == true)
+              pw.Text(cifEmpresa!, style: pw.TextStyle(color: PdfColors.white.withOpacity(0.65), fontSize: 10)),
+            pw.SizedBox(height: 16),
+            // Total destacado en la cabecera
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: pw.BoxDecoration(color: PdfColors.white.withOpacity(0.15), borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
+                pw.Text('TOTAL A PAGAR: ', style: pw.TextStyle(color: PdfColors.white.withOpacity(0.8), fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('${(subtotal + iva).toStringAsFixed(2)} €',
+                    style: pw.TextStyle(color: PdfColors.white, fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              ]),
+            ),
+          ]),
+        ),
+        // Línea de acento
+        pw.Container(height: 5, color: colSecun),
+        // Contenido (con márgenes laterales)
+        pw.Padding(
+          padding: const pw.EdgeInsets.fromLTRB(40, 20, 40, 32),
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            // Cliente
+            pw.Row(children: [
+              pw.Container(width: 4, height: 40, color: colPrim),
+              pw.SizedBox(width: 12),
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('FACTURAR A', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: colPrim, letterSpacing: 1.5)),
+                pw.Text('Cliente Ejemplo S.L.', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#111827'))),
+                pw.Text('CIF: B12345678  ·  cliente@ejemplo.com', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+              ]),
+            ]),
+            pw.SizedBox(height: 24),
+            // Tabla
+            pw.Table(
+              columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FlexColumnWidth(1), 2: const pw.FlexColumnWidth(2), 3: const pw.FlexColumnWidth(2)},
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: colPrim),
+                  children: [
+                    for (final h in ['DESCRIPCIÓN', 'CANT.', 'PRECIO', 'IMPORTE'])
+                      pw.Padding(padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8), child:
+                        pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white, letterSpacing: 0.5))),
+                  ],
+                ),
+                ...lineas.asMap().entries.map((e) => pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    color: e.key.isEven ? PdfColor.fromHex('#FAFAFA') : PdfColors.white,
+                  ),
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child:
+                      pw.Text(e.value.$1, style: pw.TextStyle(fontSize: 10))),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child:
+                      pw.Text('${e.value.$2}', style: pw.TextStyle(fontSize: 10))),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child:
+                      pw.Text('${e.value.$3.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 10))),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child:
+                      pw.Text('${(e.value.$2 * e.value.$3).toStringAsFixed(2)} €',
+                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                  ],
+                )),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+              pw.Container(
+                width: 220,
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#F9FAFB'),
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(color: PdfColor.fromHex('#E5E7EB')),
+                ),
+                child: pw.Column(children: [
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Text('Subtotal', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+                    pw.Text('${subtotal.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 9)),
+                  ]),
+                  pw.SizedBox(height: 4),
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Text('IVA 21%', style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#6B7280'))),
+                    pw.Text('${iva.toStringAsFixed(2)} €', style: pw.TextStyle(fontSize: 9)),
+                  ]),
+                  pw.SizedBox(height: 8),
+                  pw.Divider(color: colPrim, thickness: 1.5),
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Text('TOTAL', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('${(subtotal + iva).toStringAsFixed(2)} €',
+                        style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: colPrim)),
+                  ]),
+                ]),
+              ),
+            ]),
+          ]),
+        ),
+      ],
+    ));
+    return pdf.save();
   }
 
   /// Muestra el PDF de ejemplo en un popup/dialog.

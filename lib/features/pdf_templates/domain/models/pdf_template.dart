@@ -65,6 +65,9 @@ class PdfTemplate {
   // Lista de bloques ordenados
   final List<Map<String, dynamic>> bloques;
 
+  /// 'clasico' | 'linea' | 'bold' — controla el layout del PDF al previsualizar
+  final String estiloLayout;
+
   const PdfTemplate({
     required this.id,
     required this.empresaId,
@@ -82,6 +85,7 @@ class PdfTemplate {
     this.margenHorizontal = 36,
     this.margenVertical = 36,
     required this.bloques,
+    this.estiloLayout = 'clasico',
   });
 
   factory PdfTemplate.fromFirestore(DocumentSnapshot doc) {
@@ -107,6 +111,7 @@ class PdfTemplate {
                 ?.map((e) => Map<String, dynamic>.from(e as Map)) ??
             [],
       ),
+      estiloLayout: data['estilo_layout'] as String? ?? 'clasico',
     );
   }
 
@@ -126,6 +131,7 @@ class PdfTemplate {
         'margen_horizontal': margenHorizontal,
         'margen_vertical': margenVertical,
         'bloques': bloques,
+        'estilo_layout': estiloLayout,
       };
 
   PdfTemplate copyWith({
@@ -145,6 +151,7 @@ class PdfTemplate {
     double? margenHorizontal,
     double? margenVertical,
     List<Map<String, dynamic>>? bloques,
+    String? estiloLayout,
   }) {
     return PdfTemplate(
       id: id ?? this.id,
@@ -162,6 +169,7 @@ class PdfTemplate {
       colorFondo: colorFondo ?? this.colorFondo,
       margenHorizontal: margenHorizontal ?? this.margenHorizontal,
       margenVertical: margenVertical ?? this.margenVertical,
+      estiloLayout: estiloLayout ?? this.estiloLayout,
       bloques: bloques ?? this.bloques,
     );
   }
@@ -513,7 +521,7 @@ class PdfTemplate {
 
   // ─── Factura #2 — Minimalista (Negro + tinte gris) ───────────────────────
   static PdfTemplate galeriaFacturaMinimalista(String empresaId) => PdfTemplate(
-        id: '', empresaId: empresaId,
+        id: '', empresaId: empresaId, estiloLayout: 'linea',
         nombre: 'Minimalista',
         descripcion: 'Diseño limpio y moderno sin cabecera de color. Ideal para startups y profesionales del diseño y tecnología.',
         tipo: TipoDocumentoPdf.factura,
@@ -610,7 +618,7 @@ class PdfTemplate {
 
   // ─── Factura #3 — Verde Esmeralda ────────────────────────────────────────
   static PdfTemplate galeriaFacturaVerde(String empresaId) => PdfTemplate(
-        id: '', empresaId: empresaId,
+        id: '', empresaId: empresaId, estiloLayout: 'bold',
         nombre: 'Esmeralda',
         descripcion: 'Cabecera verde oscura con separador de acento. Perfecta para negocios de naturaleza, wellness o ecológicos.',
         tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
@@ -652,7 +660,7 @@ class PdfTemplate {
 
   // ─── Factura #5 — Púrpura Moderno ────────────────────────────────────────
   static PdfTemplate galeriaFacturaPurpura(String empresaId) => PdfTemplate(
-        id: '', empresaId: empresaId,
+        id: '', empresaId: empresaId, estiloLayout: 'linea',
         nombre: 'Púrpura',
         descripcion: 'Diseño moderno y atrevido en morado. Para agencias, estudios de diseño y tecnología con identidad visual fuerte.',
         tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
@@ -692,7 +700,7 @@ class PdfTemplate {
 
   // ─── Factura Bordeaux / Vino ──────────────────────────────────────────────
   static PdfTemplate galeriaFacturaBordeau(String empresaId) => PdfTemplate(
-        id: '', empresaId: empresaId,
+        id: '', empresaId: empresaId, estiloLayout: 'bold',
         nombre: 'Burdeos',
         descripcion: 'Diseño sofisticado en vino y granate. Para despachos, notarías, asesorías y profesionales del sector jurídico.',
         tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,

@@ -252,13 +252,12 @@ class _State extends State<PdfTemplatesListScreen> {
         const sp = 12.0;
         const padH = 20.0;
         final totalItems = items.length + 1;
-        final rows = (totalItems / cols).ceil();
         final cardW = (constraints.maxWidth - padH*2 - sp*(cols-1)) / cols;
-        // Calcula la altura que ocuparían si llenaran la pantalla
-        final fillH = (constraints.maxHeight - 16 - sp*(rows-1)) / rows;
-        // Limita a 750px máximo por tarjeta
-        final cardH = fillH.clamp(80.0, 750.0);
-        final ratio = (cardW / cardH).clamp(0.4, 2.5);
+        // Aspect ratio basado en A4 (297/210 = 1.414) + ~100px de footer
+        // → el PDF ocupa exactamente la zona de la tarjeta sin cortes ni espacio vacío
+        const footerH = 100.0;
+        final cardH = cardW * 1.414 + footerH;
+        final ratio = cardW / cardH;
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(padH, 8, padH, 16),
           child: GridView.builder(
