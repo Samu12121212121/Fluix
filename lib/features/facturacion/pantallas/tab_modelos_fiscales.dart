@@ -8,17 +8,18 @@ import '../../../core/providers/empresa_config_provider.dart';
 import '../../../services/contabilidad_service.dart';
 import '../../../services/mod_303_service.dart';
 import '../../../services/facturacion_service.dart';
+import '../../../services/fiscal/sede_aeat_urls.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/widgets/flux_toast.dart';
 import '../../../domain/modelos/empresa.dart';
 import '../../../domain/modelos/contabilidad.dart';
 import '../../fiscal/pantallas/modelo111_screen.dart';
 import '../../fiscal/pantallas/modelo190_screen.dart';
 import '../../fiscal/pantallas/modelo115_screen.dart';
-import '../../fiscal/pantallas/modelo130_screen.dart';
 import '../../fiscal/pantallas/modelo202_screen.dart';
 import '../../fiscal/pantallas/modelo390_screen.dart';
-import 'package:planeag_flutter/features/fiscal/pantallas/modelo303_screen.dart';
 import '../../../widgets/calendario_fiscal_widget.dart';
-import 'pantalla_configuracion_fiscal_empresa.dart';
+import '../../perfil/pantallas/pantalla_perfil.dart';
 import 'tab_mod_347.dart';
 import 'tab_mod_349.dart';
 
@@ -30,12 +31,14 @@ class TabModelosFiscales extends StatefulWidget {
   final String empresaId;
   final int anio;
   final ContabilidadService svc;
+  final bool isDark;
 
   const TabModelosFiscales({
     super.key,
     required this.empresaId,
     required this.anio,
     required this.svc,
+    this.isDark = false,
   });
 
   @override
@@ -46,6 +49,7 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
   List<ModeloFiscalTrimestral>? _modelos;
   bool _cargando = true;
   int _tabModelo = 0; // 0 = 303 IVA, 1 = 130 IRPF
+  int _periodoSel = 0; // trimestre seleccionado (0-3) en el period grid
   final FacturacionService _facturacionService = FacturacionService();
   CriterioIVA _criterioIva = CriterioIVA.devengo;
   bool _guardandoCriterio = false;
@@ -115,123 +119,588 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
     }
   }
 
+  static const _kDesktopBreakpoint = 720.0;
+
+  static const _kModels = [
+    _ModeloInfo('303', 'IVA trimestral',     Icons.receipt_long_rounded,  Color(0xFF3B82F6), 0),
+    _ModeloInfo('130', 'IRPF fraccionado',   Icons.percent_rounded,        Color(0xFF8B5CF6), 1),
+    _ModeloInfo('111', 'Retenciones IRPF',   Icons.people_outlined,        Color(0xFF10B981), 2),
+    _ModeloInfo('115', 'Alquiler',           Icons.home_work_outlined,     Color(0xFFEAB308), 4),
+    _ModeloInfo('190', 'Resumen anual',      Icons.summarize_rounded,      Color(0xFF10B981), 3, periodico: false),
+    _ModeloInfo('390', 'IVA anual',          Icons.receipt_long_rounded,   Color(0xFF3B82F6), 5, periodico: false),
+    _ModeloInfo('347', 'Terceros',           Icons.handshake_outlined,     Color(0xFFF97316), 6, periodico: false),
+    _ModeloInfo('349', 'Intracomunitario',   Icons.language_outlined,      Color(0xFF06B6D4), 7, periodico: false),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     final empresaConfig = context.watch<EmpresaConfigProvider>().config;
-
-    if (_cargando) return const Center(child: CircularProgressIndicator());
-
+    final esSociedad = empresaConfig.esSociedad;
     final modelos = _modelos ?? [];
-    final alertas = modelos
-        .where((m) => m.estadoAlerta != EstadoAlertaFiscal.ok)
-        .toList();
+    final alertas = modelos.where((m) => m.estadoAlerta != EstadoAlertaFiscal.ok).toList();
+    final tieneNifOk = empresaConfig.tieneNifConfigurado && empresaConfig.tieneNifValido;
+    final isWide = MediaQuery.of(context).size.width >= _kDesktopBreakpoint;
+
+    return isWide
+        ? _buildDesktopLayout(color, modelos, esSociedad, tieneNifOk, alertas)
+        : _buildMobileLayout(color, modelos, esSociedad, tieneNifOk, alertas);
+  }
+
+  // ── DESKTOP: sidebar izquierda + contenido derecha ────────────────────────
+  Widget _buildDesktopLayout(Color color, List<ModeloFiscalTrimestral> modelos,
+      bool esSociedad, bool tieneNifOk, List<ModeloFiscalTrimestral> alertas) {
+    final bg    = widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final surf  = widget.isDark ? const Color(0xFF1E293B) : Colors.white;
+    final divClr = widget.isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+    return Column(children: [
+      _buildCompactHeader(color, tieneNifOk, alertas, surf, divClr),
+      Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Sidebar ───────────────────────────────────────────────────────
+        Container(
+          width: 172,
+          color: surf,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              _sidebarGroup('Periódicos', _kModels.where((m) => m.periodico).toList(), modelos, divClr),
+              const SizedBox(height: 4),
+              _sidebarGroup('Anuales', _kModels.where((m) => !m.periodico).toList(), modelos, divClr),
+            ],
+          ),
+        ),
+        VerticalDivider(width: 1, thickness: 1, color: divClr),
+        // ── Contenido ────────────────────────────────────────────────────
+        Expanded(child: ColoredBox(
+          color: bg,
+          child: _buildContenidoModelo(color, modelos, esSociedad),
+        )),
+      ])),
+    ]);
+  }
+
+  // ── MÓVIL: header compacto + chips pill + contenido ───────────────────────
+  Widget _buildMobileLayout(Color color, List<ModeloFiscalTrimestral> modelos,
+      bool esSociedad, bool tieneNifOk, List<ModeloFiscalTrimestral> alertas) {
+    final surf   = widget.isDark ? const Color(0xFF1E293B) : Colors.white;
+    final divClr = widget.isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final bg     = widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+
+    return Column(children: [
+      _buildCompactHeader(color, tieneNifOk, alertas, surf, divClr),
+      _buildSelectorTabs(color, surf, divClr),
+      Expanded(child: ColoredBox(
+        color: bg,
+        child: _buildContenidoModelo(color, modelos, esSociedad),
+      )),
+    ]);
+  }
+
+  // ── Sidebar: grupo con cabecera + items con status dot ───────────────────
+  Widget _sidebarGroup(String title, List<_ModeloInfo> items,
+      List<ModeloFiscalTrimestral> modelos, Color divClr) {
+    final isDark = widget.isDark;
+    final subClr = isDark ? const Color(0xFF64748B) : const Color(0xFF9CA3AF);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+        child: Text(title.toUpperCase(),
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                color: subClr, letterSpacing: 0.6)),
+      ),
+      ...items.map((m) {
+        final sel = _tabModelo == m.idx;
+        // Status dot basado en alertas del modelo
+        final alertaModel = modelos
+            .where((mod) => mod.trimestre >= 1)
+            .fold<EstadoAlertaFiscal>(EstadoAlertaFiscal.ok, (prev, mod) {
+          if (mod.estadoAlerta == EstadoAlertaFiscal.vencido) return EstadoAlertaFiscal.vencido;
+          if (prev == EstadoAlertaFiscal.vencido) return prev;
+          return mod.estadoAlerta;
+        });
+        final dotColor = (m.idx == 0 || m.idx == 1 || m.idx == 2 || m.idx == 4)
+            ? _dotColor(alertaModel)
+            : const Color(0xFFF59E0B); // anuales: siempre amber (pendiente)
+        return InkWell(
+          onTap: () => setState(() { _tabModelo = m.idx; _periodoSel = 0; }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: sel ? m.color.withValues(alpha: isDark ? 0.15 : 0.08) : Colors.transparent,
+              border: Border(left: BorderSide(
+                  color: sel ? m.color : Colors.transparent, width: 2.5)),
+            ),
+            child: Row(children: [
+              Container(width: 7, height: 7,
+                  decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Icon(m.icon, size: 15,
+                  color: sel ? m.color : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280))),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('MOD. ${m.num}', style: TextStyle(
+                  fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.2,
+                  color: sel ? m.color : (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A)),
+                )),
+                Text(m.label, style: TextStyle(
+                  fontSize: 9, color: sel ? m.color.withValues(alpha: 0.75)
+                      : (isDark ? const Color(0xFF64748B) : const Color(0xFF9CA3AF)),
+                )),
+              ])),
+            ]),
+          ),
+        );
+      }),
+    ]);
+  }
+
+  Color _dotColor(EstadoAlertaFiscal a) => switch (a) {
+    EstadoAlertaFiscal.ok      => const Color(0xFF22C55E),
+    EstadoAlertaFiscal.proximo => const Color(0xFFF59E0B),
+    EstadoAlertaFiscal.vencido => const Color(0xFFEF4444),
+  };
+
+  // ── Header compacto (una sola fila, ~52px) ────────────────────────────────
+  Widget _buildCompactHeader(Color color, bool tieneNifOk,
+      List<ModeloFiscalTrimestral> alertas, Color surf, Color divClr) {
+    final txtClr = widget.isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final subClr = widget.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    return Container(
+      color: surf,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+          child: Row(children: [
+            Container(
+              width: 30, height: 30,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.account_balance_rounded, color: color, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Text('Modelos fiscales', style: TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w700, color: txtClr)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('${widget.anio}', style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _cargar,
+              icon: Icon(Icons.refresh_rounded, size: 17, color: subClr),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              tooltip: 'Actualizar',
+            ),
+            const SizedBox(width: 2),
+            OutlinedButton.icon(
+              onPressed: _abrirConfiguracionFiscal,
+              icon: const Icon(Icons.settings_outlined, size: 12),
+              label: const Text('Fiscal', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: color,
+                side: BorderSide(color: color.withValues(alpha: 0.35)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ]),
+        ),
+        if (alertas.isNotEmpty || !tieneNifOk) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Column(children: [
+              if (alertas.isNotEmpty) _buildBannerAlertas(alertas, color),
+              if (!tieneNifOk) ...[
+                if (alertas.isNotEmpty) const SizedBox(height: 6),
+                _buildBannerNifFaltante(color),
+              ],
+            ]),
+          ),
+        ],
+        Divider(height: 1, thickness: 1, color: divClr),
+      ]),
+    );
+  }
+
+  // ── Tabs compactos para móvil (40px, pills) ───────────────────────────────
+  Widget _buildSelectorTabs(Color color, Color surf, Color divClr) {
+    final isDark = widget.isDark;
+    final inactiveBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final inactiveTxt = isDark ? const Color(0xFF94A3B8) : const Color(0xFF374151);
+
+    return Container(
+      color: surf,
+      child: Column(children: [
+        SizedBox(
+          height: 42,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            itemCount: _kModels.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (_, i) {
+              final m = _kModels[i];
+              final sel = _tabModelo == m.idx;
+              return GestureDetector(
+                onTap: () => setState(() => _tabModelo = m.idx),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: sel ? m.color : inactiveBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: sel ? m.color : divClr,
+                      width: sel ? 1.5 : 1,
+                    ),
+                    boxShadow: sel ? [BoxShadow(
+                      color: m.color.withValues(alpha: 0.3),
+                      blurRadius: 6, offset: const Offset(0, 2),
+                    )] : null,
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(m.icon, size: 12, color: sel ? Colors.white : m.color),
+                    const SizedBox(width: 5),
+                    Text(m.num, style: TextStyle(
+                      fontSize: 11.5, fontWeight: FontWeight.w800,
+                      color: sel ? Colors.white : inactiveTxt,
+                    )),
+                  ]),
+                ),
+              );
+            },
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: divClr),
+      ]),
+    );
+  }
+
+  Widget _buildContenidoModelo(Color color, List<ModeloFiscalTrimestral> modelos, bool esSociedad) {
+    if (_tabModelo == 2) {
+      return Modelo111Screen(key: ValueKey('111_${widget.anio}'), empresaId: widget.empresaId, anioInicial: widget.anio, embebido: true);
+    } else if (_tabModelo == 3) {
+      return Modelo190Screen(key: ValueKey('190_${widget.anio}'), empresaId: widget.empresaId, anioInicial: widget.anio, embebido: true);
+    } else if (_tabModelo == 4) {
+      return Modelo115Screen(key: ValueKey('115_${widget.anio}'), empresaId: widget.empresaId, anioInicial: widget.anio, embebido: true);
+    } else if (_tabModelo == 5) {
+      return Modelo390Screen(key: ValueKey('390_${widget.anio}'), empresaId: widget.empresaId, anioInicial: widget.anio, embebido: true);
+    } else if (_tabModelo == 6) {
+      return TabMod347(empresaId: widget.empresaId, anio: widget.anio);
+    } else if (_tabModelo == 7) {
+      return TabMod349Wrapper(empresaId: widget.empresaId, anio: widget.anio);
+    } else if (_tabModelo == 1 && esSociedad) {
+      return Modelo202Screen(key: ValueKey('202_${widget.anio}'), empresaId: widget.empresaId, anioInicial: widget.anio, embebido: true);
+    }
+    if (_cargando) return Center(child: CircularProgressIndicator(color: color));
+    return _build303o130(color, modelos);
+  }
+
+  Widget _build303o130(Color color, List<ModeloFiscalTrimestral> modelos) {
+    final isDark = widget.isDark;
+    final surf  = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final bg    = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final bdr   = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final txt   = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final sub   = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+    final is303 = _tabModelo == 0;
+
+    // Datos agregados para stats strip
+    final totalRes  = is303
+        ? modelos.fold(0.0, (s, m) => s + m.resultadoIva)
+        : modelos.fold(0.0, (s, m) => s + m.pagoFraccionadoIrpf);
+    final isNegativo = totalRes < 0;
+
+    final periodoActual = _periodoSel < modelos.length ? modelos[_periodoSel] : null;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 32),
       children: [
-        // ── Banner de alertas ─────────────────────────────────────────────
-        if (alertas.isNotEmpty) ...[
-          _buildBannerAlertas(alertas, color),
-          const SizedBox(height: 12),
-        ],
+        // ── Cabecera con criterio IVA (solo 303) ────────────────────────
+        if (is303) ...[_buildSelectorCriterioIva(color), const SizedBox(height: 12)],
 
-        if (!empresaConfig.tieneNifConfigurado || !empresaConfig.tieneNifValido) ...[
-          _buildBannerNifFaltante(color),
-          const SizedBox(height: 12),
-        ],
+        // ── Stats strip ─────────────────────────────────────────────────
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: surf,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: bdr),
+          ),
+          child: IntrinsicHeight(child: Row(children: [
+            _statPill(Icons.euro_rounded,
+                is303 ? 'Resultado del año' : 'Total pagos fraccionados',
+                '${totalRes.abs().toStringAsFixed(2)} €',
+                isNegativo ? const Color(0xFF10B981) : const Color(0xFFEF4444), isDark),
+            _vDivider(bdr),
+            _statPill(Icons.check_circle_outline_rounded, 'Presentados',
+                '0 / ${modelos.length}', const Color(0xFF6B7280), isDark),
+            _vDivider(bdr),
+            if (is303)
+              _statPill(Icons.tune_rounded, 'Criterio IVA',
+                  _criterioIva == CriterioIVA.devengo ? 'Devengo' : 'Caja (RECC)',
+                  color, isDark)
+            else
+              _statPill(Icons.percent_rounded, '% aplicado', '20%', color, isDark),
+          ])),
+        ),
 
-        // ── Selector de modelo ────────────────────────────────────────────
-        _buildSelectorModelo(color),
+        // ── Period selector grid 2×2 ─────────────────────────────────
+        LayoutBuilder(builder: (_, c) {
+          final cols = c.maxWidth > 500 ? 4 : 2;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols, crossAxisSpacing: 10, mainAxisSpacing: 10,
+              childAspectRatio: cols == 4 ? 1.5 : 1.6,
+            ),
+            itemCount: modelos.length,
+            itemBuilder: (_, i) {
+              final m = modelos[i];
+              final sel = _periodoSel == i;
+              final alerta = m.estadoAlerta;
+              final dotColor = _dotColor(alerta);
+              final mainVal = is303 ? m.resultadoIva : m.pagoFraccionadoIrpf;
+              final mainIsNeg = mainVal < 0;
+              final mainColor = is303
+                  ? (mainIsNeg ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+                  : color;
+              final statusLabel = switch (alerta) {
+                EstadoAlertaFiscal.ok      => 'Borrador',
+                EstadoAlertaFiscal.proximo => 'Próximo',
+                EstadoAlertaFiscal.vencido => 'Vencido',
+              };
+              return GestureDetector(
+                onTap: () => setState(() => _periodoSel = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: surf,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: sel ? color : bdr,
+                      width: sel ? 2 : 1,
+                    ),
+                    boxShadow: sel ? [BoxShadow(
+                      color: color.withValues(alpha: 0.15),
+                      blurRadius: 8, offset: const Offset(0, 2))] : null,
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Text(m.nombreTrimestre,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: txt)),
+                      const Spacer(),
+                      Container(width: 8, height: 8,
+                          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+                    ]),
+                    Text(m.periodoTexto,
+                        style: TextStyle(fontSize: 9.5, color: sub)),
+                    const Spacer(),
+                    Text(
+                      '${mainVal.abs().toStringAsFixed(2)} €',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: mainColor),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Text(statusLabel,
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: dotColor)),
+                      const Spacer(),
+                      Text(m.fechaLimiteTexto,
+                          style: TextStyle(fontSize: 9.5, color: sub)),
+                    ]),
+                  ]),
+                ),
+              );
+            },
+          );
+        }),
         const SizedBox(height: 12),
 
-        // ── Si es Modelo 111, navegar a su pantalla dedicada ─────────────
-        if (_tabModelo == 2) ...[
-          _buildBotonModelo111(color),
-        ] else if (_tabModelo == 3) ...[
-          _buildBotonModelo190(color),
-        ] else if (_tabModelo == 4) ...[
-          _buildBotonModelo115(color),
-        ] else if (_tabModelo == 5) ...[
-          _buildBotonModelo390(color),
-        ] else if (_tabModelo == 6) ...[
-          _buildBotonModelo347(color),
-        ] else if (_tabModelo == 7) ...[
-          _buildBotonModelo349(color),
-        ] else if (_tabModelo == 1 && empresaConfig.esSociedad) ...[
-          _buildBotonModelo202(color),
-        ] else ...[
-
-        // ── Configuración fiscal: criterio IVA ────────────────────────────
-        _buildSelectorCriterioIva(color),
-        const SizedBox(height: 16),
-
-        // ── Info del modelo ───────────────────────────────────────────────
-        _buildInfoModelo(color),
-        const SizedBox(height: 16),
-
-        // ── Cards por trimestre ───────────────────────────────────────────
-        ...modelos.map((m) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _tabModelo == 0
-              ? _buildCard303(m, color)
-              : _buildCard130(m, color),
-        )),
-
-        // ── Acceso a pantalla completa del Modelo 303 ─────────────────────
-        if (_tabModelo == 0) ...[
-          const SizedBox(height: 8),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: Icon(Icons.open_in_new, color: color),
-              title: const Text('Abrir Modelo 303 completo'),
-              subtitle: const Text('Exportación AEAT DR303e26v101, marcado como presentado, etc.'),
-              trailing: Icon(Icons.chevron_right, color: color),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo303Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
+        // ── Detail panel: 2/3 campos + 1/3 acciones ─────────────────
+        if (periodoActual != null)
+          LayoutBuilder(builder: (_, c) {
+            final wide = c.maxWidth > 500;
+            final content = _detailFields(periodoActual, is303, txt, sub, bdr);
+            final side = _detailSide(periodoActual, is303, color, surf, isDark);
+            return Container(
+              decoration: BoxDecoration(
+                color: surf,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: bdr),
               ),
-            ),
-          ),
-        ],
+              child: wide
+                  ? IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(flex: 2, child: Padding(padding: const EdgeInsets.all(16), child: content)),
+                      Container(width: 1, color: bdr),
+                      Expanded(flex: 1, child: Container(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        child: Padding(padding: const EdgeInsets.all(16), child: side),
+                      )),
+                    ]))
+                  : Column(children: [
+                      Padding(padding: const EdgeInsets.all(16), child: content),
+                      Divider(height: 1, color: bdr),
+                      Padding(padding: const EdgeInsets.all(16), child: side),
+                    ]),
+            );
+          }),
 
-        // ── Acceso a pantalla completa del Modelo 130 ─────────────────────
-        if (_tabModelo == 1 && !empresaConfig.esSociedad) ...[
-          const SizedBox(height: 8),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: Icon(Icons.open_in_new, color: color),
-              title: const Text('Abrir Modelo 130 completo'),
-              subtitle: const Text('Cálculo completo, casillas oficiales, PDF borrador, presentar AEAT'),
-              trailing: Icon(Icons.chevron_right, color: color),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo130Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-
-        // ── Calendario fiscal anual ───────────────────────────────────────
-        const SizedBox(height: 4),
+        const SizedBox(height: 16),
         _buildCalendarioFiscal(color),
-        const SizedBox(height: 24),
-        ],
       ],
     );
   }
+
+  // ── Stat pill para el stats strip ────────────────────────────────────────
+  Widget _statPill(IconData icon, String label, String value, Color acento, bool isDark) {
+    final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final sub = isDark ? const Color(0xFF64748B) : const Color(0xFF9CA3AF);
+    return Expanded(child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(children: [
+        Container(width: 34, height: 34,
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)),
+          child: Icon(icon, size: 16, color: acento)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: acento),
+              overflow: TextOverflow.ellipsis),
+          Text(label,
+              style: TextStyle(fontSize: 10.5, color: sub),
+              overflow: TextOverflow.ellipsis),
+        ])),
+      ]),
+    ));
+  }
+
+  Widget _vDivider(Color bdr) => Container(width: 1, color: bdr);
+
+  // ── Filas de campos del detail panel (izquierda) ─────────────────────────
+  Widget _detailFields(ModeloFiscalTrimestral m, bool is303,
+      Color txt, Color sub, Color bdr) {
+    final rows = is303
+        ? [
+          ('[01]', 'IVA repercutido', '${m.ivaRepercutido.toStringAsFixed(2)} €', false),
+          ('[02]', 'IVA soportado', '${m.ivaSoportado.toStringAsFixed(2)} €', false),
+          ('[27]', 'Resultado liquidación', '${m.resultadoIva.toStringAsFixed(2)} €', true),
+        ]
+        : [
+          ('[01]', 'Ingresos íntegros', '${m.resumen.baseImponibleEmitida.toStringAsFixed(2)} €', false),
+          ('[02]', 'Gastos deducibles', '${m.resumen.baseImponibleRecibida.toStringAsFixed(2)} €', false),
+          ('[03]', 'Rendimiento neto', '${m.beneficioNeto.toStringAsFixed(2)} €', false),
+          ('[13]', 'Pago fraccionado (20%)', '${m.pagoFraccionadoIrpf.toStringAsFixed(2)} €', true),
+        ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('${m.nombreTrimestre} · ${m.periodoTexto}',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: txt)),
+        const Spacer(),
+        Text('Plazo: ${m.fechaLimiteTexto}',
+            style: TextStyle(fontSize: 11, color: sub)),
+      ]),
+      const SizedBox(height: 12),
+      ...rows.map((r) => _fieldRow(r.$1, r.$2, r.$3, r.$4, txt, sub, bdr)),
+    ]);
+  }
+
+  Widget _fieldRow(String num, String label, String value, bool bold,
+      Color txt, Color sub, Color bdr) {
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(children: [
+          Text(num, style: TextStyle(fontSize: 10, color: bdr, fontFamily: 'monospace')),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label,
+              style: TextStyle(fontSize: 12,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+                  color: bold ? txt : sub))),
+          Text(value,
+              style: TextStyle(fontSize: 12,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                  color: bold ? txt : sub)),
+        ]),
+      ),
+      Divider(height: 1, color: bdr),
+    ]);
+  }
+
+  // ── Panel derecho: resultado + acciones ───────────────────────────────────
+  Widget _detailSide(ModeloFiscalTrimestral m, bool is303, Color color,
+      Color surf, bool isDark) {
+    final mainVal = is303 ? m.resultadoIva : m.pagoFraccionadoIrpf;
+    final mainIsNeg = mainVal < 0;
+    final mainColor = is303
+        ? (mainIsNeg ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+        : color;
+    final sub = isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      // Resultado key figure
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(is303 ? (mainIsNeg ? 'A devolver' : 'A ingresar') : 'A ingresar',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                color: sub, letterSpacing: 0.5)),
+        const SizedBox(height: 2),
+        Text('${mainVal.abs().toStringAsFixed(2)} €',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: mainColor)),
+      ]),
+      const SizedBox(height: 16),
+      // Acciones
+      _actionBtn(Icons.refresh_rounded, 'Recalcular',
+          const Color(0xFF6B7280), false, () => _recalcularMod303(m.trimestre)),
+      const SizedBox(height: 6),
+      if (is303) ...[
+        _actionBtn(Icons.download_rounded, 'Descargar AEAT .txt',
+            const Color(0xFFF97316), false, () => _descargarMod303(m.trimestre)),
+        const SizedBox(height: 6),
+      ],
+      _actionBtn(Icons.check_circle_outline_rounded, 'Marcar presentado',
+          color, true, () => _marcarPresentado303(m.trimestre)),
+    ]);
+  }
+
+  Widget _actionBtn(IconData icon, String label, Color color, bool filled, VoidCallback onTap) {
+    if (filled) {
+      return FilledButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 14),
+        label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.4)),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
 
   Widget _buildBannerAlertas(
       List<ModeloFiscalTrimestral> alertas, Color color) {
@@ -308,357 +777,88 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
     );
   }
 
-  Widget _buildSelectorModelo(Color color) {
-    final empresaConfig = context.watch<EmpresaConfigProvider>().config;
-    final esSociedad = empresaConfig.esSociedad;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _tabChip('303\nIVA', 0, color),
-          const SizedBox(width: 6),
-          // Mostrar 130 (IRPF autónomos) o 202 (IS sociedades) según forma jurídica
-          if (esSociedad)
-            _tabChip('202\nIS', 1, color)
-          else
-            _tabChip('130\nIRPF', 1, color),
-          const SizedBox(width: 6),
-          _tabChip('111\nRetenc.', 2, color),
-          const SizedBox(width: 6),
-          _tabChip('190\nResumen', 3, color),
-          const SizedBox(width: 6),
-          _tabChip('115\nAlquiler', 4, color),
-          const SizedBox(width: 6),
-          _tabChip('390\nIVA anual', 5, color),
-          const SizedBox(width: 6),
-          _tabChip('347\nTerceros', 6, color),
-          const SizedBox(width: 6),
-          _tabChip('349\nIntracom.', 7, color),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabChip(String label, int index, Color color) {
-    final sel = _tabModelo == index;
-    return GestureDetector(
-      onTap: () => setState(() => _tabModelo = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-        decoration: BoxDecoration(
-          color: sel ? color : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border:
-              Border.all(color: sel ? color : Colors.grey.withValues(alpha: 0.3)),
-          boxShadow: sel
-              ? [BoxShadow(
-                  color: color.withValues(alpha: 0.3),
-                  blurRadius: 6)]
-              : null,
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: sel ? Colors.white : Colors.grey[700],
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-            height: 1.4,
-          ),
+  Widget _iconoAccion(IconData icon, Color color, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          child: Icon(icon, size: 17, color: color),
         ),
       ),
     );
   }
 
-  Widget _buildBotonModelo111(Color color) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.receipt_long, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 111 — Retenciones e ingresos a cuenta IRPF',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Art. 101 LIRPF · Declaración trimestral de retenciones IRPF '
-              'practicadas a empleados.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo111Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 111'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _kpiCompacto(String label, double valor, Color color) => Expanded(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 9.5, color: Color(0xFF9CA3AF))),
+      const SizedBox(height: 2),
+      Text('${valor.toStringAsFixed(0)} €',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+    ]),
+  );
 
-  Widget _buildBotonModelo190(Color color) {
-    final plazo = DateTime(widget.anio + 1, 1, 31);
-    final dias = plazo.difference(DateTime.now()).inDays;
+  Widget _kpiResultado(String label, double valor, Color color) => Expanded(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 9.5, color: color.withValues(alpha: 0.75))),
+      const SizedBox(height: 2),
+      Text('${valor.toStringAsFixed(2)} €',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
+    ]),
+  );
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.assignment, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 190 — Resumen anual retenciones IRPF',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Declaración informativa anual complementaria del 111.\n'
-              'Plazo: del 1 al 31 de enero de ${widget.anio + 1}'
-              '${dias >= 0 && dias <= 30 ? ' ($dias días)' : ''}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo190Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 190'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBotonModelo115(Color color) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.home_work, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 115 — Retenciones arrendamientos',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Art. 101.6 LIRPF · Retención del 19% sobre arrendamientos '
-              'de locales de negocio.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo115Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 115'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBotonModelo390(Color color) {
-    final plazo = DateTime(widget.anio + 1, 1, 30);
-    final dias = plazo.difference(DateTime.now()).inDays;
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.summarize, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 390 — Resumen Anual IVA',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Consolida los 4 Mod.303 del ejercicio.\n'
-              'Plazo: del 1 al 30 de enero de ${widget.anio + 1}'
-              '${dias >= 0 && dias <= 30 ? ' ($dias días)' : ''}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo390Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 390'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  static Widget _dividerV() => Container(
+    width: 1, margin: const EdgeInsets.symmetric(horizontal: 10),
+    color: const Color(0xFFE5E7EB),
+  );
 
   Widget _buildSelectorCriterioIva(Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.tune, color: color, size: 16),
-              const SizedBox(width: 8),
-              const Text(
-                'Configuración fiscal: criterio IVA',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const Spacer(),
-              if (_guardandoCriterio)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<CriterioIVA>(
-            segments: const [
-              ButtonSegment(
-                value: CriterioIVA.devengo,
-                label: Text('Devengo'),
-                icon: Icon(Icons.calendar_today, size: 14),
-              ),
-              ButtonSegment(
-                value: CriterioIVA.caja,
-                label: Text('Caja (RECC)'),
-                icon: Icon(Icons.payments_outlined, size: 14),
-              ),
-            ],
-            selected: {_criterioIva},
-            onSelectionChanged: _guardandoCriterio
-                ? null
-                : (sel) => _guardarCriterioIva(sel.first),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.25)),
-            ),
-            child: const Text(
-              'El criterio de caja solo es aplicable si tu empresa está '
-              'acogida al RECC. Consulta con tu gestor antes de activarlo.',
-              style: TextStyle(fontSize: 11, color: Colors.orange),
-            ),
-          ),
+      child: Row(children: [
+        Icon(Icons.tune_rounded, color: color, size: 14),
+        const SizedBox(width: 7),
+        Text('Criterio IVA:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        const SizedBox(width: 10),
+        _criterioChip('Devengo', CriterioIVA.devengo, color),
+        const SizedBox(width: 6),
+        _criterioChip('Caja (RECC)', CriterioIVA.caja, color),
+        if (_guardandoCriterio) ...[
+          const SizedBox(width: 8),
+          SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: color)),
         ],
-      ),
+        const Spacer(),
+        Tooltip(
+          message: 'El criterio de caja solo aplica si tu empresa está en RECC',
+          child: Icon(Icons.info_outline_rounded, size: 14, color: const Color(0xFF9CA3AF)),
+        ),
+      ]),
     );
   }
 
-  Widget _buildInfoModelo(Color color) {
-    final texto303 =
-        'Declaración trimestral del IVA. La diferencia entre el IVA de las '
-        'ventas (repercutido) y el de las compras (soportado) determina si '
-        'debes ingresar o te devuelven.';
-    final texto130 =
-        'Pago fraccionado del IRPF para autónomos en estimación directa. '
-        'Se calcula el 20% del beneficio neto acumulado menos los pagos anteriores.';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _tabModelo == 0 ? texto303 : texto130,
-              style:
-                  TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5),
-            ),
-          ),
-        ],
+  Widget _criterioChip(String label, CriterioIVA valor, Color color) {
+    final sel = _criterioIva == valor;
+    return GestureDetector(
+      onTap: _guardandoCriterio ? null : () => _guardarCriterioIva(valor),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: sel ? color : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 11, fontWeight: FontWeight.w600,
+          color: sel ? Colors.white : const Color(0xFF6B7280),
+        )),
       ),
     );
   }
@@ -666,266 +866,118 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
   Widget _buildCard303(ModeloFiscalTrimestral m, Color color) {
     final alerta = m.estadoAlerta;
     final colorAlerta = _colorAlerta(alerta);
+    final esDevolucion = m.hayDevolucionIva;
+    final resultColor = esDevolucion ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: alerta != EstadoAlertaFiscal.ok
-            ? Border.all(color: colorAlerta.withValues(alpha: 0.5), width: 1.5)
-            : null,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cabecera trimestre
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  m.nombreTrimestre,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  m.periodoTexto,
-                  style: TextStyle(
-                      color: Colors.grey[600], fontSize: 12),
-                ),
-              ),
-              _badgeAlerta(alerta, m.fechaLimiteTexto),
-            ]),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
-
-            // IVA repercutido
-            _filaModelo(
-              '+ IVA repercutido (ventas)',
-              m.ivaRepercutido,
-              Colors.green,
-            ),
-            // IVA soportado
-            _filaModelo(
-              '– IVA soportado (gastos deducibles)',
-              m.ivaSoportado,
-              Colors.red,
-            ),
-            const Divider(height: 16),
-            // Resultado
-            _filaModelo(
-              m.hayDevolucionIva
-                  ? '✅ Hacienda te devuelve'
-                  : '⚠️ A ingresar en Hacienda',
-              m.resultadoIva.abs(),
-              m.hayDevolucionIva ? Colors.green : Colors.deepOrange,
-              negrita: true,
-              grande: true,
-            ),
-            const SizedBox(height: 10),
-
-            // Pie: fecha límite + botón descarga
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colorAlerta.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Icon(Icons.calendar_today,
-                              size: 13, color: colorAlerta),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Fecha límite: ${m.fechaLimiteTexto}',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: colorAlerta,
-                                fontWeight: FontWeight.w600),
-                          ),
-                          const Spacer(),
-                          Text(
-                            _textoAlerta(alerta),
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: colorAlerta,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ]),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.download, size: 18),
-                onPressed: () => _descargarMod303(m.trimestre),
-                tooltip: 'Descargar MOD 303',
-                  style: IconButton.styleFrom(
-                    backgroundColor: color.withValues(alpha: 0.1),
-                    foregroundColor: color,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: alerta != EstadoAlertaFiscal.ok
+              ? colorAlerta.withValues(alpha: 0.5)
+              : const Color(0xFFE5E7EB),
+          width: alerta != EstadoAlertaFiscal.ok ? 1.5 : 1,
         ),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 1))],
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Fila 1: chip + periodo + badge alerta
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text(m.nombreTrimestre, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11)),
+          ),
+          const SizedBox(width: 7),
+          Expanded(child: Text(m.periodoTexto, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11))),
+          _badgeAlerta(alerta, m.fechaLimiteTexto),
+        ]),
+        const SizedBox(height: 8),
+        // Fila 2: 3 KPIs en columnas
+        IntrinsicHeight(child: Row(children: [
+          _kpiCompacto('Repercutido', m.ivaRepercutido, const Color(0xFF10B981)),
+          _dividerV(),
+          _kpiCompacto('Soportado', m.ivaSoportado, const Color(0xFF6B7280)),
+          _dividerV(),
+          _kpiResultado(esDevolucion ? 'Devuelven' : 'A pagar', m.resultadoIva.abs(), resultColor),
+        ])),
+        const SizedBox(height: 8),
+        // Fila 3: fecha + acciones
+        Row(children: [
+          Icon(Icons.event_rounded, size: 12, color: colorAlerta),
+          const SizedBox(width: 4),
+          Text(m.fechaLimiteTexto, style: TextStyle(fontSize: 11, color: colorAlerta, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          _iconoAccion(Icons.refresh_rounded, color, 'Recalcular', () => _recalcularMod303(m.trimestre)),
+          _iconoAccion(Icons.download_rounded, Colors.deepOrange, 'Descargar AEAT', () => _descargarMod303(m.trimestre)),
+          _iconoAccion(Icons.open_in_browser_rounded, Colors.teal, 'Sede AEAT', () => SedeAeatUrls.abrir(SedeAeatUrls.mod303)),
+          _iconoAccion(Icons.check_circle_outline_rounded, Colors.green, 'Presentado', () => _marcarPresentado303(m.trimestre)),
+        ]),
+      ]),
     );
   }
 
   Widget _buildCard130(ModeloFiscalTrimestral m, Color color) {
     final alerta = m.estadoAlerta;
     final colorAlerta = _colorAlerta(alerta);
+    const acento = Color(0xFF8B5CF6);
 
     return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: alerta != EstadoAlertaFiscal.ok
-            ? Border.all(color: colorAlerta.withValues(alpha: 0.5), width: 1.5)
-            : null,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  m.nombreTrimestre,
-                  style: const TextStyle(
-                      color: Colors.purple,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  m.periodoTexto,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ),
-              _badgeAlerta(alerta, m.fechaLimiteTexto),
-            ]),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
-
-            if (!m.hayBeneficio) ...[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(children: [
-                  Icon(Icons.info_outline, color: Colors.blue, size: 14),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Sin beneficio este trimestre. No hay pago fraccionado.',
-                      style: TextStyle(fontSize: 11, color: Colors.blue),
-                    ),
-                  ),
-                ]),
-              ),
-            ] else ...[
-              _filaModelo('Rendimiento neto (beneficio)',
-                  m.beneficioNeto, Colors.green),
-              _filaModelo('× 20% retención estimada',
-                  m.pagoFraccionadoIrpf, Colors.orange),
-              const Divider(height: 16),
-              _filaModelo(
-                '⚠️ A ingresar (estimado)',
-                m.pagoFraccionadoIrpf,
-                Colors.purple,
-                negrita: true,
-                grande: true,
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  '⚠ Dato orientativo. Tu gestor calculará el importe exacto '
-                  'aplicando deducciones y retenciones previas acumuladas.',
-                  style: TextStyle(fontSize: 10, color: Colors.orange),
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorAlerta.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(children: [
-                Icon(Icons.calendar_today,
-                    size: 13, color: colorAlerta),
-                const SizedBox(width: 6),
-                Text(
-                  'Fecha límite: ${m.fechaLimiteTexto}',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: colorAlerta,
-                      fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                Text(
-                  _textoAlerta(alerta),
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: colorAlerta,
-                      fontWeight: FontWeight.bold),
-                ),
-              ]),
-            ),
-          ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: alerta != EstadoAlertaFiscal.ok
+              ? colorAlerta.withValues(alpha: 0.5)
+              : const Color(0xFFE5E7EB),
+          width: alerta != EstadoAlertaFiscal.ok ? 1.5 : 1,
         ),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 1))],
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Fila 1: chip + periodo + badge
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: acento.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text(m.nombreTrimestre, style: const TextStyle(color: acento, fontWeight: FontWeight.w800, fontSize: 11)),
+          ),
+          const SizedBox(width: 7),
+          Expanded(child: Text(m.periodoTexto, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11))),
+          _badgeAlerta(alerta, m.fechaLimiteTexto),
+        ]),
+        const SizedBox(height: 8),
+        // Fila 2: KPIs o "sin beneficio"
+        if (!m.hayBeneficio)
+          const Row(children: [
+            Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6), size: 13),
+            SizedBox(width: 6),
+            Text('Sin beneficio — sin pago fraccionado',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+          ])
+        else
+          IntrinsicHeight(child: Row(children: [
+            _kpiCompacto('Beneficio neto', m.beneficioNeto, const Color(0xFF10B981)),
+            _dividerV(),
+            _kpiCompacto('Retención 20%', m.pagoFraccionadoIrpf, const Color(0xFFF59E0B)),
+            _dividerV(),
+            _kpiResultado('A ingresar', m.pagoFraccionadoIrpf, acento),
+          ])),
+        const SizedBox(height: 8),
+        // Fila 3: fecha + nota orientativa
+        Row(children: [
+          Icon(Icons.event_rounded, size: 12, color: colorAlerta),
+          const SizedBox(width: 4),
+          Text(m.fechaLimiteTexto, style: TextStyle(fontSize: 11, color: colorAlerta, fontWeight: FontWeight.w600)),
+          if (m.hayBeneficio) ...[
+            const SizedBox(width: 6),
+            const Text('· orientativo', style: TextStyle(fontSize: 10, color: Color(0xFF9CA3AF))),
+          ],
+        ]),
+      ]),
     );
   }
 
@@ -935,32 +987,6 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
       empresaId: widget.empresaId,
       formaJuridica: empresaConfig.formaJuridica,
       ejercicio: widget.anio,
-    );
-  }
-
-  Widget _filaModelo(String label, double valor, Color color,
-      {bool negrita = false, bool grande = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: grande ? 13 : 12,
-              fontWeight: negrita ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
-        Text(
-          '${valor.toStringAsFixed(2)}€',
-          style: TextStyle(
-            fontSize: grande ? 16 : 13,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ]),
     );
   }
 
@@ -1088,221 +1114,57 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
     }
   }
 
+  Future<void> _recalcularMod303(int trimestre) async {
+    try {
+      final datos = await Mod303Service().calcularMod303(
+        empresaId: widget.empresaId,
+        anio: widget.anio,
+        trimestre: trimestre,
+      );
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('modelos_fiscales')
+          .doc('303_${widget.anio}_${trimestre}T')
+          .set({
+        ...datos..remove('facturas_emitidas')..remove('facturas_recibidas'),
+        'modelo': '303', 'ejercicio': widget.anio,
+        'trimestre': '${trimestre}T',
+        'fecha_calculo': FieldValue.serverTimestamp(),
+        'estado': 'calculado',
+      }, SetOptions(merge: true));
+      if (mounted) FluxToast.exito(context, 'Mod.303 ${trimestre}T recalculado');
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    }
+  }
+
+  Future<void> _marcarPresentado303(int trimestre) async {
+    await FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('modelos_fiscales')
+        .doc('303_${widget.anio}_${trimestre}T')
+        .set({'estado': 'presentado', 'fecha_presentacion': FieldValue.serverTimestamp()},
+            SetOptions(merge: true));
+    if (mounted) FluxToast.exito(context, 'Mod.303 ${trimestre}T marcado como presentado');
+  }
+
   Future<void> _abrirConfiguracionFiscal() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider.value(
-          value: context.read<EmpresaConfigProvider>(),
-          child: const PantallaConfiguracionFiscalEmpresa(),
-        ),
-      ),
-    );
-    await _cargarCriterioIva();
-    await _cargar();
-  }
-
-  String _textoAlerta(EstadoAlertaFiscal alerta) {
-    switch (alerta) {
-      case EstadoAlertaFiscal.ok:
-        return 'Pendiente';
-      case EstadoAlertaFiscal.proximo:
-        return 'Próximo vencimiento';
-      case EstadoAlertaFiscal.vencido:
-        return 'Plazo vencido';
-    }
-  }
-
-  Widget _buildBotonModelo202(Color color) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.account_balance, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 202 — Pago fraccionado IS (Sociedades)',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Art. 40.2 LIS · Pago a cuenta del Impuesto de Sociedades.\n'
-              'Períodos: abril (1P), octubre (2P), diciembre (3P)',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Modelo202Screen(
-                    empresaId: widget.empresaId,
-                    anioInicial: widget.anio,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 202'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
+        builder: (_) => const PantallaPerfil(),
       ),
     );
   }
 
-  Widget _buildBotonModelo347(Color color) {
-    final plazo = DateTime(widget.anio + 1, 2, 28);
-    final dias = plazo.difference(DateTime.now()).inDays;
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.people_alt, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 347 — Operaciones con terceros',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Art. 33 RD 1065/2007 · Declaración anual de operaciones >3.005,06€.\n'
-              'Plazo: hasta el 28 de febrero de ${widget.anio + 1}'
-              '${dias >= 0 && dias <= 60 ? ' ($dias días)' : ''}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                final appConfig = context.read<AppConfigProvider>();
-                final empresaConfigProvider = context.read<EmpresaConfigProvider>();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MultiProvider(
-                      providers: [
-                        ChangeNotifierProvider.value(value: appConfig),
-                        ChangeNotifierProvider.value(value: empresaConfigProvider),
-                      ],
-                      child: Scaffold(
-                        appBar: AppBar(
-                          title: const Text('Modelo 347 — Operaciones con terceros'),
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black87,
-                          elevation: 1,
-                        ),
-                        body: TabMod347(
-                          empresaId: widget.empresaId,
-                          anio: widget.anio,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 347'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  Widget _buildBotonModelo349(Color color) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.public, size: 48, color: color),
-            const SizedBox(height: 12),
-            const Text(
-              'Modelo 349 — Operaciones intracomunitarias',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Art. 79 RIVA · Declaración recapitulativa de operaciones '
-              'intracomunitarias con otros países de la UE.\n'
-              'Periodicidad trimestral (mensual si >50.000 €/trim.)',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                final appConfig = context.read<AppConfigProvider>();
-                final empConf = context.read<EmpresaConfigProvider>();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MultiProvider(
-                      providers: [
-                        ChangeNotifierProvider.value(value: appConfig),
-                        ChangeNotifierProvider.value(value: empConf),
-                      ],
-                      child: Scaffold(
-                        appBar: AppBar(
-                          title: const Text('Modelo 349 — Intracomunitarias'),
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black87,
-                          elevation: 1,
-                        ),
-                        body: TabMod349Wrapper(
-                          empresaId: widget.empresaId,
-                          anio: widget.anio,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Abrir Modelo 349'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// MODELO AUXILIAR PARA EVENTO FISCAL
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _EventoFiscal {
-  final String fecha;
-  final String modelo;
+class _ModeloInfo {
+  final String num, label;
+  final IconData icon;
   final Color color;
-  final IconData icono;
-
-  const _EventoFiscal(this.fecha, this.modelo, this.color, this.icono);
+  final int idx;
+  final bool periodico; // true = trimestral/mensual, false = anual
+  const _ModeloInfo(this.num, this.label, this.icon, this.color, this.idx, {this.periodico = true});
 }
-
-
