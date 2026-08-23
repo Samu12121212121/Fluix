@@ -105,6 +105,7 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
     try {
       final svc = TpvFacturacionService();
       final config = await svc.obtenerConfig(widget.empresaId);
+      final emailOverride = _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim();
       final factura = await svc.generarFacturaPorPedido(
         empresaId: widget.empresaId,
         pedido: widget.pedido,
@@ -112,11 +113,28 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
         usuarioNombre: FirebaseAuth.instance.currentUser?.displayName ?? 'TPV',
         terminalId: widget.terminalId,
         clienteNombreOverride: _nombreCtrl.text.trim(),
-        clienteEmailOverride:
-            _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        clienteEmailOverride: emailOverride,
         clienteNifOverride:
             _nifCtrl.text.trim().isEmpty ? null : _nifCtrl.text.trim(),
       );
+
+      // Envío automático de email si está habilitado en config
+      final emailDestino = emailOverride ?? factura.clienteCorreo;
+      if (config.enviarPorEmailAuto && emailDestino != null && emailDestino.isNotEmpty) {
+        try {
+          final pdfBytes = await PdfService.generarFacturaPdfDinamico(
+            factura, widget.empresaId);
+          await EmailService.enviarFactura(
+            destinatario: emailDestino,
+            pdfBytes: pdfBytes,
+            numeroFactura: factura.numeroFactura,
+            total: factura.total,
+            empresaId: widget.empresaId,
+            nombreCliente: factura.clienteNombre,
+          );
+        } catch (_) {} // No bloquear el flujo si falla el email
+      }
+
       if (!mounted) return;
       // Cerrar el formulario y mostrar la vista de factura generada
       Navigator.pop(context);

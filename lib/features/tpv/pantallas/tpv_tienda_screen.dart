@@ -27,6 +27,7 @@ import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../../services/tpv/offline_queue_service.dart';
+import '../../../services/tpv/terminal_fisica_service.dart';
 import '../../../services/verifactu/qr_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
 import 'configuracion_facturacion_tpv_screen.dart';
@@ -221,6 +222,19 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
         .estaConectada()
         .then((v) => mounted ? setState(() => _btConectado = v) : null);
     _pedidosWebNotifier.iniciar(widget.empresaId);
+    // Inicializar terminal física si está configurada
+    TpvFacturacionService().obtenerConfig(widget.empresaId).then((cfg) {
+      if (cfg.terminalFisicaIp.isNotEmpty) {
+        TerminalFisicaService().configurar(
+          ip: cfg.terminalFisicaIp,
+          puerto: cfg.terminalFisicaPuerto,
+          protocolo: ProtocoloTerminal.values.firstWhere(
+            (p) => p.name == cfg.terminalFisicaProtocolo,
+            orElse: () => ProtocoloTerminal.manual,
+          ),
+        );
+      }
+    }).catchError((_) {});
     // Verificar si hay apertura de caja para hoy; si no, pedirla al arrancar
     WidgetsBinding.instance.addPostFrameCallback((_) => _verificarAperturaCaja());
     // Registrar acciones en el header del dashboard (solo modo embebido)
@@ -4078,6 +4092,9 @@ class _TiendaDialogoPago extends StatefulWidget {
 
 class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
   late String _metodo;
+  bool _terminalProcesando = false;
+  String _terminalEstado = '';
+  String? _terminalError;
 
   @override
   void initState() {
@@ -4095,6 +4112,22 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
     _efectivoCtrl.dispose();
     _tarjetaCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _iniciarCobroTerminal() async {
+    setState(() { _terminalProcesando = true; _terminalEstado = 'procesando'; _terminalError = null; });
+    final res = await TerminalFisicaService().cobrar(
+      widget.total,
+      descripcion: 'Venta TPV ${widget.total.toStringAsFixed(2)}€',
+    );
+    if (!mounted) return;
+    if (res.esManual) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'manual'; });
+    } else if (res.exito) {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'exito'; });
+    } else {
+      setState(() { _terminalProcesando = false; _terminalEstado = 'error'; _terminalError = res.error; });
+    }
   }
 
   @override
@@ -4127,7 +4160,7 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
             ]),
           ),
           const SizedBox(height: 16),
-          Row(children: [
+          Wrap(spacing: 8, runSpacing: 6, children: [
             _TChip(
               label: 'Efectivo',
               icon: Icons.payments_outlined,
@@ -4135,7 +4168,6 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               onTap: () => setState(() => _metodo = 'efectivo'),
               color: const Color(0xFF4CAF50),
             ),
-            const SizedBox(width: 8),
             _TChip(
               label: 'Tarjeta',
               icon: Icons.credit_card,
@@ -4143,7 +4175,6 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               onTap: () => setState(() => _metodo = 'tarjeta'),
               color: const Color(0xFF2196F3),
             ),
-            const SizedBox(width: 8),
             _TChip(
               label: 'Mixto',
               icon: Icons.swap_horiz,
@@ -4151,7 +4182,19 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               onTap: () => setState(() => _metodo = 'mixto'),
               color: const Color(0xFFFF9800),
             ),
+            _TChip(
+              label: 'Terminal',
+              icon: Icons.credit_score,
+              selected: _metodo == 'terminal',
+              onTap: () => setState(() { _metodo = 'terminal'; _terminalEstado = ''; _terminalError = null; }),
+              color: const Color(0xFF7B1FA2),
+            ),
           ]),
+          // UI terminal física
+          if (_metodo == 'terminal') ...[
+            const SizedBox(height: 12),
+            _buildTerminalUi(),
+          ],
           const SizedBox(height: 16),
           if (_metodo == 'efectivo') ...[
             TextField(
@@ -4230,34 +4273,30 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar')),
         FilledButton(
-          onPressed: () {
+          onPressed: (_metodo == 'terminal' && _terminalEstado != 'exito' && _terminalEstado != 'manual')
+              ? null
+              : () {
             double ef = 0, tj = 0;
             if (_metodo == 'efectivo') {
               ef = widget.total;
-            } else if (_metodo == 'tarjeta') {
+            } else if (_metodo == 'tarjeta' || _metodo == 'terminal') {
               tj = widget.total;
             } else {
-              ef = double.tryParse(
-                  _efectivoCtrl.text.replaceAll(',', '.')) ??
-                  0;
-              tj = double.tryParse(
-                  _tarjetaCtrl.text.replaceAll(',', '.')) ??
-                  0;
+              ef = double.tryParse(_efectivoCtrl.text.replaceAll(',', '.')) ?? 0;
+              tj = double.tryParse(_tarjetaCtrl.text.replaceAll(',', '.')) ?? 0;
               if ((ef + tj - widget.total).abs() > 0.01) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Los importes no suman el total')),
-                );
+                  const SnackBar(content: Text('Los importes no suman el total')));
                 return;
               }
             }
             Navigator.pop(context, {
-              'metodo': _metodo,
+              'metodo': _metodo == 'terminal' ? 'tarjeta' : _metodo,
               'importe_efectivo': ef,
               'importe_tarjeta': tj,
               'importes': <String, double>{
                 if (_metodo == 'efectivo') 'efectivo': ef,
-                if (_metodo == 'tarjeta') 'tarjeta': tj,
+                if (_metodo == 'tarjeta' || _metodo == 'terminal') 'tarjeta': tj,
                 if (_metodo == 'mixto') ...{
                   if (ef > 0) 'efectivo': ef,
                   if (tj > 0) 'tarjeta': tj,
@@ -4265,11 +4304,48 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               },
             });
           },
-          style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF4A7C59)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A7C59)),
           child: const Text('Confirmar cobro'),
         ),
       ],
+    );
+  }
+
+  Widget _buildTerminalUi() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.3)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (_terminalEstado == '' || _terminalEstado == 'error') ...[
+          if (_terminalError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(_terminalError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+          FilledButton.icon(
+            onPressed: _terminalProcesando ? null : _iniciarCobroTerminal,
+            icon: _terminalProcesando
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.credit_score, size: 16),
+            label: Text(_terminalProcesando ? 'Conectando con terminal…' : 'Iniciar cobro en terminal'),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7B1FA2)),
+          ),
+        ],
+        if (_terminalEstado == 'manual') ...[
+          const Icon(Icons.phonelink_off, color: Color(0xFF7B1FA2)),
+          const SizedBox(height: 6),
+          const Text('Sin terminal configurado — confirma el pago manualmente', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+        ],
+        if (_terminalEstado == 'exito') ...[
+          const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 28),
+          const SizedBox(height: 4),
+          const Text('Pago confirmado por terminal', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.w600)),
+        ],
+      ]),
     );
   }
 }
