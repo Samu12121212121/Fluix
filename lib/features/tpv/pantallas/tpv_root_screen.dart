@@ -43,6 +43,7 @@ import '../../../widgets/tpv/historial_tickets_widget.dart';
 import '../../../widgets/tpv/estadisticas_turno_widget.dart';
 import '../../../widgets/tpv/hold_pedidos_widget.dart';
 import '../../../widgets/tpv/arqueo_caja_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/tpv/offline_queue_service.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
 import '../../../services/verifactu/qr_service.dart';
@@ -8074,64 +8075,36 @@ Future<void> _mostrarDividirComanda(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NÚMERO DE TICKET (contador atómico)
+// NÚMERO DE TICKET — Firestore primero, SharedPreferences como fallback offline
 // ═══════════════════════════════════════════════════════════════════════════
 
 Future<int> _obtenerSiguienteNumeroTicket(String empresaId) async {
-  debugPrint('🎫 [TICKET] Obteniendo siguiente número de ticket...');
-  debugPrint('🎫 [TICKET] ℹ️ Modo Windows Desktop: SIN transacciones (evita threading issues)');
-  
+  final prefsKey = 'tpv_ultimo_ticket_$empresaId';
   final ref = FirebaseFirestore.instance
       .collection('empresas')
       .doc(empresaId)
       .collection('contadores')
       .doc('tickets');
 
-  int siguiente = 1;
-  
   try {
-    // WINDOWS DESKTOP FIX: No usar transacciones debido a problemas de threading
-    // Ver: https://docs.flutter.dev/platform-integration/platform-channels#channels-and-platform-threading
-    debugPrint('🎫 [TICKET] Método simple (sin transacción) para Windows Desktop...');
-    
-    // 1. Leer el contador actual
-    debugPrint('🎫 [TICKET] Paso 1: Leyendo contador actual...');
-    final snap = await ref.get();
-    
-    if (snap.exists) {
-      siguiente = ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1;
-      debugPrint('🎫 [TICKET] Contador existe, siguiente: $siguiente');
-    } else {
-      siguiente = 1;
-      debugPrint('🎫 [TICKET] Contador no existe, inicializando en: $siguiente');
-    }
-    
-    // 2. Actualizar el contador
-    debugPrint('🎫 [TICKET] Paso 2: Actualizando contador a: $siguiente');
+    final snap = await ref.get().timeout(const Duration(seconds: 4));
+    final siguiente = snap.exists
+        ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
+        : 1;
     await ref.set({'ultimo': siguiente}, SetOptions(merge: true));
-    debugPrint('🎫 [TICKET] ✅ Contador actualizado correctamente');
-    
-  } catch (e, stackTrace) {
-    debugPrint('❌ [TICKET] Error obteniendo/actualizando contador');
-    debugPrint('❌ [TICKET] Error: $e');
-    debugPrint('❌ [TICKET] StackTrace: $stackTrace');
-    
-    // FALLBACK: Usar timestamp como número de ticket si falla
-    siguiente = DateTime.now().millisecondsSinceEpoch % 100000;
-    debugPrint('⚠️ [TICKET] Usando fallback temporal: $siguiente');
-    
-    // Intentar actualizar el contador de forma simple
-    try {
-      debugPrint('🎫 [TICKET] Intentando actualización simple del fallback...');
-      await ref.set({'ultimo': siguiente}, SetOptions(merge: true));
-      debugPrint('🎫 [TICKET] ✅ Actualización simple exitosa');
-    } catch (e2) {
-      debugPrint('❌ [TICKET] También falló actualización simple: $e2');
-      // No importa, usamos el número temporal
-    }
+    // Persiste localmente para que el fallback offline sea secuencial
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(prefsKey, siguiente);
+    debugPrint('🎫 [TICKET] Firestore → #$siguiente');
+    return siguiente;
+  } catch (_) {
+    // Offline o timeout → contador local persistente
+    final prefs = await SharedPreferences.getInstance();
+    final local = (prefs.getInt(prefsKey) ?? 0) + 1;
+    await prefs.setInt(prefsKey, local);
+    debugPrint('📴 [TICKET] Offline → local #$local');
+    return local;
   }
-  
-  return siguiente;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
