@@ -1094,12 +1094,13 @@ class PdfService {
     );
   }
 
-  /// Muestra el PDF de ejemplo en pantalla.
+  /// Muestra el PDF de ejemplo en un popup/dialog.
   static Future<void> previewPlantilla(
     BuildContext context,
     uiTpl.PdfTemplate plantilla,
     String empresaId,
   ) async {
+    // Spinner mientras genera
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1107,32 +1108,62 @@ class PdfService {
     );
     try {
       final bytes = await generarPreviewBytes(plantilla, empresaId);
-
       if (!context.mounted) return;
-      Navigator.of(context).pop();
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: Text('Vista previa — ${plantilla.nombre}'),
-            backgroundColor: _hexToColor(plantilla.colorPrimario),
-            foregroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.share),
-                tooltip: 'Compartir',
-                onPressed: () => Printing.sharePdf(
-                    bytes: bytes, filename: 'preview_${plantilla.nombre}.pdf'),
+      Navigator.of(context).pop(); // cierra spinner
+
+      final acento = _hexToColor(plantilla.colorPrimario);
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Header del popup
+            Container(
+              color: acento,
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(children: [
+                Expanded(child: Text(
+                  '${plantilla.tipo.icon} ${plantilla.nombre}',
+                  style: const TextStyle(color: Colors.white,
+                      fontWeight: FontWeight.w700, fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                )),
+                IconButton(
+                  icon: const Icon(Icons.share, color: Colors.white, size: 18),
+                  tooltip: 'Compartir PDF',
+                  onPressed: () => Printing.sharePdf(
+                      bytes: bytes, filename: 'preview_${plantilla.nombre}.pdf'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                  tooltip: 'Cerrar',
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ]),
+            ),
+            // PDF viewer dentro del popup
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.72,
+              child: PdfPreview(
+                build: (_) async => bytes,
+                canChangePageFormat: false,
+                canChangeOrientation: false,
+                canDebug: false,
+                pdfPreviewPageDecoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                ),
               ),
-            ],
-          ),
-          body: PdfPreview(
-            build: (_) async => bytes,
-            canChangePageFormat: false,
-            canChangeOrientation: false,
-            canDebug: false,
-          ),
+            ),
+          ]),
         ),
-      ));
+      );
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
