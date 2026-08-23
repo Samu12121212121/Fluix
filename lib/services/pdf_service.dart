@@ -14,6 +14,9 @@ import 'verifactu_service.dart';
 import 'verifactu/qr_service.dart';
 import 'pdf/pdf_renderer.dart';
 import 'pdf/pdf_template_service.dart';
+// Servicio de la feature de plantillas (usa la misma colección que la UI)
+import '../features/pdf_templates/data/pdf_template_service.dart' as uiTplSvc;
+import '../features/pdf_templates/domain/models/pdf_template.dart' as uiTpl;
 
 class PdfService {
   static final _db = FirebaseFirestore.instance;
@@ -260,8 +263,16 @@ class PdfService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 36),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 36, vertical: 36),
+          // Sello PAGADA solapado sobre página 1 sin desplazar el contenido
+          buildForeground: _mostrarSelloPagada
+              ? (ctx) => ctx.pageNumber == 1
+                  ? pw.Center(child: _buildSelloPagada())
+                  : pw.SizedBox()
+              : null,
+        ),
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         build: (ctx) => [
           // ── CABECERA ─────────────────────────────────────────────────────
@@ -813,12 +824,6 @@ class PdfService {
             ),
           ],
 
-          // ── SELLO "PAGADA" ────────────────────────────────────────────
-          if (_mostrarSelloPagada) ...[
-            pw.SizedBox(height: 8),
-            pw.Center(child: _buildSelloPagada()),
-          ],
-
           // ── SELLO PROFORMA (solo si es proforma) ─────────────────────
           if (factura.esProforma) ...[
             pw.Padding(
@@ -916,22 +921,25 @@ class PdfService {
     // Descargar logo (solo en plataformas no web, para evitar problemas CORS)
     final Uint8List? logoBytes = kIsWeb ? null : await _descargarLogo(logoUrl);
 
-    // ── Buscar colores del template asignado ──────────────────────────────
+    // ── Buscar colores del template asignado (usa la colección de la UI) ──
     String? colorPrimario;
     String? colorSecundario;
     try {
-      final tipoDoc = factura.esRectificativa
-          ? PdfDocumentType.rectificativa
-          : PdfDocumentType.factura;
-      final template = await _templateService.getTemplateForDocument(
-        empresaId: empresaId,
-        type: tipoDoc,
-      );
-      if (template != null) {
-        colorPrimario  = template.styles.brandColors.primary;
-        colorSecundario = template.styles.brandColors.secondary;
+      final svc = uiTplSvc.PdfTemplateService();
+      final tipoUi = factura.esRectificativa
+          ? uiTpl.TipoDocumentoPdf.facturaRectificativa
+          : uiTpl.TipoDocumentoPdf.factura;
+      final tpl = await svc.getPlantillaDefault(empresaId, tipoUi);
+      if (tpl != null) {
+        colorPrimario   = tpl.colorPrimario;
+        colorSecundario = tpl.colorSecundario;
+        debugPrint('🎨 [PDF] Plantilla "${tpl.nombre}" → primario=$colorPrimario secundario=$colorSecundario');
+      } else {
+        debugPrint('⚠️ [PDF] Sin plantilla default para tipo=${tipoUi.id} empresa=$empresaId');
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ [PDF] Error buscando plantilla UI: $e');
+    }
 
     // Generar QR Verifactu si la factura tiene datos Verifactu
     Uint8List? qrBytes;
@@ -940,16 +948,23 @@ class PdfService {
     if (factura.verifactu != null) {
       try {
         final datos = DatosVerifactu.fromMap(factura.verifactu!);
+        esVerifactu = datos.estado != EstadoVerifactu.error;
+        // Usar QrService con los campos correctos:
+        // - numeroFactura: el número de factura real (FAC-2026-0001), no el UUID
+        // - QrService formatea la fecha a dd-MM-yyyy según HAC/1177/2024
+        final qrSvc = QrService();
         final qrUrl = datos.urlVerificacion ??
-            VerifactuService.generarUrlQr(
+            qrSvc.generarUrl(
               nifEmisor: datos.nifEmisor,
-              numeroFactura: datos.idFactura,
-              fechaExpedicion: datos.fechaExpedicion,
+              serie: '',                         // la serie ya va incluida en el numeroFactura
+              numero: datos.numeroFactura.isNotEmpty
+                  ? datos.numeroFactura
+                  : factura.numeroFactura,
+              fecha: factura.fechaEmision,       // fecha real de la factura
               importeTotal: factura.total,
             );
-        esVerifactu = datos.estado != EstadoVerifactu.error;
         if (!kIsWeb && qrUrl.isNotEmpty) {
-          qrBytes = await QrService().generarImagenQr(qrUrl);
+          qrBytes = await qrSvc.generarImagenQr(qrUrl);
         }
       } catch (_) {}
     }
@@ -1037,8 +1052,116 @@ class PdfService {
     }
   }
 
+  // ── PREVISUALIZAR PLANTILLA (muestra PDF de ejemplo con los colores del template) ───
+
+  /// Genera un PDF de ejemplo con los colores de la plantilla seleccionada y lo muestra.
+  static Future<void> previewPlantilla(
+    BuildContext context,
+    uiTpl.PdfTemplate plantilla,
+    String empresaId,
+  ) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final empresa = await _cargarDatosEmpresa(empresaId);
+      final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
+      final ahora = DateTime.now();
+      final vence = ahora.add(const Duration(days: 30));
+
+      // Factura de muestra con datos ficticios para previsualizar el diseño
+      final facturaMustra = Factura(
+        id: 'preview',
+        empresaId: empresaId,
+        numeroFactura: 'FAC-${ahora.year}-0001',
+        tipo: TipoFactura.venta_directa,
+        estado: EstadoFactura.pagada,
+        clienteNombre: 'Cliente Ejemplo S.L.',
+        clienteTelefono: '+34 600 000 000',
+        clienteCorreo: 'cliente@ejemplo.com',
+        datosFiscales: const DatosFiscales(nif: 'B12345678'),
+        lineas: [
+          LineaFactura(
+            id: '1', productoId: '', descripcion: 'Servicio de diseño web',
+            cantidad: 3, precioUnitario: 250.0, porcentajeIva: 21.0,
+            baseImponible: 750.0, cuotaIva: 157.5, total: 907.5, orden: 0,
+          ),
+          LineaFactura(
+            id: '2', productoId: '', descripcion: 'Mantenimiento mensual',
+            cantidad: 1, precioUnitario: 150.0, porcentajeIva: 21.0,
+            baseImponible: 150.0, cuotaIva: 31.5, total: 181.5, orden: 1,
+          ),
+        ],
+        subtotal: 900.0, totalIva: 189.0, total: 1089.0,
+        descuentoGlobal: 0, importeDescuentoGlobal: 0,
+        porcentajeIrpf: 0, retencionIrpf: 0, totalRecargoEquivalencia: 0,
+        diasVencimiento: 30,
+        metodoPago: MetodoPagoFactura.transferencia,
+        historial: [],
+        fechaEmision: ahora,
+        fechaVencimiento: vence,
+        flujo: 'ingreso',
+        notasCliente: '${plantilla.tipo.icon} ${plantilla.nombre} — vista previa de diseño',
+      );
+
+      final bytes = await _generarPdfBytes(
+        factura: facturaMustra,
+        nombreEmpresa: empresa['nombre'] ?? 'Mi Empresa',
+        cifEmpresa: empresa['cif'],
+        direccionEmpresa: empresa['direccion'],
+        telefonoEmpresa: empresa['telefono'],
+        correoEmpresa: empresa['correo'],
+        ibanEmpresa: empresa['iban'],
+        logoBytes: logoBytes,
+        colorPrimarioTemplate: plantilla.colorPrimario,
+        colorSecundarioTemplate: plantilla.colorSecundario,
+      );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: Text('Vista previa — ${plantilla.nombre}'),
+            backgroundColor: _hexToColor(plantilla.colorPrimario),
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share),
+                tooltip: 'Compartir',
+                onPressed: () => Printing.sharePdf(
+                    bytes: bytes, filename: 'preview_${plantilla.nombre}.pdf'),
+              ),
+            ],
+          ),
+          body: PdfPreview(
+            build: (_) async => bytes,
+            canChangePageFormat: false,
+            canChangeOrientation: false,
+            canDebug: false,
+          ),
+        ),
+      ));
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error generando vista previa: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  static Color _hexToColor(String hex) {
+    final h = hex.replaceAll('#', '');
+    return Color(int.parse('FF$h', radix: 16));
+  }
+
   // ── GENERAR PDF DINÁMICO (con plantillas personalizadas) ─────────────────────
-  
+
   /// Intenta generar PDF usando plantilla dinámica, fallback a legacy si no existe
   static Future<Uint8List> generarFacturaPdfDinamico(
     Factura factura,

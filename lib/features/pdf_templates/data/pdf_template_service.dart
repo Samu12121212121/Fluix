@@ -5,14 +5,20 @@ class PdfTemplateService {
   static const _col = 'pdf_templates';
   final _db = FirebaseFirestore.instance;
 
+  // Sin orderBy en Firestore → sin necesidad de índice compuesto.
+  // Se ordena en cliente por fecha_modificacion descendente.
+
   Stream<List<PdfTemplate>> watchPlantillas(String empresaId) {
     return _db
         .collection(_col)
         .where('empresa_id', isEqualTo: empresaId)
         .where('activa', isEqualTo: true)
-        .orderBy('fecha_modificacion', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList());
+        .map((s) {
+          final list = s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList();
+          list.sort((a, b) => b.fechaModificacion.compareTo(a.fechaModificacion));
+          return list;
+        });
   }
 
   /// Devuelve TODAS las plantillas (activas e inactivas) para gestión del usuario.
@@ -20,9 +26,12 @@ class PdfTemplateService {
     return _db
         .collection(_col)
         .where('empresa_id', isEqualTo: empresaId)
-        .orderBy('fecha_modificacion', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList());
+        .map((s) {
+          final list = s.docs.map((d) => PdfTemplate.fromFirestore(d)).toList();
+          list.sort((a, b) => b.fechaModificacion.compareTo(a.fechaModificacion));
+          return list;
+        });
   }
 
   Future<void> toggleActiva(String plantillaId, bool nuevaActiva) async {
@@ -37,9 +46,10 @@ class PdfTemplateService {
         .collection(_col)
         .where('empresa_id', isEqualTo: empresaId)
         .where('activa', isEqualTo: true)
-        .orderBy('fecha_modificacion', descending: true)
         .get();
-    return snap.docs.map((d) => PdfTemplate.fromFirestore(d)).toList();
+    final list = snap.docs.map((d) => PdfTemplate.fromFirestore(d)).toList();
+    list.sort((a, b) => b.fechaModificacion.compareTo(a.fechaModificacion));
+    return list;
   }
 
   Future<PdfTemplate?> getPlantillaById(String id) async {
@@ -105,19 +115,31 @@ class PdfTemplateService {
     await batch.commit();
   }
 
+  /// Crea una plantilla por defecto para cada tipo que no tenga ninguna.
+  /// Seguro para ejecutar múltiples veces (idempotente por tipo).
   Future<void> inicializarPlantillasDefault(String empresaId) async {
     final existentes = await getPlantillas(empresaId);
-    if (existentes.isNotEmpty) return;
-    final batch = _db.batch();
-    for (final tpl in [
+    final tiposExistentes = existentes.map((p) => p.tipo).toSet();
+
+    final todas = [
       PdfTemplate.defaultFactura(empresaId),
-      PdfTemplate.defaultFichajes(empresaId),
+      PdfTemplate.defaultFacturaRectificativa(empresaId),
+      PdfTemplate.defaultProforma(empresaId),
       PdfTemplate.defaultPresupuesto(empresaId),
-    ]) {
+      PdfTemplate.defaultAlbaran(empresaId),
+      PdfTemplate.defaultFichajes(empresaId),
+      PdfTemplate.defaultHorasEmpleado(empresaId),
+      PdfTemplate.defaultInformeInterno(empresaId),
+    ];
+
+    final faltantes = todas.where((t) => !tiposExistentes.contains(t.tipo)).toList();
+    if (faltantes.isEmpty) return;
+
+    final batch = _db.batch();
+    for (final tpl in faltantes) {
       final ref = _db.collection(_col).doc();
       batch.set(ref, tpl.copyWith(id: ref.id).toFirestore());
     }
     await batch.commit();
   }
 }
-

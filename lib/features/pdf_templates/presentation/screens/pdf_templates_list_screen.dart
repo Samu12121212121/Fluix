@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../domain/models/pdf_template.dart';
 import '../../data/pdf_template_service.dart';
 import 'template_editor_screen.dart';
+import 'package:uuid/uuid.dart';
+import '../../../../services/pdf_service.dart';
 
 // ── Colores editorpdf.html ───────────────────────────────────────────────────
 const _kPurple     = Color(0xFF6D5EF8);
@@ -14,9 +16,10 @@ const _kTextTer    = Color(0xFF9CA3AF);
 
 Color _hx(String h) { try { return Color(int.parse('FF${h.replaceAll('#','')}', radix:16)); } catch(_){ return _kPurple; } }
 
-enum _Cat { todas, facturacion, comercial, interno, misPlantillas }
+enum _Cat { galeria, todas, facturacion, comercial, interno, misPlantillas }
 
 const _catLabel = {
+  _Cat.galeria:       '✨ Galería',
   _Cat.todas:         'Todas',
   _Cat.facturacion:   'Facturación',
   _Cat.comercial:     'Comercial',
@@ -36,8 +39,9 @@ class PdfTemplatesListScreen extends StatefulWidget {
 
 class _State extends State<PdfTemplatesListScreen> {
   final _svc = PdfTemplateService();
-  _Cat _cat = _Cat.todas;
+  _Cat _cat = _Cat.galeria;
   bool _init = false;
+  bool _guardandoGaleria = false;
 
   @override
   void initState() { super.initState(); _inicializar(); }
@@ -49,6 +53,7 @@ class _State extends State<PdfTemplatesListScreen> {
   }
 
   bool _enCat(PdfTemplate p) => switch (_cat) {
+    _Cat.galeria       => false, // La galería tiene su propia vista
     _Cat.todas         => true,
     _Cat.misPlantillas => !p.esDefault,
     _Cat.facturacion   => _facTypes.contains(p.tipo),
@@ -64,15 +69,17 @@ class _State extends State<PdfTemplatesListScreen> {
       backgroundColor: _kBg,
       body: _init
         ? const Center(child: CircularProgressIndicator())
-        : StreamBuilder<List<PdfTemplate>>(
-            stream: _svc.watchTodasPlantillas(widget.empresaId),
-            builder: (ctx, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              if (snap.hasError) return _error();
-              final filtradas = (snap.data ?? []).where(_enCat).toList();
-              return _gallery(filtradas);
-            },
-          ),
+        : _cat == _Cat.galeria
+            ? _vistaGaleria()
+            : StreamBuilder<List<PdfTemplate>>(
+                stream: _svc.watchTodasPlantillas(widget.empresaId),
+                builder: (ctx, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  if (snap.hasError) return _error(snap.error);
+                  final filtradas = (snap.data ?? []).where(_enCat).toList();
+                  return _gallery(filtradas);
+                },
+              ),
     );
   }
 
@@ -89,39 +96,157 @@ class _State extends State<PdfTemplatesListScreen> {
     ])),
   );
 
+  Widget _headerFiltros() => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.fromLTRB(24,14,24,10),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(width:36, height:36, decoration: BoxDecoration(color:_kPurpleLight, borderRadius:BorderRadius.circular(10)), child: const Icon(Icons.picture_as_pdf, color:_kPurple, size:18)),
+        const SizedBox(width:10),
+        const Text('Plantillas de documentos', style: TextStyle(fontSize:17, fontWeight:FontWeight.w800, color:_kText)),
+      ]),
+      const SizedBox(height:10),
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: _Cat.values.map((c) {
+        final sel = _cat == c;
+        final isGal = c == _Cat.galeria;
+        return Padding(padding: const EdgeInsets.only(right:8), child: GestureDetector(
+          onTap: () => setState(() => _cat = c),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal:14, vertical:7),
+            decoration: BoxDecoration(
+              color: sel ? (isGal ? const Color(0xFFFFB300) : _kPurple) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: sel ? (isGal ? const Color(0xFFFFB300) : _kPurple) : (isGal ? const Color(0xFFFFB300) : Colors.grey.shade200)),
+            ),
+            child: Text(_catLabel[c]!, style: TextStyle(
+              color: sel ? Colors.white : (isGal ? const Color(0xFFE65100) : _kTextSec),
+              fontWeight: FontWeight.w600, fontSize: 12)),
+          ),
+        ));
+      }).toList())),
+    ]),
+  );
+
+  Widget _vistaGaleria() {
+    final galeria = PdfTemplate.galeria(widget.empresaId);
+    final w = MediaQuery.of(context).size.width;
+    final cols = w > 1150 ? 3 : w > 750 ? 2 : 1;
+    return Column(children: [
+      _headerFiltros(),
+      Expanded(child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Banner descriptivo
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFFFFF8E1), Color(0xFFFFF3E0)]),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.4)),
+            ),
+            child: Row(children: [
+              const Text('✨', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Plantillas profesionales listas para usar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
+                const SizedBox(height: 3),
+                Text('Elige un diseño, personaliza los colores y estará en tu empresa en segundos. Luego puedes editarla libremente desde el editor.', style: TextStyle(fontSize: 11.5, color: Colors.brown.shade600, height: 1.4)),
+              ])),
+            ]),
+          ),
+          // Grid de plantillas de galería
+          GridView.builder(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols, childAspectRatio: 0.72,
+              crossAxisSpacing: 16, mainAxisSpacing: 16,
+            ),
+            itemCount: galeria.length,
+            itemBuilder: (_, i) => _cardGaleria(galeria[i]),
+          ),
+        ]),
+      )),
+    ]);
+  }
+
+  Widget _cardGaleria(PdfTemplate p) {
+    final accent = _hx(p.colorPrimario);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.07), blurRadius:14, offset:const Offset(0,4))],
+      ),
+      child: Column(children: [
+        // Mini canvas
+        Expanded(flex: 5, child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+          child: Container(color: _kCanvas, padding: const EdgeInsets.all(10),
+            child: ClipRRect(borderRadius: BorderRadius.circular(6), child: _miniCanvas(p))),
+        )),
+        // Info + botones
+        Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal:7, vertical:3),
+              decoration: BoxDecoration(color: accent.withValues(alpha:0.12), borderRadius: BorderRadius.circular(10)),
+              child: Text('${p.tipo.icon} ${p.tipo.label}', style: TextStyle(fontSize:8.5, fontWeight:FontWeight.w800, color:accent)),
+            ),
+          ]),
+          const SizedBox(height: 5),
+          Text(p.nombre, style: const TextStyle(fontWeight:FontWeight.w800, fontSize:13, color:_kText)),
+          const SizedBox(height: 3),
+          Text(p.descripcion, style: const TextStyle(fontSize:10, color:_kTextSec, height:1.4), maxLines:2, overflow:TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _btn('Vista previa', Icons.visibility_outlined, false, () => PdfService.previewPlantilla(context, p, widget.empresaId))),
+            const SizedBox(width: 8),
+            Expanded(child: _guardandoGaleria
+              ? Container(height: 34, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(9)), child: const Center(child: SizedBox(width:14, height:14, child: CircularProgressIndicator(strokeWidth:2, color:Colors.white))))
+              : _btn('Usar plantilla', Icons.add_circle_outline, true, () => _usarPlantillaGaleria(p))),
+          ]),
+        ])),
+      ]),
+    );
+  }
+
+  Future<void> _usarPlantillaGaleria(PdfTemplate p) async {
+    if (_guardandoGaleria) return;
+    setState(() => _guardandoGaleria = true);
+    try {
+      final copia = p.copyWith(
+        id: const Uuid().v4(),
+        empresaId: widget.empresaId,
+        nombre: p.nombre,
+        esDefault: false,
+        activa: true,
+        fechaCreacion: DateTime.now(),
+        fechaModificacion: DateTime.now(),
+      );
+      await _svc.crearPlantilla(copia);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Plantilla añadida a tus plantillas'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 2),
+        ));
+        setState(() { _cat = _Cat.misPlantillas; _guardandoGaleria = false; });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _guardandoGaleria = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   Widget _gallery(List<PdfTemplate> items) {
     final w = MediaQuery.of(context).size.width;
     final cols = w > 1150 ? 4 : w > 850 ? 3 : 2;
     return Column(children: [
-      // Header fijo con back + título + filtros en columna
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(24,14,24,10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          GestureDetector(onTap: () => Navigator.pop(context), child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.chevron_left, color: _kTextSec, size: 15),
-            const Text('Volver al panel', style: TextStyle(color: _kTextSec, fontWeight: FontWeight.w500, fontSize: 13)),
-          ])),
-          const SizedBox(height:10),
-          Row(children: [
-            Container(width:36, height:36, decoration: BoxDecoration(color:_kPurpleLight, borderRadius:BorderRadius.circular(10)), child: const Icon(Icons.picture_as_pdf, color:_kPurple, size:18)),
-            const SizedBox(width:10),
-            const Text('Plantillas de documentos', style: TextStyle(fontSize:17, fontWeight:FontWeight.w800, color:_kText)),
-          ]),
-          const SizedBox(height:10),
-          SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: _Cat.values.map((c) {
-            final sel = _cat == c;
-            return Padding(padding: const EdgeInsets.only(right:8), child: GestureDetector(
-              onTap: () => setState(() => _cat = c),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal:14, vertical:7),
-                decoration: BoxDecoration(color: sel ? _kPurple : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? _kPurple : Colors.grey.shade200)),
-                child: Text(_catLabel[c]!, style: TextStyle(color: sel ? Colors.white : _kTextSec, fontWeight: FontWeight.w600, fontSize: 12)),
-              ),
-            ));
-          }).toList())),
-        ]),
-      ),
+      _headerFiltros(),
       // Grid — cards con altura máxima 200px, auto-escalan si hay muchas
       Expanded(child: LayoutBuilder(builder: (ctx, constraints) {
         const sp = 12.0;
@@ -176,7 +301,9 @@ class _State extends State<PdfTemplatesListScreen> {
                 false, () => _toggleActiva(p),
                 bgColor: p.activa ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
               )),
-              const SizedBox(width:6),
+              const SizedBox(width:4),
+              _iconBtn(Icons.visibility_outlined, 'Preview', () => PdfService.previewPlantilla(context, p, widget.empresaId)),
+              const SizedBox(width:4),
               Expanded(child: _btn('Editar', Icons.edit_outlined, true, () => _editar(p))),
             ]),
           ])),
@@ -219,6 +346,23 @@ class _State extends State<PdfTemplatesListScreen> {
     );
   }
 
+
+  Widget _iconBtn(IconData icon, String tooltip, VoidCallback fn) =>
+      Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          onTap: fn,
+          child: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Icon(icon, size: 12, color: _kTextSec),
+          ),
+        ),
+      );
 
   // ── Mini canvas A4 ─────────────────────────────────────────────────────────
   // Si los bloques tienen posiciones (_x,_y,_w,_h) del editor → layout libre con Stack.
@@ -273,12 +417,13 @@ class _State extends State<PdfTemplatesListScreen> {
     final tipo = b['tipo'] as String? ?? '';
     switch(tipo) {
       case 'header': return Container(color:c, child:Row(children:[const SizedBox(width:2),Container(width:8,height:8,color:Colors.white.withValues(alpha:0.4)),const SizedBox(width:2),Expanded(child:Container(height:3,color:Colors.white.withValues(alpha:0.8)))]));
-      case 'tabla_lineas': return Column(children:[Container(height:6,color:c),Container(height:3,color:Colors.grey.shade100),Container(height:3,color:Colors.grey.shade50)]);
+      case 'tabla_lineas': return Column(children:[Expanded(flex:2,child:Container(color:c)),Expanded(child:Container(color:Colors.grey.shade100)),Expanded(child:Container(color:Colors.grey.shade50))]);
       case 'totales': return Align(alignment:Alignment.centerRight,child:Container(width:60,child:Column(children:[Container(height:2,color:Colors.grey.shade400,margin:const EdgeInsets.only(bottom:1)),Container(height:2,color:Colors.grey.shade400,margin:const EdgeInsets.only(bottom:1)),Container(height:3,color:c)])));
       case 'cliente': return Container(decoration:BoxDecoration(color:c.withValues(alpha:0.06),border:Border.all(color:c.withValues(alpha:0.2))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Container(height:2,width:30,color:c.withValues(alpha:0.6)),Container(height:2,width:50,color:Colors.grey.shade400)]));
       case 'separador': return Divider(height:1,color:Colors.grey.shade300);
       case 'footer': return Container(color:Colors.grey.shade100,child:Center(child:Container(height:1,width:60,color:Colors.grey.shade300)));
       case 'qr_verifactu': return Align(alignment:Alignment.bottomRight,child:Container(width:12,height:12,decoration:BoxDecoration(border:Border.all(color:c,width:1),borderRadius:BorderRadius.circular(1))));
+      case 'indice': return Container(padding:const EdgeInsets.all(4),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Container(height:3,width:40,color:c,margin:const EdgeInsets.only(bottom:3)),Container(height:2,width:70,color:Colors.grey.shade300,margin:const EdgeInsets.only(bottom:2)),Container(height:2,width:60,color:Colors.grey.shade300,margin:const EdgeInsets.only(bottom:2)),Container(height:2,width:50,color:Colors.grey.shade300)]));
       default: return Container(decoration:BoxDecoration(color:c.withValues(alpha:0.04),borderRadius:BorderRadius.circular(2)),child:Container(height:2,color:Colors.grey.shade200));
     }
   }
@@ -300,6 +445,7 @@ class _State extends State<PdfTemplatesListScreen> {
       case 'resumen_horas': return Container(margin:const EdgeInsets.symmetric(horizontal:6,vertical:2),padding:const EdgeInsets.all(4),color:c.withValues(alpha:0.05),child:Row(mainAxisAlignment:MainAxisAlignment.spaceAround,children:[_stat(c),_stat(c),_stat(Colors.orange)]));
       case 'info_empleado': return Container(margin:const EdgeInsets.symmetric(horizontal:6,vertical:2),padding:const EdgeInsets.all(3),decoration:BoxDecoration(color:c.withValues(alpha:0.05),borderRadius:BorderRadius.circular(2),border:Border.all(color:c.withValues(alpha:0.15))),child:Row(children:[CircleAvatar(radius:5,backgroundColor:c.withValues(alpha:0.3)),const SizedBox(width:4),Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Container(height:3,width:40,color:Colors.grey.shade500,margin:const EdgeInsets.only(bottom:1)),Container(height:2,width:28,color:Colors.grey.shade300)])]));
       case 'footer': return Container(margin:const EdgeInsets.only(top:2),padding:const EdgeInsets.symmetric(vertical:2),child:Center(child:Container(height:2,width:100,color:Colors.grey.shade300)));
+      case 'indice': return Container(margin:const EdgeInsets.symmetric(horizontal:6,vertical:2),padding:const EdgeInsets.all(4),decoration:BoxDecoration(color:c.withValues(alpha:0.05),border:Border.all(color:c.withValues(alpha:0.2)),borderRadius:BorderRadius.circular(3)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Container(height:3,width:38,color:c,margin:const EdgeInsets.only(bottom:4)),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Container(height:2,width:50,color:Colors.grey.shade400),Container(height:2,width:10,color:Colors.grey.shade400)]),const SizedBox(height:2),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Container(height:2,width:40,color:Colors.grey.shade300),Container(height:2,width:10,color:Colors.grey.shade300)]),const SizedBox(height:2),Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Container(height:2,width:30,color:Colors.grey.shade300),Container(height:2,width:10,color:Colors.grey.shade300)])]));
       default: return Container(height:4,margin:const EdgeInsets.symmetric(horizontal:6,vertical:1),color:Colors.grey.shade100);
     }
   }
@@ -321,12 +467,17 @@ class _State extends State<PdfTemplatesListScreen> {
   }
 
 
-  Widget _error() => Center(child: Padding(padding:const EdgeInsets.all(24), child: Column(mainAxisSize:MainAxisSize.min, children:[
-    const Icon(Icons.lock_outline, size:48, color:Colors.orange),
-    const SizedBox(height:12),
-    const Text('Sin permisos — despliega las reglas Firestore', textAlign:TextAlign.center, style:TextStyle(fontWeight:FontWeight.bold)),
-    const SizedBox(height:8),
-    Text('firebase deploy --only firestore:rules', style:TextStyle(fontFamily:'monospace', fontSize:11, color:Colors.grey[600])),
-  ])));
+  Widget _error([Object? err]) {
+    final msg = err?.toString() ?? '';
+    final esIndice = msg.contains('index') || msg.contains('FAILED_PRECONDITION');
+    return Center(child: Padding(padding:const EdgeInsets.all(24), child: Column(mainAxisSize:MainAxisSize.min, children:[
+      Icon(esIndice ? Icons.search_off : Icons.lock_outline, size:48, color:Colors.orange),
+      const SizedBox(height:12),
+      Text(esIndice ? 'Índice Firestore faltante' : 'Sin permisos — despliega las reglas Firestore', textAlign:TextAlign.center, style:const TextStyle(fontWeight:FontWeight.bold)),
+      const SizedBox(height:8),
+      Text(esIndice ? 'firebase deploy --only firestore:indexes' : 'firebase deploy --only firestore:rules', style:TextStyle(fontFamily:'monospace', fontSize:11, color:Colors.grey[600])),
+      if (msg.isNotEmpty) ...[const SizedBox(height:8), Text(msg, style:TextStyle(fontSize:9, color:Colors.grey[500]), textAlign:TextAlign.center, maxLines:3, overflow:TextOverflow.ellipsis)],
+    ])));
+  }
 
 }

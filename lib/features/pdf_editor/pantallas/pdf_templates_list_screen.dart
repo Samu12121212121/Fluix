@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../services/pdf/pdf_template_service.dart';
+import '../../../services/pdf_service.dart';
 import '../../../domain/modelos/pdf_template.dart';
+import '../../pdf_templates/domain/models/pdf_template.dart' as uiTpl;
 
 class PdfTemplatesListScreen extends StatefulWidget {
   final String empresaId;
@@ -346,9 +348,8 @@ class _PdfTemplatesListScreenState extends State<PdfTemplatesListScreen> {
   void _handleMenuAction(String action, PdfTemplate template) async {
     switch (action) {
       case 'preview':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('📄 Vista previa próximamente')),
-        );
+        // Convertir PdfTemplate (System 1) a uiTpl para reutilizar el preview
+        _mostrarPreviewTemplate(template);
         break;
 
       case 'activate':
@@ -460,6 +461,25 @@ class _PdfTemplatesListScreenState extends State<PdfTemplatesListScreen> {
       PdfDocumentType.nomina => 'Nóminas',
       PdfDocumentType.albar => 'Albaranes',
     };
+  }
+
+  /// Muestra vista previa PDF del template de Sistema 1
+  /// Convirtiendo al formato de uiTpl para reutilizar PdfService.previewPlantilla
+  void _mostrarPreviewTemplate(PdfTemplate t) {
+    final tipoUi = switch (t.type) {
+      PdfDocumentType.factura      => uiTpl.TipoDocumentoPdf.factura,
+      PdfDocumentType.rectificativa=> uiTpl.TipoDocumentoPdf.facturaRectificativa,
+      PdfDocumentType.presupuesto  => uiTpl.TipoDocumentoPdf.presupuesto,
+      PdfDocumentType.fichaje      => uiTpl.TipoDocumentoPdf.fichajes,
+      PdfDocumentType.nomina       => uiTpl.TipoDocumentoPdf.horasEmpleado,
+      PdfDocumentType.albar        => uiTpl.TipoDocumentoPdf.albaran,
+    };
+    // Extraer colores del styles del template Sistema 1
+    final primario   = t.styles.brandColors.primary;
+    final secundario = t.styles.brandColors.secondary;
+    final tplUi = uiTpl.PdfTemplate.defaultParaTipo(widget.empresaId, tipoUi)
+        .copyWith(colorPrimario: primario, colorSecundario: secundario, nombre: t.name);
+    PdfService.previewPlantilla(context, tplUi, widget.empresaId);
   }
 }
 
