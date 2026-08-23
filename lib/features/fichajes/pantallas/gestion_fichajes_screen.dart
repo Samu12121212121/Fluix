@@ -1369,6 +1369,11 @@ class _DialogAltaEmpleadoState extends State<_DialogAltaEmpleado> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
+    // Guardia explícita: en modo 'app' siempre se necesita usuario seleccionado
+    if (_modo == 'app' && _uidSeleccionado == null) {
+      FluxToast.error(context, 'Selecciona un empleado de la lista');
+      return;
+    }
     final nombre = _modo == 'app' ? (_nombreSeleccionado ?? '') : _nombreCtrl.text.trim();
     if (nombre.isEmpty) {
       FluxToast.error(context, 'Introduce el nombre del empleado');
@@ -1376,7 +1381,7 @@ class _DialogAltaEmpleadoState extends State<_DialogAltaEmpleado> {
     }
     setState(() => _guardando = true);
     try {
-      if (_modo == 'app' && _uidSeleccionado != null) {
+      if (_modo == 'app') {
         await widget.svc.configurarPINEmpleado(
           empresaId: widget.empresaId,
           uid: _uidSeleccionado!,
@@ -1601,6 +1606,7 @@ class _SelectorUsuarioAppState extends State<_SelectorUsuarioApp> {
   List<Map<String, String>> _usuarios = [];
   Set<String> _conPIN = {};
   bool _cargando = true;
+  bool _errorCarga = false;
 
   @override
   void initState() {
@@ -1628,7 +1634,7 @@ class _SelectorUsuarioAppState extends State<_SelectorUsuarioApp> {
         _cargando = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) setState(() { _cargando = false; _errorCarga = true; });
     }
   }
 
@@ -1637,12 +1643,27 @@ class _SelectorUsuarioAppState extends State<_SelectorUsuarioApp> {
     if (_cargando) {
       return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _kGreen)));
     }
+    if (_errorCarga) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red.shade200)),
+        child: Row(children: [
+          Icon(Icons.wifi_off_rounded, size: 14, color: Colors.red.shade600),
+          const SizedBox(width: 8),
+          Expanded(child: Text('No se pudo cargar la lista. Comprueba la conexión.',
+              style: TextStyle(fontSize: 12, color: Colors.red.shade700))),
+          TextButton(onPressed: () => setState(() { _cargando = true; _errorCarga = false; _cargar(); }),
+              child: const Text('Reintentar', style: TextStyle(fontSize: 11))),
+        ]),
+      );
+    }
     final sinPIN = _usuarios.where((u) => !_conPIN.contains(u['uid'])).toList();
     if (sinPIN.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(8)),
-        child: const Text('Todos los empleados ya tienen PIN configurado.',
+        child: const Text('Todos los empleados con cuenta ya tienen PIN. Usa el modo "Solo kiosk" para añadir empleados sin cuenta.',
             style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
       );
     }
