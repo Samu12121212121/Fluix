@@ -45,6 +45,8 @@ import '../../../widgets/tpv/hold_pedidos_widget.dart';
 import '../../../widgets/tpv/arqueo_caja_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/tpv/offline_queue_service.dart';
+import '../../../widgets/tpv/cupon_input_widget.dart';
+import '../../../widgets/tpv/descuento_linea_widget.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
 import '../../../services/verifactu/qr_service.dart';
 
@@ -2807,6 +2809,19 @@ class _ColumnaComandaActiva extends StatelessWidget {
                             _editarPrecioLinea(context, idx, linea),
                         onEditarNota: () =>
                             _editarNotaLinea(context, idx, linea),
+                        onDescuento: () async {
+                          final res = await DescuentoLineaWidget.mostrar(
+                            context,
+                            nombreProducto: linea.nombre,
+                            precioOriginal: linea.precioUnitario,
+                            cantidad: linea.cantidad,
+                          );
+                          if (res != null && res.importe > 0) {
+                            onComandaActualizada(comandaActiva!.copyWith(
+                              descuento: (comandaActiva!.descuento ?? 0) + res.importe,
+                            ));
+                          }
+                        },
                       );
                     },
                   ),
@@ -2864,6 +2879,20 @@ class _ColumnaComandaActiva extends StatelessWidget {
                     child: Text(fmt.format(comandaActiva!.total),
                         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1D4ED8)))),
                 ]),
+                const SizedBox(height: 6),
+                // Cupón de descuento
+                CuponInputWidget(
+                  empresaId: empresaId,
+                  totalBase: comandaActiva!.total,
+                  onAplicado: (cuponId, descuento) {
+                    onComandaActualizada(comandaActiva!.copyWith(
+                      descuento: (comandaActiva!.descuento ?? 0) + descuento,
+                    ));
+                  },
+                  onRetirar: () {
+                    onComandaActualizada(comandaActiva!.copyWith(clearDescuento: true));
+                  },
+                ),
                 const SizedBox(height: 10),
                 // Botón Cobrar
                 SizedBox(
@@ -4397,6 +4426,7 @@ class _LineaComandaCard extends StatelessWidget {
   final VoidCallback onEditarPrecio;
   final VoidCallback onEditarNota;
   final bool compact;
+  final VoidCallback? onDescuento;
 
   const _LineaComandaCard({
     required this.linea,
@@ -4404,6 +4434,7 @@ class _LineaComandaCard extends StatelessWidget {
     required this.onEditarPrecio,
     required this.onEditarNota,
     this.compact = false,
+    this.onDescuento,
   });
 
   @override
@@ -4450,12 +4481,24 @@ class _LineaComandaCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: linea.esNuevo ? tema.texto : tema.textoMuted)),
               ),
-              // ── IMPLEMENTADO: Botón editar precio ──
+              // Botón descuento por línea
+              if (onDescuento != null)
+                Tooltip(
+                  message: 'Descuento en esta línea',
+                  child: GestureDetector(
+                    onTap: onDescuento,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                      child: Icon(Icons.local_offer_outlined, size: 14,
+                          color: tema.primario.withValues(alpha: 0.8)),
+                    ),
+                  ),
+                ),
+              // Botón editar precio
               GestureDetector(
                 onTap: onEditarPrecio,
                 child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: tema.fondo,
                     borderRadius: BorderRadius.circular(4),

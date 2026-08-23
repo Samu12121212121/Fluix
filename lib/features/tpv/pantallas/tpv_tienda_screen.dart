@@ -27,6 +27,7 @@ import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../../services/tpv/offline_queue_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
 import '../../../services/verifactu/qr_service.dart';
 import '../../pedidos/widgets/variante_selector_widget.dart';
@@ -2942,7 +2943,8 @@ class _TiendaComandaPanel extends StatelessWidget {
 
     final ahora = DateTime.now();
 
-    // Número de ticket con fallback offline
+    // Número de ticket — Firestore primero, SharedPreferences como fallback offline
+    final _prefsKey = 'tpv_ultimo_ticket_$empresaId';
     int numTicket = 1;
     final ref = FirebaseFirestore.instance
         .collection('empresas')
@@ -2950,14 +2952,17 @@ class _TiendaComandaPanel extends StatelessWidget {
         .collection('contadores')
         .doc('tickets');
     try {
-      final snap = await ref.get();
+      final snap = await ref.get().timeout(const Duration(seconds: 4));
       numTicket = snap.exists
           ? ((snap.data()?['ultimo'] as num?)?.toInt() ?? 0) + 1
           : 1;
       await ref.set({'ultimo': numTicket}, SetOptions(merge: true));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_prefsKey, numTicket);
     } catch (_) {
-      // Sin acceso a Firestore: usar timestamp como número único
-      numTicket = ahora.millisecondsSinceEpoch % 100000;
+      final prefs = await SharedPreferences.getInstance();
+      numTicket = (prefs.getInt(_prefsKey) ?? 0) + 1;
+      await prefs.setInt(_prefsKey, numTicket);
     }
 
     Map<String, dynamic> empresaData = {};
