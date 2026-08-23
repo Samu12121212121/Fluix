@@ -468,6 +468,250 @@ class PdfTemplate {
           {'id':'footer_1','tipo':'footer','orden':8,'activo':true,'props':{'contenido':'CONFIDENCIAL — Documento de uso interno exclusivo','tamano_fuente':7,'color_texto':'#BDBDBD'}},
         ]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GALERÍA DE PLANTILLAS PROFESIONALES — 5 diseños listos para usar
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Devuelve las 5 plantillas profesionales de la galería.
+  /// El usuario elige una y se guarda como copia en su empresa.
+  static List<PdfTemplate> galeria(String empresaId) => [
+    galeriaFacturaEjecutiva(empresaId),
+    galeriaFacturaMinimalista(empresaId),
+    galeriaFacturaVerde(empresaId),
+    galeriaFacturaCoral(empresaId),
+    galeriaFacturaPurpura(empresaId),
+    galeriaProformaComercial(empresaId),
+    galeriaProformaServicios(empresaId),
+    galeriaPresupuestoNaranja(empresaId),
+    galeriaRectificativaProfesional(empresaId),
+    galeriaFacturaBordeau(empresaId),
+  ];
+
+  // ─── Factura #1 — Ejecutiva (Navy + dorado) ───────────────────────────────
+  static PdfTemplate galeriaFacturaEjecutiva(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Ejecutiva',
+        descripcion: 'Diseño oscuro y elegante para servicios de alto nivel. Cabecera en azul marino con datos de empresa destacados.',
+        tipo: TipoDocumentoPdf.factura,
+        esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#1A237E', colorSecundario: '#3949AB',
+        margenHorizontal: 40, margenVertical: 40,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#1A237E','color_texto':'#FFFFFF','padding':22,'border_radius':0}},
+          {'id':'sep_top','tipo':'separador','orden':1,'activo':true,'props':{'color':'#3949AB','grosor':3,'margen_vertical':0}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
+          {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'FACTURAR A:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#EEF0FA','border_radius':6}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':4,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#1A237E','color_fila_par':'#FFFFFF','color_fila_impar':'#F3F4FC'}},
+          {'id':'totales_1','tipo':'totales','orden':5,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
+          {'id':'sep_2','tipo':'separador','orden':6,'activo':true,'props':{'color':'#E8EAF6','grosor':1,'margen_vertical':8}},
+          {'id':'pago_1','tipo':'forma_pago','orden':7,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#EEF0FA'}},
+          {'id':'notas_1','tipo':'notas','orden':8,'activo':true,'props':{'placeholder':'Condiciones de pago y notas adicionales...','tamano_fuente':9,'color_texto':'#546E7A'}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':9,'activo':true,'props':{'tamano':57,'mostrar_etiqueta':true}},
+          {'id':'footer_1','tipo':'footer','orden':10,'activo':true,'props':{'contenido':'Gracias por confiar en nosotros — {{empresa_nombre}}','tamano_fuente':8,'color_texto':'#9E9E9E'}},
+        ]);
+
+  // ─── Factura #2 — Minimalista (Negro + tinte gris) ───────────────────────
+  static PdfTemplate galeriaFacturaMinimalista(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Minimalista',
+        descripcion: 'Diseño limpio y moderno sin cabecera de color. Ideal para startups y profesionales del diseño y tecnología.',
+        tipo: TipoDocumentoPdf.factura,
+        esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#212121', colorSecundario: '#424242',
+        margenHorizontal: 44, margenVertical: 44,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#F7F7F7','color_texto':'#212121','padding':18,'border_radius':8}},
+          {'id':'sep_acento','tipo':'separador','orden':1,'activo':true,'props':{'color':'#212121','grosor':2,'margen_vertical':4}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':false}},
+          {'id':'sep_2','tipo':'separador','orden':3,'activo':true,'props':{'color':'#EEEEEE','grosor':1,'margen_vertical':6}},
+          {'id':'cliente_1','tipo':'cliente','orden':4,'activo':true,'props':{'titulo':'DESTINATARIO:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#FAFAFA','border_radius':4}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':5,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_base_imponible':false,'color_cabecera':'#212121','color_fila_par':'#FFFFFF','color_fila_impar':'#FAFAFA'}},
+          {'id':'totales_1','tipo':'totales','orden':6,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':220}},
+          {'id':'pago_1','tipo':'forma_pago','orden':7,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#FAFAFA'}},
+          {'id':'notas_1','tipo':'notas','orden':8,'activo':true,'props':{'placeholder':'Observaciones...','tamano_fuente':9,'color_texto':'#9E9E9E'}},
+          {'id':'sep_bottom','tipo':'separador','orden':9,'activo':true,'props':{'color':'#212121','grosor':1,'margen_vertical':4}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':10,'activo':true,'props':{'tamano':50,'mostrar_etiqueta':false}},
+        ]);
+
+  // ─── Proforma #1 — Comercial (Teal + cyan) ───────────────────────────────
+  static PdfTemplate galeriaProformaComercial(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Comercial',
+        descripcion: 'Proforma con aspecto de confianza comercial en verde azulado. Perfecta para operaciones de importación/exportación o B2B.',
+        tipo: TipoDocumentoPdf.proforma,
+        esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#006064', colorSecundario: '#00838F',
+        margenHorizontal: 36, margenVertical: 36,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#006064','color_texto':'#FFFFFF','padding':20,'border_radius':10}},
+          {'id':'aviso_1','tipo':'texto_libre','orden':1,'activo':true,'props':{'contenido':'FACTURA PROFORMA\nEste documento no tiene validez fiscal ni contable. Su emisión no implica obligación de pago hasta la aceptación formal del pedido.','tamano_fuente':9,'color_texto':'#006064','negrita':false,'italic':true}},
+          {'id':'sep_1','tipo':'separador','orden':2,'activo':true,'props':{'color':'#B2EBF2','grosor':1,'margen_vertical':6}},
+          {'id':'info_1','tipo':'info_documento','orden':3,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':false}},
+          {'id':'cliente_1','tipo':'cliente','orden':4,'activo':true,'props':{'titulo':'OFERTA DIRIGIDA A:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#E0F7FA','border_radius':8}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':5,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#006064','color_fila_par':'#FFFFFF','color_fila_impar':'#E0F7FA'}},
+          {'id':'totales_1','tipo':'totales','orden':6,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_irpf':false,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
+          {'id':'validez_1','tipo':'texto_libre','orden':7,'activo':true,'props':{'contenido':'Esta oferta tiene una validez de 15 días desde la fecha de emisión. Los precios están sujetos a disponibilidad de stock.','tamano_fuente':9,'color_texto':'#546E7A','negrita':false,'italic':true}},
+          {'id':'pago_1','tipo':'forma_pago','orden':8,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#E0F7FA'}},
+          {'id':'footer_1','tipo':'footer','orden':9,'activo':true,'props':{'contenido':'PROFORMA — Sin efecto fiscal · Pendiente de confirmación de pedido','tamano_fuente':7,'color_texto':'#90A4AE'}},
+        ]);
+
+  // ─── Proforma #2 — Servicios (Gris slate + ámbar) ────────────────────────
+  static PdfTemplate galeriaProformaServicios(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Servicios Premium',
+        descripcion: 'Proforma elegante para consultoras, agencias y servicios profesionales. Cabecera oscura con acento ámbar.',
+        tipo: TipoDocumentoPdf.proforma,
+        esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#37474F', colorSecundario: '#546E7A',
+        margenHorizontal: 40, margenVertical: 38,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#263238','color_texto':'#FFFFFF','padding':22,'border_radius':0}},
+          {'id':'sep_amber','tipo':'separador','orden':1,'activo':true,'props':{'color':'#FFC107','grosor':4,'margen_vertical':0}},
+          {'id':'aviso_1','tipo':'texto_libre','orden':2,'activo':true,'props':{'contenido':'PRESUPUESTO / PROFORMA — Documento sin efecto fiscal. Válido como propuesta económica de servicios profesionales.','tamano_fuente':9,'color_texto':'#FF8F00','negrita':false,'italic':false}},
+          {'id':'info_1','tipo':'info_documento','orden':3,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':false}},
+          {'id':'sep_2','tipo':'separador','orden':4,'activo':true,'props':{'color':'#ECEFF1','grosor':1,'margen_vertical':6}},
+          {'id':'cliente_1','tipo':'cliente','orden':5,'activo':true,'props':{'titulo':'PROPUESTA PARA:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#ECEFF1','border_radius':6}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':6,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#37474F','color_fila_par':'#FFFFFF','color_fila_impar':'#F5F7F8'}},
+          {'id':'totales_1','tipo':'totales','orden':7,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
+          {'id':'notas_1','tipo':'notas','orden':8,'activo':true,'props':{'placeholder':'Alcance de los servicios, condiciones y plazos de entrega...','tamano_fuente':9,'color_texto':'#607D8B'}},
+          {'id':'validez_1','tipo':'texto_libre','orden':9,'activo':true,'props':{'contenido':'Esta propuesta tiene una validez de 30 días. Una vez aceptada se procederá a formalizar el contrato de servicios.','tamano_fuente':9,'color_texto':'#90A4AE','negrita':false,'italic':true}},
+          {'id':'footer_1','tipo':'footer','orden':10,'activo':true,'props':{'contenido':'PROFORMA — Documento de propuesta económica · Sin efectos contables','tamano_fuente':7,'color_texto':'#90A4AE'}},
+        ]);
+
+  // ─── Rectificativa #1 — Profesional (Morado profundo) ────────────────────
+  static PdfTemplate galeriaRectificativaProfesional(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Profesional',
+        descripcion: 'Factura rectificativa en morado profundo. Diseño sobrio que diferencia claramente el documento de corrección de una factura ordinaria.',
+        tipo: TipoDocumentoPdf.facturaRectificativa,
+        esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#4527A0', colorSecundario: '#311B92',
+        margenHorizontal: 38, margenVertical: 38,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#311B92','color_texto':'#FFFFFF','padding':20,'border_radius':0}},
+          {'id':'sep_top','tipo':'separador','orden':1,'activo':true,'props':{'color':'#EDE7F6','grosor':3,'margen_vertical':0}},
+          {'id':'badge_1','tipo':'texto_libre','orden':2,'activo':true,'props':{'contenido':'FACTURA RECTIFICATIVA\nEste documento corrige y anula parcial o totalmente la factura de referencia indicada a continuación.','tamano_fuente':10,'color_texto':'#4527A0','negrita':true,'italic':false}},
+          {'id':'ref_1','tipo':'texto_libre','orden':3,'activo':true,'props':{'contenido':'Rectifica la factura: ____________________   de fecha: ____________________\nMotivo de la rectificación: □ Error en datos  □ Devolución  □ Descuento posterior  □ Otro','tamano_fuente':9,'color_texto':'#5E35B1','negrita':false,'italic':false}},
+          {'id':'sep_2','tipo':'separador','orden':4,'activo':true,'props':{'color':'#EDE7F6','grosor':1,'margen_vertical':6}},
+          {'id':'info_1','tipo':'info_documento','orden':5,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':false,'mostrar_estado':false}},
+          {'id':'cliente_1','tipo':'cliente','orden':6,'activo':true,'props':{'titulo':'RECTIFICACIÓN PARA:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#EDE7F6','border_radius':8}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':7,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#4527A0','color_fila_par':'#FFFFFF','color_fila_impar':'#F3F0FA'}},
+          {'id':'totales_1','tipo':'totales','orden':8,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
+          {'id':'sep_3','tipo':'separador','orden':9,'activo':true,'props':{'color':'#D1C4E9','grosor':1,'margen_vertical':8}},
+          {'id':'notas_1','tipo':'notas','orden':10,'activo':true,'props':{'placeholder':'Justificación detallada de la rectificación...','tamano_fuente':9,'color_texto':'#757575'}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':11,'activo':true,'props':{'tamano':57,'mostrar_etiqueta':true}},
+          {'id':'footer_1','tipo':'footer','orden':12,'activo':true,'props':{'contenido':'Documento emitido en cumplimiento del Art. 80 de la Ley 37/1992 del IVA','tamano_fuente':7,'color_texto':'#9E9E9E'}},
+        ]);
+
+  // ─── Factura #3 — Verde Esmeralda ────────────────────────────────────────
+  static PdfTemplate galeriaFacturaVerde(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Esmeralda',
+        descripcion: 'Cabecera verde oscura con separador de acento. Perfecta para negocios de naturaleza, wellness o ecológicos.',
+        tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#1B5E20', colorSecundario: '#2E7D32',
+        margenHorizontal: 40, margenVertical: 40,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#1B5E20','color_texto':'#FFFFFF','padding':20,'border_radius':14}},
+          {'id':'sep_1','tipo':'separador','orden':1,'activo':true,'props':{'color':'#A5D6A7','grosor':2,'margen_vertical':2}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
+          {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'PARA:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#E8F5E9','border_radius':10}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':4,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#2E7D32','color_fila_par':'#FFFFFF','color_fila_impar':'#F1F8E9'}},
+          {'id':'totales_1','tipo':'totales','orden':5,'activo':true,'props':{'mostrar_base':true,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':230}},
+          {'id':'pago_1','tipo':'forma_pago','orden':6,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#E8F5E9'}},
+          {'id':'notas_1','tipo':'notas','orden':7,'activo':true,'props':{'placeholder':'Notas...','tamano_fuente':9,'color_texto':'#558B2F'}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':8,'activo':true,'props':{'tamano':50,'mostrar_etiqueta':true}},
+        ]);
+
+  // ─── Factura #4 — Coral / Terracota ──────────────────────────────────────
+  static PdfTemplate galeriaFacturaCoral(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Coral',
+        descripcion: 'Diseño cálido y cercano en tonos coral y naranja. Ideal para comercios, hostelería y profesionales creativos.',
+        tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#BF360C', colorSecundario: '#D84315',
+        margenHorizontal: 38, margenVertical: 38,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#BF360C','color_texto':'#FFFFFF','padding':18,'border_radius':0}},
+          {'id':'sep_amber','tipo':'separador','orden':1,'activo':true,'props':{'color':'#FF8A65','grosor':3,'margen_vertical':0}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
+          {'id':'sep_2','tipo':'separador','orden':3,'activo':true,'props':{'color':'#FBE9E7','grosor':1,'margen_vertical':4}},
+          {'id':'cliente_1','tipo':'cliente','orden':4,'activo':true,'props':{'titulo':'FACTURAR A:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#FBE9E7','border_radius':6}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':5,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':false,'color_cabecera':'#BF360C','color_fila_par':'#FFFFFF','color_fila_impar':'#FFF8F6'}},
+          {'id':'totales_1','tipo':'totales','orden':6,'activo':true,'props':{'mostrar_base':true,'mostrar_iva':true,'mostrar_total':true,'alineacion':'derecha','ancho':220}},
+          {'id':'pago_1','tipo':'forma_pago','orden':7,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#FBE9E7'}},
+          {'id':'footer_1','tipo':'footer','orden':8,'activo':true,'props':{'contenido':'¡Gracias por tu confianza! — {{empresa_nombre}}','tamano_fuente':9,'color_texto':'#BF360C'}},
+        ]);
+
+  // ─── Factura #5 — Púrpura Moderno ────────────────────────────────────────
+  static PdfTemplate galeriaFacturaPurpura(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Púrpura',
+        descripcion: 'Diseño moderno y atrevido en morado. Para agencias, estudios de diseño y tecnología con identidad visual fuerte.',
+        tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#6A1B9A', colorSecundario: '#4A148C',
+        margenHorizontal: 42, margenVertical: 42,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#4A148C','color_texto':'#FFFFFF','padding':24,'border_radius':12}},
+          {'id':'info_1','tipo':'info_documento','orden':1,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
+          {'id':'cliente_1','tipo':'cliente','orden':2,'activo':true,'props':{'titulo':'CLIENTE:','mostrar_nif':true,'mostrar_direccion':false,'mostrar_email':true,'color_fondo':'#F3E5F5','border_radius':8}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':3,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':false,'mostrar_iva':true,'mostrar_base_imponible':false,'color_cabecera':'#6A1B9A','color_fila_par':'#FFFFFF','color_fila_impar':'#F9F0FD'}},
+          {'id':'totales_1','tipo':'totales','orden':4,'activo':true,'props':{'mostrar_base':true,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':200}},
+          {'id':'sep_1','tipo':'separador','orden':5,'activo':true,'props':{'color':'#CE93D8','grosor':1,'margen_vertical':8}},
+          {'id':'pago_1','tipo':'forma_pago','orden':6,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#F3E5F5'}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':7,'activo':true,'props':{'tamano':48,'mostrar_etiqueta':false}},
+        ]);
+
+  // ─── Presupuesto naranja / ámbar ──────────────────────────────────────────
+  static PdfTemplate galeriaPresupuestoNaranja(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Ámbar Premium',
+        descripcion: 'Presupuesto con cabecera naranja oscuro y acento dorado. Transmite profesionalidad y dinamismo.',
+        tipo: TipoDocumentoPdf.presupuesto, esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#E65100', colorSecundario: '#BF360C',
+        margenHorizontal: 38, margenVertical: 38,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#E65100','color_texto':'#FFFFFF','padding':20,'border_radius':0}},
+          {'id':'sep_gold','tipo':'separador','orden':1,'activo':true,'props':{'color':'#FFC107','grosor':4,'margen_vertical':0}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':false}},
+          {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'PRESUPUESTO PARA:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#FFF3E0','border_radius':8}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':4,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#E65100','color_fila_par':'#FFFFFF','color_fila_impar':'#FFF8F0'}},
+          {'id':'totales_1','tipo':'totales','orden':5,'activo':true,'props':{'mostrar_base':true,'mostrar_iva':true,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
+          {'id':'validez_1','tipo':'texto_libre','orden':6,'activo':true,'props':{'contenido':'Presupuesto válido por 30 días. Precios sujetos a disponibilidad.','tamano_fuente':9,'color_texto':'#E65100','negrita':false,'italic':true}},
+          {'id':'footer_1','tipo':'footer','orden':7,'activo':true,'props':{'contenido':'PRESUPUESTO SIN CARÁCTER VINCULANTE · Pendiente de aceptación formal','tamano_fuente':7,'color_texto':'#BDBDBD'}},
+        ]);
+
+  // ─── Factura Bordeaux / Vino ──────────────────────────────────────────────
+  static PdfTemplate galeriaFacturaBordeau(String empresaId) => PdfTemplate(
+        id: '', empresaId: empresaId,
+        nombre: 'Burdeos',
+        descripcion: 'Diseño sofisticado en vino y granate. Para despachos, notarías, asesorías y profesionales del sector jurídico.',
+        tipo: TipoDocumentoPdf.factura, esDefault: false, activa: true,
+        fechaCreacion: DateTime.now(), fechaModificacion: DateTime.now(),
+        colorPrimario: '#880E4F', colorSecundario: '#6A1B4D',
+        margenHorizontal: 44, margenVertical: 44,
+        bloques: [
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#880E4F','color_texto':'#FFFFFF','padding':22,'border_radius':0}},
+          {'id':'sep_rosa','tipo':'separador','orden':1,'activo':true,'props':{'color':'#FCE4EC','grosor':3,'margen_vertical':2}},
+          {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
+          {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'EMITIDA A:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#FCE4EC','border_radius':6}},
+          {'id':'tabla_1','tipo':'tabla_lineas','orden':4,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#880E4F','color_fila_par':'#FFFFFF','color_fila_impar':'#FFF0F6'}},
+          {'id':'totales_1','tipo':'totales','orden':5,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_irpf':true,'mostrar_total':true,'alineacion':'derecha','ancho':250}},
+          {'id':'pago_1','tipo':'forma_pago','orden':6,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#FCE4EC'}},
+          {'id':'notas_1','tipo':'notas','orden':7,'activo':true,'props':{'placeholder':'Observaciones legales...','tamano_fuente':9,'color_texto':'#880E4F'}},
+          {'id':'qr_1','tipo':'qr_verifactu','orden':8,'activo':true,'props':{'tamano':55,'mostrar_etiqueta':true}},
+          {'id':'footer_1','tipo':'footer','orden':9,'activo':true,'props':{'contenido':'Documento emitido conforme a la normativa vigente de facturación electrónica','tamano_fuente':7,'color_texto':'#CE93D8'}},
+        ]);
+
   /// Plantilla por defecto para presupuestos
   static PdfTemplate defaultPresupuesto(String empresaId) => PdfTemplate(
         id: '',

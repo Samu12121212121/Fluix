@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import '../../domain/models/pdf_template.dart';
 import '../../data/pdf_template_service.dart';
 import 'template_editor_screen.dart';
@@ -180,11 +181,10 @@ class _State extends State<PdfTemplatesListScreen> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.07), blurRadius:14, offset:const Offset(0,4))],
       ),
       child: Column(children: [
-        // Mini canvas
+        // Vista previa PDF real
         Expanded(flex: 5, child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-          child: Container(color: _kCanvas, padding: const EdgeInsets.all(10),
-            child: ClipRRect(borderRadius: BorderRadius.circular(6), child: _miniCanvas(p))),
+          child: _PdfCardPreview(plantilla: p, empresaId: widget.empresaId),
         )),
         // Info + botones
         Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -282,8 +282,11 @@ class _State extends State<PdfTemplatesListScreen> {
       child: Container(
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.06), blurRadius:12, offset:const Offset(0,3))]),
         child: Column(children: [
-          // Mini canvas ocupa la mayor parte de la tarjeta
-          Expanded(flex: 4, child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(14)), child: Container(color: _kCanvas, padding: const EdgeInsets.all(8), child: ClipRRect(borderRadius: BorderRadius.circular(6), child: _miniCanvas(p))))),
+          // Vista previa PDF real (renderizada de forma asíncrona)
+          Expanded(flex: 4, child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            child: _PdfCardPreview(plantilla: p, empresaId: widget.empresaId),
+          )),
           // Footer compacto
           Padding(padding: const EdgeInsets.fromLTRB(8,6,8,8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
@@ -367,6 +370,7 @@ class _State extends State<PdfTemplatesListScreen> {
   // ── Mini canvas A4 ─────────────────────────────────────────────────────────
   // Si los bloques tienen posiciones (_x,_y,_w,_h) del editor → layout libre con Stack.
   // Si no → fallback a layout en columna.
+  // ── Función _miniCanvas mantenida para compatibilidad interna ──────────────
   Widget _miniCanvas(PdfTemplate p) {
     final color = _hx(p.colorPrimario);
     final bloques = p.bloques.where((b) => b['activo']==true).toList();
@@ -480,4 +484,68 @@ class _State extends State<PdfTemplatesListScreen> {
     ])));
   }
 
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Widget que renderiza la primera página del PDF como imagen en la tarjeta
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PdfCardPreview extends StatefulWidget {
+  final PdfTemplate plantilla;
+  final String empresaId;
+  const _PdfCardPreview({required this.plantilla, required this.empresaId});
+
+  @override
+  State<_PdfCardPreview> createState() => _PdfCardPreviewState();
+}
+
+class _PdfCardPreviewState extends State<_PdfCardPreview> {
+  // Caché estático para no regenerar el PDF de cada plantilla en cada rebuild
+  static final _cache = <String, Future<MemoryImage>>{};
+
+  Future<MemoryImage> _getImage() {
+    final key = '${widget.plantilla.id}_${widget.plantilla.colorPrimario}_${widget.plantilla.colorSecundario}';
+    return _cache.putIfAbsent(key, () async {
+      final bytes = await PdfService.generarPreviewBytes(
+          widget.plantilla, widget.empresaId);
+      // Rasterizar la primera página del PDF a una imagen PNG
+      final pages = Printing.raster(bytes, dpi: 120);
+      final page = await pages.first;
+      return MemoryImage(await page.toPng());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<MemoryImage>(
+      future: _getImage(),
+      builder: (ctx, snap) {
+        if (snap.hasData) {
+          return Image(
+            image: snap.data!,
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          );
+        }
+        if (snap.hasError) {
+          // Fallback: mostrar fondo de color si falla la renderización
+          return Container(
+            color: const Color(0xFFEEF1F6),
+            child: Center(child: Icon(
+              Icons.description_outlined,
+              color: const Color(0xFFCBD5E1),
+              size: 32,
+            )),
+          );
+        }
+        return Container(
+          color: const Color(0xFFEEF1F6),
+          child: const Center(child: SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6D5EF8)),
+          )),
+        );
+      },
+    );
+  }
 }

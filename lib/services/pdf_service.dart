@@ -1052,9 +1052,49 @@ class PdfService {
     }
   }
 
-  // ── PREVISUALIZAR PLANTILLA (muestra PDF de ejemplo con los colores del template) ───
+  // ── PREVISUALIZAR PLANTILLA ──────────────────────────────────────────────────
 
-  /// Genera un PDF de ejemplo con los colores de la plantilla seleccionada y lo muestra.
+  /// Genera los bytes del PDF de muestra con los colores/diseño del template.
+  static Future<Uint8List> generarPreviewBytes(
+    uiTpl.PdfTemplate plantilla,
+    String empresaId,
+  ) async {
+    final empresa = await _cargarDatosEmpresa(empresaId);
+    final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
+    final ahora = DateTime.now();
+    final facturaMustra = Factura(
+      id: 'preview', empresaId: empresaId,
+      numeroFactura: 'FAC-${ahora.year}-0001',
+      tipo: TipoFactura.venta_directa, estado: EstadoFactura.pagada,
+      clienteNombre: 'Cliente Ejemplo S.L.',
+      clienteCorreo: 'cliente@ejemplo.com',
+      datosFiscales: const DatosFiscales(nif: 'B12345678'),
+      lineas: const [
+        LineaFactura(descripcion: 'Servicio de diseño web', cantidad: 3, precioUnitario: 250.0),
+        LineaFactura(descripcion: 'Mantenimiento mensual', cantidad: 1, precioUnitario: 150.0),
+      ],
+      subtotal: 900.0, totalIva: 189.0, total: 1089.0,
+      descuentoGlobal: 0, importeDescuentoGlobal: 0,
+      porcentajeIrpf: 0, retencionIrpf: 0, totalRecargoEquivalencia: 0,
+      diasVencimiento: 30, metodoPago: MetodoPagoFactura.transferencia,
+      historial: [], fechaEmision: ahora,
+      fechaVencimiento: ahora.add(const Duration(days: 30)), flujo: 'ingreso',
+    );
+    return _generarPdfBytes(
+      factura: facturaMustra,
+      nombreEmpresa: empresa['nombre'] ?? 'Mi Empresa',
+      cifEmpresa: empresa['cif'],
+      direccionEmpresa: empresa['direccion'],
+      telefonoEmpresa: empresa['telefono'],
+      correoEmpresa: empresa['correo'],
+      ibanEmpresa: empresa['iban'],
+      logoBytes: logoBytes,
+      colorPrimarioTemplate: plantilla.colorPrimario,
+      colorSecundarioTemplate: plantilla.colorSecundario,
+    );
+  }
+
+  /// Muestra el PDF de ejemplo en pantalla.
   static Future<void> previewPlantilla(
     BuildContext context,
     uiTpl.PdfTemplate plantilla,
@@ -1066,56 +1106,7 @@ class PdfService {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      final empresa = await _cargarDatosEmpresa(empresaId);
-      final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
-      final ahora = DateTime.now();
-      final vence = ahora.add(const Duration(days: 30));
-
-      // Factura de muestra con datos ficticios para previsualizar el diseño
-      final facturaMustra = Factura(
-        id: 'preview',
-        empresaId: empresaId,
-        numeroFactura: 'FAC-${ahora.year}-0001',
-        tipo: TipoFactura.venta_directa,
-        estado: EstadoFactura.pagada,
-        clienteNombre: 'Cliente Ejemplo S.L.',
-        clienteTelefono: '+34 600 000 000',
-        clienteCorreo: 'cliente@ejemplo.com',
-        datosFiscales: const DatosFiscales(nif: 'B12345678'),
-        lineas: const [
-          LineaFactura(
-            descripcion: 'Servicio de diseño web',
-            cantidad: 3, precioUnitario: 250.0, porcentajeIva: 21.0,
-          ),
-          LineaFactura(
-            descripcion: 'Mantenimiento mensual',
-            cantidad: 1, precioUnitario: 150.0, porcentajeIva: 21.0,
-          ),
-        ],
-        subtotal: 900.0, totalIva: 189.0, total: 1089.0,
-        descuentoGlobal: 0, importeDescuentoGlobal: 0,
-        porcentajeIrpf: 0, retencionIrpf: 0, totalRecargoEquivalencia: 0,
-        diasVencimiento: 30,
-        metodoPago: MetodoPagoFactura.transferencia,
-        historial: [],
-        fechaEmision: ahora,
-        fechaVencimiento: vence,
-        flujo: 'ingreso',
-        notasCliente: '${plantilla.tipo.icon} ${plantilla.nombre} — vista previa de diseño',
-      );
-
-      final bytes = await _generarPdfBytes(
-        factura: facturaMustra,
-        nombreEmpresa: empresa['nombre'] ?? 'Mi Empresa',
-        cifEmpresa: empresa['cif'],
-        direccionEmpresa: empresa['direccion'],
-        telefonoEmpresa: empresa['telefono'],
-        correoEmpresa: empresa['correo'],
-        ibanEmpresa: empresa['iban'],
-        logoBytes: logoBytes,
-        colorPrimarioTemplate: plantilla.colorPrimario,
-        colorSecundarioTemplate: plantilla.colorSecundario,
-      );
+      final bytes = await generarPreviewBytes(plantilla, empresaId);
 
       if (!context.mounted) return;
       Navigator.of(context).pop();
