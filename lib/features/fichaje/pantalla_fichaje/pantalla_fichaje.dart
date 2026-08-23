@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../fichajes/modelos/fichaje.dart';
 import '../../fichajes/servicios/fichaje_service.dart';
 import 'mis_horas_mes_section.dart';
@@ -34,6 +35,8 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
   @override
   void initState() {
     super.initState();
+    // UID sincrónico — FirebaseAuth lo tiene en caché, sin async
+    _uid = FirebaseAuth.instance.currentUser?.uid;
     _cargarSesion();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() => _ahora = DateTime.now());
@@ -49,17 +52,38 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
   Future<void> _cargarSesion() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(user.uid)
-        .get();
-    if (!mounted) return;
-    setState(() {
-      _uid = user.uid;
-      _empresaId = doc.data()?['empresa_id'] as String?;
-      _nombreEmpleado =
-          (doc.data()?['nombre'] as String?) ?? user.displayName ?? '';
-    });
+
+    // Cargar empresaId desde caché local primero (evita el spinner en cada apertura)
+    final prefs = await SharedPreferences.getInstance();
+    final cachedEmpresaId = prefs.getString('fichaje_empresa_id_${user.uid}');
+    final cachedNombre    = prefs.getString('fichaje_nombre_${user.uid}');
+    if (cachedEmpresaId != null && mounted) {
+      setState(() {
+        _uid            = user.uid;
+        _empresaId      = cachedEmpresaId;
+        _nombreEmpleado = cachedNombre ?? user.displayName ?? '';
+      });
+    }
+
+    // Actualizar desde Firestore en segundo plano
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios').doc(user.uid).get();
+      if (!mounted) return;
+      final empresaId     = doc.data()?['empresa_id'] as String?;
+      final nombre        = (doc.data()?['nombre'] as String?) ?? user.displayName ?? '';
+      if (empresaId != null) {
+        await prefs.setString('fichaje_empresa_id_${user.uid}', empresaId);
+        await prefs.setString('fichaje_nombre_${user.uid}', nombre);
+      }
+      setState(() {
+        _uid            = user.uid;
+        _empresaId      = empresaId ?? cachedEmpresaId;
+        _nombreEmpleado = nombre;
+      });
+    } catch (_) {
+      // Sin conexión: usar caché — la stream aún funcionará offline
+    }
   }
 
   Future<void> _ficharEntrada() async {
