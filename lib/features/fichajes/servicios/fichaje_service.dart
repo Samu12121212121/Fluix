@@ -692,6 +692,34 @@ class FichajeService {
     }, SetOptions(merge: true));
   }
 
+  /// Crea un empleado sin cuenta de app (solo kiosk con PIN).
+  /// Usa un documento auto-generado porque no hay UID de Firebase Auth.
+  Future<String> crearEmpleadoExterno({
+    required String empresaId,
+    required String nombre,
+    required String pin,
+    int jornadaDiaria = 480,
+  }) async {
+    final dup = await _empleados(empresaId)
+        .where('pin', isEqualTo: pin)
+        .where('activo', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (dup.docs.isNotEmpty) {
+      throw Exception('El PIN $pin ya está en uso por otro empleado.');
+    }
+    final ref = await _empleados(empresaId).add({
+      'nombre': nombre.trim(),
+      'pin': pin,
+      'empresa_id': empresaId,
+      'activo': true,
+      'jornada_diaria': jornadaDiaria,
+      'sin_cuenta_app': true,
+      'creado_at': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
   Future<void> actualizarEmpleado({
     required String empresaId,
     required String uid,

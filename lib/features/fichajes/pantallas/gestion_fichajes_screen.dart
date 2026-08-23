@@ -1114,9 +1114,15 @@ class _TabEmpleadosState extends State<_TabEmpleados> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kText)),
             const Spacer(),
             OutlinedButton.icon(
-              onPressed: () => _configurarPIN('', '', null, 480),
-              icon: const Icon(Icons.add, size: 14),
-              label: const Text('Configurar PIN', style: TextStyle(fontSize: 12)),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => _DialogAltaEmpleado(
+                  empresaId: widget.empresaId,
+                  svc: _svc,
+                ),
+              ),
+              icon: const Icon(Icons.person_add_outlined, size: 14),
+              label: const Text('Dar de alta', style: TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _kGreen,
                 side: const BorderSide(color: _kGreen),
@@ -1323,6 +1329,346 @@ class _TabEmpleadosState extends State<_TabEmpleados> {
 // ════════════════════════════════════════════════════════════════════════════
 // DIALOG: CONFIGURAR PIN (unchanged)
 // ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// DIÁLOGO ALTA EMPLEADO EN FICHAJES
+// Permite dar de alta empleados con cuenta de app O empleados externos (solo kiosk).
+// ════════════════════════════════════════════════════════════════════════════
+
+class _DialogAltaEmpleado extends StatefulWidget {
+  final String empresaId;
+  final FichajeService svc;
+  const _DialogAltaEmpleado({required this.empresaId, required this.svc});
+  @override
+  State<_DialogAltaEmpleado> createState() => _DialogAltaEmpleadoState();
+}
+
+class _DialogAltaEmpleadoState extends State<_DialogAltaEmpleado> {
+  // Modo: 'app' = tiene cuenta, 'externo' = solo kiosk
+  String _modo = 'app';
+
+  // Para modo 'app': usuario seleccionado
+  String? _uidSeleccionado;
+  String? _nombreSeleccionado;
+
+  // Para modo 'externo': nombre libre
+  final _nombreCtrl = TextEditingController();
+
+  // Comunes
+  final _pinCtrl    = TextEditingController();
+  final _formKey    = GlobalKey<FormState>();
+  int _jornadaDiaria = 480;
+  bool _guardando    = false;
+  bool _verPin       = false;
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _pinCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    final nombre = _modo == 'app' ? (_nombreSeleccionado ?? '') : _nombreCtrl.text.trim();
+    if (nombre.isEmpty) {
+      FluxToast.error(context, 'Introduce el nombre del empleado');
+      return;
+    }
+    setState(() => _guardando = true);
+    try {
+      if (_modo == 'app' && _uidSeleccionado != null) {
+        await widget.svc.configurarPINEmpleado(
+          empresaId: widget.empresaId,
+          uid: _uidSeleccionado!,
+          nombre: nombre,
+          pin: _pinCtrl.text,
+          jornadaDiaria: _jornadaDiaria,
+        );
+      } else {
+        await widget.svc.crearEmpleadoExterno(
+          empresaId: widget.empresaId,
+          nombre: nombre,
+          pin: _pinCtrl.text,
+          jornadaDiaria: _jornadaDiaria,
+        );
+      }
+      if (mounted) {
+        Navigator.pop(context);
+        FluxToast.exito(context, '$nombre dado de alta en fichajes');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _guardando = false);
+        FluxToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(children: [
+        Icon(Icons.how_to_reg_outlined, color: _kGreen),
+        SizedBox(width: 10),
+        Text('Dar de alta en fichajes'),
+      ]),
+      content: SizedBox(
+        width: 380,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // ── Selector de modo ─────────────────────────────────────────
+              Row(children: [
+                Expanded(
+                  child: _ModoChip(
+                    label: 'Tiene cuenta en la app',
+                    icon: Icons.phone_android_outlined,
+                    activo: _modo == 'app',
+                    onTap: () => setState(() { _modo = 'app'; _uidSeleccionado = null; _nombreSeleccionado = null; }),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ModoChip(
+                    label: 'Solo kiosk (sin cuenta)',
+                    icon: Icons.tablet_outlined,
+                    activo: _modo == 'externo',
+                    onTap: () => setState(() { _modo = 'externo'; _uidSeleccionado = null; }),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 16),
+
+              // ── Campo nombre / selector usuario ──────────────────────────
+              if (_modo == 'app') ...[
+                _SelectorUsuarioApp(
+                  empresaId: widget.empresaId,
+                  svc: widget.svc,
+                  onSeleccionado: (uid, nombre) => setState(() {
+                    _uidSeleccionado   = uid;
+                    _nombreSeleccionado = nombre;
+                  }),
+                  uidSeleccionado: _uidSeleccionado,
+                  nombreSeleccionado: _nombreSeleccionado,
+                ),
+              ] else ...[
+                TextFormField(
+                  controller: _nombreCtrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre completo *',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null,
+                ),
+              ],
+              const SizedBox(height: 12),
+
+              // ── PIN ──────────────────────────────────────────────────────
+              TextFormField(
+                controller: _pinCtrl,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: !_verPin,
+                decoration: InputDecoration(
+                  labelText: 'PIN (4 dígitos) *',
+                  prefixIcon: const Icon(Icons.pin_outlined),
+                  border: const OutlineInputBorder(),
+                  counterText: '',
+                  suffixIcon: IconButton(
+                    icon: Icon(_verPin ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+                    onPressed: () => setState(() => _verPin = !_verPin),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.length != 4) return 'Debe tener exactamente 4 dígitos';
+                  if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Solo números';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // ── Jornada ──────────────────────────────────────────────────
+              DropdownButtonFormField<int>(
+                value: _jornadaDiaria,
+                decoration: const InputDecoration(
+                  labelText: 'Jornada diaria',
+                  prefixIcon: Icon(Icons.schedule_outlined),
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 240, child: Text('4 horas')),
+                  DropdownMenuItem(value: 300, child: Text('5 horas')),
+                  DropdownMenuItem(value: 360, child: Text('6 horas')),
+                  DropdownMenuItem(value: 420, child: Text('7 horas')),
+                  DropdownMenuItem(value: 480, child: Text('8 horas')),
+                ],
+                onChanged: (v) => setState(() => _jornadaDiaria = v!),
+              ),
+
+              // ── Info box ─────────────────────────────────────────────────
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _kGreen.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
+                ),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.info_outline, size: 15, color: _kGreen),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    _modo == 'app'
+                        ? 'El empleado usará este PIN en el tablet kiosk. También puede fichar desde su propia app.'
+                        : 'Este empleado solo podrá fichar en el tablet kiosk con su PIN. No tendrá acceso a la app.',
+                    style: const TextStyle(fontSize: 11, color: _kGreen),
+                  )),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _guardando ? null : _guardar,
+          icon: _guardando
+              ? const SizedBox(width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.check_rounded, size: 16),
+          label: const Text('Dar de alta'),
+          style: FilledButton.styleFrom(backgroundColor: _kGreen),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Chip selector de modo ─────────────────────────────────────────────────────
+class _ModoChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool activo;
+  final VoidCallback onTap;
+  const _ModoChip({required this.label, required this.icon, required this.activo, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: activo ? _kGreen.withValues(alpha: 0.1) : const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: activo ? _kGreen : _kBorder, width: activo ? 1.5 : 1),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 20, color: activo ? _kGreen : _kSub),
+        const SizedBox(height: 4),
+        Text(label, textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
+                color: activo ? _kGreen : _kSub)),
+      ]),
+    ),
+  );
+}
+
+// ── Selector de usuario de la app ─────────────────────────────────────────────
+class _SelectorUsuarioApp extends StatefulWidget {
+  final String empresaId;
+  final FichajeService svc;
+  final String? uidSeleccionado;
+  final String? nombreSeleccionado;
+  final Function(String uid, String nombre) onSeleccionado;
+  const _SelectorUsuarioApp({required this.empresaId, required this.svc,
+      required this.onSeleccionado, this.uidSeleccionado, this.nombreSeleccionado});
+
+  @override
+  State<_SelectorUsuarioApp> createState() => _SelectorUsuarioAppState();
+}
+
+class _SelectorUsuarioAppState extends State<_SelectorUsuarioApp> {
+  List<Map<String, String>> _usuarios = [];
+  Set<String> _conPIN = {};
+  bool _cargando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    try {
+      final [usSnap, empSnap] = await Future.wait([
+        FirebaseFirestore.instance.collection('usuarios')
+            .where('empresa_id', isEqualTo: widget.empresaId)
+            .get(),
+        FirebaseFirestore.instance.collection('empresas').doc(widget.empresaId)
+            .collection('empleados_fichaje').get(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _conPIN = {for (final d in (empSnap as QuerySnapshot).docs) d.id};
+        _usuarios = (usSnap as QuerySnapshot).docs
+            .where((d) => (d.data() as Map)['estado'] != 'baja')
+            .map((d) => {'uid': d.id, 'nombre': (d.data() as Map)['nombre'] as String? ?? ''})
+            .toList()
+          ..sort((a, b) => a['nombre']!.compareTo(b['nombre']!));
+        _cargando = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cargando) {
+      return const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _kGreen)));
+    }
+    final sinPIN = _usuarios.where((u) => !_conPIN.contains(u['uid'])).toList();
+    if (sinPIN.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(8)),
+        child: const Text('Todos los empleados ya tienen PIN configurado.',
+            style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+      );
+    }
+    return DropdownButtonFormField<String>(
+      value: widget.uidSeleccionado,
+      decoration: const InputDecoration(
+        labelText: 'Seleccionar empleado *',
+        prefixIcon: Icon(Icons.person_search_outlined),
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      ),
+      hint: const Text('Elige un empleado...', style: TextStyle(fontSize: 13)),
+      items: sinPIN.map((u) => DropdownMenuItem<String>(
+        value: u['uid'],
+        child: Text(u['nombre']!, style: const TextStyle(fontSize: 13)),
+      )).toList(),
+      validator: (v) => v == null ? 'Selecciona un empleado' : null,
+      onChanged: (uid) {
+        if (uid == null) return;
+        final nombre = sinPIN.firstWhere((u) => u['uid'] == uid)['nombre'] ?? '';
+        widget.onSeleccionado(uid, nombre);
+      },
+    );
+  }
+}
+
 class _DialogConfigurarPIN extends StatefulWidget {
   final String uid, nombre, empresaId;
   final String? pinActual;
