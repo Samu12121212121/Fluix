@@ -145,10 +145,60 @@ class TabEventosWeb extends StatelessWidget {
   );
 
   void _abrirEditor(BuildContext context, EventoWeb? evento, Color color) {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => _PantallaEditorEvento(
-        empresaId: empresaId, svc: svc, evento: evento),
-    ));
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.92,
+        maxChildSize: 0.98,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [
+            Container(
+              color: Colors.white,
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 4),
+                  child: Container(width: 40, height: 4,
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(children: [
+                    Container(width: 36, height: 36,
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                        child: Icon(evento == null ? Icons.event_note_outlined : Icons.edit_outlined, color: color, size: 18)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(
+                      evento == null ? 'Nuevo evento' : 'Editar evento',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    )),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, size: 20)),
+                  ]),
+                ),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              ]),
+            ),
+            Expanded(child: _PantallaEditorEvento(
+              empresaId: empresaId,
+              svc: svc,
+              evento: evento,
+              color: color,
+              scrollController: scrollCtrl,
+              onGuardado: () => Navigator.pop(ctx),
+            )),
+          ]),
+        ),
+      ),
+    );
   }
 
   void _confirmarEliminar(BuildContext context, EventoWeb evento) {
@@ -204,7 +254,7 @@ class _TarjetaEvento extends StatelessWidget {
       ),
       child: Column(children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.fromLTRB(20, 4, 12, 4),
           leading: _buildFechaBox(),
           title: Text(evento.titulo,
               style: TextStyle(
@@ -268,17 +318,17 @@ class _TarjetaEvento extends StatelessWidget {
     const meses = ['ENE','FEB','MAR','ABR','MAY','JUN',
                    'JUL','AGO','SEP','OCT','NOV','DIC'];
     return Container(
-      width: 44, height: 50,
+      width: 48, height: 55,
       decoration: BoxDecoration(
         color: evento.esFuturo ? color : Colors.grey[300],
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
       ),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Text('${evento.fecha.day}',
-            style: const TextStyle(color: Colors.white, fontSize: 18,
+            style: const TextStyle(color: Colors.white, fontSize: 20,
                 fontWeight: FontWeight.bold, height: 1)),
         Text(meses[evento.fecha.month - 1],
-            style: const TextStyle(color: Colors.white70, fontSize: 9,
+            style: const TextStyle(color: Colors.white70, fontSize: 10,
                 letterSpacing: .4)),
       ]),
     );
@@ -293,20 +343,27 @@ class _PantallaEditorEvento extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
   final EventoWeb? evento;
+  final Color? color;
+  final ScrollController? scrollController;
+  final VoidCallback? onGuardado;
 
   const _PantallaEditorEvento({
-    required this.empresaId, required this.svc, this.evento});
+    required this.empresaId, required this.svc, this.evento,
+    this.color, this.scrollController, this.onGuardado});
 
   @override
   State<_PantallaEditorEvento> createState() => _PantallaEditorEventoState();
 }
 
 class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
-  final _tituloCtrl = TextEditingController();
-  final _descCtrl   = TextEditingController();
-  final _lugarCtrl  = TextEditingController();
-  final _precioCtrl = TextEditingController();
-  final _urlCtrl    = TextEditingController();
+  final _tituloCtrl    = TextEditingController();
+  final _subtituloCtrl = TextEditingController();
+  final _descCtrl      = TextEditingController();
+  final _lugarCtrl     = TextEditingController();
+  final _ciudadCtrl    = TextEditingController();
+  final _horaCtrl      = TextEditingController();
+  final _precioCtrl    = TextEditingController();
+  final _urlCtrl       = TextEditingController();
 
   TipoEvento _tipo = TipoEvento.presentacion;
   DateTime   _fecha = DateTime.now().add(const Duration(days: 7));
@@ -314,50 +371,72 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
   bool _activo = true;
   bool _guardando = false;
   bool _subiendoImg = false;
+  // Vínculos al catálogo
+  String? _libroId;
+  String? _libroTitulo;
+  String? _autorId;
+  String? _autorNombre;
 
   @override
   void initState() {
     super.initState();
     if (widget.evento != null) {
       final e = widget.evento!;
-      _tituloCtrl.text = e.titulo;
-      _descCtrl.text   = e.descripcion;
-      _lugarCtrl.text  = e.lugar;
-      _precioCtrl.text = e.precio ?? '';
-      _urlCtrl.text    = e.urlInscripcion ?? '';
-      _tipo     = e.tipo;
-      _fecha    = e.fecha;
+      _tituloCtrl.text    = e.titulo;
+      _subtituloCtrl.text = e.subtitulo ?? '';
+      _descCtrl.text      = e.descripcion;
+      _lugarCtrl.text     = e.lugar;
+      _ciudadCtrl.text    = e.ciudad ?? '';
+      _horaCtrl.text      = e.hora ?? '';
+      _precioCtrl.text    = e.precio ?? '';
+      _urlCtrl.text       = e.urlInscripcion ?? '';
+      _tipo      = e.tipo;
+      _fecha     = e.fecha;
       _imagenUrl = e.imagenUrl;
-      _activo   = e.activo;
+      _activo    = e.activo;
+      _libroId   = e.libroId;
+      _libroTitulo = e.libroTitulo;
+      _autorId   = e.autorId;
+      _autorNombre = e.autorNombre;
     }
   }
 
   @override
   void dispose() {
-    _tituloCtrl.dispose(); _descCtrl.dispose(); _lugarCtrl.dispose();
+    _tituloCtrl.dispose(); _subtituloCtrl.dispose(); _descCtrl.dispose();
+    _lugarCtrl.dispose();  _ciudadCtrl.dispose();    _horaCtrl.dispose();
     _precioCtrl.dispose(); _urlCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = context.watch<AppConfigProvider>().colorPrimario;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
-      appBar: AppBar(
-        title: Text(widget.evento == null ? 'Nuevo evento' : 'Editar evento'),
-        backgroundColor: color, foregroundColor: Colors.white, elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: _guardando ? null : () => _guardar(context),
-            child: Text(_guardando ? '...' : 'Guardar',
-                style: const TextStyle(color: Colors.white,
-                    fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(14),
+    final color = widget.color ?? context.watch<AppConfigProvider>().colorPrimario;
+    // Si tiene scrollController viene como sheet; sin él, es pantalla completa
+    if (widget.scrollController == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF0F2F5),
+        appBar: AppBar(
+          title: Text(widget.evento == null ? 'Nuevo evento' : 'Editar evento'),
+          backgroundColor: color, foregroundColor: Colors.white, elevation: 0,
+          actions: [
+            TextButton(
+              onPressed: _guardando ? null : () => _guardar(context),
+              child: Text(_guardando ? '…' : 'Guardar',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        body: _buildForm(context, color, null),
+      );
+    }
+    return _buildForm(context, color, widget.scrollController);
+  }
+
+  Widget _buildForm(BuildContext context, Color color, ScrollController? scrollCtrl) {
+    return ListView(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.all(14),
         children: [
           _card(Column(children: [
             // Imagen
@@ -398,6 +477,12 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
               decoration: const InputDecoration(
                   hintText: 'Título del evento',
                   border: InputBorder.none, contentPadding: EdgeInsets.zero)),
+            const SizedBox(height: 6),
+            TextField(controller: _subtituloCtrl,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              decoration: const InputDecoration(
+                  hintText: 'Subtítulo (ej: "José Prados firma ejemplares")',
+                  border: InputBorder.none, contentPadding: EdgeInsets.zero)),
             const Divider(height: 16),
             TextField(controller: _descCtrl, maxLines: 3,
               decoration: const InputDecoration(
@@ -429,9 +514,23 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
             // Lugar
             TextField(controller: _lugarCtrl,
               decoration: const InputDecoration(
-                  hintText: 'Lugar (ej: Librería Renacimiento, Granada)',
+                  hintText: 'Lugar (ej: Biblioteca Municipal, c/ Gran Vía 1)',
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.location_on_outlined, size: 18))),
+            const Divider(height: 1),
+            // Ciudad
+            TextField(controller: _ciudadCtrl,
+              decoration: const InputDecoration(
+                  hintText: 'Ciudad (ej: Granada)',
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.location_city_outlined, size: 18))),
+            const Divider(height: 1),
+            // Hora
+            TextField(controller: _horaCtrl,
+              decoration: const InputDecoration(
+                  hintText: 'Hora (ej: 19:00 – 20:30 h)',
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.schedule_outlined, size: 18))),
             const Divider(height: 1),
             // Precio
             TextField(controller: _precioCtrl,
@@ -456,9 +555,133 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
               activeColor: color,
             ),
           ])),
-          const SizedBox(height: 60),
+          const SizedBox(height: 14),
+          // ── Libro y autor vinculados (al final del editor) ────────────
+          _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Icon(Icons.link_rounded, size: 15, color: color.withValues(alpha: 0.7)),
+                const SizedBox(width: 8),
+                Text('Vincular libro y autor',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                        color: color)),
+              ]),
+            ),
+            // Selector de libro
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: widget.svc.obtenerCatalogoWeb(widget.empresaId),
+              builder: (_, snap) {
+                final items = snap.data ?? [];
+                return _fieldRow('Libro', DropdownButton<String?>(
+                  isExpanded: true,
+                  value: _libroId,
+                  underline: const SizedBox(),
+                  hint: const Text('Sin libro vinculado',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null,
+                        child: Text('— Sin libro vinculado —',
+                            style: TextStyle(fontSize: 12, color: Colors.grey))),
+                    ...items.map((it) => DropdownMenuItem<String?>(
+                      value: it['id'] as String?,
+                      child: Text(it['nombre'] as String? ?? '',
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis),
+                    )),
+                  ],
+                  onChanged: (v) {
+                    final selected = v != null
+                        ? items.firstWhere((i) => i['id'] == v,
+                            orElse: () => {})
+                        : null;
+                    setState(() {
+                      _libroId     = v;
+                      _libroTitulo = selected?['nombre'] as String?;
+                    });
+                  },
+                ));
+              },
+            ),
+            const Divider(height: 1),
+            // Selector de autor
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: widget.svc.obtenerAutores(widget.empresaId),
+              builder: (_, snap) {
+                final autores = snap.data ?? [];
+                return _fieldRow('Autor', DropdownButton<String?>(
+                  isExpanded: true,
+                  value: _autorId,
+                  underline: const SizedBox(),
+                  hint: const Text('Sin autor vinculado',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null,
+                        child: Text('— Sin autor vinculado —',
+                            style: TextStyle(fontSize: 12, color: Colors.grey))),
+                    ...autores.map((a) => DropdownMenuItem<String?>(
+                      value: a['id'] as String?,
+                      child: Text(a['nombre'] as String? ?? '',
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis),
+                    )),
+                  ],
+                  onChanged: (v) {
+                    final selected = v != null
+                        ? autores.firstWhere((a) => a['id'] == v,
+                            orElse: () => {})
+                        : null;
+                    setState(() {
+                      _autorId     = v;
+                      _autorNombre = selected?['nombre'] as String?;
+                    });
+                  },
+                ));
+              },
+            ),
+            if (_libroTitulo != null || _autorNombre != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 14, color: color),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    [
+                      if (_libroTitulo != null) _libroTitulo!,
+                      if (_autorNombre != null) _autorNombre!,
+                    ].join(' · '),
+                    style: TextStyle(fontSize: 11.5, color: color,
+                        fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  )),
+                ]),
+              ),
+            ],
+          ])),
+          const SizedBox(height: 14),
+          // Botón guardar (visible en modo sheet)
+          SizedBox(
+            width: double.infinity, height: 50,
+            child: FilledButton.icon(
+              onPressed: _guardando ? null : () => _guardar(context),
+              icon: _guardando
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded, size: 18),
+              label: Text(_guardando ? 'Guardando…' : widget.evento == null ? 'Crear evento' : 'Guardar cambios',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              style: FilledButton.styleFrom(
+                backgroundColor: color,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
         ],
-      ),
     );
   }
 
@@ -532,9 +755,16 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
       lugar:          _lugarCtrl.text.trim(),
       imagenUrl:      _imagenUrl,
       tipo:           _tipo,
+      subtitulo:      _subtituloCtrl.text.trim().isEmpty ? null : _subtituloCtrl.text.trim(),
+      hora:           _horaCtrl.text.trim().isEmpty ? null : _horaCtrl.text.trim(),
+      ciudad:         _ciudadCtrl.text.trim().isEmpty ? null : _ciudadCtrl.text.trim(),
       precio:         _precioCtrl.text.trim().isEmpty ? null : _precioCtrl.text.trim(),
       urlInscripcion: _urlCtrl.text.trim().isEmpty ? null : _urlCtrl.text.trim(),
       activo:         _activo,
+      libroId:        _libroId,
+      libroTitulo:    _libroTitulo,
+      autorId:        _autorId,
+      autorNombre:    _autorNombre,
     );
     try {
       await widget.svc.guardarEvento(widget.empresaId, evento);
@@ -544,7 +774,11 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
-        Navigator.pop(context);
+        if (widget.onGuardado != null) {
+          widget.onGuardado!();
+        } else {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(

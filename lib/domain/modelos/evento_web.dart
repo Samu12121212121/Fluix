@@ -40,10 +40,19 @@ class EventoWeb {
   final String lugar;
   final String? imagenUrl;
   final TipoEvento tipo;
-  final String? precio;       // '10€', 'Entrada libre', etc.
+  final String? precio;
   final String? urlInscripcion;
   final bool activo;
   final bool eliminado;
+  // Campos adicionales para la web
+  final String? subtitulo; // "José Prados firma ejemplares"
+  final String? hora;      // "18:30 – 20:00 h"
+  final String? ciudad;    // "Granada" (separado de lugar para filtrar)
+  // Vínculos al catálogo
+  final String? libroId;
+  final String? libroTitulo;
+  final String? autorId;
+  final String? autorNombre;
 
   const EventoWeb({
     required this.id,
@@ -57,6 +66,13 @@ class EventoWeb {
     this.urlInscripcion,
     this.activo = true,
     this.eliminado = false,
+    this.subtitulo,
+    this.hora,
+    this.ciudad,
+    this.libroId,
+    this.libroTitulo,
+    this.autorId,
+    this.autorNombre,
   });
 
   bool get esFuturo => fecha.isAfter(DateTime.now());
@@ -73,6 +89,13 @@ class EventoWeb {
     urlInscripcion:  m['url_inscripcion'] as String?,
     activo:          m['activo'] as bool? ?? true,
     eliminado:       m['eliminado'] as bool? ?? false,
+    subtitulo:       m['subtitulo'] as String?,
+    hora:            m['hora'] as String?,
+    ciudad:          m['ciudad'] as String?,
+    libroId:         m['libro_id'] as String?,
+    libroTitulo:     m['libro_titulo'] as String?,
+    autorId:         m['autor_id'] as String?,
+    autorNombre:     m['autor_nombre'] as String?,
   );
 
   Map<String, dynamic> toMap() => {
@@ -86,18 +109,29 @@ class EventoWeb {
     if (urlInscripcion != null) 'url_inscripcion': urlInscripcion,
     'activo':           activo,
     'eliminado':        eliminado,
+    if (subtitulo != null && subtitulo!.isNotEmpty) 'subtitulo': subtitulo,
+    if (hora != null && hora!.isNotEmpty)            'hora': hora,
+    if (ciudad != null && ciudad!.isNotEmpty)        'ciudad': ciudad,
+    if (libroId != null) 'libro_id': libroId,
+    if (libroTitulo != null) 'libro_titulo': libroTitulo,
+    if (autorId != null) 'autor_id': autorId,
+    if (autorNombre != null) 'autor_nombre': autorNombre,
   };
 
   EventoWeb copyWith({
     String? titulo, String? descripcion, DateTime? fecha, String? lugar,
-    String? imagenUrl, TipoEvento? tipo, String? precio,
-    String? urlInscripcion, bool? activo,
+    String? imagenUrl, TipoEvento? tipo, String? precio, String? urlInscripcion,
+    bool? activo, String? libroId, String? libroTitulo, String? autorId, String? autorNombre,
   }) => EventoWeb(
     id: id, titulo: titulo ?? this.titulo, descripcion: descripcion ?? this.descripcion,
     fecha: fecha ?? this.fecha, lugar: lugar ?? this.lugar,
     imagenUrl: imagenUrl ?? this.imagenUrl, tipo: tipo ?? this.tipo,
     precio: precio ?? this.precio, urlInscripcion: urlInscripcion ?? this.urlInscripcion,
     activo: activo ?? this.activo, eliminado: eliminado,
+    subtitulo: subtitulo ?? this.subtitulo, hora: hora ?? this.hora,
+    ciudad: ciudad ?? this.ciudad,
+    libroId: libroId ?? this.libroId, libroTitulo: libroTitulo ?? this.libroTitulo,
+    autorId: autorId ?? this.autorId, autorNombre: autorNombre ?? this.autorNombre,
   );
 
   static DateTime _parseTs(dynamic v) {

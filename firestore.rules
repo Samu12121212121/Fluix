@@ -160,6 +160,28 @@ service cloud.firestore {
       && request.resource.data.rol in ['cliente', 'empleado', 'staff', 'clienteFinal']
       && request.resource.data.get('es_plataforma_admin', false) == false;
 
+    // Admin auto-registro: permite crear con rol 'admin' si el email del usuario
+    // coincide con el correo registrado en la empresa (propietario delegando acceso).
+    allow create: if esUsuarioReal()
+      && uid() == userId
+      && request.resource.data.keys().hasAll(['empresa_id', 'rol'])
+      && request.resource.data.rol == 'admin'
+      && request.resource.data.get('es_plataforma_admin', false) == false
+      && exists(/databases/$(database)/documents/empresas/$(request.resource.data.empresa_id))
+      && (
+        get(/databases/$(database)/documents/empresas/$(request.resource.data.empresa_id)).data
+          .get('perfil', {}).get('correo', '') == request.auth.token.email
+        || get(/databases/$(database)/documents/empresas/$(request.resource.data.empresa_id)).data
+          .get('correo', '') == request.auth.token.email
+      );
+
+    // Cuenta demo: permite auto-creación con rol admin (primera vez)
+    allow create: if esUsuarioReal()
+      && uid() == userId
+      && request.auth.token.email == 'demoFluix2026@gmail.com'
+      && request.resource.data.empresa_id == 'demo_empresa_fluix2026'
+      && request.resource.data.get('es_plataforma_admin', false) == false;
+
     allow create: if esUsuarioReal()
       && existeUsuarioDoc()
       && request.resource.data.empresa_id == getUserData().empresa_id
@@ -241,6 +263,15 @@ service cloud.firestore {
       allow read, write: if esUsuarioReal() && uid() == userId;
     }
 
+    // ── ACTIVIDAD DEL USUARIO (historial de acciones propias) ────────────────
+    match /actividad/{actividadId} {
+      allow read, write: if esUsuarioReal() && uid() == userId;
+      allow read: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+        && (getRol() == 'admin' || getRol() == 'propietario');
+    }
+
     // ── FAVORITOS B2C ────────────────────────────────────────────────────────
     match /favoritos/{favId} {
       allow read, write: if esUsuarioReal() && uid() == userId;
@@ -320,7 +351,12 @@ service cloud.firestore {
     allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
     allow update: if perteneceAEmpresa(empresaId)
       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
-    allow create, delete: if false;
+    // Miembros de la empresa pueden crear notificaciones internas (vacaciones, tareas, etc.)
+    allow create: if perteneceAEmpresa(empresaId)
+      && request.resource.data.keys().hasAll(['titulo', 'cuerpo', 'tipo', 'leida', 'timestamp'])
+      && request.resource.data.leida == false
+      && request.resource.data.size() <= 20;
+    allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -617,6 +653,15 @@ service cloud.firestore {
         || esPlataformaAdmin();
     }
 
+    // ── NÓMINAS SUBIDAS (PDFs por empleado) ───────────────────────────────
+    match /nominas_empleados/{docId} {
+      // Admin/propietario: lectura y escritura totales
+      allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Staff: solo puede leer sus propias nóminas
+      allow read: if perteneceAEmpresa(empresaId)
+        && resource.data.empleado_id == request.auth.uid;
+    }
+
     match /fichajes/{fichajeId} {
       allow read: if esAdminOPropietario(empresaId)
         || esPlataformaAdmin()
@@ -685,6 +730,31 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // La Selección Nazarí — curaduría editorial
+    match /seleccion_nazari/{docId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Catálogo editorial — lectura pública para la web Nazarí
+    match /libros/{libroId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    match /autores/{autorId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Catálogo web genérico — lectura pública (web script onSnapshot) + write admin
+    match /catalogo_web/{itemId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId)
+        || esPlataformaAdmin()
+        || staffTieneModulo(empresaId, 'catalogo');
+    }
+
     match /contacto_web/{mensajeId} {
       allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
         && request.resource.data.nombre is string
@@ -696,7 +766,7 @@ service cloud.firestore {
         && request.resource.data.email.matches('.+@.+[.].+')
         && request.resource.data.mensaje is string
         && request.resource.data.mensaje.size() > 0
-        && request.resource.data.mensaje.size() <= 2000;
+        && request.resource.data.mensaje.size() <= 5000;
       allow read, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
@@ -921,11 +991,10 @@ service cloud.firestore {
       allow update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
-    // ── EVENTOS DE TRACKING (clics teléfono / WhatsApp / formulario) ─────
-    // Escritos por el script JS sin autenticación real de empresa.
-    // Solo se permite crear, con campos básicos validados.
+    // ── EVENTOS (agenda editorial + tracking) ────────────────────────────
+    // Lectura pública para la web editorial; creación abierta para tracking JS.
     match /eventos/{eventoId} {
-      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow read: if true;
       allow create: if isAuth()
         && request.resource.data.get('tipo', '') is string
         && request.resource.data.get('tipo', '').size() <= 50
@@ -935,6 +1004,19 @@ service cloud.firestore {
 
     match /cache/{docId} {
       allow read, write: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── ESTADÍSTICAS WEB (tracking.js desde la web pública) ──────────────
+    match /estadisticas/{docId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      // El script de tracking escribe sin autenticación; validamos tamaño
+      allow create, update: if request.resource.data.size() <= 20;
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+    match /estadisticas/{docId}/historico_diario/{diaId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if request.resource.data.size() <= 10;
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     match /configuracion/{docId} {
@@ -1123,6 +1205,12 @@ service cloud.firestore {
 
     match /comandas/{comandaId} {
       allow read, write: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── TPV PERSONALIZADO (multi-sector) ─────────────────────────────────────
+    match /tpvs_personalizados/{tpvId} {
+      allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
   } // fin /empresas/{empresaId}

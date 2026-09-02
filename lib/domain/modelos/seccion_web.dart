@@ -9,6 +9,7 @@ enum TipoSeccion {
   ofertas,  // Ofertas con precio original y precio rebajado
   horarios, // Días/horas de apertura
   generico, // Sistema data-fluix — items con campos libres
+  eventos,  // Próximos eventos del negocio
 }
 
 extension TipoSeccionExt on TipoSeccion {
@@ -20,6 +21,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.ofertas:  return 'Ofertas';
       case TipoSeccion.horarios: return 'Horarios';
       case TipoSeccion.generico: return 'Sección genérica';
+      case TipoSeccion.eventos:  return 'Eventos';
     }
   }
 
@@ -31,6 +33,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.ofertas:  return 'ofertas';
       case TipoSeccion.horarios: return 'horarios';
       case TipoSeccion.generico: return 'generico';
+      case TipoSeccion.eventos:  return 'eventos';
     }
   }
 
@@ -42,6 +45,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.ofertas:  return Icons.local_offer;
       case TipoSeccion.horarios: return Icons.schedule;
       case TipoSeccion.generico: return Icons.edit_note;
+      case TipoSeccion.eventos:  return Icons.event_note_rounded;
     }
   }
 
@@ -53,6 +57,7 @@ extension TipoSeccionExt on TipoSeccion {
       case TipoSeccion.ofertas:  return const Color(0xFF2E7D32);
       case TipoSeccion.horarios: return const Color(0xFF00796B);
       case TipoSeccion.generico: return const Color(0xFF455A64);
+      case TipoSeccion.eventos:  return const Color(0xFFD97706);
     }
   }
 
@@ -63,6 +68,7 @@ extension TipoSeccionExt on TipoSeccion {
       case 'ofertas':  return TipoSeccion.ofertas;
       case 'horarios': return TipoSeccion.horarios;
       case 'generico': return TipoSeccion.generico;
+      case 'eventos':  return TipoSeccion.eventos;
       default:         return TipoSeccion.texto;
     }
   }
@@ -78,6 +84,7 @@ class SeccionWeb {
   final ContenidoSeccion contenido;
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
+  final String pagina; // slug de la página WordPress, ej: 'inicio', 'sobre-nosotros'
 
   SeccionWeb({
     required this.id,
@@ -88,6 +95,7 @@ class SeccionWeb {
     required this.contenido,
     required this.fechaCreacion,
     this.fechaActualizacion,
+    this.pagina = 'inicio',
   });
 
   factory SeccionWeb.fromMap(Map<String, dynamic> map) {
@@ -106,6 +114,7 @@ class SeccionWeb {
       fechaActualizacion: map['fecha_actualizacion'] != null
           ? _parseDate(map['fecha_actualizacion'])
           : null,
+      pagina: map['pagina'] as String? ?? 'inicio',
     );
   }
 
@@ -119,6 +128,7 @@ class SeccionWeb {
     'fecha_creacion': fechaCreacion.toIso8601String(),
     if (fechaActualizacion != null)
       'fecha_actualizacion': fechaActualizacion!.toIso8601String(),
+    'pagina': pagina,
   };
 
   SeccionWeb copyWith({
@@ -127,6 +137,7 @@ class SeccionWeb {
     bool? activa,
     ContenidoSeccion? contenido,
     DateTime? fechaActualizacion,
+    String? pagina,
   }) => SeccionWeb(
     id: id,
     nombre: nombre ?? this.nombre,
@@ -136,6 +147,7 @@ class SeccionWeb {
     contenido: contenido ?? this.contenido,
     fechaCreacion: fechaCreacion,
     fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+    pagina: pagina ?? this.pagina,
   );
 
   static DateTime _parseDate(dynamic v) {
@@ -580,6 +592,8 @@ class EntradaBlog {
   final DateTime? fechaEliminacion;
   final bool destacado;
   final int visitas;
+  // Tipo de contenido: 'articulo' | 'noticia'
+  final String tipo;
 
   const EntradaBlog({
     required this.id,
@@ -600,6 +614,7 @@ class EntradaBlog {
     this.fechaEliminacion,
     this.destacado = false,
     this.visitas = 0,
+    this.tipo = 'articulo',
   });
 
   // Compatibilidad con código legacy que usa .publicada
@@ -637,6 +652,7 @@ class EntradaBlog {
           : null,
       destacado:           m['destacado'] as bool? ?? false,
       visitas:             (m['visitas'] as num?)?.toInt() ?? 0,
+      tipo:                m['tipo'] as String? ?? 'articulo',
     );
   }
 
@@ -662,6 +678,7 @@ class EntradaBlog {
       'fecha_eliminacion': fechaEliminacion!.toIso8601String(),
     'destacado':          destacado,
     'visitas':            visitas,
+    'tipo':               tipo,
   };
 
   EntradaBlog copyWith({
@@ -669,7 +686,7 @@ class EntradaBlog {
     String? imagenUrl, EstadoBlog? estado, DateTime? fechaPublicacion,
     List<String>? etiquetas, String? autor, String? categoriaId,
     String? seoMetaTitle, String? seoMetaDescription, List<String>? seoKeywords,
-    bool? eliminado, DateTime? fechaEliminacion, bool? destacado,
+    bool? eliminado, DateTime? fechaEliminacion, bool? destacado, String? tipo,
   }) => EntradaBlog(
     id:                 id,
     titulo:             titulo ?? this.titulo,
@@ -689,6 +706,7 @@ class EntradaBlog {
     fechaEliminacion:   fechaEliminacion ?? this.fechaEliminacion,
     destacado:          destacado ?? this.destacado,
     visitas:            visitas,
+    tipo:               tipo ?? this.tipo,
   );
 
   static DateTime _parseFecha(dynamic v) {
@@ -727,8 +745,28 @@ class ConfigWebAvanzada {
   // Banner superior
   final bool bannerActivo;
   final String? bannerTexto;
-  final String? bannerColor;   // hex: '#e53935'
+  final String? bannerColor;
   final String? bannerUrlDestino;
+  // GDPR / Cookie consent
+  final bool gdprActivo;
+  final String? gdprTexto;
+  final String? gdprPoliticaUrl;
+  final bool gdprCategoriasAnalitica;
+  final bool gdprCategoriasMarketing;
+  // WhatsApp widget flotante
+  final bool whatsappWidgetActivo;
+  final String? whatsappNumero;
+  final String? whatsappMensaje;
+  final String? whatsappHorarioInicio;
+  final String? whatsappHorarioFin;
+  final String? whatsappMensajeFueraHorario;
+  // Popup avanzado
+  final int popupFrecuenciaDias;   // 0=siempre, 1=1vez, 7=semanal, 30=mensual
+  final bool popupExitIntent;
+  final String popupDispositivo;   // 'todos' | 'mobile' | 'desktop'
+  // Contacto auto-respuesta
+  final bool contactoAutoRespuesta;
+  final String? contactoAutoRespuestaTexto;
 
   const ConfigWebAvanzada({
     this.dominioPropioUrl,
@@ -736,77 +774,147 @@ class ConfigWebAvanzada {
     this.contactoEmail,
     this.contactoWhatsapp,
     this.contactoTitulo,
+    this.contactoAutoRespuesta = false,
+    this.contactoAutoRespuestaTexto,
     this.popupActivo = false,
     this.popupTitulo,
     this.popupTexto,
     this.popupBotonTexto,
     this.popupBotonUrl,
     this.popupRetrasoSeg = 5,
+    this.popupFrecuenciaDias = 0,
+    this.popupExitIntent = false,
+    this.popupDispositivo = 'todos',
     this.bannerActivo = false,
     this.bannerTexto,
     this.bannerColor,
     this.bannerUrlDestino,
+    this.gdprActivo = false,
+    this.gdprTexto,
+    this.gdprPoliticaUrl,
+    this.gdprCategoriasAnalitica = false,
+    this.gdprCategoriasMarketing = false,
+    this.whatsappWidgetActivo = false,
+    this.whatsappNumero,
+    this.whatsappMensaje,
+    this.whatsappHorarioInicio,
+    this.whatsappHorarioFin,
+    this.whatsappMensajeFueraHorario,
   });
 
   factory ConfigWebAvanzada.fromMap(Map<String, dynamic> m) => ConfigWebAvanzada(
-    dominioPropioUrl:   m['dominio_propio_url'] as String?,
-    contactoActivo:     m['contacto_activo'] as bool? ?? false,
-    contactoEmail:      m['contacto_email'] as String?,
-    contactoWhatsapp:   m['contacto_whatsapp'] as String?,
-    contactoTitulo:     m['contacto_titulo'] as String?,
-    popupActivo:        m['popup_activo'] as bool? ?? false,
-    popupTitulo:        m['popup_titulo'] as String?,
-    popupTexto:         m['popup_texto'] as String?,
-    popupBotonTexto:    m['popup_boton_texto'] as String?,
-    popupBotonUrl:      m['popup_boton_url'] as String?,
-    popupRetrasoSeg:    (m['popup_retraso_seg'] as num?)?.toInt() ?? 5,
-    bannerActivo:       m['banner_activo'] as bool? ?? false,
-    bannerTexto:        m['banner_texto'] as String?,
-    bannerColor:        m['banner_color'] as String?,
-    bannerUrlDestino:   m['banner_url_destino'] as String?,
+    dominioPropioUrl:            m['dominio_propio_url'] as String?,
+    contactoActivo:              m['contacto_activo'] as bool? ?? false,
+    contactoEmail:               m['contacto_email'] as String?,
+    contactoWhatsapp:            m['contacto_whatsapp'] as String?,
+    contactoTitulo:              m['contacto_titulo'] as String?,
+    contactoAutoRespuesta:       m['contacto_auto_respuesta'] as bool? ?? false,
+    contactoAutoRespuestaTexto:  m['contacto_auto_respuesta_texto'] as String?,
+    popupActivo:                 m['popup_activo'] as bool? ?? false,
+    popupTitulo:                 m['popup_titulo'] as String?,
+    popupTexto:                  m['popup_texto'] as String?,
+    popupBotonTexto:             m['popup_boton_texto'] as String?,
+    popupBotonUrl:               m['popup_boton_url'] as String?,
+    popupRetrasoSeg:             (m['popup_retraso_seg'] as num?)?.toInt() ?? 5,
+    popupFrecuenciaDias:         (m['popup_frecuencia_dias'] as num?)?.toInt() ?? 0,
+    popupExitIntent:             m['popup_exit_intent'] as bool? ?? false,
+    popupDispositivo:            m['popup_dispositivo'] as String? ?? 'todos',
+    bannerActivo:                m['banner_activo'] as bool? ?? false,
+    bannerTexto:                 m['banner_texto'] as String?,
+    bannerColor:                 m['banner_color'] as String?,
+    bannerUrlDestino:            m['banner_url_destino'] as String?,
+    gdprActivo:                  m['gdpr_activo'] as bool? ?? false,
+    gdprTexto:                   m['gdpr_texto'] as String?,
+    gdprPoliticaUrl:             m['gdpr_politica_url'] as String?,
+    gdprCategoriasAnalitica:     m['gdpr_categorias_analitica'] as bool? ?? false,
+    gdprCategoriasMarketing:     m['gdpr_categorias_marketing'] as bool? ?? false,
+    whatsappWidgetActivo:        m['whatsapp_widget_activo'] as bool? ?? false,
+    whatsappNumero:              m['whatsapp_numero'] as String?,
+    whatsappMensaje:             m['whatsapp_mensaje'] as String?,
+    whatsappHorarioInicio:       m['whatsapp_horario_inicio'] as String?,
+    whatsappHorarioFin:          m['whatsapp_horario_fin'] as String?,
+    whatsappMensajeFueraHorario: m['whatsapp_mensaje_fuera_horario'] as String?,
   );
 
   Map<String, dynamic> toMap() => {
     if (dominioPropioUrl != null) 'dominio_propio_url': dominioPropioUrl,
-    'contacto_activo':    contactoActivo,
-    if (contactoEmail != null) 'contacto_email': contactoEmail,
-    if (contactoWhatsapp != null) 'contacto_whatsapp': contactoWhatsapp,
-    if (contactoTitulo != null) 'contacto_titulo': contactoTitulo,
-    'popup_activo':       popupActivo,
-    if (popupTitulo != null) 'popup_titulo': popupTitulo,
-    if (popupTexto != null) 'popup_texto': popupTexto,
-    if (popupBotonTexto != null) 'popup_boton_texto': popupBotonTexto,
-    if (popupBotonUrl != null) 'popup_boton_url': popupBotonUrl,
-    'popup_retraso_seg':  popupRetrasoSeg,
-    'banner_activo':      bannerActivo,
-    if (bannerTexto != null) 'banner_texto': bannerTexto,
-    if (bannerColor != null) 'banner_color': bannerColor,
-    if (bannerUrlDestino != null) 'banner_url_destino': bannerUrlDestino,
+    'contacto_activo':              contactoActivo,
+    if (contactoEmail != null)      'contacto_email': contactoEmail,
+    if (contactoWhatsapp != null)   'contacto_whatsapp': contactoWhatsapp,
+    if (contactoTitulo != null)     'contacto_titulo': contactoTitulo,
+    'contacto_auto_respuesta':      contactoAutoRespuesta,
+    if (contactoAutoRespuestaTexto != null) 'contacto_auto_respuesta_texto': contactoAutoRespuestaTexto,
+    'popup_activo':                 popupActivo,
+    if (popupTitulo != null)        'popup_titulo': popupTitulo,
+    if (popupTexto != null)         'popup_texto': popupTexto,
+    if (popupBotonTexto != null)    'popup_boton_texto': popupBotonTexto,
+    if (popupBotonUrl != null)      'popup_boton_url': popupBotonUrl,
+    'popup_retraso_seg':            popupRetrasoSeg,
+    'popup_frecuencia_dias':        popupFrecuenciaDias,
+    'popup_exit_intent':            popupExitIntent,
+    'popup_dispositivo':            popupDispositivo,
+    'banner_activo':                bannerActivo,
+    if (bannerTexto != null)        'banner_texto': bannerTexto,
+    if (bannerColor != null)        'banner_color': bannerColor,
+    if (bannerUrlDestino != null)   'banner_url_destino': bannerUrlDestino,
+    'gdpr_activo':                  gdprActivo,
+    if (gdprTexto != null)          'gdpr_texto': gdprTexto,
+    if (gdprPoliticaUrl != null)    'gdpr_politica_url': gdprPoliticaUrl,
+    'gdpr_categorias_analitica':    gdprCategoriasAnalitica,
+    'gdpr_categorias_marketing':    gdprCategoriasMarketing,
+    'whatsapp_widget_activo':       whatsappWidgetActivo,
+    if (whatsappNumero != null)     'whatsapp_numero': whatsappNumero,
+    if (whatsappMensaje != null)    'whatsapp_mensaje': whatsappMensaje,
+    if (whatsappHorarioInicio != null)       'whatsapp_horario_inicio': whatsappHorarioInicio,
+    if (whatsappHorarioFin != null)          'whatsapp_horario_fin': whatsappHorarioFin,
+    if (whatsappMensajeFueraHorario != null) 'whatsapp_mensaje_fuera_horario': whatsappMensajeFueraHorario,
   };
 
   ConfigWebAvanzada copyWith({
-    String? dominioPropioUrl, bool? contactoActivo, String? contactoEmail,
-    String? contactoWhatsapp, String? contactoTitulo,
+    String? dominioPropioUrl,
+    bool? contactoActivo, String? contactoEmail, String? contactoWhatsapp,
+    String? contactoTitulo, bool? contactoAutoRespuesta, String? contactoAutoRespuestaTexto,
     bool? popupActivo, String? popupTitulo, String? popupTexto,
     String? popupBotonTexto, String? popupBotonUrl, int? popupRetrasoSeg,
-    bool? bannerActivo, String? bannerTexto, String? bannerColor,
-    String? bannerUrlDestino,
+    int? popupFrecuenciaDias, bool? popupExitIntent, String? popupDispositivo,
+    bool? bannerActivo, String? bannerTexto, String? bannerColor, String? bannerUrlDestino,
+    bool? gdprActivo, String? gdprTexto, String? gdprPoliticaUrl,
+    bool? gdprCategoriasAnalitica, bool? gdprCategoriasMarketing,
+    bool? whatsappWidgetActivo, String? whatsappNumero, String? whatsappMensaje,
+    String? whatsappHorarioInicio, String? whatsappHorarioFin,
+    String? whatsappMensajeFueraHorario,
   }) => ConfigWebAvanzada(
-    dominioPropioUrl:  dominioPropioUrl ?? this.dominioPropioUrl,
-    contactoActivo:    contactoActivo ?? this.contactoActivo,
-    contactoEmail:     contactoEmail ?? this.contactoEmail,
-    contactoWhatsapp:  contactoWhatsapp ?? this.contactoWhatsapp,
-    contactoTitulo:    contactoTitulo ?? this.contactoTitulo,
-    popupActivo:       popupActivo ?? this.popupActivo,
-    popupTitulo:       popupTitulo ?? this.popupTitulo,
-    popupTexto:        popupTexto ?? this.popupTexto,
-    popupBotonTexto:   popupBotonTexto ?? this.popupBotonTexto,
-    popupBotonUrl:     popupBotonUrl ?? this.popupBotonUrl,
-    popupRetrasoSeg:   popupRetrasoSeg ?? this.popupRetrasoSeg,
-    bannerActivo:      bannerActivo ?? this.bannerActivo,
-    bannerTexto:       bannerTexto ?? this.bannerTexto,
-    bannerColor:       bannerColor ?? this.bannerColor,
-    bannerUrlDestino:  bannerUrlDestino ?? this.bannerUrlDestino,
+    dominioPropioUrl:            dominioPropioUrl ?? this.dominioPropioUrl,
+    contactoActivo:              contactoActivo ?? this.contactoActivo,
+    contactoEmail:               contactoEmail ?? this.contactoEmail,
+    contactoWhatsapp:            contactoWhatsapp ?? this.contactoWhatsapp,
+    contactoTitulo:              contactoTitulo ?? this.contactoTitulo,
+    contactoAutoRespuesta:       contactoAutoRespuesta ?? this.contactoAutoRespuesta,
+    contactoAutoRespuestaTexto:  contactoAutoRespuestaTexto ?? this.contactoAutoRespuestaTexto,
+    popupActivo:                 popupActivo ?? this.popupActivo,
+    popupTitulo:                 popupTitulo ?? this.popupTitulo,
+    popupTexto:                  popupTexto ?? this.popupTexto,
+    popupBotonTexto:             popupBotonTexto ?? this.popupBotonTexto,
+    popupBotonUrl:               popupBotonUrl ?? this.popupBotonUrl,
+    popupRetrasoSeg:             popupRetrasoSeg ?? this.popupRetrasoSeg,
+    popupFrecuenciaDias:         popupFrecuenciaDias ?? this.popupFrecuenciaDias,
+    popupExitIntent:             popupExitIntent ?? this.popupExitIntent,
+    popupDispositivo:            popupDispositivo ?? this.popupDispositivo,
+    bannerActivo:                bannerActivo ?? this.bannerActivo,
+    bannerTexto:                 bannerTexto ?? this.bannerTexto,
+    bannerColor:                 bannerColor ?? this.bannerColor,
+    bannerUrlDestino:            bannerUrlDestino ?? this.bannerUrlDestino,
+    gdprActivo:                  gdprActivo ?? this.gdprActivo,
+    gdprTexto:                   gdprTexto ?? this.gdprTexto,
+    gdprPoliticaUrl:             gdprPoliticaUrl ?? this.gdprPoliticaUrl,
+    gdprCategoriasAnalitica:     gdprCategoriasAnalitica ?? this.gdprCategoriasAnalitica,
+    gdprCategoriasMarketing:     gdprCategoriasMarketing ?? this.gdprCategoriasMarketing,
+    whatsappWidgetActivo:        whatsappWidgetActivo ?? this.whatsappWidgetActivo,
+    whatsappNumero:              whatsappNumero ?? this.whatsappNumero,
+    whatsappMensaje:             whatsappMensaje ?? this.whatsappMensaje,
+    whatsappHorarioInicio:       whatsappHorarioInicio ?? this.whatsappHorarioInicio,
+    whatsappHorarioFin:          whatsappHorarioFin ?? this.whatsappHorarioFin,
+    whatsappMensajeFueraHorario: whatsappMensajeFueraHorario ?? this.whatsappMensajeFueraHorario,
   );
 }
 

@@ -61,14 +61,63 @@ class ContenidoWebService {
   }
 
   Future<void> guardarSeccion(String empresaId, SeccionWeb seccion) async {
+    final docRef = _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('contenido_web')
+        .doc(seccion.id.isEmpty ? null : seccion.id);
+
+    // Snapshot de la versión anterior antes de sobreescribir
+    if (seccion.id.isNotEmpty) {
+      try {
+        final prev = await docRef.get();
+        if (prev.exists && prev.data() != null) {
+          final histRef = docRef.collection('historial').doc();
+          await histRef.set({
+            ...prev.data()!,
+            'guardado_en': FieldValue.serverTimestamp(),
+          });
+          // Conservar máximo 10 versiones
+          final old = await docRef.collection('historial')
+              .orderBy('guardado_en', descending: true)
+              .get();
+          if (old.docs.length > 10) {
+            for (final d in old.docs.skip(10)) {
+              await d.reference.delete();
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     final data = seccion.toMap();
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
     data['orden'] = data['orden'] ?? 0;
+    await docRef.set(data, SetOptions(merge: true));
+  }
+
+  Stream<List<Map<String, dynamic>>> obtenerHistorial(
+      String empresaId, String seccionId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('contenido_web').doc(seccionId)
+        .collection('historial')
+        .orderBy('guardado_en', descending: true)
+        .limit(10)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {'_id': d.id, ...d.data()})
+            .toList());
+  }
+
+  Future<void> restaurarVersionSeccion(
+      String empresaId, String seccionId, Map<String, dynamic> version) async {
+    final data = Map<String, dynamic>.from(version)
+      ..remove('_id')
+      ..remove('guardado_en');
+    data['fecha_actualizacion'] = FieldValue.serverTimestamp();
     await _firestore
-        .collection('empresas')
-        .doc(empresaId)
-        .collection('contenido_web')
-        .doc(seccion.id.isEmpty ? null : seccion.id)
+        .collection('empresas').doc(empresaId)
+        .collection('contenido_web').doc(seccionId)
         .set(data, SetOptions(merge: true));
   }
 
@@ -83,6 +132,18 @@ class ContenidoWebService {
       'contenido': contenido.toMap(),
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> reordenarSecciones(
+      String empresaId, List<SeccionWeb> secciones) async {
+    final batch = _firestore.batch();
+    for (var i = 0; i < secciones.length; i++) {
+      final ref = _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('contenido_web').doc(secciones[i].id);
+      batch.update(ref, {'orden': i, 'fecha_actualizacion': FieldValue.serverTimestamp()});
+    }
+    await batch.commit();
   }
 
   Future<void> toggleSeccion(
@@ -126,7 +187,7 @@ class ContenidoWebService {
       final ref = _storage
           .ref()
           .child('empresas/$empresaId/$carpeta/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await ref.putFile(file);
+      await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
       return await ref.getDownloadURL();
     } catch (e) {
       print('Error subiendo imagen desde galería: $e');
@@ -266,9 +327,11 @@ class ContenidoWebService {
     final activas = secciones.where((s) => s.activa).toList();
     final buf = StringBuffer();
 
-    buf.writeln('<!--  CONTENIDO DINÁMICO PLANEAGUADA CRM -->');
+    buf.writeln('<!-- ── FLUIX CRM: scripts de integración ──────────────────────── -->');
     buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>');
     buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>');
+    buf.writeln('<!-- marked.js convierte el Markdown del blog a HTML (obligatorio) -->');
+    buf.writeln('<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>');
     buf.writeln('<script>');
     buf.writeln('(function(){');
     buf.writeln('  const cfg={apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",authDomain:"planeaapp-4bea4.firebaseapp.com",projectId:"planeaapp-4bea4"};');
@@ -276,6 +339,7 @@ class ContenidoWebService {
     buf.writeln('  const db=firebase.firestore();');
     buf.writeln('  const EMPRESA="$empresaId";');
     buf.writeln('  function render(id,html,show){const el=document.getElementById("fluixcrm_"+id);if(!el)return;el.innerHTML=html;el.style.display=(show===false)?"none":"";}');
+    buf.writeln('  db.collection("empresas").doc(EMPRESA).collection("config_web").doc("script_status").set({ultimo_ping:firebase.firestore.FieldValue.serverTimestamp(),url:window.location.href},{merge:true});');
     buf.writeln('  db.collection("empresas").doc(EMPRESA).collection("contenido_web").onSnapshot(snap=>{');
     buf.writeln('    snap.docChanges().forEach(ch=>{ if(ch.type==="removed") render(ch.doc.id,"",false); });');
     buf.writeln('    snap.forEach(doc=>{');
@@ -294,16 +358,25 @@ class ContenidoWebService {
     buf.writeln('</script>');
 
     buf.writeln();
-    buf.writeln('<!-- ═══════════════════════════════════════════════════════ -->');
-    buf.writeln('<!-- DIVS donde se inyectará el contenido.                   -->');
-    buf.writeln('<!-- Pega cada uno donde quieras en tu HTML.                 -->');
-    buf.writeln('<!-- TIP: añade style="display:none" para secciones ocultas. -->');
-    buf.writeln('<!--      Se mostrarán automáticamente al activarlas en la app -->');
-    buf.writeln('<!-- ═══════════════════════════════════════════════════════ -->');
+    buf.writeln('<!-- ═══════════════════════════════════════════════════════════ -->');
+    buf.writeln('<!-- DIVS donde se inyectará el contenido.                       -->');
+    buf.writeln('<!-- Pega cada div en la página de WordPress que corresponda.    -->');
+    buf.writeln('<!-- El script solo rellena el div si existe en la página actual -->');
+    buf.writeln('<!-- ═══════════════════════════════════════════════════════════ -->');
+
+    // Agrupar por página
+    final porPagina = <String, List<SeccionWeb>>{};
     for (final s in activas) {
-      buf.writeln('<!-- ${s.nombre} (${s.tipo.nombre}) -->');
-      buf.writeln('<div id="fluixcrm_${s.id}"></div>');
+      (porPagina[s.pagina] ??= []).add(s);
+    }
+    for (final entry in porPagina.entries) {
       buf.writeln();
+      buf.writeln('<!-- ── Página: ${entry.key} ─────────────────────────────── -->');
+      for (final s in entry.value) {
+        buf.writeln('<!-- ${s.nombre} (${s.tipo.nombre}) -->');
+        buf.writeln('<div id="fluixcrm_${s.id}" data-fluix-pagina="${s.pagina}"></div>');
+        buf.writeln();
+      }
     }
 
     return buf.toString();
@@ -386,6 +459,13 @@ class ContenidoWebService {
     buf.writeln('  const EMPRESA="$empresaId";');
     buf.writeln('  function render(id,html,show){const el=document.getElementById("fluixcrm_"+id);if(!el)return;el.innerHTML=html;el.style.display=(show===false)?"none":"";}');
 
+    // GDPR Cookie banner
+    if (cfg.gdprActivo) {
+      final gdprTexto    = cfg.gdprTexto ?? 'Usamos cookies para mejorar tu experiencia en nuestra web.';
+      final gdprPolitica = cfg.gdprPoliticaUrl ?? '#';
+      buf.writeln('  (function(){if(localStorage.getItem("fluix_gdpr_ok"))return;var b=document.createElement("div");b.setAttribute("data-fluix-gdpr","1");b.style="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#fff;padding:14px 20px;z-index:10000;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:sans-serif;";b.innerHTML=\'<span style="flex:1;font-size:13px;line-height:1.5">$gdprTexto</span><a href="$gdprPolitica" style="color:#94a3b8;font-size:12px;white-space:nowrap">Política de privacidad</a><button onclick="localStorage.setItem(\'fluix_gdpr_ok\',\'1\');this.closest(\'[data-fluix-gdpr]\').remove()" style="background:#3b82f6;color:#fff;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap">Aceptar</button>\';document.body.appendChild(b);})();');
+    }
+
     // Banner
     if (cfg.bannerActivo && cfg.bannerTexto != null) {
       final bColor = cfg.bannerColor ?? '#1976D2';
@@ -399,6 +479,13 @@ class ContenidoWebService {
           ? '<a href="${cfg.popupBotonUrl ?? '#'}" style="background:#1976D2;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold">${cfg.popupBotonTexto}</a>'
           : '';
       buf.writeln('  setTimeout(function(){if(sessionStorage.getItem("fluixcrm_popup_shown"))return;sessionStorage.setItem("fluixcrm_popup_shown","1");const o=document.createElement("div");o.style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";o.innerHTML=`<div style="background:#fff;border-radius:12px;padding:28px;max-width:420px;width:90%;text-align:center;"><h3 style="margin:0 0 12px">${cfg.popupTitulo}</h3><p style="color:#555;margin:0 0 18px">${cfg.popupTexto ?? ""}</p>$botonHtml<br><button onclick="this.closest(\'.fluixcrm_overlay\').remove()" style="margin-top:14px;background:none;border:none;color:#888;cursor:pointer;font-size:13px">✕ Cerrar</button></div>\`;o.classList.add("fluixcrm_overlay");document.body.appendChild(o);o.addEventListener("click",function(e){if(e.target===o)o.remove();});},${cfg.popupRetrasoSeg * 1000});');
+    }
+
+    // WhatsApp widget flotante
+    if (cfg.whatsappWidgetActivo && cfg.whatsappNumero != null) {
+      final numero  = cfg.whatsappNumero!.replaceAll(RegExp(r'[^0-9+]'), '');
+      final mensaje = Uri.encodeComponent(cfg.whatsappMensaje ?? 'Hola, me gustaría más información.');
+      buf.writeln('  (function(){var a=document.createElement("a");a.href="https://wa.me/$numero?text=$mensaje";a.target="_blank";a.rel="noopener";a.title="WhatsApp";a.style="position:fixed;bottom:20px;right:20px;width:54px;height:54px;background:#25d366;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:9500;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:transform .2s;";a.onmouseenter=function(){this.style.transform="scale(1.1)";};a.onmouseleave=function(){this.style.transform="scale(1)";};a.innerHTML=\'<svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>\';document.body.appendChild(a);})();');
     }
 
     // Formulario de contacto
@@ -551,8 +638,320 @@ class ContenidoWebService {
   // GENERADOR DE SCRIPT HOSTINGER (data-fluix)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Genera el script JS para Hostinger usando StringBuffer
+  // ── Fluix Web SDK — script completo ─────────────────────────────────────
+  // Detecta módulos data-fluix-* en el DOM y conecta con Firestore.
+  // Uso en HTML: <div data-fluix-agenda></div>  → agenda en tiempo real
+  //              <div data-fluix-catalogo></div> → catálogo
+  //              <div data-fluix-blog></div>      → blog/noticias
+  //              <div data-fluix-contacto></div>  → formulario de contacto
+  //              <div data-fluix-resenas></div>   → valoraciones
+  //              <div data-fluix-seccion="id"></div> → sección personalizada
+  // Atributos de config: data-fluix-limite, data-fluix-tipo, data-fluix-ciudad, data-fluix-categoria
+
+  /// Genera el Fluix Web SDK para Hostinger
   String generarScriptHostinger(String empresaId) {
+    final sdk = _fluixWebSdk.replaceAll('__EMPRESA__', empresaId);
+    return '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
+        '<script>\n$sdk\n</script>\n';
+  }
+
+  // Raw JS SDK — usa __EMPRESA__ como placeholder; se reemplaza en tiempo real
+  static const String _fluixWebSdk = r'''
+(function(){
+  /* ── Firebase ── */
+  var CFG={apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",authDomain:"planeaapp-4bea4.firebaseapp.com",projectId:"planeaapp-4bea4",storageBucket:"planeaapp-4bea4.firebasestorage.app",messagingSenderId:"1085482191658",appId:"1:1085482191658:web:c5461353b123ab92d62c53"};
+  var app=(firebase.apps||[]).find(function(a){return a&&a.name==="FluixApp";})||firebase.initializeApp(CFG,"FluixApp");
+  var db=firebase.firestore();
+  var auth=firebase.auth();
+  var EMPRESA="__EMPRESA__";
+
+  /* ── Helpers ── */
+  function fcfg(el,k,def){return el.getAttribute("data-fluix-"+k)||def||"";}
+  function fmtFecha(ts){
+    var d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);
+    if(!d||isNaN(d))return"";
+    return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"});
+  }
+  function fmtCarta(ts){
+    var d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);
+    if(!d||isNaN(d))return{dia:"",mes:"",anio:""};
+    var M=["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+    return{dia:String(d.getDate()).padStart(2,"0"),mes:M[d.getMonth()],anio:d.getFullYear()};
+  }
+  function wField(ce,campo,item){
+    var v=item[campo],tag=ce.tagName.toLowerCase();
+    if(v===undefined||v===null){if(tag==="img")ce.style.display="none";return;}
+    if(campo==="fecha"){ce.textContent=fmtFecha(v);return;}
+    if(tag==="img"){ce.src=v||"";ce.style.display=v?"":"none";return;}
+    if(tag==="a"){ce.href=v||"#";return;}
+    ce.textContent=v;
+  }
+  function fillFields(root,item){
+    root.querySelectorAll("[data-fluix-campo]").forEach(function(ce){wField(ce,ce.getAttribute("data-fluix-campo"),item);});
+  }
+  function renderTpl(container,tpl,items){
+    var cur={};
+    container.querySelectorAll("[data-fluix-id]").forEach(function(el){cur[el.getAttribute("data-fluix-id")]=el;});
+    var del=Object.assign({},cur);
+    items.forEach(function(item){
+      var id=item.id||Math.random().toString(36).slice(2),el=cur[id];
+      if(!el){var cl=tpl.content.cloneNode(true);el=cl.firstElementChild;el.setAttribute("data-fluix-id",id);container.appendChild(el);}
+      delete del[id];
+      fillFields(el,item);
+    });
+    Object.values(del).forEach(function(el){el.remove();});
+  }
+
+  /* ══ Módulo: data-fluix-agenda ══════════════════════════════════════ */
+  function modAgenda(){
+    document.querySelectorAll("[data-fluix-agenda]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","50")),tipos=fcfg(el,"tipo","").split(",").map(function(s){return s.trim();}).filter(Boolean),ciudad=fcfg(el,"ciudad",""),detalleUrl=fcfg(el,"detalle-url","?evento="),tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("eventos").where("activo","==",true).orderBy("fecha").onSnapshot(function(snap){
+        var items=[];
+        snap.forEach(function(doc){var d=doc.data();d.id=doc.id;if(d.eliminado)return;if(tipos.length&&tipos.indexOf(d.tipo||"")<0)return;if(ciudad&&d.ciudad!==ciudad)return;items.push(d);});
+        items=items.slice(0,limite);
+        if(!items.length){el.innerHTML='<p class="fluix-vacio">Sin eventos próximos.</p>';return;}
+        // Añadir data-tipo y data-fecha para que los filtros client-side funcionen
+        if(tpl){
+          renderTpl(el,tpl,items);
+          el.querySelectorAll("[data-fluix-id]").forEach(function(card,i){
+            if(i<items.length){card.setAttribute("data-tipo",items[i].tipo||"");card.setAttribute("data-fecha",items[i].fecha&&items[i].fecha.toDate?items[i].fecha.toDate().toISOString():(items[i].fecha||""));}
+          });
+          return;
+        }
+        el.innerHTML=items.map(function(ev){
+          var f=fmtCarta(ev.fecha),img=ev.imagen_url?'<img class="ev-img" src="'+ev.imagen_url+'" alt="" loading="lazy">':'';
+          var fechaISO=ev.fecha&&ev.fecha.toDate?ev.fecha.toDate().toISOString():"";
+          return'<a class="ev-card" href="'+detalleUrl+ev.id+'" data-fluix-id="'+ev.id+'" data-tipo="'+(ev.tipo||"")+'" data-ciudad="'+(ev.ciudad||"")+'" data-fecha="'+fechaISO+'">'
+            +'<div class="ev-left">'+img+'<div class="ev-date"><span class="ev-dmes">'+f.mes+'</span><span class="ev-dnum">'+f.dia+'</span><span class="ev-danio">'+f.anio+'</span></div></div>'
+            +'<div class="ev-body"><span class="ev-tipo">'+(ev.tipo||"Evento")+'</span>'
+            +'<div class="ev-titulo">'+(ev.titulo||"")+'</div>'
+            +(ev.subtitulo?'<div class="ev-subtitulo">'+ev.subtitulo+'</div>':"")
+            +(ev.lugar?'<div class="ev-lugar">'+ev.lugar+(ev.ciudad&&ev.ciudad!==ev.lugar?", "+ev.ciudad:"")+'</div>':"")
+            +'<div class="ev-foot"><span class="ev-hora">'+(ev.hora||"")+'</span><span class="ev-btn">Ver más</span></div>'
+            +'</div></a>';
+        }).join("");
+      });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-agenda-detalle ══════════════════════════════ */
+  function modAgendaDetalle(){
+    var el=document.querySelector("[data-fluix-agenda-detalle]");if(!el)return;
+    var id=new URLSearchParams(window.location.search).get("evento");
+    if(!id){el.style.display="none";return;}
+    el.style.display="";
+    db.collection("empresas").doc(EMPRESA).collection("eventos").doc(id).get().then(function(doc){
+      if(!doc.exists){el.innerHTML="<p>Evento no encontrado.</p>";return;}
+      var ev=doc.data();ev.id=doc.id;
+      ev.fecha_fmt=fmtFecha(ev.fecha);
+      var tpl=el.querySelector("template[data-fluix-item]");
+      if(tpl){var cl=tpl.content.cloneNode(true);fillFields(cl.firstElementChild,ev);el.appendChild(cl);}
+      else fillFields(el,ev);
+      if(ev.titulo)document.title=ev.titulo+" · "+document.title;
+    });
+  }
+
+  /* ══ Módulo: data-fluix-catalogo ════════════════════════════════════ */
+  function modCatalogo(){
+    document.querySelectorAll("[data-fluix-catalogo]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","50")),cat=fcfg(el,"categoria",""),tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("catalogo_web").where("activo","==",true).orderBy("orden").onSnapshot(function(snap){
+        var items=[];
+        snap.forEach(function(doc){var d=doc.data();d.id=doc.id;if(cat&&d.categoria!==cat)return;items.push(d);});
+        items=items.slice(0,limite);
+        if(!items.length){el.innerHTML="";return;}
+        if(tpl){renderTpl(el,tpl,items);return;}
+        el.innerHTML=items.map(function(it){
+          return'<div class="fluix-cat-item" data-fluix-id="'+it.id+'">'
+            +(it.imagen_url?'<img class="fluix-cat-img" src="'+it.imagen_url+'" alt="'+it.nombre+'" loading="lazy">':"")
+            +'<div class="fluix-cat-body">'
+            +(it.tag?'<span class="fluix-cat-tag">'+it.tag+'</span>':"")
+            +'<h3 class="fluix-cat-nombre">'+it.nombre+'</h3>'
+            +(it.campo_autor?'<span class="fluix-cat-autor">'+it.campo_autor+'</span>':"")
+            +(it.descripcion?'<p class="fluix-cat-desc">'+it.descripcion+'</p>':"")
+            +(it.precio?'<span class="fluix-cat-precio">'+it.precio+'</span>':"")
+            +(it.precio_digital?'<span class="fluix-cat-precio-digital">'+it.precio_digital+'</span>':"")
+            +(it.stripe_link?'<a href="'+it.stripe_link+'" target="_blank" rel="noopener" class="fluix-cat-comprar">Comprar</a>':"")
+            +'</div></div>';
+        }).join("");
+      });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-catalogo-detalle ════════════════════════════ */
+  function modCatalogoDetalle(){
+    var el=document.querySelector("[data-fluix-catalogo-detalle]");if(!el)return;
+    var id=new URLSearchParams(window.location.search).get("item");
+    if(!id){el.style.display="none";return;}
+    el.style.display="";
+    db.collection("empresas").doc(EMPRESA).collection("catalogo_web").doc(id).get().then(function(doc){
+      if(!doc.exists){el.innerHTML="<p>Elemento no encontrado.</p>";return;}
+      var it=doc.data();it.id=doc.id;
+      fillFields(el,it);
+      if(it.nombre)document.title=it.nombre+" · "+document.title;
+    });
+  }
+
+  /* ══ Módulo: data-fluix-blog ════════════════════════════════════════ */
+  function modBlog(){
+    document.querySelectorAll("[data-fluix-blog]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","10")),tipo=fcfg(el,"tipo","");
+      var tpl=el.querySelector("template[data-fluix-blog-card]")||el.querySelector("template[data-fluix-item]");
+      if(!tpl)return;
+      db.collection("empresas").doc(EMPRESA).collection("blog").where("publicada","==",true).orderBy("fecha_publicacion","desc").onSnapshot(function(snap){
+        el.querySelectorAll("[data-fluix-post-id]").forEach(function(e){e.remove();});
+        var n=0;
+        snap.forEach(function(doc){
+          if(n>=limite)return;
+          var b=doc.data();b.id=doc.id;
+          if(b.eliminado)return;
+          if(tipo&&b.tipo!==tipo)return;
+          n++;
+          var cl=tpl.content.cloneNode(true),art=cl.firstElementChild;
+          art.setAttribute("data-fluix-post-id",doc.id);
+          art.querySelectorAll("[data-fluix-campo]").forEach(function(ce){
+            var c=ce.getAttribute("data-fluix-campo");
+            if(c==="imagen_url"){ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";}
+            else if(c==="link"){var u=new URL(window.location.href);u.searchParams.set("post",b.slug||doc.id);ce.href=u.toString();}
+            else if(c==="fecha"){var ts=b.fecha_publicacion,d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}
+            else ce.textContent=b[c]||"";
+          });
+          el.appendChild(cl);
+        });
+      });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-blog-post ═══════════════════════════════════ */
+  function modBlogPost(){
+    var el=document.querySelector("[data-fluix-blog-post]");if(!el)return;
+    var slug=new URLSearchParams(window.location.search).get("post");
+    if(!slug)return;
+    el.style.display="";
+    db.collection("empresas").doc(EMPRESA).collection("blog").where("slug","==",slug).where("publicada","==",true).limit(1).get().then(function(snap){
+      if(snap.empty){el.innerHTML="<p>Artículo no encontrado.</p>";return;}
+      var b=snap.docs[0].data();
+      el.querySelectorAll("[data-fluix-campo]").forEach(function(ce){
+        var c=ce.getAttribute("data-fluix-campo");
+        if(c==="imagen_url"){ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";}
+        else if(c==="contenido"){if(window.marked)ce.innerHTML=marked.parse(b.contenido||"");else ce.textContent=b.contenido||"";}
+        else if(c==="fecha"){var ts=b.fecha_publicacion,d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}
+        else ce.textContent=b[c]||"";
+      });
+      if(b.titulo)document.title=b.titulo+" · "+document.title;
+    });
+  }
+
+  /* ══ Módulo: data-fluix-contacto ════════════════════════════════════ */
+  function modContacto(){
+    document.querySelectorAll("[data-fluix-contacto]").forEach(function(el){
+      var titulo=fcfg(el,"titulo","Contáctanos");
+      var form=el.tagName.toLowerCase()==="form"?el:el.querySelector("form");
+      if(!form){
+        el.innerHTML='<form><h3>'+titulo+'</h3>'
+          +'<input name="nombre" placeholder="Tu nombre" required style="display:block;width:100%;padding:10px;margin:6px 0;border:1px solid #ddd;border-radius:6px">'
+          +'<input name="email" type="email" placeholder="Tu email" required style="display:block;width:100%;padding:10px;margin:6px 0;border:1px solid #ddd;border-radius:6px">'
+          +'<textarea name="mensaje" rows="4" placeholder="Tu mensaje" required style="display:block;width:100%;padding:10px;margin:6px 0;border:1px solid #ddd;border-radius:6px;resize:vertical"></textarea>'
+          +'<button type="submit" style="background:#1976D2;color:#fff;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:14px">Enviar</button></form>';
+        form=el.querySelector("form");
+      }
+      form.addEventListener("submit",function(e){
+        e.preventDefault();
+        var fd=new FormData(e.target);
+        db.collection("empresas").doc(EMPRESA).collection("contacto_web").add({
+          nombre:fd.get("nombre"),email:fd.get("email"),mensaje:fd.get("mensaje"),
+          fecha:firebase.firestore.FieldValue.serverTimestamp(),leido:false
+        }).then(function(){e.target.innerHTML='<p style="color:green;font-weight:bold">✅ Mensaje enviado.</p>';})
+          .catch(function(err){alert("Error: "+err.message);});
+      });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-resenas ═════════════════════════════════════ */
+  function modResenas(){
+    document.querySelectorAll("[data-fluix-resenas]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","5")),tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("valoraciones").orderBy("fecha_creacion","desc").limit(limite).get().then(function(snap){
+        if(snap.empty){el.innerHTML="";return;}
+        var suma=0,items=snap.docs.map(function(d){var v=d.data();v.id=d.id;suma+=v.estrellas||v.calificacion||0;return v;});
+        if(tpl){
+          items.forEach(function(v){
+            v.fecha=fmtFecha(v.fecha_creacion);
+            v.nombre=v.cliente_nombre||v.nombre||"Cliente";
+            v.texto=v.comentario||v.texto||"";
+            var cl=tpl.content.cloneNode(true);fillFields(cl.firstElementChild,v);el.appendChild(cl);
+          });
+          return;
+        }
+        var media=(suma/items.length).toFixed(1);
+        el.innerHTML='<div style="font-size:2rem;font-weight:700">'+media+' ★</div><p>'+items.length+' reseña'+(items.length!==1?'s':"")+'</p>'
+          +items.map(function(v){
+            return'<div style="padding:1rem 0;border-bottom:1px solid #eee">'
+              +'<div>'+"★".repeat(Math.round(v.estrellas||v.calificacion||0))+'</div>'
+              +(v.comentario||v.texto?'<p style="margin:.5rem 0">'+(v.comentario||v.texto)+'</p>':"")
+              +'<strong>'+(v.cliente_nombre||v.nombre||"Cliente")+'</strong>'
+              +'</div>';
+          }).join("");
+      });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-seccion ═════════════════════════════════════ */
+  function modSecciones(){
+    document.querySelectorAll("[data-fluix-seccion]").forEach(function(el){
+      var sid=el.getAttribute("data-fluix-seccion"),tpl=el.querySelector("template[data-fluix-plantilla]"),lista=tpl?el.querySelector("[data-fluix-lista]"):null;
+      db.collection("empresas").doc(EMPRESA).collection("contenido_web").doc(sid).onSnapshot(function(doc){
+        if(!doc.exists)return;
+        var d=doc.data();
+        el.style.display=d.activa===false?"none":"";
+        var items=(d.contenido&&d.contenido.items)||[];
+        if(tpl&&lista){
+          var cur={};
+          lista.querySelectorAll("[data-fluix-item]").forEach(function(e){cur[e.getAttribute("data-fluix-item")]=e;});
+          var del=Object.assign({},cur);
+          items.forEach(function(item){
+            var e=cur[item.id];
+            if(!e){var cl=tpl.content.cloneNode(true);e=cl.firstElementChild;e.setAttribute("data-fluix-item",item.id);lista.appendChild(e);}
+            delete del[item.id];
+            e.style.display=item.disponible===false?"none":"";
+            fillFields(e,item);
+          });
+          Object.values(del).forEach(function(e){e.remove();});
+        }
+      });
+    });
+  }
+
+  /* ══ Bootstrap: detectar módulos y arrancar ═════════════════════════ */
+  auth.signInAnonymously().then(function(){
+    var mods=[];
+    function detect(sel,fn,id){if(document.querySelector(sel)){fn();mods.push(id);}}
+    detect("[data-fluix-agenda]",          modAgenda,          "agenda");
+    detect("[data-fluix-agenda-detalle]",  modAgendaDetalle,   "agenda-detalle");
+    detect("[data-fluix-catalogo]",        modCatalogo,        "catalogo");
+    detect("[data-fluix-catalogo-detalle]",modCatalogoDetalle, "catalogo-detalle");
+    detect("[data-fluix-blog]",            modBlog,            "blog");
+    detect("[data-fluix-blog-post]",       modBlogPost,        "blog-post");
+    detect("[data-fluix-contacto]",        modContacto,        "contacto");
+    detect("[data-fluix-resenas]",         modResenas,         "resenas");
+    detect("[data-fluix-seccion]",         modSecciones,       "secciones");
+    // Reportar módulos detectados en Firestore
+    if(mods.length){
+      db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status").set({
+        modulos:mods,url:window.location.href,ts:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true}).catch(function(){});
+    }
+    console.log("%cFluix Web SDK%c activo · "+mods.length+" módulo(s): ["+mods.join(", ")+"]","color:#1976D2;font-weight:bold","color:inherit");
+  }).catch(function(e){console.error("Fluix SDK: "+e.message);});
+
+})();
+''';
+
+  /// @deprecated — usa generarScriptHostinger
+  String generarScriptHostinger_old(String empresaId) {
     final buf = StringBuffer();
     buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>');
     buf.writeln('<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>');
@@ -663,6 +1062,102 @@ class ContenidoWebService {
     buf.writeln('      escucharSeccion(seccionEl,seccionId);');
     buf.writeln('    });');
     buf.writeln('    console.log("Fluix: "+secciones.length+" seccion(es) conectadas");');
+    // Blog — listado dinámico (data-fluix-blog + template data-fluix-blog-card)
+    buf.writeln('    (function(){');
+    buf.writeln('      var blogEl=document.querySelector("[data-fluix-blog]");');
+    buf.writeln('      if(!blogEl) return;');
+    buf.writeln('      var tpl=blogEl.querySelector("template[data-fluix-blog-card]");');
+    buf.writeln('      if(!tpl) return;');
+    buf.writeln('      db.collection("empresas").doc(EMPRESA).collection("blog")');
+    buf.writeln('        .where("publicada","==",true).orderBy("fecha_publicacion","desc")');
+    buf.writeln('        .onSnapshot(function(snap){');
+    buf.writeln('          blogEl.querySelectorAll("[data-fluix-post-id]").forEach(function(el){el.remove();});');
+    buf.writeln('          snap.forEach(function(doc){');
+    buf.writeln('            var b=doc.data(); if(b.eliminado) return;');
+    buf.writeln('            var clone=tpl.content.cloneNode(true);');
+    buf.writeln('            var art=clone.firstElementChild;');
+    buf.writeln('            art.setAttribute("data-fluix-post-id",doc.id);');
+    buf.writeln('            art.querySelectorAll("[data-fluix-campo]").forEach(function(ce){');
+    buf.writeln('              var campo=ce.getAttribute("data-fluix-campo");');
+    buf.writeln('              if(campo==="imagen_url"){ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";}');
+    buf.writeln('              else if(campo==="link"){var u=new URL(window.location.href);u.searchParams.set("post",b.slug||doc.id);ce.href=u.toString();}');
+    buf.writeln('              else if(campo==="fecha"){var ts=b.fecha_publicacion;var d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}');
+    buf.writeln('              else if(campo==="etiquetas"){ce.textContent=(b.etiquetas||[]).join(", ");}');
+    buf.writeln('              else{ce.textContent=b[campo]||"";}');
+    buf.writeln('            });');
+    buf.writeln('            blogEl.appendChild(clone);');
+    buf.writeln('          });');
+    buf.writeln('        });');
+    buf.writeln('    })();');
+    // Blog — artículo completo (data-fluix-blog-post + ?post=slug en URL)
+    buf.writeln('    (function(){');
+    buf.writeln('      var postEl=document.querySelector("[data-fluix-blog-post]");');
+    buf.writeln('      if(!postEl) return;');
+    buf.writeln('      var slug=new URLSearchParams(window.location.search).get("post");');
+    buf.writeln('      if(!slug) return;');
+    buf.writeln('      postEl.style.display="";');
+    buf.writeln('      db.collection("empresas").doc(EMPRESA).collection("blog")');
+    buf.writeln('        .where("slug","==",slug).where("publicada","==",true).limit(1).get()');
+    buf.writeln('        .then(function(snap){');
+    buf.writeln('          if(snap.empty){postEl.innerHTML="<p>Artículo no encontrado.</p>";return;}');
+    buf.writeln('          var b=snap.docs[0].data();');
+    buf.writeln('          postEl.querySelectorAll("[data-fluix-campo]").forEach(function(ce){');
+    buf.writeln('            var campo=ce.getAttribute("data-fluix-campo");');
+    buf.writeln('            if(campo==="imagen_url"){ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";}');
+    buf.writeln('            else if(campo==="contenido"){if(window.marked){ce.innerHTML=marked.parse(b.contenido||"");}else{ce.textContent=b.contenido||"";}}');
+    buf.writeln('            else if(campo==="fecha"){var ts=b.fecha_publicacion;var d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}');
+    buf.writeln('            else if(campo==="etiquetas"){ce.textContent=(b.etiquetas||[]).join(", ");}');
+    buf.writeln('            else{ce.textContent=b[campo]||"";}');
+    buf.writeln('          });');
+    buf.writeln('          if(b.titulo) document.title=b.titulo+" · "+document.title;');
+    buf.writeln('        });');
+    buf.writeln('    })();');
+    // ── Catálogo web — sincronización tiempo real ──────────────────────────
+    buf.writeln('    (function(){');
+    buf.writeln('      var catEl=document.querySelector("[data-fluix-catalogo]");');
+    buf.writeln('      if(!catEl) return;');
+    buf.writeln('      var tpl=catEl.querySelector("template[data-fluix-cat-item]");');
+    buf.writeln('      db.collection("empresas").doc(EMPRESA).collection("catalogo_web")');
+    buf.writeln('        .where("activo","==",true).orderBy("orden")');
+    buf.writeln('        .onSnapshot(function(snap){');
+    buf.writeln('          if(!tpl){');
+    buf.writeln('            if(snap.empty){catEl.innerHTML="";return;}');
+    buf.writeln('            catEl.innerHTML=snap.docs.map(function(doc){');
+    buf.writeln('              var it=doc.data();');
+    buf.writeln('              return\'<div class="fluix-cat-item" data-fluix-cat-id="\'+doc.id+\'">\'+');
+    buf.writeln('                (it.imagen_url?\'<img src="\'+it.imagen_url+\'" class="fluix-cat-img" alt="\'+it.nombre+\'" loading="lazy">\':"") +');
+    buf.writeln('                \'<div class="fluix-cat-body">\'+');
+    buf.writeln('                (it.tag?\'<span class="fluix-cat-tag">\'+it.tag+\'</span>\':"") +');
+    buf.writeln('                \'<h3 class="fluix-cat-nombre">\'+it.nombre+\'</h3>\'+');
+    buf.writeln('                (it.campo_autor?\'<span class="fluix-cat-autor">\'+it.campo_autor+\'</span>\':"") +');
+    buf.writeln('                (it.descripcion?\'<p class="fluix-cat-desc">\'+it.descripcion+\'</p>\':"") +');
+    buf.writeln('                \'<div class="fluix-cat-footer">\'+');
+    buf.writeln('                (it.precio?\'<span class="fluix-cat-precio">\'+it.precio+\'</span>\':"") +');
+    buf.writeln('                (it.precio_digital?\'<span class="fluix-cat-precio-digital">ebook: \'+it.precio_digital+\'</span>\':"") +');
+    buf.writeln('                (it.stripe_link?\'<a href="\'+it.stripe_link+\'" target="_blank" rel="noopener" class="fluix-cat-comprar">Comprar</a>\':"") +');
+    buf.writeln('                \'</div></div></div>\';');
+    buf.writeln('            }).join("");');
+    buf.writeln('            return;');
+    buf.writeln('          }');
+    buf.writeln('          // Modo plantilla con <template data-fluix-cat-item>');
+    buf.writeln('          var cur={};');
+    buf.writeln('          catEl.querySelectorAll("[data-fluix-cat-id]").forEach(function(el){cur[el.getAttribute("data-fluix-cat-id")]=el;});');
+    buf.writeln('          var toDel=Object.assign({},cur);');
+    buf.writeln('          snap.forEach(function(doc){');
+    buf.writeln('            var it=doc.data(),id=doc.id,el=cur[id];');
+    buf.writeln('            if(!el){var cl=tpl.content.cloneNode(true);el=cl.firstElementChild;el.setAttribute("data-fluix-cat-id",id);catEl.appendChild(el);}');
+    buf.writeln('            delete toDel[id];');
+    buf.writeln('            el.querySelectorAll("[data-fluix-campo]").forEach(function(ce){');
+    buf.writeln('              var c=ce.getAttribute("data-fluix-campo");');
+    buf.writeln('              if(c==="imagen_url"){ce.src=it.imagen_url||"";ce.style.display=it.imagen_url?"":"none";return;}');
+    buf.writeln('              if(c==="stripe_link"){ce.href=it.stripe_link||"#";ce.style.display=it.stripe_link?"":"none";return;}');
+    buf.writeln('              ce.textContent=it[c]||"";');
+    buf.writeln('            });');
+    buf.writeln('          });');
+    buf.writeln('          Object.values(toDel).forEach(function(el){el.remove();});');
+    buf.writeln('        });');
+    buf.writeln('    })();');
+
     buf.writeln('  }).catch(function(e){');
     buf.writeln('    console.error("Fluix auth error: "+e.message);');
     buf.writeln('  });');
@@ -673,8 +1168,65 @@ class ContenidoWebService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SDK_STATUS — módulos detectados en la web
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Stream<Map<String, dynamic>> obtenerSdkStatus(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('sdk_status')
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data()! : <String, dynamic>{});
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // BLOG / NOTICIAS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Devuelve los dos bloques HTML que el admin pega UNA VEZ en su web.
+  /// El script (generarScriptHostinger) los detecta y rellena desde Firestore.
+  Map<String, String> generarPlantillaBlog() {
+    const listado = '''<!-- ── BLOQUE 1: Lista de artículos del blog ──────────── -->
+<!-- Pega donde quieras mostrar las tarjetas de posts.      -->
+<!-- Diseña .blog-card con tu propio CSS.                   -->
+<!-- Opcional: añade marked.js en el <head> para Markdown   -->
+<!--   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> -->
+<div data-fluix-blog>
+  <template data-fluix-blog-card>
+    <article class="blog-card">
+      <a data-fluix-campo="link">
+        <img data-fluix-campo="imagen_url" alt="">
+        <div class="blog-card-body">
+          <span data-fluix-campo="categoria" class="badge"></span>
+          <h3 data-fluix-campo="titulo"></h3>
+          <p data-fluix-campo="resumen"></p>
+          <div class="blog-card-meta">
+            <span data-fluix-campo="autor"></span>
+            <span data-fluix-campo="fecha"></span>
+          </div>
+        </div>
+      </a>
+    </article>
+  </template>
+</div>''';
+
+    const articulo = '''<!-- ── BLOQUE 2: Artículo completo ───────────────────── -->
+<!-- Pega en la misma página o en una página de detalle.    -->
+<!-- Se muestra cuando la URL contiene ?post=slug-del-post  -->
+<div data-fluix-blog-post style="display:none">
+  <img data-fluix-campo="imagen_url" class="post-hero" alt="">
+  <span data-fluix-campo="categoria" class="badge"></span>
+  <h1 data-fluix-campo="titulo"></h1>
+  <div class="post-meta">
+    <span data-fluix-campo="autor"></span>
+    <span data-fluix-campo="fecha"></span>
+  </div>
+  <div data-fluix-campo="contenido" class="post-content"></div>
+  <div data-fluix-campo="etiquetas" class="post-tags"></div>
+</div>''';
+
+    return {'listado': listado, 'articulo': articulo};
+  }
 
   CollectionReference<Map<String, dynamic>> _blogCol(String empresaId) =>
       _firestore.collection('empresas').doc(empresaId).collection('blog');
@@ -698,13 +1250,86 @@ class ContenidoWebService {
     data.remove('id');
     if (entrada.id.isEmpty) {
       data['fecha_creacion'] = FieldValue.serverTimestamp();
+    } else {
+      // Antes de sobrescribir, guardar la versión anterior (máximo 10 versiones)
+      await _guardarVersionAnterior(empresaId, entrada.id);
     }
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
-    // Guardar fecha_publicacion como Timestamp para índices
     data['fecha_publicacion'] = Timestamp.fromDate(entrada.fechaPublicacion);
     await _blogCol(empresaId)
         .doc(entrada.id.isEmpty ? null : entrada.id)
         .set(data, SetOptions(merge: true));
+  }
+
+  /// Guarda una snapshot de la versión actual antes de sobrescribir.
+  Future<void> _guardarVersionAnterior(String empresaId, String entradaId) async {
+    try {
+      final doc = await _blogCol(empresaId).doc(entradaId).get();
+      if (!doc.exists) return;
+      final versionesCol = _blogCol(empresaId).doc(entradaId).collection('versiones');
+      // Guardar version snapshot
+      await versionesCol.add({
+        ...doc.data()!,
+        'guardada_en': FieldValue.serverTimestamp(),
+      });
+      // Mantener solo las últimas 10 versiones (borrar excedente)
+      final allVers = await versionesCol.orderBy('guardada_en', descending: true).get();
+      if (allVers.docs.length > 10) {
+        for (final d in allVers.docs.skip(10)) await d.reference.delete();
+      }
+    } catch (_) {
+      // No bloquear el guardado si falla el historial
+    }
+  }
+
+  /// Obtiene el historial de versiones de una entrada.
+  Future<List<Map<String, dynamic>>> obtenerVersiones(String empresaId, String entradaId) async {
+    final snap = await _blogCol(empresaId)
+        .doc(entradaId)
+        .collection('versiones')
+        .orderBy('guardada_en', descending: true)
+        .limit(10)
+        .get();
+    return snap.docs.map((d) => {...d.data(), 'version_id': d.id}).toList();
+  }
+
+  /// Restaura una versión anterior como contenido actual.
+  Future<void> restaurarVersion(String empresaId, String entradaId, Map<String, dynamic> versionData) async {
+    final data = Map<String, dynamic>.from(versionData)
+      ..remove('version_id')
+      ..remove('guardada_en');
+    data['fecha_actualizacion'] = FieldValue.serverTimestamp();
+    await _blogCol(empresaId).doc(entradaId).set(data, SetOptions(merge: true));
+  }
+
+  Future<void> crearEntradaBlogEjemplo(String empresaId) async {
+    final entrada = EntradaBlog(
+      id: '',
+      titulo: '¡Bienvenidos a nuestro blog!',
+      slug: 'bienvenidos-a-nuestro-blog',
+      resumen: 'Este es nuestro primer artículo. Aquí compartiremos novedades, consejos y todo lo relacionado con nuestro negocio.',
+      contenido: '# ¡Bienvenidos a nuestro blog!\n\n'
+          'Estamos muy emocionados de lanzar este espacio donde compartiremos todo lo relacionado con nuestro negocio.\n\n'
+          '## ¿Qué encontrarás aquí?\n\n'
+          '- **Novedades**: Las últimas noticias sobre nuestros productos y servicios.\n'
+          '- **Consejos**: Tips y trucos para sacar el máximo partido a lo que ofrecemos.\n'
+          '- **Historias**: Casos de éxito y testimonios de nuestros clientes.\n\n'
+          '## Sobre nosotros\n\n'
+          'Llevamos años trabajando con pasión para ofrecer el mejor servicio posible. '
+          'Este blog es una extensión de ese compromiso: queremos estar más cerca de ti '
+          'y compartir lo que nos mueve cada día.\n\n'
+          '---\n\n'
+          '*¡No olvides suscribirte para no perderte ninguna actualización!*',
+      estado: EstadoBlog.publicado,
+      fechaPublicacion: DateTime.now(),
+      autor: 'Equipo',
+      etiquetas: ['bienvenida', 'novedades'],
+      destacado: true,
+      seoMetaTitle: 'Bienvenidos a nuestro blog — Noticias y consejos',
+      seoMetaDescription: 'Descubre las últimas novedades, consejos y noticias de nuestro negocio en nuestro blog oficial.',
+      seoKeywords: ['blog', 'novedades', 'noticias'],
+    );
+    await guardarEntradaBlog(empresaId, entrada);
   }
 
   /// Soft-delete: marca eliminado=true en lugar de borrar físicamente
@@ -982,5 +1607,342 @@ class ContenidoWebService {
     await _configReservasWebDoc(empresaId).set(
         {...config.toMap(), 'actualizado': FieldValue.serverTimestamp()},
         SetOptions(merge: true));
+  }
+
+  // ── Galería de imágenes web ───────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> obtenerGaleria(String empresaId) async {
+    final snap = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('galeria_web')
+        .orderBy('subida', descending: true)
+        .limit(100)
+        .get();
+    return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+  }
+
+  Future<void> agregarAGaleria(String empresaId, String url) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('galeria_web')
+        .add({'url': url, 'subida': FieldValue.serverTimestamp()});
+  }
+
+  Future<void> eliminarDeGaleria(String empresaId, String id) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('galeria_web').doc(id).delete();
+  }
+
+  // ── Estado del script en la web ───────────────────────────────────────────
+
+  Stream<DateTime?> obtenerUltimoPingScript(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('script_status')
+        .snapshots()
+        .map((doc) {
+          if (!doc.exists) return null;
+          final ts = doc.data()?['ultimo_ping'];
+          if (ts is Timestamp) return ts.toDate();
+          return null;
+        });
+  }
+
+  Stream<List<Map<String, dynamic>>> obtenerGaleriaStream(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('galeria_web')
+        .orderBy('subida', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CATÁLOGO EDITORIAL (libros + autores)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Stream<List<Map<String, dynamic>>> obtenerLibros(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros')
+        .orderBy('titulo')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  Future<void> guardarLibro(
+      String empresaId, String? slug, Map<String, dynamic> data) async {
+    final col = _firestore.collection('empresas').doc(empresaId).collection('libros');
+    final id = (slug != null && slug.isNotEmpty) ? slug : null;
+    if (id != null) {
+      await col.doc(id).set({...data, 'fecha_actualizacion': FieldValue.serverTimestamp()},
+          SetOptions(merge: true));
+    } else {
+      await col.add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
+    }
+  }
+
+  Future<void> toggleActivoLibro(String empresaId, String slug, bool activo) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros').doc(slug)
+        .update({'activo': activo});
+  }
+
+  Future<void> eliminarLibro(String empresaId, String slug) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros').doc(slug)
+        .delete();
+  }
+
+  Stream<List<Map<String, dynamic>>> obtenerAutores(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('autores')
+        .orderBy('nombre')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
+  Future<void> guardarAutor(
+      String empresaId, String? docId, Map<String, dynamic> data) async {
+    final col = _firestore.collection('empresas').doc(empresaId).collection('autores');
+    if (docId != null && docId.isNotEmpty) {
+      await col.doc(docId).set({...data, 'fecha_actualizacion': FieldValue.serverTimestamp()},
+          SetOptions(merge: true));
+    } else {
+      await col.add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
+    }
+  }
+
+  Future<void> eliminarAutor(String empresaId, String docId) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('autores').doc(docId)
+        .delete();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CATÁLOGO WEB GENÉRICO — catalogo_web (sync tiempo real a la web)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  CollectionReference<Map<String, dynamic>> _catalogoCol(String empresaId) =>
+      _firestore.collection('empresas').doc(empresaId).collection('catalogo_web');
+
+  Stream<List<Map<String, dynamic>>> obtenerCatalogoWeb(String empresaId) {
+    return _catalogoCol(empresaId)
+        .snapshots()
+        .map((snap) {
+          final docs = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          docs.sort((a, b) =>
+              ((a['orden'] as num?)?.toInt() ?? 9999)
+              .compareTo((b['orden'] as num?)?.toInt() ?? 9999));
+          return docs;
+        });
+  }
+
+  Future<void> guardarItemCatalogo(
+      String empresaId, String? docId, Map<String, dynamic> data) async {
+    if (docId != null && docId.isNotEmpty) {
+      await _catalogoCol(empresaId).doc(docId).set(
+          {...data, 'fecha_actualizacion': FieldValue.serverTimestamp()},
+          SetOptions(merge: true));
+    } else {
+      // Determinar orden contando documentos existentes
+      int orden = 0;
+      try {
+        final snap = await _catalogoCol(empresaId).get();
+        orden = snap.docs.length;
+      } catch (_) {}
+      data['orden'] = orden;
+      await _catalogoCol(empresaId)
+          .add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
+    }
+  }
+
+  Future<void> toggleActivoItemCatalogo(
+      String empresaId, String docId, bool activo) async {
+    await _catalogoCol(empresaId).doc(docId).update({
+      'activo': activo,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> eliminarItemCatalogo(String empresaId, String docId) async {
+    await _catalogoCol(empresaId).doc(docId).delete();
+  }
+
+  /// Migra libros existentes de la colección `libros` a `catalogo_web`.
+  Future<int> migrarLibrosACatalogoWeb(String empresaId) async {
+    final snap = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros').get();
+    if (snap.docs.isEmpty) return 0;
+    int migrados = 0;
+    for (var i = 0; i < snap.docs.length; i++) {
+      final l = snap.docs[i].data();
+      await _catalogoCol(empresaId).doc(snap.docs[i].id).set({
+        'nombre':      l['titulo'] ?? l['nombre'] ?? '',
+        'descripcion': l['sinopsis'] ?? l['descripcion'] ?? '',
+        'precio':      l['precio'] ?? '',
+        'precio_digital': l['precioEbook'] ?? '',
+        'imagen_url':  l['imagen_url'] ?? '',
+        'activo':      l['activo'] ?? true,
+        'orden':       i,
+        'slug':        l['slug'] ?? snap.docs[i].id,
+        'tag':         l['tag'] ?? '',
+        'categoria':   l['genero'] ?? '',
+        'campo_autor': l['autor'] ?? '',
+        'campo_isbn':  l['isbn'] ?? '',
+        'campo_paginas': l['paginas']?.toString() ?? '',
+        'campo_formato': l['formato'] ?? '',
+        'campo_dimensiones': l['dimensiones'] ?? '',
+        'campo_anio':  l['anio']?.toString() ?? '',
+        'campo_mes':   l['mes'] ?? '',
+        'origen':      'libros',
+        'migrado_en':  FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      migrados++;
+    }
+    return migrados;
+  }
+
+  /// Importa un producto del catálogo de pedidos al catálogo web.
+  Future<void> importarProductoComoItemCatalogo(
+      String empresaId, Map<String, dynamic> producto) async {
+    final nombre = producto['nombre'] as String? ?? '';
+    final precio = (producto['precio'] as num?)?.toDouble() ?? 0.0;
+    await guardarItemCatalogo(empresaId, null, {
+      'nombre':      nombre,
+      'descripcion': producto['descripcion'] as String? ?? '',
+      'precio':      precio > 0 ? '${precio.toStringAsFixed(2)} €' : '',
+      'imagen_url':  producto['imagenUrl'] as String? ?? producto['imagen_url'] as String? ?? '',
+      'categoria':   producto['categoria'] as String? ?? '',
+      'activo':      true,
+      'origen':      'productos',
+      'producto_id': producto['id'] as String? ?? '',
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> obtenerProductosCatalogo(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('productos')
+        .where('activo', isEqualTo: true)
+        .orderBy('nombre')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList())
+        .handleError((_) => <Map<String, dynamic>>[]);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATOS DE EJEMPLO — Editorial Nazarí
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> crearLibroEjemploNazari(String empresaId) async {
+    const slug = 'la-granada-invisible';
+    final data = <String, dynamic>{
+      'slug':        slug,
+      'titulo':      'La Granada Invisible',
+      'autor':       'Carmen Ruiz Lozano',
+      'autorExtra':  'Prólogo de Miguel Ángel Fernández',
+      'genero':      'Narrativa contemporánea',
+      'coleccion':   'Voces del Sur',
+      'tag':         'Novedad',
+      'precio':      '16,50 €',
+      'precioEbook': '6,99 €',
+      'isbn':        '978-84-99999-00-1',
+      'paginas':     '312',
+      'mes':         'Septiembre',
+      'anio':        2026,
+      'formato':     'Rústica con solapas',
+      'dimensiones': '14 × 21 cm',
+      'imagen_url':  '',
+      'sinopsis':
+          'Una historia sobre la memoria, la identidad y los barrios que desaparecen sin '
+          'que nadie los llore. Carmen Ruiz Lozano nos lleva de la mano por las callejuelas '
+          'del Albaicín de los años ochenta, donde una niña descubre que su ciudad guarda '
+          'secretos que los adultos prefieren olvidar.\n\n'
+          'Con una prosa delicada y precisa, La Granada Invisible es un homenaje a quienes '
+          'construyeron la ciudad con sus manos y desaparecieron de sus páginas de historia.',
+      'bio':
+          'Carmen Ruiz Lozano (Granada, 1979) es profesora de Literatura en la Universidad '
+          'de Granada y autora de los poemarios Raíces de Agua y El color del viento. '
+          'La Granada Invisible es su primera novela.',
+      'activo': true,
+      'fecha_creacion': FieldValue.serverTimestamp(),
+    };
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros').doc(slug)
+        .set(data, SetOptions(merge: true));
+  }
+
+  Future<void> crearAutorEjemploNazari(String empresaId) async {
+    final data = <String, dynamic>{
+      'nombre':      'Carmen Ruiz Lozano',
+      'genero':      'Narrativa contemporánea',
+      'lugar':       'Granada · 1979',
+      'descripcion': 'Profesora de Literatura y narradora granadina, autora de La Granada Invisible.',
+      'bio':
+          'Carmen Ruiz Lozano nació en Granada en 1979. Doctora en Filología Hispánica por '
+          'la Universidad de Granada, compagina la docencia universitaria con la escritura.\n\n'
+          'Su obra poética —Raíces de Agua (2012) y El color del viento (2018)— ha sido '
+          'reconocida con el Premio Jóvenes Creadores de Andalucía y traducida al italiano '
+          'y al francés.\n\n'
+          'La Granada Invisible (2026), su primera novela, surge de la investigación oral '
+          'que llevó a cabo entre vecinos del Albaicín durante más de cinco años.',
+      'foto_url': '',
+      'activo':   true,
+      'fecha_creacion': FieldValue.serverTimestamp(),
+    };
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('autores').add(data);
+  }
+
+  Future<void> crearNoticiaEjemplo(String empresaId) async {
+    final noticia = EntradaBlog(
+      id: '',
+      titulo: 'Editorial Nazarí en la Feria del Libro de Granada 2026',
+      slug: 'editorial-nazari-feria-libro-granada-2026',
+      resumen:
+          'Estaremos presentes con caseta propia del 6 al 15 de junio. '
+          'Presentaciones, firmas y descuentos exclusivos en todos nuestros títulos.',
+      contenido:
+          '# Editorial Nazarí en la Feria del Libro de Granada 2026\n\n'
+          'Un año más, **Editorial Nazarí** estará presente en la **Feria del Libro de Granada**, '
+          'que se celebra del **6 al 15 de junio de 2026** en el Paseo del Salón.\n\n'
+          '## ¿Dónde encontrarnos?\n\n'
+          'Puedes visitarnos en la **caseta nº 24**, situada junto al estanque central. '
+          'El horario de atención será de 10:00 a 14:00 h y de 17:30 a 21:30 h todos los días.\n\n'
+          '## Presentaciones y firmas\n\n'
+          '| Fecha | Hora | Evento |\n'
+          '|-------|------|--------|\n'
+          '| 7 de junio | 19:00 h | Presentación de *La Granada Invisible* con Carmen Ruiz Lozano |\n'
+          '| 10 de junio | 18:00 h | Firma de libros — colección Voces del Sur |\n'
+          '| 14 de junio | 19:30 h | Mesa redonda: «El futuro de la narrativa andaluza» |\n\n'
+          '## Descuentos exclusivos\n\n'
+          'Durante toda la feria, los visitantes de nuestra caseta disfrutarán de un **15 % de '
+          'descuento** en todos los títulos del catálogo y del **20 % en packs de colección**.\n\n'
+          '---\n\n'
+          '*¿Tienes alguna pregunta? Escríbenos a [info@editorialnazari.com](mailto:info@editorialnazari.com) '
+          'o llámanos al 958 00 00 00.*',
+      estado: EstadoBlog.publicado,
+      fechaPublicacion: DateTime.now(),
+      autor: 'Redacción Editorial Nazarí',
+      etiquetas: ['feria del libro', 'granada', 'eventos', '2026'],
+      destacado: true,
+      tipo: 'noticia',
+      seoMetaTitle: 'Editorial Nazarí en la Feria del Libro de Granada 2026',
+      seoMetaDescription:
+          'Visítanos en la caseta nº 24 de la Feria del Libro de Granada del 6 al 15 de junio. '
+          'Presentaciones, firmas y un 15 % de descuento en todo el catálogo.',
+      seoKeywords: ['editorial nazarí', 'feria del libro granada', 'presentación libros'],
+    );
+    await guardarEntradaBlog(empresaId, noticia);
   }
 }
