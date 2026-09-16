@@ -27,7 +27,6 @@ import 'tab_archivo_historico.dart';
 import 'pantalla_editor_blog.dart';
 import 'pantalla_editor_word.dart';
 import 'tab_analytics_web.dart';
-import 'tab_seo_web.dart';
 import 'pantalla_items_seccion.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -507,70 +506,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     return ColoredBox(color: _kBg, child: content);
   }
 
-  Widget _buildWebSidebar(_WebMod modActual) {
-    return Container(
-      width: 88,
-      color: const Color(0xFF0D1829),
-      child: Column(children: [
-        GestureDetector(
-          onTap: () => _setModuloActivo(null),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 14, 0, 10),
-            child: Column(children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: const Icon(Icons.arrow_back_rounded,
-                    color: Colors.white60, size: 18),
-              ),
-              const SizedBox(height: 4),
-              const Text('Inicio', textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 9)),
-            ]),
-          ),
-        ),
-        Container(height: 1, color: Colors.white12,
-            margin: const EdgeInsets.symmetric(horizontal: 12)),
-        const SizedBox(height: 6),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            children: _mods.where((m) => m.id != '__add__').map((mod) {
-              final sel = modActual.id == mod.id;
-              return GestureDetector(
-                onTap: () => _setModuloActivo(mod.id),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: sel ? mod.color.withValues(alpha: 0.16) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: sel ? Border.all(color: mod.color.withValues(alpha: 0.35)) : null,
-                  ),
-                  child: Column(children: [
-                    Icon(mod.icono,
-                        color: sel ? mod.color : Colors.white.withValues(alpha: 0.45),
-                        size: 20),
-                    const SizedBox(height: 3),
-                    Text(mod.titulo,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: sel ? mod.color : Colors.white.withValues(alpha: 0.45),
-                            fontSize: 9,
-                            fontWeight: sel ? FontWeight.w600 : FontWeight.normal),
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ]),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ]),
-    );
-  }
 
   Widget _buildWebModuloContent(_WebMod mod) {
     switch (mod.id) {
@@ -652,18 +587,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     }
   }
 
-  Widget _buildBlogEmbebido() {
-    return StreamBuilder<List<CategoriaBlog>>(
-      stream: _svc.obtenerCategorias(widget.empresaId),
-      builder: (_, snap) => PantallaEditorBlog(
-        empresaId: widget.empresaId,
-        svc: _svc,
-        entrada: null,
-        categorias: snap.data ?? [],
-        embedded: true,
-      ),
-    );
-  }
 
   // ── Header compacto ───────────────────────────────────────────────────────
 
@@ -1163,45 +1086,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 
-  Widget _previewGaleria(Color c) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _svc.obtenerGaleriaStream(widget.empresaId),
-      builder: (_, snap) {
-        final imgs = snap.data ?? [];
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _previewTitle('Archivos recientes'),
-          Expanded(child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            child: GridView.count(
-              crossAxisCount: 3,
-              crossAxisSpacing: 5, mainAxisSpacing: 5,
-              physics: const NeverScrollableScrollPhysics(),
-              children: List.generate(6, (i) {
-                if (i < imgs.length) {
-                  final url = imgs[i]['url'] as String? ?? '';
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
-                    child: Image.network(url, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                            color: c.withValues(alpha: 0.08),
-                            child: Icon(Icons.image_rounded, color: c.withValues(alpha: 0.3), size: 16))),
-                  );
-                }
-                return Container(
-                  decoration: BoxDecoration(
-                    color: c.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(7),
-                    border: Border.all(color: c.withValues(alpha: 0.15)),
-                  ),
-                  child: Icon(Icons.add_photo_alternate_outlined, color: c.withValues(alpha: 0.25), size: 16),
-                );
-              }),
-            ),
-          )),
-        ]);
-      },
-    );
-  }
 
   Widget _previewCampanas(Color c) {
     return Padding(

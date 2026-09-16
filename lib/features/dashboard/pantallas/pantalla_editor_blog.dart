@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
@@ -2272,6 +2271,16 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     _contenidoCtrl.text = t.substring(0, at) + prefix + t.substring(at);
     _contenidoCtrl.selection =
         TextSelection.collapsed(offset: at + prefix.length + (pos - at));
+  }
+
+  void _ins(String text) {
+    _snapshot();
+    final t = _contenidoCtrl.text;
+    final pos = _contenidoCtrl.selection.isValid
+        ? _contenidoCtrl.selection.baseOffset : t.length;
+    _contenidoCtrl.text = t.substring(0, pos) + text + t.substring(pos);
+    _contenidoCtrl.selection =
+        TextSelection.collapsed(offset: pos + text.length);
   }
 
   /// Elimina el prefijo de la línea actual (indent, bullet, cita, etc.).
