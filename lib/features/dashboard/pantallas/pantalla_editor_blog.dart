@@ -2180,10 +2180,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
           content: const Row(children: [
             Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
             SizedBox(width: 8),
-            Expanded(child: Text(
-              '¡Artículo publicado! Aparecerá en tu web en segundos '
-              '(requiere el script instalado en tu sitio).',
-            )),
+            Expanded(child: Text('✅ Publicado — visible en la web en breve')),
           ]),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,

@@ -340,7 +340,8 @@ class ContenidoWebService {
     buf.writeln('  const db=firebase.firestore();');
     buf.writeln('  const EMPRESA="$empresaId";');
     buf.writeln('  function render(id,html,show){const el=document.getElementById("fluixcrm_"+id);if(!el)return;el.innerHTML=html;el.style.display=(show===false)?"none":"";}');
-    buf.writeln('  db.collection("empresas").doc(EMPRESA).collection("config_web").doc("script_status").set({ultimo_ping:firebase.firestore.FieldValue.serverTimestamp(),url:window.location.href},{merge:true});');
+    // Ping de estado: solo una vez por sesión de navegador para evitar escrituras en cada visita
+    buf.writeln('  if(!sessionStorage.getItem("_fx_p")){sessionStorage.setItem("_fx_p","1");db.collection("empresas").doc(EMPRESA).collection("config_web").doc("script_status").set({ultimo_ping:firebase.firestore.FieldValue.serverTimestamp(),url:window.location.href},{merge:true}).catch(function(){});}');
     buf.writeln('  db.collection("empresas").doc(EMPRESA).collection("contenido_web").onSnapshot(snap=>{');
     buf.writeln('    snap.docChanges().forEach(ch=>{ if(ch.type==="removed") render(ch.doc.id,"",false); });');
     buf.writeln('    snap.forEach(doc=>{');
@@ -361,7 +362,7 @@ class ContenidoWebService {
     buf.writeln();
     buf.writeln('<!-- ═══════════════════════════════════════════════════════════ -->');
     buf.writeln('<!-- DIVS donde se inyectará el contenido.                       -->');
-    buf.writeln('<!-- Pega cada div en la página de WordPress que corresponda.    -->');
+    buf.writeln('<!-- Pega cada div en el HTML de tu web en la posición deseada.  -->');
     buf.writeln('<!-- El script solo rellena el div si existe en la página actual -->');
     buf.writeln('<!-- ═══════════════════════════════════════════════════════════ -->');
 

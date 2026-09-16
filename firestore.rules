@@ -716,6 +716,14 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // Script SDK de Fluix: el ping de estado se escribe una vez por sesión (auth anónima).
+    // Lectura solo para admin/propietario (panel de integración).
+    match /config_web/{docId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if isAuth() && request.resource.data.size() <= 8;
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     // Blog público — lectura libre para la web del cliente
     match /blog/{postId} {
       allow read: if true;
