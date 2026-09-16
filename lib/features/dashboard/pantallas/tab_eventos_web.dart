@@ -1378,7 +1378,6 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
         },
       ),
     );
-    ctrl.dispose();
   }
 
   Future<void> _subirImagen() async {
