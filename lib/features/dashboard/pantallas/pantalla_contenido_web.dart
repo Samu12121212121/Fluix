@@ -29,6 +29,11 @@ import 'pantalla_editor_word.dart';
 import 'tab_analytics_web.dart';
 import 'pantalla_items_seccion.dart';
 
+part 'pantalla_contenido_web_blog.dart';
+part 'pantalla_contenido_web_secciones.dart';
+part 'pantalla_contenido_web_galeria.dart';
+part 'pantalla_contenido_web_autores.dart';
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL — Gestión de Contenido Web
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1695,11 +1700,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 }
-
-part 'pantalla_contenido_web_blog.dart';
-part 'pantalla_contenido_web_secciones.dart';
-part 'pantalla_contenido_web_galeria.dart';
-part 'pantalla_contenido_web_autores.dart';
 
 // ─── Modelo de módulo web ─────────────────────────────────────────────────────
 
