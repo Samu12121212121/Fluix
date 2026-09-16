@@ -1024,10 +1024,15 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   }
 
   Widget _previewArchivoWp(Color c) {
+    final noticias    = _blogCache.where((e) => e.tipo == 'noticia').length;
+    final entrevistas = _blogCache.where((e) => e.tipo == 'entrevista').length;
+    final total       = _blogCache.length;
     return _previewContador(
-      label:    'Contenido histórico WordPress',
-      valor:    '1.254',
-      sublabel: '927 noticias · 327 entrevistas · autores · libros',
+      label:    'Archivo histórico web',
+      valor:    total > 0 ? '$total' : '—',
+      sublabel: total > 0
+          ? '$noticias noticias · $entrevistas entrevistas'
+          : 'Noticias · Entrevistas · Autores · Libros',
       icon:     Icons.archive_rounded,
       color:    c,
     );

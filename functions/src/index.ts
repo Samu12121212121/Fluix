@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import {
   onDocumentCreated,
   onDocumentUpdated,
+  onDocumentWritten,
 } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
@@ -14,6 +15,7 @@ import {
   scheduledRecordatoriosTareas,
   scheduledTareasVencenHoy,
   onNuevaSugerencia,
+  onNuevoContactoSoporte,
 } from "./tareasFunciones";
 import { scheduledAlertaCertificado } from "./alertaCertificado";
 import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } from "./utils/authGuard";
@@ -30,10 +32,7 @@ export {
   cambiarEstadoChatBot,
 } from "./whatsappBot";
 
-// NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
-// "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
-// export { generarThumbnailCatalogo } from "./catalogoFunciones";
-export { scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
+export { generarThumbnailCatalogo, scheduledAlertaPreciosAntiguos } from "./catalogoFunciones";
 export { scheduledAlertaCertificado };
 export { expirarFlashSlots, onNuevoFlashSlot };
 export { verificarLoginIntento };
@@ -81,6 +80,31 @@ export {
   onSelloFidelizacionInApp,
   onBienvenidaClienteNuevo,
 } from "./notificaciones_cliente";
+export {
+  onNuevoClienteCRM,
+  onReservaCreatedCRM,
+  onReservaCRM,
+  onPedidoCRM,
+  onPedidoWhatsAppCRM,
+  onFacturaCRM,
+  onFacturaAnuladaCRM,
+  recalcularStatsCliente,
+} from "./automaciones_clientes";
+export {
+  purgeEventoCdn,
+  purgeBlogCdn,
+  purgeCatalogoCdn,
+} from "./cdnPurge";
+export {
+  pushNuevoEvento,
+  pushNuevoPost,
+  pushNuevoCatalogo,
+} from "./webPush";
+export {
+  buscarArchivoNazari,
+  importarContenidoNazari,
+  migrarDatosNazariDesdeWeb,
+} from "./nazariMigracion";
 
 
 if (!admin.apps.length) admin.initializeApp();
@@ -256,128 +280,7 @@ const stripeTiendaWebhookSecret = { value: () => process.env.STRIPE_TIENDA_WEBHO
 // Resend API key — configurado en functions/.env como RESEND_API_KEY
 
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
-
-async function obtenerTokensEmpresa(empresaId: string): Promise<string[]> {
-  const col = db.collection("empresas").doc(empresaId).collection("dispositivos");
-
-  // Primero intenta con filtro activo == true
-  let snapshot = await col.where("activo", "==", true).get();
-
-  // Si no hay resultados, coge todos (puede que el campo se llame diferente)
-  if (snapshot.empty) {
-    snapshot = await col.get();
-  }
-
-  const tokens: string[] = [];
-  snapshot.forEach((doc) => {
-    const token = doc.data().token as string | undefined;
-    if (token && token.length > 10) tokens.push(token);
-  });
-
-  // Fallback: si no hay tokens en dispositivos, buscar en colección usuarios
-  if (tokens.length === 0) {
-    console.log(`⚠️ Sin tokens en dispositivos para ${empresaId}, buscando en usuarios...`);
-    const usuariosSnap = await db
-      .collection("usuarios")
-      .where("empresa_id", "==", empresaId)
-      .where("activo", "!=", false)
-      .get();
-    for (const userDoc of usuariosSnap.docs) {
-      const tokenUsuario = userDoc.data().token_dispositivo as string | undefined;
-      if (tokenUsuario && tokenUsuario.length > 10 && !tokens.includes(tokenUsuario)) {
-        tokens.push(tokenUsuario);
-        // Sincronizar: guardar también en dispositivos para la próxima vez
-        try {
-          await col.doc(userDoc.id).set({
-            token: tokenUsuario,
-            uid_usuario: userDoc.id,
-            activo: true,
-            sincronizado_desde: "fallback_usuarios",
-            ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          console.log(`🔄 Token sincronizado de usuarios/${userDoc.id} → dispositivos`);
-        } catch (_) { /* no bloquear el envío */ }
-      }
-    }
-  }
-
-  return tokens;
-}
-
-async function enviarNotificacionEmpresa(
-  empresaId: string,
-  titulo: string,
-  cuerpo: string,
-  data: Record<string, string> = {}
-): Promise<void> {
-  const tokens = await obtenerTokensEmpresa(empresaId);
-  if (tokens.length === 0) {
-    console.log(`❌ No hay tokens para empresa ${empresaId} — NO se envía push`);
-    return;
-  }
-  console.log(`📤 Enviando push a ${tokens.length} token(s) para empresa ${empresaId}: "${titulo}"`);
-
-  const mensaje: admin.messaging.MulticastMessage = {
-    tokens,
-    notification: { title: titulo, body: cuerpo },
-    data: { empresa_id: empresaId, ...data },
-    android: {
-      priority: "high",
-      notification: {
-        channelId: "fluixcrm_canal_principal",
-        sound: "default",
-        priority: "high",
-      },
-    },
-    apns: {
-      payload: {
-        aps: {
-          sound: "default",
-          badge: 1,
-        },
-      },
-    },
-  };
-
-  try {
-    const respuesta = await messaging.sendEachForMulticast(mensaje);
-    console.log(
-      `✅ Notificaciones enviadas: ${respuesta.successCount}/${tokens.length}`
-    );
-
-    if (respuesta.failureCount > 0) {
-      const tokensAEliminar: string[] = [];
-      respuesta.responses.forEach((resp, idx) => {
-        if (!resp.success) {
-          const error = resp.error;
-          if (
-            error?.code === "messaging/registration-token-not-registered" ||
-            error?.code === "messaging/invalid-registration-token"
-          ) {
-            tokensAEliminar.push(tokens[idx]);
-          }
-        }
-      });
-
-      if (tokensAEliminar.length > 0) {
-        const dispositivosRef = db
-          .collection("empresas")
-          .doc(empresaId)
-          .collection("dispositivos");
-        const snapshotInvalidos = await dispositivosRef
-          .where("token", "in", tokensAEliminar)
-          .get();
-        const batch = db.batch();
-        snapshotInvalidos.forEach((doc) => {
-          batch.update(doc.ref, { activo: false });
-        });
-        await batch.commit();
-      }
-    }
-  } catch (error) {
-    console.error("❌ Error enviando notificaciones:", error);
-  }
-}
+import { enviarNotificacionEmpresa } from "./utils/notificaciones";
 
 // ── CLOUD FUNCTIONS (v2 API) ──────────────────────────────────────────────────
 
@@ -387,6 +290,7 @@ export {
   scheduledRecordatoriosTareas,
   scheduledTareasVencenHoy,
   onNuevaSugerencia,
+  onNuevoContactoSoporte,
 };
 
 // ── Sitemap.xml dinámico por empresa ─────────────────────────────────────────
@@ -693,7 +597,21 @@ export const onNuevoMensajeContacto = onDocumentCreated(
       console.error("onNuevoMensajeContacto push error:", e);
     }
 
-    // ── 2. Email al empresario ────────────────────────────────────────────────
+    // ── 2. Notificación en colección (para Windows polling) ──────────────────
+    try {
+      await db.collection(`empresas/${empresaId}/notificaciones`).add({
+        titulo: "💬 Nuevo mensaje de contacto",
+        cuerpo,
+        tipo: "contacto_web",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        datos: { mensajeId: event.params.mensajeId, tipo: "contacto_web", empresaId },
+      });
+    } catch (e) {
+      console.error("onNuevoMensajeContacto notificacion error:", e);
+    }
+
+    // ── 3. Email al empresario ────────────────────────────────────────────────
     if (empresa.email) {
       try {
         await enviarNotificacionContactoWeb({
@@ -753,6 +671,176 @@ export const onMensajeContactoRespondido = onDocumentUpdated(
     } catch (e) {
       console.error("onMensajeContactoRespondido email error:", e);
     }
+  }
+);
+
+// ── TEST EMAIL (temporal — quitar tras diagnosticar) ──────────────────────────
+export const testEmail = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("POST only"); return; }
+    const to = req.body?.to || "sacoor80@gmail.com";
+    try {
+      const apiKey = process.env.RESEND_API_KEY || "";
+      if (!apiKey) { res.json({ ok: false, error: "RESEND_API_KEY not set" }); return; }
+      const result = await enviarPdfGenerico({
+        from: "Editorial Nazarí <noreply@fluixtech.com>",
+        to,
+        subject: "Test email desde Cloud Functions",
+        html: `<p>Email de prueba enviado desde la función. API Key presente: ${apiKey.length > 0 ? 'SÍ ('+apiKey.slice(0,8)+'...)' : 'NO'}</p>`,
+      });
+      res.json({ ok: result.exito, id: result.id, error: result.error });
+    } catch (e: any) {
+      res.json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// ── ENVÍO DE CAMPAÑAS DE EMAIL ─────────────────────────────────────────────────
+//
+// Trigger: campanas_email/{campanaId} pasa a estado 'enviando'
+// 1. Recoge la lista de destinatarios según segmento
+// 2. Envía con Resend en lotes de 10 (evita rate-limit)
+// 3. Actualiza estado → 'enviada' | 'fallida' + total_enviados
+
+export const enviarCampanaEmail = onDocumentUpdated(
+  { document: "empresas/{empresaId}/campanas_email/{campanaId}", region: REGION },
+  async (event) => {
+    const antes   = event.data?.before.data();
+    const despues = event.data?.after.data();
+    if (!antes || !despues) return;
+    if (antes.estado === "enviando") return;
+    if (despues.estado !== "enviando") return;
+
+    const empresaId = event.params.empresaId;
+    const campanaId = event.params.campanaId;
+    const campanaRef = db.collection(`empresas/${empresaId}/campanas_email`).doc(campanaId);
+
+    const asunto       = (despues.asunto        as string) || "(Sin asunto)";
+    const contenidoRaw  = (despues.contenido_html as string) || "";
+    const segmento      = (despues.segmento       as string) || "todos";
+    const destinatariosManual: string[] = (despues.destinatarios_manual as string[]) || [];
+
+    const empresa = await _getDatosEmpresa(empresaId);
+    const fromEmail = `${empresa.nombre} <noreply@fluixtech.com>`;
+
+    // Convertir saltos de línea a <br> si el contenido no tiene tags HTML
+    const tieneHtml = /<[a-z][\s\S]*>/i.test(contenidoRaw);
+    const contenidoProcessed = tieneHtml
+      ? contenidoRaw
+      : contenidoRaw.replace(/\n/g, "<br>");
+
+    // Envolver en template HTML profesional
+    const anio = new Date().getFullYear();
+    const contenidoHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${asunto}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f0;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:10px;overflow:hidden;max-width:620px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <!-- HEADER -->
+        <tr>
+          <td style="background:#1a1a2e;padding:28px 40px;text-align:center;">
+            <span style="color:#ffffff;font-size:24px;font-weight:bold;letter-spacing:.5px;">${empresa.nombre}</span>
+          </td>
+        </tr>
+        <!-- ASUNTO -->
+        <tr>
+          <td style="padding:28px 40px 0;border-bottom:1px solid #e8eaed;">
+            <h2 style="margin:0 0 16px;font-size:20px;color:#1a1a2e;font-weight:700;line-height:1.3;">${asunto}</h2>
+          </td>
+        </tr>
+        <!-- CONTENIDO -->
+        <tr>
+          <td style="padding:28px 40px;font-size:15px;color:#374151;line-height:1.7;">
+            ${contenidoProcessed}
+          </td>
+        </tr>
+        <!-- FOOTER -->
+        <tr>
+          <td style="background:#f8f9fa;padding:20px 40px;text-align:center;border-top:1px solid #e8eaed;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              © ${anio} ${empresa.nombre}. Todos los derechos reservados.<br>
+              Para dejar de recibir este tipo de comunicaciones responde con "BAJA".
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    // Construir lista de destinatarios
+    let emails: string[] = [];
+    try {
+      if (segmento === "manual") {
+        emails = destinatariosManual.filter(e => e.includes("@"));
+      } else {
+        // Segmento 'todos' o 'clientes_activos': leer de colección clientes
+        const corte = segmento === "clientes_activos"
+          ? new Date(Date.now() - 90 * 24 * 3600 * 1000)
+          : null;
+        let q = db.collection(`empresas/${empresaId}/clientes`)
+          .where("activo", "!=", false) as FirebaseFirestore.Query;
+        if (corte) {
+          q = db.collection(`empresas/${empresaId}/clientes`)
+            .where("fecha_creacion", ">=", admin.firestore.Timestamp.fromDate(corte));
+        }
+        const snap = await q.get();
+        snap.docs.forEach(d => {
+          const email = d.data().email || d.data().correo || "";
+          if (email.includes("@")) emails.push(email);
+        });
+        // También leer de colección 'clientes_web' si existe
+        try {
+          const snapWeb = await db.collection(`empresas/${empresaId}/contacto_web`)
+            .where("origen", "!=", "manuscrito").get();
+          snapWeb.docs.forEach(d => {
+            const email = d.data().email || "";
+            if (email.includes("@") && !emails.includes(email)) emails.push(email);
+          });
+        } catch (_) {}
+      }
+    } catch (e) {
+      console.error("❌ [Campaña] Error obteniendo destinatarios:", e);
+      await campanaRef.update({ estado: "fallida", error_mensaje: "Error obteniendo destinatarios" });
+      return;
+    }
+
+    if (emails.length === 0) {
+      console.warn(`⚠️ [Campaña] ${campanaId} — sin destinatarios`);
+      await campanaRef.update({ estado: "enviada", total_enviados: 0, fecha_envio: admin.firestore.FieldValue.serverTimestamp() });
+      return;
+    }
+
+    // Envío en lotes de 10
+    let enviados = 0;
+    const LOTE = 10;
+    for (let i = 0; i < emails.length; i += LOTE) {
+      const lote = emails.slice(i, i + LOTE);
+      await Promise.allSettled(lote.map(to =>
+        enviarPdfGenerico({ from: fromEmail, to, subject: asunto, html: contenidoHtml })
+          .then(r => { if (r.exito) enviados++; })
+          .catch(() => {})
+      ));
+      // Pausa breve entre lotes para no saturar Resend
+      if (i + LOTE < emails.length) await new Promise(r => setTimeout(r, 500));
+    }
+
+    await campanaRef.update({
+      estado:          "enviada",
+      total_enviados:  enviados,
+      fecha_envio:     admin.firestore.FieldValue.serverTimestamp(),
+      fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`✅ [Campaña] ${campanaId} enviada — ${enviados}/${emails.length} emails`);
   }
 );
 
@@ -1001,9 +1089,9 @@ export const onNuevoPedido = onDocumentCreated(
 
     // Guardar en bandeja in-app
     await db.collection("notificaciones").doc(empresaId).collection("items").add({
-      titulo:             "🛒 Nuevo Pedido",
+      titulo:             "📦 Nuevo Pedido",
       cuerpo,
-      tipo:               "reservaNueva", // usamos reservaNueva como tipo genérico hasta añadir tipo pedido
+      tipo:               "pedidoNuevo",
       timestamp:          admin.firestore.FieldValue.serverTimestamp(),
       leida:              false,
       modulo_destino:     "pedidos",
@@ -1015,7 +1103,7 @@ export const onNuevoPedido = onDocumentCreated(
 
     await enviarNotificacionEmpresa(
       empresaId,
-      "🛒 Nuevo Pedido",
+      "📦 Nuevo Pedido",
       cuerpo,
       { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId }
     );
@@ -2334,6 +2422,10 @@ export { enviarRecordatoriosCitas };
 export { firmarXMLVerifactu } from "./firmarXMLVerifactu";
 export { remitirVerifactu } from "./remitirVerifactu";
 
+// ── BLOG: Publicar posts programados (cada 15 min) ────────────────────────────
+export { publicarPostsProgramados } from "./schedulerBlog";
+export { getBlogEntry, getBlogLista } from "./blogApi";
+
 // ── GESTIÓN DE CUENTAS Y SUSCRIPCIONES (sin pasar por Apple/Google) ──────────
 export {
   crearCuentaConPlan,
@@ -2672,19 +2764,17 @@ async function _procesarPedidoTienda(
 
   console.log(`✅ [TIENDA] Pedido #${numTicket} creado para empresa ${empresaId} — ${clienteNombre} — €${totalEuros} — id: ${pedidoRef.id}`);
 
-  // ── Descontar stock del catálogo ──────────────────────────────────────────
+  // ── Descontar stock (catalogo, catalogo_web y libros) ────────────────────
   for (const linea of lineas) {
     if (!linea.productoId || linea.productoId.startsWith("stripe_")) continue;
-    try {
-      await db
-        .collection("empresas")
-        .doc(empresaId)
-        .collection("catalogo")
-        .doc(linea.productoId)
-        .update({ stock: admin.firestore.FieldValue.increment(-linea.cantidad) });
-      console.log(`📦 Stock decrementado: ${linea.nombre} -${linea.cantidad}`);
-    } catch (e) {
-      console.warn(`⚠️ No se pudo decrementar stock de ${linea.productoId}:`, e);
+    const decremento = admin.firestore.FieldValue.increment(-linea.cantidad);
+    const base = db.collection("empresas").doc(empresaId);
+    // Intentar en las tres colecciones posibles; cada una puede o no existir
+    for (const col of ["catalogo", "catalogo_web", "libros"]) {
+      try {
+        await base.collection(col).doc(linea.productoId).update({ stock: decremento });
+        console.log(`📦 Stock ${col} decrementado: ${linea.nombre} -${linea.cantidad}`);
+      } catch (_) { /* no existe en esta colección — silencioso */ }
     }
   }
 
@@ -3946,3 +4036,367 @@ export const enviarEmailsContactoInteres = onCall(
   }
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// crearCheckoutNazari — Crea una sesión de Stripe Checkout para la tienda web
+//   de Editorial Nazarí y devuelve la URL de pago.
+//
+// POST body: { items: [{ titulo, precio, cantidad, imagen?, catalogo_id? }] }
+// Respuesta: { url: "https://checkout.stripe.com/..." }
+// ─────────────────────────────────────────────────────────────────────────────
+const NAZARI_EMPRESA_ID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+
+export const crearCheckoutNazari = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method Not Allowed" });
+      return;
+    }
+
+    const secretKey: string = stripeSecretKey.value() || "";
+    if (!secretKey) {
+      console.error("❌ STRIPE_SECRET_KEY no configurada");
+      res.status(500).json({ error: "Pagos no configurados" });
+      return;
+    }
+
+    const items: Array<{ titulo: string; precio: string; cantidad: number; imagen?: string; catalogo_id?: string }> =
+      req.body?.items ?? [];
+
+    if (!items.length) {
+      res.status(400).json({ error: "El carrito está vacío" });
+      return;
+    }
+
+    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+
+    try {
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((it) => {
+        const precioNum = Math.round(
+          parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100
+        );
+        const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
+          name: it.titulo || "Libro",
+        };
+        // Stripe solo acepta URLs HTTPS absolutas para imágenes
+        if (it.imagen && /^https:\/\/.+/.test(it.imagen)) pd.images = [it.imagen];
+        if (it.catalogo_id) pd.metadata = { catalogo_id: it.catalogo_id };
+
+        return {
+          price_data: {
+            currency: "eur",
+            product_data: pd,
+            unit_amount: precioNum > 0 ? precioNum : 100,
+          },
+          quantity: it.cantidad || 1,
+        };
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: lineItems,
+        metadata: {
+          empresa_id: NAZARI_EMPRESA_ID,
+          tipo: "pedido_tienda",
+        },
+        shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
+        success_url: "https://www.editorialnazari.com/gracias.html?session={CHECKOUT_SESSION_ID}",
+        cancel_url:  "https://www.editorialnazari.com/catalogo.html",
+      });
+
+      res.status(200).json({ url: session.url });
+    } catch (error: any) {
+      console.error("❌ Error creando checkout Nazarí:", error);
+      res.status(500).json({ error: "Error creando sesión de pago" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// crearCheckoutTienda — Versión genérica de crearCheckoutNazari.
+//   Crea sesión de Stripe Checkout para CUALQUIER empresa de Fluix.
+//
+// POST body: {
+//   empresa_id:  string,           // ID Firestore de la empresa
+//   items:       [{ titulo, precio, cantidad, imagen?, catalogo_id? }],
+//   success_url: string,           // URL de éxito (la web de la empresa)
+//   cancel_url:  string,           // URL de cancelación
+// }
+// Respuesta: { url: "https://checkout.stripe.com/..." }
+// ─────────────────────────────────────────────────────────────────────────────
+export const crearCheckoutTienda = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method Not Allowed" });
+      return;
+    }
+
+    const empresaId: string = req.body?.empresa_id || "";
+    const successUrl: string = req.body?.success_url || "";
+    const cancelUrl: string  = req.body?.cancel_url  || "";
+    const items: Array<{ titulo: string; precio: string; cantidad: number; imagen?: string; catalogo_id?: string }> =
+      req.body?.items ?? [];
+
+    if (!empresaId) {
+      res.status(400).json({ error: "empresa_id requerido" });
+      return;
+    }
+    if (!items.length) {
+      res.status(400).json({ error: "El carrito está vacío" });
+      return;
+    }
+    if (!successUrl || !cancelUrl) {
+      res.status(400).json({ error: "success_url y cancel_url requeridos" });
+      return;
+    }
+
+    // Usar la clave Stripe de la empresa si está configurada; si no, la global
+    let secretKey = stripeSecretKey.value() || "";
+    try {
+      const integDoc = await db.collection("empresas").doc(empresaId)
+        .collection("integraciones").doc("stripe").get();
+      if (integDoc.exists) {
+        const empresaKey: string = integDoc.data()?.secret_key || "";
+        if (empresaKey) secretKey = empresaKey;
+      }
+    } catch (_) { /* usa la global como fallback */ }
+
+    if (!secretKey) {
+      res.status(500).json({ error: "Pagos no configurados" });
+      return;
+    }
+
+    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+
+    try {
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((it) => {
+        const precioNum = Math.round(
+          parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100
+        );
+        const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
+          name: it.titulo || "Producto",
+        };
+        if (it.imagen)      pd.images   = [encodeURI(it.imagen)];
+        if (it.catalogo_id) pd.metadata = { catalogo_id: it.catalogo_id };
+
+        return {
+          price_data: {
+            currency: "eur",
+            product_data: pd,
+            unit_amount: precioNum > 0 ? precioNum : 100,
+          },
+          quantity: it.cantidad || 1,
+        };
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: lineItems,
+        metadata: {
+          empresa_id: empresaId,
+          tipo: "pedido_tienda",
+        },
+        shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
+        success_url: successUrl,
+        cancel_url:  cancelUrl,
+      });
+
+      res.status(200).json({ url: session.url });
+    } catch (error: any) {
+      console.error("❌ Error creando checkout tienda:", error);
+      res.status(500).json({ error: "Error creando sesión de pago" });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// sincronizarLibroStripe — Sincroniza automáticamente libros de Nazarí con
+//   el catálogo de productos de Stripe cuando se crean o modifican en Firestore.
+//
+// Trigger: escritura en empresas/{empresaId}/libros/{libroId}
+// Solo actúa si empresaId === NAZARI_EMPRESA_ID y STRIPE_SECRET_KEY está configurada.
+// ─────────────────────────────────────────────────────────────────────────────
+export const sincronizarLibroStripe = onDocumentWritten(
+  "empresas/{empresaId}/libros/{libroId}",
+  async (event) => {
+    if (event.params.empresaId !== NAZARI_EMPRESA_ID) return;
+
+    const secretKey: string = stripeSecretKey.value() || "";
+    if (!secretKey) return;
+
+    const after  = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    const docRef = event.data?.after?.ref ?? event.data?.before?.ref;
+    if (!docRef) return;
+
+    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+
+    // Libro eliminado o desactivado → archivar en Stripe
+    if (!after || after.activo === false) {
+      if (before?.stripe_product_id) {
+        try {
+          await stripe.products.update(before.stripe_product_id, { active: false });
+          console.log(`📦 Libro ${docRef.id} archivado en Stripe`);
+        } catch (e) {
+          console.warn("⚠️ No se pudo archivar producto en Stripe:", e);
+        }
+      }
+      return;
+    }
+
+    // Parsear precio a céntimos
+    const parsePrecio = (p: string) =>
+      Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+    const precioActual  = parsePrecio(after.precio);
+    const precioAnterior = before ? parsePrecio(before.precio) : null;
+
+    // Crear o actualizar producto en Stripe
+    let stripeProductId: string = after.stripe_product_id || "";
+
+    const productBase = {
+      name:     after.titulo || "Libro",
+      metadata: {
+        catalogo_id: docRef.id,
+        empresa_id:  NAZARI_EMPRESA_ID,
+        autor:        after.autor  || "",
+        isbn:         after.isbn   || "",
+      },
+      ...(after.sinopsis   ? { description: (after.sinopsis as string).slice(0, 500) } : {}),
+      ...(after.imagen_url ? { images: [after.imagen_url as string] }                 : {}),
+    };
+
+    try {
+      if (!stripeProductId) {
+        const prod = await stripe.products.create(productBase as Stripe.ProductCreateParams);
+        stripeProductId = prod.id;
+        console.log(`✅ Libro ${docRef.id} creado en Stripe: ${stripeProductId}`);
+      } else {
+        await stripe.products.update(stripeProductId, productBase as unknown as Stripe.ProductUpdateParams);
+        console.log(`🔄 Libro ${docRef.id} actualizado en Stripe`);
+      }
+    } catch (e) {
+      console.error("❌ Error creando/actualizando producto en Stripe:", e);
+      return;
+    }
+
+    // Crear nuevo precio si cambió o no existía
+    let stripePriceId: string = after.stripe_price_id || "";
+    if (precioActual > 0 && (precioActual !== precioAnterior || !stripePriceId)) {
+      try {
+        if (stripePriceId) {
+          await stripe.prices.update(stripePriceId, { active: false });
+        }
+        const price = await stripe.prices.create({
+          product:     stripeProductId,
+          unit_amount: precioActual,
+          currency:    "eur",
+        });
+        stripePriceId = price.id;
+        console.log(`💶 Precio creado para ${docRef.id}: ${precioActual / 100} €`);
+      } catch (e) {
+        console.error("❌ Error creando precio en Stripe:", e);
+      }
+    }
+
+    // Guardar IDs en Firestore para futura referencia
+    await docRef.update({
+      stripe_product_id: stripeProductId,
+      stripe_price_id:   stripePriceId,
+      stripe_sync_ts:    admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// migrarLibrosStripe — Migración puntual: sube todos los libros existentes de
+//   Nazarí a Stripe. Llamar UNA sola vez via GET con el header secreto.
+//
+// Uso:
+//   curl -H "x-migration-secret: fluix-migrate-2026" \
+//     https://europe-west1-planeaapp-4bea4.cloudfunctions.net/migrarLibrosStripe
+// ─────────────────────────────────────────────────────────────────────────────
+export const migrarLibrosStripe = onRequest(
+  { region: REGION, timeoutSeconds: 540 },
+  async (req, res) => {
+    if (req.headers["x-migration-secret"] !== "fluix-migrate-2026") {
+      res.status(401).json({ error: "No autorizado" });
+      return;
+    }
+
+    const secretKey: string = stripeSecretKey.value() || "";
+    if (!secretKey) {
+      res.status(500).json({ error: "STRIPE_SECRET_KEY no configurada" });
+      return;
+    }
+
+    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+    const parsePrecio = (p: string) =>
+      Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+
+    const snap = await db
+      .collection("empresas")
+      .doc(NAZARI_EMPRESA_ID)
+      .collection("libros")
+      .get();
+
+    const resultados: Array<{ id: string; titulo: string; estado: string; stripe_product_id?: string }> = [];
+
+    for (const doc of snap.docs) {
+      const libro = doc.data();
+
+      if (libro.stripe_product_id) {
+        resultados.push({ id: doc.id, titulo: libro.titulo, estado: "ya_sincronizado", stripe_product_id: libro.stripe_product_id });
+        continue;
+      }
+
+      try {
+        const productData: Stripe.ProductCreateParams = {
+          name:     libro.titulo || "Libro",
+          metadata: {
+            catalogo_id: doc.id,
+            empresa_id:  NAZARI_EMPRESA_ID,
+            autor:        libro.autor  || "",
+            isbn:         libro.isbn   || "",
+          },
+        };
+        if (libro.sinopsis)   productData.description = (libro.sinopsis as string).slice(0, 500);
+        if (libro.imagen_url) productData.images      = [encodeURI(libro.imagen_url as string)];
+
+        const prod = await stripe.products.create(productData);
+
+        let stripePriceId = "";
+        const precioNum = parsePrecio(libro.precio);
+        if (precioNum > 0) {
+          const price = await stripe.prices.create({
+            product:     prod.id,
+            unit_amount: precioNum,
+            currency:    "eur",
+          });
+          stripePriceId = price.id;
+        }
+
+        await doc.ref.update({
+          stripe_product_id: prod.id,
+          stripe_price_id:   stripePriceId,
+          stripe_sync_ts:    admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        resultados.push({ id: doc.id, titulo: libro.titulo, estado: "creado", stripe_product_id: prod.id });
+        // pequeña pausa para respetar rate limits de Stripe
+        await new Promise(r => setTimeout(r, 80));
+      } catch (e: any) {
+        resultados.push({ id: doc.id, titulo: libro.titulo, estado: `error: ${e.message}` });
+      }
+    }
+
+    const creados = resultados.filter(r => r.estado === "creado").length;
+    const yaSync  = resultados.filter(r => r.estado === "ya_sincronizado").length;
+    const errores = resultados.filter(r => r.estado.startsWith("error")).length;
+
+    console.log(`✅ Migración completada: ${creados} creados, ${yaSync} ya sincronizados, ${errores} errores`);
+    res.status(200).json({ resumen: { creados, ya_sincronizados: yaSync, errores }, detalle: resultados });
+  }
+);

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/evento_web.dart';
+import '../../../domain/modelos/seccion_web.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB EVENTOS — listado y gestión de eventos de la web
@@ -11,8 +12,15 @@ import '../../../domain/modelos/evento_web.dart';
 class TabEventosWeb extends StatelessWidget {
   final String empresaId;
   final ContenidoWebService svc;
+  // Callback para abrir el editor Word desde un evento (data-fluix-agenda-word)
+  final void Function(dynamic entrada, List<dynamic> cats)? onAbrirEditorWord;
 
-  const TabEventosWeb({super.key, required this.empresaId, required this.svc});
+  const TabEventosWeb({
+    super.key,
+    required this.empresaId,
+    required this.svc,
+    this.onAbrirEditorWord,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +31,20 @@ class TabEventosWeb extends StatelessWidget {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                const SizedBox(height: 12),
+                Text('Error: ${snap.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: Colors.red)),
+              ]),
+            ),
+          );
         }
         final eventos = snap.data ?? [];
         final proximos = eventos.where((e) => e.esFuturo && e.activo).length;
@@ -42,6 +64,10 @@ class TabEventosWeb extends StatelessWidget {
                         Colors.grey[500]!),
                     _divV(),
                     _kpi('Total', '${eventos.length}', const Color(0xFF455A64)),
+                    if (empresaId == _kNazariId) ...[
+                      _divV(),
+                      _BtnImportarNazari(empresaId: empresaId, svc: svc, color: color, compact: true),
+                    ],
                   ]),
                 ),
                 const Divider(height: 1),
@@ -79,70 +105,132 @@ class TabEventosWeb extends StatelessWidget {
 
   Widget _divV() => Container(width: 1, height: 32, color: Colors.grey[200]);
 
+  static const _kNazariId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+
+  // Crea un borrador de EntradaBlog pre-relleno con los datos del evento.
+  static EntradaBlog _entradaDesdeEvento(EventoWeb e) {
+    const meses = ['enero','febrero','marzo','abril','mayo','junio',
+                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    final fechaStr = '${e.fecha.day} de ${meses[e.fecha.month - 1]} de ${e.fecha.year}';
+    final lugarStr = [e.lugar, e.ciudad ?? ''].where((s) => s.isNotEmpty).join(', ');
+    final buf = StringBuffer('# ${e.titulo}\n\n');
+    if (e.descripcion.isNotEmpty) buf.write('${e.descripcion}\n\n');
+    buf.write('**Fecha:** $fechaStr\n\n');
+    if (lugarStr.isNotEmpty) buf.write('**Lugar:** $lugarStr\n\n');
+    if ((e.hora ?? '').isNotEmpty) buf.write('**Hora:** ${e.hora}\n\n');
+    return EntradaBlog(
+      id: '',
+      titulo: e.titulo,
+      resumen: e.subtitulo ?? '',
+      contenido: buf.toString(),
+      autor: e.autorNombre ?? '',
+      autorId: e.autorId,
+      libroId: e.libroId,
+      tipo: 'noticia',
+      estado: EstadoBlog.borrador,
+      fechaPublicacion: e.fecha,
+      etiquetas: [e.tipo.label.toLowerCase()],
+      imagenUrl: e.imagenUrl,
+    );
+  }
+
   Widget _buildVacio(BuildContext context, Color color) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.event_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('Sin eventos',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-            const SizedBox(height: 6),
-            Text('Crea presentaciones, talleres y ferias\nque aparecerán en tu web',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _abrirEditor(context, null, color),
-              icon: const Icon(Icons.add),
-              label: const Text('Crear primer evento'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: color, foregroundColor: Colors.white),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(Icons.event_note_outlined, size: 40, color: color.withValues(alpha: 0.6)),
+              ),
+              const SizedBox(height: 20),
+              const Text('Agenda sin eventos',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(height: 8),
+              const Text(
+                'Los eventos aparecen aquí y en tu web en tiempo real.\n'
+                'Presentaciones, ferias, talleres, lecturas…',
+                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                onPressed: () => _abrirEditor(context, null, color),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Crear evento'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color, foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (empresaId == _kNazariId)
+                _BtnImportarNazari(empresaId: empresaId, svc: svc, color: color,)
+              else
+                TextButton.icon(
+                  onPressed: () async {
+                    await svc.crearEventosEjemplo(empresaId);
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ 3 eventos de ejemplo creados'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  },
+                  icon: Icon(Icons.auto_awesome_rounded, size: 14, color: color),
+                  label: Text('Cargar eventos de ejemplo',
+                      style: TextStyle(color: color, fontSize: 12.5)),
+                ),
+            ],
+          ),
         ),
       );
 
   Widget _buildLista(
       BuildContext context, List<EventoWeb> eventos, Color color) {
-    final proximos = eventos.where((e) => e.esFuturo).toList();
-    final pasados  = eventos.where((e) => !e.esFuturo).toList();
+    // Separar y ordenar
+    final proximos = (eventos.where((e) => e.esFuturo && !e.eliminado).toList()
+      ..sort((a, b) => a.fecha.compareTo(b.fecha)));
+    final pasados  = (eventos.where((e) => !e.esFuturo && !e.eliminado).toList()
+      ..sort((a, b) => b.fecha.compareTo(a.fecha)));
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 100),
-      children: [
-        if (proximos.isNotEmpty) ...[
-          _seccionHeader('Próximos', Icons.upcoming_outlined, color),
-          ...proximos.map((e) => _TarjetaEvento(
-            evento: e, color: color,
-            onTap: () => _abrirEditor(context, e, color),
-            onToggle: (v) => svc.toggleActivoEvento(empresaId, e.id, v),
-            onEliminar: () => _confirmarEliminar(context, e),
-          )),
-        ],
-        if (pasados.isNotEmpty) ...[
-          _seccionHeader('Pasados', Icons.history_outlined, Colors.grey[600]!),
-          ...pasados.map((e) => _TarjetaEvento(
-            evento: e, color: Colors.grey[500]!,
-            onTap: () => _abrirEditor(context, e, color),
-            onToggle: (v) => svc.toggleActivoEvento(empresaId, e.id, v),
-            onEliminar: () => _confirmarEliminar(context, e),
-          )),
-        ],
-      ],
+    // Agrupar próximos por mes
+    final Map<String, List<EventoWeb>> porMes = {};
+    for (final e in proximos) {
+      final k = _clavesMes(e.fecha);
+      porMes.putIfAbsent(k, () => []).add(e);
+    }
+
+    return _TimelineEventos(
+      porMes: porMes,
+      pasados: pasados,
+      color: color,
+      onTap: (e) => _abrirEditor(context, e, color),
+      onToggle: (e, v) => svc.toggleActivoEvento(empresaId, e.id, v),
+      onEliminar: (e) => _confirmarEliminar(context, e),
+      onEscribir: onAbrirEditorWord != null
+          ? (e) => onAbrirEditorWord!(_entradaDesdeEvento(e), [])
+          : null,
+      totalProximos: proximos.length,
+      ciudades: proximos.map((e) => e.ciudad ?? '').where((c) => c.isNotEmpty).toSet(),
     );
   }
 
-  Widget _seccionHeader(String label, IconData icon, Color color) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-    child: Row(children: [
-      Icon(icon, size: 14, color: color),
-      const SizedBox(width: 6),
-      Text(label, style: TextStyle(
-          fontSize: 11, fontWeight: FontWeight.w700,
-          color: color, letterSpacing: .4)),
-    ]),
-  );
+  static String _clavesMes(DateTime dt) {
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return '${meses[dt.month - 1]} ${dt.year}';
+  }
+
+  // _seccionHeader eliminado — ya no se usa
 
   void _abrirEditor(BuildContext context, EventoWeb? evento, Color color) {
     showModalBottomSheet(
@@ -223,117 +311,574 @@ class TabEventosWeb extends StatelessWidget {
   }
 }
 
-// ── Tarjeta evento ─────────────────────────────────────────────────────────
+// ── Timeline de eventos ────────────────────────────────────────────────────────
 
-class _TarjetaEvento extends StatelessWidget {
-  final EventoWeb evento;
+class _TimelineEventos extends StatefulWidget {
+  final Map<String, List<EventoWeb>> porMes;
+  final List<EventoWeb> pasados;
   final Color color;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onEliminar;
+  final void Function(EventoWeb) onTap;
+  final void Function(EventoWeb, bool) onToggle;
+  final void Function(EventoWeb) onEliminar;
+  final void Function(EventoWeb)? onEscribir; // abre el editor Word
+  final int totalProximos;
+  final Set<String> ciudades;
 
-  const _TarjetaEvento({
-    required this.evento, required this.color,
+  const _TimelineEventos({
+    required this.porMes, required this.pasados, required this.color,
     required this.onTap, required this.onToggle, required this.onEliminar,
+    this.onEscribir,
+    required this.totalProximos, required this.ciudades,
+  });
+
+  @override
+  State<_TimelineEventos> createState() => _TimelineEventosState();
+}
+
+class _TimelineEventosState extends State<_TimelineEventos> {
+  bool _pasadosExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.color;
+
+    // Banner resumen próximos
+    final diasAlProximo = widget.porMes.values.expand((l) => l)
+        .where((e) => e.fecha.isAfter(DateTime.now()))
+        .fold<int?>(null, (acc, e) {
+          final d = e.fecha.difference(DateTime.now()).inDays;
+          return acc == null || d < acc ? d : acc;
+        });
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      children: [
+        // ── Banner resumen ───────────────────────────────────────────────────
+        if (widget.totalProximos > 0)
+          _BannerResumen(
+            totalProximos: widget.totalProximos,
+            diasAlProximo: diasAlProximo ?? 0,
+            ciudades: widget.ciudades,
+            color: c,
+          ),
+
+        // ── Timeline por mes ────────────────────────────────────────────────
+        if (widget.porMes.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: Text('No hay eventos próximos',
+                style: TextStyle(color: Colors.grey[400], fontSize: 13))),
+          ),
+        ...widget.porMes.entries.map((entry) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MesHeader(label: entry.key, count: entry.value.length, color: c),
+            ...entry.value.map((e) => _FilaEvento(
+              evento: e, color: c,
+              onTap: () => widget.onTap(e),
+              onToggle: (v) => widget.onToggle(e, v),
+              onEliminar: () => widget.onEliminar(e),
+              onEscribir: widget.onEscribir != null ? () => widget.onEscribir!(e) : null,
+            )),
+          ],
+        )),
+
+        // ── Pasados (colapsable) ─────────────────────────────────────────────
+        if (widget.pasados.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => setState(() => _pasadosExpanded = !_pasadosExpanded),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.history_rounded, size: 15, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 8),
+                Text('${widget.pasados.length} eventos pasados',
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Icon(_pasadosExpanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                    size: 18, color: const Color(0xFF94A3B8)),
+              ]),
+            ),
+          ),
+          if (_pasadosExpanded)
+            ...widget.pasados.take(20).map((e) => _FilaEvento(
+              evento: e, color: const Color(0xFF94A3B8), pasado: true,
+              onTap: () => widget.onTap(e),
+              onToggle: (v) => widget.onToggle(e, v),
+              onEliminar: () => widget.onEliminar(e),
+              onEscribir: widget.onEscribir != null ? () => widget.onEscribir!(e) : null,
+            )),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Banner resumen ─────────────────────────────────────────────────────────────
+
+class _BannerResumen extends StatelessWidget {
+  final int totalProximos;
+  final int diasAlProximo;
+  final Set<String> ciudades;
+  final Color color;
+
+  const _BannerResumen({
+    required this.totalProximos, required this.diasAlProximo,
+    required this.ciudades, required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final pasado = !evento.esFuturo;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: pasado ? const Color(0xFFFAFAFA) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: pasado
-            ? Colors.grey[200]!
-            : color.withValues(alpha: 0.15)),
-        boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Column(children: [
-        ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(20, 4, 12, 4),
-          leading: _buildFechaBox(),
-          title: Text(evento.titulo,
-              style: TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 13,
-                color: pasado ? Colors.grey[500] : Colors.black87,
-              )),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (evento.lugar.isNotEmpty)
-                Text('📍 ${evento.lugar}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-              Row(children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 3),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(evento.tipo.label,
-                      style: TextStyle(fontSize: 9, color: color,
-                          fontWeight: FontWeight.w600)),
-                ),
-                if (evento.precio != null) ...[
-                  const SizedBox(width: 6),
-                  Text(evento.precio!,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ]),
-            ],
-          ),
-          trailing: Switch(
-            value: evento.activo,
-            onChanged: pasado ? null : onToggle,
-            activeThumbColor: color,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          onTap: onTap,
-        ),
-        const Divider(height: 1),
-        Row(children: [
-          Expanded(child: TextButton.icon(
-            onPressed: onTap,
-            icon: Icon(Icons.edit, size: 14, color: color),
-            label: Text('Editar', style: TextStyle(color: color, fontSize: 11)),
-          )),
-          Container(width: 1, height: 28, color: Colors.grey[200]),
-          Expanded(child: TextButton.icon(
-            onPressed: onEliminar,
-            icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
-            label: const Text('Eliminar',
-                style: TextStyle(color: Colors.red, fontSize: 11)),
-          )),
-        ]),
-      ]),
-    );
-  }
+    final topCiudades = ciudades.toList().take(4).join(' · ');
+    final proximoLabel = diasAlProximo == 0 ? 'Hoy'
+        : diasAlProximo == 1 ? 'Mañana'
+        : 'En $diasAlProximo días';
 
-  Widget _buildFechaBox() {
-    const meses = ['ENE','FEB','MAR','ABR','MAY','JUN',
-                   'JUL','AGO','SEP','OCT','NOV','DIC'];
     return Container(
-      width: 48, height: 55,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: evento.esFuturo ? color : Colors.grey[300],
-        borderRadius: BorderRadius.circular(9),
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.8)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text('${evento.fecha.day}',
-            style: const TextStyle(color: Colors.white, fontSize: 20,
-                fontWeight: FontWeight.bold, height: 1)),
-        Text(meses[evento.fecha.month - 1],
-            style: const TextStyle(color: Colors.white70, fontSize: 10,
-                letterSpacing: .4)),
+      child: Row(children: [
+        // Próximo evento
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Próximo evento', style: TextStyle(
+              color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500)),
+          Text(proximoLabel, style: const TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
+        ]),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.25)),
+        const SizedBox(width: 16),
+        // Total + ciudades
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$totalProximos eventos por venir',
+              style: const TextStyle(color: Colors.white, fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+          if (topCiudades.isNotEmpty)
+            Text(topCiudades, style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7), fontSize: 10),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+        ])),
       ]),
     );
   }
 }
+
+// ── Cabecera de mes ────────────────────────────────────────────────────────────
+
+class _MesHeader extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _MesHeader({required this.label, required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 14, 0, 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(label.toUpperCase(),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                  color: color, letterSpacing: .5)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Divider(color: color.withValues(alpha: 0.2), height: 1)),
+        const SizedBox(width: 8),
+        Text('$count', style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.6),
+            fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
+// ── Fila compacta de evento ────────────────────────────────────────────────────
+
+class _FilaEvento extends StatelessWidget {
+  final EventoWeb evento;
+  final Color color;
+  final bool pasado;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onEliminar;
+  final VoidCallback? onEscribir; // abre editor Word para el evento
+
+  const _FilaEvento({
+    required this.evento, required this.color, this.pasado = false,
+    required this.onTap, required this.onToggle, required this.onEliminar,
+    this.onEscribir,
+  });
+
+  static const _kNazariBase = 'https://seashell-boar-580681.hostingersite.com';
+
+  static const _meses = ['Ene','Feb','Mar','Abr','May','Jun',
+                         'Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  // Resuelve rutas relativas a la URL completa del CDN de Nazarí
+  static String? _resolverImagen(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http')) return url;
+    return '$_kNazariBase/${url.startsWith('/') ? url.substring(1) : url}';
+  }
+  // Color por tipo
+  static Color _colorTipo(TipoEvento t) {
+    switch (t) {
+      case TipoEvento.presentacion: return const Color(0xFF6B1E2A);
+      case TipoEvento.feria:        return const Color(0xFF1E4D6B);
+      case TipoEvento.taller:       return const Color(0xFF065F46);
+      case TipoEvento.lectura:      return const Color(0xFF5B21B6);
+      default:                      return const Color(0xFF374151);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cTipo = pasado ? const Color(0xFF94A3B8) : _colorTipo(evento.tipo);
+    final cText = pasado ? const Color(0xFF94A3B8) : const Color(0xFF0F172A);
+    final cSub  = pasado ? const Color(0xFFB0BEC5) : const Color(0xFF64748B);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: pasado ? const Color(0xFFFAFAFA) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8ECF0)),
+        boxShadow: pasado ? [] : [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4, offset: const Offset(0, 1))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          // IntrinsicHeight para que la tira de color se estire al alto del contenido
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Tira de color izquierda según tipo
+                Container(width: 4, color: cTipo),
+                // Contenido principal
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Bloque de fecha
+                        SizedBox(
+                          width: 38,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${evento.fecha.day}',
+                                  style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: cTipo,
+                                      height: 1.0)),
+                              Text(_meses[evento.fecha.month - 1],
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: cSub,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: .3)),
+                            ],
+                          ),
+                        ),
+                        // Thumbnail portada (si hay imagen)
+                        Builder(builder: (_) {
+                          final img = _resolverImagen(evento.imagenUrl);
+                          if (img == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(5),
+                              child: Image.network(
+                                img, width: 40, height: 56, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              ),
+                            ),
+                          );
+                        }),
+                        // Separador vertical
+                        Container(
+                          width: 1,
+                          height: 36,
+                          color: const Color(0xFFE8ECF0),
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                        // Info: tipo, ciudad, título, hora/autor
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: cTipo.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(evento.tipo.label,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: cTipo,
+                                          fontWeight: FontWeight.w700)),
+                                ),
+                                if ((evento.ciudad ?? '').isNotEmpty) ...[
+                                  const SizedBox(width: 5),
+                                  Icon(Icons.place_rounded,
+                                      size: 11, color: cSub),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(evento.ciudad!,
+                                        style: TextStyle(
+                                            fontSize: 11, color: cSub),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                ],
+                              ]),
+                              const SizedBox(height: 2),
+                              Text(
+                                evento.titulo,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: cText,
+                                    height: 1.2),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if ((evento.hora ?? '').isNotEmpty ||
+                                  (evento.autorNombre ?? '').isNotEmpty)
+                                Row(children: [
+                                  if ((evento.hora ?? '').isNotEmpty) ...[
+                                    Icon(Icons.schedule_rounded,
+                                        size: 11, color: cSub),
+                                    const SizedBox(width: 2),
+                                    Text(evento.hora!,
+                                        style: TextStyle(
+                                            fontSize: 11, color: cSub)),
+                                  ],
+                                  if ((evento.hora ?? '').isNotEmpty &&
+                                      (evento.autorNombre ?? '').isNotEmpty)
+                                    Text('  ·  ',
+                                        style: TextStyle(
+                                            color: cSub, fontSize: 11)),
+                                  if ((evento.autorNombre ?? '').isNotEmpty)
+                                    Flexible(
+                                      child: Text(evento.autorNombre!,
+                                          style: TextStyle(
+                                              fontSize: 11, color: cSub),
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                ]),
+                            ],
+                          ),
+                        ),
+                        // Menú ⋮
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert,
+                              size: 16, color: cSub),
+                          padding: EdgeInsets.zero,
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'editar',
+                              child: Row(children: [
+                                Icon(Icons.edit_rounded,
+                                    size: 14, color: color),
+                                const SizedBox(width: 8),
+                                const Text('Editar evento',
+                                    style: TextStyle(fontSize: 13)),
+                              ]),
+                            ),
+                            if (!pasado)
+                              PopupMenuItem(
+                                value: 'toggle',
+                                child: Row(children: [
+                                  Icon(
+                                    evento.activo
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 14, color: Colors.grey[700]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    evento.activo ? 'Ocultar en web' : 'Mostrar en web',
+                                    style: const TextStyle(fontSize: 13)),
+                                ]),
+                              ),
+                            if (onEscribir != null)
+                              const PopupMenuItem(
+                                value: 'escribir',
+                                child: Row(children: [
+                                  Icon(Icons.article_rounded,
+                                      size: 14, color: Color(0xFF7C3AED)),
+                                  SizedBox(width: 8),
+                                  Text('Escribir artículo',
+                                      style: TextStyle(fontSize: 13,
+                                          color: Color(0xFF7C3AED))),
+                                ]),
+                              ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: 'eliminar',
+                              child: Row(children: [
+                                Icon(Icons.delete_outline_rounded,
+                                    size: 14, color: Color(0xFFEF4444)),
+                                SizedBox(width: 8),
+                                Text('Eliminar',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFFEF4444))),
+                              ]),
+                            ),
+                          ],
+                          onSelected: (a) {
+                            if (a == 'editar')   onTap();
+                            if (a == 'toggle')   onToggle(!evento.activo);
+                            if (a == 'escribir') onEscribir?.call();
+                            if (a == 'eliminar') onEliminar();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Botón importación datos web Nazarí ───────────────────────────────────────
+
+class _BtnImportarNazari extends StatefulWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+  final Color color;
+  final bool compact;
+
+  const _BtnImportarNazari({
+    required this.empresaId,
+    required this.svc,
+    required this.color,
+    this.compact = false,
+  });
+
+  @override
+  State<_BtnImportarNazari> createState() => _BtnImportarNazariState();
+}
+
+class _BtnImportarNazariState extends State<_BtnImportarNazari> {
+  bool _cargando = false;
+
+  Future<void> _importar() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Importar datos de la web'),
+        content: const Text(
+          'Se importarán a Firestore:\n'
+          '• 56 eventos (presentaciones, firmas, ferias)\n'
+          '• 16 entrevistas a autores\n'
+          '• 48 noticias y crónicas\n\n'
+          'Los datos existentes no se eliminarán (merge). '
+          '¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _cargando = true);
+    try {
+      await widget.svc.importarEventosNazariDesdeWeb(widget.empresaId);
+      await widget.svc.importarBlogNazariDesdeWeb(widget.empresaId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ 56 eventos + 64 entradas de blog importados desde la web'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al importar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.compact) {
+      return Expanded(
+        child: TextButton.icon(
+          onPressed: _cargando ? null : _importar,
+          icon: _cargando
+              ? const SizedBox(width: 12, height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5))
+              : Icon(Icons.download_rounded, size: 14, color: widget.color),
+          label: Text(_cargando ? '…' : 'Importar web',
+              style: TextStyle(color: widget.color, fontSize: 10.5)),
+        ),
+      );
+    }
+    return TextButton.icon(
+      onPressed: _cargando ? null : _importar,
+      icon: _cargando
+          ? SizedBox(width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: widget.color))
+          : Icon(Icons.download_rounded, size: 14, color: widget.color),
+      label: Text(_cargando ? 'Importando…' : 'Importar datos de la web',
+          style: TextStyle(color: widget.color, fontSize: 12.5)),
+    );
+  }
+}
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EDITOR DE EVENTO
@@ -535,16 +1080,9 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
             // Precio
             TextField(controller: _precioCtrl,
               decoration: const InputDecoration(
-                  hintText: 'Precio (ej: 10€ · Entrada libre)',
+                  hintText: 'Entrada (ej: Libre · 10€ · Con inscripción)',
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.confirmation_number_outlined, size: 18))),
-            const Divider(height: 1),
-            // URL inscripción
-            TextField(controller: _urlCtrl,
-              decoration: const InputDecoration(
-                  hintText: 'URL de inscripción o más info (opcional)',
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.link, size: 18))),
             const Divider(height: 1),
             SwitchListTile(
               value: _activo,
@@ -568,74 +1106,80 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
                         color: color)),
               ]),
             ),
-            // Selector de libro
+            // Selector de libro con buscador
             StreamBuilder<List<Map<String, dynamic>>>(
-              stream: widget.svc.obtenerCatalogoWeb(widget.empresaId),
+              stream: widget.svc.obtenerLibros(widget.empresaId),
               builder: (_, snap) {
                 final items = snap.data ?? [];
-                return _fieldRow('Libro', DropdownButton<String?>(
-                  isExpanded: true,
-                  value: _libroId,
-                  underline: const SizedBox(),
-                  hint: const Text('Sin libro vinculado',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null,
-                        child: Text('— Sin libro vinculado —',
-                            style: TextStyle(fontSize: 12, color: Colors.grey))),
-                    ...items.map((it) => DropdownMenuItem<String?>(
-                      value: it['id'] as String?,
-                      child: Text(it['nombre'] as String? ?? '',
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis),
+                final librosIds = <String>{};
+                final librosUniq = items.where((i) {
+                  final id = i['id']?.toString() ?? '';
+                  return id.isNotEmpty && librosIds.add(id);
+                }).toList();
+                return _fieldRow('Libro', GestureDetector(
+                  onTap: () => _abrirSelectorBuscable(
+                    context: context,
+                    titulo: 'Seleccionar libro',
+                    items: librosUniq,
+                    getId: (i) => i['id']?.toString() ?? '',
+                    getNombre: (i) => i['titulo']?.toString() ?? i['nombre']?.toString() ?? '',
+                    valorActual: _libroId,
+                    color: color,
+                    onSeleccionar: (id, nombre) => setState(() {
+                      _libroId = id;
+                      _libroTitulo = nombre;
+                    }),
+                  ),
+                  child: Row(children: [
+                    Expanded(child: Text(
+                      _libroTitulo ?? 'Sin libro vinculado',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _libroTitulo != null ? const Color(0xFF0F172A) : Colors.grey,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     )),
-                  ],
-                  onChanged: (v) {
-                    final selected = v != null
-                        ? items.firstWhere((i) => i['id'] == v,
-                            orElse: () => {})
-                        : null;
-                    setState(() {
-                      _libroId     = v;
-                      _libroTitulo = selected?['nombre'] as String?;
-                    });
-                  },
+                    Icon(Icons.search_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+                  ]),
                 ));
               },
             ),
             const Divider(height: 1),
-            // Selector de autor
+            // Selector de autor con buscador
             StreamBuilder<List<Map<String, dynamic>>>(
               stream: widget.svc.obtenerAutores(widget.empresaId),
               builder: (_, snap) {
                 final autores = snap.data ?? [];
-                return _fieldRow('Autor', DropdownButton<String?>(
-                  isExpanded: true,
-                  value: _autorId,
-                  underline: const SizedBox(),
-                  hint: const Text('Sin autor vinculado',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null,
-                        child: Text('— Sin autor vinculado —',
-                            style: TextStyle(fontSize: 12, color: Colors.grey))),
-                    ...autores.map((a) => DropdownMenuItem<String?>(
-                      value: a['id'] as String?,
-                      child: Text(a['nombre'] as String? ?? '',
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis),
+                final autoresIds = <String>{};
+                final autoresUniq = autores.where((a) {
+                  final id = a['id']?.toString() ?? '';
+                  return id.isNotEmpty && autoresIds.add(id);
+                }).toList();
+                return _fieldRow('Autor', GestureDetector(
+                  onTap: () => _abrirSelectorBuscable(
+                    context: context,
+                    titulo: 'Seleccionar autor',
+                    items: autoresUniq,
+                    getId: (i) => i['id']?.toString() ?? '',
+                    getNombre: (i) => i['nombre']?.toString() ?? '',
+                    valorActual: _autorId,
+                    color: color,
+                    onSeleccionar: (id, nombre) => setState(() {
+                      _autorId = id;
+                      _autorNombre = nombre;
+                    }),
+                  ),
+                  child: Row(children: [
+                    Expanded(child: Text(
+                      _autorNombre ?? 'Sin autor vinculado',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _autorNombre != null ? const Color(0xFF0F172A) : Colors.grey,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     )),
-                  ],
-                  onChanged: (v) {
-                    final selected = v != null
-                        ? autores.firstWhere((a) => a['id'] == v,
-                            orElse: () => {})
-                        : null;
-                    setState(() {
-                      _autorId     = v;
-                      _autorNombre = selected?['nombre'] as String?;
-                    });
-                  },
+                    Icon(Icons.search_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+                  ]),
                 ));
               },
             ),
@@ -714,6 +1258,128 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
     ),
     child: child,
   );
+
+  Future<void> _abrirSelectorBuscable({
+    required BuildContext context,
+    required String titulo,
+    required List<Map<String, dynamic>> items,
+    required String Function(Map<String, dynamic>) getId,
+    required String Function(Map<String, dynamic>) getNombre,
+    required String? valorActual,
+    required Color color,
+    required void Function(String? id, String? nombre) onSeleccionar,
+  }) async {
+    final ctrl = TextEditingController();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final q = ctrl.text.toLowerCase();
+          final filtrados = q.isEmpty
+              ? items
+              : items.where((i) => getNombre(i).toLowerCase().contains(q)).toList();
+          return SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            child: Column(children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(titulo, style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      suffixIcon: ctrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () {
+                                ctrl.clear();
+                                setModal(() {});
+                              })
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF8F9FB),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: color)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setModal(() {}),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
+                    title: const Text('— Sin selección —',
+                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    selected: valorActual == null,
+                    selectedTileColor: color.withValues(alpha: 0.06),
+                    onTap: () {
+                      onSeleccionar(null, null);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  ...filtrados.map((item) {
+                    final id = getId(item);
+                    final nombre = getNombre(item);
+                    return ListTile(
+                      leading: Icon(Icons.check_circle_outline_rounded,
+                          size: 18,
+                          color: valorActual == id ? color : Colors.grey[300]),
+                      title: Text(nombre,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: valorActual == id
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          )),
+                      selected: valorActual == id,
+                      selectedTileColor: color.withValues(alpha: 0.06),
+                      onTap: () {
+                        onSeleccionar(id, nombre);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }),
+                  if (filtrados.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(child: Text('Sin resultados para "${ctrl.text}"',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13))),
+                    ),
+                ],
+              )),
+            ]),
+          );
+        },
+      ),
+    );
+    ctrl.dispose();
+  }
 
   Future<void> _subirImagen() async {
     setState(() => _subiendoImg = true);
