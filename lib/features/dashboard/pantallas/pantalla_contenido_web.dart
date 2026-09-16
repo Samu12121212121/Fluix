@@ -1873,13 +1873,14 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
         return StreamBuilder<List<EntradaBlog>>(
           stream: widget.seccionId != null
               ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
-              : widget.svc.obtenerBlog(widget.empresaId),
+              : widget.filtroTipoFijo != null
+                  ? widget.svc.obtenerBlogPorTipo(widget.empresaId, widget.filtroTipoFijo!)
+                  : widget.svc.obtenerBlog(widget.empresaId),
           builder: (_, snap) {
             final isLoading = snap.connectionState == ConnectionState.waiting;
             final todos     = snap.data ?? [];
-            final porTipo   = widget.filtroTipoFijo != null
-                ? todos.where((e) => e.tipo == widget.filtroTipoFijo).toList()
-                : todos;
+            // filtroTipoFijo: datos ya filtrados por Firestore; no se requiere filtro local
+            final porTipo   = todos;
             final articulos = _busqueda.isEmpty
                 ? porTipo
                 : porTipo.where((e) {

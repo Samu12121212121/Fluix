@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -654,7 +655,65 @@ class ContenidoWebService {
     return '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
         '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>\n'
         '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>\n'
         '<script>\n$sdk\n</script>\n';
+  }
+
+  /// Contenido del service worker que el cliente debe subir a /firebase-messaging-sw.js
+  static String generarServiceWorkerPush() => '''
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+firebase.initializeApp({
+  apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+  authDomain:"planeaapp-4bea4.firebaseapp.com",
+  projectId:"planeaapp-4bea4",
+  messagingSenderId:"1085482191658",
+  appId:"1:1085482191658:web:c5461353b123ab92d62c53"
+});
+const messaging = firebase.messaging();
+messaging.onBackgroundMessage(function(payload) {
+  const n = payload.notification || {};
+  self.registration.showNotification(n.title || 'Nueva actualización', {
+    body: n.body || '',
+    icon: n.icon || '/favicon.ico',
+    badge: '/favicon.ico',
+    data: payload.data || {}
+  });
+});
+''';
+
+  // ── Push config ──────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>?> obtenerConfigPush(String empresaId) async {
+    final doc = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('push_config')
+        .get();
+    return doc.exists ? doc.data() : null;
+  }
+
+  Future<void> guardarConfigPush(String empresaId, String vapidKey) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('push_config')
+        .set({'vapid_key': vapidKey}, SetOptions(merge: true));
+  }
+
+  // ── CDN config ───────────────────────────────────────────────────────────────
+
+  Stream<Map<String, dynamic>> obtenerConfigCdn(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('cdn_config')
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data()! : <String, dynamic>{});
+  }
+
+  Future<void> guardarConfigCdn(String empresaId, Map<String, String> cfg) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('cdn_config')
+        .set(cfg, SetOptions(merge: true));
   }
 
   // Raw JS SDK — usa __EMPRESA__ como placeholder; se reemplaza en tiempo real
@@ -704,13 +763,26 @@ class ContenidoWebService {
     Object.values(del).forEach(function(el){el.remove();});
   }
 
+  /* ── SEO automático: inyecta <title>, meta y JSON-LD por contenido ── */
+  function injectSeo(titulo,desc,img,jsonld){
+    var h=document.head;
+    if(titulo)document.title=titulo;
+    function setM(sel,attr,val,content){if(!val)return;var m=h.querySelector(sel)||document.createElement("meta");m.setAttribute(attr,val);if(content!==undefined)m.content=content;if(!m.parentNode)h.appendChild(m);}
+    setM('meta[name="description"]',"name","description",desc||"");
+    setM('meta[property="og:title"]',"property","og:title",titulo||"");
+    setM('meta[property="og:description"]',"property","og:description",desc||"");
+    if(img)setM('meta[property="og:image"]',"property","og:image",img);
+    setM('meta[property="og:type"]',"property","og:type","website");
+    if(jsonld){var s=document.getElementById("fluix-jsonld")||document.createElement("script");s.id="fluix-jsonld";s.type="application/ld+json";s.textContent=JSON.stringify(jsonld);if(!s.parentNode)h.appendChild(s);}
+  }
+
   /* ══ Módulo: data-fluix-agenda ══════════════════════════════════════ */
   function modAgenda(){
     document.querySelectorAll("[data-fluix-agenda]").forEach(function(el){
       var limite=parseInt(fcfg(el,"limite","50")),tipos=fcfg(el,"tipo","").split(",").map(function(s){return s.trim();}).filter(Boolean),ciudad=fcfg(el,"ciudad",""),detalleUrl=fcfg(el,"detalle-url","?evento="),tpl=el.querySelector("template[data-fluix-item]");
       db.collection("empresas").doc(EMPRESA).collection("eventos").where("activo","==",true).orderBy("fecha").onSnapshot(function(snap){
         var items=[];
-        snap.forEach(function(doc){var d=doc.data();d.id=doc.id;if(d.eliminado)return;if(tipos.length&&tipos.indexOf(d.tipo||"")<0)return;if(ciudad&&d.ciudad!==ciudad)return;items.push(d);});
+        snap.forEach(function(doc){var d=doc.data();d.id=doc.id;if(d.eliminado)return;if(d.activo===false||(!d.activo&&d.publicado===false))return;if(tipos.length&&tipos.indexOf(d.tipo||"")<0)return;if(ciudad&&d.ciudad!==ciudad)return;items.push(d);});
         items=items.slice(0,limite);
         if(!items.length){el.innerHTML='<p class="fluix-vacio">Sin eventos próximos.</p>';return;}
         // Añadir data-tipo y data-fecha para que los filtros client-side funcionen
@@ -750,7 +822,7 @@ class ContenidoWebService {
       var tpl=el.querySelector("template[data-fluix-item]");
       if(tpl){var cl=tpl.content.cloneNode(true);fillFields(cl.firstElementChild,ev);el.appendChild(cl);}
       else fillFields(el,ev);
-      if(ev.titulo)document.title=ev.titulo+" · "+document.title;
+      injectSeo(ev.titulo,ev.descripcion||ev.subtitulo,ev.imagen_url,{"@context":"https://schema.org","@type":"Event",name:ev.titulo||"",description:ev.descripcion||ev.subtitulo||"",image:ev.imagen_url||"",startDate:ev.fecha&&ev.fecha.toDate?ev.fecha.toDate().toISOString():""});
     });
   }
 
@@ -791,7 +863,7 @@ class ContenidoWebService {
       if(!doc.exists){el.innerHTML="<p>Elemento no encontrado.</p>";return;}
       var it=doc.data();it.id=doc.id;
       fillFields(el,it);
-      if(it.nombre)document.title=it.nombre+" · "+document.title;
+      injectSeo(it.nombre,it.descripcion,it.imagen_url,{"@context":"https://schema.org","@type":"Product",name:it.nombre||"",description:it.descripcion||"",image:it.imagen_url||""});
     });
   }
 
@@ -834,15 +906,44 @@ class ContenidoWebService {
     db.collection("empresas").doc(EMPRESA).collection("blog").where("slug","==",slug).where("publicada","==",true).limit(1).get().then(function(snap){
       if(snap.empty){el.innerHTML="<p>Artículo no encontrado.</p>";return;}
       var b=snap.docs[0].data();
+      var todasImgs=[b.imagen_url].concat(b.imagenes||[]).filter(Boolean);
       el.querySelectorAll("[data-fluix-campo]").forEach(function(ce){
         var c=ce.getAttribute("data-fluix-campo");
-        if(c==="imagen_url"){ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";}
-        else if(c==="contenido"){if(window.marked)ce.innerHTML=marked.parse(b.contenido||"");else ce.textContent=b.contenido||"";}
+        if(c==="imagen_url"){
+          if(todasImgs.length>1){
+            ce.outerHTML=_buildCarousel(todasImgs,"fluix-post-carousel");
+          } else {
+            ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";
+          }
+        } else if(c==="contenido"){if(window.marked)ce.innerHTML=marked.parse(b.contenido||"");else ce.textContent=b.contenido||"";}
         else if(c==="fecha"){var ts=b.fecha_publicacion,d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}
         else ce.textContent=b[c]||"";
       });
-      if(b.titulo)document.title=b.titulo+" · "+document.title;
+      injectSeo(b.titulo,b.resumen||b.seoMetaDescription,b.imagen_url,{"@context":"https://schema.org","@type":"Article",headline:b.titulo||"",description:b.resumen||"",image:b.imagen_url||"",datePublished:b.fecha_publicacion&&b.fecha_publicacion.toDate?b.fecha_publicacion.toDate().toISOString():"",author:b.autor?{"@type":"Person",name:b.autor}:undefined});
     });
+  }
+
+  /* ── Helper: carrusel HTML ligero ────────────────────────────────── */
+  function _buildCarousel(imgs,idPrefix){
+    var id=idPrefix+Math.random().toString(36).slice(2);
+    var slides=imgs.map(function(u,i){return'<div class="fluix-slide" style="min-width:100%;scroll-snap-align:start"><img src="'+u+'" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>';}).join("");
+    var dots=imgs.map(function(_,i){return'<span class="fluix-dot" data-i="'+i+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(i===0?"#fff":"rgba(255,255,255,.5)")+';margin:0 3px;cursor:pointer;transition:all .2s"></span>';}).join("");
+    setTimeout(function(){
+      var wrap=document.getElementById(id);if(!wrap)return;
+      var track=wrap.querySelector(".fluix-track");
+      var dotEls=wrap.querySelectorAll(".fluix-dot");
+      var cur=0;
+      function go(n){cur=Math.max(0,Math.min(n,imgs.length-1));track.scrollTo({left:cur*track.offsetWidth,behavior:"smooth"});dotEls.forEach(function(d,i){d.style.background=i===cur?"#fff":"rgba(255,255,255,.5)";d.style.width=i===cur?"18px":"8px";});}
+      dotEls.forEach(function(d){d.addEventListener("click",function(){go(parseInt(d.getAttribute("data-i")));});});
+      wrap.querySelector(".fluix-prev").addEventListener("click",function(){go(cur-1);});
+      wrap.querySelector(".fluix-next").addEventListener("click",function(){go(cur+1);});
+    },0);
+    return '<div id="'+id+'" style="position:relative;overflow:hidden;border-radius:inherit">'
+      +'<div class="fluix-track" style="display:flex;overflow:hidden;scroll-snap-type:x mandatory;height:100%">'+slides+'</div>'
+      +'<button class="fluix-prev" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px">‹</button>'
+      +'<button class="fluix-next" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px">›</button>'
+      +'<div style="position:absolute;bottom:10px;left:0;right:0;text-align:center">'+dots+'</div>'
+      +'</div>';
   }
 
   /* ══ Módulo: data-fluix-contacto ════════════════════════════════════ */
@@ -925,19 +1026,93 @@ class ContenidoWebService {
     });
   }
 
+  /* ══ Módulo: data-fluix-push ════════════════════════════════════════ */
+  function modPush(){
+    document.querySelectorAll("[data-fluix-push]").forEach(function(el){
+      if(!("Notification" in window)){el.style.display="none";return;}
+      var texto=el.getAttribute("data-fluix-texto")||"Activar notificaciones";
+      var btn=document.createElement("button");
+      btn.textContent=texto;
+      btn.style.cssText="background:#E11D48;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600";
+      function marcarActivo(){btn.textContent="✓ Notificaciones activadas";btn.disabled=true;btn.style.background="#10B981";}
+      function marcarBloqueado(){btn.textContent="Notificaciones bloqueadas";btn.disabled=true;btn.style.background="#94A3B8";}
+      function suscribir(){
+        db.collection("empresas").doc(EMPRESA).collection("config_web").doc("push_config").get().then(function(doc){
+          var vapidKey=doc.exists&&doc.data()?doc.data().vapid_key:null;
+          if(!vapidKey||!firebase.messaging){return;}
+          navigator.serviceWorker.ready.then(function(sw){
+            firebase.messaging().getToken({vapidKey:vapidKey,serviceWorkerRegistration:sw}).then(function(token){
+              if(!token)return;
+              db.collection("empresas").doc(EMPRESA).collection("suscriptores_web").doc(token).set({token:token,fecha:firebase.firestore.FieldValue.serverTimestamp(),url:window.location.href,activo:true},{merge:true});
+            }).catch(function(){});
+          }).catch(function(){});
+        }).catch(function(){});
+      }
+      if(Notification.permission==="granted"){marcarActivo();suscribir();}
+      else if(Notification.permission==="denied"){marcarBloqueado();}
+      else{btn.addEventListener("click",function(){Notification.requestPermission().then(function(p){if(p==="granted"){marcarActivo();suscribir();}else marcarBloqueado();});});}
+      el.innerHTML="";el.appendChild(btn);
+    });
+  }
+
+  /* ══ Módulo: data-fluix-seleccion-nazari ═══════════════════════════ */
+  function modSeleccionNazari(){
+    document.querySelectorAll("[data-fluix-seleccion-nazari]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","50"));
+      var soloLibroMes=el.getAttribute("data-fluix-libro-del-mes")==="true";
+      var tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("seleccion_nazari")
+        .where("activo","==",true)
+        .orderBy("orden")
+        .onSnapshot(function(snap){
+          var items=[];
+          snap.forEach(function(doc){
+            var d=doc.data();d.id=doc.id;
+            if(soloLibroMes&&!d.es_libro_del_mes)return;
+            items.push(d);
+          });
+          items=items.slice(0,limite);
+          if(!items.length){el.innerHTML="";return;}
+          if(tpl){
+            renderTpl(el,tpl,items.map(function(it){
+              return{id:it.id,titulo:it.titulo,autor:it.autor,imagen_url:it.imagen,
+                nota_editorial:it.nota_editorial,es_libro_del_mes:it.es_libro_del_mes,
+                slug:it.slug};
+            }));
+            return;
+          }
+          el.innerHTML=items.map(function(it){
+            var esLibroMes=it.es_libro_del_mes;
+            return'<div class="fluix-naz-item" data-fluix-id="'+it.id+'">'
+              +(it.imagen?'<div class="fluix-naz-cover" style="position:relative">'
+                +(esLibroMes?'<span class="fluix-naz-badge">Libro del mes</span>':"")
+                +'<img class="fluix-naz-img" src="'+it.imagen+'" alt="'+it.titulo+'" loading="lazy">'
+                +'</div>':"")
+              +'<div class="fluix-naz-body">'
+              +'<h3 class="fluix-naz-titulo">'+it.titulo+'</h3>'
+              +(it.autor?'<span class="fluix-naz-autor">'+it.autor+'</span>':"")
+              +(it.nota_editorial?'<p class="fluix-naz-nota">'+it.nota_editorial+'</p>':"")
+              +'</div></div>';
+          }).join("");
+        });
+    });
+  }
+
   /* ══ Bootstrap: detectar módulos y arrancar ═════════════════════════ */
   auth.signInAnonymously().then(function(){
     var mods=[];
     function detect(sel,fn,id){if(document.querySelector(sel)){fn();mods.push(id);}}
-    detect("[data-fluix-agenda]",          modAgenda,          "agenda");
-    detect("[data-fluix-agenda-detalle]",  modAgendaDetalle,   "agenda-detalle");
-    detect("[data-fluix-catalogo]",        modCatalogo,        "catalogo");
-    detect("[data-fluix-catalogo-detalle]",modCatalogoDetalle, "catalogo-detalle");
-    detect("[data-fluix-blog]",            modBlog,            "blog");
-    detect("[data-fluix-blog-post]",       modBlogPost,        "blog-post");
-    detect("[data-fluix-contacto]",        modContacto,        "contacto");
-    detect("[data-fluix-resenas]",         modResenas,         "resenas");
-    detect("[data-fluix-seccion]",         modSecciones,       "secciones");
+    detect("[data-fluix-agenda]",               modAgenda,            "agenda");
+    detect("[data-fluix-agenda-detalle]",       modAgendaDetalle,     "agenda-detalle");
+    detect("[data-fluix-catalogo]",             modCatalogo,          "catalogo");
+    detect("[data-fluix-catalogo-detalle]",     modCatalogoDetalle,   "catalogo-detalle");
+    detect("[data-fluix-blog]",                 modBlog,              "blog");
+    detect("[data-fluix-blog-post]",            modBlogPost,          "blog-post");
+    detect("[data-fluix-contacto]",             modContacto,          "contacto");
+    detect("[data-fluix-resenas]",              modResenas,           "resenas");
+    detect("[data-fluix-seccion]",              modSecciones,         "secciones");
+    detect("[data-fluix-push]",                 modPush,              "push");
+    detect("[data-fluix-seleccion-nazari]",     modSeleccionNazari,   "seleccion-nazari");
     // Reportar módulos detectados en Firestore
     if(mods.length){
       db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status").set({
@@ -1237,11 +1412,38 @@ class ContenidoWebService {
   /// Stream de entradas NO eliminadas, filtrado en cliente para evitar índice compuesto
   Stream<List<EntradaBlog>> obtenerBlog(String empresaId) {
     return _blogCol(empresaId)
+        .where('eliminado', isEqualTo: false)
         .orderBy('fecha_publicacion', descending: true)
+        .limit(200)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
+            .toList());
+  }
+
+  /// Stream paginado filtrado por tipo — requiere índice compuesto tipo+fecha_publicacion
+  Stream<List<EntradaBlog>> obtenerBlogPorTipo(String empresaId, String tipo, {int limite = 50}) {
+    return _blogCol(empresaId)
+        .where('tipo', isEqualTo: tipo)
+        .orderBy('fecha_publicacion', descending: true)
+        .limit(limite)
         .snapshots()
         .map((s) => s.docs
             .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
             .where((e) => !e.eliminado)
+            .toList());
+  }
+
+  /// Stream filtrado por seccion_id (secciones dinámicas data-fluix)
+  Stream<List<EntradaBlog>> obtenerBlogSeccion(String empresaId, String seccionId) {
+    return _blogCol(empresaId)
+        .where('seccion_id', isEqualTo: seccionId)
+        .where('eliminado', isEqualTo: false)
+        .orderBy('fecha_publicacion', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
             .toList());
   }
 
@@ -1259,6 +1461,16 @@ class ContenidoWebService {
     await _blogCol(empresaId)
         .doc(entrada.id.isEmpty ? null : entrada.id)
         .set(data, SetOptions(merge: true));
+  }
+
+  /// Actualiza campos adicionales de una entrada de blog (ej: contenido_html pre-renderizado).
+  Future<void> actualizarCamposExtra(
+      String empresaId, String entradaId, Map<String, dynamic> campos) async {
+    if (entradaId.isEmpty) return;
+    await _blogCol(empresaId).doc(entradaId).update({
+      ...campos,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
   }
 
   /// Guarda una snapshot de la versión actual antes de sobrescribir.
@@ -1338,6 +1550,11 @@ class ContenidoWebService {
       'eliminado': true,
       'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> actualizarCampoEntradaBlog(
+      String empresaId, String entradaId, Map<String, dynamic> campos) async {
+    await _blogCol(empresaId).doc(entradaId).update(campos);
   }
 
   Future<void> togglePublicarBlog(
@@ -1468,11 +1685,12 @@ class ContenidoWebService {
 
   Stream<List<EventoWeb>> obtenerEventos(String empresaId) {
     return _eventosCol(empresaId)
+        .where('eliminado', isEqualTo: false)
         .orderBy('fecha')
+        .limit(500)
         .snapshots()
         .map((s) => s.docs
             .map((d) => EventoWeb.fromMap({...d.data(), 'id': d.id}))
-            .where((e) => !e.eliminado)
             .toList());
   }
 
@@ -1494,6 +1712,234 @@ class ContenidoWebService {
       'activo': activo,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> crearEventosEjemplo(String empresaId) async {
+    final ahora = DateTime.now();
+    final eventos = [
+      EventoWeb(
+        id: '', titulo: 'Presentación: La Granada Invisible',
+        descripcion: 'Carmen Ruiz Lozano presenta su nueva novela con lectura de fragmentos y firma de ejemplares.',
+        fecha: ahora.add(const Duration(days: 14)),
+        lugar: 'Librería Picasso, Granada',
+        tipo: TipoEvento.presentacion,
+        hora: '19:00 h',
+        ciudad: 'Granada',
+        activo: true,
+      ),
+      EventoWeb(
+        id: '', titulo: 'Feria del Libro de Granada 2026',
+        descripcion: 'Editorial Nazarí estará presente con caseta propia. Descuentos y firmas durante todos los días.',
+        fecha: ahora.add(const Duration(days: 42)),
+        lugar: 'Paseo del Salón',
+        tipo: TipoEvento.feria,
+        hora: '10:00 – 21:30 h',
+        ciudad: 'Granada',
+        activo: true,
+      ),
+      EventoWeb(
+        id: '', titulo: 'Taller de Escritura Creativa',
+        descripcion: 'Taller intensivo de dos jornadas sobre narrativa andaluza contemporánea. Plazas limitadas.',
+        fecha: ahora.add(const Duration(days: 21)),
+        lugar: 'Casa de los Tiros, Granada',
+        tipo: TipoEvento.taller,
+        hora: '10:00 – 14:00 h',
+        ciudad: 'Granada',
+        activo: true,
+      ),
+    ];
+    for (final ev in eventos) {
+      await guardarEvento(empresaId, ev);
+    }
+  }
+
+  // ── Importación masiva — datos web Editorial Nazarí ─────────────────────────
+
+  /// Retorna true si ya hay datos importados de la web.
+  Future<bool> hayDatosImportadosNazari(String empresaId) async {
+    final snap = await _eventosCol(empresaId)
+        .where('_importado', isEqualTo: true)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  Future<void> importarEventosNazariDesdeWeb(String empresaId) async {
+    final eventos = _eventosNazariData();
+    final col = _eventosCol(empresaId);
+    var batch = _firestore.batch();
+    var cnt = 0;
+    for (final ev in eventos) {
+      final doc = col.doc(ev['id'] as String);
+      batch.set(doc, {
+        'titulo':      ev['titulo'],
+        'subtitulo':   ev['subtitulo'] ?? '',
+        'descripcion': ev['descripcion'] ?? '',
+        'fecha':       Timestamp.fromDate(DateTime.parse('${ev['fecha']}T12:00:00')),
+        'lugar':       ev['lugar'] ?? '',
+        'ciudad':      ev['ciudad'] ?? '',
+        'hora':        ev['hora'] ?? '',
+        'tipo':        ev['tipo'],
+        'activo':      true,
+        'eliminado':   false,
+        '_importado':  true,
+        '_fuente':     'web-nazari',
+        if ((ev['autor_nombre'] as String?)?.isNotEmpty == true)
+          'autor_nombre': ev['autor_nombre'],
+        'fecha_creacion': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      cnt++;
+      if (cnt == 400) {
+        await batch.commit();
+        batch = _firestore.batch();
+        cnt = 0;
+      }
+    }
+    if (cnt > 0) await batch.commit();
+  }
+
+  Future<void> importarBlogNazariDesdeWeb(String empresaId) async {
+    final entradas = _blogNazariData();
+    final col = _blogCol(empresaId);
+    var batch = _firestore.batch();
+    var cnt = 0;
+    for (final p in entradas) {
+      final doc = col.doc(p['id'] as String);
+      batch.set(doc, {
+        'titulo':            p['titulo'],
+        'slug':              p['slug'],
+        'resumen':           p['resumen'] ?? '',
+        'contenido':         '',
+        'autor':             p['autor'] ?? '',
+        'categoria_id':      p['tipo'] == 'entrevista' ? 'Entrevistas' : 'Noticias',
+        'tipo':              p['tipo'],
+        'estado':            'publicado',
+        'publicada':         true,
+        'fecha_publicacion': Timestamp.fromDate(DateTime.parse('${p['fecha']}T12:00:00')),
+        'etiquetas':         <String>[],
+        'imagenes':          <String>[],
+        'destacado':         false,
+        'visitas':           0,
+        'eliminado':         false,
+        'seo':               {'meta_title': '', 'meta_description': '', 'keywords': <String>[]},
+        if ((p['imagen_url'] as String?)?.isNotEmpty == true) 'imagen_url': p['imagen_url'],
+        if ((p['url_externa'] as String?)?.isNotEmpty == true) 'url_externa': p['url_externa'],
+        '_importado':  true,
+        '_fuente':     'web-nazari',
+        'fecha_creacion': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      cnt++;
+      if (cnt == 400) {
+        await batch.commit();
+        batch = _firestore.batch();
+        cnt = 0;
+      }
+    }
+    if (cnt > 0) await batch.commit();
+
+    // FIFO: mantener máximo 150 entradas por tipo (noticia / entrevista)
+    await _recortarBlogPorTipo(col, 'noticia', 150);
+    await _recortarBlogPorTipo(col, 'entrevista', 150);
+  }
+
+  Future<void> _recortarBlogPorTipo(
+      CollectionReference<Map<String, dynamic>> col,
+      String tipo,
+      int maximo) async {
+    final snap = await col
+        .orderBy('fecha_publicacion', descending: true)
+        .get();
+    final deTipo = snap.docs
+        .where((d) => d.data()['tipo'] == tipo && d.data()['eliminado'] != true)
+        .toList();
+    if (deTipo.length <= maximo) return;
+    final sobran = deTipo.sublist(maximo); // los más antiguos
+    var delBatch = _firestore.batch();
+    var delCnt = 0;
+    for (final d in sobran) {
+      delBatch.delete(d.reference);
+      delCnt++;
+      if (delCnt == 400) {
+        await delBatch.commit();
+        delBatch = _firestore.batch();
+        delCnt = 0;
+      }
+    }
+    if (delCnt > 0) await delBatch.commit();
+  }
+
+  // ── Datos estáticos de la web Nazarí ─────────────────────────────────────────
+
+  static List<Map<String, dynamic>> _eventosNazariData() => [
+    {'id':'ev-001','tipo':'Presentación','titulo':"'El canto triste del cuervo' en la Feria del Libro de Jaén",'subtitulo':'José Prados Osuna firma ejemplares','fecha':'2026-05-16','hora':'18:30 – 20:25 h','lugar':'Feria del Libro de Jaén, c/ Roldán y Marín','ciudad':'Jaén','descripcion':'José Prados Osuna firma ejemplares de su última novela El canto triste del cuervo en la Feria del Libro de Jaén.'},
+    {'id':'ev-002','tipo':'Presentación','titulo':"'Intramuros' en Sevilla",'subtitulo':'José Piñero Mira presenta su colección de relatos','fecha':'2026-05-16','hora':'20:30 – 22:00 h','lugar':'Sala Griot, c/ Factores 18','ciudad':'Sevilla','descripcion':'Presentación de Intramuros, colección de relatos de José Piñero Mira.'},
+    {'id':'ev-003','tipo':'Presentación','titulo':"'Noviembre' en Salar",'subtitulo':'Juan de Dios Villanueva Roa presenta su poemario','fecha':'2026-05-22','hora':'19:30 – 21:00 h','lugar':'Salón de Plenos del Ayuntamiento de Salar','ciudad':'Salar (Granada)','descripcion':'Presentación de Noviembre, último poemario de Juan de Dios Villanueva Roa.'},
+    {'id':'ev-004','tipo':'Presentación','titulo':"'Las doce cosechas' en Algeciras",'subtitulo':'Maite Cuesta presenta su nueva novela','fecha':'2026-05-22','hora':'20:00 – 21:30 h','lugar':'Casa Regional de Ceuta en Algeciras, c/ José Luis Cano 1','ciudad':'Algeciras (Cádiz)','descripcion':'Presentación de Las doce cosechas, nueva novela de Maite Cuesta.'},
+    {'id':'ev-005','tipo':'Presentación','titulo':"'Caminando con tus ojos' en Atarfe",'subtitulo':'Irene Bosch Blanco presenta su primera novela','fecha':'2026-05-27','hora':'19:30 – 21:00 h','lugar':'Centro Cultural Medina Elvira, Avda. de la Diputación S/N','ciudad':'Atarfe (Granada)','descripcion':'Presentación de Caminando con tus ojos, ópera prima de Irene Bosch Blanco.'},
+    {'id':'ev-006','tipo':'Presentación','titulo':"'La gestión del silencio' en Gijón",'subtitulo':'Manuel Bayona presenta sus artículos sobre gestión sanitaria','fecha':'2026-05-28','hora':'19:00 – 20:30 h','lugar':'Salón de actos de la Escuela de Comercio, c/ Francisco Tomás y Valiente 1','ciudad':'Gijón (Asturias)','descripcion':'Presentación de La gestión del silencio de Manuel Bayona.'},
+    {'id':'ev-007','tipo':'Presentación','titulo':"'Creo que te quiero' en la Feria del Libro de Pegalajar",'subtitulo':'Dulce López Rodríguez firma ejemplares','fecha':'2026-05-30','hora':'11:00 – 14:00 y 16:00 – 19:30 h','lugar':'Feria del Libro de Pegalajar, Parque de La Charca','ciudad':'Pegalajar (Jaén)','descripcion':'Dulce López Rodríguez firma ejemplares de Creo que te quiero en Pegalajar.'},
+    {'id':'ev-008','tipo':'Presentación','titulo':"'La habitación 320' en Barcelona",'subtitulo':'El Grupo Bojador presenta su colección de relatos','fecha':'2026-05-31','hora':'12:00 – 14:00 h','lugar':'Café de la Ópera, La Rambla 74','ciudad':'Barcelona','descripcion':'El Grupo Bojador presenta La habitación 320 en el Café de la Ópera de Barcelona.'},
+    {'id':'ev-009','tipo':'Presentación','titulo':"'La gestión del silencio' en Oviedo",'subtitulo':'Manuel Bayona en el Aula Clarín de la Universidad de Oviedo','fecha':'2026-06-01','hora':'19:00 – 20:30 h','lugar':'Aula Clarín, edificio histórico Universidad, c/ San Francisco','ciudad':'Oviedo (Asturias)','descripcion':'Presentación de La gestión del silencio en el Aula Clarín de la Universidad de Oviedo.'},
+    {'id':'ev-010','tipo':'Presentación','titulo':"'La gestión del silencio' en Madrid",'subtitulo':'Manuel Bayona ante directivos del Ministerio de Sanidad','fecha':'2026-06-09','hora':'13:00 – 14:30 h','lugar':'Plató de TV de Redacción Médica, c/ Rufino González 23 BIS','ciudad':'Madrid','descripcion':'Presentación de La gestión del silencio con el Director General de Ordenación Profesional del Ministerio de Sanidad.'},
+    {'id':'ev-011','tipo':'Presentación','titulo':"'Espejos' en Madrid",'subtitulo':'Óscar Vázquez Mínguez presenta su poemario de 52 poemas','fecha':'2026-06-09','hora':'19:00 – 20:30 h','lugar':'Biblioteca Pública Manuel Vázquez Montalbán, c/ Francos Rodríguez 67','ciudad':'Madrid','descripcion':'Óscar Vázquez Mínguez presenta Espejos, acompañado por Carolina Illescas y el editor Alejandro Santiago.'},
+    {'id':'ev-012','tipo':'Presentación','titulo':"Premio Volantones 2026 de Microrrelatos en Granada",'subtitulo':'Concesión del premio de la Asociación de Amigos de la Base Aérea de Armilla','fecha':'2026-06-05','hora':'19:00 – 20:30 h','lugar':'Sala Val del Omar, Biblioteca de Andalucía, c/ Profesor Sainz Cantero 6','ciudad':'Granada','descripcion':'Presentación del Premio Volantones 2026 de Microrrelatos y concesión del galardón.'},
+    {'id':'ev-013','tipo':'Presentación','titulo':"'Trampantojos' en la Feria del Libro de Madrid",'subtitulo':'Ana Grandal firma su colección de 75 microrrelatos','fecha':'2026-06-10','hora':'17:30 – 18:00 h','lugar':'Caseta 170 de Sin Tarima Libros, Feria del Libro de Madrid','ciudad':'Madrid','descripcion':'Ana Grandal firma ejemplares de Trampantojos en la Feria del Libro de Madrid.'},
+    {'id':'ev-014','tipo':'Presentación','titulo':"'Destilación' en Granada",'subtitulo':'Paula R. Bouzas presenta su poemario en el Colegio de Farmacéuticos','fecha':'2026-06-17','hora':'20:00 – 21:30 h','lugar':'Colegio Oficial de Farmacéuticos de Granada, c/ San Jerónimo 16','ciudad':'Granada','descripcion':'Presentación de Destilación, poemario de Paula R. Bouzas.'},
+    {'id':'ev-015','tipo':'Presentación','titulo':"'Al tercer día' en Isla Cristina",'subtitulo':'David Macías Gómez presenta su novela histórica','fecha':'2026-07-13','hora':'21:00 – 22:30 h','lugar':'CIT Garum, Muelle Marina S/N','ciudad':'Isla Cristina (Huelva)','descripcion':'Presentación de Al tercer día, nueva novela de David Macías Gómez.'},
+    {'id':'ev-016','tipo':'Presentación','titulo':"Conferencia «Cátaros en el Pirineo catalán»",'subtitulo':'Jesús Ávila Granados, autor de El holocausto cátaro','fecha':'2026-08-08','hora':'18:00 – 19:30 h','lugar':"Casals de Jubilats de Tírvia, Carrer de la Plaça de la Monja 1",'ciudad':"Tírvia (Lleida)",'descripcion':"Conferencia «Cátaros en el Pirineo catalán» a cargo de Jesús Ávila Granados."},
+    {'id':'ev-017','tipo':'Presentación','titulo':"'Al tercer día' en la Feria del Libro de Alájar",'subtitulo':'David Macías Gómez presenta su novela histórica','fecha':'2026-08-12','hora':'20:00 – 21:30 h','lugar':"Biblioteca Pública Municipal «Arias Montano» (Centro Multifuncional)",'ciudad':'Alájar (Huelva)','descripcion':'Presentación de Al tercer día en la Feria del Libro de Alájar.'},
+    {'id':'ev-018','tipo':'Presentación','titulo':"'La gestión del silencio' en Candás",'subtitulo':'Manuel Bayona presenta su obra sobre gestión sanitaria','fecha':'2026-09-17','hora':'19:00 – 20:30 h','lugar':"Biblioteca Pública Municipal «Carlos González Posada», Sala Benito d'Auxa",'ciudad':'Candás (Asturias)','descripcion':'Presentación de La gestión del silencio de Manuel Bayona en Candás.','autor_nombre':'Manuel Bayona García'},
+    {'id':'ev-019','tipo':'Presentación','titulo':"'Destilación' en Ribadavia",'subtitulo':'Paula R. Bouzas presenta su poemario','fecha':'2026-08-14','hora':'','lugar':'Ribadavia','ciudad':'Ribadavia (Ourense)','descripcion':'Presentación de Destilación, poemario de Paula R. Bouzas, en Ribadavia.'},
+    {'id':'ev-020','tipo':'Presentación','titulo':"'El mundial que España no ganó' en Torrelavega",'subtitulo':'Presentación en Torrelavega','fecha':'2026-08-14','hora':'','lugar':'Torrelavega','ciudad':'Torrelavega (Cantabria)','descripcion':'Presentación de El mundial que España no ganó en Torrelavega.'},
+    {'id':'ev-021','tipo':'Presentación','titulo':"'El mundial que España no ganó' en Granada",'subtitulo':'Javier Ruiz Barquín presenta su diario íntimo','fecha':'2026-09-16','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación de El mundial que España no ganó en Granada.','autor_nombre':'Javier Ruiz Barquín'},
+    {'id':'ev-022','tipo':'Presentación','titulo':"'La habitación 320' en Granada",'subtitulo':'El Grupo Bojador presenta su colección de relatos','fecha':'2026-09-24','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'El Grupo Bojador presenta La habitación 320 en Granada.'},
+    {'id':'ev-023','tipo':'Presentación','titulo':"'El jardín de Irene' en Granada",'subtitulo':'Presentación en el barrio de La Chana, Granada','fecha':'2026-10-23','hora':'','lugar':'La Chana, Granada','ciudad':'Granada','descripcion':'Presentación de El jardín de Irene en el barrio de La Chana de Granada.'},
+    {'id':'ev-024','tipo':'Presentación','titulo':"'Mujeres y guerra' en Granada",'subtitulo':'Presentación en Granada','fecha':'2026-05-01','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación del libro Mujeres y guerra en Granada.'},
+    {'id':'ev-025','tipo':'Presentación','titulo':"'Huyendo a Granada' — Ruta literaria",'subtitulo':'Ruta literaria por la ciudad de Granada','fecha':'2026-05-03','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Ruta literaria por los escenarios de Huyendo a Granada, con Victoria Eugenia Muñoz.'},
+    {'id':'ev-026','tipo':'Presentación','titulo':"'Maneras de estar tumbada' en Granada",'subtitulo':'Presentación en Granada','fecha':'2026-05-05','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación del libro de Mar Navarro G.'},
+    {'id':'ev-027','tipo':'Presentación','titulo':"'Al tercer día' en Granada",'subtitulo':'David Macías Gómez presenta su novela histórica','fecha':'2026-05-06','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación de Al tercer día, novela histórica de David Macías Gómez, en Granada.'},
+    {'id':'ev-028','tipo':'Presentación','titulo':"'Cómodamente adormecido' en Granada",'subtitulo':'Juan Quero presenta su novela','fecha':'2026-05-10','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación de Cómodamente adormecido de Juan Quero en Granada.'},
+    {'id':'ev-029','tipo':'Presentación','titulo':"'Al tercer día' — segunda presentación",'subtitulo':'David Macías Gómez presenta su novela','fecha':'2026-05-11','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Segunda presentación de Al tercer día de David Macías Gómez.'},
+    {'id':'ev-030','tipo':'Presentación','titulo':"'Los ríos nunca miran atrás' en Granada",'subtitulo':'José Luis Monroy Antón presenta su novela','fecha':'2026-05-14','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación de Los ríos nunca miran atrás en Granada.'},
+    {'id':'ev-031','tipo':'Presentación','titulo':"'Nostalgias' en Granada",'subtitulo':'Susana Collado Vázquez presenta su poemario','fecha':'2026-05-14','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación del poemario Nostalgias de Susana Collado Vázquez en Granada.'},
+    {'id':'ev-032','tipo':'Presentación','titulo':"'Caminando con tus ojos' en el Café Literario de Atarfe",'subtitulo':'Irene Bosch Blanco presenta su novela','fecha':'2026-04-22','hora':'','lugar':'Café Literario de Atarfe','ciudad':'Atarfe (Granada)','descripcion':'Encuentro con autores durante la semana del libro en Atarfe.'},
+    {'id':'ev-033','tipo':'Presentación','titulo':"'Caminando con tus ojos' en La Ciutadella",'subtitulo':'Irene Bosch Blanco presenta su novela en Menorca','fecha':'2026-04-17','hora':'','lugar':'Antigua farmacia Llabrés','ciudad':'Ciutadella (Menorca)','descripcion':'Irene Bosch Blanco presentó su novela en la antigua farmacia Llabrés de Ciutadella.'},
+    {'id':'ev-034','tipo':'Presentación','titulo':"'Caminando con tus ojos' en Ferrerías",'subtitulo':'Presentación en la Biblioteca de Ferrerías','fecha':'2026-04-16','hora':'','lugar':'Biblioteca Municipal de Ferrerías','ciudad':'Ferrerías (Menorca)','descripcion':'Irene Bosch Blanco presentó su novela en la Biblioteca de Ferrerías.'},
+    {'id':'ev-035','tipo':'Presentación','titulo':"'Caminando con tus ojos' en Es Migjorn Gran",'subtitulo':'Encuentro con el Club de Jubilados','fecha':'2026-04-15','hora':'','lugar':'Club de Jubilados','ciudad':'Es Migjorn Gran (Menorca)','descripcion':'El Club de Jubilados de Es Migjorn Gran recibió a Irene Bosch Blanco para presentar su libro.'},
+    {'id':'ev-036','tipo':'Presentación','titulo':"'Las doce cosechas' en Ceuta",'subtitulo':'Maite Cuesta presenta su novela','fecha':'2026-04-15','hora':'','lugar':'Biblioteca Pública del Estado','ciudad':'Ceuta','descripcion':'Presentación de la novela de Maite Cuesta en la Biblioteca Pública del Estado en Ceuta.'},
+    {'id':'ev-037','tipo':'Presentación','titulo':"'Caminando con tus ojos' en el CEIP Pere Casasnovas",'subtitulo':'Taller literario para alumnos de primaria','fecha':'2026-04-14','hora':'','lugar':'CEIP Pere Casasnovas','ciudad':'Ciutadella (Menorca)','descripcion':'Irene Bosch Blanco realizó un taller para alumnos de sexto de primaria.'},
+    {'id':'ev-038','tipo':'Presentación','titulo':"'Tú y el amor' en Orihuela",'subtitulo':'Jesús Paredes Ortiz presenta su poemario','fecha':'2026-04-13','hora':'','lugar':'Biblioteca Pública Municipal María Moliner','ciudad':'Orihuela (Alicante)','descripcion':'Presentación del poemario de Jesús Paredes Ortiz.'},
+    {'id':'ev-039','tipo':'Presentación','titulo':"'El canto triste del cuervo' en Granada",'subtitulo':'José Prados Osuna presenta su novela histórica','fecha':'2026-04-10','hora':'','lugar':'Biblioteca de Andalucía','ciudad':'Granada','descripcion':'Presentación de la novela histórica de José Prados Osuna en la Biblioteca de Andalucía.'},
+    {'id':'ev-040','tipo':'Presentación','titulo':"'La gestión del silencio' en Málaga",'subtitulo':'Manuel Bayona presenta su libro','fecha':'2026-03-26','hora':'','lugar':'Colegio Oficial de Médicos de Málaga','ciudad':'Málaga','descripcion':'Presentación del libro de Manuel Bayona en el Colegio Oficial de Médicos de Málaga.'},
+    {'id':'ev-041','tipo':'Presentación','titulo':"'Lagrimaciendo sobre el vacío' en Íllora",'subtitulo':'Ana Barea Arco presenta su poemario','fecha':'2026-04-10','hora':'','lugar':'Biblioteca Pública Municipal','ciudad':'Íllora (Granada)','descripcion':'Presentación del poemario de Ana Barea Arco en Íllora.'},
+    {'id':'ev-042','tipo':'Presentación','titulo':"'Destilación' en el Carmen de la Victoria (Granada)",'subtitulo':'Paula R. Bouzas presenta su poemario','fecha':'2026-03-27','hora':'','lugar':'Carmen de la Victoria','ciudad':'Granada','descripcion':'Presentación en un espacio íntimo de Granada.'},
+    {'id':'ev-043','tipo':'Presentación','titulo':"'La vieja inquietud del aire' en Córdoba",'subtitulo':'Diego Castillo Barco presenta su libro','fecha':'2026-03-21','hora':'','lugar':'Biblioteca Pública Grupo Cántico','ciudad':'Córdoba','descripcion':'Presentación del libro de Diego Castillo Barco en Córdoba.'},
+    {'id':'ev-044','tipo':'Presentación','titulo':"'La gestión del silencio' en Huelma",'subtitulo':'Manuel Bayona presenta su libro','fecha':'2026-03-20','hora':'','lugar':'Huelma','ciudad':'Huelma (Jaén)','descripcion':'Presentación de la obra de Manuel Bayona García en Huelma.'},
+    {'id':'ev-045','tipo':'Presentación','titulo':"'Las doce cosechas' en Granada",'subtitulo':'Maite Cuesta presenta su novela','fecha':'2026-03-25','hora':'','lugar':'Biblioteca Pública Municipal Francisco Ayala','ciudad':'Granada','descripcion':'Presentación de la nueva novela de Maite Cuesta en la Biblioteca Francisco Ayala.'},
+    {'id':'ev-046','tipo':'Presentación','titulo':"'Los ríos nunca miran atrás' en Jerte",'subtitulo':'José Luis Monroy Antón en el Festival Despierta 26','fecha':'2026-03-25','hora':'','lugar':'Festival Despierta 26','ciudad':'Jerte (Cáceres)','descripcion':'Presentación de la obra de José Luis Monroy Antón en el Festival Literario Despierta 26.'},
+    {'id':'ev-047','tipo':'Presentación','titulo':"'Caminando con tus ojos' en la ONCE (Granada)",'subtitulo':'Irene Bosch Blanco presenta su novela','fecha':'2026-03-19','hora':'','lugar':'Sede de la ONCE en Granada','ciudad':'Granada','descripcion':'Irene Bosch Blanco presentó su libro en la sede de la ONCE en Granada.'},
+    {'id':'ev-048','tipo':'Presentación','titulo':"'Los ríos nunca miran atrás' en Granada",'subtitulo':'Presentación en el Cuarto Real de Santo Domingo','fecha':'2026-04-15','hora':'','lugar':'Cuarto Real de Santo Domingo','ciudad':'Granada','descripcion':'Presentación de la novela de José Luis Monroy Antón.'},
+    {'id':'ev-049','tipo':'Presentación','titulo':"'Caminando con tus ojos' en La Cocina de Molinos",'subtitulo':'Presentación en Granada','fecha':'2026-03-12','hora':'','lugar':'La Cocina de Molinos','ciudad':'Granada','descripcion':'Presentación en el corazón de Granada ante un público con conocimiento personal de la discapacidad.'},
+    {'id':'ev-050','tipo':'Presentación','titulo':"'Caminando con tus ojos' en el CEIP La Inmaculada",'subtitulo':'Taller con alumnos','fecha':'2026-03-09','hora':'','lugar':'CEIP Ecoescuela La Inmaculada','ciudad':'Granada','descripcion':'Encuentro entre Irene Bosch y alumnos del colegio.'},
+    {'id':'ev-051','tipo':'Presentación','titulo':"'La gestión del silencio' en Granada",'subtitulo':'Manuel Bayona presenta su libro','fecha':'2026-02-27','hora':'','lugar':'Atrio del Hotel Palacio Santa Paula','ciudad':'Granada','descripcion':'Presentación de Manuel Bayona en el Hotel Palacio Santa Paula de Granada.'},
+    {'id':'ev-052','tipo':'Presentación','titulo':"'Crónica de un profesor de instituto' en Salobreña",'subtitulo':'Daniel Morales Escobar presenta su libro','fecha':'2026-02-27','hora':'','lugar':'Salobreña','ciudad':'Salobreña (Granada)','descripcion':'Presentación en Salobreña de la obra de Daniel Morales Escobar.'},
+    {'id':'ev-053','tipo':'Presentación','titulo':"'Crónica de un profesor de instituto' en Granada",'subtitulo':'Presentación del libro de Daniel Morales Escobar','fecha':'2026-02-20','hora':'','lugar':'Granada','ciudad':'Granada','descripcion':'Presentación de Crónica de un profesor de instituto en Granada.'},
+    {'id':'ev-054','tipo':'Presentación','titulo':"'Cómodamente adormecido' en el ciclo Letras Compartidas de Mijas",'subtitulo':'Juan Quero presenta su novela en Mijas','fecha':'2025-04-22','hora':'','lugar':'Ciclo Letras Compartidas','ciudad':'Mijas (Málaga)','descripcion':'Presentación de Cómodamente adormecido en el ciclo Letras Compartidas de Mijas.'},
+    {'id':'ev-055','tipo':'Presentación','titulo':"'Cómodamente adormecido' en El Patio de Fuengirola",'subtitulo':'Juan Quero presenta su novela','fecha':'2025-04-22','hora':'','lugar':'El Patio, Fuengirola TV','ciudad':'Fuengirola (Málaga)','descripcion':'Entrevista y presentación de Juan Quero en El Patio de Fuengirola TV.'},
+    {'id':'ev-056','tipo':'Presentación','titulo':"'El jardín de Estocolmo' en Melilla",'subtitulo':'Antonio César Morón presenta su novela','fecha':'2023-06-14','hora':'','lugar':'La Librería de Melilla','ciudad':'Melilla','descripcion':'Presentación de El jardín de Estocolmo en La Librería de Melilla.'},
+  ];
+
+  static List<Map<String, dynamic>> _blogNazariData() => [];
+
+  // ── Autores (colección `autores`) ────────────────────────────────────────────
+
+  Stream<List<Map<String, dynamic>>> obtenerAutores(String empresaId) {
+    return _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('autores')
+        .orderBy('nombre')
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
   }
 
   // ── Categorías ──────────────────────────────────────────────────────────────
@@ -1698,24 +2144,38 @@ class ContenidoWebService {
         .delete();
   }
 
-  Stream<List<Map<String, dynamic>>> obtenerAutores(String empresaId) {
-    return _firestore
-        .collection('empresas').doc(empresaId)
-        .collection('autores')
-        .orderBy('nombre')
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  /// Genera un ID de Firestore determinista desde el nombre del autor,
+  /// igual que el script de importación (`naz-${slug}`).
+  static String _autorSlugId(String nombre) {
+    final slug = nombre.toLowerCase()
+        .replaceAll(RegExp(r'[àáâãäåā]'), 'a')
+        .replaceAll(RegExp(r'[èéêëē]'), 'e')
+        .replaceAll(RegExp(r'[ìíîïī]'), 'i')
+        .replaceAll(RegExp(r'[òóôõöō]'), 'o')
+        .replaceAll(RegExp(r'[ùúûüū]'), 'u')
+        .replaceAll(RegExp(r'[ñ]'), 'n')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    return 'naz-$slug';
   }
 
   Future<void> guardarAutor(
       String empresaId, String? docId, Map<String, dynamic> data) async {
     final col = _firestore.collection('empresas').doc(empresaId).collection('autores');
-    if (docId != null && docId.isNotEmpty) {
-      await col.doc(docId).set({...data, 'fecha_actualizacion': FieldValue.serverTimestamp()},
-          SetOptions(merge: true));
-    } else {
-      await col.add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
-    }
+    final nombre = data['nombre'] as String? ?? '';
+
+    // Usar ID determinista para evitar duplicados al crear nuevos autores
+    final id = (docId != null && docId.isNotEmpty)
+        ? docId
+        : _autorSlugId(nombre);
+
+    final isNew = docId == null || docId.isEmpty;
+    await col.doc(id).set({
+      ...data,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+      if (isNew) 'fecha_creacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> eliminarAutor(String empresaId, String docId) async {
@@ -1723,6 +2183,78 @@ class ContenidoWebService {
         .collection('empresas').doc(empresaId)
         .collection('autores').doc(docId)
         .delete();
+  }
+
+  /// Elimina autores duplicados (mismo nombre normalizado) conservando
+  /// el registro con más datos (bio + foto + género + lugar).
+  /// Devuelve el número de documentos eliminados.
+  Future<int> dedupAutores(String empresaId) async {
+    final col  = _firestore.collection('empresas').doc(empresaId).collection('autores');
+    final snap = await col.get();
+
+    // Agrupar por nombre normalizado
+    final grupos = <String, List<DocumentSnapshot>>{};
+    for (final doc in snap.docs) {
+      final d      = doc.data();
+      final nombre = (d['nombre'] as String? ?? '').trim();
+      if (nombre.isEmpty) continue;
+      final key = _autorSlugId(nombre); // mismo hash que el ID determinista
+      grupos[key] = [...(grupos[key] ?? []), doc];
+    }
+
+    var batch   = _firestore.batch();
+    var cnt     = 0;
+    var deleted = 0;
+
+    for (final grupo in grupos.values) {
+      if (grupo.length <= 1) continue;
+
+      // Puntuar cada doc: más datos = mayor puntuación
+      int score(DocumentSnapshot doc) {
+        final d = doc.data() as Map<String, dynamic>;
+        int s = 0;
+        if ((d['bio']         as String? ?? '').isNotEmpty) s += 6;
+        if ((d['foto']        as String? ?? '').isNotEmpty) s += 5;
+        if ((d['foto_url']    as String? ?? '').isNotEmpty) s += 5;
+        if ((d['descripcion'] as String? ?? '').isNotEmpty) s += 3;
+        if ((d['genero']      as String? ?? '').isNotEmpty) s += 2;
+        if ((d['lugar']       as String? ?? '').isNotEmpty) s += 2;
+        // Preferir IDs con prefijo naz- (importación canónica)
+        if (doc.id.startsWith('naz-')) s += 10;
+        return s;
+      }
+
+      final sorted = [...grupo]..sort((a, b) => score(b) - score(a));
+
+      // Conservar el más rico; si su ID no es determinista, re-escribirlo
+      final keeper = sorted.first;
+      final keepId = _autorSlugId(
+          ((keeper.data() as Map<String, dynamic>)['nombre'] as String? ?? ''));
+      if (keeper.id != keepId) {
+        // Mover al ID canónico
+        final kData = keeper.data() as Map<String, dynamic>;
+        batch.set(col.doc(keepId), {
+          ...kData,
+          'fecha_actualizacion': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        batch.delete(keeper.reference);
+        cnt += 2;
+      }
+
+      // Eliminar el resto
+      for (final dup in sorted.skip(1)) {
+        batch.delete(dup.reference);
+        deleted++;
+        cnt++;
+        if (cnt >= 490) {
+          await batch.commit();
+          batch = _firestore.batch();
+          cnt   = 0;
+        }
+      }
+    }
+    if (cnt > 0) await batch.commit();
+    return deleted;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1744,12 +2276,29 @@ class ContenidoWebService {
         });
   }
 
+  /// Stream de catálogo filtrado por seccion_id (secciones dinámicas data-fluix)
+  Stream<List<Map<String, dynamic>>> obtenerCatalogoWebSeccion(
+      String empresaId, String seccionId) {
+    return _catalogoCol(empresaId)
+        .where('seccion_id', isEqualTo: seccionId)
+        .snapshots()
+        .map((snap) {
+          final docs = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          docs.sort((a, b) =>
+              ((a['orden'] as num?)?.toInt() ?? 9999)
+              .compareTo((b['orden'] as num?)?.toInt() ?? 9999));
+          return docs;
+        });
+  }
+
   Future<void> guardarItemCatalogo(
       String empresaId, String? docId, Map<String, dynamic> data) async {
     if (docId != null && docId.isNotEmpty) {
       await _catalogoCol(empresaId).doc(docId).set(
           {...data, 'fecha_actualizacion': FieldValue.serverTimestamp()},
           SetOptions(merge: true));
+      // Sincronizar datos en seleccion_nazari si el libro está en la Selección
+      unawaited(_sincronizarEnSeleccion(empresaId, docId, data));
     } else {
       // Determinar orden contando documentos existentes
       int orden = 0;
@@ -1763,6 +2312,37 @@ class ContenidoWebService {
     }
   }
 
+  Future<void> _sincronizarEnSeleccion(
+      String empresaId, String catalogoId, Map<String, dynamic> data) async {
+    try {
+      final snap = await _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('seleccion_nazari')
+          .where('catalogo_id', isEqualTo: catalogoId)
+          .get();
+      if (snap.docs.isEmpty) return;
+      final titulo  = data['nombre']      as String? ?? data['titulo'] as String? ?? '';
+      final autor   = data['campo_autor'] as String? ?? data['autor']  as String? ?? '';
+      final imagen  = data['imagen_url']  as String? ?? data['imagen'] as String? ?? '';
+      final precio  = data['precio']      as String? ?? '';
+      final stripe  = data['stripe_link'] as String? ?? '';
+      final slug    = (data['slug'] as String?)?.isNotEmpty == true
+          ? data['slug'] as String : catalogoId;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {
+          if (titulo.isNotEmpty)  'titulo': titulo,
+          if (autor.isNotEmpty)   'autor':  autor,
+          if (imagen.isNotEmpty)  'imagen': imagen,
+          if (precio.isNotEmpty)  'precio': precio,
+          if (stripe.isNotEmpty)  'stripe_link': stripe,
+          'slug': slug,
+        });
+      }
+      await batch.commit();
+    } catch (_) {}
+  }
+
   Future<void> toggleActivoItemCatalogo(
       String empresaId, String docId, bool activo) async {
     await _catalogoCol(empresaId).doc(docId).update({
@@ -1773,6 +2353,21 @@ class ContenidoWebService {
 
   Future<void> eliminarItemCatalogo(String empresaId, String docId) async {
     await _catalogoCol(empresaId).doc(docId).delete();
+  }
+
+  Future<void> toggleLibroDelMesCatalogo(
+      String empresaId, String docId, bool actual) async {
+    final col = _catalogoCol(empresaId);
+    final batch = _firestore.batch();
+    // Quitar libro del mes de cualquier otro item
+    final actuales = await col.where('es_libro_del_mes', isEqualTo: true).get();
+    for (final d in actuales.docs) {
+      batch.update(d.reference, {'es_libro_del_mes': false});
+    }
+    if (!actual) {
+      batch.update(col.doc(docId), {'es_libro_del_mes': true});
+    }
+    await batch.commit();
   }
 
   /// Migra libros existentes de la colección `libros` a `catalogo_web`.

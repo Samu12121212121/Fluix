@@ -1,6 +1,16 @@
 {
   "indexes": [
     {
+      "collectionGroup": "pdf_templates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa_id", "order": "ASCENDING" },
+        { "fieldPath": "tipo",       "order": "ASCENDING" },
+        { "fieldPath": "es_default", "order": "ASCENDING" },
+        { "fieldPath": "activa",     "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "valoraciones",
       "queryScope": "COLLECTION",
       "fields": [
@@ -701,17 +711,86 @@
       ]
     },
     {
-      "collectionGroup": "blog",
+      "collectionGroup": "eventos",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "publicada",
+          "fieldPath": "activo",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "fecha_publicacion",
-          "order": "DESCENDING"
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
         }
+      ]
+    },
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "eliminado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "seleccion_nazari",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "blog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publicada",         "order": "ASCENDING" },
+        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipo",              "order": "ASCENDING" },
+        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eliminado",         "order": "ASCENDING" },
+        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seccion_id",        "order": "ASCENDING" },
+        { "fieldPath": "eliminado",         "order": "ASCENDING" },
+        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eliminado", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "ASCENDING" }
       ]
     },
     {
@@ -1085,16 +1164,6 @@
       ]
     },
     {
-      "collectionGroup": "valoraciones",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "clienteId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "trofeos",
       "queryScope": "COLLECTION",
       "fields": [
@@ -1109,11 +1178,33 @@
       ]
     },
     {
-      "collectionGroup": "transacciones",
+      "collectionGroup": "pdf_templates",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "fecha",
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_modificacion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pdf_templates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activa",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_modificacion",
           "order": "DESCENDING"
         }
       ]
