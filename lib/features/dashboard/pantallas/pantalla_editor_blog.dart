@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,12 +42,17 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   final _slugCtrl      = TextEditingController();
   final _resumenCtrl   = TextEditingController();
   final _contenidoCtrl = TextEditingController();
-  final _autorCtrl     = TextEditingController();
   final _etiquetaCtrl  = TextEditingController();
+  String  _autorNombre = '';
+  String? _autorId;
+  String? _libroId;
   final _seoTituloCtrl = TextEditingController();
   final _seoDescCtrl   = TextEditingController();
+  final _videoUrlCtrl  = TextEditingController();
+  final _audioUrlCtrl  = TextEditingController();
 
   String?      _imagenUrl;
+  List<String> _imagenes         = [];
   EstadoBlog   _estado           = EstadoBlog.borrador;
   String       _categoriaId      = '';
   DateTime     _fechaPublicacion = DateTime.now();
@@ -60,7 +65,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   bool         _seoExpanded      = true;
   bool         _opcionesExpanded = false;
   bool         _compartirExp     = false;
-  int          _leftTab          = 0;
   int          _rightTab         = 0;
   Timer?       _slugTimer;
 
@@ -142,14 +146,19 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
       _slugCtrl.text      = e.slug;
       _resumenCtrl.text   = e.resumen;
       _contenidoCtrl.text = e.contenido;
-      _autorCtrl.text     = e.autor;
+      _autorNombre        = e.autor;
+      _autorId            = e.autorId;
+      _libroId            = e.libroId;
       _etiquetas          = List.from(e.etiquetas);
       _imagenUrl          = e.imagenUrl;
+      _imagenes           = List.from(e.imagenes);
       _estado             = e.estado;
       _categoriaId        = e.categoriaId;
       _fechaPublicacion   = e.fechaPublicacion;
       _seoTituloCtrl.text = e.seoMetaTitle;
       _seoDescCtrl.text   = e.seoMetaDescription;
+      _videoUrlCtrl.text  = e.videoUrl ?? '';
+      _audioUrlCtrl.text  = e.audioUrl ?? '';
       _slugManual         = e.slug.isNotEmpty;
       // Mostrar renderizado por defecto cuando hay contenido
       _preview            = e.contenido.isNotEmpty;
@@ -163,8 +172,9 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   void dispose() {
     _scrollCtrl.dispose();
     _tituloCtrl.dispose();    _slugCtrl.dispose();      _resumenCtrl.dispose();
-    _contenidoCtrl.dispose(); _autorCtrl.dispose();     _etiquetaCtrl.dispose();
+    _contenidoCtrl.dispose(); _etiquetaCtrl.dispose();
     _seoTituloCtrl.dispose(); _seoDescCtrl.dispose();
+    _videoUrlCtrl.dispose();  _audioUrlCtrl.dispose();
     _slugTimer?.cancel();
     super.dispose();
   }
@@ -193,28 +203,388 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     if (widget.embedded) return _buildEmbedded(context, color);
 
-    final body = Column(children: [
-      _topBar(context, color),
+    // Layout Word — aplica tanto en modo standalone como embebido con callbacks
+    final wordBody = Column(children: [
+      _topBarWord(context, color),
+      _toolbarCompacto(color),
+      const Divider(height: 1, color: Color(0xFFE5E7EB)),
       Expanded(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _leftPanel(color),
-          Expanded(child: _centerPanel(color)),
-          _rightPanel(context, color),
-        ]),
+        child: _preview ? _buildPreview() : _buildAreaWord(color),
       ),
       _statusBar(color),
     ]);
 
-    // Con callbacks = modo embebido completo (sin Scaffold)
+    // Con callbacks = embebido en el panel lateral sin Scaffold propio
     if (widget.onGuardado != null || widget.onCancelar != null) {
       return LayoutBuilder(builder: (_, c) {
         final h = c.maxHeight.isInfinite ? null : c.maxHeight;
         return SizedBox(width: double.infinity, height: h,
-            child: ColoredBox(color: const Color(0xFFF5F7FA), child: body));
+            child: ColoredBox(color: const Color(0xFFF0F2F5), child: wordBody));
       });
     }
 
-    return Scaffold(backgroundColor: const Color(0xFFF5F7FA), body: body);
+    return Scaffold(backgroundColor: const Color(0xFFF0F2F5), body: wordBody);
+  }
+
+  // ── Top bar Word (simplificado) ───────────────────────────────────────────
+
+  Widget _topBarWord(BuildContext context, Color color) {
+    final titulo = _tituloCtrl.text.trim();
+    final label  = _esNuevo ? 'Nuevo artículo' : (titulo.isNotEmpty ? titulo : 'Sin título');
+
+    return Container(
+      height: 50,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE8EAED))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(children: [
+        // Volver
+        GestureDetector(
+          onTap: widget.onCancelar ?? () => Navigator.pop(context),
+          child: Row(children: const [
+            Icon(Icons.arrow_back_ios_new_rounded, size: 13, color: Color(0xFF6B7280)),
+            SizedBox(width: 4),
+            Text('Blog', style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          ]),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6),
+          child: Icon(Icons.chevron_right, size: 15, color: Color(0xFFD1D5DB)),
+        ),
+        // Título truncado
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827)),
+              overflow: TextOverflow.ellipsis),
+        ),
+        // Estado badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: _estado == EstadoBlog.publicado
+                ? const Color(0xFFDCFCE7)
+                : const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            _estado == EstadoBlog.publicado ? 'Publicado' : 'Borrador',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: _estado == EstadoBlog.publicado
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFD97706),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Preview / Edit toggle
+        _topBtn(
+          icon: _preview ? Icons.edit_note_rounded : Icons.visibility_outlined,
+          label: _preview ? 'Editar' : 'Preview',
+          onTap: () => setState(() => _preview = !_preview),
+        ),
+        const SizedBox(width: 6),
+        // Configuración (metadata)
+        _topBtn(
+          icon: Icons.tune_rounded,
+          label: 'Configurar',
+          onTap: () => _mostrarPanelOpciones(context, color),
+        ),
+        const SizedBox(width: 8),
+        // Publicar / Guardar
+        PopupMenuButton<String>(
+          onSelected: (v) async {
+            if (v == 'publicar') {
+              setState(() => _estado = EstadoBlog.publicado);
+              await _guardar(context);
+            } else if (v == 'borrador') {
+              setState(() => _estado = EstadoBlog.borrador);
+              await _guardar(context);
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'publicar', child: Row(children: [
+              const Icon(Icons.publish_rounded, size: 15, color: Color(0xFF059669)),
+              const SizedBox(width: 8),
+              const Text('Publicar', style: TextStyle(fontSize: 13, color: Color(0xFF059669),
+                  fontWeight: FontWeight.w600)),
+            ])),
+            PopupMenuItem(value: 'borrador', child: Row(children: [
+              const Icon(Icons.save_outlined, size: 15, color: Color(0xFF6B7280)),
+              const SizedBox(width: 8),
+              const Text('Guardar borrador', style: TextStyle(fontSize: 13)),
+            ])),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: _estado == EstadoBlog.publicado ? color : color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (_guardando)
+                const SizedBox(width: 12, height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              else
+                const Icon(Icons.publish_rounded, size: 14, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(
+                _estado == EstadoBlog.publicado ? 'Publicar' : 'Guardar',
+                style: const TextStyle(color: Colors.white, fontSize: 12.5,
+                    fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ── Toolbar compacta (una fila, esenciales) ──────────────────────────────
+
+  Widget _toolbarCompacto(Color color) {
+    return Container(
+      height: 38,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          // Tipo de bloque
+          PopupMenuButton<String>(
+            tooltip: 'Tipo de bloque',
+            onSelected: _cambiarTipoBloque,
+            itemBuilder: (_) => ['Párrafo', 'Título 1', 'Título 2', 'Título 3', 'Cita']
+                .map((t) => PopupMenuItem(value: t, child: Text(t,
+                    style: const TextStyle(fontSize: 13))))
+                .toList(),
+            child: _dropBtn('Párrafo'),
+          ),
+          _vsep(),
+          _tb(Icons.format_bold,          'Negrita',        () => _wrapSel('**')),
+          _tb(Icons.format_italic,        'Cursiva',        () => _wrapSel('_')),
+          _tb(Icons.format_strikethrough, 'Tachado',        () => _wrapSel('~~')),
+          _vsep(),
+          _tb(Icons.format_quote,         'Cita',           () => _linePrefix('> ')),
+          _tb(Icons.format_list_bulleted, 'Lista viñetas',  () => _linePrefix('- ')),
+          _tb(Icons.format_list_numbered, 'Lista numerada', () => _linePrefix('1. ')),
+          _tb(Icons.horizontal_rule,      'Separador',      () => _ins('\n\n---\n\n')),
+          _vsep(),
+          _tb(Icons.link_rounded,         'Enlace',         () => _ins('[texto](url)')),
+          _tb(Icons.add_photo_alternate_outlined, 'Subir imagen', () => _insertGaleria()),
+          _vsep(),
+          _tb(Icons.undo_rounded,         'Deshacer',       _undo),
+          _tb(Icons.redo_rounded,         'Rehacer',        _redo),
+        ]),
+      ),
+    );
+  }
+
+  // ── Área de escritura estilo Word ────────────────────────────────────────
+
+  Widget _buildAreaWord(Color color) {
+    final tipoLabel = {
+      'noticia':    'Noticia',
+      'entrevista': 'Entrevista',
+      'resena':     'Reseña',
+      'articulo':   'Artículo',
+    }[widget.entrada?.tipo ?? ''] ?? 'Artículo';
+
+    return SingleChildScrollView(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 740),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.07),
+                  blurRadius: 20, offset: const Offset(0, 2))],
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // ── Imagen de portada ─────────────────────────────────────────
+              if (_imagenUrl != null)
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  child: Image.network(_imagenUrl!, height: 220,
+                      width: double.infinity, fit: BoxFit.cover),
+                )
+              else
+                GestureDetector(
+                  onTap: _subiendoImg ? null : _subirImagenDestacada,
+                  child: Container(
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.add_photo_alternate_outlined,
+                          size: 20, color: color.withValues(alpha: 0.5)),
+                      const SizedBox(width: 8),
+                      Text('Añadir imagen de portada',
+                          style: TextStyle(fontSize: 12.5,
+                              color: color.withValues(alpha: 0.6))),
+                    ]),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(48, 32, 48, 40),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // ── Meta: tipo · autor · fecha ────────────────────────────
+                  Row(children: [
+                    Text(tipoLabel.toUpperCase(),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                            color: color, letterSpacing: .6)),
+                    if (_autorNombre.isNotEmpty) ...[
+                      Text('  ·  ', style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                      Text(_autorNombre,
+                          style: const TextStyle(fontSize: 10,
+                              color: Color(0xFF9CA3AF))),
+                    ],
+                    Text('  ·  ', style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                    Text(
+                      '${_fechaPublicacion.day} ${_nombreMes(_fechaPublicacion.month)} ${_fechaPublicacion.year}',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  // ── Título ─────────────────────────────────────────────────
+                  TextField(
+                    controller: _tituloCtrl,
+                    maxLines: null,
+                    style: const TextStyle(
+                      fontSize: 32, fontWeight: FontWeight.w800,
+                      height: 1.15, color: Color(0xFF111827),
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none, contentPadding: EdgeInsets.zero,
+                      hintText: 'Título del artículo',
+                      hintStyle: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
+                          height: 1.15, color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                  // ── Resumen / subtítulo ────────────────────────────────────
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _resumenCtrl,
+                    maxLines: null,
+                    style: const TextStyle(
+                      fontSize: 17, height: 1.6,
+                      color: Color(0xFF6B7280), fontStyle: FontStyle.italic,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none, contentPadding: EdgeInsets.zero,
+                      hintText: 'Añade un subtítulo o resumen breve…',
+                      hintStyle: TextStyle(fontSize: 17, height: 1.6,
+                          color: Color(0xFFE5E7EB), fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Divider(color: Colors.grey[200], height: 1),
+                  const SizedBox(height: 24),
+                  // ── Contenido ──────────────────────────────────────────────
+                  TextField(
+                    controller: _contenidoCtrl,
+                    maxLines: null,
+                    minLines: 18,
+                    style: const TextStyle(
+                      fontSize: 16, height: 1.85,
+                      color: Color(0xFF1F2937),
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none, contentPadding: EdgeInsets.zero,
+                      hintText: 'Empieza a escribir...',
+                      hintStyle: TextStyle(fontSize: 16, height: 1.85,
+                          color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _nombreMes(int m) {
+    const meses = ['enero','febrero','marzo','abril','mayo','junio',
+                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return meses[m - 1];
+  }
+
+  // ── Panel de opciones (metadata) ─────────────────────────────────────────
+
+  void _mostrarPanelOpciones(BuildContext context, Color color) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.97,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (ctx, scroll) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            // Cabecera
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(children: [
+                const Text('Configurar artículo',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _guardando ? null : () {
+                    Navigator.pop(ctx);
+                    _guardar(context);
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: color,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                  child: _guardando
+                      ? const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Guardar'),
+                ),
+              ]),
+            ),
+            const Divider(height: 1),
+            // Contenido del panel
+            Expanded(child: _rightPanel(ctx, color)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _subirImagenDestacada() async {
+    setState(() => _subiendoImg = true);
+    final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'blog/portadas');
+    if (mounted) setState(() { _imagenUrl = url; _subiendoImg = false; });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -252,130 +622,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     ]),
   );
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // TOP BAR
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _topBar(BuildContext context, Color color) {
-    return Container(
-      height: 52,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE8EAED))),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(children: [
-        // Breadcrumb
-        GestureDetector(
-          onTap: widget.onCancelar ?? () => Navigator.pop(context),
-          child: Row(children: const [
-            Icon(Icons.arrow_back_ios_new_rounded, size: 13, color: Color(0xFF6B7280)),
-            SizedBox(width: 4),
-            Text('Blog', style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
-          ]),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 6),
-          child: Icon(Icons.chevron_right, size: 16, color: Color(0xFFD1D5DB)),
-        ),
-        Text(
-          _esNuevo ? 'Nuevo artículo' : 'Editar artículo',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-              color: Color(0xFF111827)),
-        ),
-        const Spacer(),
-        // Vista previa
-        _topBtn(
-          icon: _preview ? Icons.edit_note_rounded : Icons.visibility_outlined,
-          label: _preview ? 'Editar' : 'Vista previa',
-          onTap: () => setState(() => _preview = !_preview),
-        ),
-        const SizedBox(width: 6),
-        // Vista web (fullscreen como visitante)
-        _topBtn(
-          icon: Icons.open_in_full_rounded,
-          label: 'Vista web',
-          onTap: () => _mostrarPreviewWeb(context),
-        ),
-        const SizedBox(width: 6),
-        // Abrir en la web real
-        if (_estado == EstadoBlog.publicado)
-          _topBtn(
-            icon: Icons.open_in_browser_rounded,
-            label: 'Ver en la web',
-            onTap: () => _abrirEnSitioWeb(context),
-          ),
-        const SizedBox(width: 8),
-        // Guardar borrador
-        _topBtn(
-          icon: Icons.save_outlined,
-          label: 'Guardar borrador',
-          color: color,
-          borderColor: color.withValues(alpha: 0.5),
-          onTap: _guardando ? null : () => _guardar(context),
-        ),
-        const SizedBox(width: 8),
-        // Publicar con dropdown
-        SizedBox(
-          height: 36,
-          child: Row(children: [
-            // Botón principal
-            FilledButton(
-              onPressed: _guardando ? null : () {
-                setState(() => _estado = EstadoBlog.publicado);
-                _guardar(context);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: color,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-              child: _guardando
-                  ? const SizedBox(width: 14, height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.add, size: 15, color: Colors.white),
-                      const SizedBox(width: 4),
-                      Text(
-                        _estado == EstadoBlog.publicado ? 'Actualizar' : 'Publicar',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                            color: Colors.white),
-                      ),
-                    ]),
-            ),
-            // Dropdown arrow
-            Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: color,
-                border: Border(left: BorderSide(color: Colors.white.withValues(alpha: 0.3))),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(8), bottomRight: Radius.circular(8)),
-              ),
-              child: PopupMenuButton<EstadoBlog>(
-                tooltip: 'Opciones',
-                onSelected: (e) => setState(() => _estado = e),
-                itemBuilder: (_) => EstadoBlog.values.map((e) => PopupMenuItem(
-                  value: e,
-                  child: Row(children: [
-                    Container(width: 8, height: 8,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: e.color),
-                        margin: const EdgeInsets.only(right: 8)),
-                    Text(e.label),
-                  ]),
-                )).toList(),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    );
-  }
 
   Widget _topBtn({
     required IconData icon,
@@ -395,188 +641,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     ),
   );
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // LEFT PANEL — Biblioteca de bloques
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _leftPanel(Color color) {
-    return Container(
-      width: 200,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE8EAED))),
-      ),
-      child: Column(children: [
-        _tabRow(['Bloques', 'Plantillas'], _leftTab, color,
-            (i) => setState(() => _leftTab = i)),
-        Expanded(
-          child: _leftTab == 0 ? _blockLibrary(color) : _plantillaEmpty(),
-        ),
-        // Consejo Pro
-        Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.18)),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(Icons.shield_outlined, size: 12, color: color),
-              const SizedBox(width: 5),
-              Text('Consejo Pro',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
-            ]),
-            const SizedBox(height: 5),
-            const Text('Usa / para abrir el menú rápido y añadir contenido al instante',
-                style: TextStyle(fontSize: 9.5, color: Color(0xFF6B7280), height: 1.4)),
-            const SizedBox(height: 6),
-            Text('Ver atajos de teclado →',
-                style: TextStyle(fontSize: 9.5, color: color,
-                    decoration: TextDecoration.underline)),
-          ]),
-        ),
-      ]),
-    );
-  }
-
-  Widget _blockLibrary(Color color) {
-    return ListView(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      children: [
-        _libLabel('BLOQUES DE CONTENIDO'),
-        _blockGrid([
-          ['T',   'Párrafo',    null,                  () => _ins('\n\n')],
-          ['H',   'Título',     null,                  () => _ins('# ')],
-          [null,  'Lista',      Icons.format_list_bulleted, () => _ins('- ')],
-          [null,  'Imagen',     Icons.image_outlined,  () => _ins('![alt](url)')],
-          [null,  'Galería',    Icons.photo_library_outlined, () => _insertGaleria()],
-          [null,  'Vídeo',      Icons.videocam_outlined, () => _insertVideo()],
-          [null,  'Cita',       Icons.format_quote,    () => _ins('> ')],
-          [null,  'Separador',  Icons.horizontal_rule, () => _ins('\n\n---\n\n')],
-          [null,  'Código',     Icons.code,            () => _ins('```\n\n```')],
-          [null,  'Tabla',      Icons.table_chart_outlined, _insertTabla],
-          [null,  'Acordeón',   Icons.expand_more,     () => _ins('## Pregunta\n\nRespuesta\n')],
-          [null,  'Tarjeta',    Icons.view_agenda_outlined, () => _ins('\n\n> 📋 **Título de la tarjeta**\n> \n> Contenido de la tarjeta...\n\n')],
-          [null,  'Iconos',     Icons.star_border,     () => _ins('\n\n⭐ **Punto destacado**\nDescripción del primer punto.\n\n⚡ **Otro punto**\nDescripción del segundo punto.\n\n🎯 **Tercer punto**\nDescripción del tercer punto.\n\n')],
-          [null,  'Timeline',   Icons.timeline,        () => _ins('\n\n📅 **${DateTime.now().year}** — Evento actual\n\n📅 **${DateTime.now().year - 1}** — Evento anterior\n\n📅 **${DateTime.now().year - 2}** — Evento histórico\n\n')],
-          [null,  'Mapa',       Icons.map_outlined,    () => _insertMapa()],
-          [null,  'Formulario', Icons.dynamic_form_outlined, () => _insertFormulario()],
-          [null,  'Artículos',  Icons.view_list_outlined, () => _ins('\n\n<!-- fluix-articulos: cantidad=3 titulo="Artículos relacionados" -->\n\n')],
-          ['<>',  'HTML',       null,                  () => _ins('<div>\n\n</div>')],
-        ]),
-        _libLabel('DISEÑO'),
-        _blockGrid([
-          [null, 'Espaciador', Icons.space_bar,              () => _ins('\n\n&nbsp;\n\n')],
-          [null, 'Divisor',    Icons.horizontal_rule,         () => _ins('\n---\n')],
-          [null, 'Caja',       Icons.crop_square_outlined,    () => _ins('> **Caja**\n> ')],
-          [null, 'Fondo',      Icons.format_color_fill,       () => _insertFondo()],
-          [null, 'Ancla',      Icons.anchor,                  () => _ins('<a id="ancla"></a>\n')],
-        ]),
-        _libLabel('REUTILIZABLES'),
-        _reuseRow(Icons.radio_button_unchecked, 'Mis bloques'),
-        _reuseRow(Icons.star_border_rounded,    'Bloques guardados'),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _libLabel(String t) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-    child: Text(t, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700,
-        color: Color(0xFF9CA3AF), letterSpacing: 0.6)),
-  );
-
-  Widget _blockGrid(List<List<dynamic>> defs) => GridView.count(
-    crossAxisCount: 3,
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    mainAxisSpacing: 4, crossAxisSpacing: 4, childAspectRatio: 0.88,
-    children: defs.map((d) => _blockTile(
-      label:  d[1] as String,
-      textIcon: d[0] as String?,
-      icon:   d[2] as IconData?,
-      onTap:  d[3] as VoidCallback,
-    )).toList(),
-  );
-
-  Widget _blockTile({
-    required String label,
-    String? textIcon,
-    IconData? icon,
-    required VoidCallback onTap,
-  }) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(7),
-    child: Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (textIcon != null)
-          Text(textIcon, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
-              color: Color(0xFF374151)))
-        else if (icon != null)
-          Icon(icon, size: 20, color: const Color(0xFF4B5563)),
-        const SizedBox(height: 3),
-        Text(label, textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 8.5, color: Color(0xFF4B5563)),
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-      ]),
-    ),
-  );
-
-  Widget _reuseRow(IconData icon, String label) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-    child: Row(children: [
-      Icon(icon, size: 15, color: const Color(0xFF6B7280)),
-      const SizedBox(width: 8),
-      Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF374151))),
-    ]),
-  );
-
-  Widget _plantillaEmpty() => Center(child: Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Icon(Icons.dashboard_customize_outlined, size: 36, color: Colors.grey[300]),
-      const SizedBox(height: 8),
-      Text('Sin plantillas', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-    ],
-  ));
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // CENTER — Editor
-  // ══════════════════════════════════════════════════════════════════════════
-  Widget _centerPanel(Color color) {
-    return Column(children: [
-      // Título + Slug (fondo blanco)
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(28, 14, 28, 0),
-        child: _titleSlugBlock(color),
-      ),
-      // Toolbar fila 1
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(28, 4, 28, 0),
-        child: _toolbarRow1(color),
-      ),
-      // Toolbar fila 2
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(28, 0, 28, 6),
-        child: _toolbarRow2(color),
-      ),
-      Container(height: 1, color: const Color(0xFFE8EAED)),
-      // Área de contenido
-      Expanded(
-        child: _preview ? _buildPreview() : _buildEditor(),
-      ),
-    ]);
-  }
 
   Widget _titleSlugBlock(Color color) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -668,62 +732,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     ]);
   }
 
-  // Toolbar fila 1: tipo de bloque + formato inline
-  Widget _toolbarRow1(Color color) {
-    return Builder(builder: (ctx) => SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        _buildTipoDropdown(),
-        _vsep(),
-        _tb(Icons.format_bold,         'Negrita (Ctrl+B)',   () => _wrapSel('**')),
-        _tb(Icons.format_italic,       'Cursiva (Ctrl+I)',   () => _wrapSel('_')),
-        _tb(Icons.format_underline,    'Subrayado',          () => _wrapSel('__')),
-        _tb(Icons.format_strikethrough,'Tachado',            () => _wrapSel('~~')),
-        _tb(Icons.code,                'Código inline',      () => _wrapSel('`')),
-        _vsep(),
-        _buildFontDropdown(),
-        _buildSizeDropdown(),
-        _vsep(),
-        _tb(Icons.format_color_text,   'Color de texto',     () => _mostrarColorTexto(ctx)),
-        _vsep(),
-        _tb(Icons.format_indent_increase, 'Indentar',        () => _linePrefix('  ')),
-        _tb(Icons.format_indent_decrease, 'Quitar sangría',  _sacarIndent),
-        _tb(Icons.format_quote,        'Cita',               () => _linePrefix('> ')),
-        _tb(Icons.format_list_bulleted,'Lista con viñetas',  () => _linePrefix('- ')),
-        _tb(Icons.format_list_numbered,'Lista numerada',     () => _linePrefix('1. ')),
-        _tb(Icons.table_chart_outlined,'Tabla',              _insertTabla),
-        _tb(Icons.grid_on,             'Columnas (2 col)',   _insertarColumnas),
-        _vsep(),
-        _tb(Icons.undo_rounded,        'Deshacer (Ctrl+Z)',  _undo),
-        _tb(Icons.redo_rounded,        'Rehacer (Ctrl+Y)',   _redo),
-        _vsep(),
-        _buildVariableDropdown(ctx),
-      ]),
-    ));
-  }
-
-  // Toolbar fila 2: mover bloques + media
-  Widget _toolbarRow2(Color color) {
-    return Builder(builder: (ctx) => SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        _tb(Icons.circle_outlined,       'Punto especial',    () => _linePrefix('• ')),
-        _tb(Icons.checklist_rounded,     'Casilla de check',  () => _linePrefix('- [ ] ')),
-        _vsep(),
-        _tb(Icons.arrow_upward_rounded,  'Subir línea',       _subirBloque),
-        _tb(Icons.arrow_downward_rounded,'Bajar línea',       _bajarBloque),
-        _vsep(),
-        _tb(Icons.link_rounded,          'Insertar enlace',   () => _ins('[texto](url)')),
-        _tb(Icons.image_outlined,        'Imagen por URL',    () => _ins('![alt](url)')),
-        _tb(Icons.add_photo_alternate_outlined, 'Subir imagen', () => _insertGaleria()),
-        _tb(Icons.videocam_outlined,     'Vídeo (YouTube/Vimeo)', () => _insertVideo()),
-        _tb(Icons.attach_file_rounded,   'Adjunto / PDF',     () => _ins('\n[📎 archivo.pdf](url-del-archivo)\n')),
-        _vsep(),
-        _tb(Icons.refresh_rounded,       'Actualizar preview', () => setState(() => _preview = true)),
-        _tb(Icons.settings_outlined,     'Info del bloque',   () => _mostrarAjustes(ctx)),
-      ]),
-    ));
-  }
 
   Widget _vsep() => Container(width: 1, height: 16,
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -755,47 +763,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     ]),
   );
 
-  Widget _buildEditor() => SingleChildScrollView(
-    controller: _scrollCtrl,
-    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12, offset: const Offset(0, 2))],
-          ),
-          padding: const EdgeInsets.all(36),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Hint cuando está vacío
-            if (_contenidoCtrl.text.isEmpty)
-              GestureDetector(
-                onTap: () {},
-                child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Empieza a escribir el contenido del artículo...',
-                      style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 15, height: 1.85)),
-                  SizedBox(height: 8),
-                  Text('Usa / para añadir bloques rápidamente o escribe Markdown directamente.',
-                      style: TextStyle(color: Color(0xFFE5E7EB), fontSize: 13, height: 1.6)),
-                ]),
-              ),
-            TextField(
-              controller: _contenidoCtrl,
-              maxLines: null, minLines: 22,
-              style: const TextStyle(fontSize: 15, height: 1.85, color: Color(0xFF1F2937),
-                  fontFamily: 'monospace'),
-              decoration: const InputDecoration(
-                border: InputBorder.none, contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ]),
-        ),
-      ),
-    ),
-  );
 
   // ══════════════════════════════════════════════════════════════════════════
   // BLOCK RENDERER — Renderizado visual tipo Gutenberg
@@ -1155,10 +1122,95 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
             ]),
             const SizedBox(height: 10),
             _rLabel('Autor'),
-            TextField(
-              controller: _autorCtrl,
-              style: const TextStyle(fontSize: 12),
-              decoration: _rDeco('Nombre del autor'),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: widget.svc.obtenerAutores(widget.empresaId),
+              builder: (_, snap) {
+                final autores = snap.data ?? [];
+                return GestureDetector(
+                  onTap: () => _abrirSelectorAutor(context, autores),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(children: [
+                      Expanded(child: Text(
+                        _autorNombre.isEmpty ? 'Seleccionar autor…' : _autorNombre,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _autorNombre.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )),
+                      const Icon(Icons.search_rounded, size: 15, color: Color(0xFF94A3B8)),
+                      if (_autorNombre.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => setState(() { _autorNombre = ''; _autorId = null; }),
+                          child: const Icon(Icons.clear_rounded, size: 14, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ]),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            _rLabel('Libro vinculado'),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: widget.svc.obtenerLibros(widget.empresaId),
+              builder: (_, snap) {
+                // Normalizar: algunos libros tienen 'nombre', otros 'titulo'
+                final libros = (snap.data ?? []).map((l) {
+                  final t = (l['titulo'] as String? ?? '').trim();
+                  final n = (l['nombre'] as String? ?? '').trim();
+                  return t.isNotEmpty ? l : {...l, 'titulo': n.isNotEmpty ? n : (l['id'] ?? '')};
+                }).toList();
+                final selTitulo = _libroId == null ? null
+                    : libros.where((l) => l['id']?.toString() == _libroId)
+                        .map((l) => l['titulo']?.toString() ?? _libroId!)
+                        .firstOrNull;
+                return GestureDetector(
+                  onTap: () => _abrirSelectorLibro(context, libros),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: _libroId != null
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _libroId != null
+                            ? const Color(0xFF86EFAC)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Row(children: [
+                      Icon(
+                        _libroId != null ? Icons.menu_book_rounded : Icons.search_rounded,
+                        size: 15,
+                        color: _libroId != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(
+                        selTitulo ?? 'Seleccionar libro…',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _libroId != null ? const Color(0xFF15803D) : const Color(0xFF94A3B8),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )),
+                      if (_libroId != null)
+                        GestureDetector(
+                          onTap: () => setState(() => _libroId = null),
+                          child: const Icon(Icons.clear_rounded, size: 14, color: Color(0xFF94A3B8)),
+                        ),
+                    ]),
+                  ),
+                );
+              },
             ),
             if (!_esNuevo) ...[
               const SizedBox(height: 10),
@@ -1330,6 +1382,64 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         ),
         _rDivider(),
 
+        // ── Imágenes adicionales (carrusel) ───────────────────────────────
+        _rSection(
+          'Imágenes adicionales',
+          children: [
+            const Text(
+              'Se muestran como carrusel junto a la imagen de portada.',
+              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 10),
+            if (_imagenes.isNotEmpty)
+              SizedBox(
+                height: 90,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _imagenes.length + 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) {
+                    if (i == _imagenes.length) {
+                      return _addImagenBtn(color);
+                    }
+                    final url = _imagenes[i];
+                    return Stack(clipBehavior: Clip.none, children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(url,
+                            width: 90, height: 90, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 90, height: 90,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.broken_image_outlined,
+                                  color: Color(0xFFD1D5DB)),
+                            )),
+                      ),
+                      Positioned(
+                        top: -6, right: -6,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _imagenes.removeAt(i)),
+                          child: Container(
+                            width: 20, height: 20,
+                            decoration: const BoxDecoration(
+                              color: Colors.red, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ]);
+                  },
+                ),
+              )
+            else
+              _addImagenBtn(color),
+          ],
+        ),
+        _rDivider(),
+
         // ── SEO (colapsable) ──────────────────────────────────────────────
         _collapseHeader('SEO', _seoExpanded,
             () => setState(() => _seoExpanded = !_seoExpanded)),
@@ -1348,6 +1458,47 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
               maxLines: 3, style: const TextStyle(fontSize: 12),
               decoration: _rDeco('Breve resumen del artículo'),
             ),
+            const SizedBox(height: 12),
+            // ── Media embebida ──────────────────────────────────────
+            Row(children: [
+              const Icon(Icons.videocam_outlined, size: 14, color: Color(0xFF6B7280)),
+              const SizedBox(width: 6),
+              Text('Media embebida', style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF374151),
+                letterSpacing: .3)),
+            ]),
+            const SizedBox(height: 6),
+            _rLabel('Vídeo (YouTube, Vimeo o URL directa de vídeo)'),
+            TextField(
+              controller: _videoUrlCtrl,
+              style: const TextStyle(fontSize: 12),
+              decoration: _rDeco('https://www.youtube.com/watch?v=... o URL .mp4'),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (_videoUrlCtrl.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                _videoUrlCtrl.text.contains('youtube') || _videoUrlCtrl.text.contains('youtu.be')
+                    ? '✓ YouTube detectado'
+                    : _videoUrlCtrl.text.contains('vimeo')
+                        ? '✓ Vimeo detectado'
+                        : '✓ Vídeo directo',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A)),
+              ),
+            ],
+            const SizedBox(height: 8),
+            _rLabel('Audio (URL directa .mp3, .m4a, .ogg…)'),
+            TextField(
+              controller: _audioUrlCtrl,
+              style: const TextStyle(fontSize: 12),
+              decoration: _rDeco('https://... .mp3'),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (_audioUrlCtrl.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('✓ Audio añadido',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A))),
+            ],
           ]),
         ),
         _rDivider(),
@@ -1685,221 +1836,38 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   // ACCIONES
   // ══════════════════════════════════════════════════════════════════════════
 
-  /// Preview fullscreen como lo verá el visitante de la web.
-  Future<String?> _obtenerDominio() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('empresas').doc(widget.empresaId)
-          .collection('configuracion').doc('web_avanzada')
-          .get();
-      return doc.data()?['dominio_propio_url'] as String?;
-    } catch (_) { return null; }
-  }
-
-  Future<void> _abrirEnSitioWeb(BuildContext ctx) async {
-    final dominio = await _obtenerDominio();
-    if (dominio == null || dominio.isEmpty) {
-      if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-        content: Text('Configura el dominio en la sección "Configuración" para abrir en el sitio'),
-        backgroundColor: Colors.orange,
-      ));
-      return;
-    }
-    final slug = _slugCtrl.text.trim();
-    final base = dominio.endsWith('/') ? dominio : '$dominio/';
-    final url = Uri.parse('${base}blog/$slug');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  void _mostrarPreviewWeb(BuildContext ctx) {
-    final color = context.read<AppConfigProvider>().colorPrimario;
-    showDialog(
-      context: ctx,
-      barrierDismissible: true,
-      builder: (dCtx) => Dialog(
-        insetPadding: const EdgeInsets.all(0),
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: const Color(0xFFF9FAFB),
-          child: Column(children: [
-            // ── Barra superior ─────────────────────────────────────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(children: [
-                const Icon(Icons.language_rounded, size: 16, color: Color(0xFF6B7280)),
-                const SizedBox(width: 8),
-                Expanded(child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'tusitio.com/blog/${_slugCtrl.text.isEmpty ? 'tu-articulo' : _slugCtrl.text}',
-                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace',
-                        color: Color(0xFF374151)),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                )),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                  ),
-                  child: const Text('Vista previa web',
-                      style: TextStyle(fontSize: 10.5, color: Color(0xFF1D4ED8), fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => Navigator.pop(dCtx),
-                  child: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF6B7280)),
-                ),
-              ]),
-            ),
-            const Divider(height: 1),
-            // ── Contenido del artículo ─────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      // Imagen destacada
-                      if (_imagenUrl != null)
-                        CachedNetworkImage(imageUrl: _imagenUrl!,
-                            width: double.infinity, height: 380, fit: BoxFit.cover,
-                            errorWidget: (_, e, s) => const SizedBox.shrink()),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(32, 40, 32, 60),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          // Categoría
-                          if (_categoriaId.isNotEmpty)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                widget.categorias
-                                    .where((c) => c.id == _categoriaId)
-                                    .firstOrNull?.nombre ?? '',
-                                style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          // Título
-                          Text(
-                            _tituloCtrl.text.isEmpty ? 'Sin título' : _tituloCtrl.text,
-                            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800,
-                                height: 1.2, color: Color(0xFF111827), letterSpacing: -0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          // Metadata
-                          Row(children: [
-                            Container(
-                              width: 34, height: 34,
-                              decoration: BoxDecoration(color: color.withValues(alpha: 0.15),
-                                  shape: BoxShape.circle),
-                              child: Center(child: Text(
-                                _autorCtrl.text.isEmpty ? 'A' : _autorCtrl.text[0].toUpperCase(),
-                                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 14),
-                              )),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(_autorCtrl.text.isEmpty ? 'Autor' : _autorCtrl.text,
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                                      color: Color(0xFF374151))),
-                              Text(
-                                '${_fechaPublicacion.day}/${_fechaPublicacion.month}/${_fechaPublicacion.year} · $_minLectura min de lectura · $_palabras palabras',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF9CA3AF)),
-                              ),
-                            ]),
-                          ]),
-                          // Etiquetas
-                          if (_etiquetas.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Wrap(spacing: 6, runSpacing: 4, children: _etiquetas.map((t) =>
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text('#$t', style: const TextStyle(fontSize: 11.5,
-                                    color: Color(0xFF6B7280))),
-                              )
-                            ).toList()),
-                          ],
-                          const SizedBox(height: 32),
-                          const Divider(),
-                          const SizedBox(height: 32),
-                          // Contenido Markdown
-                          if (_contenidoCtrl.text.isEmpty)
-                            const Center(child: Padding(
-                              padding: EdgeInsets.all(40),
-                              child: Text('Sin contenido todavía',
-                                  style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 16)),
-                            ))
-                          else
-                            MarkdownBody(
-                              data: _contenidoCtrl.text,
-                              selectable: true,
-                              styleSheet: MarkdownStyleSheet(
-                                h1: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800,
-                                    height: 1.3, color: Color(0xFF111827)),
-                                h2: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700,
-                                    height: 1.35, color: Color(0xFF111827)),
-                                h3: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700,
-                                    height: 1.4, color: Color(0xFF1F2937)),
-                                p: const TextStyle(fontSize: 17, height: 1.85,
-                                    color: Color(0xFF374151)),
-                                strong: const TextStyle(fontWeight: FontWeight.w700,
-                                    color: Color(0xFF111827)),
-                                em: const TextStyle(fontStyle: FontStyle.italic),
-                                a: TextStyle(color: color, decoration: TextDecoration.underline),
-                                blockquote: const TextStyle(fontSize: 17, height: 1.85,
-                                    color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
-                                blockquoteDecoration: BoxDecoration(
-                                  border: const Border(left: BorderSide(color: Color(0xFFE5E7EB), width: 4)),
-                                  color: const Color(0xFFF9FAFB),
-                                ),
-                                code: const TextStyle(fontFamily: 'monospace', fontSize: 14,
-                                    backgroundColor: Color(0xFFF3F4F6), color: Color(0xFFD1477A)),
-                                codeblockDecoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                listBullet: const TextStyle(fontSize: 17, color: Color(0xFF374151)),
-                              ),
-                            ),
-                        ]),
-                      ),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
 
   Future<void> _subirImagen() async {
     setState(() => _subiendoImg = true);
     final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'web/blog');
     if (mounted) setState(() { _imagenUrl = url ?? _imagenUrl; _subiendoImg = false; });
+  }
+
+  Future<void> _subirImagenAdicional() async {
+    final url = await widget.svc.subirImagenDesdeGaleria(
+        widget.empresaId, 'web/blog/imagenes');
+    if (mounted && url != null) setState(() => _imagenes.add(url));
+  }
+
+  Widget _addImagenBtn(Color color) {
+    return InkWell(
+      onTap: _subirImagenAdicional,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 90, height: 90,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.25), style: BorderStyle.solid),
+        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.add_photo_alternate_outlined, color: color, size: 22),
+          const SizedBox(height: 4),
+          Text('Añadir', style: TextStyle(color: color, fontSize: 10,
+              fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
   }
 
   void _verImagenCompleta(BuildContext context, String url) {
@@ -1955,6 +1923,214 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     );
   }
 
+  Future<void> _abrirSelectorAutor(
+      BuildContext context, List<Map<String, dynamic>> autores) async {
+    final ctrl = TextEditingController();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final q = ctrl.text.toLowerCase();
+          final filtrados = q.isEmpty
+              ? autores
+              : autores.where((a) =>
+                  (a['nombre']?.toString() ?? '').toLowerCase().contains(q)).toList();
+          return SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            child: Column(children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Seleccionar autor',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar autor…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      suffixIcon: ctrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () { ctrl.clear(); setModal(() {}); })
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF8F9FB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF2563EB))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setModal(() {}),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
+                    title: const Text('— Sin autor vinculado —',
+                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    onTap: () {
+                      setState(() { _autorNombre = ''; _autorId = null; });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  ...filtrados.map((a) {
+                    final id = a['id']?.toString() ?? '';
+                    final nombre = a['nombre']?.toString() ?? '';
+                    return ListTile(
+                      leading: Icon(Icons.check_circle_outline_rounded,
+                          size: 18,
+                          color: _autorId == id ? const Color(0xFF2563EB) : Colors.grey[300]),
+                      title: Text(nombre, style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: _autorId == id ? FontWeight.w600 : FontWeight.normal,
+                      )),
+                      selected: _autorId == id,
+                      selectedTileColor: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                      onTap: () {
+                        setState(() { _autorNombre = nombre; _autorId = id; });
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }),
+                  if (filtrados.isEmpty)
+                    Padding(padding: const EdgeInsets.all(24),
+                      child: Center(child: Text('Sin resultados para "${ctrl.text}"',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13)))),
+                ],
+              )),
+            ]),
+          );
+        },
+      ),
+    );
+    ctrl.dispose();
+  }
+
+  Future<void> _abrirSelectorLibro(
+      BuildContext context, List<Map<String, dynamic>> libros) async {
+    final ctrl = TextEditingController();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final q = ctrl.text.toLowerCase();
+          final filtrados = q.isEmpty
+              ? libros
+              : libros.where((l) =>
+                  (l['titulo']?.toString() ?? l['nombre']?.toString() ?? '').toLowerCase().contains(q) ||
+                  (l['autor']?.toString() ?? l['campo_autor']?.toString() ?? '').toLowerCase().contains(q))
+                  .toList();
+          return SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            child: Column(children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Seleccionar libro',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por título o autor…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      suffixIcon: ctrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () { ctrl.clear(); setModal(() {}); })
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF8F9FB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF2563EB))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setModal(() {}),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
+                    title: const Text('— Sin libro vinculado —',
+                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    onTap: () {
+                      setState(() => _libroId = null);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  ...filtrados.map((l) {
+                    final id     = l['id']?.toString() ?? '';
+                    final titulo = l['titulo']?.toString() ?? l['nombre']?.toString() ?? '';
+                    final autor  = l['autor']?.toString() ?? l['campo_autor']?.toString() ?? '';
+                    return ListTile(
+                      leading: Icon(Icons.menu_book_rounded,
+                          size: 18,
+                          color: _libroId == id ? const Color(0xFF2563EB) : Colors.grey[300]),
+                      title: Text(titulo, style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: _libroId == id ? FontWeight.w600 : FontWeight.normal,
+                      )),
+                      subtitle: autor.isNotEmpty
+                          ? Text(autor, style: const TextStyle(fontSize: 11.5, color: Colors.grey))
+                          : null,
+                      selected: _libroId == id,
+                      selectedTileColor: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                      onTap: () {
+                        setState(() => _libroId = id);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }),
+                  if (filtrados.isEmpty)
+                    Padding(padding: const EdgeInsets.all(24),
+                      child: Center(child: Text('Sin resultados para "${ctrl.text}"',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13)))),
+                ],
+              )),
+            ]),
+          );
+        },
+      ),
+    );
+    ctrl.dispose();
+  }
+
   Future<void> _guardar(BuildContext context) async {
     if (_tituloCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -1978,16 +2154,21 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
       resumen: _resumenCtrl.text.trim(),
       contenido: _contenidoCtrl.text,
       imagenUrl: _imagenUrl,
+      imagenes: _imagenes,
       estado: _estado,
       fechaPublicacion: _fechaPublicacion,
       etiquetas: _etiquetas,
-      autor: _autorCtrl.text.trim(),
+      autor: _autorNombre.trim(),
       categoriaId: _categoriaId,
       seoMetaTitle: _seoTituloCtrl.text.trim(),
       seoMetaDescription: _seoDescCtrl.text.trim(),
       seoKeywords: const [],
       eliminado: false,
       tipo: widget.entrada?.tipo ?? 'articulo',
+      videoUrl: _videoUrlCtrl.text.trim().isEmpty ? null : _videoUrlCtrl.text.trim(),
+      audioUrl: _audioUrlCtrl.text.trim().isEmpty ? null : _audioUrlCtrl.text.trim(),
+      autorId: _autorId,
+      libroId: _libroId,
     );
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
@@ -2044,156 +2225,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     }
   }
 
-  void _insertVideo() {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Insertar vídeo'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'URL del vídeo',
-            hintText: 'https://www.youtube.com/watch?v=...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              final url = ctrl.text.trim();
-              if (url.isEmpty) return;
-              String embed = url;
-              final yt = RegExp(r'(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)').firstMatch(url);
-              if (yt != null) embed = 'https://www.youtube.com/embed/${yt.group(1)}';
-              final vm = RegExp(r'vimeo\.com/(\d+)').firstMatch(url);
-              if (vm != null) embed = 'https://player.vimeo.com/video/${vm.group(1)}';
-              _ins('\n\n<iframe src="$embed" width="100%" height="360" '
-                  'frameborder="0" allowfullscreen '
-                  'style="border-radius:8px;display:block"></iframe>\n\n');
-              Navigator.pop(ctx);
-            },
-            child: const Text('Insertar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _insertMapa() {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Insertar mapa'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Dirección o nombre del lugar',
-            hintText: 'Ej: Gran Vía, Madrid',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              final lugar = ctrl.text.trim();
-              if (lugar.isEmpty) return;
-              final q = Uri.encodeComponent(lugar);
-              _ins('\n\n<iframe '
-                  'src="https://maps.google.com/maps?q=$q&output=embed" '
-                  'width="100%" height="350" '
-                  'style="border:0;border-radius:8px;display:block" '
-                  'allowfullscreen loading="lazy"></iframe>\n\n');
-              Navigator.pop(ctx);
-            },
-            child: const Text('Insertar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _insertFormulario() {
-    final tituloCtrl = TextEditingController(text: 'Contacta con nosotros');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Insertar formulario de contacto'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: tituloCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Título del formulario',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Se insertará el formulario Fluix con campos: nombre, email y mensaje.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              final titulo = tituloCtrl.text.trim().isEmpty ? 'Contacto' : tituloCtrl.text.trim();
-              _ins('\n\n<!-- fluix-form titulo="$titulo" campos="nombre,email,mensaje" boton="Enviar" -->\n\n');
-              Navigator.pop(ctx);
-            },
-            child: const Text('Insertar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _insertFondo() {
-    const opciones = [
-      ('Azul suave',    'EFF6FF', 'DBEAFE'),
-      ('Verde suave',   'F0FDF4', 'BBF7D0'),
-      ('Amarillo suave','FFFBEB', 'FDE68A'),
-      ('Rosa suave',    'FDF2F8', 'FBCFE8'),
-      ('Morado suave',  'F5F3FF', 'DDD6FE'),
-      ('Gris claro',    'F8FAFC', 'E2E8F0'),
-    ];
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Color de fondo'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: opciones.map((o) {
-          final bg = Color(int.parse('FF${o.$2}', radix: 16));
-          final border = Color(int.parse('FF${o.$3}', radix: 16));
-          return ListTile(
-            dense: true,
-            leading: Container(
-              width: 28, height: 28,
-              decoration: BoxDecoration(
-                color: bg, borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: border),
-              ),
-            ),
-            title: Text(o.$1, style: const TextStyle(fontSize: 13)),
-            onTap: () {
-              _ins('\n\n<div style="background:#${o.$2};border:1px solid #${o.$3};'
-                  'padding:20px;border-radius:10px;margin:16px 0">\n\n'
-                  'Contenido sobre fondo ${o.$1.toLowerCase()}...\n\n'
-                  '</div>\n\n');
-              Navigator.pop(ctx);
-            },
-          );
-        }).toList()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ],
-      ),
-    );
-  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // TOOLBAR HELPERS — con soporte undo/redo
@@ -2234,21 +2265,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         TextSelection.collapsed(offset: sel.start + wrapped.length);
   }
 
-  /// Envuelve la selección (o inserta placeholder) con etiquetas HTML.
-  void _wrapConHtml(String before, String after) {
-    _snapshot();
-    final sel = _contenidoCtrl.selection;
-    if (!sel.isValid || sel.isCollapsed) {
-      _ins('${before}texto$after');
-      return;
-    }
-    final t = _contenidoCtrl.text;
-    final selected = t.substring(sel.start, sel.end);
-    final wrapped = '$before$selected$after';
-    _contenidoCtrl.text = t.substring(0, sel.start) + wrapped + t.substring(sel.end);
-    _contenidoCtrl.selection = TextSelection.collapsed(offset: sel.start + wrapped.length);
-  }
-
   void _linePrefix(String prefix) {
     _snapshot();
     final t = _contenidoCtrl.text;
@@ -2262,94 +2278,8 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   }
 
   /// Elimina el prefijo de la línea actual (indent, bullet, cita, etc.).
-  void _sacarIndent() {
-    _snapshot();
-    final t = _contenidoCtrl.text;
-    final pos = _contenidoCtrl.selection.isValid ? _contenidoCtrl.selection.start : t.length;
-    final ls = t.lastIndexOf('\n', pos > 0 ? pos - 1 : 0);
-    final at = ls < 0 ? 0 : ls + 1;
-    final resto = t.substring(at);
-    final prefijos = ['  ', '> ', '• ', '- ', '1. ', '# ', '## ', '### '];
-    for (final p in prefijos) {
-      if (resto.startsWith(p)) {
-        _contenidoCtrl.text = t.substring(0, at) + resto.substring(p.length);
-        _contenidoCtrl.selection = TextSelection.collapsed(
-            offset: (pos - p.length).clamp(at, _contenidoCtrl.text.length));
-        setState(() {});
-        return;
-      }
-    }
-  }
 
-  void _ins(String text) {
-    _snapshot();
-    final t = _contenidoCtrl.text;
-    final pos = _contenidoCtrl.selection.isValid
-        ? _contenidoCtrl.selection.end : t.length;
-    _contenidoCtrl.text = t.substring(0, pos) + text + t.substring(pos);
-    _contenidoCtrl.selection =
-        TextSelection.collapsed(offset: pos + text.length);
-  }
 
-  void _insertTabla() => _ins(
-    '\n\n| Columna 1 | Columna 2 | Columna 3 |\n'
-    '|-----------|-----------|----------|\n'
-    '| Celda 1   | Celda 2   | Celda 3  |\n\n',
-  );
-
-  void _insertarColumnas() => _ins(
-    '\n\n<div style="display:grid;grid-template-columns:1fr 1fr;'
-    'gap:24px;margin:20px 0;align-items:start">\n'
-    '<div>\n\nContenido de la columna izquierda...\n\n</div>\n'
-    '<div>\n\nContenido de la columna derecha...\n\n</div>\n'
-    '</div>\n\n',
-  );
-
-  // ── Subir / Bajar bloque (línea) ──────────────────────────────────────────
-
-  void _subirBloque() {
-    _snapshot();
-    final t = _contenidoCtrl.text;
-    final pos = _contenidoCtrl.selection.isValid ? _contenidoCtrl.selection.start : t.length;
-    final lines = t.split('\n');
-    int charPos = 0;
-    int lineIdx = lines.length - 1;
-    for (int i = 0; i < lines.length; i++) {
-      if (charPos + lines[i].length >= pos) { lineIdx = i; break; }
-      charPos += lines[i].length + 1;
-    }
-    if (lineIdx == 0) return;
-    final temp = lines[lineIdx];
-    lines[lineIdx] = lines[lineIdx - 1];
-    lines[lineIdx - 1] = temp;
-    _contenidoCtrl.text = lines.join('\n');
-    int newPos = 0;
-    for (int i = 0; i < lineIdx - 1; i++) newPos += lines[i].length + 1;
-    _contenidoCtrl.selection = TextSelection.collapsed(offset: newPos);
-    setState(() {});
-  }
-
-  void _bajarBloque() {
-    _snapshot();
-    final t = _contenidoCtrl.text;
-    final pos = _contenidoCtrl.selection.isValid ? _contenidoCtrl.selection.start : t.length;
-    final lines = t.split('\n');
-    int charPos = 0;
-    int lineIdx = lines.length - 1;
-    for (int i = 0; i < lines.length; i++) {
-      if (charPos + lines[i].length >= pos) { lineIdx = i; break; }
-      charPos += lines[i].length + 1;
-    }
-    if (lineIdx >= lines.length - 1) return;
-    final temp = lines[lineIdx];
-    lines[lineIdx] = lines[lineIdx + 1];
-    lines[lineIdx + 1] = temp;
-    _contenidoCtrl.text = lines.join('\n');
-    int newPos = 0;
-    for (int i = 0; i <= lineIdx; i++) newPos += lines[i].length + 1;
-    _contenidoCtrl.selection = TextSelection.collapsed(offset: newPos.clamp(0, _contenidoCtrl.text.length));
-    setState(() {});
-  }
 
   // ── Cambiar tipo de bloque ─────────────────────────────────────────────────
 
@@ -2378,84 +2308,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
 
   // ── Diálogos ───────────────────────────────────────────────────────────────
 
-  void _mostrarColorTexto(BuildContext ctx) {
-    const opciones = [
-      ('Rojo',    Color(0xFFEF4444)),
-      ('Naranja', Color(0xFFF97316)),
-      ('Amarillo',Color(0xFFEAB308)),
-      ('Verde',   Color(0xFF10B981)),
-      ('Azul',    Color(0xFF3B82F6)),
-      ('Morado',  Color(0xFF8B5CF6)),
-      ('Rosa',    Color(0xFFEC4899)),
-      ('Gris',    Color(0xFF6B7280)),
-      ('Negro',   Color(0xFF111827)),
-    ];
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Color de texto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        content: Wrap(
-          spacing: 10, runSpacing: 10,
-          children: opciones.map((o) {
-            final hex = o.$2.value.toRadixString(16).substring(2).toUpperCase();
-            return Tooltip(
-              message: o.$1,
-              child: GestureDetector(
-                onTap: () {
-                  _wrapConHtml('<span style="color:#$hex">', '</span>');
-                  Navigator.pop(dCtx);
-                },
-                child: Container(width: 36, height: 36,
-                  decoration: BoxDecoration(color: o.$2, shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300))),
-              ),
-            );
-          }).toList(),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancelar'))],
-      ),
-    );
-  }
-
-  void _mostrarVariables(BuildContext ctx) {
-    const vars = [
-      ('{{nombre_empresa}}', 'Nombre de la empresa'),
-      ('{{telefono}}',       'Teléfono de contacto'),
-      ('{{email}}',          'Email de contacto'),
-      ('{{web}}',            'URL del sitio web'),
-      ('{{direccion}}',      'Dirección postal'),
-      ('{{ciudad}}',         'Ciudad'),
-      ('{{horario}}',        'Horario de apertura'),
-      ('{{fecha}}',          'Fecha de hoy'),
-      ('{{año}}',            'Año actual'),
-      ('{{mes}}',            'Mes actual'),
-    ];
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Insertar variable dinámica',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        content: SizedBox(
-          width: 320,
-          child: ListView(shrinkWrap: true, children: vars.map((v) =>
-            ListTile(
-              dense: true,
-              title: Text(v.$1, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 12, color: Color(0xFF3B82F6))),
-              subtitle: Text(v.$2, style: const TextStyle(fontSize: 11)),
-              onTap: () {
-                _ins(v.$1);
-                Navigator.pop(dCtx);
-              },
-            )
-          ).toList()),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cerrar'))],
-      ),
-    );
-  }
 
   Future<void> _mostrarHistorialVersiones(BuildContext ctx) async {
     if (widget.entrada?.id == null || widget.entrada!.id.isEmpty) return;
@@ -2564,95 +2416,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
       ),
     );
   }
-
-  void _mostrarAjustes(BuildContext ctx) {
-    final t = _contenidoCtrl.text;
-    final pos = _contenidoCtrl.selection.isValid ? _contenidoCtrl.selection.start : t.length;
-    final ls = t.lastIndexOf('\n', pos > 0 ? pos - 1 : 0);
-    final at = ls < 0 ? 0 : ls + 1;
-    final end = t.indexOf('\n', pos).let((i) => i < 0 ? t.length : i);
-    final line = t.substring(at, end);
-    final tipo = line.startsWith('# ') ? 'Título 1'
-        : line.startsWith('## ') ? 'Título 2'
-        : line.startsWith('### ') ? 'Título 3'
-        : line.startsWith('> ') ? 'Cita'
-        : line.startsWith('- ') ? 'Lista'
-        : line.startsWith('![') ? 'Imagen'
-        : 'Párrafo';
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Bloque actual', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _infoRow('Tipo', tipo),
-          _infoRow('Línea', '${t.substring(0, at).split('\n').length}'),
-          _infoRow('Caracteres', '${line.length}'),
-          _infoRow('Palabras', '${line.trim().isEmpty ? 0 : line.trim().split(RegExp(r'\s+')).length}'),
-          if (line.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(6)),
-              child: Text(line.length > 80 ? '${line.substring(0, 80)}...' : line,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF374151))),
-            ),
-          ],
-        ]),
-        actions: [TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cerrar'))],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(children: [
-      SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280)))),
-      Text(value, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
-    ]),
-  );
-
-  // ── Dropdowns funcionales ──────────────────────────────────────────────────
-
-  Widget _buildTipoDropdown() => PopupMenuButton<String>(
-    tooltip: 'Tipo de bloque',
-    onSelected: _cambiarTipoBloque,
-    itemBuilder: (_) => ['Párrafo', 'Título 1', 'Título 2', 'Título 3', 'Cita']
-        .map((t) => PopupMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13))))
-        .toList(),
-    child: _dropBtn('Párrafo'),
-  );
-
-  Widget _buildFontDropdown() {
-    const fonts = ['Inter', 'Georgia', 'Arial', 'Courier New', 'Verdana'];
-    return PopupMenuButton<String>(
-      tooltip: 'Fuente del texto',
-      onSelected: (f) => _wrapConHtml('<span style="font-family:\'$f\',sans-serif">', '</span>'),
-      itemBuilder: (_) => fonts.map((f) => PopupMenuItem(
-        value: f,
-        child: Text(f, style: TextStyle(fontFamily: f, fontSize: 13)),
-      )).toList(),
-      child: _dropBtn('Inter'),
-    );
-  }
-
-  Widget _buildSizeDropdown() {
-    const sizes = ['12', '14', '16', '18', '20', '24', '28', '32'];
-    return PopupMenuButton<String>(
-      tooltip: 'Tamaño de texto',
-      onSelected: (s) => _wrapConHtml('<span style="font-size:${s}px">', '</span>'),
-      itemBuilder: (_) => sizes.map((s) => PopupMenuItem(
-        value: s,
-        child: Text('$s px', style: TextStyle(fontSize: (double.tryParse(s) ?? 13).clamp(10, 18))),
-      )).toList(),
-      child: _dropBtn('16'),
-    );
-  }
-
-  Widget _buildVariableDropdown(BuildContext ctx) => GestureDetector(
-    onTap: () => _mostrarVariables(ctx),
-    child: _dropBtn('Insertar variable'),
-  );
 }
 
 extension _Let<T> on T {
