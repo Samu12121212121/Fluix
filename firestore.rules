@@ -349,13 +349,10 @@ service cloud.firestore {
 
   match /notificaciones/{empresaId}/items/{itemId} {
     allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-    allow update: if perteneceAEmpresa(empresaId)
+    allow update: if (perteneceAEmpresa(empresaId) || esPlataformaAdmin())
       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
-    // Miembros de la empresa pueden crear notificaciones internas (vacaciones, tareas, etc.)
-    allow create: if perteneceAEmpresa(empresaId)
-      && request.resource.data.keys().hasAll(['titulo', 'cuerpo', 'tipo', 'leida', 'timestamp'])
-      && request.resource.data.leida == false
-      && request.resource.data.size() <= 20;
+    // Miembros de la empresa y Cloud Functions pueden crear notificaciones internas
+    allow create: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
     allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
   }
 
@@ -723,6 +720,20 @@ service cloud.firestore {
     match /blog/{postId} {
       allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Herramienta de importación masiva (usuario anónimo — solo empresa Nazarí)
+      allow create: if esAnonimo()
+          && empresaId == '0PoomHYDUJf5w8tDFRLhFi9iURF3'
+          && request.resource.data.keys().hasAll(['titulo', 'slug', 'tipo', 'estado'])
+          && request.resource.data.titulo is string
+          && request.resource.data.titulo.size() > 0
+          && request.resource.data.tipo in ['entrevista', 'noticia']
+          && request.resource.data.estado == 'publicado'
+          && request.resource.data.get('eliminado', false) == false;
+
+      // Historial de versiones del editor
+      match /versiones/{versionId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
     }
 
     match /blog_categorias/{catId} {
@@ -765,9 +776,14 @@ service cloud.firestore {
         && request.resource.data.email.size() <= 150
         && request.resource.data.email.matches('.+@.+[.].+')
         && request.resource.data.mensaje is string
-        && request.resource.data.mensaje.size() > 0
         && request.resource.data.mensaje.size() <= 5000;
       allow read, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Campañas de email marketing
+    match /campanas_email/{campanaId} {
+      allow read, write: if perteneceAEmpresa(empresaId)
+        || esPlataformaAdmin();
     }
 
     match /dispositivos/{dispositivoId} {
@@ -992,14 +1008,16 @@ service cloud.firestore {
     }
 
     // ── EVENTOS (agenda editorial + tracking) ────────────────────────────
-    // Lectura pública para la web editorial; creación abierta para tracking JS.
+    // Lectura pública para la web editorial; escritura restringida a la empresa.
     match /eventos/{eventoId} {
       allow read: if true;
-      allow create: if isAuth()
+      allow create: if (esAdminOPropietario(empresaId) || perteneceAEmpresa(empresaId))
+        && request.resource.data.get('titulo', '') is string
+        && request.resource.data.get('titulo', '').size() > 0
         && request.resource.data.get('tipo', '') is string
-        && request.resource.data.get('tipo', '').size() <= 50
-        && request.resource.data.size() <= 10;
-      allow update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        && request.resource.data.size() <= 30;
+      allow update: if esAdminOPropietario(empresaId) || perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     match /cache/{docId} {
@@ -1007,15 +1025,15 @@ service cloud.firestore {
     }
 
     // ── ESTADÍSTICAS WEB (tracking.js desde la web pública) ──────────────
+    // El script usa auth anónima (isAuth()), nunca escribe sin token.
     match /estadisticas/{docId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-      // El script de tracking escribe sin autenticación; validamos tamaño
-      allow create, update: if request.resource.data.size() <= 20;
+      allow create, update: if isAuth() && request.resource.data.size() <= 20;
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
     match /estadisticas/{docId}/historico_diario/{diaId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-      allow create, update: if request.resource.data.size() <= 10;
+      allow create, update: if isAuth() && request.resource.data.size() <= 10;
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
@@ -1045,6 +1063,16 @@ service cloud.firestore {
     match /pdf_config/{docId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── SISTEMA LEGADO DE PLANTILLAS (subcol) — SOLO LECTURA PARA MIGRACIÓN ──
+    // La colección activa es la raíz /pdf_templates. Esta subcol queda
+    // bloqueada para escrituras nuevas y solo se permite leer al admin de
+    // plataforma para la futura migración de datos (Fase 2 - R3 cleanup).
+    // Una vez migrada, eliminar esta regla y borrar los documentos.
+    match /pdf_templates/{templateId} {
+      allow read: if esPlataformaAdmin();
+      allow write: if false;
     }
 
     match /cierres_caja/{cierreId} {
@@ -1444,11 +1472,15 @@ service cloud.firestore {
   }
 match /pdf_templates/{templateId} {
 
+  // resource.data está disponible en list: Firestore valida cada doc devuelto.
+  // Esto obliga a que toda query incluya where('empresa_id', isEqualTo: X),
+  // o Firestore rechaza la consulta. Previene lectura cross-empresa.
   allow list: if esPlataformaAdmin()
     || (
       esUsuarioReal()
       && existeUsuarioDoc()
       && (getRol() == 'admin' || getRol() == 'propietario')
+      && resource.data.empresa_id == getUserData().empresa_id
     );
 
   allow get: if esPlataformaAdmin()
@@ -1522,6 +1554,26 @@ match /pdf_templates/{templateId} {
   match /{path=**}/trofeos/{trofeoId} {
     allow read: if esUsuarioReal()
       && resource.data.get('uid', '') == uid();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // WEB_SECCIONES — secciones dinámicas data-fluix-Nombre-Tipo
+  // ════════════════════════════════════════════════════════════════════
+
+  match /empresas/{empresaId}/web_secciones/{seccionId} {
+    allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+    allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SISTEMA LEGADO GLOBAL (solo admin plataforma para migración)
+  // ════════════════════════════════════════════════════════════════════
+
+  // Plantillas de sistema del motor legado (lib/services/pdf/pdf_template_service.dart).
+  // Solo lectura para plataforma admin; escrituras bloqueadas. Eliminar tras Fase 2.
+  match /pdf_template_system/{templateId} {
+    allow read: if esPlataformaAdmin();
+    allow write: if false;
   }
 
   // ════════════════════════════════════════════════════════════════════
