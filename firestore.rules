@@ -1016,15 +1016,12 @@ service cloud.firestore {
     }
 
     // ── EVENTOS (agenda editorial + tracking) ────────────────────────────
-    // Lectura pública para la web editorial; escritura restringida a la empresa.
+    // Lectura pública. Escritura solo para admin/staff de la empresa (no B2C).
     match /eventos/{eventoId} {
       allow read: if true;
-      allow create: if (esAdminOPropietario(empresaId) || perteneceAEmpresa(empresaId))
-        && request.resource.data.get('titulo', '') is string
-        && request.resource.data.get('titulo', '').size() > 0
-        && request.resource.data.get('tipo', '') is string
-        && request.resource.data.size() <= 30;
-      allow update: if esAdminOPropietario(empresaId) || perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if esAdminOPropietario(empresaId)
+          || esStaffOSuperior(empresaId)
+          || esPlataformaAdmin();
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
