@@ -562,8 +562,7 @@ class PdfTemplate {
           {'id':'tabla_1','tipo':'tabla_lineas','orden':5,'activo':true,'props':{'mostrar_cantidad':true,'mostrar_precio_unitario':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_base_imponible':true,'color_cabecera':'#006064','color_fila_par':'#FFFFFF','color_fila_impar':'#E0F7FA'}},
           {'id':'totales_1','tipo':'totales','orden':6,'activo':true,'props':{'mostrar_base':true,'mostrar_descuento':true,'mostrar_iva':true,'mostrar_irpf':false,'mostrar_total':true,'alineacion':'derecha','ancho':240}},
           {'id':'validez_1','tipo':'texto_libre','orden':7,'activo':true,'props':{'contenido':'Esta oferta tiene una validez de 15 días desde la fecha de emisión. Los precios están sujetos a disponibilidad de stock.','tamano_fuente':9,'color_texto':'#546E7A','negrita':false,'italic':true}},
-          {'id':'pago_1','tipo':'forma_pago','orden':8,'activo':true,'props':{'mostrar_metodo':true,'mostrar_iban':true,'color_fondo':'#E0F7FA'}},
-          {'id':'footer_1','tipo':'footer','orden':9,'activo':true,'props':{'contenido':'PROFORMA — Sin efecto fiscal · Pendiente de confirmación de pedido','tamano_fuente':7,'color_texto':'#90A4AE'}},
+          {'id':'footer_1','tipo':'footer','orden':8,'activo':true,'props':{'contenido':'PROFORMA — Sin efecto fiscal · Pendiente de confirmación de pedido','tamano_fuente':7,'color_texto':'#90A4AE'}},
         ]);
 
   // ─── Proforma #2 — Servicios (Gris slate + ámbar) ────────────────────────
@@ -626,7 +625,7 @@ class PdfTemplate {
         colorPrimario: '#1B5E20', colorSecundario: '#2E7D32',
         margenHorizontal: 40, margenVertical: 40,
         bloques: [
-          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#1B5E20','color_texto':'#FFFFFF','padding':20,'border_radius':14}},
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#1B5E20','color_texto':'#FFFFFF','padding':14,'border_radius':14}},
           {'id':'sep_1','tipo':'separador','orden':1,'activo':true,'props':{'color':'#A5D6A7','grosor':2,'margen_vertical':2}},
           {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
           {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'PARA:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#E8F5E9','border_radius':10}},
@@ -708,7 +707,7 @@ class PdfTemplate {
         colorPrimario: '#880E4F', colorSecundario: '#6A1B4D',
         margenHorizontal: 44, margenVertical: 44,
         bloques: [
-          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#880E4F','color_texto':'#FFFFFF','padding':22,'border_radius':0}},
+          {'id':'header_1','tipo':'header','orden':0,'activo':true,'props':{'mostrar_logo':true,'mostrar_datos_empresa':true,'color_fondo':'#880E4F','color_texto':'#FFFFFF','padding':14,'border_radius':0}},
           {'id':'sep_rosa','tipo':'separador','orden':1,'activo':true,'props':{'color':'#FCE4EC','grosor':3,'margen_vertical':2}},
           {'id':'info_1','tipo':'info_documento','orden':2,'activo':true,'props':{'mostrar_numero':true,'mostrar_fecha_emision':true,'mostrar_fecha_vencimiento':true,'mostrar_estado':true}},
           {'id':'cliente_1','tipo':'cliente','orden':3,'activo':true,'props':{'titulo':'EMITIDA A:','mostrar_nif':true,'mostrar_direccion':true,'mostrar_email':true,'color_fondo':'#FCE4EC','border_radius':6}},

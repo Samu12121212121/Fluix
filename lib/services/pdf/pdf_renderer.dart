@@ -17,6 +17,7 @@ class PdfRenderer {
     Uint8List? logoBytes,
     Uint8List? qrBytes,
   }) async {
+    _registry.initialize();
     final pdf = pw.Document(
       title: template.name,
       author: branding.companyName,

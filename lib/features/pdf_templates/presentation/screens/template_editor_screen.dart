@@ -27,6 +27,7 @@ double _defY(String t, int idx) => switch(t) {
   'tabla_lineas'   => 210, 'totales'        => 370, 'forma_pago'   => 460,
   'qr_verifactu'   => 530, 'notas'          => 610, 'footer'       => 790,
   'info_empleado'  => 75,  'tabla_fichajes' => 160, 'resumen_horas'=> 380,
+  'indice'         => 80,
   _ => max(0.0, 14.0 + idx * 70.0),
 };
 double _defH(String t) => switch(t) {
@@ -35,6 +36,7 @@ double _defH(String t) => switch(t) {
   'qr_verifactu'=> 65,  'notas'       => 45,  'footer'          => 30,
   'info_empleado'=> 55, 'tabla_fichajes'=> 120,'resumen_horas'  => 70,
   'separador'   => 20,  'espaciador'  => 20,  'texto_libre'     => 45,
+  'indice'      => 100,
   _ => 60,
 };
 
