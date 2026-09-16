@@ -13,13 +13,15 @@ class AnalyticsWebService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   /// Stream en tiempo real de las métricas de tráfico web guardadas por el script JS.
+  /// El .where filtra actualizaciones del servidor que no cambian datos relevantes
+  /// (metadatos internos de Firestore), reduciendo lecturas secundarias innecesarias.
   Stream<MetricasTraficoWeb> streamMetricas(String empresaId) {
     return _db
         .collection('empresas')
         .doc(empresaId)
         .collection('estadisticas')
         .doc('trafico_web')
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .asyncMap((docResumen) async {
       final hoy = DateTime.now();
       final fechaHoyStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';

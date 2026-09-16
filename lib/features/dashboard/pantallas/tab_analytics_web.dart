@@ -9,17 +9,37 @@ import '../../../services/analytics_web_service.dart';
 // TAB ANALYTICS WEB — Métricas detalladas de tráfico
 // ═════════════════════════════════════════════════════════════════════════════
 
-class TabAnalyticsWeb extends StatelessWidget {
+class TabAnalyticsWeb extends StatefulWidget {
   final String empresaId;
-
   const TabAnalyticsWeb({super.key, required this.empresaId});
+  @override
+  State<TabAnalyticsWeb> createState() => _TabAnalyticsWebState();
+}
+
+class _TabAnalyticsWebState extends State<TabAnalyticsWeb> {
+  int _periodoDias = 30; // 7 | 30 | 90
+  String? _dominio; // cargado una sola vez — no re-fetch en cada update del stream
+
+  @override
+  void initState() {
+    super.initState();
+    FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('configuracion').doc('web_avanzada')
+        .get()
+        .then((doc) {
+      if (mounted) {
+        setState(() => _dominio = (doc.data()?['dominio_propio_url'] as String?));
+      }
+    }).catchError((_) {});
+  }
 
   @override
   Widget build(BuildContext context) {
     final color = context.watch<AppConfigProvider>().colorPrimario;
 
     return StreamBuilder<MetricasTraficoWeb>(
-      stream: AnalyticsWebService().streamMetricas(empresaId),
+      stream: AnalyticsWebService().streamMetricas(widget.empresaId),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -33,32 +53,23 @@ class TabAnalyticsWeb extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Selector de período
+            _buildSelectorPeriodo(color),
+            const SizedBox(height: 12),
             // ── Dominio vinculado ─────────────────────────────────────────
-            FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('empresas')
-                  .doc(empresaId)
-                  .collection('configuracion')
-                  .doc('web_avanzada')
-                  .get(),
-              builder: (_, snap) {
-                final dominio = (snap.data?.data()
-                    as Map<String, dynamic>?)?['dominio_propio_url'] as String?;
-                if (dominio == null || dominio.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(children: [
-                    const Icon(Icons.language, size: 14, color: Colors.blueGrey),
-                    const SizedBox(width: 6),
-                    Text(dominio,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blueGrey)),
-                  ]),
-                );
-              },
-            ),
+            if (_dominio != null && _dominio!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  const Icon(Icons.language, size: 14, color: Colors.blueGrey),
+                  const SizedBox(width: 6),
+                  Text(_dominio!,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blueGrey)),
+                ]),
+              ),
             // ── KPIs principales ──────────────────────────────────────────
             _buildKpis(m, color),
             const SizedBox(height: 14),
@@ -66,6 +77,11 @@ class TabAnalyticsWeb extends StatelessWidget {
             // ── Gráfico visitas diarias ────────────────────────────────────
             _buildGraficoVisitas(context, color),
             const SizedBox(height: 14),
+
+            // ── Contenido que funciona ─────────────────────────────────────
+            if (m.paginasMasVistas.isNotEmpty)
+              _buildContenidoQueFunciona(m, color),
+            if (m.paginasMasVistas.isNotEmpty) const SizedBox(height: 14),
 
             // ── Páginas más vistas ─────────────────────────────────────────
             if (m.paginasMasVistas.isNotEmpty)
@@ -96,12 +112,37 @@ class TabAnalyticsWeb extends StatelessWidget {
               _buildEventos(m, color),
             if (m.eventos.isNotEmpty) const SizedBox(height: 14),
 
-            _buildInfoScript(color),
             const SizedBox(height: 24),
           ],
         );
       },
     );
+  }
+
+  Widget _buildSelectorPeriodo(Color color) {
+    const opciones = [(7, '7 días'), (30, '30 días'), (90, '90 días')];
+    return Row(children: opciones.map((op) {
+      final sel = _periodoDias == op.$1;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: GestureDetector(
+          onTap: () => setState(() => _periodoDias = op.$1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: sel ? color : color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: sel ? color : color.withValues(alpha: 0.2)),
+            ),
+            child: Text(op.$2, style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600,
+              color: sel ? Colors.white : color,
+            )),
+          ),
+        ),
+      );
+    }).toList());
   }
 
   Widget _buildSinDatos(Color color) {
@@ -194,15 +235,15 @@ class TabAnalyticsWeb extends StatelessWidget {
           Row(children: [
             Icon(Icons.bar_chart, color: color, size: 16),
             const SizedBox(width: 6),
-            const Text('Visitas — últimos 30 días',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            Text('Visitas — últimos $_periodoDias días',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           ]),
           const SizedBox(height: 12),
           SizedBox(
             height: 130,
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future:
-                  AnalyticsWebService().obtenerHistorialDiario(empresaId),
+                  AnalyticsWebService().obtenerHistorialDiario(widget.empresaId),
               builder: (ctx, snap) {
                 if (!snap.hasData || snap.data!.isEmpty) {
                   return Center(
@@ -210,7 +251,9 @@ class TabAnalyticsWeb extends StatelessWidget {
                         style: TextStyle(color: Colors.grey[400])),
                   );
                 }
-                final hist = snap.data!.reversed.toList();
+                final hist = snap.data!.reversed
+                    .take(_periodoDias)
+                    .toList();
                 final maxV = hist
                     .map((h) =>
                         (h['visitas'] as num?)?.toDouble() ?? 0)
@@ -295,6 +338,111 @@ class TabAnalyticsWeb extends StatelessWidget {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // Clasifica una URL como tipo de contenido editorial
+  static _TipoContenido _clasificarUrl(String url) {
+    final u = url.toLowerCase();
+    if (u.contains('noticia') || u.contains('cronica') || u.contains('resena') ||
+        u.contains('actualidad') || u.contains('news'))  return _TipoContenido.noticia;
+    if (u.contains('entrevista') || u.contains('interview'))  return _TipoContenido.entrevista;
+    if (u.contains('libro') || u.contains('catalogo') || u.contains('book') ||
+        u.contains('producto'))  return _TipoContenido.libro;
+    if (u.contains('autor') || u.contains('author'))  return _TipoContenido.autor;
+    if (u.contains('evento') || u.contains('agenda') || u.contains('presentacion')) return _TipoContenido.evento;
+    return _TipoContenido.otro;
+  }
+
+  Widget _buildContenidoQueFunciona(MetricasTraficoWeb m, Color color) {
+    // Filtrar páginas de contenido (más de 1 segmento de ruta)
+    final contenido = m.paginasMasVistas.entries
+        .where((e) {
+          final path = e.key.replaceAll('_', '/');
+          return path.split('/').where((s) => s.isNotEmpty).length >= 2;
+        })
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (contenido.isEmpty) return const SizedBox.shrink();
+
+    final topMax = contenido.first.value;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.auto_awesome_rounded, color: color, size: 16),
+            const SizedBox(width: 6),
+            const Text('Contenido que funciona',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('Top ${contenido.take(8).length}',
+                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          const Text('Páginas de contenido más visitadas',
+              style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 12),
+          ...contenido.take(8).map((e) {
+            final tipo = _clasificarUrl(e.key);
+            final pct  = topMax > 0 ? e.value / topMax : 0.0;
+            final titulo = e.key
+                .replaceAll('_', ' ')
+                .replaceAll('-', ' ')
+                .split('/')
+                .where((s) => s.isNotEmpty)
+                .last
+                .split(' ')
+                .map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1))
+                .join(' ');
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: tipo.color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(tipo.icono, size: 14, color: tipo.color),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titulo,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    LinearProgressIndicator(
+                      value: pct,
+                      backgroundColor: Colors.grey[100],
+                      color: tipo.color,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                )),
+                const SizedBox(width: 10),
+                Text('${e.value}',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                        color: tipo.color)),
+              ]),
+            );
+          }),
         ],
       ),
     );
@@ -706,45 +854,6 @@ class TabAnalyticsWeb extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoScript(Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lightbulb_outline, color: Colors.blue, size: 18),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('¿Cómo funciona?',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                        fontSize: 13)),
-                SizedBox(height: 4),
-                Text(
-                  'El script JavaScript de Fluix CRM registra automáticamente las visitas, '
-                  'páginas vistas, dispositivos y ubicaciones de los usuarios de tu web. '
-                  'Instálalo desde la pestaña "Código" de tu gestor de contenidos.',
-                  style:
-                      TextStyle(color: Colors.blue, fontSize: 12, height: 1.5),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   BoxDecoration _cardDeco() => BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -756,7 +865,7 @@ class TabAnalyticsWeb extends StatelessWidget {
 
   Future<void> _mostrarPaginasDelDia(BuildContext context, String fecha) async {
     try {
-      final historial = await AnalyticsWebService().obtenerHistorialDiario(empresaId);
+      final historial = await AnalyticsWebService().obtenerHistorialDiario(widget.empresaId);
       final dia = historial.firstWhere(
         (h) => h['fecha']?.toString() == fecha,
         orElse: () => {},
@@ -886,5 +995,32 @@ class TabAnalyticsWeb extends StatelessWidget {
       }
     }
   }
+}
+
+enum _TipoContenido {
+  noticia,
+  entrevista,
+  libro,
+  autor,
+  evento,
+  otro;
+
+  Color get color => switch (this) {
+    _TipoContenido.noticia    => const Color(0xFF059669),
+    _TipoContenido.entrevista => const Color(0xFF7C3AED),
+    _TipoContenido.libro      => const Color(0xFF6B1E2A),
+    _TipoContenido.autor      => const Color(0xFF0EA5E9),
+    _TipoContenido.evento     => const Color(0xFF1E4D6B),
+    _TipoContenido.otro       => const Color(0xFF64748B),
+  };
+
+  IconData get icono => switch (this) {
+    _TipoContenido.noticia    => Icons.newspaper_rounded,
+    _TipoContenido.entrevista => Icons.record_voice_over_rounded,
+    _TipoContenido.libro      => Icons.menu_book_rounded,
+    _TipoContenido.autor      => Icons.person_rounded,
+    _TipoContenido.evento     => Icons.event_rounded,
+    _TipoContenido.otro       => Icons.link_rounded,
+  };
 }
 
