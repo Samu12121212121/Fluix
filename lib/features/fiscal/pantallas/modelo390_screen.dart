@@ -19,11 +19,13 @@ import 'package:planeag_flutter/widgets/estado_certificado_widget.dart';
 class Modelo390Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
+  final bool embebido;
 
   const Modelo390Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
+    this.embebido = false,
   });
 
   @override
@@ -138,6 +140,17 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _procesando
+        ? const Center(child: CircularProgressIndicator())
+        : StreamBuilder<Modelo390?>(
+            stream: _svc.obtener(widget.empresaId, _anio),
+            builder: (context, snap) {
+              final modelo = snap.data;
+              if (modelo == null) return _buildSinDatos();
+              return _buildConDatos(modelo);
+            },
+          );
+    if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -158,18 +171,7 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
           ),
         ],
       ),
-      body: _procesando
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<Modelo390?>(
-              stream: _svc.obtener(widget.empresaId, _anio),
-              builder: (context, snap) {
-                final modelo = snap.data;
-                if (modelo == null) {
-                  return _buildSinDatos();
-                }
-                return _buildConDatos(modelo);
-              },
-            ),
+      body: body,
     );
   }
 

@@ -29,6 +29,7 @@ function verificarAuth(request) {
  * @throws HttpsError "unauthenticated" | "permission-denied"
  */
 async function verificarAuthYEmpresa(request, empresaId) {
+    var _a;
     const uid = verificarAuth(request);
     if (!empresaId) {
         throw new https_1.HttpsError("invalid-argument", "empresaId es requerido");
@@ -38,7 +39,13 @@ async function verificarAuthYEmpresa(request, empresaId) {
         throw new https_1.HttpsError("permission-denied", "Usuario no registrado en el sistema.");
     }
     const userData = userDoc.data();
-    if (userData.empresa_id !== empresaId) {
+    // Los admins de plataforma tienen acceso a cualquier empresa
+    const esPlatAdmin = userData.es_plataforma_admin === true;
+    const empresasAcceso = (_a = userData.empresas_acceso) !== null && _a !== void 0 ? _a : [];
+    const tieneAcceso = esPlatAdmin ||
+        userData.empresa_id === empresaId ||
+        empresasAcceso.includes(empresaId);
+    if (!tieneAcceso) {
         throw new https_1.HttpsError("permission-denied", "No tienes acceso a esta empresa.");
     }
     return uid;

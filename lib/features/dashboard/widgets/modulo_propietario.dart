@@ -8,8 +8,8 @@ import '../pantallas/gestion_negocios_screen.dart';
 import '../pantallas/pantalla_dashboard.dart';
 import '../../../services/demo_cuenta_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:planeag_flutter/features/fichajes/servicios/fichaje_demo_data.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 /// Módulo exclusivo para la cuenta propietaria (FluxTech).
 /// Muestra estadísticas globales de toda la plataforma:
@@ -31,6 +31,8 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
   bool _cargando = true;
   bool _generandoDatos = false;
   bool _cargandoDemo = false;
+  bool _migracionNazari = false;
+  String? _resultadoNazari;
   String? _errorCarga;
   _DatosPropietario _datos = _DatosPropietario.vacio();
 
@@ -99,13 +101,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Datos demo creados correctamente'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
-          ),
-        );
+        FluxToast.exito(context, 'Datos demo creados correctamente');
         
         // Mostrar diálogo con instrucciones
         showDialog(
@@ -146,13 +142,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _generandoDatos = false);
@@ -160,46 +150,598 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
   }
 
   @override
+  // ── Colores del dashboard (misma paleta) ──────────────────────────────────
+  static const _bg     = Color(0xFFF1F5F9);
+  static const _cardBg = Colors.white;
+  static const _border = Color(0xFFE5E7EB);
+  static const _text   = Color(0xFF1F2937);
+  static const _sub    = Color(0xFF6B7280);
+
+  @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _cargar,
-      child: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : _errorCarga != null
-          ? _buildError(_errorCarga!)
-          : SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _cabecera(),
-            const SizedBox(height: 16),
-            _seccionEmpresas(),
-            const SizedBox(height: 16),
-            _seccionIngresos(),
-            const SizedBox(height: 16),
-            _seccionActividad(),
-            const SizedBox(height: 16),
-            _seccionFichajes(),
-            const SizedBox(height: 16),
-            _seccionWeb(),
-            const SizedBox(height: 16),
-            _seccionSuscripciones(),
-            const SizedBox(height: 16),
-            _seccionNegociosPublicos(context),
-            const SizedBox(height: 16),
-            _seccionMetricasB2C(),
-            const SizedBox(height: 16),
-            _seccionHerramientasDev(),
-            const SizedBox(height: 24),
-          ],
-        ),
+    return ColoredBox(
+      color: _bg,
+      child: RefreshIndicator(
+        onRefresh: _cargar,
+        child: _cargando
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED)))
+            : _errorCarga != null
+                ? _buildError(_errorCarga!)
+                : SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                      // ── Cabecera estilo dashboard ──────────────────────────
+                      Row(children: [
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('Panel de Plataforma',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _text)),
+                          const Text('Métricas globales de Fluix — ${ConstantesApp.webPropietaria}',
+                              style: TextStyle(fontSize: 12, color: _sub)),
+                        ])),
+                        TextButton.icon(
+                          onPressed: _cargar,
+                          icon: const Icon(Icons.refresh_rounded, size: 15),
+                          label: const Text('Actualizar', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(foregroundColor: const Color(0xFF7C3AED)),
+                        ),
+                      ]),
+                      const SizedBox(height: 16),
+
+                      // ── Strip KPI 1: Plataforma ────────────────────────────
+                      _kpiStrip([
+                        _kd(Icons.business_outlined,       const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empresas',          '${_datos.totalEmpresas}',          '${_datos.empresasNuevasMes} nuevas este mes'),
+                        _kd(Icons.account_balance_wallet,  const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'MRR',               '€${_datos.mrr.toStringAsFixed(0)}','por mes recurrente'),
+                        _kd(Icons.trending_up_rounded,     const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'ARR',               '€${(_datos.mrr*12).toStringAsFixed(0)}','ingresos anuales'),
+                        _kd(Icons.check_circle_outline,    const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'Suscrip. activas',  '${_datos.suscripcionesActivas}',   'empresas pagando'),
+                        _kd(Icons.warning_amber_rounded,   const Color(0xFFFEF3C7), const Color(0xFFF59E0B), 'Vencen en 7d',     '${_datos.suscripcionesVencen7}',   'renovar pronto'),
+                        _kd(Icons.cancel_outlined,         const Color(0xFFFFE4E6), const Color(0xFFEF4444), 'Vencidas',         '${_datos.suscripcionesVencidas}',   'sin suscripción'),
+                      ]),
+                      const SizedBox(height: 12),
+
+                      // ── Strip KPI 2: Actividad ─────────────────────────────
+                      _kpiStrip([
+                        _kd(Icons.shopping_bag_outlined,   const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Pedidos totales',   '${_datos.totalPedidos}',           'todas las empresas'),
+                        _kd(Icons.receipt_rounded,         const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'Facturas emitidas', '${_datos.totalFacturas}',           'historial total'),
+                        _kd(Icons.star_half_rounded,       const Color(0xFFFEF3C7), const Color(0xFFF59E0B), 'Valoraciones',      '${_datos.totalValoraciones}',       'todas las reseñas'),
+                        _kd(Icons.event_available_rounded, const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'Reservas',          '${_datos.totalReservas}',           'historial total'),
+                        _kd(Icons.badge_rounded,           const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empleados',         '${_datos.totalUsuarios}',           'en toda la plataforma'),
+                        _kd(Icons.people_outlined,         const Color(0xFFDCFCE7), const Color(0xFF14B8A6), 'Usuarios B2C',      '${_datos.usuariosB2CTotal}',        '${_datos.usuariosB2CNuevosMes} nuevos este mes'),
+                      ]),
+                      const SizedBox(height: 16),
+
+                      // ── Contenido 2 columnas ──────────────────────────────
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        // Izquierda
+                        Expanded(flex: 3, child: Column(children: [
+                          _ingresoCard(),
+                          const SizedBox(height: 12),
+                          _actividadCard(),
+                          const SizedBox(height: 12),
+                          _metricasB2CCard(),
+                        ])),
+                        const SizedBox(width: 14),
+                        // Derecha
+                        Expanded(flex: 2, child: Column(children: [
+                          _suscripcionesCard(),
+                          const SizedBox(height: 12),
+                          _fichajesCard(),
+                          const SizedBox(height: 12),
+                          _webCard(),
+                          const SizedBox(height: 12),
+                          _negociosPublicosCard(context),
+                          const SizedBox(height: 12),
+                          _herramientasDevCard(context),
+                          const SizedBox(height: 12),
+                          _nazariCard(context),
+                        ])),
+                      ]),
+                    ]),
+                  ),
       ),
     );
   }
 
-  // ── CABECERA ────────────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // HELPERS VISUALES — estilo dashboard
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Datos para un KPI tile
+  ({IconData icon, Color bg, Color color, String label, String valor, String sub}) _kd(
+      IconData icon, Color bg, Color color, String label, String valor, String sub) =>
+      (icon: icon, bg: bg, color: color, label: label, valor: valor, sub: sub);
+
+  // Fila de KPI tiles (hasta 6)
+  Widget _kpiStrip(List<({IconData icon, Color bg, Color color, String label, String valor, String sub})> items) {
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: items.expand((e) => [
+            Expanded(child: _kpiTile(e.icon, e.bg, e.color, e.label, e.valor, e.sub)),
+            if (e != items.last) const SizedBox(width: 10),
+          ]).toList()),
+    );
+  }
+
+  Widget _kpiTile(IconData icon, Color bgIcon, Color color, String label, String valor, String sub2) =>
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: _cardBg, borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _border),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6, offset: const Offset(0, 2))]),
+        child: Row(children: [
+          Container(width: 38, height: 38,
+              decoration: BoxDecoration(color: bgIcon, shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 18)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 10, color: _sub), overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text(valor, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _text)),
+            Text(sub2, style: TextStyle(fontSize: 9.5, color: color), overflow: TextOverflow.ellipsis),
+          ])),
+        ]),
+      );
+
+  // Card contenedor estilo dashboard
+  Widget _dashCard(String title, IconData icon, Color iconColor, List<Widget> children, {Widget? action}) =>
+      Container(
+        width: double.infinity,
+        decoration: BoxDecoration(color: _cardBg, borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Row(children: [
+              Container(width: 24, height: 24,
+                  decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Icon(icon, size: 14, color: iconColor)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 13,
+                  fontWeight: FontWeight.w700, color: _text))),
+              if (action != null) action,
+            ]),
+          ),
+          const Divider(height: 1, color: _border),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+          ),
+        ]),
+      );
+
+  // Fila de stat dentro de una card
+  Widget _statRow(IconData icon, Color color, String label, String valor) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(children: [
+      Container(width: 30, height: 30,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(7)),
+          child: Icon(icon, size: 14, color: color)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: _sub))),
+      Text(valor, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _text)),
+    ]),
+  );
+
+  // ── SECCIÓN INGRESOS ───────────────────────────────────────────────────────
+
+  Widget _ingresoCard() => _dashCard(
+    'Ingresos — FluxTech', Icons.euro_rounded, const Color(0xFF7C3AED),
+    [
+      _statRow(Icons.account_balance_wallet_outlined, const Color(0xFF7C3AED),
+          'MRR (mensual recurrente)', '€${_datos.mrr.toStringAsFixed(0)}/mes'),
+      _statRow(Icons.trending_up_rounded, const Color(0xFF22C55E),
+          'ARR (anual estimado)', '€${(_datos.mrr * 12).toStringAsFixed(0)}'),
+      _statRow(Icons.receipt_long_outlined, const Color(0xFFEF4444),
+          'Facturas pendientes', '${_datos.facturasPendientes}'),
+      if (_datos.ultimasVentas.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        const Text('Últimas ventas', style: TextStyle(fontSize: 11,
+            fontWeight: FontWeight.w700, color: _sub)),
+        const SizedBox(height: 6),
+        ..._datos.ultimasVentas.map(_ventaRow),
+      ],
+    ],
+  );
+
+  Widget _ventaRow(Map<String, dynamic> venta) {
+    final empresa = venta['empresa_cliente_id'] as String? ?? 'Cliente';
+    final total   = (venta['total'] as num?)?.toStringAsFixed(2) ?? '0.00';
+    final fecha   = venta['fecha_pedido'];
+    String fechaStr = '';
+    if (fecha is Timestamp) {
+      final d = fecha.toDate();
+      fechaStr = '${d.day}/${d.month}/${d.year}';
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        Container(width: 28, height: 28,
+            decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(7)),
+            child: const Icon(Icons.shopping_cart_outlined, size: 13, color: Color(0xFF3B82F6))),
+        const SizedBox(width: 8),
+        Expanded(child: Text(empresa, style: const TextStyle(fontSize: 12, color: _text),
+            maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('€$total', style: const TextStyle(fontSize: 12,
+              fontWeight: FontWeight.w700, color: Color(0xFF22C55E))),
+          Text(fechaStr, style: const TextStyle(fontSize: 9.5, color: _sub)),
+        ]),
+      ]),
+    );
+  }
+
+  // ── ACTIVIDAD GLOBAL ───────────────────────────────────────────────────────
+
+  Widget _actividadCard() => _dashCard(
+    'Actividad en la plataforma', Icons.analytics_outlined, const Color(0xFF3B82F6),
+    [
+      _statRow(Icons.shopping_bag_outlined, const Color(0xFF3B82F6), 'Pedidos totales', '${_datos.totalPedidos}'),
+      _statRow(Icons.receipt_outlined,      const Color(0xFF7C3AED), 'Facturas emitidas', '${_datos.totalFacturas}'),
+      _statRow(Icons.star_half_rounded,     const Color(0xFFF59E0B), 'Valoraciones',    '${_datos.totalValoraciones}'),
+      _statRow(Icons.event_available_rounded,const Color(0xFF22C55E),'Reservas totales','${_datos.totalReservas}'),
+      _statRow(Icons.badge_rounded,         const Color(0xFF14B8A6), 'Empleados (total)','${_datos.totalUsuarios}'),
+      if (_datos.totalEmpresas > 0)
+        _statRow(Icons.bar_chart_rounded, const Color(0xFF6B7280), 'Reservas / empresa',
+            '${(_datos.totalReservas / _datos.totalEmpresas).toStringAsFixed(1)}'),
+    ],
+  );
+
+  // ── MÉTRICAS B2C ───────────────────────────────────────────────────────────
+
+  Widget _metricasB2CCard() => _dashCard(
+    'Métricas B2C — App Clientes', Icons.phone_android_outlined, const Color(0xFF0EA5E9),
+    [
+      _statRow(Icons.people_outline, const Color(0xFF0EA5E9), 'Usuarios totales', '${_datos.usuariosB2CTotal}'),
+      _statRow(Icons.person_add_outlined, const Color(0xFF22C55E), 'Nuevos este mes', '${_datos.usuariosB2CNuevosMes}'),
+      _statRow(Icons.person_add_outlined, const Color(0xFF14B8A6), 'Nuevos esta semana', '${_datos.usuariosB2CNuevosSemana}'),
+      const Divider(height: 16, color: _border),
+      _statRow(Icons.today_outlined,       const Color(0xFF0EA5E9), 'DAU (24h)',     '${_datos.usuariosActivosDia}'),
+      _statRow(Icons.calendar_month_outlined, const Color(0xFF7C3AED), 'MAU (30d)',  '${_datos.usuariosActivosMes}'),
+      const Divider(height: 16, color: _border),
+      _statRow(Icons.event_available_outlined, const Color(0xFF22C55E), 'Reservas B2C hoy',    '${_datos.reservasB2CHoy}'),
+      _statRow(Icons.date_range_outlined,      const Color(0xFF3B82F6), 'Reservas B2C semana', '${_datos.reservasB2CSemana}'),
+      _statRow(Icons.calendar_today_outlined,  const Color(0xFF7C3AED), 'Reservas B2C mes',    '${_datos.reservasB2CMes}'),
+      const Divider(height: 16, color: _border),
+      _statRow(Icons.star_rounded,  const Color(0xFFF59E0B), 'Valoraciones total', '${_datos.valoracionesB2CTotal}'),
+      _statRow(Icons.star_half_rounded, const Color(0xFFF59E0B), 'Media estrellas',
+          _datos.valoracionesB2CTotal > 0 ? _datos.valoracionesB2CMedia.toStringAsFixed(1) : '—'),
+      const Divider(height: 16, color: _border),
+      _statRow(Icons.flash_on_rounded, const Color(0xFFEC4899), 'Flash slots creados', '${_datos.flashSlotsCreados}'),
+      _statRow(Icons.check_rounded,    const Color(0xFF22C55E), 'Flash slots reservados', '${_datos.flashSlotsReservados}'),
+    ],
+  );
+
+  // ── SUSCRIPCIONES ──────────────────────────────────────────────────────────
+
+  Widget _suscripcionesCard() => _dashCard(
+    'Estado de suscripciones', Icons.card_membership_outlined, const Color(0xFF22C55E),
+    [
+      _statRow(Icons.check_circle_outline, const Color(0xFF22C55E), 'Activas',       '${_datos.suscripcionesActivas}'),
+      _statRow(Icons.warning_amber_rounded, const Color(0xFFF59E0B), 'Vencen en 7d', '${_datos.suscripcionesVencen7}'),
+      _statRow(Icons.cancel_outlined, const Color(0xFFEF4444), 'Vencidas',           '${_datos.suscripcionesVencidas}'),
+      const SizedBox(height: 6),
+      if (_datos.suscripcionesActivas + _datos.suscripcionesVencidas > 0)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: _datos.suscripcionesActivas /
+                (_datos.suscripcionesActivas + _datos.suscripcionesVencidas),
+            minHeight: 6,
+            backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF22C55E)),
+          ),
+        ),
+    ],
+  );
+
+  // ── FICHAJES GLOBALES ──────────────────────────────────────────────────────
+
+  Widget _fichajesCard() => _dashCard(
+    'Control horario global', Icons.access_time_filled_rounded, const Color(0xFF14B8A6),
+    [
+      StreamBuilder<QuerySnapshot>(
+        stream: _db.collection('empresas').snapshots(),
+        builder: (context, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          return FutureBuilder<Map<String, int>>(
+            future: _calcularFichajesGlobal(snap.data!.docs),
+            builder: (_, fSnap) {
+              final activos       = fSnap.data?['activos'] ?? 0;
+              final fichadosHoy   = fSnap.data?['fichados_hoy'] ?? 0;
+              final fichajesMes   = fSnap.data?['fichajes_mes'] ?? 0;
+              return Column(children: [
+                _statRow(Icons.person_pin_circle_outlined, const Color(0xFF22C55E), 'Activos ahora', '$activos'),
+                _statRow(Icons.how_to_reg_outlined,       const Color(0xFF0EA5E9), 'Fichados hoy',   '$fichadosHoy'),
+                _statRow(Icons.fingerprint_rounded,        const Color(0xFF14B8A6), 'Fichajes mes',   '$fichajesMes'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _generandoDatos ? null : _crearDatosDemo,
+                    icon: const Icon(Icons.add_circle_outline, size: 14),
+                    label: Text(_generandoDatos ? 'Creando...' : 'Crear datos demo',
+                        style: const TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF14B8A6),
+                      side: const BorderSide(color: Color(0xFF14B8A6)),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ]);
+            },
+          );
+        },
+      ),
+    ],
+  );
+
+  // ── TRÁFICO WEB ────────────────────────────────────────────────────────────
+
+  Widget _webCard() => _dashCard(
+    'Tráfico web', Icons.language_outlined, const Color(0xFF0EA5E9),
+    [
+      StreamBuilder<DocumentSnapshot>(
+        stream: _db
+            .collection('empresas').doc(ConstantesApp.empresaPropietariaId)
+            .collection('estadisticas').doc('web_resumen').snapshots(),
+        builder: (context, snap) {
+          if (!snap.hasData || !snap.data!.exists) {
+            return Text('Sin datos de tráfico aún.\nInstala el script de Fluix en tu web.',
+                style: const TextStyle(fontSize: 12, color: _sub));
+          }
+          final d = snap.data!.data() as Map<String, dynamic>;
+          final visitasTotales = d['visitas_totales'] ?? 0;
+          final visitasMes     = d['visitas_mes'] ?? 0;
+          final ultimaVisita   = d['ultima_visita'] as Timestamp?;
+          String ultimaStr = 'Sin datos';
+          if (ultimaVisita != null) {
+            final dt = ultimaVisita.toDate();
+            ultimaStr = '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2,'0')}';
+          }
+          return Column(children: [
+            _statRow(Icons.remove_red_eye_outlined, const Color(0xFF0EA5E9), 'Visitas totales', '$visitasTotales'),
+            _statRow(Icons.calendar_month_outlined, const Color(0xFF14B8A6), 'Este mes',        '$visitasMes'),
+            const SizedBox(height: 4),
+            Row(children: [
+              const Icon(Icons.schedule_outlined, size: 12, color: _sub),
+              const SizedBox(width: 6),
+              Expanded(child: Text('Última visita: $ultimaStr',
+                  style: const TextStyle(fontSize: 10.5, color: _sub))),
+            ]),
+          ]);
+        },
+      ),
+    ],
+  );
+
+  // ── NEGOCIOS PÚBLICOS ──────────────────────────────────────────────────────
+
+  Widget _negociosPublicosCard(BuildContext context) => _dashCard(
+    'Negocios Públicos — B2C', Icons.store_outlined, const Color(0xFF22C55E),
+    [
+      StreamBuilder<QuerySnapshot>(
+        stream: _db.collection('negocios_publicos').snapshots(),
+        builder: (context, snapshot) {
+          final total   = snapshot.data?.docs.length ?? 0;
+          final activos = snapshot.data?.docs
+              .where((d) => (d.data() as Map)['activo'] == true).length ?? 0;
+          final sinFoto = snapshot.data?.docs.where((d) {
+            final foto = (d.data() as Map)['fotoUrl'] as String?;
+            return foto == null || foto.isEmpty;
+          }).length ?? 0;
+          return Column(children: [
+            _statRow(Icons.store_rounded, const Color(0xFF3B82F6), 'Total negocios', '$total'),
+            _statRow(Icons.check_circle_outline, const Color(0xFF22C55E), 'Activos', '$activos'),
+            if (sinFoto > 0)
+              _statRow(Icons.image_not_supported_outlined, const Color(0xFFF59E0B), 'Sin foto', '$sinFoto'),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: FilledButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const GestionNegociosScreen())),
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: const Text('Gestionar', style: TextStyle(fontSize: 12)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              )),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const GestionNegociosScreen(abrirCreacion: true))),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Nuevo', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF22C55E),
+                  side: const BorderSide(color: Color(0xFF22C55E)),
+                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _cargandoDemo ? null : _iniciarSesionDemo,
+                icon: _cargandoDemo
+                    ? const SizedBox(width: 14, height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C3AED)))
+                    : const Icon(Icons.play_circle_outline, size: 14),
+                label: Text(_cargandoDemo ? 'Cargando...' : 'Probar cuenta demo',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF7C3AED),
+                  side: const BorderSide(color: Color(0xFF7C3AED)),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ]);
+        },
+      ),
+    ],
+  );
+
+  // ── HERRAMIENTAS DEV ───────────────────────────────────────────────────────
+
+  Widget _herramientasDevCard(BuildContext context) => _dashCard(
+    'Herramientas de Desarrollo', Icons.developer_mode_rounded, const Color(0xFFEF4444),
+    [
+      const Text(
+        'Genera datos de prueba realistas: 10 clientes, 30 empleados con nóminas, '
+        'facturas, gastos, reservas, valoraciones y pedidos.',
+        style: TextStyle(fontSize: 11.5, color: _sub, height: 1.4),
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: FilledButton.icon(
+          onPressed: _generandoDatos ? null : _generarDatosDePrueba,
+          icon: _generandoDatos
+              ? const SizedBox(width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.auto_awesome_rounded, size: 14),
+          label: Text(_generandoDatos ? 'Generando...' : 'Generar datos',
+              style: const TextStyle(fontSize: 12)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF7C3AED),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        )),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: _generandoDatos ? null : _limpiarDatosDePrueba,
+          icon: const Icon(Icons.delete_sweep_outlined, size: 14),
+          label: const Text('Limpiar', style: TextStyle(fontSize: 12)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFEF4444),
+            side: const BorderSide(color: Color(0xFFEF4444)),
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ]),
+    ],
+  );
+
+  // ── MIGRACIÓN NAZARÍ ──────────────────────────────────────────────────────
+
+  Future<void> _migrarNazari(String tipo) async {
+    if (_migracionNazari) return;
+    setState(() { _migracionNazari = true; _resultadoNazari = null; });
+    try {
+      final res = await FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('migrarDatosNazariDesdeWeb')
+          .call({'tipo': tipo});
+      final data = res.data as Map;
+      final libros       = data['libros']       as int? ?? 0;
+      final entrevistas  = data['entrevistas']  as int? ?? 0;
+      final errores      = data['errores']      as int? ?? 0;
+      setState(() {
+        _resultadoNazari = tipo == 'libros'
+            ? '✅ $libros libros migrados a catálogo web'
+            : tipo == 'entrevistas'
+                ? '✅ $entrevistas entrevistas importadas'
+                : '✅ $libros libros + $entrevistas entrevistas'
+                    '${errores > 0 ? ' · $errores errores' : ''}';
+      });
+    } catch (e) {
+      setState(() => _resultadoNazari = '❌ Error: $e');
+    } finally {
+      if (mounted) setState(() => _migracionNazari = false);
+    }
+  }
+
+  Widget _nazariCard(BuildContext context) {
+    const nazariColor = Color(0xFF6B1E2A);
+    return _dashCard(
+      'Editorial Nazarí — Datos web', Icons.import_contacts_rounded, nazariColor,
+      [
+        const Text(
+          'Sincroniza el catálogo de libros y las entrevistas de prensa '
+          'desde la web al módulo de la app.',
+          style: TextStyle(fontSize: 11.5, color: _sub, height: 1.4),
+        ),
+        if (_resultadoNazari != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: _resultadoNazari!.startsWith('✅')
+                  ? const Color(0xFFDCFCE7)
+                  : const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(_resultadoNazari!,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    color: _resultadoNazari!.startsWith('✅')
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFFB91C1C),
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+        const SizedBox(height: 10),
+        if (_migracionNazari)
+          const Center(child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(width: 24, height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+          ))
+        else ...[
+          Row(children: [
+            Expanded(child: FilledButton.icon(
+              onPressed: () => _migrarNazari('libros'),
+              icon: const Icon(Icons.library_books_rounded, size: 13),
+              label: const Text('Libros', style: TextStyle(fontSize: 12)),
+              style: FilledButton.styleFrom(
+                backgroundColor: nazariColor,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            )),
+            const SizedBox(width: 6),
+            Expanded(child: FilledButton.icon(
+              onPressed: () => _migrarNazari('entrevistas'),
+              icon: const Icon(Icons.mic_rounded, size: 13),
+              label: const Text('Entrevistas', style: TextStyle(fontSize: 12)),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF374151),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            )),
+          ]),
+          const SizedBox(height: 6),
+          SizedBox(width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _migrarNazari('todo'),
+              icon: const Icon(Icons.sync_rounded, size: 14),
+              label: const Text('Sincronizar todo', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: nazariColor,
+                side: const BorderSide(color: Color(0xFF6B1E2A)),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── CABECERA (mantenida solo para _buildError) ─────────────────────────────
 
   Widget _buildError(String error) {
     final esPermisos = error.contains('permission') ||
@@ -253,7 +795,8 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
     );
   }
 
-  Widget _cabecera() {
+  // ignore: unused_element
+  Widget _cabeceraObsolete() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -916,12 +1459,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al iniciar demo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      FluxToast.error(context, 'Error al iniciar demo: $e');
     } finally {
       if (mounted) setState(() => _cargandoDemo = false);
     }
@@ -1407,21 +1945,12 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
     try {
       await DatosPruebaFluixtechService().generarTodo();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                '✅ Datos de prueba generados (10 clientes, 30 empleados, nóminas, facturas...)'),
-            backgroundColor: Color(0xFF2E7D32),
-            duration: Duration(seconds: 4),
-          ),
-        );
+        FluxToast.exito(context, 'Datos de prueba generados (10 clientes, 30 empleados, nóminas, facturas...)');
         _cargar();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _generandoDatos = false);
@@ -1455,18 +1984,12 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
     try {
       await DatosPruebaFluixtechService().limpiarTodo();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('🗑️ Datos de prueba eliminados'),
-              backgroundColor: Colors.orange),
-        );
+        FluxToast.aviso(context, 'Datos de prueba eliminados');
         _cargar();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _generandoDatos = false);

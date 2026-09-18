@@ -10,6 +10,35 @@ import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
 
+// ── Embed builder para imágenes en Quill ─────────────────────────────────────
+class _ImageEmbedBuilder extends EmbedBuilder {
+  const _ImageEmbedBuilder();
+
+  @override
+  String get key => BlockEmbed.imageType;
+
+  @override
+  bool get expanded => false;
+
+  @override
+  Widget build(BuildContext context, EmbedContext embedContext) {
+    final url = embedContext.node.value.data as String? ?? '';
+    if (url.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(url, fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              height: 80, color: const Color(0xFFF3F4F6),
+              child: const Center(child: Icon(Icons.broken_image_outlined,
+                  color: Color(0xFFD1D5DB))),
+            )),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Editor Word — WYSIWYG, lo que escribes es lo que se publica
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +80,10 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
 
   // ── Estado ───────────────────────────────────────────────────────────────
   String?      _imagenUrl;
+  List<String> _imagenes          = [];   // fotos del carrusel de portada
+  int          _carouselPage      = 0;
+  final        _portadaPageCtrl   = PageController();
+  bool         _subiendoImgExtra  = false;
   List<String> _etiquetas        = [];
   EstadoBlog   _estado           = EstadoBlog.borrador;
   String       _categoriaId      = '';
@@ -89,6 +122,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
       _autorCtrl.text   = e.autor;
       _etiquetas         = List.from(e.etiquetas);
       _imagenUrl         = e.imagenUrl;
+      _imagenes          = List.from(e.imagenes);
       _videoUrlCtrl.text = e.videoUrl ?? '';
       _estado            = e.estado;
       _categoriaId      = e.categoriaId;
@@ -185,6 +219,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     _etiquetaCtrl.dispose();
     _videoUrlCtrl.dispose();
     _quillCtrl.dispose();
+    _portadaPageCtrl.dispose();
     _slugTimer?.cancel();
     _autoguardadoTimer?.cancel();
     super.dispose();
@@ -214,7 +249,16 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   Future<void> _subirPortada() async {
     setState(() => _subiendoImg = true);
     final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'blog/portadas');
-    if (mounted) setState(() { _imagenUrl = url; _subiendoImg = false; });
+    if (mounted) setState(() { if (url != null) _imagenUrl = url; _subiendoImg = false; });
+  }
+
+  Future<void> _subirFotoCarrusel() async {
+    setState(() => _subiendoImgExtra = true);
+    final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'blog/portadas');
+    if (mounted) setState(() {
+      if (url != null) _imagenes.add(url);
+      _subiendoImgExtra = false;
+    });
   }
 
   Future<void> _insertarImagenEnContenido() async {
@@ -240,6 +284,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         resumen:          _resumenCtrl.text.trim(),
         contenido:        deltaJson,
         imagenUrl:        _imagenUrl,
+        imagenes:         _imagenes,
         estado:           _estado == EstadoBlog.publicado ? EstadoBlog.publicado : EstadoBlog.borrador,
         fechaPublicacion: _fechaPublicacion,
         etiquetas:        _etiquetas,
@@ -286,6 +331,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         resumen:          _resumenCtrl.text.trim(),
         contenido:        deltaJson,
         imagenUrl:        _imagenUrl,
+        imagenes:         _imagenes,
         estado:           _estado,
         fechaPublicacion: _fechaPublicacion,
         etiquetas:        _etiquetas,
@@ -735,7 +781,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                   controller: _quillCtrl,
                   scrollController: _editorScrollCtrl,
                   focusNode: _editorFocusNode,
-                  config: const QuillEditorConfig(
+                  config: QuillEditorConfig(
                     scrollable: false,
                     autoFocus: false,
                     expands: false,
@@ -743,6 +789,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                     placeholder: 'Empieza a escribir...',
                     enableInteractiveSelection: true,
                     detectWordBoundary: true,
+                    embedBuilders: const [_ImageEmbedBuilder()],
                     customStyles: DefaultStyles(
                       paragraph: DefaultTextBlockStyle(
                         TextStyle(fontSize: 16, height: 1.9, color: Color(0xFF1F2937)),
@@ -784,43 +831,163 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   );
 
   Widget _portadaWidget(Color color) {
-    if (_imagenUrl != null) {
-      return Stack(children: [
+    final todas = [
+      if (_imagenUrl != null) _imagenUrl!,
+      ..._imagenes,
+    ];
+    return Column(children: [
+      // ── Carrusel ──────────────────────────────────────────────────────
+      if (todas.isEmpty)
+        GestureDetector(
+          onTap: _subiendoImg ? null : _subirPortada,
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: _subiendoImg
+                ? Center(child: CircularProgressIndicator(color: color, strokeWidth: 2))
+                : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 17,
+                        color: color.withValues(alpha: 0.45)),
+                    const SizedBox(width: 8),
+                    Text('Añadir fotos al carrusel',
+                        style: TextStyle(fontSize: 12,
+                            color: color.withValues(alpha: 0.55))),
+                  ]),
+          ),
+        )
+      else if (todas.length == 1)
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: Image.network(_imagenUrl!, height: 200,
+          child: Image.network(todas.first, height: 200,
               width: double.infinity, fit: BoxFit.cover),
-        ),
-        Positioned(top: 8, right: 8,
-          child: Row(children: [
-            _portadaBtn(Icons.swap_horiz_rounded, _subirPortada),
-            const SizedBox(width: 6),
-            _portadaBtn(Icons.close_rounded, () => setState(() => _imagenUrl = null)),
+        )
+      else
+        SizedBox(
+          height: 200,
+          child: Stack(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: PageView.builder(
+                controller: _portadaPageCtrl,
+                itemCount: todas.length,
+                onPageChanged: (i) => setState(() => _carouselPage = i),
+                itemBuilder: (_, i) => Image.network(
+                  todas[i], fit: BoxFit.cover, width: double.infinity,
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: const Color(0xFFF3F4F6)),
+                ),
+              ),
+            ),
+            // Dots
+            Positioned(bottom: 10, left: 0, right: 0,
+              child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(todas.length, (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: i == _carouselPage ? 18 : 7, height: 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: i == _carouselPage ? Colors.white : Colors.white54,
+                    borderRadius: BorderRadius.circular(4)),
+                )),
+              )),
+            // Contador
+            Positioned(top: 8, right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                    color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                child: Text('${_carouselPage + 1}/${todas.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11,
+                        fontWeight: FontWeight.w600)),
+              )),
           ]),
         ),
-      ]);
-    }
-    return GestureDetector(
-      onTap: _subiendoImg ? null : _subirPortada,
-      child: Container(
-        height: 60,
+      const SizedBox(height: 8),
+      // ── Barra de gestión de fotos ──────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FA),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
-        child: _subiendoImg
-            ? Center(child: CircularProgressIndicator(color: color, strokeWidth: 2))
-            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.add_photo_alternate_outlined, size: 17,
-                    color: color.withValues(alpha: 0.45)),
+        child: Row(children: [
+          Text('Fotos carrusel',
+              style: TextStyle(fontSize: 10, color: color,
+                  fontWeight: FontWeight.w700, letterSpacing: .2)),
+          const SizedBox(width: 10),
+          // Thumbnails
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                // Portada
+                if (_imagenUrl != null)
+                  _thumbWithX(_imagenUrl!, onRemove: () => setState(() {
+                    if (_imagenes.isNotEmpty) {
+                      _imagenUrl = _imagenes.removeAt(0);
+                    } else {
+                      _imagenUrl = null;
+                    }
+                    _carouselPage = 0;
+                  })),
+                // Extras
+                ..._imagenes.asMap().entries.map((e) =>
+                  _thumbWithX(e.value, onRemove: () =>
+                      setState(() { _imagenes.removeAt(e.key); if (_carouselPage >= ([_imagenUrl, ..._imagenes].length)) _carouselPage = 0; }))),
+                // Botón +
+                GestureDetector(
+                  onTap: (_subiendoImg || _subiendoImgExtra) ? null : _subirFotoCarrusel,
+                  child: Container(
+                    width: 38, height: 38,
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: color.withValues(alpha: 0.25)),
+                    ),
+                    child: (_subiendoImg || _subiendoImgExtra)
+                        ? Center(child: SizedBox(width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: color)))
+                        : Icon(Icons.add_photo_alternate_outlined, color: color, size: 17),
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Text('Añadir imagen de portada',
-                    style: TextStyle(fontSize: 12,
-                        color: color.withValues(alpha: 0.55))),
+                Text(
+                  todas.isEmpty ? 'Toca + para añadir' : '${todas.length} foto${todas.length == 1 ? '' : 's'}',
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+                ),
               ]),
+            ),
+          ),
+        ]),
       ),
-    );
+    ]);
+  }
+
+  Widget _thumbWithX(String url, {required VoidCallback onRemove}) {
+    return Stack(clipBehavior: Clip.none, children: [
+      Container(
+        margin: const EdgeInsets.only(right: 5),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: Image.network(url, width: 38, height: 38, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(width: 38, height: 38,
+                  color: const Color(0xFFF3F4F6))),
+        ),
+      ),
+      Positioned(top: -5, right: 0,
+        child: GestureDetector(
+          onTap: onRemove,
+          child: Container(width: 14, height: 14,
+            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+            child: const Icon(Icons.close, size: 8, color: Colors.white)),
+        )),
+    ]);
   }
 
   Widget _portadaBtn(IconData icon, VoidCallback onTap) => GestureDetector(
@@ -903,6 +1070,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                     padding: EdgeInsets.zero,
                     showCursor: false,
                     enableInteractiveSelection: false,
+                    embedBuilders: [_ImageEmbedBuilder()],
                   ),
                 ),
               ]),

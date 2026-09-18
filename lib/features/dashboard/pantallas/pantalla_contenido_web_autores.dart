@@ -665,7 +665,10 @@ class _AutorDialogState extends State<_AutorDialog> {
               segments: const [
                 ButtonSegment(
                     value: 'autor',
-                    label: Text('Autor/a', style: TextStyle(fontSize: 11))),
+                    label: Text('Autor', style: TextStyle(fontSize: 11))),
+                ButtonSegment(
+                    value: 'autora',
+                    label: Text('Autora', style: TextStyle(fontSize: 11))),
                 ButtonSegment(
                     value: 'ilustrador',
                     label: Text('Ilustrador/a', style: TextStyle(fontSize: 11))),

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 
@@ -14,6 +16,7 @@ class TabCatalogoWeb extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
   final Color? color;
+  final String? seccionId;
   final void Function(Map<String, dynamic>? item)? onAbrirEditor;
 
   const TabCatalogoWeb({
@@ -21,6 +24,7 @@ class TabCatalogoWeb extends StatefulWidget {
     required this.empresaId,
     required this.svc,
     this.color,
+    this.seccionId,
     this.onAbrirEditor,
   });
 
@@ -39,7 +43,9 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
   @override
   void initState() {
     super.initState();
-    _stream = widget.svc.obtenerCatalogoWeb(widget.empresaId);
+    _stream = widget.seccionId != null
+        ? widget.svc.obtenerCatalogoWebSeccion(widget.empresaId, widget.seccionId!)
+        : widget.svc.obtenerCatalogoWeb(widget.empresaId);
   }
 
   @override
@@ -105,7 +111,8 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
           return true;
         }).toList();
 
-        final activos = todos.where((i) => i['activo'] as bool? ?? true).length;
+        final activos    = todos.where((i) => i['activo'] as bool? ?? true).length;
+        final conStripe  = todos.where((i) => (i['stripe_link'] as String? ?? '').isNotEmpty).length;
 
         return Column(children: [
           // ── Header — KPIs ────────────────────────────────────────────────────
@@ -196,6 +203,20 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                   ),
                 ],
                 const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _abrirVincularStripe(todos),
+                  icon: const Icon(Icons.credit_card_rounded, size: 14),
+                  label: Text('Stripe${conStripe > 0 ? ' ($conStripe)' : ''}'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF635BFF),
+                    side: const BorderSide(color: Color(0xFF635BFF)),
+                    minimumSize: const Size(0, 38),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _abrirEditor(null),
                   icon: const Icon(Icons.add_rounded, size: 15),
@@ -278,6 +299,9 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         onToggle: (v) => widget.svc.toggleActivoItemCatalogo(
             widget.empresaId, items[i]['id'] as String, v),
         onDelete: () => _confirmarEliminar(items[i]),
+        onLibroDelMes: () => widget.svc.toggleLibroDelMesCatalogo(
+            widget.empresaId, items[i]['id'] as String,
+            items[i]['es_libro_del_mes'] as bool? ?? false),
       ),
     );
   }
@@ -352,6 +376,241 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
       ),
     );
   }
+
+  void _abrirVincularStripe(List<Map<String, dynamic>> items) {
+    final ctrls = <String, TextEditingController>{};
+    for (final item in items) {
+      final id = item['id'] as String? ?? '';
+      if (id.isNotEmpty) {
+        ctrls[id] = TextEditingController(text: item['stripe_link'] as String? ?? '');
+      }
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _StripeLinksSheet(
+        empresaId: widget.empresaId,
+        svc: widget.svc,
+        items: items,
+        ctrls: ctrls,
+      ),
+    ).then((_) {
+      for (final c in ctrls.values) c.dispose();
+    });
+  }
+}
+
+// ── Bottom sheet para vincular Stripe links en bulk ───────────────────────────
+
+class _StripeLinksSheet extends StatefulWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+  final List<Map<String, dynamic>> items;
+  final Map<String, TextEditingController> ctrls;
+
+  const _StripeLinksSheet({
+    required this.empresaId, required this.svc,
+    required this.items, required this.ctrls,
+  });
+
+  @override
+  State<_StripeLinksSheet> createState() => _StripeLinksSheetState();
+}
+
+class _StripeLinksSheetState extends State<_StripeLinksSheet> {
+  bool _guardando = false;
+  bool _sincronizando = false;
+
+  /// Lee los payment_link de la colección `libros` y rellena los controllers automáticamente.
+  Future<void> _sincronizarDesdeLibros() async {
+    setState(() => _sincronizando = true);
+    try {
+      final actualizados = await widget.svc.sincronizarLinksStripe(widget.empresaId);
+      // Leer catalogo_web actualizado y refrescar controllers
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('catalogo_web').get();
+      for (final doc in snap.docs) {
+        final link = doc.data()['stripe_link'] as String? ?? '';
+        if (link.isNotEmpty && widget.ctrls.containsKey(doc.id)) {
+          widget.ctrls[doc.id]!.text = link;
+        }
+      }
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ $actualizados libro${actualizados == 1 ? '' : 's'} sincronizado${actualizados == 1 ? '' : 's'} desde Stripe'),
+          backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _sincronizando = false);
+    }
+  }
+
+  Future<void> _guardar() async {
+    setState(() => _guardando = true);
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final item in widget.items) {
+        final id = item['id'] as String? ?? '';
+        if (id.isEmpty) continue;
+        final link = widget.ctrls[id]?.text.trim() ?? '';
+        batch.update(
+          FirebaseFirestore.instance
+              .collection('empresas').doc(widget.empresaId)
+              .collection('catalogo_web').doc(id),
+          {'stripe_link': link},
+        );
+      }
+      await batch.commit();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Links de Stripe actualizados'),
+          backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final conStripe = widget.ctrls.values.where((c) => c.text.isNotEmpty).length;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          width: 36, height: 4,
+          decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                  color: const Color(0xFF635BFF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.credit_card_rounded,
+                  size: 18, color: Color(0xFF635BFF)),
+            ),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Vincular con Stripe',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A))),
+              Text('$conStripe de ${widget.items.length} con link',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+            ]),
+          ]),
+        ),
+        const Divider(height: 1),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.55),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            itemCount: widget.items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (_, i) {
+              final item = widget.items[i];
+              final id   = item['id'] as String? ?? '';
+              final ctrl = widget.ctrls[id];
+              if (ctrl == null) return const SizedBox.shrink();
+              return Row(children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    item['nombre'] as String? ?? 'Sin nombre',
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                        color: Color(0xFF334155)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: TextField(
+                      controller: ctrl,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: const InputDecoration(
+                        hintText: 'https://buy.stripe.com/…',
+                        hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ]);
+            },
+          ),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: OutlinedButton.icon(
+            onPressed: (_sincronizando || _guardando) ? null : _sincronizarDesdeLibros,
+            icon: _sincronizando
+                ? const SizedBox(width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF635BFF)))
+                : const Icon(Icons.sync_rounded, size: 16, color: Color(0xFF635BFF)),
+            label: const Text('Sincronizar automáticamente desde libros',
+                style: TextStyle(fontSize: 13, color: Color(0xFF635BFF))),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+              side: const BorderSide(color: Color(0xFF635BFF)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF635BFF),
+                foregroundColor: Colors.white, elevation: 0,
+                minimumSize: const Size(0, 44),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _guardando
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('Guardar todos',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 }
 
 // ── Tarjeta — mismo estilo que _TarjetaSeccion ────────────────────────────────
@@ -362,22 +621,26 @@ class _TarjetaItemCatalogo extends StatelessWidget {
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
+  final VoidCallback onLibroDelMes;
 
   const _TarjetaItemCatalogo({
     super.key,
     required this.item, required this.color,
     required this.onEdit, required this.onToggle, required this.onDelete,
+    required this.onLibroDelMes,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activo  = item['activo'] as bool? ?? true;
-    final nombre  = item['nombre'] as String? ?? 'Sin nombre';
-    final precio  = item['precio'] as String? ?? '';
-    final cat     = item['categoria'] as String? ?? '';
-    final autor   = item['campo_autor'] as String? ?? '';
-    final stripe  = (item['stripe_link'] as String? ?? '').isNotEmpty;
-    final img     = item['imagen_url'] as String? ?? '';
+    final activo      = item['activo'] as bool? ?? true;
+    final nombre      = item['nombre'] as String? ?? 'Sin nombre';
+    final precio      = item['precio'] as String? ?? '';
+    final cat         = item['categoria'] as String? ?? '';
+    final autor       = item['campo_autor'] as String? ?? '';
+    final stripeUrl   = item['stripe_link'] as String? ?? '';
+    final stripe      = stripeUrl.isNotEmpty;
+    final img         = item['imagen_url'] as String? ?? '';
+    final esLibroMes  = item['es_libro_del_mes'] as bool? ?? false;
 
     final subtitle = [
       if (autor.isNotEmpty) autor,
@@ -420,6 +683,19 @@ class _TarjetaItemCatalogo extends StatelessWidget {
                           color: activo ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
                       overflow: TextOverflow.ellipsis),
                 ),
+                if (esLibroMes) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6B1E2A).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Libro del mes',
+                        style: TextStyle(fontSize: 9, color: Color(0xFF6B1E2A),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
                 if (stripe) ...[
                   const SizedBox(width: 6),
                   Container(
@@ -441,7 +717,50 @@ class _TarjetaItemCatalogo extends StatelessWidget {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ])),
-            // Controles — igual que en _TarjetaSeccion
+            // Controles
+            if (stripe)
+              Tooltip(
+                message: 'Abrir Payment Link en Stripe',
+                child: InkWell(
+                  onTap: () async {
+                    final uri = Uri.tryParse(stripeUrl);
+                    if (uri != null && await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      await Clipboard.setData(ClipboardData(text: stripeUrl));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Link copiado al portapapeles'),
+                          duration: Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF635BFF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF635BFF).withValues(alpha: 0.3)),
+                    ),
+                    child: const Text('Comprar',
+                        style: TextStyle(fontSize: 10, color: Color(0xFF635BFF),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            IconButton(
+              icon: Icon(
+                esLibroMes ? Icons.star_rounded : Icons.star_border_rounded,
+                color: esLibroMes ? const Color(0xFF6B1E2A) : Colors.grey[400],
+                size: 20,
+              ),
+              tooltip: esLibroMes ? 'Quitar "Libro del mes"' : 'Marcar como "Libro del mes"',
+              onPressed: onLibroDelMes,
+              visualDensity: VisualDensity.compact,
+            ),
             Switch(
               value: activo,
               onChanged: onToggle,

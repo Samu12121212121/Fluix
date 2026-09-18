@@ -203,6 +203,10 @@ class EmpleadoFichaje {
   final String empresaId;
   final bool activo;
   final int jornadaDiaria; // minutos por día, por defecto 480 (8h)
+  final String? horarioEntrada; // "HH:mm" hora habitual de entrada
+  final String? horarioSalida;  // "HH:mm" hora habitual de salida
+  // 7 elementos: [lun, mar, mié, jue, vie, sáb, dom]
+  final List<bool> diasLaborables;
 
   const EmpleadoFichaje({
     required this.uid,
@@ -211,10 +215,14 @@ class EmpleadoFichaje {
     required this.empresaId,
     this.activo = true,
     this.jornadaDiaria = 480,
+    this.horarioEntrada,
+    this.horarioSalida,
+    this.diasLaborables = const [true, true, true, true, true, false, false],
   });
 
   factory EmpleadoFichaje.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final rawDias = data['dias_laborables'] as List<dynamic>?;
     return EmpleadoFichaje(
       uid: doc.id,
       nombre: data['nombre'] as String? ?? '',
@@ -222,6 +230,11 @@ class EmpleadoFichaje {
       empresaId: data['empresa_id'] as String? ?? '',
       activo: data['activo'] as bool? ?? true,
       jornadaDiaria: data['jornada_diaria'] as int? ?? 480,
+      horarioEntrada: data['horario_entrada'] as String?,
+      horarioSalida: data['horario_salida'] as String?,
+      diasLaborables: rawDias != null
+          ? rawDias.map((v) => v as bool? ?? false).toList()
+          : const [true, true, true, true, true, false, false],
     );
   }
 
@@ -231,6 +244,9 @@ class EmpleadoFichaje {
     'empresa_id': empresaId,
     'activo': activo,
     'jornada_diaria': jornadaDiaria,
+    if (horarioEntrada != null) 'horario_entrada': horarioEntrada,
+    if (horarioSalida != null) 'horario_salida': horarioSalida,
+    'dias_laborables': diasLaborables,
   };
 }
 

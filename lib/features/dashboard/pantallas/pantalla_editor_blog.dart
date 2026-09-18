@@ -36,7 +36,8 @@ class PantallaEditorBlog extends StatefulWidget {
 }
 
 class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
-  final _scrollCtrl    = ScrollController();
+  final _scrollCtrl      = ScrollController();
+  final _portadaPageCtrl = PageController();
   final _tituloCtrl    = TextEditingController();
   final _slugCtrl      = TextEditingController();
   final _resumenCtrl   = TextEditingController();
@@ -66,6 +67,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   bool         _compartirExp     = false;
   int          _rightTab         = 0;
   Timer?       _slugTimer;
+  int          _carouselPage     = 0;
 
   // Undo / Redo stacks
   final _history   = <String>[];
@@ -170,6 +172,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _portadaPageCtrl.dispose();
     _tituloCtrl.dispose();    _slugCtrl.dispose();      _resumenCtrl.dispose();
     _contenidoCtrl.dispose(); _etiquetaCtrl.dispose();
     _seoTituloCtrl.dispose(); _seoDescCtrl.dispose();
@@ -410,33 +413,10 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
                   blurRadius: 20, offset: const Offset(0, 2))],
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // ── Imagen de portada ─────────────────────────────────────────
-              if (_imagenUrl != null)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                  child: Image.network(_imagenUrl!, height: 220,
-                      width: double.infinity, fit: BoxFit.cover),
-                )
-              else
-                GestureDetector(
-                  onTap: _subiendoImg ? null : _subirImagenDestacada,
-                  child: Container(
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FA),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.add_photo_alternate_outlined,
-                          size: 20, color: color.withValues(alpha: 0.5)),
-                      const SizedBox(width: 8),
-                      Text('Añadir imagen de portada',
-                          style: TextStyle(fontSize: 12.5,
-                              color: color.withValues(alpha: 0.6))),
-                    ]),
-                  ),
-                ),
+              // ── Carrusel de portada ───────────────────────────────────────
+              _buildCarruselPortadaEditor(color),
+              // ── Barra de gestión de fotos ─────────────────────────────────
+              _barraFotosAdicionales(color),
               Padding(
                 padding: const EdgeInsets.fromLTRB(48, 32, 48, 40),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -582,8 +562,14 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
 
   Future<void> _subirImagenDestacada() async {
     setState(() => _subiendoImg = true);
-    final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'blog/portadas');
-    if (mounted) setState(() { _imagenUrl = url; _subiendoImg = false; });
+    final urls = await widget.svc.subirMultiplesImagenes(widget.empresaId, 'blog/portadas');
+    if (mounted) setState(() {
+      if (urls.isNotEmpty) {
+        _imagenUrl = urls.first;
+        _imagenes.addAll(urls.skip(1));
+      }
+      _subiendoImg = false;
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -616,11 +602,184 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
           _titleSlugBlock(color),
           const SizedBox(height: 12),
           _contentBlock(color),
+          const SizedBox(height: 12),
+          _imagenesBlock(color),
         ]),
       )),
     ]),
   );
 
+
+  Widget _paymentLinkWidget(String libroId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('libros')
+          .doc(libroId)
+          .get(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final data = snap.data?.data() as Map<String, dynamic>? ?? {};
+        final live  = data['payment_link']      as String? ?? '';
+        final test  = data['payment_link_test'] as String? ?? '';
+        if (live.isEmpty && test.isEmpty) return const SizedBox.shrink();
+
+        void copiar(String url, String label) {
+          Clipboard.setData(ClipboardData(text: url));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$label copiado'), duration: const Duration(seconds: 2)));
+        }
+
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Payment Links Stripe',
+              style: TextStyle(fontSize: 11, color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          if (live.isNotEmpty)
+            _linkRow('LIVE', live, const Color(0xFF059669), () => copiar(live, 'Link LIVE')),
+          if (test.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _linkRow('TEST', test, const Color(0xFF7C3AED), () => copiar(test, 'Link TEST')),
+          ],
+        ]);
+      },
+    );
+  }
+
+  Widget _linkRow(String label, String url, Color color, VoidCallback onCopy) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: color, borderRadius: BorderRadius.circular(3)),
+          child: Text(label, style: const TextStyle(
+              color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10, color: color, fontFamily: 'monospace')),
+        ),
+        IconButton(
+          icon: Icon(Icons.copy_rounded, size: 14, color: color),
+          onPressed: onCopy,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+          tooltip: 'Copiar',
+        ),
+      ]),
+    );
+  }
+
+  Widget _imagenesBlock(Color color) {
+    final todas = [
+      if (_imagenUrl != null) _imagenUrl!,
+      ..._imagenes,
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.photo_library_outlined, size: 14, color: Color(0xFF6B7280)),
+          const SizedBox(width: 6),
+          Text('Imágenes', style: const TextStyle(fontSize: 12,
+              fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+          const Spacer(),
+          if (todas.isNotEmpty)
+            Text('${todas.length} imagen${todas.length == 1 ? '' : 'es'}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+        ]),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              // Thumbnails existentes
+              ...List.generate(todas.length, (i) {
+                final url = todas[i];
+                final esPortada = url == _imagenUrl;
+                return Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Stack(children: [
+                        Image.network(url, width: 72, height: 72, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(width: 72, height: 72,
+                                color: const Color(0xFFF3F4F6),
+                                child: const Icon(Icons.broken_image_outlined,
+                                    color: Color(0xFFD1D5DB)))),
+                        if (esPortada)
+                          Positioned(bottom: 0, left: 0, right: 0,
+                            child: Container(
+                              color: Colors.black54,
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: const Text('Portada', textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.white, fontSize: 8,
+                                      fontWeight: FontWeight.w600)),
+                            )),
+                      ]),
+                    ),
+                  ),
+                  // Eliminar (solo imágenes adicionales)
+                  if (!esPortada)
+                    Positioned(top: -6, right: 2,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          final idx = _imagenes.indexOf(url);
+                          if (idx >= 0) _imagenes.removeAt(idx);
+                        }),
+                        child: Container(
+                          width: 18, height: 18,
+                          decoration: const BoxDecoration(
+                              color: Colors.red, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, size: 11, color: Colors.white),
+                        ),
+                      )),
+                ]);
+              }),
+              // Botón añadir
+              GestureDetector(
+                onTap: _subiendoImagenesExtra ? null : _subirImagenesAdicionales,
+                child: Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: color.withValues(alpha: 0.2), style: BorderStyle.solid),
+                  ),
+                  child: _subiendoImagenesExtra
+                      ? Center(child: SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: color)))
+                      : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.add_photo_alternate_outlined, color: color, size: 20),
+                          const SizedBox(height: 3),
+                          Text('Añadir', style: TextStyle(color: color, fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                        ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
 
   Widget _topBtn({
     required IconData icon,
@@ -971,46 +1130,96 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                // Imagen hero con handles de selección y toolbar flotante
-                if (_imagenUrl != null)
-                  Stack(children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-                      child: CachedNetworkImage(imageUrl: _imagenUrl!,
-                        width: double.infinity, height: 260, fit: BoxFit.cover,
-                        errorWidget: (_, e, s) => Container(height: 260,
-                            color: const Color(0xFFF3F4F6))),
-                    ),
-                    // Toolbar flotante de imagen
-                    Positioned(top: 14, left: 0, right: 0, child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(7),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.14),
-                              blurRadius: 10)],
+                // ── Portada (carrusel si hay más de 1 imagen) ─────────────
+                Builder(builder: (ctx) {
+                  final todasPortada = [
+                    if (_imagenUrl != null) _imagenUrl!,
+                    ..._imagenes,
+                  ];
+                  if (todasPortada.isEmpty) return const SizedBox.shrink();
+                  if (todasPortada.length == 1) {
+                    return Stack(children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                        child: CachedNetworkImage(imageUrl: todasPortada.first,
+                          width: double.infinity, height: 260, fit: BoxFit.cover,
+                          errorWidget: (_, e, s) => Container(height: 260,
+                              color: const Color(0xFFF3F4F6))),
+                      ),
+                      Positioned.fill(child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: color, width: 2),
+                            borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8), topRight: Radius.circular(8))),
                         ),
-                        child: Row(mainAxisSize: MainAxisSize.min,
-                          children: [Icons.image_outlined, Icons.photo_size_select_large_rounded,
-                            Icons.link_rounded, Icons.edit_outlined, Icons.delete_outline]
-                              .map((ic) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                child: Icon(ic, size: 16, color: const Color(0xFF374151))))
-                              .toList()),
+                      )),
+                    ]);
+                  }
+                  // Carrusel
+                  return SizedBox(
+                    height: 260,
+                    child: Stack(children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                        child: PageView.builder(
+                          itemCount: todasPortada.length,
+                          onPageChanged: (i) => setState(() => _carouselPage = i),
+                          itemBuilder: (_, i) => CachedNetworkImage(
+                            imageUrl: todasPortada[i],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorWidget: (_, __, ___) =>
+                                Container(color: const Color(0xFFF3F4F6)),
+                          ),
+                        ),
                       ),
-                    )),
-                    // Borde azul de selección
-                    Positioned.fill(child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: color, width: 2),
-                          borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(8), topRight: Radius.circular(8))),
+                      // Indicadores de página
+                      Positioned(
+                        bottom: 12, left: 0, right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(todasPortada.length, (i) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: i == _carouselPage ? 20 : 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: i == _carouselPage ? Colors.white : Colors.white54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          )),
+                        ),
                       ),
-                    )),
-                  ]),
+                      // Contador
+                      Positioned(
+                        top: 12, right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            '${_carouselPage + 1} / ${todasPortada.length}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: color, width: 2),
+                            borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8), topRight: Radius.circular(8))),
+                        ),
+                      )),
+                    ]),
+                  );
+                }),
 
                 // Contenido renderizado como bloques
                 GestureDetector(
@@ -1032,6 +1241,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
                           ),
                   ),
                 ),
+
               ]),
             ),
 
@@ -1054,6 +1264,279 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         ),
       ),
     );
+  }
+
+  // ── Carrusel en el editor (modo Word) ─────────────────────────────────────────
+  Widget _buildCarruselPortadaEditor(Color color) {
+    final todas = [
+      if (_imagenUrl != null) _imagenUrl!,
+      ..._imagenes,
+    ];
+    if (todas.isEmpty) {
+      // Placeholder cuando no hay ninguna foto
+      return GestureDetector(
+        onTap: _subiendoImg ? null : _subirImagenDestacada,
+        child: Container(
+          height: 80,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.add_photo_alternate_outlined,
+                size: 20, color: color.withValues(alpha: 0.5)),
+            const SizedBox(width: 8),
+            Text('Añadir fotos al carrusel',
+                style: TextStyle(fontSize: 12.5,
+                    color: color.withValues(alpha: 0.6))),
+          ]),
+        ),
+      );
+    }
+    // Una sola foto → imagen fija
+    if (todas.length == 1) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        child: Image.network(todas.first, height: 220,
+            width: double.infinity, fit: BoxFit.cover),
+      );
+    }
+    // Varias → carrusel deslizable con controller persistente
+    return SizedBox(
+      height: 220,
+      child: Stack(children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+          child: PageView.builder(
+            controller: _portadaPageCtrl,
+            itemCount: todas.length,
+            onPageChanged: (i) => setState(() => _carouselPage = i),
+            itemBuilder: (_, i) => Image.network(
+              todas[i], fit: BoxFit.cover, width: double.infinity,
+              errorBuilder: (_, __, ___) => Container(color: const Color(0xFFF3F4F6)),
+            ),
+          ),
+        ),
+        // Indicadores
+        Positioned(
+          bottom: 10, left: 0, right: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(todas.length, (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: i == _carouselPage ? 18 : 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: i == _carouselPage
+                    ? Colors.white : Colors.white54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            )),
+          ),
+        ),
+        // Contador
+        Positioned(top: 10, right: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black54, borderRadius: BorderRadius.circular(14)),
+            child: Text('${_carouselPage + 1} / ${todas.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          )),
+      ]),
+    );
+  }
+
+  // ── Barra de gestión de fotos del carrusel ─────────────────────────────────
+  Widget _barraFotosAdicionales(Color color) {
+    final todas = [
+      if (_imagenUrl != null) _imagenUrl!,
+      ..._imagenes,
+    ];
+    return Container(
+      color: const Color(0xFFFAFAFB),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(children: [
+        // Label
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Carrusel', style: TextStyle(fontSize: 9,
+              letterSpacing: .3, color: color, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(
+            todas.isEmpty
+                ? 'Sin fotos'
+                : '${todas.length} foto${todas.length == 1 ? '' : 's'}',
+            style: const TextStyle(fontSize: 9, color: Color(0xFF9CA3AF)),
+          ),
+        ]),
+        const SizedBox(width: 12),
+        Container(width: 1, height: 42, color: const Color(0xFFE5E7EB)),
+        const SizedBox(width: 12),
+        // Thumbnails
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              // Thumb portada (primera, con marca "P")
+              if (_imagenUrl != null)
+                Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Stack(children: [
+                        Image.network(_imagenUrl!, width: 42, height: 42,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _fotoPlaceholder(color, 42)),
+                        Positioned(bottom: 0, left: 0, right: 0,
+                          child: Container(
+                            color: Colors.black45,
+                            padding: const EdgeInsets.symmetric(vertical: 1),
+                            child: const Text('1ª', textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 7,
+                                    fontWeight: FontWeight.w700)),
+                          )),
+                      ]),
+                    ),
+                  ),
+                  Positioned(top: -5, right: 1,
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        // Si hay extras, la segunda pasa a ser portada
+                        if (_imagenes.isNotEmpty) {
+                          _imagenUrl = _imagenes.removeAt(0);
+                        } else {
+                          _imagenUrl = null;
+                        }
+                        _carouselPage = 0;
+                      }),
+                      child: _xBtn(),
+                    )),
+                ]),
+              // Thumbs adicionales
+              ..._imagenes.asMap().entries.map((e) {
+                final idx = e.key;
+                final url = e.value;
+                return Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(url, width: 42, height: 42,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _fotoPlaceholder(color, 42)),
+                    ),
+                  ),
+                  Positioned(top: -5, right: 1,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _imagenes.removeAt(idx)),
+                      child: _xBtn(),
+                    )),
+                ]);
+              }),
+              // Botón + (añadir una foto más al carrusel)
+              GestureDetector(
+                onTap: (_subiendoImg || _subiendoImagenesExtra) ? null
+                    : _subirUnaImagenAdicional,
+                child: (_subiendoImg || _subiendoImagenesExtra)
+                    ? _fotoPlaceholderLoading(color, 42)
+                    : _fotoPlaceholder(color, 42,
+                        icon: Icons.add_photo_alternate_outlined),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _xBtn() => Container(
+    width: 15, height: 15,
+    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+    child: const Icon(Icons.close, size: 9, color: Colors.white),
+  );
+
+  Widget _fotoPlaceholder(Color color, double size, {IconData? icon}) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withValues(alpha: 0.25), style: BorderStyle.solid),
+    ),
+    child: Icon(icon ?? Icons.add_photo_alternate_outlined, color: color, size: size * 0.42),
+  );
+
+  Widget _fotoPlaceholderLoading(Color color, double size) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Center(child: SizedBox(width: size * 0.35, height: size * 0.35,
+        child: CircularProgressIndicator(strokeWidth: 2, color: color))),
+  );
+
+  /// Añade UNA imagen a `_imagenes` usando picker de imagen única (más fiable en desktop).
+  Future<void> _subirUnaImagenAdicional() async {
+    setState(() => _subiendoImagenesExtra = true);
+    final url = await widget.svc.subirImagenDesdeGaleria(
+        widget.empresaId, 'web/blog/imagenes');
+    if (mounted) setState(() {
+      if (url != null) _imagenes.add(url);
+      _subiendoImagenesExtra = false;
+    });
+  }
+
+  Widget _buildGaleriaDebajo(Color color) {
+    return Column(children: [
+      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(36, 20, 36, 28),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.photo_library_outlined, size: 15, color: color),
+            const SizedBox(width: 6),
+            Text('Galería', style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(width: 6),
+            Text('${_imagenes.length} ${_imagenes.length == 1 ? "foto" : "fotos"}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+          ]),
+          const SizedBox(height: 12),
+          _imagenes.length == 1
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: _imagenes.first,
+                    width: double.infinity, height: 200, fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(height: 200,
+                        color: const Color(0xFFF3F4F6)),
+                  ),
+                )
+              : SizedBox(
+                  height: 200,
+                  child: PageView.builder(
+                    itemCount: _imagenes.length,
+                    itemBuilder: (_, i) => Padding(
+                      padding: EdgeInsets.only(right: i < _imagenes.length - 1 ? 8 : 0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: _imagenes[i],
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                              color: const Color(0xFFF3F4F6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+        ]),
+      ),
+    ]);
   }
 
   Widget _contentBlock(Color color) => TextField(
@@ -1211,6 +1694,11 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
                 );
               },
             ),
+            // Payment link del libro asociado
+            if (_libroId != null) ...[
+              const SizedBox(height: 10),
+              _paymentLinkWidget(_libroId!),
+            ],
             if (!_esNuevo) ...[
               const SizedBox(height: 10),
               // Historial de versiones
@@ -1334,7 +1822,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
               Row(children: [
                 Expanded(child: Center(
                   child: TextButton(
-                    onPressed: _subiendoImg ? null : _subirImagen,
+                    onPressed: _subiendoImg ? null : _subirImagenDestacada,
                     style: TextButton.styleFrom(foregroundColor: color,
                         textStyle: const TextStyle(fontSize: 12)),
                     child: _subiendoImg
@@ -1351,7 +1839,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
               ]),
             ] else
               InkWell(
-                onTap: _subiendoImg ? null : _subirImagen,
+                onTap: _subiendoImg ? null : _subirImagenDestacada,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   height: 80, width: double.infinity,
@@ -1842,15 +2330,21 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     if (mounted) setState(() { _imagenUrl = url ?? _imagenUrl; _subiendoImg = false; });
   }
 
-  Future<void> _subirImagenAdicional() async {
-    final url = await widget.svc.subirImagenDesdeGaleria(
+  bool _subiendoImagenesExtra = false;
+
+  Future<void> _subirImagenesAdicionales() async {
+    setState(() => _subiendoImagenesExtra = true);
+    final urls = await widget.svc.subirMultiplesImagenes(
         widget.empresaId, 'web/blog/imagenes');
-    if (mounted && url != null) setState(() => _imagenes.add(url));
+    if (mounted) setState(() {
+      _imagenes.addAll(urls);
+      _subiendoImagenesExtra = false;
+    });
   }
 
   Widget _addImagenBtn(Color color) {
     return InkWell(
-      onTap: _subirImagenAdicional,
+      onTap: _subiendoImagenesExtra ? null : _subirImagenesAdicionales,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: 90, height: 90,
@@ -1859,12 +2353,16 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: color.withValues(alpha: 0.25), style: BorderStyle.solid),
         ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.add_photo_alternate_outlined, color: color, size: 22),
-          const SizedBox(height: 4),
-          Text('Añadir', style: TextStyle(color: color, fontSize: 10,
-              fontWeight: FontWeight.w600)),
-        ]),
+        child: _subiendoImagenesExtra
+            ? Center(child: SizedBox(width: 22, height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: color)))
+            : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.add_photo_alternate_outlined, color: color, size: 22),
+                const SizedBox(height: 4),
+                Text('Añadir\nvarias', textAlign: TextAlign.center,
+                    style: TextStyle(color: color, fontSize: 10,
+                        fontWeight: FontWeight.w600, height: 1.2)),
+              ]),
       ),
     );
   }

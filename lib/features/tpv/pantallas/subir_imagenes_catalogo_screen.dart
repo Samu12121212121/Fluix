@@ -62,7 +62,8 @@ class _SubirImagenesCatalogoScreenState
 
   Future<void> _seleccionarImagenes() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
       allowMultiple: true,
       withData: true,
     );

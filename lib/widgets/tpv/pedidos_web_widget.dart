@@ -21,7 +21,7 @@ class PedidosWebNotifier extends ChangeNotifier {
         .collection('empresas')
         .doc(empresaId)
         .collection('pedidos')
-        .where('origen', isEqualTo: 'tienda_online')
+        .where('origen', whereIn: ['tienda_online', 'web_nazari'])
         .where('estado', isEqualTo: 'pendiente')
         .snapshots()
         .listen((snap) {
@@ -204,7 +204,7 @@ class _PedidosWebWidgetState extends State<PedidosWebWidget>
           .collection('empresas')
           .doc(widget.empresaId)
           .collection('pedidos')
-          .where('origen', isEqualTo: 'tienda_online')
+          .where('origen', whereIn: ['tienda_online', 'web_nazari'])
           .where('estado', isEqualTo: estado)
           .orderBy('fecha_pedido', descending: true)
           .limit(50)

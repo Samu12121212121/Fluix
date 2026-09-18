@@ -9,7 +9,8 @@ import '../../../core/utils/permisos_service.dart';
 
 class PantallaAuditoria extends StatefulWidget {
   final String empresaId;
-  const PantallaAuditoria({super.key, required this.empresaId});
+  final bool embedded;
+  const PantallaAuditoria({super.key, required this.empresaId, this.embedded = false});
 
   @override
   State<PantallaAuditoria> createState() => _PantallaAuditoriaState();
@@ -31,6 +32,8 @@ class _PantallaAuditoriaState extends State<PantallaAuditoria> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _buildBody();
+    if (widget.embedded) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -62,81 +65,80 @@ class _PantallaAuditoriaState extends State<PantallaAuditoria> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Chips de filtro activos
-          if (_filtroTipo != null || _filtroUsuario != null)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(children: [
-                if (_filtroTipo != null)
-                  Chip(
-                    label: Text(_filtroTipo!.nombre),
-                    onDeleted: () => setState(() => _filtroTipo = null),
-                    backgroundColor:
-                        const Color(0xFF0D47A1).withValues(alpha: 0.1),
-                  ),
-                if (_filtroUsuario != null) ...[
-                  const SizedBox(width: 6),
-                  Chip(
-                    label: Text('Usuario: $_filtroUsuario'),
-                    onDeleted: () => setState(() => _filtroUsuario = null),
-                    backgroundColor:
-                        const Color(0xFF0D47A1).withValues(alpha: 0.1),
-                  ),
-                ],
-              ]),
-            ),
+      body: _buildBody(),
+    );
+  }
 
-          // Lista de eventos
-          Expanded(
-            child: StreamBuilder<List<EventoAuditoria>>(
-              stream: _svc.eventosStream(widget.empresaId),
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                var eventos = snap.data ?? [];
-
-                // Aplicar filtros
-                if (_filtroTipo != null) {
-                  eventos =
-                      eventos.where((e) => e.tipo == _filtroTipo).toList();
-                }
-                if (_filtroUsuario != null) {
-                  eventos = eventos
-                      .where((e) =>
-                          e.email.contains(_filtroUsuario!) ||
-                          (e.usuarioId?.contains(_filtroUsuario!) ?? false))
-                      .toList();
-                }
-
-                if (eventos.isEmpty) {
-                  return Center(
-                    child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.history, size: 64, color: Colors.grey[300]),
-                          const SizedBox(height: 16),
-                          Text('Sin eventos registrados',
-                              style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 16)),
-                        ]),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: eventos.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (_, i) => _TarjetaEvento(evento: eventos[i]),
-                );
-              },
-            ),
+  Widget _buildBody() {
+    return Column(
+      children: [
+        // Chips de filtro activos
+        if (_filtroTipo != null || _filtroUsuario != null)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
+              if (_filtroTipo != null)
+                Chip(
+                  label: Text(_filtroTipo!.nombre),
+                  onDeleted: () => setState(() => _filtroTipo = null),
+                  backgroundColor:
+                      const Color(0xFF6366F1).withValues(alpha: 0.1),
+                ),
+              if (_filtroUsuario != null) ...[
+                const SizedBox(width: 6),
+                Chip(
+                  label: Text('Usuario: $_filtroUsuario'),
+                  onDeleted: () => setState(() => _filtroUsuario = null),
+                  backgroundColor:
+                      const Color(0xFF6366F1).withValues(alpha: 0.1),
+                ),
+              ],
+            ]),
           ),
-        ],
-      ),
+
+        // Lista de eventos
+        Expanded(
+          child: StreamBuilder<List<EventoAuditoria>>(
+            stream: _svc.eventosStream(widget.empresaId),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              var eventos = snap.data ?? [];
+
+              if (_filtroTipo != null) {
+                eventos = eventos.where((e) => e.tipo == _filtroTipo).toList();
+              }
+              if (_filtroUsuario != null) {
+                eventos = eventos
+                    .where((e) =>
+                        e.email.contains(_filtroUsuario!) ||
+                        (e.usuarioId?.contains(_filtroUsuario!) ?? false))
+                    .toList();
+              }
+
+              if (eventos.isEmpty) {
+                return Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.history, size: 56, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text('Sin eventos registrados',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 15)),
+                  ]),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: eventos.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (_, i) => _TarjetaEvento(evento: eventos[i]),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

@@ -46,36 +46,34 @@ class FacturacionService {
 
   // ── GENERAR NÚMERO DE FACTURA POR SERIE ────────────────────────────────────
 
+  /// Genera el siguiente número de factura de forma atómica con runTransaction.
+  /// Garantiza unicidad aunque dos usuarios facturen simultáneamente.
   Future<String> _generarNumeroFacturaSerie(
     String empresaId,
     SerieFactura serie,
   ) async {
     final ref = _contadorFacturas(empresaId).doc('facturacion');
     final campoContador = 'ultimo_numero_${serie.name}';
-    final campoAnio = 'anio_ultimo_${serie.name}';
-    final anioActual = DateTime.now().year;
+    final campoAnio     = 'anio_ultimo_${serie.name}';
+    final anioActual    = DateTime.now().year;
 
-    // Leer estado actual
-    final snap = await ref.get();
-    final data = snap.data() ?? {};
-    final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
+    final contador = await _firestore.runTransaction<int>((txn) async {
+      final snap = await txn.get(ref);
+      final data = snap.data() ?? {};
+      final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
 
-    int contador;
-    if (!snap.exists || anioGuardado != anioActual) {
-      // Primera factura o nuevo año: resetear a 1
-      await ref.set({
-        campoContador: 1,
-        campoAnio: anioActual,
-      }, SetOptions(merge: true));
-      contador = 1;
-    } else {
-      // Incremento atómico (evita runTransaction que crashea en Windows)
-      await ref.update({
-        campoContador: FieldValue.increment(1),
-      });
-      final updated = await ref.get();
-      contador = (updated.data()?[campoContador] as num?)?.toInt() ?? 1;
-    }
+      if (!snap.exists || anioGuardado != anioActual) {
+        // Primera factura del año o documento no existe: iniciar en 1
+        txn.set(ref, {campoContador: 1, campoAnio: anioActual},
+            SetOptions(merge: true));
+        return 1;
+      } else {
+        final actual = (data[campoContador] as num?)?.toInt() ?? 0;
+        final nuevo  = actual + 1;
+        txn.update(ref, {campoContador: nuevo});
+        return nuevo;
+      }
+    });
 
     return '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
   }
@@ -430,13 +428,16 @@ class FacturacionService {
       'historial': FieldValue.arrayUnion([entradaOriginal.toMap()]),
     });
 
-    // Registrar en Verifactu
+    // Registrar en VeriFactu (rectificativa)
     try {
       await VerifactuService.registrarFactura(
         empresaId: empresaId,
         factura: factura,
       );
-    } catch (_) {}
+    } catch (e) {
+      _log.e('ERROR VeriFactu (rectificativa $numero): $e');
+      // No bloqueamos la operación, pero el error queda en el log
+    }
 
     return factura;
   }
@@ -657,6 +658,14 @@ class FacturacionService {
       'notas_cliente': notasCliente,
       'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
     });
+  }
+
+  // ── LECTURAS PUNTUALES ────────────────────────────────────────────────────
+
+  Future<Factura> obtenerFacturaDoc(String empresaId, String facturaId) async {
+    final doc = await _facturas(empresaId).doc(facturaId).get();
+    if (!doc.exists) throw Exception('Factura no encontrada');
+    return Factura.fromFirestore(doc);
   }
 
   // ── STREAMS ────────────────────────────────────────────────────────────────

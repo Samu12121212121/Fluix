@@ -106,7 +106,7 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
       final svc = TpvFacturacionService();
       final config = await svc.obtenerConfig(widget.empresaId);
       final emailOverride = _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim();
-      final factura = await svc.generarFacturaPorPedido(
+      final resultado = await svc.generarFacturaPorPedido(
         empresaId: widget.empresaId,
         pedido: widget.pedido,
         config: config,
@@ -117,6 +117,7 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
         clienteNifOverride:
             _nifCtrl.text.trim().isEmpty ? null : _nifCtrl.text.trim(),
       );
+      final factura = resultado.factura;
 
       // Envío automático de email si está habilitado en config
       final emailDestino = emailOverride ?? factura.clienteCorreo;
@@ -143,6 +144,8 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
         builder: (ctx) => _DialogoFacturaGenerada(
           factura: factura,
           empresaId: widget.empresaId,
+          verifactuError: resultado.verifactuError,
+          mensajeVerifactu: resultado.mensajeVerifactu,
         ),
       );
     } catch (e) {
@@ -272,10 +275,14 @@ class _FormularioFacturaDialogState extends State<_FormularioFacturaDialog> {
 class _DialogoFacturaGenerada extends StatefulWidget {
   final Factura factura;
   final String empresaId;
+  final bool verifactuError;
+  final String mensajeVerifactu;
 
   const _DialogoFacturaGenerada({
     required this.factura,
     required this.empresaId,
+    this.verifactuError = false,
+    this.mensajeVerifactu = '',
   });
 
   @override
@@ -299,11 +306,12 @@ class _DialogoFacturaGeneradaState extends State<_DialogoFacturaGenerada> {
 
     setState(() => _enviando = true);
     try {
-      // Generar los bytes del PDF dinámico antes de enviar
+      debugPrint('📧 [EMAIL] Generando PDF para envío a $destino...');
       final pdfBytes = await PdfService.generarFacturaPdfDinamico(
         widget.factura,
         widget.empresaId,
       );
+      debugPrint('📧 [EMAIL] PDF generado (${pdfBytes.length} bytes). Llamando a Cloud Function...');
 
       await EmailService.enviarFactura(
         destinatario: destino,
@@ -313,20 +321,40 @@ class _DialogoFacturaGeneradaState extends State<_DialogoFacturaGenerada> {
         empresaId: widget.empresaId,
         nombreCliente: widget.factura.clienteNombre,
       );
+      debugPrint('📧 [EMAIL] ✅ Email enviado correctamente a $destino');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Factura enviada a $destino'),
+          content: Text('✅ Factura enviada a $destino'),
           backgroundColor: Colors.green.shade700,
         ),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('📧 [EMAIL] ❌ Error: $e');
+      debugPrint('📧 [EMAIL] Stack: $stack');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al enviar: $e'),
-          backgroundColor: Colors.red.shade700,
+      // Mostrar diálogo con error completo para poder diagnosticar
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Error al enviar email', style: TextStyle(fontSize: 16)),
+          ]),
+          content: SingleChildScrollView(
+            child: SelectableText(
+              e.toString(),
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
         ),
       );
     } finally {
@@ -611,12 +639,42 @@ class _DialogoFacturaGeneradaState extends State<_DialogoFacturaGenerada> {
 
                     // Meta
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
+                      padding: EdgeInsets.only(bottom: widget.verifactuError ? 8 : 16),
                       child: Text(
                         '${f.metodoPago?.name ?? "Efectivo"}  ·  ${_formatDate(f.fechaEmision)}',
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                       ),
                     ),
+
+                    // Banner VeriFactu si hubo error
+                    if (widget.verifactuError)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 16, color: Colors.orange.shade700),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'VeriFactu: la factura se ha guardado pero no pudo registrarse en la AEAT. '
+                                  'Accede al detalle de la factura para reintentarlo.',
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.orange.shade800),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

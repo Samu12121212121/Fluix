@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FORMULARIO EMPLEADO (crear / editar)
-// ─────────────────────────────────────────────────────────────────────────────
+// Colores del sistema de diseño actual
+const _kBlue   = Color(0xFF3B82F6);
+const _kGreen  = Color(0xFF22C55E);
+const _kBorder = Color(0xFFE5E7EB);
+const _kBg     = Color(0xFFF8F9FA);
+const _kText   = Color(0xFF111827);
+const _kSub    = Color(0xFF6B7280);
 
 class FormularioEmpleado extends StatefulWidget {
   final String empresaId;
@@ -19,33 +24,46 @@ class FormularioEmpleado extends StatefulWidget {
 }
 
 class _FormularioEmpleadoState extends State<FormularioEmpleado> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey   = GlobalKey<FormState>();
   final _firestore = FirebaseFirestore.instance;
+
   late TextEditingController _nombreCtrl;
   late TextEditingController _correoCtrl;
   late TextEditingController _telefonoCtrl;
   late TextEditingController _passwordCtrl;
   late TextEditingController _dniCtrl;
+  late TextEditingController _nssCtrl;
+  late TextEditingController _ibanCtrl;
   late TextEditingController _puestoCtrl;
+  late TextEditingController _departamentoCtrl;
   late TextEditingController _direccionCtrl;
-  String _rolSeleccionado = 'staff';
-  bool _guardando = false;
-  // Modo ficha: solo crea un documento Firestore sin cuenta Auth
-  bool _soloFicha = false;
+
+  String    _rolSeleccionado = 'staff';
+  bool      _guardando       = false;
+  bool      _soloFicha       = false;
+  bool      _expandirExtra   = false;
+  DateTime? _fechaAlta;
 
   bool get _esEdicion => widget.id != null;
 
   @override
   void initState() {
     super.initState();
-    _nombreCtrl    = TextEditingController(text: widget.data?['nombre'] ?? '');
-    _correoCtrl    = TextEditingController(text: widget.data?['correo'] ?? '');
-    _telefonoCtrl  = TextEditingController(text: widget.data?['telefono'] ?? '');
-    _passwordCtrl  = TextEditingController();
-    _rolSeleccionado = widget.data?['rol'] ?? 'staff';
-    _dniCtrl       = TextEditingController(text: widget.data?['dni'] ?? '');
-    _puestoCtrl    = TextEditingController(text: widget.data?['puesto'] ?? '');
-    _direccionCtrl = TextEditingController(text: widget.data?['direccion'] ?? '');
+    _nombreCtrl       = TextEditingController(text: widget.data?['nombre']       ?? '');
+    _correoCtrl       = TextEditingController(text: widget.data?['correo']       ?? '');
+    _telefonoCtrl     = TextEditingController(text: widget.data?['telefono']     ?? '');
+    _passwordCtrl     = TextEditingController();
+    _dniCtrl          = TextEditingController(text: widget.data?['dni']          ?? '');
+    _nssCtrl          = TextEditingController(text: widget.data?['nss']          ?? '');
+    _ibanCtrl         = TextEditingController(text: widget.data?['iban']         ?? '');
+    _puestoCtrl       = TextEditingController(text: widget.data?['puesto']       ?? '');
+    _departamentoCtrl = TextEditingController(text: widget.data?['departamento'] ?? '');
+    _direccionCtrl    = TextEditingController(text: widget.data?['direccion']    ?? '');
+    _rolSeleccionado  = widget.data?['rol'] ?? 'staff';
+    // Fecha de alta
+    final rawFecha = widget.data?['fecha_alta'];
+    if (rawFecha is Timestamp) _fechaAlta = rawFecha.toDate();
+    else if (rawFecha is String && rawFecha.isNotEmpty) _fechaAlta = DateTime.tryParse(rawFecha);
   }
 
   @override
@@ -55,32 +73,41 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     _telefonoCtrl.dispose();
     _passwordCtrl.dispose();
     _dniCtrl.dispose();
+    _nssCtrl.dispose();
+    _ibanCtrl.dispose();
     _puestoCtrl.dispose();
+    _departamentoCtrl.dispose();
     _direccionCtrl.dispose();
     super.dispose();
   }
+
+  // ── Guardar ──────────────────────────────────────────────────────────────
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
     try {
+      final camposExtra = <String, dynamic>{
+        if (_dniCtrl.text.trim().isNotEmpty)          'dni':          _dniCtrl.text.trim(),
+        if (_nssCtrl.text.trim().isNotEmpty)          'nss':          _nssCtrl.text.trim(),
+        if (_ibanCtrl.text.trim().isNotEmpty)         'iban':         _ibanCtrl.text.trim(),
+        if (_puestoCtrl.text.trim().isNotEmpty)       'puesto':       _puestoCtrl.text.trim(),
+        if (_departamentoCtrl.text.trim().isNotEmpty) 'departamento': _departamentoCtrl.text.trim(),
+        if (_direccionCtrl.text.trim().isNotEmpty)    'direccion':    _direccionCtrl.text.trim(),
+        if (_fechaAlta != null)                       'fecha_alta':   Timestamp.fromDate(_fechaAlta!),
+      };
       if (_esEdicion) {
         await _firestore.collection('usuarios').doc(widget.id).set({
-          'nombre':    _nombreCtrl.text.trim(),
-          'telefono':  _telefonoCtrl.text.trim(),
-          'rol':       _rolSeleccionado,
-          if (_dniCtrl.text.trim().isNotEmpty) 'dni': _dniCtrl.text.trim(),
-          if (_puestoCtrl.text.trim().isNotEmpty) 'puesto': _puestoCtrl.text.trim(),
-          if (_direccionCtrl.text.trim().isNotEmpty) 'direccion': _direccionCtrl.text.trim(),
+          'nombre':   _nombreCtrl.text.trim(),
+          'telefono': _telefonoCtrl.text.trim(),
+          'rol':      _rolSeleccionado,
+          ...camposExtra,
         }, SetOptions(merge: true));
         if (mounted) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✅ Empleado actualizado'),
-              backgroundColor: Colors.green));
+          FluxToast.exito(context, 'Empleado actualizado correctamente');
         }
       } else if (_soloFicha) {
-        // ── CREAR SOLO FICHA (sin cuenta Auth) ─────────────────────────────
         final docRef = _firestore.collection('usuarios').doc();
         await docRef.set({
           'nombre':        _nombreCtrl.text.trim(),
@@ -90,21 +117,15 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
           'rol':           _rolSeleccionado,
           'activo':        true,
           'es_solo_ficha': true,
-          'fecha_creacion': DateTime.now().toIso8601String(),
+          'fecha_creacion': Timestamp.now(),
           'permisos':      [],
-          if (_dniCtrl.text.trim().isNotEmpty) 'dni': _dniCtrl.text.trim(),
-          if (_puestoCtrl.text.trim().isNotEmpty) 'puesto': _puestoCtrl.text.trim(),
-          if (_direccionCtrl.text.trim().isNotEmpty) 'direccion': _direccionCtrl.text.trim(),
+          ...camposExtra,
         });
         if (mounted) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('✅ Ficha de ${_nombreCtrl.text.trim()} creada'),
-            backgroundColor: Colors.green[700],
-          ));
+          FluxToast.exito(context, 'Ficha de ${_nombreCtrl.text.trim()} creada');
         }
       } else {
-        // ── CREAR CON CUENTA FIREBASE AUTH ─────────────────────────────────
         final correo   = _correoCtrl.text.trim();
         final password = _passwordCtrl.text.trim();
         String? nuevoUid;
@@ -123,22 +144,19 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
         } finally {
           try { await tempApp?.delete(); } catch (_) {}
         }
-
         if (nuevoUid == null) throw Exception('No se pudo crear la cuenta');
 
         await _firestore.collection('usuarios').doc(nuevoUid).set({
-          'nombre':       _nombreCtrl.text.trim(),
-          'correo':       correo,
-          'telefono':     _telefonoCtrl.text.trim(),
-          'empresa_id':   widget.empresaId,
-          'rol':          _rolSeleccionado,
-          'activo':       true,
-          'fecha_creacion': DateTime.now().toIso8601String(),
-          'permisos':     [],
-          'primera_vez':  true,
-          if (_dniCtrl.text.trim().isNotEmpty) 'dni': _dniCtrl.text.trim(),
-          if (_puestoCtrl.text.trim().isNotEmpty) 'puesto': _puestoCtrl.text.trim(),
-          if (_direccionCtrl.text.trim().isNotEmpty) 'direccion': _direccionCtrl.text.trim(),
+          'nombre':        _nombreCtrl.text.trim(),
+          'correo':        correo,
+          'telefono':      _telefonoCtrl.text.trim(),
+          'empresa_id':    widget.empresaId,
+          'rol':           _rolSeleccionado,
+          'activo':        true,
+          'fecha_creacion': Timestamp.now(),
+          'permisos':      [],
+          'primera_vez':   true,
+          ...camposExtra,
         });
         if (mounted) {
           Navigator.pop(context);
@@ -148,13 +166,11 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     } on FirebaseAuthException catch (e) {
       String msg = 'Error: ${e.message}';
       if (e.code == 'email-already-in-use') msg = 'Este correo ya tiene cuenta registrada.';
-      else if (e.code == 'weak-password') msg = 'La contraseña necesita mínimo 6 caracteres.';
-      else if (e.code == 'invalid-email') msg = 'El formato del correo no es válido.';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      else if (e.code == 'weak-password')   msg = 'La contraseña necesita mínimo 6 caracteres.';
+      else if (e.code == 'invalid-email')   msg = 'Formato de correo no válido.';
+      if (mounted) FluxToast.error(context, msg);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -167,41 +183,38 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(children: [
-          Icon(Icons.check_circle, color: Colors.green),
+          Icon(Icons.check_circle_outline_rounded, color: _kGreen, size: 22),
           SizedBox(width: 8),
-          Text('Empleado creado'),
+          Text('Empleado registrado', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
         ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Entrega estas credenciales al empleado:',
-                style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 16),
-            _credFila('Correo', correo, Icons.email),
-            const SizedBox(height: 8),
-            _credFila('Contraseña', password, Icons.lock),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange[200]!),
-              ),
-              child: const Text(
-                '⚠️ Guarda estas credenciales. Pide al empleado que cambie la contraseña.',
-                style: TextStyle(fontSize: 12),
-              ),
+        content: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Credenciales de acceso a la app:', style: TextStyle(fontSize: 13, color: _kSub)),
+          const SizedBox(height: 14),
+          _credFila('Correo', correo, Icons.email_outlined),
+          const SizedBox(height: 8),
+          _credFila('Contraseña', password, Icons.lock_outlined),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.5)),
             ),
-          ],
-        ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFF59E0B)),
+              SizedBox(width: 6),
+              Expanded(child: Text('Pide al empleado que cambie la contraseña al iniciar sesión.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF92400E)))),
+            ]),
+          ),
+        ]),
         actions: [
-          ElevatedButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D47A1),
-                foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(backgroundColor: _kBlue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             child: const Text('Entendido'),
           ),
         ],
@@ -209,260 +222,343 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     );
   }
 
-  Widget _credFila(String label, String valor, IconData icono) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D47A1).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF0D47A1).withValues(alpha: 0.2)),
-      ),
-      child: Row(children: [
-        Icon(icono, size: 16, color: const Color(0xFF0D47A1)),
-        const SizedBox(width: 8),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          Text(valor, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-        ]),
-      ]),
-    );
-  }
+  Widget _credFila(String label, String valor, IconData icono) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: _kBlue.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: _kBlue.withValues(alpha: 0.15)),
+    ),
+    child: Row(children: [
+      Icon(icono, size: 15, color: _kBlue),
+      const SizedBox(width: 8),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: _kSub)),
+        Text(valor, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText)),
+      ])),
+    ]),
+  );
 
-  Widget _buildModoTile({
-    required bool seleccionado,
-    required VoidCallback onTap,
-    required IconData icono,
-    required String titulo,
-    required String subtitulo,
-    required Color color,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Icon(icono, color: seleccionado ? color : Colors.grey, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(titulo,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: seleccionado ? color : Colors.grey[700])),
-                  Text(subtitulo,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                ],
-              ),
-            ),
-            Icon(
-              seleccionado ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: seleccionado ? color : Colors.grey,
-              size: 22,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2))),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+      padding: EdgeInsets.fromLTRB(0, 0, 0, MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // ── Handle + header ────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: _kBorder)),
+          ),
+          child: Row(children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: _kBlue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(_esEdicion ? Icons.edit_outlined : Icons.person_add_outlined,
+                  color: _kBlue, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_esEdicion ? 'Editar empleado' : 'Nuevo empleado',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
+              if (!_esEdicion)
+                const Text('Elige cómo dar de alta al empleado',
+                    style: TextStyle(fontSize: 11, color: _kSub)),
+            ])),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18, color: _kSub),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ]),
+        ),
+
+        // ── Contenido scrollable ───────────────────────────────────────────
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: _formKey,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                // ── Selector modo (solo en creación) ────────────────────────
+                if (!_esEdicion) ...[
+                  Row(children: [
+                    Expanded(child: _modoBtn(
+                      seleccionado: !_soloFicha,
+                      onTap: () => setState(() => _soloFicha = false),
+                      icon: Icons.smartphone_rounded,
+                      label: 'Con acceso a app',
+                      sub: 'Crea usuario + contraseña',
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(child: _modoBtn(
+                      seleccionado: _soloFicha,
+                      onTap: () => setState(() => _soloFicha = true),
+                      icon: Icons.badge_outlined,
+                      label: 'Solo ficha',
+                      sub: 'Sin cuenta — solo datos',
+                    )),
+                  ]),
+                  const SizedBox(height: 20),
+                ],
+
+                // ── Campos ─────────────────────────────────────────────────
+                _campo(_nombreCtrl, 'Nombre completo *', Icons.person_outline,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Obligatorio' : null),
+                _campo(_telefonoCtrl, 'Teléfono', Icons.phone_outlined,
+                    tipo: TextInputType.phone),
+                _campo(_puestoCtrl, 'Puesto / Cargo', Icons.work_outline),
+                _campo(_departamentoCtrl, 'Departamento', Icons.business_outlined),
+
+                // ── Datos de identidad y contrato ──────────────────────────
+                GestureDetector(
+                  onTap: () => setState(() => _expandirExtra = !_expandirExtra),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _expandirExtra ? _kBlue.withValues(alpha: 0.06) : _kBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _expandirExtra ? _kBlue.withValues(alpha: 0.3) : _kBorder),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.folder_shared_outlined, size: 16,
+                          color: _expandirExtra ? _kBlue : _kSub),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('Datos laborales y personales',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: _expandirExtra ? _kBlue : _kText))),
+                      Icon(_expandirExtra ? Icons.expand_less : Icons.expand_more,
+                          size: 18, color: _expandirExtra ? _kBlue : _kSub),
+                    ]),
+                  ),
+                ),
+                if (_expandirExtra) ...[
+                  _campo(_dniCtrl, 'DNI / NIE', Icons.badge_outlined),
+                  _campo(_nssCtrl, 'NSS (Nº Seguridad Social)', Icons.security_outlined,
+                      tipo: TextInputType.number),
+                  _campo(_ibanCtrl, 'IBAN / Cuenta bancaria', Icons.account_balance_outlined),
+                  _campo(_direccionCtrl, 'Dirección', Icons.home_outlined),
+                  // Selector fecha de alta
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _fechaAlta ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                          locale: const Locale('es', 'ES'),
+                          builder: (ctx, child) => Theme(
+                            data: Theme.of(ctx).copyWith(
+                              colorScheme: const ColorScheme.light(primary: _kBlue),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) setState(() => _fechaAlta = picked);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                        decoration: BoxDecoration(
+                          color: _kBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _kBorder),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.calendar_today_outlined, size: 17, color: _kSub),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(
+                            _fechaAlta != null
+                                ? 'Alta: ${_fechaAlta!.day.toString().padLeft(2,'0')}/'
+                                  '${_fechaAlta!.month.toString().padLeft(2,'0')}/'
+                                  '${_fechaAlta!.year}'
+                                : 'Fecha de incorporación',
+                            style: TextStyle(fontSize: 13,
+                                color: _fechaAlta != null ? _kText : _kSub),
+                          )),
+                          if (_fechaAlta != null)
+                            GestureDetector(
+                              onTap: () => setState(() => _fechaAlta = null),
+                              child: const Icon(Icons.close, size: 14, color: _kSub),
+                            ),
+                        ]),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 20),
-              Text(_esEdicion ? 'Editar Empleado' : 'Nuevo Empleado',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 20),
 
-              // ── MODO: Con cuenta / Solo ficha ─────────────────────────────
-              if (!_esEdicion) ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                // Email según modo
+                if (!_esEdicion && !_soloFicha) ...[
+                  _campo(_correoCtrl, 'Correo electrónico *', Icons.email_outlined,
+                      tipo: TextInputType.emailAddress,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Obligatorio';
+                        if (!v.contains('@')) return 'Correo no válido';
+                        return null;
+                      }),
+                  _campo(_passwordCtrl, 'Contraseña temporal *', Icons.lock_outlined,
+                      oculto: true,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Obligatorio';
+                        if (v.length < 6) return 'Mínimo 6 caracteres';
+                        return null;
+                      }),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 12),
+                    child: Text('El empleado podrá cambiarla al iniciar sesión',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ),
-                  child: Column(
-                    children: [
-                      _buildModoTile(
-                        seleccionado: !_soloFicha,
-                        onTap: () => setState(() => _soloFicha = false),
-                        icono: Icons.phone_android,
-                        titulo: 'Con acceso a la app',
-                        subtitulo: 'Crea usuario + contraseña. El empleado puede iniciar sesión.',
-                        color: const Color(0xFF0D47A1),
-                      ),
-                      const Divider(height: 1),
-                      _buildModoTile(
-                        seleccionado: _soloFicha,
-                        onTap: () => setState(() => _soloFicha = true),
-                        icono: Icons.person_pin_outlined,
-                        titulo: 'Solo ficha (sin acceso)',
-                        subtitulo: 'Añade los datos del empleado para nóminas sin crear cuenta.',
-                        color: const Color(0xFF00796B),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                ],
+                if (!_esEdicion && _soloFicha)
+                  _campo(_correoCtrl, 'Correo (opcional)', Icons.email_outlined,
+                      tipo: TextInputType.emailAddress),
 
-              // ── CAMPOS BÁSICOS ─────────────────────────────────────────────
-              TextFormField(
-                controller: _nombreCtrl,
-                decoration: _deco('Nombre completo', Icons.person),
-                validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
-              ),
-              const SizedBox(height: 12),
-
-              // Email y contraseña solo si tiene cuenta
-              if (!_esEdicion && !_soloFicha) ...[
-                TextFormField(
-                  controller: _correoCtrl,
-                  decoration: _deco('Correo electrónico *', Icons.email),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Obligatorio';
-                    if (!v.contains('@')) return 'Correo no válido';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _passwordCtrl,
-                  decoration: _deco('Contraseña temporal (mín. 6 caracteres) *', Icons.lock),
-                  obscureText: true,
-                  validator: (v) {
-                    if (_esEdicion) return null;
-                    if (v == null || v.isEmpty) return 'Obligatorio';
-                    if (v.length < 6) return 'Mínimo 6 caracteres';
-                    return null;
-                  },
-                ),
+                // Rol
                 const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text('El empleado podrá cambiarla desde su perfil',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                _labelCampo('Rol'),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _rolSeleccionado,
+                  decoration: _deco('', Icons.security_outlined),
+                  items: const [
+                    DropdownMenuItem(value: 'admin', child: Text('🛡️  Administrador')),
+                    DropdownMenuItem(value: 'staff', child: Text('👤  Staff / Empleado')),
+                  ],
+                  onChanged: (v) => setState(() => _rolSeleccionado = v ?? 'staff'),
                 ),
-                const SizedBox(height: 12),
-              ],
+                const SizedBox(height: 24),
 
-              // Email opcional en modo ficha
-              if (!_esEdicion && _soloFicha) ...[
-                TextFormField(
-                  controller: _correoCtrl,
-                  decoration: _deco('Correo electrónico (opcional)', Icons.email),
-                  keyboardType: TextInputType.emailAddress,
+                // ── Botón guardar ──────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: _guardando ? null : _guardar,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _soloFicha ? _kGreen : _kBlue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: _guardando
+                        ? const SizedBox(width: 18, height: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(
+                            _esEdicion ? 'Guardar cambios'
+                                : _soloFicha ? 'Crear ficha'
+                                : 'Registrar empleado',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
                 ),
-                const SizedBox(height: 12),
-              ],
-
-              // ── CAMPOS ADICIONALES ──────────────────────────────────────────
-              TextFormField(
-                controller: _dniCtrl,
-                decoration: _deco('DNI / NIE', Icons.badge_outlined),
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _puestoCtrl,
-                decoration: _deco('Puesto / Categoría', Icons.work_outline),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _direccionCtrl,
-                decoration: _deco('Dirección', Icons.home_outlined),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _telefonoCtrl,
-                decoration: _deco('Teléfono', Icons.phone),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _rolSeleccionado,
-                decoration: _deco('Rol', Icons.badge),
-                items: const [
-                  DropdownMenuItem(value: 'admin', child: Text('🛡️ Administrador')),
-                  DropdownMenuItem(value: 'staff', child: Text('👤 Staff / Empleado')),
-                ],
-                onChanged: (v) => setState(() => _rolSeleccionado = v ?? 'staff'),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _guardando ? null : _guardar,
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: _soloFicha
-                          ? const Color(0xFF00796B)
-                          : const Color(0xFF0D47A1),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: _guardando
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : Text(
-                          _esEdicion
-                              ? 'Guardar cambios'
-                              : _soloFicha
-                                  ? 'Crear ficha'
-                                  : 'Registrar empleado',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
+              ]),
+            ),
           ),
         ),
+      ]),
+    );
+  }
+
+  Widget _modoBtn({
+    required bool seleccionado,
+    required VoidCallback onTap,
+    required IconData icon,
+    required String label,
+    required String sub,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: seleccionado ? _kBlue.withValues(alpha: 0.06) : _kBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: seleccionado ? _kBlue : _kBorder,
+            width: seleccionado ? 1.5 : 1,
+          ),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 16, color: seleccionado ? _kBlue : _kSub),
+            const Spacer(),
+            Container(
+              width: 14, height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: seleccionado ? _kBlue : Colors.transparent,
+                border: Border.all(color: seleccionado ? _kBlue : _kBorder, width: 1.5),
+              ),
+              child: seleccionado
+                  ? const Icon(Icons.check, size: 9, color: Colors.white)
+                  : null,
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w700,
+              color: seleccionado ? _kBlue : _kText)),
+          Text(sub, style: const TextStyle(fontSize: 10, color: _kSub)),
+        ]),
       ),
     );
   }
 
+  Widget _labelCampo(String text) => Text(text,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kSub));
+
+  Widget _campo(
+    TextEditingController ctrl,
+    String label,
+    IconData icon, {
+    TextInputType tipo = TextInputType.text,
+    bool oculto = false,
+    String? Function(String?)? validator,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextFormField(
+          controller: ctrl,
+          keyboardType: tipo,
+          obscureText: oculto,
+          validator: validator,
+          style: const TextStyle(fontSize: 13, color: _kText),
+          decoration: _deco(label, icon),
+        ),
+      );
+
   InputDecoration _deco(String label, IconData icon) => InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelText: label.isEmpty ? null : label,
+        hintText: label.isEmpty ? null : null,
+        prefixIcon: Icon(icon, size: 17, color: _kSub),
+        filled: true,
+        fillColor: _kBg,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _kBorder)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _kBorder)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _kBlue, width: 1.5)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.red)),
+        focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+        labelStyle: const TextStyle(fontSize: 13, color: _kSub),
+        isDense: true,
       );
 }

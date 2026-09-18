@@ -14,6 +14,7 @@ import '../../fichaje/pantalla_fichaje/pantalla_fichaje.dart';
 import '../../pdf_templates/data/pdf_template_service.dart' as ptSvc;
 import '../../pdf_templates/domain/models/pdf_template.dart' as ptModel;
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // COLORES FICHAJES
@@ -170,66 +171,183 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
       return const Scaffold(backgroundColor: _kBg,
           body: PantallaFichaje(embedido: true));
     }
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: _kBg,
+      appBar: canPop
+          ? FluixAppBar(titulo: 'Fichajes', showLeading: true)
+          : null,
       body: StreamBuilder<List<Fichaje>>(
         stream: _fichajesHoyStream,
         builder: (ctx, snap) {
           final fichajes = snap.data ?? [];
-          return Column(children: [
-            _header(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(children: [
-                  _kpis(fichajes),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _centerCol(context, fichajes)),
-                      const SizedBox(width: 20),
-                      SizedBox(width: 290, child: _rightCol(context, fichajes)),
-                    ],
-                  ),
-                ]),
+          return LayoutBuilder(builder: (lCtx, constraints) {
+            final isMobile = constraints.maxWidth < 640;
+            return Column(children: [
+              if (!canPop) _header(context, isMobile),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 0, isMobile ? 12 : 20, 24),
+                  child: Column(children: [
+                    _kpis(fichajes, isMobile),
+                    const SizedBox(height: 16),
+                    if (isMobile) ...[
+                      _fichajeHero(context),
+                      const SizedBox(height: 14),
+                      _fichajesListMobile(context, fichajes),
+                      const SizedBox(height: 14),
+                      _estadoActual(),
+                      const SizedBox(height: 14),
+                      _asistenciaHoy(fichajes),
+                      const SizedBox(height: 14),
+                      _productividadSemanal(),
+                    ] else
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(child: _centerCol(context, fichajes)),
+                        const SizedBox(width: 20),
+                        SizedBox(width: 290, child: _rightCol(context, fichajes)),
+                      ]),
+                  ]),
+                ),
               ),
-            ),
-          ]);
+            ]);
+          });
         },
       ),
     );
   }
 
+  // ── Lista móvil de fichajes (alternativa a la tabla) ─────────────────────
+  Widget _fichajesListMobile(BuildContext context, List<Fichaje> fichajes) {
+    final hoy = DateFormat("d 'de' MMMM", 'es_ES').format(DateTime.now());
+    return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('Fichajes hoy — $hoy',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kText)),
+        const Spacer(),
+        Text('${fichajes.length} registros',
+            style: const TextStyle(fontSize: 11, color: _kSub)),
+      ]),
+      const SizedBox(height: 10),
+      if (fichajes.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(child: Text('Sin fichajes hoy', style: TextStyle(color: _kSub, fontSize: 13))),
+        )
+      else
+        ...fichajes.take(12).map((f) => _fichajeCardMobile(context, f)),
+    ]));
+  }
+
+  Widget _fichajeCardMobile(BuildContext context, Fichaje f) {
+    final fmtH = DateFormat('HH:mm');
+    final entH = f.entrada != null ? fmtH.format(f.entrada!.toDate().toLocal()) : '—';
+    final salH = f.salida  != null ? fmtH.format(f.salida!.toDate().toLocal())  : '—';
+    final neto = f.tiempoNeto;
+    final netoTxt = neto != null ? '${neto.inHours}h ${(neto.inMinutes % 60).toString().padLeft(2, '0')}m' : '—';
+    final enPausa = f.salida == null && f.pausas.any((p) => p.fin == null);
+    final trabajando = f.salida == null;
+    final (label, color) = enPausa
+        ? ('En pausa', _kOrange)
+        : trabajando ? ('Trabajando', _kGreen) : ('Finalizada', _kGray);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6)))),
+      child: Row(children: [
+        CircleAvatar(radius: 18, backgroundColor: const Color(0xFFE5E7EB),
+          child: Text(f.empleadoNombre.isNotEmpty ? f.empleadoNombre[0].toUpperCase() : '?',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _kText))),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(f.empleadoNombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 3),
+          Row(children: [
+            _tag(Icons.login_rounded, entH, _kGreen),
+            const SizedBox(width: 6),
+            _tag(Icons.logout_rounded, salH, _kGray),
+            const SizedBox(width: 6),
+            _tag(Icons.timer_outlined, netoTxt, _kSub),
+          ]),
+        ])),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+        ),
+        IconButton(
+          onPressed: () => _verFichajeDetalleDialog(context, f),
+          icon: const Icon(Icons.chevron_right_rounded, size: 18, color: _kSub),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+      ]),
+    );
+  }
+
+  Widget _tag(IconData icon, String text, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Icon(icon, size: 10, color: color),
+    const SizedBox(width: 2),
+    Text(text, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+  ]);
+
   // ══════════════════════════════════════════════════════════════════════════
   // HEADER
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _header(BuildContext context) {
+  Widget _header(BuildContext context, bool isMobile) {
+    if (isMobile) {
+      // Estilo idéntico a FluixAppBar: logo + breadcrumb "Inicio > Fichajes"
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        decoration: const BoxDecoration(
+            color: Colors.white, border: Border(bottom: BorderSide(color: _kBorder))),
+        child: Row(children: [
+          const FluixLogo(size: 22),
+          const SizedBox(width: 8),
+          const Text('Inicio', style: TextStyle(fontWeight: FontWeight.w600,
+              fontSize: 15, letterSpacing: -0.3, color: _kSub)),
+          const Icon(Icons.chevron_right_rounded, size: 16, color: _kSub),
+          const Text('Fichajes', style: TextStyle(fontWeight: FontWeight.w700,
+              fontSize: 16, letterSpacing: -0.2, color: _kText)),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.people_outline, color: _kSub, size: 20),
+            tooltip: 'Empleados',
+            onPressed: () => _openSheet(context, _TabEmpleados(empresaId: widget.empresaId)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded, color: _kSub, size: 20),
+            tooltip: 'Informes',
+            onPressed: () => _openSheet(context, _TabInformes(empresaId: widget.empresaId)),
+          ),
+        ]),
+      );
+    }
+    // Tablet: Flexible en la columna para evitar overflow
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(bottom: BorderSide(color: _kBorder))),
       child: Row(children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-          Text('Fichajes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-              color: _kText)),
-          SizedBox(height: 2),
-          Text('Controla la jornada laboral de tu equipo en tiempo real.',
-              style: TextStyle(fontSize: 12, color: _kSub)),
-        ]),
-        const Spacer(),
-        // Accesos rápidos
+        Flexible(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+            Text('Fichajes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                color: _kText)),
+            SizedBox(height: 2),
+            Text('Controla la jornada laboral de tu equipo en tiempo real.',
+                style: TextStyle(fontSize: 12, color: _kSub),
+                overflow: TextOverflow.ellipsis),
+          ]),
+        ),
+        const SizedBox(width: 12),
         _hBtn(Icons.people_outline, 'Empleados',
             () => _openSheet(context, _TabEmpleados(empresaId: widget.empresaId))),
         const SizedBox(width: 8),
         _hBtn(Icons.bar_chart_rounded, 'Informes',
             () => _openSheet(context, _TabInformes(empresaId: widget.empresaId))),
-        const SizedBox(width: 12),
-        Container(width: 1, height: 28, color: _kBorder),
-        const SizedBox(width: 12),
-        const CircleAvatar(radius: 16, backgroundColor: Color(0xFFE5E7EB),
-            child: Icon(Icons.person, size: 18, color: _kSub)),
       ]),
     );
   }
@@ -260,66 +378,59 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
   // ══════════════════════════════════════════════════════════════════════════
   // KPI CARDS
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _kpis(List<Fichaje> fichajes) {
+  Widget _kpis(List<Fichaje> fichajes, bool isMobile) {
     final trabajando = fichajes.where((f) => f.salida == null && f.pausas.every((p) => p.fin != null || (f.pausas.isEmpty))).length;
     final enPausa    = fichajes.where((f) => f.salida == null && f.pausas.isNotEmpty && f.pausas.any((p) => p.fin == null)).length;
     final totalMinHoy = fichajes.fold(0, (s, f) => s + (f.tiempoNeto?.inMinutes ?? 0));
     final hHoy = totalMinHoy ~/ 60;
     final mHoy = totalMinHoy % 60;
 
+    final k1 = _kpiCard(
+      icon: Icons.people_alt_outlined, iconBg: const Color(0xFFDCFCE7), iconColor: _kGreen,
+      label: 'Trabajando', value: '$trabajando',
+      sub: trabajando == 0 ? 'Nadie fichado' : '${trabajando} activo${trabajando > 1 ? 's' : ''}',
+      subColor: trabajando > 0 ? _kGreen : _kSub,
+    );
+    final k2 = _kpiCard(
+      icon: Icons.pause_circle_outline, iconBg: const Color(0xFFFEF3C7), iconColor: _kOrange,
+      label: 'En pausa', value: '$enPausa',
+      sub: enPausa == 0 ? 'Sin pausas' : 'En descanso',
+      subColor: enPausa > 0 ? _kOrange : _kSub,
+    );
+    final k3 = _kpiCard(
+      icon: Icons.access_time_outlined, iconBg: const Color(0xFFDCFCE7), iconColor: _kGreen,
+      label: 'Horas hoy', value: '${hHoy}h ${mHoy.toString().padLeft(2, '0')}m',
+      sub: fichajes.isEmpty ? 'Sin registros' : '${fichajes.length} fichaje${fichajes.length > 1 ? 's' : ''}',
+      subColor: _kSub,
+    );
+    final k4 = _kpiCard(
+      icon: Icons.calendar_today_outlined, iconBg: const Color(0xFFDCFCE7), iconColor: _kGreen,
+      label: 'Fichajes hoy', value: '${fichajes.length}',
+      sub: fichajes.isEmpty ? 'Sin actividad' : 'Registros del día',
+      subColor: _kSub,
+    );
+
+    if (isMobile) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(children: [
+          Row(children: [k1, const SizedBox(width: 10), k2]),
+          const SizedBox(height: 10),
+          Row(children: [k3, const SizedBox(width: 10), k4]),
+        ]),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 20),
-      child: Row(children: [
-        _kpiCard(
-          icon: Icons.people_alt_outlined,
-          iconBg: const Color(0xFFDCFCE7),
-          iconColor: _kGreen,
-          label: 'Trabajando ahora',
-          value: '$trabajando',
-          sub: trabajando == 0 ? 'Nadie fichado' : '$trabajando activo${trabajando > 1 ? 's' : ''}',
-          subColor: trabajando > 0 ? _kGreen : _kSub,
-        ),
-        const SizedBox(width: 12),
-        _kpiCard(
-          icon: Icons.pause_circle_outline,
-          iconBg: const Color(0xFFFEF3C7),
-          iconColor: _kOrange,
-          label: 'En pausa',
-          value: '$enPausa',
-          sub: enPausa == 0 ? 'Sin pausas activas' : 'En descanso',
-          subColor: enPausa > 0 ? _kOrange : _kSub,
-        ),
-        const SizedBox(width: 12),
-        _kpiCard(
-          icon: Icons.access_time_outlined,
-          iconBg: const Color(0xFFDCFCE7),
-          iconColor: _kGreen,
-          label: 'Horas hoy (total)',
-          value: '${hHoy}h ${mHoy.toString().padLeft(2,'0')}m',
-          sub: fichajes.isEmpty ? 'Sin registros hoy' : '${fichajes.length} fichaje${fichajes.length > 1 ? 's' : ''}',
-          subColor: _kSub,
-        ),
-        const SizedBox(width: 12),
-        _kpiCard(
-          icon: Icons.calendar_today_outlined,
-          iconBg: const Color(0xFFDCFCE7),
-          iconColor: _kGreen,
-          label: 'Fichajes hoy',
-          value: '${fichajes.length}',
-          sub: fichajes.isEmpty ? 'Sin actividad' : 'Registros del día',
-          subColor: _kSub,
-          wide: true,
-        ),
-      ]),
+      child: Row(children: [k1, const SizedBox(width: 12), k2, const SizedBox(width: 12), k3, const SizedBox(width: 12), k4]),
     );
   }
 
   Widget _kpiCard({
     required IconData icon, required Color iconBg, required Color iconColor,
     required String label, required String value, required String sub,
-    required Color subColor, bool wide = false,
+    required Color subColor,
   }) => Expanded(
-    flex: wide ? 2 : 1,
     child: _card(
       child: Row(children: [
         Container(width: 44, height: 44,
@@ -329,8 +440,12 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(fontSize: 11, color: _kSub)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-              color: _kText)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                color: _kText)),
+          ),
           const SizedBox(height: 2),
           Text(sub, style: TextStyle(fontSize: 11, color: subColor)),
         ])),
@@ -411,7 +526,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         const SizedBox(height: 20),
         // Botón principal
         SizedBox(
-          width: 360,
+          width: double.infinity,
           height: 50,
           child: ElevatedButton.icon(
             onPressed: _fichando ? null : () => _fichar(context),
@@ -579,23 +694,6 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           const Icon(Icons.more_vert, size: 18, color: _kSub),
         ]),
         const SizedBox(height: 16),
-        // Cabeceras de columna
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _kBorder))),
-          child: Row(children: const [
-            SizedBox(width: 200, child: Text('EMPLEADO', style: _colHead)),
-            SizedBox(width: 80, child: Text('ENTRADA', style: _colHead)),
-            SizedBox(width: 80, child: Text('SALIDA', style: _colHead)),
-            SizedBox(width: 80, child: Text('HORAS', style: _colHead)),
-            SizedBox(width: 110, child: Text('ESTADO', style: _colHead)),
-            SizedBox(width: 130, child: Text('UBICACIÓN', style: _colHead)),
-            SizedBox(width: 100, child: Text('DISPOSITIVO', style: _colHead)),
-            SizedBox(width: 30),
-          ]),
-        ),
-        // Filas
         if (fichajes.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
@@ -603,7 +701,31 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
                 style: TextStyle(color: _kSub, fontSize: 13))),
           )
         else
-          ...fichajes.take(10).map((f) => _fichajeRow(context, f)),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 810,
+              child: Column(children: [
+                // Cabeceras de columna
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: _kBorder))),
+                  child: Row(children: const [
+                    SizedBox(width: 200, child: Text('EMPLEADO', style: _colHead)),
+                    SizedBox(width: 80, child: Text('ENTRADA', style: _colHead)),
+                    SizedBox(width: 80, child: Text('SALIDA', style: _colHead)),
+                    SizedBox(width: 80, child: Text('HORAS', style: _colHead)),
+                    SizedBox(width: 110, child: Text('ESTADO', style: _colHead)),
+                    SizedBox(width: 130, child: Text('UBICACIÓN', style: _colHead)),
+                    SizedBox(width: 100, child: Text('DISPOSITIVO', style: _colHead)),
+                    SizedBox(width: 30),
+                  ]),
+                ),
+                ...fichajes.take(10).map((f) => _fichajeRow(context, f)),
+              ]),
+            ),
+          ),
       ]),
     );
   }
@@ -1076,10 +1198,17 @@ class _TabEmpleadosState extends State<_TabEmpleados> {
           .collection('empleados_fichaje').snapshots()
           .map((s) => {for (final d in s.docs) d.id: EmpleadoFichaje.fromFirestore(d)});
 
-  void _configurarPIN(String uid, String nombre, String? pinActual, int jornadaActual) {
+  void _configurarPIN(String uid, String nombre, EmpleadoFichaje? fichaje) {
     showDialog(context: context, builder: (ctx) => _DialogConfigurarPIN(
-        uid: uid, nombre: nombre, pinActual: pinActual,
-        jornadaActual: jornadaActual, empresaId: widget.empresaId, svc: _svc));
+        uid: uid,
+        nombre: nombre,
+        pinActual: fichaje?.pin,
+        jornadaActual: fichaje?.jornadaDiaria ?? 480,
+        horarioEntrada: fichaje?.horarioEntrada,
+        horarioSalida: fichaje?.horarioSalida,
+        diasLaborables: fichaje?.diasLaborables,
+        empresaId: widget.empresaId,
+        svc: _svc));
   }
 
   Future<void> _toggleActivo(EmpleadoFichaje emp) async {
@@ -1290,8 +1419,7 @@ class _TabEmpleadosState extends State<_TabEmpleados> {
                               icon: tienePIN ? Icons.edit_outlined : Icons.add_rounded,
                               color: _kSub,
                               tooltip: tienePIN ? 'Editar' : 'Configurar PIN',
-                              onTap: () => _configurarPIN(uid, nombre,
-                                  fichaje?.pin, fichaje?.jornadaDiaria ?? 480),
+                              onTap: () => _configurarPIN(uid, nombre, fichaje),
                             ),
                           ]),
                         ]),
@@ -1694,65 +1822,177 @@ class _DialogConfigurarPIN extends StatefulWidget {
   final String uid, nombre, empresaId;
   final String? pinActual;
   final int jornadaActual;
+  final String? horarioEntrada;
+  final String? horarioSalida;
+  final List<bool>? diasLaborables;
   final FichajeService svc;
-  const _DialogConfigurarPIN({required this.uid, required this.nombre, required this.pinActual,
-    required this.jornadaActual, required this.empresaId, required this.svc});
+  const _DialogConfigurarPIN({
+    required this.uid, required this.nombre, required this.pinActual,
+    required this.jornadaActual, required this.empresaId, required this.svc,
+    this.horarioEntrada, this.horarioSalida, this.diasLaborables,
+  });
   @override
   State<_DialogConfigurarPIN> createState() => _DialogConfigurarPINState();
 }
 
 class _DialogConfigurarPINState extends State<_DialogConfigurarPIN> {
   late final TextEditingController _pinCtrl;
+  late final TextEditingController _entradaCtrl;
+  late final TextEditingController _salidaCtrl;
   final _formKey = GlobalKey<FormState>();
   bool _guardando = false;
   late int _jornadaDiaria;
+  late List<bool> _dias;
+
+  static const _kDiaLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
   @override
   void initState() {
     super.initState();
     _pinCtrl = TextEditingController(text: widget.pinActual ?? '');
+    _entradaCtrl = TextEditingController(text: widget.horarioEntrada ?? '09:00');
+    _salidaCtrl  = TextEditingController(text: widget.horarioSalida  ?? '17:00');
     _jornadaDiaria = widget.jornadaActual;
+    _dias = List.from(widget.diasLaborables ?? [true, true, true, true, true, false, false]);
   }
 
   @override
-  void dispose() { _pinCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _pinCtrl.dispose();
+    _entradaCtrl.dispose();
+    _salidaCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime(TextEditingController ctrl) async {
+    final parts = ctrl.text.split(':');
+    final initial = TimeOfDay(
+      hour: int.tryParse(parts[0]) ?? 9,
+      minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+    );
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked != null && mounted) {
+      ctrl.text =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.pinActual == null ? 'Configurar acceso' : 'Editar empleado'),
-    content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(widget.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 16),
-      Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: _pinCtrl,
-          decoration: const InputDecoration(labelText: 'PIN (4 dígitos)',
-              border: OutlineInputBorder(), prefixIcon: Icon(Icons.pin_outlined)),
-          keyboardType: TextInputType.number, maxLength: 4, autofocus: true,
-          validator: (v) {
-            if (v == null || v.length != 4) return 'Debe tener 4 dígitos';
-            if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Solo números';
-            return null;
-          }),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(value: _jornadaDiaria,
-          decoration: const InputDecoration(labelText: 'Jornada diaria',
-              border: OutlineInputBorder(), prefixIcon: Icon(Icons.schedule),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
-          items: const [
-            DropdownMenuItem(value: 240, child: Text('4 horas')),
-            DropdownMenuItem(value: 300, child: Text('5 horas')),
-            DropdownMenuItem(value: 360, child: Text('6 horas')),
-            DropdownMenuItem(value: 420, child: Text('7 horas')),
-            DropdownMenuItem(value: 480, child: Text('8 horas')),
-          ],
-          onChanged: (v) => setState(() => _jornadaDiaria = v!)),
+    title: Text(widget.pinActual == null ? 'Configurar acceso' : 'Parámetros del empleado'),
+    content: SizedBox(
+      width: 380,
+      child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(widget.nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        const SizedBox(height: 16),
+        Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // ── PIN ──────────────────────────────────────────────────────────
+          TextFormField(
+            controller: _pinCtrl,
+            decoration: const InputDecoration(
+                labelText: 'PIN (4 dígitos)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.pin_outlined)),
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            autofocus: true,
+            validator: (v) {
+              if (v == null || v.length != 4) return 'Debe tener 4 dígitos';
+              if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Solo números';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          // ── Jornada ──────────────────────────────────────────────────────
+          DropdownButtonFormField<int>(
+            value: _jornadaDiaria,
+            decoration: const InputDecoration(
+                labelText: 'Jornada diaria',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.schedule),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+            items: const [
+              DropdownMenuItem(value: 240, child: Text('4 horas')),
+              DropdownMenuItem(value: 300, child: Text('5 horas')),
+              DropdownMenuItem(value: 360, child: Text('6 horas')),
+              DropdownMenuItem(value: 420, child: Text('7 horas')),
+              DropdownMenuItem(value: 480, child: Text('8 horas')),
+            ],
+            onChanged: (v) => setState(() => _jornadaDiaria = v!),
+          ),
+          const SizedBox(height: 20),
+          // ── Horario habitual ──────────────────────────────────────────────
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('Horario habitual',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText))),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: TextFormField(
+                controller: _entradaCtrl,
+                readOnly: true,
+                onTap: () => _pickTime(_entradaCtrl),
+                decoration: const InputDecoration(
+                    labelText: 'Entrada',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.login_rounded, size: 18),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _salidaCtrl,
+                readOnly: true,
+                onTap: () => _pickTime(_salidaCtrl),
+                decoration: const InputDecoration(
+                    labelText: 'Salida',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.logout_rounded, size: 18),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 20),
+          // ── Días laborables ───────────────────────────────────────────────
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('Días laborables',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText))),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(7, (i) {
+              final activo = _dias[i];
+              return GestureDetector(
+                onTap: () => setState(() => _dias[i] = !_dias[i]),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: activo ? _kGreen : const Color(0xFFF3F4F6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: activo ? _kGreen : _kBorder),
+                  ),
+                  child: Center(child: Text(_kDiaLabels[i],
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                          color: activo ? Colors.white : _kSub))),
+                ),
+              );
+            }),
+          ),
+        ])),
       ])),
-    ])),
+    ),
     actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-      ElevatedButton(onPressed: _guardando ? null : _guardar,
-        child: _guardando ? const SizedBox(width: 20, height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Guardar')),
+      ElevatedButton(
+        onPressed: _guardando ? null : _guardar,
+        style: ElevatedButton.styleFrom(backgroundColor: _kGreen, foregroundColor: Colors.white),
+        child: _guardando
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Text('Guardar'),
+      ),
     ],
   );
 
@@ -1760,9 +2000,16 @@ class _DialogConfigurarPINState extends State<_DialogConfigurarPIN> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
     try {
-      await widget.svc.configurarPINEmpleado(empresaId: widget.empresaId,
-          uid: widget.uid, nombre: widget.nombre, pin: _pinCtrl.text,
-          jornadaDiaria: _jornadaDiaria);
+      await widget.svc.configurarPINEmpleado(
+        empresaId: widget.empresaId,
+        uid: widget.uid,
+        nombre: widget.nombre,
+        pin: _pinCtrl.text,
+        jornadaDiaria: _jornadaDiaria,
+        horarioEntrada: _entradaCtrl.text.isNotEmpty ? _entradaCtrl.text : null,
+        horarioSalida:  _salidaCtrl.text.isNotEmpty  ? _salidaCtrl.text  : null,
+        diasLaborables: _dias,
+      );
       if (mounted) {
         Navigator.pop(context);
         FluxToast.exito(context, 'Empleado actualizado: ${widget.nombre}');
@@ -1809,6 +2056,9 @@ class _TabInformesState extends State<_TabInformes> {
   late DateTime _mes;
   bool _cargando = false;
   List<_ResumenEmpleadoMes> _datos = [];
+  String _empresaNombre = '';
+
+  static const _bandColor = Color(0xFF2E5A50);
 
   @override
   void initState() {
@@ -1822,6 +2072,12 @@ class _TabInformesState extends State<_TabInformes> {
     if (_cargando) return;
     setState(() => _cargando = true);
     try {
+      final empDoc = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId).get();
+      _empresaNombre = (empDoc.data()?['nombre'] as String? ?? '').isNotEmpty
+          ? (empDoc.data()!['nombre'] as String)
+          : 'Mi empresa';
+
       final empSnap = await FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('empleados_fichaje').orderBy('nombre').get();
@@ -1868,26 +2124,28 @@ class _TabInformesState extends State<_TabInformes> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt        = DateFormat('MMMM yyyy', 'es_ES');
-    final totalMins  = _datos.fold(0, (s, d) => s + d.minutosNetos);
-    final totalDias  = _datos.fold(0, (s, d) => s + d.dias);
-    final conDias    = _datos.where((d) => d.dias > 0).length;
-    final incTotal   = _datos.fold(0, (s, d) => s + d.incidencias);
-    final avgMin     = conDias > 0 ? totalMins ~/ conDias : 0;
+    final fmt       = DateFormat('MMMM yyyy', 'es_ES');
+    final mesTxt    = fmt.format(_mes);
+    final mesLabel  = '${mesTxt[0].toUpperCase()}${mesTxt.substring(1)}';
+    final totalMins = _datos.fold(0, (s, d) => s + d.minutosNetos);
+    final totalDias = _datos.fold(0, (s, d) => s + d.dias);
+    final conDias   = _datos.where((d) => d.dias > 0).length;
+    final incTotal  = _datos.fold(0, (s, d) => s + d.incidencias);
+    final avgMin    = conDias > 0 ? totalMins ~/ conDias : 0;
+    final hoyStr    = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
     return Column(children: [
-      // ── Header ────────────────────────────────────────────────────────────
+      // ── Barra de control ──────────────────────────────────────────────
       Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(bottom: BorderSide(color: _kBorder)),
         ),
         child: Row(children: [
           const Text('Informes de horas',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kText)),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kText)),
           const Spacer(),
-          // Selector de mes
           GestureDetector(
             onTap: () async {
               final picked = await showDatePicker(
@@ -1901,15 +2159,13 @@ class _TabInformesState extends State<_TabInformes> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                  border: Border.all(color: _kBorder),
+              decoration: BoxDecoration(border: Border.all(color: _kBorder),
                   borderRadius: BorderRadius.circular(8)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.calendar_month_outlined, size: 14, color: _kGreen),
                 const SizedBox(width: 6),
-                Text(fmt.format(_mes),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                        color: _kText)),
+                Text(mesLabel, style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w600, color: _kText)),
                 const SizedBox(width: 4),
                 const Icon(Icons.arrow_drop_down, size: 16, color: _kSub),
               ]),
@@ -1921,8 +2177,7 @@ class _TabInformesState extends State<_TabInformes> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                  color: _kGreen.withValues(alpha: 0.1),
+              decoration: BoxDecoration(color: _kGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.picture_as_pdf_outlined, size: 14, color: _kGreen),
@@ -1938,8 +2193,7 @@ class _TabInformesState extends State<_TabInformes> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                  border: Border.all(color: _kBorder),
+              decoration: BoxDecoration(border: Border.all(color: _kBorder),
                   borderRadius: BorderRadius.circular(8)),
               child: const Icon(Icons.refresh_rounded, size: 16, color: _kSub),
             ),
@@ -1949,7 +2203,7 @@ class _TabInformesState extends State<_TabInformes> {
 
       if (_cargando) const LinearProgressIndicator(color: _kGreen, minHeight: 2),
 
-      // ── Contenido ─────────────────────────────────────────────────────────
+      // ── Documento estilo informe (D1 Clásico Corporativo) ─────────────
       if (!_cargando && _datos.isEmpty)
         const Expanded(child: Center(child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1959,176 +2213,195 @@ class _TabInformesState extends State<_TabInformes> {
             Text('Sin datos para este mes', style: TextStyle(color: _kSub, fontSize: 14)),
           ],
         )))
-      else Expanded(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          // ── KPI summary ────────────────────────────────────────────────────
-          Row(children: [
-            _infKpi(Icons.people_alt_outlined, const Color(0xFFDCFCE7), _kGreen,
-                'Empleados', '$conDias', 'con actividad'),
-            const SizedBox(width: 10),
-            _infKpi(Icons.schedule_outlined, const Color(0xFFDCFCE7), _kGreen,
-                'Total horas', _fmtMin(totalMins), 'este mes'),
-            const SizedBox(width: 10),
-            _infKpi(Icons.person_outline, const Color(0xFFEFF6FF), const Color(0xFF3B82F6),
-                'Media/empleado', _fmtMin(avgMin), 'horas promedio'),
-            const SizedBox(width: 10),
-            _infKpi(Icons.warning_amber_outlined, const Color(0xFFFEF3C7), _kOrange,
-                'Incidencias', '$incTotal',
-                incTotal == 0 ? 'Sin incidencias' : 'salidas sin registrar'),
-          ]),
-          const SizedBox(height: 16),
+      else Expanded(child: Container(
+        color: const Color(0xFFF0F2F5),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 860),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 40, offset: const Offset(0, 12))],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                // Banda de color
+                Container(
+                  padding: const EdgeInsets.fromLTRB(40, 30, 40, 30),
+                  color: _bandColor,
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(_empresaNombre.toUpperCase(),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700,
+                              color: Colors.white, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      const Text('Departamento de Recursos Humanos',
+                          style: TextStyle(fontSize: 11, color: Color(0xFFD0E5DE))),
+                    ])),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      const Text('INFORME DE HORAS',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
+                              color: Colors.white, letterSpacing: 1)),
+                      const SizedBox(height: 4),
+                      Text('$mesLabel  ·  Generado $hoyStr',
+                          style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                    ]),
+                  ]),
+                ),
 
-          // ── Tabla de empleados ────────────────────────────────────────────
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8, offset: const Offset(0, 2))],
+                // Cuerpo del documento
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(40, 30, 40, 40),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    // KPIs
+                    Row(children: [
+                      _docKpi('Empleados activos', '$conDias'),
+                      const SizedBox(width: 12),
+                      _docKpi('Total horas', _fmtMin(totalMins)),
+                      const SizedBox(width: 12),
+                      _docKpi('Media por empleado', _fmtMin(avgMin)),
+                      const SizedBox(width: 12),
+                      _docKpi('Incidencias', '$incTotal',
+                          accent: incTotal > 0 ? Colors.red : null),
+                    ]),
+                    const SizedBox(height: 28),
+
+                    // Tabla
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: Table(
+                        columnWidths: const {
+                          0: FlexColumnWidth(3.2),
+                          1: FlexColumnWidth(1.8),
+                          2: FlexColumnWidth(2.2),
+                          3: FlexColumnWidth(1.8),
+                          4: FlexColumnWidth(1.4),
+                          5: FlexColumnWidth(2),
+                        },
+                        border: TableBorder.symmetric(
+                            inside: const BorderSide(color: Color(0xFFEEEEEE))),
+                        children: [
+                          TableRow(
+                            decoration: const BoxDecoration(color: _bandColor),
+                            children: ['EMPLEADO', 'H. PLANIF.', 'H. TRABAJADAS',
+                              'H. EXTRA', 'DÍAS', 'INCIDENCIAS']
+                                .map((h) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              child: Text(h, style: const TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.bold,
+                                  color: Colors.white, letterSpacing: 0.4)),
+                            )).toList(),
+                          ),
+                          ..._datos.asMap().entries.map((entry) {
+                            final i = entry.key; final d = entry.value;
+                            final bg = i.isEven
+                                ? const Color(0xFFF8F9FB) : Colors.white;
+                            return TableRow(
+                              decoration: BoxDecoration(color: bg),
+                              children: [
+                                _tcell(d.nombre, bold: true),
+                                _tcell(d.horasPlanifStr),
+                                _tcell(d.horasStr,
+                                    color: d.minutosNetos > 0 ? _bandColor : null,
+                                    bold: d.minutosNetos > 0),
+                                _tcell(d.horasExtraStr,
+                                    color: d.minutosExtra > 0
+                                        ? const Color(0xFFF59E0B) : null),
+                                _tcell('${d.dias}d'),
+                                _tcell(d.incidencias > 0
+                                    ? '⚠ ${d.incidencias}' : '—',
+                                    color: d.incidencias > 0 ? Colors.red : null),
+                              ],
+                            );
+                          }),
+                          TableRow(
+                            decoration: const BoxDecoration(
+                                color: Color(0xFFF5F5F5)),
+                            children: [
+                              _tcell('TOTAL',
+                                  bold: true, isLabel: true),
+                              _tcell('—'),
+                              _tcell(_fmtMin(totalMins),
+                                  bold: true, color: _bandColor),
+                              _tcell('—'),
+                              _tcell('${totalDias}d', bold: true),
+                              _tcell('$incTotal',
+                                  bold: incTotal > 0,
+                                  color: incTotal > 0 ? Colors.red : null),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Firmas
+                    const SizedBox(height: 44),
+                    Row(children: [
+                      Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        const SizedBox(height: 40),
+                        const Divider(color: Color(0xFF999999)),
+                        const SizedBox(height: 6),
+                        const Text('Firma del responsable de RRHH',
+                            style: TextStyle(fontSize: 10.5,
+                                color: Color(0xFF666666))),
+                      ])),
+                      const SizedBox(width: 48),
+                      Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        const SizedBox(height: 40),
+                        const Divider(color: Color(0xFF999999)),
+                        const SizedBox(height: 6),
+                        const Text('Visto bueno — Dirección',
+                            style: TextStyle(fontSize: 10.5,
+                                color: Color(0xFF666666))),
+                      ])),
+                    ]),
+                  ]),
+                ),
+              ]),
             ),
-            child: Column(children: [
-              // Cabecera tabla
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                decoration: const BoxDecoration(
-                  color: _kBg,
-                  borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12), topRight: Radius.circular(12)),
-                  border: Border(bottom: BorderSide(color: _kBorder)),
-                ),
-                child: Row(children: const [
-                  SizedBox(width: 200, child: Text('EMPLEADO', style: _colHead2)),
-                  SizedBox(width: 90,  child: Text('H. PLANIF.', style: _colHead2)),
-                  SizedBox(width: 100, child: Text('H. TRABAJADAS', style: _colHead2)),
-                  SizedBox(width: 80,  child: Text('H. EXTRA', style: _colHead2)),
-                  SizedBox(width: 80,  child: Text('PAUSAS', style: _colHead2)),
-                  SizedBox(width: 80,  child: Text('DÍAS', style: _colHead2)),
-                  SizedBox(width: 90,  child: Text('INCIDENCIAS', style: _colHead2)),
-                  SizedBox(width: 36),
-                ]),
-              ),
-              // Filas
-              ..._datos.map((d) => _informeRow(d)),
-              // Total
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-                decoration: const BoxDecoration(
-                  color: _kBg,
-                  borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
-                  border: Border(top: BorderSide(color: _kBorder)),
-                ),
-                child: Row(children: [
-                  const SizedBox(width: 200,
-                      child: Text('TOTAL', style: TextStyle(fontSize: 11,
-                          fontWeight: FontWeight.w700, color: _kText))),
-                  SizedBox(width: 90, child: Text('—',
-                      style: const TextStyle(fontSize: 12, color: _kSub))),
-                  SizedBox(width: 100, child: Text(_fmtMin(totalMins),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                          color: _kText))),
-                  const SizedBox(width: 80, child: Text('—',
-                      style: TextStyle(fontSize: 12, color: _kSub))),
-                  const SizedBox(width: 80, child: Text('—',
-                      style: TextStyle(fontSize: 12, color: _kSub))),
-                  SizedBox(width: 80, child: Text('$totalDias días',
-                      style: const TextStyle(fontSize: 12, color: _kText))),
-                  SizedBox(width: 90, child: Text('$incTotal',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                          color: incTotal > 0 ? Colors.red : _kSub))),
-                  const SizedBox(width: 36),
-                ]),
-              ),
-            ]),
-          ),
-        ]),
+          )),
+        ),
       )),
     ]);
   }
 
-  Widget _informeRow(_ResumenEmpleadoMes d) {
-    final ini = d.nombre.isNotEmpty ? d.nombre[0].toUpperCase() : '?';
-    return InkWell(
-      onTap: () => showDialog(context: context, builder: (ctx) =>
-          _DialogFichajesEmpleado(empresaId: widget.empresaId, empleadoId: d.uid,
-              empleadoNombre: d.nombre, mes: _mes, svc: _svc, onCorregido: _cargar)),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6)))),
-        child: Row(children: [
-          SizedBox(width: 200, child: Row(children: [
-            CircleAvatar(radius: 15,
-              backgroundColor: d.activo
-                  ? _kGreen.withValues(alpha: 0.12)
-                  : const Color(0xFFF3F4F6),
-              child: Text(ini, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                  color: d.activo ? _kGreen : _kSub)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(d.nombre,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                    color: d.activo ? _kText : _kSub),
-                overflow: TextOverflow.ellipsis)),
-          ])),
-          SizedBox(width: 90, child: Text(d.horasPlanifStr,
-              style: const TextStyle(fontSize: 12, color: _kSub))),
-          SizedBox(width: 100, child: Text(d.horasStr,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                  color: d.minutosNetos > 0 ? _kText : _kSub))),
-          SizedBox(width: 80, child: Text(d.horasExtraStr,
-              style: TextStyle(fontSize: 12,
-                  color: d.minutosExtra > 0 ? _kOrange : _kSub))),
-          SizedBox(width: 80, child: Text(d.pausasStr,
-              style: const TextStyle(fontSize: 12, color: _kSub))),
-          SizedBox(width: 80, child: Text('${d.dias}d',
-              style: const TextStyle(fontSize: 12, color: _kText))),
-          SizedBox(width: 90, child: d.incidencias > 0
-              ? Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.warning_amber_rounded, size: 14,
-                      color: Colors.red),
-                  const SizedBox(width: 4),
-                  Text('${d.incidencias}', style: const TextStyle(
-                      fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
-                ])
-              : const Text('—', style: TextStyle(fontSize: 12, color: _kSub))),
-          const SizedBox(width: 36,
-              child: Icon(Icons.chevron_right, size: 16, color: _kSub)),
-        ]),
-      ),
-    );
-  }
-
-  static const _colHead2 = TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-      color: _kSub, letterSpacing: 0.4);
-
-  Widget _infKpi(IconData icon, Color iconBg, Color iconColor,
-      String label, String valor, String sub) => Expanded(
+  Widget _docKpi(String label, String valor, {Color? accent}) => Expanded(
     child: Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Row(children: [
-        Container(width: 38, height: 38,
-          decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-          child: Icon(icon, color: iconColor, size: 18)),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: _kSub)),
-          const SizedBox(height: 2),
-          Text(valor, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-              color: _kText)),
-          Text(sub, style: const TextStyle(fontSize: 10, color: _kSub)),
-        ])),
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(4)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF999999),
+            letterSpacing: 0.4)),
+        const SizedBox(height: 5),
+        Text(valor, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
+            color: accent ?? _bandColor)),
       ]),
     ),
   );
 
+  static Widget _tcell(String text,
+      {bool bold = false, Color? color, bool isLabel = false}) =>
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Text(text, style: TextStyle(
+        fontSize: isLabel ? 10 : 12,
+        fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        color: color ?? (isLabel ? const Color(0xFF8A8A8A) : const Color(0xFF1A1A1A)),
+      )),
+    );
+
   static String _fmtMin(int min) =>
-      '${min ~/ 60}h ${(min % 60).toString().padLeft(2,'0')}m';
+      '${min ~/ 60}h ${(min % 60).toString().padLeft(2, '0')}m';
 
   Future<void> _descargarPdf() async {
     final fmt = DateFormat('MMMM yyyy', 'es_ES');

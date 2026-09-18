@@ -14,11 +14,13 @@ import 'package:planeag_flutter/services/modelo190_service.dart';
 class Modelo190Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
+  final bool embebido;
 
   const Modelo190Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
+    this.embebido = false,
   });
 
   @override
@@ -174,6 +176,34 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _procesando
+        ? const Center(child: CircularProgressIndicator())
+        : FutureBuilder<Modelo190?>(
+            future: _svc.obtener(widget.empresaId, _anio),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final modelo = snap.data;
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildInfoBanner(),
+                  const SizedBox(height: 16),
+                  if (modelo != null) ...[
+                    _buildResumen(modelo),
+                    const SizedBox(height: 16),
+                    _buildAcciones(modelo),
+                    const SizedBox(height: 16),
+                    _buildTablaPerceptores(modelo),
+                  ] else ...[
+                    _buildSinDatos(),
+                  ],
+                ],
+              );
+            },
+          );
+    if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -194,33 +224,7 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
           ),
         ],
       ),
-      body: _procesando
-          ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder<Modelo190?>(
-              future: _svc.obtener(widget.empresaId, _anio),
-              builder: (context, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final modelo = snap.data;
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildInfoBanner(),
-                    const SizedBox(height: 16),
-                    if (modelo != null) ...[
-                      _buildResumen(modelo),
-                      const SizedBox(height: 16),
-                      _buildAcciones(modelo),
-                      const SizedBox(height: 16),
-                      _buildTablaPerceptores(modelo),
-                    ] else ...[
-                      _buildSinDatos(),
-                    ],
-                  ],
-                );
-              },
-            ),
+      body: body,
     );
   }
 

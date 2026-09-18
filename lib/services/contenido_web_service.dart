@@ -196,6 +196,27 @@ class ContenidoWebService {
     }
   }
 
+  /// Selecciona MÚLTIPLES imágenes de la galería, las sube y devuelve sus URLs.
+  Future<List<String>> subirMultiplesImagenes(String empresaId, String carpeta) async {
+    try {
+      final List<XFile> imgs = await _picker.pickMultiImage(
+        maxWidth: 1200, maxHeight: 1200, imageQuality: 85,
+      );
+      if (imgs.isEmpty) return [];
+      final urls = <String>[];
+      for (int i = 0; i < imgs.length; i++) {
+        final ref = _storage.ref().child(
+          'empresas/$empresaId/$carpeta/${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+        );
+        await ref.putFile(File(imgs[i].path), SettableMetadata(contentType: 'image/jpeg'));
+        urls.add(await ref.getDownloadURL());
+      }
+      return urls;
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<String?> subirImagenSeccion(String empresaId, String seccionId) async {
     final url = await subirImagenDesdeGaleria(empresaId, 'secciones/$seccionId');
     if (url == null) return null;
@@ -2164,6 +2185,9 @@ messaging.onBackgroundMessage(function(payload) {
     int migrados = 0;
     for (var i = 0; i < snap.docs.length; i++) {
       final l = snap.docs[i].data();
+      final payLink = (l['payment_link'] as String? ?? '').isNotEmpty
+          ? l['payment_link'] as String
+          : (l['payment_link_test'] as String? ?? '');
       await _catalogoCol(empresaId).doc(snap.docs[i].id).set({
         'nombre':      l['titulo'] ?? l['nombre'] ?? '',
         'descripcion': l['sinopsis'] ?? l['descripcion'] ?? '',
@@ -2182,12 +2206,60 @@ messaging.onBackgroundMessage(function(payload) {
         'campo_dimensiones': l['dimensiones'] ?? '',
         'campo_anio':  l['anio']?.toString() ?? '',
         'campo_mes':   l['mes'] ?? '',
+        if (payLink.isNotEmpty) 'stripe_link': payLink,
         'origen':      'libros',
         'migrado_en':  FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       migrados++;
     }
     return migrados;
+  }
+
+  /// Sincroniza los Payment Links de Stripe desde `libros` a `catalogo_web`.
+  /// Lee todos los libros con `payment_link` y los escribe en `stripe_link`
+  /// del item correspondiente en `catalogo_web` (por slug o por ID del doc).
+  /// Devuelve el nº de items actualizados.
+  Future<int> sincronizarLinksStripe(String empresaId) async {
+    final librosSnap = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('libros').get();
+    if (librosSnap.docs.isEmpty) return 0;
+
+    final batch = _firestore.batch();
+    int actualizados = 0;
+
+    for (final libroDoc in librosSnap.docs) {
+      final l = libroDoc.data();
+      final payLink = (l['payment_link'] as String? ?? '').isNotEmpty
+          ? l['payment_link'] as String
+          : (l['payment_link_test'] as String? ?? '');
+      if (payLink.isEmpty) continue;
+
+      final slug = l['slug'] as String? ?? '';
+
+      // Buscar en catalogo_web por doc ID (mismo que libros) o por slug
+      final candidatos = <DocumentReference<Map<String, dynamic>>>[];
+
+      // 1. Mismo ID de documento
+      candidatos.add(_catalogoCol(empresaId).doc(libroDoc.id));
+
+      // 2. Buscar por slug si es diferente al id
+      if (slug.isNotEmpty && slug != libroDoc.id) {
+        final porSlug = await _catalogoCol(empresaId)
+            .where('slug', isEqualTo: slug).limit(1).get();
+        if (porSlug.docs.isNotEmpty) {
+          candidatos.add(porSlug.docs.first.reference);
+        }
+      }
+
+      for (final ref in candidatos) {
+        batch.set(ref, {'stripe_link': payLink}, SetOptions(merge: true));
+      }
+      actualizados++;
+    }
+
+    if (actualizados > 0) await batch.commit();
+    return actualizados;
   }
 
   /// Importa un producto del catálogo de pedidos al catálogo web.

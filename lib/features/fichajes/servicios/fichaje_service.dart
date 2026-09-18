@@ -673,6 +673,9 @@ class FichajeService {
     required String nombre,
     required String pin,
     int jornadaDiaria = 480,
+    String? horarioEntrada,
+    String? horarioSalida,
+    List<bool>? diasLaborables,
   }) async {
     final dup = await _empleados(empresaId)
         .where('pin', isEqualTo: pin)
@@ -688,6 +691,9 @@ class FichajeService {
       'empresa_id': empresaId,
       'activo': true,
       'jornada_diaria': jornadaDiaria,
+      if (horarioEntrada != null) 'horario_entrada': horarioEntrada,
+      if (horarioSalida != null) 'horario_salida': horarioSalida,
+      if (diasLaborables != null) 'dias_laborables': diasLaborables,
       'actualizado_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

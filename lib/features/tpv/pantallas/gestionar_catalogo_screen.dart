@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -329,10 +330,14 @@ class _ProductoItem extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: imgUrl != null
-                  ? Image.network(imgUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: imgUrl,
                       width: 52, height: 52, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          _inicial(nombre, activo))
+                      placeholder: (_, __) => _inicial(nombre, activo),
+                      errorWidget: (_, __, ___) => _inicial(nombre, activo),
+                      memCacheWidth: 104,
+                      memCacheHeight: 104,
+                    )
                   : _inicial(nombre, activo),
             ),
             const SizedBox(width: 12),
@@ -480,6 +485,8 @@ const _kAlergenos = [
 class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
   late final TextEditingController _nombreCtrl;
   late final TextEditingController _precioCtrl;
+  late final TextEditingController _precio2Ctrl;
+  late final TextEditingController _etiquetaPrecio2Ctrl;
   late final TextEditingController _categoriaCtrl;
   late final TextEditingController _imagenCtrl;
   late double _iva;
@@ -494,6 +501,11 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         text: widget.data['nombre'] as String? ?? '');
     _precioCtrl = TextEditingController(
         text: (widget.data['precio'] as num?)?.toStringAsFixed(2) ?? '');
+    final p2 = (widget.data['precio2'] as num?)?.toDouble();
+    _precio2Ctrl = TextEditingController(
+        text: p2 != null ? p2.toStringAsFixed(2) : '');
+    _etiquetaPrecio2Ctrl = TextEditingController(
+        text: widget.data['etiqueta_precio2'] as String? ?? '');
     _categoriaCtrl = TextEditingController(
         text: widget.data['categoria'] as String? ?? '');
     _imagenCtrl = TextEditingController(
@@ -507,6 +519,8 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
   void dispose() {
     _nombreCtrl.dispose();
     _precioCtrl.dispose();
+    _precio2Ctrl.dispose();
+    _etiquetaPrecio2Ctrl.dispose();
     _categoriaCtrl.dispose();
     _imagenCtrl.dispose();
     super.dispose();
@@ -518,6 +532,9 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
     final precio = double.tryParse(
             _precioCtrl.text.trim().replaceAll(',', '.')) ??
         0.0;
+    final precio2 = double.tryParse(
+        _precio2Ctrl.text.trim().replaceAll(',', '.'));
+    final etiqueta2 = _etiquetaPrecio2Ctrl.text.trim();
 
     setState(() => _guardando = true);
     try {
@@ -537,6 +554,10 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         'activo': true,
         'alergenos': _alergenos,
         'destino': _destino,
+        if (precio2 != null) 'precio2': precio2,
+        if (precio2 == null) 'precio2': FieldValue.delete(),
+        if (etiqueta2.isNotEmpty) 'etiqueta_precio2': etiqueta2,
+        if (etiqueta2.isEmpty) 'etiqueta_precio2': FieldValue.delete(),
         if (imgUrl != null) 'imagen_url': imgUrl,
         if (imgUrl != null) 'thumbnail_url': imgUrl,
       };
@@ -573,8 +594,16 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
               _field(_nombreCtrl, 'Nombre *', Icons.label_outline,
                   autofocus: true),
               const SizedBox(height: 12),
-              _field(_precioCtrl, 'Precio (€) *', Icons.euro_outlined,
+              _field(_precioCtrl, 'Precio 1 (€) *', Icons.euro_outlined,
                   tipo: const TextInputType.numberWithOptions(decimal: true)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _field(_precio2Ctrl, 'Precio 2 (€)', Icons.euro_rounded,
+                    tipo: const TextInputType.numberWithOptions(decimal: true))),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_etiquetaPrecio2Ctrl, 'Etiqueta precio 2',
+                    Icons.label_outline, hint: 'Ej: Llevar')),
+              ]),
               const SizedBox(height: 12),
               _field(_categoriaCtrl, 'Categoría', Icons.category_outlined,
                   hint: 'Ej: Bebidas, Tapas…'),

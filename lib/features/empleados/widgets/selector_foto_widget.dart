@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../services/storage_service.dart';
 import 'avatar_empleado_widget.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SELECTOR FOTO EMPLEADO — bottom sheet con galería / cámara
@@ -52,19 +53,12 @@ class _SelectorFotoEmpleadoState extends State<SelectorFotoEmpleado> {
 
       if (mounted) {
         Navigator.pop(context); // Cerrar bottom sheet DESPUÉS de subir
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('✅ Foto de perfil actualizada'),
-          backgroundColor: Colors.green[700],
-          behavior: SnackBarBehavior.floating,
-        ));
+        FluxToast.exito(context, 'Foto de perfil actualizada');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _subiendo = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error al subir la foto: $e'),
-          backgroundColor: Colors.red,
-        ));
+        FluxToast.error(context, 'Error al subir la foto: $e');
       }
     }
   }
@@ -97,17 +91,11 @@ class _SelectorFotoEmpleadoState extends State<SelectorFotoEmpleado> {
         empleadoId: widget.empleadoId,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Foto eliminada'),
-          backgroundColor: Colors.orange,
-        ));
+        FluxToast.aviso(context, 'Foto eliminada');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ));
+        FluxToast.error(context, 'Error: $e');
       }
     }
   }

@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
 import 'package:planeag_flutter/services/contenido_web_service.dart';
+import 'package:planeag_flutter/core/utils/permisos_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO LOCAL
@@ -82,7 +83,9 @@ class _CuentaCliente {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class GestionarCuentasScreen extends StatefulWidget {
-  const GestionarCuentasScreen({super.key});
+  final SesionUsuario? sesion;
+  final bool embedded;
+  const GestionarCuentasScreen({super.key, this.sesion, this.embedded = false});
 
   @override
   State<GestionarCuentasScreen> createState() => _GestionarCuentasScreenState();
@@ -217,47 +220,32 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    final dark = MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final bg    = dark ? const Color(0xFF0A0F23) : const Color(0xFFF5F7FA);
+    final barBg = dark ? const Color(0xFF0A0F23) : Colors.white;
+    final textC = dark ? Colors.white : const Color(0xFF0F172A);
+    final border= dark ? const Color(0xFF2A2E45) : const Color(0xFFE2E8F0);
+    final accent = const Color(0xFF7C3AED);
+
+    Widget body = DefaultTabController(
       length: 2,
       child: Stack(
         children: [
           Column(
             children: [
-              // ── Barra de acciones ───────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.manage_accounts,
-                        color: Color(0xFF0D47A1), size: 28),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Gestión de Cuentas',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0D47A1),
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
-                      onPressed: _cargarCuentas,
-                      tooltip: 'Recargar',
-                    ),
+              // ── Tabs ──────────────────────────────────────────────────────
+              Container(
+                color: barBg,
+                child: TabBar(
+                  labelColor: accent,
+                  unselectedLabelColor: dark ? const Color(0xFF7B8099) : Colors.grey,
+                  indicatorColor: accent,
+                  labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  tabs: const [
+                    Tab(icon: Icon(Icons.bar_chart, size: 18), text: 'Estadísticas'),
+                    Tab(icon: Icon(Icons.business, size: 18), text: 'Cuentas'),
                   ],
                 ),
-              ),
-              // ── Tabs ──────────────────────────────────────────────────────
-              const TabBar(
-                labelColor: Color(0xFF0D47A1),
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Color(0xFF0D47A1),
-                labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                tabs: [
-                  Tab(icon: Icon(Icons.bar_chart, size: 18), text: 'Estadísticas'),
-                  Tab(icon: Icon(Icons.business, size: 18), text: 'Cuentas'),
-                ],
               ),
               // ── Contenido ────────────────────────────────────────────────
               Expanded(
@@ -283,7 +271,7 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
                         child: FloatingActionButton.extended(
                           heroTag: 'fab_nueva_cuenta',
                           onPressed: _abrirFormNuevaCuenta,
-                          backgroundColor: const Color(0xFF0D47A1),
+                          backgroundColor: accent,
                           foregroundColor: Colors.white,
                           icon: const Icon(Icons.person_add),
                           label: const Text('Nueva cuenta'),
@@ -295,6 +283,36 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
           ),
         ],
       ),
+    );
+
+    if (widget.embedded) return body;
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: barBg,
+        foregroundColor: textC,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: border),
+        ),
+        title: Row(children: [
+          Icon(Icons.manage_accounts_rounded, size: 18, color: accent),
+          const SizedBox(width: 8),
+          Text('Gestión de cuentas',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: textC)),
+        ]),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh_rounded, color: textC),
+            onPressed: _cargarCuentas,
+            tooltip: 'Recargar',
+          ),
+        ],
+      ),
+      body: body,
     );
   }
 

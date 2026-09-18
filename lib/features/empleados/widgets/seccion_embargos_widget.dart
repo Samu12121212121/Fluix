@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/embargo_model.dart';
 import '../../../services/nominas_service.dart';
 import '../../../services/embargo_calculator.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECCIÓN EMBARGOS JUDICIALES
@@ -352,16 +353,12 @@ class _FormularioEmbargoState extends State<FormularioEmbargo> {
       await _svc.guardarEmbargo(widget.empleadoId, embargo);
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(widget.embargo == null ? '✅ Embargo registrado' : '✅ Embargo actualizado'),
-          backgroundColor: Colors.green,
-        ));
+        FluxToast.exito(context, widget.embargo == null ? 'Embargo registrado' : 'Embargo actualizado');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _guardando = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        FluxToast.error(context, 'Error: $e');
       }
     }
   }

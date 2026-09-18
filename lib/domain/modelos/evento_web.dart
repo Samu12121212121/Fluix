@@ -22,12 +22,14 @@ extension TipoEventoExt on TipoEvento {
     }
   }
   static TipoEvento fromId(String? id) {
-    switch (id) {
-      case 'feria':        return TipoEvento.feria;
-      case 'taller':       return TipoEvento.taller;
-      case 'lectura':      return TipoEvento.lectura;
-      case 'presentacion': return TipoEvento.presentacion;
-      default:             return TipoEvento.otro;
+    switch (id?.toLowerCase().replaceAll('ó','o').replaceAll('é','e')) {
+      case 'feria':          return TipoEvento.feria;
+      case 'taller':         return TipoEvento.taller;
+      case 'lectura':        return TipoEvento.lectura;
+      case 'presentacion':   return TipoEvento.presentacion;
+      case 'presentación':   return TipoEvento.presentacion;
+      case 'firma':          return TipoEvento.presentacion;
+      default:               return TipoEvento.otro;
     }
   }
 }
@@ -78,25 +80,32 @@ class EventoWeb {
   bool get esFuturo => fecha.isAfter(DateTime.now());
 
   factory EventoWeb.fromMap(Map<String, dynamic> m) => EventoWeb(
-    id:              m['id'] as String? ?? '',
-    titulo:          m['titulo'] as String? ?? '',
-    descripcion:     m['descripcion'] as String? ?? '',
+    id:              _str(m['id'])        ?? '',
+    titulo:          _str(m['titulo'])    ?? '',
+    descripcion:     _str(m['descripcion']) ?? '',
     fecha:           _parseTs(m['fecha']),
-    lugar:           m['lugar'] as String? ?? '',
-    imagenUrl:       m['imagen_url'] as String?,
-    tipo:            TipoEventoExt.fromId(m['tipo'] as String?),
-    precio:          m['precio'] as String?,
-    urlInscripcion:  m['url_inscripcion'] as String?,
-    activo:          m['activo'] as bool? ?? true,
+    lugar:           _str(m['lugar'])     ?? '',
+    imagenUrl:       _str(m['imagen_url']),
+    tipo:            TipoEventoExt.fromId(_str(m['tipo'])),
+    precio:          _str(m['precio']),
+    urlInscripcion:  _str(m['url_inscripcion']),
+    activo:          m['activo'] as bool? ?? (m['publicado'] as bool? ?? true),
     eliminado:       m['eliminado'] as bool? ?? false,
-    subtitulo:       m['subtitulo'] as String?,
-    hora:            m['hora'] as String?,
-    ciudad:          m['ciudad'] as String?,
-    libroId:         m['libro_id'] as String?,
-    libroTitulo:     m['libro_titulo'] as String?,
-    autorId:         m['autor_id'] as String?,
-    autorNombre:     m['autor_nombre'] as String?,
+    subtitulo:       _str(m['subtitulo']),
+    hora:            _str(m['hora']),
+    ciudad:          _str(m['ciudad']),
+    libroId:         _str(m['libro_id']),
+    libroTitulo:     _str(m['libro_titulo']),
+    autorId:         _str(m['autor_id']),
+    autorNombre:     _str(m['autor_nombre']),
   );
+
+  // Convierte cualquier valor a String de forma segura (int, double, String…)
+  static String? _str(dynamic v) {
+    if (v == null) return null;
+    if (v is String) return v.isEmpty ? null : v;
+    return v.toString();
+  }
 
   Map<String, dynamic> toMap() => {
     'titulo':           titulo,
@@ -104,7 +113,8 @@ class EventoWeb {
     'fecha':            Timestamp.fromDate(fecha),
     'lugar':            lugar,
     if (imagenUrl != null) 'imagen_url': imagenUrl,
-    'tipo':             tipo.id,
+    if (imagenUrl != null) 'imagen':     imagenUrl,  // compat web
+    'tipo':             tipo.label,   // 'Presentación', 'Feria', etc. — coincide con la web
     if (precio != null) 'precio': precio,
     if (urlInscripcion != null) 'url_inscripcion': urlInscripcion,
     'activo':           activo,

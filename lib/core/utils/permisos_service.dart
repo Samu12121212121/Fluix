@@ -73,7 +73,7 @@ class SesionUsuario {
           'facturacion', 'nominas', 'vacaciones', 'fichaje', 'web',
         ];
       case RolApp.staff:
-        return ['reservas', 'clientes', 'valoraciones', 'fichaje'];
+        return ['reservas', 'clientes', 'valoraciones', 'fichaje', 'empleados'];
       case RolApp.clienteFinal:
         return ['explorar'];
       default:

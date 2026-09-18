@@ -1024,7 +1024,7 @@ class PdfService {
     // ── Generar QR Verifactu ─────────────────────────────────────────────────
     Uint8List? qrBytes;
     bool esVerifactu = false;
-    if (factura.verifactu != null) {
+    if (factura.verifactu != null && !factura.esProforma) {
       try {
         final datos = DatosVerifactu.fromMap(factura.verifactu!);
         esVerifactu = datos.estado != EstadoVerifactu.error;
@@ -1761,6 +1761,73 @@ class PdfService {
         .toList();
   }
 
+  // ── Bloques legales compartidos por todos los layouts D* ─────────────────
+  // Art. 15 RD 1619/2012: bloque obligatorio en facturas rectificativas.
+  static pw.Widget _dBloqueRectificativa(Factura f) =>
+    pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 16),
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        color: PdfColor.fromHex('#FFF3E0'),
+        border: pw.Border.all(color: PdfColor.fromHex('#D32F2F'), width: 1.5),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Text('RECTIFICA A LA FACTURA',
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('#D32F2F'), letterSpacing: 0.8)),
+        pw.SizedBox(height: 3),
+        pw.Text(
+          'Nº ${f.facturaOriginalNumero ?? '—'}'
+          '${f.facturaOriginalFecha != null ? "   Fecha: ${_fmtDate(f.facturaOriginalFecha!)}" : ""}',
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+        if (f.motivoRectificacion != null) ...[
+          pw.SizedBox(height: 3),
+          pw.Text('Motivo: ${f.motivoRectificacion!.etiqueta}',
+              style: pw.TextStyle(fontSize: 9)),
+        ],
+        if (f.metodoRectificacion != null)
+          pw.Text('Método: ${f.metodoRectificacion!.etiqueta}',
+              style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#757575'))),
+        if (f.motivoRectificacionTexto != null && f.motivoRectificacionTexto!.isNotEmpty)
+          pw.Text(f.motivoRectificacionTexto!,
+              style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#757575'))),
+        pw.SizedBox(height: 4),
+        pw.Text('Emitida conforme al Art. 15 del R.D. 1619/2012.',
+            style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('#9E9E9E'))),
+      ]),
+    );
+
+  // Proforma: texto "NO ES FACTURA" obligatorio para evitar confusión legal.
+  static pw.Widget _dBloqueProforma() =>
+    pw.Container(
+      margin: const pw.EdgeInsets.only(top: 14),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColor.fromHex('#E65100'), width: 2),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        pw.Text('DOCUMENTO SIN VALIDEZ FISCAL',
+            style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('#E65100'), letterSpacing: 1)),
+        pw.SizedBox(height: 3),
+        pw.Text('Este documento no constituye factura a efectos del R.D. 1619/2012. No genera obligación de pago.',
+            style: pw.TextStyle(fontSize: 7.5, color: PdfColor.fromHex('#757575'))),
+      ]),
+    );
+
+  // Footer legal adaptado al tipo de documento.
+  static String _dFooterLegal(Factura? f) {
+    if (f?.esRectificativa == true) {
+      return 'Factura rectificativa emitida conforme al Art. 15 del R.D. 1619/2012.';
+    }
+    if (f?.esProforma == true) {
+      return 'Documento sin validez fiscal. No constituye factura según el R.D. 1619/2012.';
+    }
+    return 'Factura emitida conforme al Real Decreto 1619/2012.';
+  }
+
   // ── D1: Clásico Corporativo ───────────────────────────────────────────────
   static Future<Uint8List> _pdfD1Corp({
     required String primario, required String nombreEmpresa,
@@ -1811,6 +1878,8 @@ class PdfService {
                   '${_dClienteNif(factura)}')),
             ]),
             pw.Divider(color: PdfColor.fromHex('#E5E5E5'), height: 32),
+            // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+            if (factura?.esRectificativa == true) _dBloqueRectificativa(factura!),
             // Table
             _d1Table(navy, _lineas),
             pw.SizedBox(height: 20),
@@ -1852,12 +1921,17 @@ class PdfService {
               ])),
             ]),
             pw.SizedBox(height: 20),
+            // Disclaimer proforma (bloque centrado con borde)
+            if (factura?.esProforma == true) ...[
+              pw.Center(child: _dBloqueProforma()),
+              pw.SizedBox(height: 12),
+            ],
             pw.Container(
               padding: const pw.EdgeInsets.only(top: 12),
               decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(
                   color: PdfColor.fromHex('#E5E5E5'), width: 1,
                   style: pw.BorderStyle.dashed))),
-              child: pw.Text('Factura emitida conforme al Real Decreto 1619/2012.',
+              child: pw.Text(_dFooterLegal(factura),
                   style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#999'))),
             ),
           ]),
@@ -1976,7 +2050,12 @@ class PdfService {
                 style: pw.TextStyle(fontSize: 10, color: soft)),
           ]),
         ]),
-        pw.SizedBox(height: 50),
+        pw.SizedBox(height: factura?.esRectificativa == true ? 16 : 50),
+        // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+        if (factura?.esRectificativa == true) ...[
+          _dBloqueRectificativa(factura!),
+          pw.SizedBox(height: 24),
+        ],
         // Table minimal
         pw.Table(
           columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(40),
@@ -2022,11 +2101,16 @@ class PdfService {
             ]),
           ])),
         ]),
-        pw.SizedBox(height: 50),
+        pw.SizedBox(height: 24),
+        // Disclaimer proforma
+        if (factura?.esProforma == true) ...[
+          pw.Center(child: _dBloqueProforma()),
+          pw.SizedBox(height: 16),
+        ],
         pw.Row(children: [
           pw.Expanded(child: _d2FooterCol('PAGO', 'IBAN ES00 0000 0000 0000 0000\nTransferencia bancaria')),
           pw.SizedBox(width: 60),
-          pw.Expanded(child: _d2FooterCol('NOTAS', 'Gracias por confiar en $nombreEmpresa.')),
+          pw.Expanded(child: _d2FooterCol('NOTAS', _dFooterLegal(factura))),
         ]),
       ],
     ));
@@ -2105,7 +2189,12 @@ class PdfService {
               pw.Expanded(child: _d3Card('Cliente', _dClienteNombre(factura),
                   _dClienteNif(factura), heroColor)),
             ]),
-            pw.SizedBox(height: 28),
+            pw.SizedBox(height: factura?.esRectificativa == true ? 16 : 28),
+            // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+            if (factura?.esRectificativa == true) ...[
+              _dBloqueRectificativa(factura!),
+              pw.SizedBox(height: 12),
+            ],
             pw.Table(
               columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(36),
                   2: const pw.FixedColumnWidth(60), 3: const pw.FixedColumnWidth(36),
@@ -2153,6 +2242,14 @@ class PdfService {
                 ),
               ])),
             ]),
+            // Disclaimer proforma + footer legal
+            if (factura?.esProforma == true) ...[
+              pw.SizedBox(height: 10),
+              pw.Center(child: _dBloqueProforma()),
+            ],
+            pw.SizedBox(height: 12),
+            pw.Text(_dFooterLegal(factura),
+                style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
           ]),
         ),
       ],
@@ -2238,7 +2335,11 @@ class PdfService {
             pw.SizedBox(height: 4),
             pw.Text('Año $anio', style: pw.TextStyle(
                 fontSize: 11, color: PdfColor.fromHex('#888'))),
-            pw.SizedBox(height: 24),
+            // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+            if (factura?.esRectificativa == true) ...[
+              _dBloqueRectificativa(factura!),
+              pw.SizedBox(height: 12),
+            ] else pw.SizedBox(height: 24),
             pw.Table(
               columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(36),
                   2: const pw.FixedColumnWidth(60), 3: const pw.FixedColumnWidth(60)},
@@ -2288,6 +2389,13 @@ class PdfService {
                     style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
               ]),
             ),
+            if (factura?.esProforma == true) ...[
+              pw.SizedBox(height: 10),
+              pw.Center(child: _dBloqueProforma()),
+            ],
+            pw.SizedBox(height: 8),
+            pw.Text(_dFooterLegal(factura),
+                style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
           ]),
         )),
       ]),
@@ -2363,6 +2471,11 @@ class PdfService {
         ]),
         pw.Divider(height: 28, borderStyle: pw.BorderStyle.dashed,
             color: PdfColor.fromHex('#EEE')),
+        // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+        if (factura?.esRectificativa == true) ...[
+          _dBloqueRectificativa(factura!),
+          pw.SizedBox(height: 12),
+        ],
         pw.Text('CONCEPTOS FACTURADOS', style: pw.TextStyle(fontSize: 10,
             color: PdfColor.fromHex('#AAA'), fontWeight: pw.FontWeight.bold, letterSpacing: 0.5)),
         pw.SizedBox(height: 12),
@@ -2415,6 +2528,13 @@ class PdfService {
           'IBAN ES00 0000 0000 0000 0000 · Transferencia · Gracias por confiar en $nombreEmpresa',
           style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#999')),
           textAlign: pw.TextAlign.center)),
+        if (factura?.esProforma == true) ...[
+          pw.SizedBox(height: 12),
+          pw.Center(child: _dBloqueProforma()),
+        ],
+        pw.SizedBox(height: 8),
+        pw.Text(_dFooterLegal(factura),
+            style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
       ],
     ));
     return pdf.save();
@@ -2476,7 +2596,11 @@ class PdfService {
               pw.Expanded(child: _d6Card('Cliente', _dClienteNombre(factura),
                   _dClienteNif(factura), surf, border, textW, textS)),
             ]),
-            pw.SizedBox(height: 20),
+            // Bloque legal rectificativa (Art. 15 RD 1619/2012)
+            if (factura?.esRectificativa == true) ...[
+              _dBloqueRectificativa(factura!),
+              pw.SizedBox(height: 12),
+            ] else pw.SizedBox(height: 20),
             // Table header
             pw.Padding(padding: const pw.EdgeInsets.only(bottom: 8), child:
               pw.Row(children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IMPORTE'].asMap().entries.map((e) =>
@@ -2528,8 +2652,12 @@ class PdfService {
               pw.Expanded(child: _d6FooterCol('PAGO',
                   'IBAN ES00 0000 0000 0000 0000', textS, textW)),
               pw.Expanded(child: _d6FooterCol('NOTAS',
-                  'Gracias por confiar en $nombreEmpresa.', textS, textW)),
+                  _dFooterLegal(factura), textS, textW)),
             ]),
+            if (factura?.esProforma == true) ...[
+              pw.SizedBox(height: 10),
+              pw.Center(child: _dBloqueProforma()),
+            ],
           ]),
         ),
       ],
@@ -2668,11 +2796,23 @@ class PdfService {
           padding: const pw.EdgeInsets.only(top: 10),
           decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(
               color: ink, style: pw.BorderStyle.dashed))),
-          child: pw.Text(
-            'IBAN ES00 0000 0000 0000 0000 — Transferencia bancaria — '
-            'Factura emitida conforme al RD 1619/2012.',
-            style: pw.TextStyle(fontSize: 9, color: soft, lineSpacing: 3)),
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Text(
+              'IBAN ES00 0000 0000 0000 0000 — Transferencia bancaria',
+              style: pw.TextStyle(fontSize: 9, color: soft, lineSpacing: 3)),
+            pw.SizedBox(height: 3),
+            pw.Text(_dFooterLegal(factura),
+                style: pw.TextStyle(fontSize: 8, color: soft)),
+            if (factura?.esProforma == true) ...[
+              pw.SizedBox(height: 8),
+              _dBloqueProforma(),
+            ],
+          ]),
         ),
+        if (factura?.esRectificativa == true) ...[
+          pw.SizedBox(height: 10),
+          _dBloqueRectificativa(factura!),
+        ],
       ],
     ));
     return pdf.save();

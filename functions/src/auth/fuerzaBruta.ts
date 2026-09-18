@@ -58,9 +58,27 @@ export const verificarLoginIntento = onRequest(
         return;
       }
 
-      // ── Login fallido → verificar y actualizar ────────────────────────────
       const now = Date.now();
 
+      // ── Solo verificar estado (exito no enviado) → read-only, sin incrementar ──
+      if (exito === undefined) {
+        const snap = await ref.get();
+        const data = snap.data() || {};
+        const bloqueadoHasta = data.bloqueado_hasta
+          ? (data.bloqueado_hasta as admin.firestore.Timestamp).toMillis()
+          : null;
+
+        if (bloqueadoHasta && bloqueadoHasta > now) {
+          const segundosRestantes = Math.ceil((bloqueadoHasta - now) / 1000);
+          res.status(200).json({ bloqueado: true, segundosRestantes, intentosRestantes: 0 });
+        } else {
+          const contador = (data.contador as number) || 0;
+          res.status(200).json({ bloqueado: false, intentosRestantes: MAX_INTENTOS - contador });
+        }
+        return;
+      }
+
+      // ── Login fallido (exito === false) → incrementar contador ───────────
       const result = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const data = snap.data() || {};

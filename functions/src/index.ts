@@ -273,10 +273,12 @@ export {
 
 // ── SECRETS via variables de entorno (.env o Firebase env config) ─────────
 // Valores reales: edita functions/.env (no subir a git)
-const stripeSecretKey   = { value: () => process.env.STRIPE_SECRET_KEY   ?? "" };
-const stripeWebhookSecret = { value: () => process.env.STRIPE_WEBHOOK_SECRET ?? "" };
+const stripeSecretKey             = { value: () => process.env.STRIPE_SECRET_KEY          ?? "" };
+const stripeSecretKeyTest         = { value: () => process.env.STRIPE_SECRET_KEY_TEST     ?? "" };
+const stripeWebhookSecret         = { value: () => process.env.STRIPE_WEBHOOK_SECRET      ?? "" };
+const stripeWebhookSecretTest     = { value: () => process.env.STRIPE_WEBHOOK_SECRET_TEST ?? "" };
 // Secret para webhooks de tiendas de clientes — puede ser el mismo o uno propio
-const stripeTiendaWebhookSecret = { value: () => process.env.STRIPE_TIENDA_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET ?? "" };
+const stripeTiendaWebhookSecret   = { value: () => process.env.STRIPE_TIENDA_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET ?? "" };
 // Resend API key — configurado en functions/.env como RESEND_API_KEY
 
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
@@ -1085,6 +1087,11 @@ export const onNuevoPedido = onDocumentCreated(
     const email    = pedido.cliente_correo   || pedido.email   || null;
     const total    = pedido.precio_total || pedido.total || 0;
     const origen   = pedido.origen || "app";
+
+    // Las funciones Stripe crean la notificación directamente para garantizar entrega.
+    // Evitar duplicados saltando sus orígenes aquí.
+    if (origen === "web_nazari" || origen === "tienda_online") return;
+
     const cuerpo   = `${cliente} — €${(total as number).toFixed(2)} (vía ${origen})`;
 
     // Guardar en bandeja in-app
@@ -1861,45 +1868,50 @@ export const stripeWebhook = onRequest(
       return;
     }
 
-    const secretKey: string = stripeSecretKey.value() || "";
-    const webhookSec: string = stripeWebhookSecret.value() || "";
+    const liveKey: string  = stripeSecretKey.value()         || "";
+    const testKey: string  = stripeSecretKeyTest.value()     || "";
+    const liveSec: string  = stripeWebhookSecret.value()     || "";
+    const testSec: string  = stripeWebhookSecretTest.value() || "";
 
-    if (!secretKey) {
-      console.error("❌ STRIPE_SECRET_KEY no configurada. Ejecuta: firebase functions:secrets:set STRIPE_SECRET_KEY");
+    if (!liveKey && !testKey) {
+      console.error("❌ STRIPE_SECRET_KEY no configurada");
       res.status(500).json({ error: "Stripe no configurado en el servidor" });
       return;
     }
 
-    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+    const sig     = req.headers["stripe-signature"] as string;
+    const rawBody = (req as unknown as { rawBody: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
 
-    let event: Stripe.Event;
-    try {
-      const sig = req.headers["stripe-signature"] as string;
-      const rawBody = (req as unknown as { rawBody: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
-
-      if (!webhookSec) {
-        console.error("❌ STRIPE_WEBHOOK_SECRET no configurada");
-        res.status(500).json({ error: "Webhook no configurado" });
-        return;
-      }
-      if (!sig) {
-        res.status(400).json({ error: "Firma de Stripe ausente" });
-        return;
-      }
-      try {
-        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
-      } catch (err) {
-        console.error("❌ Firma Stripe inválida:", err);
-        res.status(400).json({ error: "Firma inválida" });
-        return;
-      }
-    } catch (err) {
-      console.error("❌ Error verificando firma Stripe:", err);
-      res.status(400).json({ error: `Webhook signature verification failed: ${err}` });
+    if (!sig) {
+      res.status(400).json({ error: "Firma de Stripe ausente" });
       return;
     }
 
-    console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
+    // Intentar verificar con LIVE secret primero, luego con TEST secret
+    let event!: Stripe.Event;
+    let isTestEvent = false;
+    const stripeVerifier = new Stripe(liveKey || testKey, { apiVersion: "2024-06-20" });
+    let verified = false;
+    if (liveSec) {
+      try {
+        event = stripeVerifier.webhooks.constructEvent(rawBody, sig, liveSec);
+        verified = true;
+      } catch (_) { /* probar con TEST */ }
+    }
+    if (!verified && testSec) {
+      try {
+        event = stripeVerifier.webhooks.constructEvent(rawBody, sig, testSec);
+        verified = true;
+        isTestEvent = true;
+      } catch (_) { /* ninguno funcionó */ }
+    }
+    if (!verified) {
+      console.error("❌ Firma Stripe inválida — comprueba STRIPE_WEBHOOK_SECRET y STRIPE_WEBHOOK_SECRET_TEST");
+      res.status(400).json({ error: "Firma inválida" });
+      return;
+    }
+
+    console.log(`📥 Stripe evento: ${event.type} [${event.id}] modo=${isTestEvent ? "TEST" : "LIVE"}`);
 
     // ── IDEMPOTENCIA: evitar procesar el mismo evento dos veces ──────────────
     // Stripe puede reenviar eventos ante timeouts o fallos de red.
@@ -1921,7 +1933,11 @@ export const stripeWebhook = onRequest(
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
-          await _procesarCheckoutCompletado(session, db);
+          if (session.metadata?.tipo === "pedido_nazari") {
+            await _procesarPedidoNazari(session, db);
+          } else {
+            await _procesarCheckoutCompletado(session, db);
+          }
           break;
         }
         case "payment_intent.succeeded": {
@@ -2013,6 +2029,158 @@ export const enviarEmailConPdf = onCall(
 );
 
 // ── FUNCIONES HELPER STRIPE ───────────────────────────────────────────────────
+
+// ── Pedido de libro Editorial Nazarí (via Payment Link o Checkout) ────────────
+async function _procesarPedidoNazari(
+  session: Stripe.Checkout.Session,
+  db: admin.firestore.Firestore
+): Promise<void> {
+  const modoLabel   = session.livemode ? "LIVE" : "TEST";
+  const libroId     = session.metadata?.libro_id    || "";
+  const totalEuros  = (session.amount_total ?? 0) / 100;
+
+  const clienteNombre   = session.customer_details?.name  || "Cliente web";
+  const clienteEmail    = session.customer_details?.email || null;
+  const clienteTelefono = session.customer_details?.phone || null;
+  const direccionEnvio  = _formatearDireccion(session.shipping_details);
+
+  // ── Line items desde Stripe (expande nombre real, cantidad, precio) ──────────
+  const stripeKey = session.livemode ? stripeSecretKey.value() : stripeSecretKeyTest.value();
+  const stripeInst = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+
+  type LineaNazari = { libro_id: string; producto_nombre: string; descripcion: string; cantidad: number; precio_unitario: number; porcentaje_iva: number; };
+  let lineas: LineaNazari[] = [];
+  try {
+    const items = await stripeInst.checkout.sessions.listLineItems(session.id, { limit: 100, expand: ["data.price.product"] });
+    lineas = items.data.map(item => {
+      const prod    = item.price?.product as Stripe.Product | undefined;
+      const catId   = (prod as any)?.metadata?.catalogo_id || libroId;
+      const titulo  = prod?.name || item.description || session.metadata?.libro_titulo || "Libro";
+      const precioUnitario = ((item.price?.unit_amount ?? 0) / 100) / 1.04;
+      return {
+        libro_id:        catId,
+        producto_nombre: titulo,
+        descripcion:     `${titulo} — venta online Editorial Nazarí`,
+        cantidad:        item.quantity ?? 1,
+        precio_unitario: parseFloat(precioUnitario.toFixed(2)),
+        porcentaje_iva:  4, // IVA superreducido libros España
+      };
+    });
+  } catch (_) {
+    // Fallback: usar metadata del payment link
+    const titulo = session.metadata?.libro_titulo || "Libro";
+    lineas = [{
+      libro_id:        libroId,
+      producto_nombre: titulo,
+      descripcion:     `${titulo} — venta online Editorial Nazarí`,
+      cantidad:        1,
+      precio_unitario: parseFloat((totalEuros / 1.04).toFixed(2)),
+      porcentaje_iva:  4,
+    }];
+  }
+
+  const baseImponible = parseFloat(lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0).toFixed(2));
+  const importeIva    = parseFloat((totalEuros - baseImponible).toFixed(2));
+
+  // ── Número de ticket correlativo ──────────────────────────────────────────
+  const contadorRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("contadores").doc("tickets");
+  let numTicket = 1;
+  const contSnap = await contadorRef.get();
+  numTicket = contSnap.exists ? ((contSnap.data()?.ultimo as number) ?? 0) + 1 : 1;
+  await contadorRef.set({ ultimo: numTicket }, { merge: true });
+
+  // ── Crear pedido ──────────────────────────────────────────────────────────
+  const pedidoData = {
+    empresa_id:            NAZARI_EMPRESA_ID,
+    numero_ticket:         numTicket,
+    cliente_nombre:        clienteNombre,
+    cliente_correo:        clienteEmail,
+    cliente_telefono:      clienteTelefono,
+    direccion_envio:       direccionEnvio,
+    origen:                "web_nazari",
+    estado:                "pendiente",
+    estado_pago:           "pagado",
+    metodo_pago:           "tarjeta",
+    lineas,
+    subtotal:              baseImponible,
+    importe_iva:           importeIva,
+    total:                 totalEuros,
+    stripe_session_id:     session.id,
+    stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
+    livemode:              session.livemode,
+    notas_internas:        `Compra online via Stripe ${modoLabel}. Session: ${session.id}`,
+    fecha_creacion:        admin.firestore.FieldValue.serverTimestamp(),
+    fecha_pedido:          admin.firestore.FieldValue.serverTimestamp(),
+    fecha_actualizacion:   admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  const pedidoRef = await db
+    .collection("empresas").doc(NAZARI_EMPRESA_ID)
+    .collection("pedidos").add(pedidoData);
+
+  console.log(`✅ [NAZARI-${modoLabel}] Pedido #${numTicket} (${pedidoRef.id}) — ${clienteNombre} — €${totalEuros}`);
+
+  // ── Notificación en bandeja + push FCM ────────────────────────────────────
+  const cuerpoNotif = `${clienteNombre} — €${totalEuros.toFixed(2)} (web Editorial Nazarí)`;
+  try {
+    await db.collection("notificaciones").doc(NAZARI_EMPRESA_ID).collection("items").add({
+      titulo:             "📦 Nuevo Pedido Web",
+      cuerpo:             cuerpoNotif,
+      tipo:               "pedidoNuevo",
+      timestamp:          admin.firestore.FieldValue.serverTimestamp(),
+      leida:              false,
+      modulo_destino:     "pedidos",
+      entidad_id:         pedidoRef.id,
+      remitente_nombre:   clienteNombre !== "Cliente online" ? clienteNombre : null,
+      remitente_email:    clienteEmail,
+    });
+    await enviarNotificacionEmpresa(
+      NAZARI_EMPRESA_ID,
+      "📦 Nuevo Pedido Web",
+      cuerpoNotif,
+      { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "web_nazari" }
+    );
+  } catch (e) {
+    console.warn(`⚠️ [NAZARI-${modoLabel}] Error enviando notificación:`, e);
+  }
+
+  // ── Descontar stock en colección libros ───────────────────────────────────
+  for (const linea of lineas) {
+    if (!linea.libro_id) continue;
+    try {
+      await db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+        .collection("libros").doc(linea.libro_id)
+        .update({ stock: admin.firestore.FieldValue.increment(-linea.cantidad) });
+      console.log(`📦 [NAZARI-${modoLabel}] Stock decrementado: ${linea.producto_nombre} -${linea.cantidad}`);
+    } catch (_) { /* libro sin campo stock — ignorar */ }
+  }
+
+  // ── Email de confirmación al cliente ──────────────────────────────────────
+  if (clienteEmail) {
+    try {
+      const lineasHtml = lineas.map(l =>
+        `<tr><td style="padding:6px 0;">${l.producto_nombre}</td><td style="text-align:right;padding:6px 0;">${l.cantidad}x ${l.precio_unitario.toFixed(2)} €</td></tr>`
+      ).join("");
+      await enviarPdfGenerico({
+        from: "Editorial Nazarí <noreply@fluixtech.com>",
+        to: clienteEmail,
+        subject: `✅ Pedido #${numTicket} confirmado — Editorial Nazarí`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#1B5E20;">¡Pedido recibido!</h2>
+            <p>Hola ${clienteNombre}, hemos recibido tu pedido correctamente.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">${lineasHtml}</table>
+            <p style="font-size:18px;font-weight:bold;text-align:right;">Total: ${totalEuros.toFixed(2)} €</p>
+            <p style="color:#555;">IVA incluido (4% libros). Te enviaremos el libro a la dirección indicada.</p>
+            <p style="color:#999;font-size:11px;">— Editorial Nazarí · noreply@fluixtech.com</p>
+          </div>`,
+      });
+      console.log(`📧 [NAZARI-${modoLabel}] Email enviado a ${clienteEmail}`);
+    } catch (e) {
+      console.warn(`⚠️ [NAZARI-${modoLabel}] No se pudo enviar email:`, e);
+    }
+  }
+}
 
 async function _procesarCheckoutCompletado(
   session: Stripe.Checkout.Session,
@@ -2623,27 +2791,29 @@ export const stripeWebhookTienda = onRequest(
       return;
     }
 
-    const secretKey: string = stripeSecretKey.value() || "";
-    const webhookSec: string = stripeTiendaWebhookSecret.value() || "";
+    const liveKey: string  = stripeSecretKey.value()         || "";
+    const testKey: string  = stripeSecretKeyTest.value()     || "";
+    const liveSec: string  = stripeTiendaWebhookSecret.value() || "";
+    const testSec: string  = stripeWebhookSecretTest.value() || "";
 
-    if (!secretKey || !webhookSec) {
-      console.error("❌ STRIPE_SECRET_KEY o STRIPE_TIENDA_WEBHOOK_SECRET no configuradas");
-      res.status(500).json({ error: "Webhook de tienda no configurado" });
-      return;
+    const sig     = req.headers["stripe-signature"] as string;
+    const rawBody = (req as unknown as { rawBody: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
+
+    if (!sig) { res.status(400).json({ error: "Firma ausente" }); return; }
+
+    let event!: Stripe.Event;
+    let isTestEvent = false;
+    const verifier = new Stripe(liveKey || testKey, { apiVersion: "2024-06-20" });
+    let verified = false;
+    if (liveSec) { try { event = verifier.webhooks.constructEvent(rawBody, sig, liveSec); verified = true; } catch (_) {} }
+    if (!verified && testSec) { try { event = verifier.webhooks.constructEvent(rawBody, sig, testSec); verified = true; isTestEvent = true; } catch (_) {} }
+    if (!verified) {
+      console.error("❌ Firma inválida en stripeWebhookTienda");
+      res.status(400).json({ error: "Firma inválida" }); return;
     }
 
-    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
-
-    let event: Stripe.Event;
-    try {
-      const sig = req.headers["stripe-signature"] as string;
-      const rawBody = (req as unknown as { rawBody: Buffer }).rawBody ?? Buffer.from(JSON.stringify(req.body));
-      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
-    } catch (err) {
-      console.error("❌ Firma Stripe inválida en stripeWebhookTienda:", err);
-      res.status(400).json({ error: "Firma inválida" });
-      return;
-    }
+    const stripe = new Stripe(isTestEvent ? (testKey || liveKey) : liveKey, { apiVersion: "2024-06-20" });
+    console.log(`📥 [stripeWebhookTienda] ${event.type} modo=${isTestEvent ? "TEST" : "LIVE"}`);
 
     // Idempotencia: ignorar eventos ya procesados
     const eventDocRef = db.collection("stripe_processed_events").doc(`tienda_${event.id}`);
@@ -2657,15 +2827,18 @@ export const stripeWebhookTienda = onRequest(
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as Stripe.Checkout.Session;
         const empresaId: string = session.metadata?.empresa_id || "";
-        const tipo: string = session.metadata?.tipo || "";
+        const tipo: string      = session.metadata?.tipo        || "";
 
-        if (!empresaId || tipo !== "pedido_tienda") {
-          console.log(`ℹ️ Session ${session.id} sin empresa_id o tipo!=pedido_tienda — ignorado`);
-          res.status(200).json({ received: true, ignorado: true });
-          return;
+        if (tipo === "pedido_nazari" || empresaId === NAZARI_EMPRESA_ID) {
+          await _procesarPedidoNazari(session, db);
+        } else if (empresaId && tipo === "pedido_tienda") {
+          await _procesarPedidoTienda(session, stripe, empresaId, db);
+        } else {
+          // Sin metadata → Payment Link de Nazarí sin tipo configurado.
+          // Este webhook es exclusivo de Nazarí, por lo que tratamos la sesión como suya.
+          console.log(`ℹ️ [stripeWebhookTienda] Sin metadata tipo/empresa — procesando como pedido Nazarí. Session: ${session.id}`);
+          await _procesarPedidoNazari(session, db);
         }
-
-        await _procesarPedidoTienda(session, stripe, empresaId, db);
       }
 
       await eventDocRef.set({ procesado: true, ts: admin.firestore.FieldValue.serverTimestamp() });
@@ -2752,6 +2925,7 @@ async function _procesarPedidoTienda(
     total: totalEuros,
     stripe_session_id: session.id,
     stripe_payment_intent: session.payment_intent as string | null,
+    fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
     fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
     fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
   };
@@ -2763,6 +2937,30 @@ async function _procesarPedidoTienda(
     .add(pedidoData);
 
   console.log(`✅ [TIENDA] Pedido #${numTicket} creado para empresa ${empresaId} — ${clienteNombre} — €${totalEuros} — id: ${pedidoRef.id}`);
+
+  // ── Notificación en bandeja + push FCM ────────────────────────────────────
+  const cuerpoNotifTienda = `${clienteNombre} — €${totalEuros.toFixed(2)} (tienda online)`;
+  try {
+    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+      titulo:             "📦 Nuevo Pedido Web",
+      cuerpo:             cuerpoNotifTienda,
+      tipo:               "pedidoNuevo",
+      timestamp:          admin.firestore.FieldValue.serverTimestamp(),
+      leida:              false,
+      modulo_destino:     "pedidos",
+      entidad_id:         pedidoRef.id,
+      remitente_nombre:   clienteNombre !== "Cliente online" ? clienteNombre : null,
+      remitente_email:    clienteEmail,
+    });
+    await enviarNotificacionEmpresa(
+      empresaId,
+      "📦 Nuevo Pedido Web",
+      cuerpoNotifTienda,
+      { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "tienda_online" }
+    );
+  } catch (e) {
+    console.warn("⚠️ [TIENDA] Error enviando notificación:", e);
+  }
 
   // ── Descontar stock (catalogo, catalogo_web y libros) ────────────────────
   for (const linea of lineas) {
@@ -4045,6 +4243,34 @@ export const enviarEmailsContactoInteres = onCall(
 // ─────────────────────────────────────────────────────────────────────────────
 const NAZARI_EMPRESA_ID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
 
+// ── Helper: cliente Stripe configurado para Nazarí (TEST o LIVE) ──────────────
+// Devuelve el cliente Stripe con la clave correcta para el modo indicado.
+// Si existe stripe_account_id en integraciones/stripe (Stripe Connect) lo usa;
+// de lo contrario opera directamente sobre la cuenta cuya clave está configurada.
+async function getNazariStripeConfig(isTest: boolean) {
+  const key  = isTest ? stripeSecretKeyTest.value() : stripeSecretKey.value();
+  const mode = isTest ? "TEST" : "LIVE";
+  if (!key) throw new Error(`STRIPE_SECRET_KEY${isTest ? "_TEST" : ""} no configurada — añádela a functions/.env`);
+
+  const stripe = new Stripe(key, { apiVersion: "2024-06-20" });
+
+  // Stripe Connect opcional: si existe stripe_account_id lo usamos;
+  // si no, operamos directamente (connOpts = undefined, no pasar al SDK).
+  let connOpts: Stripe.RequestOptions | undefined;
+  let stripeAccountId = "";
+  try {
+    const integSnap = await db
+      .collection("empresas").doc(NAZARI_EMPRESA_ID)
+      .collection("integraciones").doc("stripe").get();
+    stripeAccountId = integSnap.data()?.stripe_account_id ?? "";
+    if (stripeAccountId) connOpts = { stripeAccount: stripeAccountId };
+  } catch (_) { /* sin doc de integración — operar directamente */ }
+
+  const acctLabel = stripeAccountId ? ` / Connect: ${stripeAccountId}` : " / cuenta directa";
+  console.log(`🔑 [${mode}${acctLabel}] Stripe config lista`);
+  return { stripe, connOpts, mode, stripeAccountId };
+}
+
 export const crearCheckoutNazari = onRequest(
   { region: REGION, cors: true },
   async (req, res) => {
@@ -4053,10 +4279,19 @@ export const crearCheckoutNazari = onRequest(
       return;
     }
 
-    const secretKey: string = stripeSecretKey.value() || "";
-    if (!secretKey) {
-      console.error("❌ STRIPE_SECRET_KEY no configurada");
-      res.status(500).json({ error: "Pagos no configurados" });
+    const isTest = req.body?.test === true || req.query?.test === "true";
+
+    let stripe: Stripe;
+    let connOpts: Stripe.RequestOptions | undefined;
+    let modeLabel: string;
+    try {
+      const cfg = await getNazariStripeConfig(isTest);
+      stripe    = cfg.stripe;
+      connOpts  = cfg.connOpts;
+      modeLabel = cfg.mode;
+    } catch (e: any) {
+      console.error("❌ Error configurando Stripe:", e.message);
+      res.status(500).json({ error: e.message });
       return;
     }
 
@@ -4068,7 +4303,7 @@ export const crearCheckoutNazari = onRequest(
       return;
     }
 
-    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+    console.log(`🛒 [${modeLabel}] Creando checkout Nazarí — ${items.length} ítem(s)`);
 
     try {
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((it) => {
@@ -4098,16 +4333,17 @@ export const crearCheckoutNazari = onRequest(
         line_items: lineItems,
         metadata: {
           empresa_id: NAZARI_EMPRESA_ID,
-          tipo: "pedido_tienda",
+          tipo: "pedido_nazari",
         },
         shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
         success_url: "https://www.editorialnazari.com/gracias.html?session={CHECKOUT_SESSION_ID}",
         cancel_url:  "https://www.editorialnazari.com/catalogo.html",
-      });
+      }, connOpts);
 
-      res.status(200).json({ url: session.url });
+      console.log(`✅ [${modeLabel}] Checkout creado: ${session.url}`);
+      res.status(200).json({ url: session.url, mode: modeLabel });
     } catch (error: any) {
-      console.error("❌ Error creando checkout Nazarí:", error);
+      console.error(`❌ [${modeLabel}] Error creando checkout Nazarí:`, error);
       res.status(500).json({ error: "Error creando sesión de pago" });
     }
   }
@@ -4223,89 +4459,234 @@ export const sincronizarLibroStripe = onDocumentWritten(
   "empresas/{empresaId}/libros/{libroId}",
   async (event) => {
     if (event.params.empresaId !== NAZARI_EMPRESA_ID) return;
-
-    const secretKey: string = stripeSecretKey.value() || "";
-    if (!secretKey) return;
+    if (!stripeSecretKey.value()) return;
 
     const after  = event.data?.after?.data();
     const before = event.data?.before?.data();
     const docRef = event.data?.after?.ref ?? event.data?.before?.ref;
     if (!docRef) return;
 
-    const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
+    let stripe: Stripe;
+    let connOpts: Stripe.RequestOptions | undefined;
+    try {
+      const cfg = await getNazariStripeConfig(false);
+      stripe    = cfg.stripe;
+      connOpts  = cfg.connOpts;
+    } catch (e: any) {
+      console.error("❌ [LIVE] Config Stripe:", e.message);
+      return;
+    }
 
     // Libro eliminado o desactivado → archivar en Stripe
     if (!after || after.activo === false) {
       if (before?.stripe_product_id) {
         try {
-          await stripe.products.update(before.stripe_product_id, { active: false });
-          console.log(`📦 Libro ${docRef.id} archivado en Stripe`);
+          await stripe.products.update(before.stripe_product_id, { active: false }, connOpts);
+          console.log(`📦 [LIVE] Libro ${docRef.id} archivado`);
         } catch (e) {
-          console.warn("⚠️ No se pudo archivar producto en Stripe:", e);
+          console.warn("⚠️ [LIVE] No se pudo archivar:", e);
         }
       }
       return;
     }
 
-    // Parsear precio a céntimos
     const parsePrecio = (p: string) =>
       Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
-    const precioActual  = parsePrecio(after.precio);
+    const precioActual   = parsePrecio(after.precio);
     const precioAnterior = before ? parsePrecio(before.precio) : null;
 
-    // Crear o actualizar producto en Stripe
+    // ── Producto ──────────────────────────────────────────────────────────────
     let stripeProductId: string = after.stripe_product_id || "";
-
     const productBase = {
-      name:     after.titulo || "Libro",
-      metadata: {
-        catalogo_id: docRef.id,
-        empresa_id:  NAZARI_EMPRESA_ID,
-        autor:        after.autor  || "",
-        isbn:         after.isbn   || "",
-      },
-      ...(after.sinopsis   ? { description: (after.sinopsis as string).slice(0, 500) } : {}),
-      ...(after.imagen_url ? { images: [after.imagen_url as string] }                 : {}),
+      name: after.titulo || "Libro",
+      metadata: { catalogo_id: docRef.id, empresa_id: NAZARI_EMPRESA_ID, autor: after.autor || "", isbn: after.isbn || "" },
+      ...(after.sinopsis   ? { description: (after.sinopsis as string).slice(0, 500) }              : {}),
+      ...(after.imagen_url ? { images: [encodeURI(after.imagen_url as string)] }                    : {}),
     };
-
     try {
       if (!stripeProductId) {
-        const prod = await stripe.products.create(productBase as Stripe.ProductCreateParams);
+        const prod = await stripe.products.create(productBase as Stripe.ProductCreateParams, connOpts);
         stripeProductId = prod.id;
-        console.log(`✅ Libro ${docRef.id} creado en Stripe: ${stripeProductId}`);
+        console.log(`✅ [LIVE] Producto creado: ${stripeProductId} ("${after.titulo}")`);
       } else {
-        await stripe.products.update(stripeProductId, productBase as unknown as Stripe.ProductUpdateParams);
-        console.log(`🔄 Libro ${docRef.id} actualizado en Stripe`);
+        await stripe.products.update(stripeProductId, productBase as unknown as Stripe.ProductUpdateParams, connOpts);
+        console.log(`🔄 [LIVE] Producto actualizado: ${stripeProductId}`);
       }
     } catch (e) {
-      console.error("❌ Error creando/actualizando producto en Stripe:", e);
+      console.error("❌ [LIVE] Error en producto:", e);
       return;
     }
 
-    // Crear nuevo precio si cambió o no existía
+    // ── Precio ────────────────────────────────────────────────────────────────
     let stripePriceId: string = after.stripe_price_id || "";
-    if (precioActual > 0 && (precioActual !== precioAnterior || !stripePriceId)) {
+    const precioChanged = precioActual > 0 && (precioActual !== precioAnterior || !stripePriceId);
+    if (precioChanged) {
       try {
-        if (stripePriceId) {
-          await stripe.prices.update(stripePriceId, { active: false });
-        }
-        const price = await stripe.prices.create({
-          product:     stripeProductId,
-          unit_amount: precioActual,
-          currency:    "eur",
-        });
+        if (stripePriceId) await stripe.prices.update(stripePriceId, { active: false }, connOpts);
+        const price = await stripe.prices.create(
+          { product: stripeProductId, unit_amount: precioActual, currency: "eur" },
+          connOpts
+        );
         stripePriceId = price.id;
-        console.log(`💶 Precio creado para ${docRef.id}: ${precioActual / 100} €`);
+        console.log(`💶 [LIVE] Precio: ${stripePriceId} (${precioActual / 100} €)`);
       } catch (e) {
-        console.error("❌ Error creando precio en Stripe:", e);
+        console.error("❌ [LIVE] Error en precio:", e);
       }
     }
 
-    // Guardar IDs en Firestore para futura referencia
+    // ── Payment Link ──────────────────────────────────────────────────────────
+    let paymentLink: string = after.payment_link || "";
+    if (stripePriceId && (!paymentLink || precioChanged)) {
+      try {
+        const pl = await stripe.paymentLinks.create({
+          line_items: [{ price: stripePriceId, quantity: 1 }],
+          metadata: {
+            empresa_id:    NAZARI_EMPRESA_ID,
+            tipo:          "pedido_nazari",
+            libro_id:      docRef.id,
+            libro_titulo:  (after.titulo as string) || "Libro",
+            precio_str:    (after.precio as string) || "",
+          },
+        }, connOpts);
+        paymentLink = pl.url;
+        console.log(`🔗 [LIVE] Payment Link: ${paymentLink}`);
+      } catch (e) {
+        console.error("❌ [LIVE] Error en Payment Link:", e);
+      }
+    }
+
+    // ── Firestore ─────────────────────────────────────────────────────────────
     await docRef.update({
       stripe_product_id: stripeProductId,
       stripe_price_id:   stripePriceId,
+      ...(paymentLink ? { payment_link: paymentLink } : {}),
       stripe_sync_ts:    admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`📝 [LIVE] OK → product: ${stripeProductId} | price: ${stripePriceId} | link: ${paymentLink || "n/a"}`);
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// sincronizarLibroStripeTest — Sincroniza UN libro específico de Nazarí en el
+//   entorno TEST de Stripe. Idempotente: omite si ya existe, --force lo rehace.
+//   Guarda los IDs TEST en campos _test separados, sin tocar los LIVE.
+//
+// Uso:
+//   curl -X POST \
+//     -H "x-sync-secret: fluix-stripe-test-2026" \
+//     -H "Content-Type: application/json" \
+//     -d '{"libroId":"ID_DEL_LIBRO"}' \
+//     https://REGION-planeaapp-4bea4.cloudfunctions.net/sincronizarLibroStripeTest
+//
+//   Añadir {"force":true} para regenerar aunque ya existan los IDs TEST.
+// ─────────────────────────────────────────────────────────────────────────────
+export const sincronizarLibroStripeTest = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).json({ error: "POST requerido" }); return; }
+    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+      res.status(401).json({ error: "No autorizado" }); return;
+    }
+
+    const libroId: string = req.body?.libroId || "";
+    const force:   boolean = req.body?.force === true;
+    if (!libroId) { res.status(400).json({ error: "Falta libroId" }); return; }
+
+    let stripe: Stripe;
+    let connOpts: Stripe.RequestOptions | undefined;
+    let mode: string;
+    try {
+      const cfg = await getNazariStripeConfig(true);
+      stripe    = cfg.stripe;
+      connOpts  = cfg.connOpts;
+      mode      = cfg.mode;
+    } catch (e: any) {
+      console.error("❌ [TEST] Config Stripe:", e.message);
+      res.status(500).json({ error: e.message }); return;
+    }
+
+    const libroRef  = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("libros").doc(libroId);
+    const libroSnap = await libroRef.get();
+    if (!libroSnap.exists) { res.status(404).json({ error: `Libro ${libroId} no encontrado` }); return; }
+    const libro = libroSnap.data()!;
+
+    console.log(`🧪 [${mode}] Sincronizando "${libro.titulo}" (${libroId})`);
+
+    const parsePrecio = (p: string) =>
+      Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+    const precioNum = parsePrecio(libro.precio);
+
+    // ── Producto ──────────────────────────────────────────────────────────────
+    let productId: string = libro.stripe_product_id_test || "";
+    if (!productId || force) {
+      const pd: Stripe.ProductCreateParams = {
+        name: libro.titulo || "Libro",
+        metadata: { catalogo_id: libroId, empresa_id: NAZARI_EMPRESA_ID, autor: libro.autor || "", isbn: libro.isbn || "", mode: "test" },
+      };
+      if (libro.sinopsis)   pd.description = (libro.sinopsis as string).slice(0, 500);
+      if (libro.imagen_url && /^https:\/\//.test(libro.imagen_url as string)) pd.images = [encodeURI(libro.imagen_url as string)];
+
+      if (productId && force) {
+        await stripe.products.update(productId, pd as unknown as Stripe.ProductUpdateParams, connOpts);
+        console.log(`🔄 [${mode}] Producto actualizado: ${productId}`);
+      } else {
+        const prod = await stripe.products.create(pd, connOpts);
+        productId  = prod.id;
+        console.log(`✅ [${mode}] Producto creado: ${productId}`);
+      }
+    } else {
+      console.log(`⏭  [${mode}] Producto ya existe: ${productId}`);
+    }
+
+    // ── Precio ────────────────────────────────────────────────────────────────
+    let priceId: string = libro.stripe_price_id_test || "";
+    if ((!priceId || force) && precioNum > 0) {
+      if (priceId && force) await stripe.prices.update(priceId, { active: false }, connOpts);
+      const price = await stripe.prices.create(
+        { product: productId, unit_amount: precioNum, currency: "eur" },
+        connOpts
+      );
+      priceId = price.id;
+      console.log(`💶 [${mode}] Precio: ${priceId} (${precioNum / 100} €)`);
+    } else {
+      console.log(`⏭  [${mode}] Precio ya existe: ${priceId}`);
+    }
+
+    // ── Payment Link ──────────────────────────────────────────────────────────
+    let paymentLinkUrl: string = libro.payment_link_test || "";
+    if ((!paymentLinkUrl || force) && priceId) {
+      const pl = await stripe.paymentLinks.create({
+        line_items: [{ price: priceId, quantity: 1 }],
+        metadata: {
+          empresa_id:    NAZARI_EMPRESA_ID,
+          tipo:          "pedido_nazari",
+          libro_id:      libroId,
+          libro_titulo:  (libro.titulo as string) || "Libro",
+          precio_str:    (libro.precio as string) || "",
+        },
+      }, connOpts);
+      paymentLinkUrl = pl.url;
+      console.log(`🔗 [${mode}] Payment Link: ${paymentLinkUrl}`);
+    } else {
+      console.log(`⏭  [${mode}] Payment Link ya existe: ${paymentLinkUrl}`);
+    }
+
+    // ── Firestore ─────────────────────────────────────────────────────────────
+    await libroRef.update({
+      stripe_product_id_test: productId,
+      stripe_price_id_test:   priceId,
+      payment_link_test:      paymentLinkUrl,
+      stripe_test_sync_ts:    admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`📝 [${mode}] OK → product: ${productId} | price: ${priceId} | link: ${paymentLinkUrl}`);
+
+    res.status(200).json({
+      modo:          mode,
+      libro_id:      libroId,
+      titulo:        libro.titulo,
+      product_id:    productId,
+      price_id:      priceId,
+      payment_link:  paymentLinkUrl,
     });
   }
 );
@@ -4318,6 +4699,55 @@ export const sincronizarLibroStripe = onDocumentWritten(
 //   curl -H "x-migration-secret: fluix-migrate-2026" \
 //     https://europe-west1-planeaapp-4bea4.cloudfunctions.net/migrarLibrosStripe
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Test: crea pedido de prueba para verificar notificaciones ────────────────
+export const crearPedidoPruebaTest = onRequest(
+  { region: REGION },
+  async (req, res) => {
+    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+      res.status(401).json({ error: "No autorizado" }); return;
+    }
+    const libroId = (req.body?.libroId || "33-suenos") as string;
+    const libroSnap = await db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("libros").doc(libroId).get();
+    const libro = libroSnap.data() ?? {};
+    const totalEuros = parseFloat((libro.precio as string || "10").replace(",", ".").replace(/[^0-9.]/g, ""));
+    const contadorRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("contadores").doc("tickets");
+    let numTicket = 1;
+    const contSnap = await contadorRef.get();
+    numTicket = contSnap.exists ? ((contSnap.data()?.ultimo as number) ?? 0) + 1 : 1;
+    await contadorRef.set({ ultimo: numTicket }, { merge: true });
+    const pedidoRef = await db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("pedidos").add({
+      empresa_id: NAZARI_EMPRESA_ID, numero_ticket: numTicket,
+      cliente_nombre: "Cliente Prueba TEST", cliente_correo: "test@test.com",
+      origen: "web_nazari", estado: "pendiente", estado_pago: "pagado", metodo_pago: "tarjeta",
+      lineas: [{ libro_id: libroId, producto_nombre: libro.titulo || libroId, cantidad: 1, precio_unitario: parseFloat((totalEuros/1.04).toFixed(2)), porcentaje_iva: 4 }],
+      subtotal: parseFloat((totalEuros/1.04).toFixed(2)), importe_iva: parseFloat((totalEuros - totalEuros/1.04).toFixed(2)), total: totalEuros,
+      livemode: false, notas_internas: "PEDIDO DE PRUEBA — borrar después",
+      fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+      fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+      fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // Notificación directa (onNuevoPedido salta web_nazari para evitar duplicados)
+    const cuerpoTest = `Cliente Prueba TEST — €${totalEuros.toFixed(2)} (web Editorial Nazarí · TEST)`;
+    try {
+      await db.collection("notificaciones").doc(NAZARI_EMPRESA_ID).collection("items").add({
+        titulo: "📦 Nuevo Pedido Web (TEST)",
+        cuerpo: cuerpoTest,
+        tipo: "pedidoNuevo",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+        modulo_destino: "pedidos",
+        entidad_id: pedidoRef.id,
+        remitente_nombre: "Cliente Prueba TEST",
+        remitente_email: "test@test.com",
+      });
+      await enviarNotificacionEmpresa(NAZARI_EMPRESA_ID, "📦 Nuevo Pedido Web (TEST)", cuerpoTest,
+        { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "web_nazari" });
+    } catch (_) {}
+    console.log(`🧪 Pedido prueba #${numTicket} creado: ${pedidoRef.id}`);
+    res.status(200).json({ pedido_id: pedidoRef.id, numero_ticket: numTicket, mensaje: "Pedido + notificación creados directamente" });
+  }
+);
+
 export const migrarLibrosStripe = onRequest(
   { region: REGION, timeoutSeconds: 540 },
   async (req, res) => {

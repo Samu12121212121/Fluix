@@ -5,9 +5,12 @@ import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/firebase/firestore_stream_helper.dart';
 import '../../../core/platform/platform_data_source.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../core/utils/app_settings.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../services/clientes_service.dart';
 import 'detalle_reserva_screen.dart';
 import 'configuracion_reservas_screen.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MÓDULO RESERVAS & CITAS — Estilo Booksy
@@ -25,15 +28,25 @@ class ModuloReservasScreen extends StatefulWidget {
 class _ModuloReservasScreenState extends State<ModuloReservasScreen>
     with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tc;
+  bool _isDark = false;
+
+  Color get _bg   => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+  Color get _surf => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _bdr  => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
   @override
   void initState() {
     super.initState();
     _tc = TabController(length: 3, vsync: this);
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDark);
   }
+
+  void _onDark() { if (mounted) setState(() => _isDark = AppSettings.darkMode.value); }
 
   @override
   void dispose() {
+    AppSettings.darkMode.removeListener(_onDark);
     _tc.dispose();
     super.dispose();
   }
@@ -81,81 +94,74 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
         }
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🗑️ $total reservas pasadas eliminadas'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        FluxToast.exito(context, '$total reservas pasadas eliminadas');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFF1565C0);
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Reservas & Citas',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // ⚙️ Configuración de reservas
+      backgroundColor: _bg,
+      appBar: FluixAppBar(
+        titulo: 'Reservas & Citas',
+        showLeading: Navigator.of(context).canPop(),
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Configuración de reservas',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ConfiguracionReservasScreen(
-                    empresaId: widget.empresaId),
-              ),
-            ),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => ConfiguracionReservasScreen(empresaId: widget.empresaId),
+            )),
           ),
-          // 🗑️ Borrar reservas pasadas
           IconButton(
-            icon: const Icon(Icons.delete_sweep),
+            icon: const Icon(Icons.delete_sweep_outlined),
             tooltip: 'Borrar reservas pasadas',
             onPressed: () => _confirmarBorrarPasadas(context),
           ),
         ],
-        bottom: TabBar(
-          controller: _tc,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.today, size: 18), text: 'Hoy'),
-            Tab(icon: Icon(Icons.view_week, size: 18), text: 'Semana'),
-            Tab(icon: Icon(Icons.list_alt, size: 18), text: 'Estados'),
-          ],
+      ),
+      body: Column(children: [
+        // TabBar pegado al AppBar
+        Container(
+          color: _surf,
+          child: TabBar(
+            controller: _tc,
+            indicatorColor: const Color(0xFF3B82F6),
+            indicatorWeight: 2.5,
+            labelColor: const Color(0xFF3B82F6),
+            unselectedLabelColor: _isDark ? const Color(0xFF64748B) : Colors.grey.shade500,
+            dividerColor: _bdr,
+            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            tabs: const [
+              Tab(icon: Icon(Icons.today, size: 16), text: 'Hoy'),
+              Tab(icon: Icon(Icons.view_week, size: 16), text: 'Semana'),
+              Tab(icon: Icon(Icons.list_alt, size: 16), text: 'Estados'),
+            ],
+          ),
         ),
-      ),
-      body: _BodyStreams(
-        empresaId: widget.empresaId,
-        tc: _tc,
-        sesion: widget.sesion,
-        onNueva: () => _FormNuevaReserva.mostrar(
-            context: context, empresaId: widget.empresaId),
-      ),
+        Expanded(child: _BodyStreams(
+          empresaId: widget.empresaId,
+          tc: _tc,
+          sesion: widget.sesion,
+          onNueva: () => _FormNuevaReserva.mostrar(
+              context: context, empresaId: widget.empresaId),
+        )),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_reservas',
         onPressed: () => _FormNuevaReserva.mostrar(
             context: context, empresaId: widget.empresaId),
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva reserva'),
-        backgroundColor: const Color(0xFF1976D2),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Nueva reserva', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: const Color(0xFF3B82F6),
         foregroundColor: Colors.white,
+        elevation: 2,
       ),
     );
   }

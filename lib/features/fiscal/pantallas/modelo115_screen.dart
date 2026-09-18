@@ -15,11 +15,13 @@ import 'package:planeag_flutter/services/fiscal/mod115_exporter.dart';
 class Modelo115Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
+  final bool embebido;
 
   const Modelo115Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
+    this.embebido = false,
   });
 
   @override
@@ -135,6 +137,24 @@ class _Modelo115ScreenState extends State<Modelo115Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _procesando
+        ? const Center(child: CircularProgressIndicator())
+        : StreamBuilder<List<Modelo115>>(
+            stream: _svc.obtenerTodos(widget.empresaId, _anio),
+            builder: (context, snap) {
+              final modelos = snap.data ?? [];
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildResumenAnual(modelos),
+                  const SizedBox(height: 16),
+                  ...['1T', '2T', '3T', '4T'].map((t) =>
+                      _buildTarjetaTrimestre(t, modelos)),
+                ],
+              );
+            },
+          );
+    if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -155,23 +175,7 @@ class _Modelo115ScreenState extends State<Modelo115Screen> {
           ),
         ],
       ),
-      body: _procesando
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<Modelo115>>(
-              stream: _svc.obtenerTodos(widget.empresaId, _anio),
-              builder: (context, snap) {
-                final modelos = snap.data ?? [];
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildResumenAnual(modelos),
-                    const SizedBox(height: 16),
-                    ...['1T', '2T', '3T', '4T'].map((t) =>
-                        _buildTarjetaTrimestre(t, modelos)),
-                  ],
-                );
-              },
-            ),
+      body: body,
     );
   }
 

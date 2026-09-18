@@ -69,9 +69,12 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   StreamSubscription<QuerySnapshot>? _seccionesSub;
 
   // Cache del blog compartido por todas las fichas del hub.
-  // Un único stream reemplaza los 6 StreamBuilder duplicados anteriores.
   List<EntradaBlog> _blogCache = [];
   StreamSubscription<List<EntradaBlog>>? _blogSub;
+  List<EntradaBlog> _noticiasCache    = [];
+  List<EntradaBlog> _entrevistasCache = [];
+  StreamSubscription<List<EntradaBlog>>? _noticiasSub;
+  StreamSubscription<List<EntradaBlog>>? _entrevistasSub;
 
   // Sub-vista activa (editor sin Scaffold)
   // tipo: 'editar_seccion' | 'editar_blog' | 'editar_catalogo'
@@ -113,6 +116,14 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       (entries) { if (mounted) setState(() => _blogCache = entries); },
       onError: (_) {},
     );
+    _noticiasSub = _svc.obtenerBlogPorTipo(widget.empresaId, 'noticia', limite: 300).listen(
+      (entries) { if (mounted) setState(() => _noticiasCache = _dedup(entries)); },
+      onError: (_) {},
+    );
+    _entrevistasSub = _svc.obtenerBlogPorTipo(widget.empresaId, 'entrevista', limite: 300).listen(
+      (entries) { if (mounted) setState(() => _entrevistasCache = _dedup(entries)); },
+      onError: (_) {},
+    );
   }
 
   Future<void> _autoSeedNazariSecciones() async {
@@ -142,10 +153,24 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     }
   }
 
+  static List<EntradaBlog> _dedup(List<EntradaBlog> entries) {
+    final vistos = <String>{};
+    return entries.where((e) {
+      final k  = e.slug.isNotEmpty ? e.slug : e.id;
+      final kt = 't:${e.titulo.trim().toLowerCase()}';
+      if (vistos.contains(k) || (e.titulo.isNotEmpty && vistos.contains(kt))) return false;
+      vistos.add(k);
+      if (e.titulo.isNotEmpty) vistos.add(kt);
+      return true;
+    }).toList();
+  }
+
   @override
   void dispose() {
     _seccionesSub?.cancel();
     _blogSub?.cancel();
+    _noticiasSub?.cancel();
+    _entrevistasSub?.cancel();
     _pageCtrl.dispose();
     AppSettings.darkMode.removeListener(_onDark);
     widget.volverAlHub?.removeListener(_onVolverAlHub);
@@ -862,7 +887,25 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       'resena':     (Icons.rate_review_rounded,        Color(0xFFD97706), 'Reseñas'),
     };
 
-    final arts = _blogCache;
+    // Usar los mismos caches deduplicados que usan los tabs
+    final conteos = <String, int>{};
+    if (_entrevistasCache.isNotEmpty) conteos['entrevista'] = _entrevistasCache.length;
+    if (_noticiasCache.isNotEmpty)    conteos['noticia']    = _noticiasCache.length;
+    // Otros tipos (artículo, reseña) siguen viniendo de _blogCache
+    for (final a in _blogCache) {
+      if (a.tipo != 'entrevista' && a.tipo != 'noticia') {
+        final t = a.tipo.isEmpty ? 'articulo' : a.tipo;
+        conteos[t] = (conteos[t] ?? 0) + 1;
+      }
+    }
+
+    // Última publicación: la más reciente entre todos los caches
+    final arts = [
+      ..._entrevistasCache,
+      ..._noticiasCache,
+      ..._blogCache.where((a) => a.tipo != 'entrevista' && a.tipo != 'noticia'),
+    ]..sort((a, b) => b.fechaPublicacion.compareTo(a.fechaPublicacion));
+
     if (arts.isEmpty) {
       return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.article_rounded, size: 28, color: c.withValues(alpha: 0.3)),
@@ -871,14 +914,6 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       ]));
     }
 
-    // Agrupar por tipo
-    final conteos = <String, int>{};
-    for (final a in arts) {
-      final t = a.tipo.isEmpty ? 'articulo' : a.tipo;
-      conteos[t] = (conteos[t] ?? 0) + 1;
-    }
-
-    // Última publicación
     final ultima = arts.first;
 
     return Padding(
@@ -952,9 +987,9 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   }
 
   Widget _previewArchivoWp(Color c) {
-    final noticias    = _blogCache.where((e) => e.tipo == 'noticia').length;
-    final entrevistas = _blogCache.where((e) => e.tipo == 'entrevista').length;
-    final total       = _blogCache.length;
+    final noticias    = _noticiasCache.length;
+    final entrevistas = _entrevistasCache.length;
+    final total       = noticias + entrevistas;
     return _previewContador(
       label:    'Archivo histórico web',
       valor:    total > 0 ? '$total' : '—',
@@ -967,7 +1002,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   }
 
   Widget _previewBlogPorTipo(Color c, String tipo) {
-    final arts = _blogCache.where((e) => e.tipo == tipo).toList();
+    final arts = (tipo == 'noticia' ? _noticiasCache : _entrevistasCache);
     if (arts.isEmpty) {
       return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.article_rounded, size: 28, color: c.withValues(alpha: 0.3)),
@@ -1201,7 +1236,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
               '${s.data?.where((x) => x.activa).length ?? 0} secciones activas',
               const Color(0xFF10B981)));
       case 'blog': {
-        final n = _blogCache.length;
+        final n = _entrevistasCache.length + _noticiasCache.length;
         return _dot('$n artículo${n == 1 ? '' : 's'} publicado${n == 1 ? '' : 's'}',
             const Color(0xFF10B981));
       }
@@ -1222,12 +1257,12 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       case 'agenda':
         return _dot('Gestionar presentaciones y ferias', const Color(0xFF1E4D6B));
       case 'noticias': {
-        final cnt = _blogCache.where((e) => e.tipo == 'noticia').length;
+        final cnt = _noticiasCache.length;
         return _dot('$cnt noticia${cnt == 1 ? '' : 's'} publicada${cnt == 1 ? '' : 's'}',
             const Color(0xFF059669));
       }
       case 'entrevistas': {
-        final cnt = _blogCache.where((e) => e.tipo == 'entrevista').length;
+        final cnt = _entrevistasCache.length;
         return _dot('$cnt entrevista${cnt == 1 ? '' : 's'}', const Color(0xFF7C3AED));
       }
       case 'autores':

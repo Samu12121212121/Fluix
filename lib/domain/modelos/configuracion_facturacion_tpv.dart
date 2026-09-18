@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 
 // ── MODO DE FACTURACIÓN TPV ───────────────────────────────────────────────────
@@ -196,7 +198,7 @@ class ConfiguracionFacturacionTpv {
     this.incluirPedidosTarjeta = true,
     this.incluirPedidosMixto = true,
     this.serieFactura = 'TPV-',
-    this.aplicarVeriFactu = true,
+    this.aplicarVeriFactu = false,
     this.diasVencimiento = 0,
     this.facturacionAutomatica = false,
     this.preciosIncluyenIva = false,
@@ -211,7 +213,7 @@ class ConfiguracionFacturacionTpv {
     this.pinAcceso = '',
     this.mostrarPropina = true,
     this.porcentajesPropina = '5,10,15',
-    this.descuentoMaximoPct = 100,
+    this.descuentoMaximoPct = 20,
     this.bloquearVentaSinStock = false,
     this.pedirMotivoCancelacion = false,
     this.tiempoAlertaBarraMinutos = 5,
@@ -248,7 +250,7 @@ class ConfiguracionFacturacionTpv {
       incluirPedidosTarjeta:  d['incluir_pedidos_tarjeta'] as bool? ?? true,
       incluirPedidosMixto:    d['incluir_pedidos_mixto'] as bool? ?? true,
       serieFactura:    d['serie_factura'] as String? ?? 'TPV-',
-      aplicarVeriFactu: d['aplicar_verifactu'] as bool? ?? true,
+      aplicarVeriFactu: d['aplicar_verifactu'] as bool? ?? false,
       diasVencimiento: (d['dias_vencimiento'] as num?)?.toInt() ?? 0,
       facturacionAutomatica: d['facturacion_automatica'] as bool? ?? false,
       preciosIncluyenIva: d['precios_incluyen_iva'] as bool? ?? false,
@@ -263,7 +265,7 @@ class ConfiguracionFacturacionTpv {
       pinAcceso:    d['pin_acceso'] as String? ?? '',
       mostrarPropina: d['mostrar_propina'] as bool? ?? true,
       porcentajesPropina: d['porcentajes_propina'] as String? ?? '5,10,15',
-      descuentoMaximoPct: (d['descuento_maximo_pct'] as num?)?.toInt() ?? 100,
+      descuentoMaximoPct: (d['descuento_maximo_pct'] as num?)?.toInt() ?? 20,
       bloquearVentaSinStock: d['bloquear_venta_sin_stock'] as bool? ?? false,
       pedirMotivoCancelacion: d['pedir_motivo_cancelacion'] as bool? ?? false,
       tiempoAlertaBarraMinutos: (d['tiempo_alerta_barra_minutos'] as num?)?.toInt() ?? 5,
@@ -275,6 +277,20 @@ class ConfiguracionFacturacionTpv {
       terminalFisicaProtocolo: d['terminal_fisica_protocolo'] as String? ?? 'manual',
     );
   }
+
+  // ── PIN helpers ──────────────────────────────────────────────────────────
+
+  /// Devuelve el SHA-256 del PIN en hexadecimal.
+  static String hashPin(String pin) =>
+      sha256.convert(utf8.encode(pin)).toString();
+
+  /// true si [stored] es el hash del [input] introducido.
+  static bool verificarPin(String input, String stored) =>
+      stored.isNotEmpty && hashPin(input) == stored;
+
+  /// true si el string parece un hash SHA-256 (64 hex chars).
+  static bool esPinHasheado(String v) =>
+      v.length == 64 && RegExp(r'^[0-9a-f]+$').hasMatch(v);
 
   Map<String, dynamic> toMap() => {
     'modo': modo.name,
@@ -305,7 +321,9 @@ class ConfiguracionFacturacionTpv {
     'direccion_empresa': direccionEmpresa,
     'mensaje_pi_ticket': mensajePiTicket,
     'numero_copias':     numeroCopias,
-    'pin_acceso':        pinAcceso,
+    'pin_acceso': pinAcceso.isEmpty
+        ? ''
+        : (esPinHasheado(pinAcceso) ? pinAcceso : hashPin(pinAcceso)),
     'mostrar_propina':          mostrarPropina,
     'porcentajes_propina':      porcentajesPropina,
     'descuento_maximo_pct':     descuentoMaximoPct,

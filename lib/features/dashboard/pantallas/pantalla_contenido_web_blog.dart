@@ -67,13 +67,21 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
           stream: widget.seccionId != null
               ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
               : widget.filtroTipoFijo != null
-                  ? widget.svc.obtenerBlogPorTipo(widget.empresaId, widget.filtroTipoFijo!)
+                  ? widget.svc.obtenerBlogPorTipo(widget.empresaId, widget.filtroTipoFijo!, limite: 300)
                   : widget.svc.obtenerBlog(widget.empresaId),
           builder: (_, snap) {
             final isLoading = snap.connectionState == ConnectionState.waiting;
             final todos     = snap.data ?? [];
-            // filtroTipoFijo: datos ya filtrados por Firestore; no se requiere filtro local
-            final porTipo   = todos;
+            // Deduplicar por slug y título (igual que la web)
+            final _vistos = <String>{};
+            final porTipo = todos.where((e) {
+              final k  = e.slug.isNotEmpty ? e.slug : e.id;
+              final kt = 't:${e.titulo.trim().toLowerCase()}';
+              if (_vistos.contains(k) || (e.titulo.isNotEmpty && _vistos.contains(kt))) return false;
+              _vistos.add(k);
+              if (e.titulo.isNotEmpty) _vistos.add(kt);
+              return true;
+            }).toList();
             final articulos = _busqueda.isEmpty
                 ? porTipo
                 : porTipo.where((e) {
@@ -486,9 +494,15 @@ class _ArticleListItem extends StatelessWidget {
     final titleColor = isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final subColor   = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     final metaColor  = isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8);
-    final imgUrl     = a.imagenUrl
-        ?? (a.imagenes.isNotEmpty ? a.imagenes.first : null)
-        ?? _ytThumb(a.videoUrl);
+    // Todas las imágenes disponibles para el carrusel
+    final todasImagenes = [
+      if (a.imagenUrl != null) a.imagenUrl!,
+      ...a.imagenes.where((u) => u != a.imagenUrl),
+      if (a.imagenUrl == null && a.imagenes.isEmpty && _ytThumb(a.videoUrl) != null)
+        _ytThumb(a.videoUrl)!,
+    ];
+    final imgUrl = todasImagenes.isNotEmpty ? todasImagenes.first : null;
+    final tieneCarrusel = todasImagenes.length > 1;
 
     return GestureDetector(
       onTap: onTap,
@@ -504,15 +518,42 @@ class _ArticleListItem extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // ── Thumbnail 60×60 ─────────────────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: imgUrl != null
-                  ? Image.network(
-                      imgUrl, width: 60, height: 60, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _thumbPh(a),
-                    )
-                  : _thumbPh(a),
+            // ── Thumbnail con carrusel si hay más de 1 imagen ───────────
+            GestureDetector(
+              onTap: tieneCarrusel
+                  ? () => _mostrarCarrusel(context, todasImagenes)
+                  : null,
+              child: Stack(clipBehavior: Clip.none, children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: imgUrl != null
+                      ? Image.network(
+                          imgUrl, width: 60, height: 60, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _thumbPh(a),
+                        )
+                      : _thumbPh(a),
+                ),
+                if (tieneCarrusel)
+                  Positioned(
+                    bottom: 3, right: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.photo_library_outlined,
+                            size: 9, color: Colors.white),
+                        const SizedBox(width: 2),
+                        Text('${todasImagenes.length}',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 9,
+                                fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ),
+              ]),
             ),
             const SizedBox(width: 12),
             // ── Contenido ───────────────────────────────────────────────
@@ -556,6 +597,95 @@ class _ArticleListItem extends StatelessWidget {
               ]),
             ),
           ]),
+        ),
+      ),
+    );
+  }
+
+  void _mostrarCarrusel(BuildContext context, List<String> urls) {
+    final ctrl = PageController();
+    int pagina = 0;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSt) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(16),
+          child: SizedBox(
+            height: 420,
+            child: Stack(children: [
+              PageView.builder(
+                controller: ctrl,
+                onPageChanged: (i) => setSt(() => pagina = i),
+                itemCount: urls.length,
+                itemBuilder: (_, i) => InteractiveViewer(
+                  child: Image.network(
+                    urls[i], fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.white54, size: 48)),
+                  ),
+                ),
+              ),
+              // Flechas
+              if (pagina > 0)
+                Positioned(left: 8, top: 0, bottom: 0,
+                  child: Center(
+                    child: IconButton(
+                      icon: const Icon(Icons.chevron_left, color: Colors.white, size: 32),
+                      onPressed: () => ctrl.previousPage(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut),
+                    ),
+                  )),
+              if (pagina < urls.length - 1)
+                Positioned(right: 8, top: 0, bottom: 0,
+                  child: Center(
+                    child: IconButton(
+                      icon: const Icon(Icons.chevron_right, color: Colors.white, size: 32),
+                      onPressed: () => ctrl.nextPage(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut),
+                    ),
+                  )),
+              // Dots
+              Positioned(bottom: 12, left: 0, right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(urls.length, (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: pagina == i ? 18 : 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: pagina == i
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  )),
+                )),
+              // Cerrar
+              Positioned(top: 8, right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                  onPressed: () => Navigator.pop(ctx),
+                )),
+              // Contador
+              Positioned(top: 12, left: 0, right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('${pagina + 1} / ${urls.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                )),
+            ]),
+          ),
         ),
       ),
     );

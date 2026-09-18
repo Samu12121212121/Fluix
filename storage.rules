@@ -43,6 +43,28 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Catálogo web editorial (libros, autores — imágenes del CMS web)
+    match /empresas/{empresaId}/catalogo_web/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Autores (fotos de autor para la web editorial)
+    match /empresas/{empresaId}/autores/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Manuscritos enviados desde la web — lectura publica (getDownloadURL sin auth)
+    match /manuscritos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 25 * 1024 * 1024;
+    }
+
     // Fotos de servicios del catálogo de servicios
     match /empresas/{empresaId}/servicios/{allPaths=**} {
       allow read: if true;
@@ -105,14 +127,15 @@ service firebase.storage {
         && request.resource.contentType == 'application/pdf';
     }
 
-    // Nóminas (PDFs) — el empleado puede leer las suyas, admin las de todos
+    // Nóminas (PDFs e imágenes) — el empleado puede leer las suyas, admin las de todos
     // NOTA: Storage rules no pueden filtrar por empleado_id.
     // La restricción real se aplica en Firestore (nominas rule) y en la app.
     match /empresas/{empresaId}/nominas/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.resource.size < 20 * 1024 * 1024
-        && request.resource.contentType == 'application/pdf';
+        && (request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('image/.*'));
     }
 
     // Adjuntos de tareas
@@ -194,7 +217,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Avatares de usuarios (clientes) — ruta canónica
+    // Avatares / fotos de perfil de usuarios — cualquier imagen bajo /usuarios/{uid}/
+    match /usuarios/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    // Ruta legacy avatar.jpg (compatibilidad)
     match /usuarios/{userId}/avatar.jpg {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId

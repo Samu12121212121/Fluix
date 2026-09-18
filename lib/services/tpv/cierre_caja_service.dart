@@ -24,12 +24,29 @@ class CierreCajaService {
 
   Future<CierreCaja> calcularCierreCaja(
       String empresaId, DateTime fecha, {double? efectivoReal}) async {
-    final inicio = DateTime(fecha.year, fecha.month, fecha.day);
-    final fin = inicio.add(const Duration(days: 1));
+    final inicioDia = DateTime(fecha.year, fecha.month, fecha.day);
+    final fin = inicioDia.add(const Duration(days: 1));
+
+    // ── Inicio del período: desde el timestamp del último cierre ─────────────
+    // Así se capturan ventas posteriores al cierre anterior aunque sean de días
+    // anteriores (por ej. ventas de ayer hechas después de cerrar la caja ayer).
+    DateTime inicioPedidos = inicioDia;
+    try {
+      final ultimoCierreSnap = await _cierresRef(empresaId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+      if (ultimoCierreSnap.docs.isNotEmpty) {
+        final ts = ultimoCierreSnap.docs.first.data()['timestamp'];
+        if (ts is Timestamp) inicioPedidos = ts.toDate();
+      }
+    } catch (_) {
+      // Sin cierre previo o error de índice: usar inicio del día
+    }
 
     // Buscar apertura del día para obtener fondo_inicial
     final aperturasSnap = await _aperturasRef(empresaId)
-        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioDia))
         .where('fecha', isLessThan: Timestamp.fromDate(fin))
         .orderBy('fecha', descending: true)
         .limit(1)
@@ -43,7 +60,7 @@ class CierreCajaService {
 
     final snap = await _pedidosRef(empresaId)
         .where('fecha_creacion',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+            isGreaterThanOrEqualTo: Timestamp.fromDate(inicioPedidos))
         .where('fecha_creacion', isLessThan: Timestamp.fromDate(fin))
         .where('estado_pago', isEqualTo: 'pagado')
         .get();
@@ -113,7 +130,7 @@ class CierreCajaService {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return CierreCaja(
-      fecha: inicio,
+      fecha: inicioDia,
       totalEfectivo: totalEfectivo,
       totalTarjeta: totalTarjeta,
       totalTransferencia: totalTransferencia,

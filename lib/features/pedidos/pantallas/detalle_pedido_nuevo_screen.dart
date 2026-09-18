@@ -4,6 +4,7 @@ import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
+import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/detalle_factura_screen.dart';
 
 class DetallePedidoNuevoScreen extends StatefulWidget {
@@ -463,25 +464,25 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
   }
 
   Future<void> _generarOVerFactura() async {
-    // Si ya tiene factura, abrir directamente
+    // Si ya tiene factura, buscarla y abrirla
     if (_pedido.facturaId != null && _pedido.facturaId!.isNotEmpty) {
-      _verFactura(_pedido.facturaId!);
+      await _abrirFacturaPorId(_pedido.facturaId!);
       return;
     }
 
     setState(() => _generandoFactura = true);
     try {
-      final facturaId = await _svc.generarFacturaDesdePedido(
+      final factura = await _svc.generarFacturaDesdePedido(
         empresaId: widget.empresaId,
         pedidoId: _pedido.id,
         usuarioId: _uid,
         usuarioNombre: _nombre,
       );
 
-      // Actualizar estado local del pedido con facturaId
+      if (!mounted) return;
       setState(() {
         _pedido = Pedido(
-          numeroTicket: 0,
+          numeroTicket: _pedido.numeroTicket,
           id: _pedido.id, empresaId: _pedido.empresaId,
           clienteNombre: _pedido.clienteNombre, clienteTelefono: _pedido.clienteTelefono,
           clienteCorreo: _pedido.clienteCorreo, lineas: _pedido.lineas, total: _pedido.total,
@@ -490,56 +491,52 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen>
           notasCliente: _pedido.notasCliente, historial: _pedido.historial,
           fechaCreacion: _pedido.fechaCreacion, fechaActualizacion: DateTime.now(),
           tareaAsociadaId: _pedido.tareaAsociadaId, fechaEntrega: _pedido.fechaEntrega,
-          facturaId: facturaId,
+          facturaId: factura.id,
         );
         _generandoFactura = false;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Row(children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('✅ Factura generada correctamente'),
-          ]),
-          backgroundColor: Color(0xFF4CAF50),
-          duration: Duration(seconds: 3),
-        ));
-        _verFactura(facturaId);
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Row(children: [
+          Icon(Icons.check_circle, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Text('✅ Factura generada correctamente'),
+        ]),
+        backgroundColor: Color(0xFF4CAF50),
+        duration: Duration(seconds: 3),
+      ));
+      _abrirFactura(factura);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _generandoFactura = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error generando factura: $e'),
-          backgroundColor: Colors.red,
-        ));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al generar factura: $e'),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 
-  Future<void> _verFactura(String facturaId) async {
+  void _abrirFactura(Factura factura) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => DetalleFacturaScreen(
+        factura: factura,
+        empresaId: widget.empresaId,
+      ),
+    ));
+  }
+
+  Future<void> _abrirFacturaPorId(String facturaId) async {
     try {
-      final snap = await FacturacionService()
-          .obtenerFacturas(widget.empresaId)
-          .first;
-      final factura = snap.firstWhere((f) => f.id == facturaId,
-          orElse: () => throw Exception('Factura no encontrada'));
-      if (mounted) {
-        Navigator.push(context, MaterialPageRoute(
-          builder: (_) => DetalleFacturaScreen(
-            factura: factura,
-            empresaId: widget.empresaId,
-          ),
-        ));
-      }
+      final doc = await FacturacionService().obtenerFacturaDoc(widget.empresaId, facturaId);
+      if (!mounted) return;
+      _abrirFactura(doc);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('No se pudo abrir la factura: $e'),
-          backgroundColor: Colors.red,
-        ));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('No se pudo abrir la factura: $e'),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 

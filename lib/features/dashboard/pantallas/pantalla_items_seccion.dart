@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
@@ -13,12 +14,16 @@ class PantallaItemsSeccion extends StatefulWidget {
   final String empresaId;
   final SeccionWeb seccion;
   final ContenidoWebService svc;
+  final bool noScaffold;
+  final VoidCallback? onCerrar;
 
   const PantallaItemsSeccion({
     super.key,
     required this.empresaId,
     required this.seccion,
     required this.svc,
+    this.noScaffold = false,
+    this.onCerrar,
   });
 
   @override
@@ -31,7 +36,9 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
   final TextEditingController _searchCtrl = TextEditingController();
   bool _editandoNombre = false;
   bool _guardando = false;
-  String? _categoriaActiva; // null = vista de categorías
+  String? _categoriaActiva; // null = sin filtro de género
+  String? _generoFiltro;    // dropdown de género (null = todos)
+  bool   _modoLista = false; // false = grid, true = lista
   String _query = '';
 
   @override
@@ -269,12 +276,12 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
                           if (esImagen && ctrl.text.isNotEmpty) ...[
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                ctrl.text,
+                              child: CachedNetworkImage(
+                                imageUrl: ctrl.text,
                                 height: 120,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorWidget: (_, __, ___) =>
                                     const SizedBox.shrink(),
                               ),
                             ),
@@ -523,6 +530,15 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     const tipoColor = Color(0xFF455A64);
 
+    final body = _items.isEmpty ? _buildVacio(color) : _buildCatalogo(color);
+
+    if (widget.noScaffold) {
+      return LayoutBuilder(builder: (_, c) {
+        final h = c.maxHeight.isInfinite ? null : c.maxHeight;
+        return SizedBox(width: double.infinity, height: h, child: body);
+      });
+    }
+
     // Título del AppBar según el contexto
     String appBarTitle() {
       if (_categoriaActiva != null) return _categoriaActiva!;
@@ -586,7 +602,7 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
         label: const Text('Añadir'),
         elevation: 4,
       ),
-      body: _items.isEmpty ? _buildVacio(color) : _buildCatalogo(color),
+      body: body,
     );
   }
 
@@ -627,15 +643,370 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildCatalogo(Color color) {
-    // Búsqueda activa → resultados flat
     if (_query.isNotEmpty) return _buildResultadosBusqueda(color);
-    // Categoría seleccionada → fichas de esa categoría
-    if (_categoriaActiva != null) return _buildVistaCategoria(color);
-    // Por defecto → grid de tarjetas de categoría
-    return _buildGridCategorias(color);
+    return _buildVistaCompleta(color);
   }
 
-  // ── Buscador + lógica de búsqueda ────────────────────────────────────────
+  // ── Vista principal: header + stats + toolbar + grid ─────────────────────
+  Widget _buildVistaCompleta(Color color) {
+    final grupos  = _agruparPorCategoria();
+    final generos = grupos.keys.toList()..sort();
+    final items   = _generoFiltro == null
+        ? _items
+        : (grupos[_generoFiltro] ?? []);
+    final disponibles = items.where((i) => i['disponible'] as bool? ?? true).length;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // ── Header de página ─────────────────────────────────────────────────
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (_generoFiltro == null) ...[
+              Text(_nombreCtrl.text.isEmpty ? widget.seccion.nombre : _nombreCtrl.text,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(height: 4),
+              Text('Gestiona y organiza todos los ítems de la sección',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+            ] else ...[
+              GestureDetector(
+                onTap: () => setState(() => _generoFiltro = null),
+                child: Row(children: [
+                  Icon(Icons.arrow_back_ios_new_rounded, size: 13, color: color),
+                  const SizedBox(width: 4),
+                  Text(_nombreCtrl.text.isEmpty ? widget.seccion.nombre : _nombreCtrl.text,
+                      style: TextStyle(fontSize: 13, color: color)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.chevron_right, size: 16, color: Colors.grey[400])),
+                  Text(_generoFiltro!, style: const TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Text(_generoFiltro!,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(height: 4),
+              Text('${items.length} ${items.length == 1 ? "título" : "títulos"}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+            ],
+          ])),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      // ── Stats row (solo en vista general) ───────────────────────────────
+      if (_generoFiltro == null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: Row(children: [
+            _statCard(Icons.auto_stories_rounded, color,    '${_items.length}',    'Ítems totales'),
+            const SizedBox(width: 10),
+            _statCard(Icons.category_rounded,     Colors.purple, '${grupos.length}', 'Géneros'),
+            const SizedBox(width: 10),
+            _statCard(Icons.check_circle_rounded, Colors.green,  '$disponibles',    'Disponibles'),
+          ]),
+        ),
+      if (_generoFiltro == null) const SizedBox(height: 14),
+      // ── Toolbar: búsqueda + filtro género + toggle + añadir ─────────────
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: Row(children: [
+          // Búsqueda
+          Expanded(child: Container(
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Buscar por título, autor…',
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400], size: 18),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(icon: Icon(Icons.close, color: Colors.grey[400], size: 16),
+                        onPressed: () => _searchCtrl.clear())
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                isDense: true,
+              ),
+            ),
+          )),
+          if (generos.length > 1) ...[
+            const SizedBox(width: 8),
+            // Dropdown género
+            Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _generoFiltro,
+                  isDense: true,
+                  hint: Text('Todos los géneros',
+                      style: TextStyle(fontSize: 12.5, color: Colors.grey[600])),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Todos los géneros',
+                          style: TextStyle(fontSize: 12.5, color: Colors.grey[700])),
+                    ),
+                    ...generos.map((g) => DropdownMenuItem<String?>(
+                      value: g,
+                      child: Text(g, style: const TextStyle(fontSize: 12.5)),
+                    )),
+                  ],
+                  onChanged: (v) => setState(() => _generoFiltro = v),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(width: 8),
+          // Toggle grid/lista
+          Container(
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              _toggleBtn(Icons.grid_view_rounded, !_modoLista, color,
+                  () => setState(() => _modoLista = false)),
+              _toggleBtn(Icons.view_list_rounded, _modoLista, color,
+                  () => setState(() => _modoLista = true)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          // Añadir
+          FilledButton.icon(
+            onPressed: _anadirItem,
+            icon: const Icon(Icons.add, size: 15),
+            label: const Text('Añadir'),
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      // ── Grid / Lista ─────────────────────────────────────────────────────
+      Expanded(child: items.isEmpty
+          ? _buildVacio(color)
+          : _modoLista
+              ? _buildLista(items, color)
+              : _buildGrid(items, color, generos)),
+    ]);
+  }
+
+  Widget _statCard(IconData ico, Color c, String val, String label) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8EDF2)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Icon(ico, color: c, size: 16),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A))),
+          Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey[500]),
+              overflow: TextOverflow.ellipsis),
+        ])),
+      ]),
+    ));
+  }
+
+  Widget _toggleBtn(IconData ico, bool sel, Color c, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: sel ? c.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Icon(ico, size: 17, color: sel ? c : Colors.grey[400]),
+      ),
+    );
+  }
+
+  Widget _buildGrid(List<Map<String, dynamic>> items, Color color,
+      List<String> generos) {
+    return LayoutBuilder(builder: (_, constraints) {
+      final cols = constraints.maxWidth > 900 ? 6
+          : constraints.maxWidth > 700 ? 5
+          : constraints.maxWidth > 500 ? 4 : 3;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+        child: Wrap(
+          spacing: 12, runSpacing: 14,
+          children: items.map((item) {
+            final idx = _items.indexWhere((e) => e['id'] == item['id']);
+            final cardW = (constraints.maxWidth - 40 - (cols - 1) * 12) / cols;
+            return _buildFichaAdaptada(item, color, cardW, idx);
+          }).toList(),
+        ),
+      );
+    });
+  }
+
+  Widget _buildLista(List<Map<String, dynamic>> items, Color color) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        final idx = _items.indexWhere((e) => e['id'] == items[i]['id']);
+        return _buildResultadoItem(items[i], color);
+      },
+    );
+  }
+
+  Widget _buildFichaAdaptada(Map<String, dynamic> item, Color color,
+      double cardW, int idx) {
+    final titulo = (item['titulo']?.toString().isNotEmpty == true
+        ? item['titulo'].toString() : item['nombre']?.toString() ?? '').trim();
+    final autor      = item['autor']?.toString() ?? '';
+    final genero     = (item['genero'] ?? item['categoria'] ?? '').toString();
+    final precio     = item['precio'];
+    final disponible = item['disponible'] as bool? ?? true;
+    final imagen     = (item['imagen_url'] as String?)?.isNotEmpty == true
+        ? item['imagen_url'] as String
+        : (item['imagen'] as String?)?.isNotEmpty == true ? item['imagen'] as String : null;
+
+    String precioStr() {
+      if (precio == null || precio.toString().isEmpty) return '';
+      if (precio is num) return '${precio.toStringAsFixed(2)}€';
+      final s = precio.toString();
+      return s.contains('€') ? s : '$s€';
+    }
+
+    final coverH = cardW * 1.38;
+
+    return SizedBox(
+      width: cardW,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE8EDF2)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Portada
+          SizedBox(
+            width: cardW, height: coverH,
+            child: imagen != null && imagen.startsWith('http')
+                ? CachedNetworkImage(imageUrl: imagen, width: cardW, height: coverH, fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(color: color.withValues(alpha: 0.06),
+                        child: Center(child: SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: color.withValues(alpha: 0.3))))),
+                    errorWidget: (_, __, ___) => _catPlaceholder(cardW, coverH, color))
+                : _catPlaceholder(cardW, coverH, color),
+          ),
+          // Info
+          Padding(
+            padding: const EdgeInsets.fromLTRB(9, 8, 9, 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(titulo.isEmpty ? 'Sin título' : titulo,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700,
+                      height: 1.3, color: Color(0xFF0F172A))),
+              if (autor.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(autor, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600],
+                        fontStyle: FontStyle.italic)),
+              ],
+              const SizedBox(height: 5),
+              Row(children: [
+                if (genero.isNotEmpty)
+                  Flexible(child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(genero, style: TextStyle(fontSize: 9.5,
+                        color: color, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis),
+                  )),
+                if (genero.isNotEmpty && precioStr().isNotEmpty)
+                  const SizedBox(width: 4),
+                if (precioStr().isNotEmpty)
+                  Text(precioStr(), style: const TextStyle(fontSize: 11,
+                      fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                const Spacer(),
+                if (!disponible)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('No disp.',
+                        style: TextStyle(fontSize: 8.5, color: Colors.orange,
+                            fontWeight: FontWeight.w600)),
+                  ),
+              ]),
+              const SizedBox(height: 7),
+              // Acciones
+              Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () { if (idx >= 0) _editarItem(idx); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(Icons.edit_outlined, size: 13, color: color),
+                  ),
+                )),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () { if (idx >= 0) _eliminarItem(idx); },
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(Icons.delete_outline, size: 13, color: Colors.red[400]),
+                  ),
+                ),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // ── Buscador legacy (solo para resultados de búsqueda) ────────────────────
   Widget _buildBarraBusqueda(Color color) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
     child: Container(
@@ -708,8 +1079,8 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: imagen != null && imagen.startsWith('http')
-              ? Image.network(imagen, width: 40, height: 56, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _miniPlaceholder(color))
+              ? CachedNetworkImage(imageUrl: imagen, width: 40, height: 56, fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => _miniPlaceholder(color))
               : _miniPlaceholder(color),
         ),
         title: Text(titulo, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -823,8 +1194,8 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
                         child: Icon(Icons.menu_book_rounded, size: w * 0.35, color: Colors.white.withValues(alpha: 0.5)),
                       )
                     : covers.length == 1
-                        ? Image.network(covers[0], width: w, height: coverH, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _catPlaceholder(w, coverH, color))
+                        ? CachedNetworkImage(imageUrl: covers[0], width: w, height: coverH, fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => _catPlaceholder(w, coverH, color))
                         : GridView.count(
                             crossAxisCount: 2,
                             physics: const NeverScrollableScrollPhysics(),
@@ -835,8 +1206,8 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
                             children: [
                               for (int i = 0; i < 4; i++)
                                 i < covers.length
-                                    ? Image.network(covers[i], fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(color: color.withValues(alpha: 0.1)))
+                                    ? CachedNetworkImage(imageUrl: covers[i], fit: BoxFit.cover,
+                                        errorWidget: (_, __, ___) => Container(color: color.withValues(alpha: 0.1)))
                                     : Container(color: color.withValues(alpha: 0.06)),
                             ],
                           ),
@@ -998,12 +1369,13 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: imagen != null && imagen.startsWith('http')
-                  ? Image.network(
-                      imagen,
+                  ? CachedNetworkImage(
+                      imageUrl: imagen,
                       width: cardW,
                       height: coverH,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => placeholder(),
+                      placeholder: (_, __) => placeholder(),
+                      errorWidget: (_, __, ___) => placeholder(),
                     )
                   : placeholder(),
             ),

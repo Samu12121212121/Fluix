@@ -578,6 +578,8 @@ class EntradaBlog {
   final String resumen;
   final String contenido; // Markdown
   final String? imagenUrl;
+  // Imágenes adicionales (carrusel)
+  final List<String> imagenes;
   final EstadoBlog estado;
   final DateTime fechaPublicacion;
   final List<String> etiquetas;
@@ -592,8 +594,16 @@ class EntradaBlog {
   final DateTime? fechaEliminacion;
   final bool destacado;
   final int visitas;
-  // Tipo de contenido: 'articulo' | 'noticia'
+  // Tipo de contenido: 'articulo' | 'noticia' | 'entrevista' | 'resena'
   final String tipo;
+  // URL del artículo original en la web (para noticias/entrevistas importadas)
+  final String? urlExterna;
+  // Media embebida: vídeo (YouTube/Vimeo/directo) y audio
+  final String? videoUrl;
+  final String? audioUrl;
+  // Vínculos explícitos a colecciones del catálogo editorial
+  final String? autorId;   // ID en colección /autores
+  final String? libroId;   // ID en colección /libros
 
   const EntradaBlog({
     required this.id,
@@ -602,6 +612,7 @@ class EntradaBlog {
     this.resumen = '',
     this.contenido = '',
     this.imagenUrl,
+    this.imagenes = const [],
     this.estado = EstadoBlog.borrador,
     required this.fechaPublicacion,
     this.etiquetas = const [],
@@ -615,6 +626,11 @@ class EntradaBlog {
     this.destacado = false,
     this.visitas = 0,
     this.tipo = 'articulo',
+    this.urlExterna,
+    this.videoUrl,
+    this.audioUrl,
+    this.autorId,
+    this.libroId,
   });
 
   // Compatibilidad con código legacy que usa .publicada
@@ -636,8 +652,12 @@ class EntradaBlog {
       titulo:              m['titulo'] as String? ?? '',
       slug:                m['slug'] as String? ?? '',
       resumen:             m['resumen'] as String? ?? '',
-      contenido:           m['contenido'] as String? ?? '',
-      imagenUrl:           m['imagen_url'] as String?,
+      // Si contenido (Delta/Markdown) está vacío, usar contenido_html como fallback
+      contenido:           (m['contenido'] as String? ?? '').isNotEmpty
+          ? m['contenido'] as String
+          : m['contenido_html'] as String? ?? '',
+      imagenUrl:           _nonEmpty(m['imagen_url'] as String?),
+      imagenes:            (m['imagenes'] as List<dynamic>?)?.cast<String>() ?? [],
       estado:              estado,
       fechaPublicacion:    _parseFecha(m['fecha_publicacion']),
       etiquetas:           (m['etiquetas'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -653,6 +673,11 @@ class EntradaBlog {
       destacado:           m['destacado'] as bool? ?? false,
       visitas:             (m['visitas'] as num?)?.toInt() ?? 0,
       tipo:                m['tipo'] as String? ?? 'articulo',
+      urlExterna:          m['url_externa'] as String?,
+      videoUrl:            m['video_url'] as String?,
+      audioUrl:            m['audio_url'] as String?,
+      autorId:             m['autor_id'] as String?,
+      libroId:             m['libro_id'] as String?,
     );
   }
 
@@ -662,6 +687,7 @@ class EntradaBlog {
     'resumen':            resumen,
     'contenido':          contenido,
     if (imagenUrl != null) 'imagen_url': imagenUrl,
+    'imagenes':           imagenes,
     'estado':             estado.id,
     'publicada':          estado == EstadoBlog.publicado,
     'fecha_publicacion':  fechaPublicacion.toIso8601String(),
@@ -679,14 +705,22 @@ class EntradaBlog {
     'destacado':          destacado,
     'visitas':            visitas,
     'tipo':               tipo,
+    if (urlExterna != null && urlExterna!.isNotEmpty) 'url_externa': urlExterna,
+    if (videoUrl != null && videoUrl!.isNotEmpty)     'video_url':   videoUrl,
+    if (audioUrl != null && audioUrl!.isNotEmpty)     'audio_url':   audioUrl,
+    if (autorId  != null && autorId!.isNotEmpty)      'autor_id':    autorId,
+    if (libroId  != null && libroId!.isNotEmpty)      'libro_id':    libroId,
   };
 
   EntradaBlog copyWith({
     String? titulo, String? slug, String? resumen, String? contenido,
-    String? imagenUrl, EstadoBlog? estado, DateTime? fechaPublicacion,
+    String? imagenUrl, List<String>? imagenes, EstadoBlog? estado,
+    DateTime? fechaPublicacion,
     List<String>? etiquetas, String? autor, String? categoriaId,
     String? seoMetaTitle, String? seoMetaDescription, List<String>? seoKeywords,
     bool? eliminado, DateTime? fechaEliminacion, bool? destacado, String? tipo,
+    String? urlExterna, String? videoUrl, String? audioUrl,
+    String? autorId, String? libroId,
   }) => EntradaBlog(
     id:                 id,
     titulo:             titulo ?? this.titulo,
@@ -694,6 +728,7 @@ class EntradaBlog {
     resumen:            resumen ?? this.resumen,
     contenido:          contenido ?? this.contenido,
     imagenUrl:          imagenUrl ?? this.imagenUrl,
+    imagenes:           imagenes ?? this.imagenes,
     estado:             estado ?? this.estado,
     fechaPublicacion:   fechaPublicacion ?? this.fechaPublicacion,
     etiquetas:          etiquetas ?? this.etiquetas,
@@ -707,7 +742,14 @@ class EntradaBlog {
     destacado:          destacado ?? this.destacado,
     visitas:            visitas,
     tipo:               tipo ?? this.tipo,
+    urlExterna:         urlExterna ?? this.urlExterna,
+    videoUrl:           videoUrl ?? this.videoUrl,
+    audioUrl:           audioUrl ?? this.audioUrl,
+    autorId:            autorId ?? this.autorId,
+    libroId:            libroId ?? this.libroId,
   );
+
+  static String? _nonEmpty(String? s) => (s != null && s.isNotEmpty) ? s : null;
 
   static DateTime _parseFecha(dynamic v) {
     if (v == null) return DateTime.now();

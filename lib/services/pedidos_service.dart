@@ -176,6 +176,7 @@ class PedidosService {
     String? estadoPago,
     Timestamp? fechaHora,
     Map<String, double>? importesPorMetodo,
+    String? clienteId,       // ID del documento de cliente en Firestore
   }) async {
     final ref = _pedidos(empresaId).doc();
     final total = importeTotal ?? lineas.fold<double>(0, (sum, l) => sum + l.subtotal);
@@ -221,6 +222,7 @@ class PedidosService {
     if (importesPorMetodo != null && importesPorMetodo.isNotEmpty) {
       mapa['importes_por_metodo'] = importesPorMetodo;
     }
+    if (clienteId != null) mapa['cliente_id'] = clienteId;
     
     await ref.set(mapa);
     // Actualizar estadísticas en tiempo real
@@ -332,8 +334,8 @@ class PedidosService {
   Future<void> eliminarPedido(String empresaId, String pedidoId) =>
       _pedidos(empresaId).doc(pedidoId).delete();
 
-  /// Genera una factura a partir de un pedido y actualiza el pedido con el facturaId.
-  Future<String> generarFacturaDesdePedido({
+  /// Genera una factura a partir de un pedido y devuelve la Factura completa.
+  Future<Factura> generarFacturaDesdePedido({
     required String empresaId,
     required String pedidoId,
     required String usuarioId,
@@ -342,7 +344,7 @@ class PedidosService {
     final doc = await _pedidos(empresaId).doc(pedidoId).get();
     final pedido = Pedido.fromFirestore(doc);
 
-    final lineas = pedido.lineas
+    final lineasFactura = pedido.lineas
         .map((l) => LineaFactura(
               descripcion: l.productoNombre,
               precioUnitario: l.precioUnitario,
@@ -351,13 +353,17 @@ class PedidosService {
             ))
         .toList();
 
+    if (lineasFactura.isEmpty) {
+      throw Exception('El pedido no tiene líneas de producto');
+    }
+
     final facturaSvc = FacturacionService();
     final resultado = await facturaSvc.crearFactura(
       empresaId: empresaId,
       clienteNombre: pedido.clienteNombre,
       clienteTelefono: pedido.clienteTelefono,
       clienteCorreo: pedido.clienteCorreo,
-      lineas: lineas,
+      lineas: lineasFactura,
       metodoPago: _pedidoMetodoToFactura(pedido.metodoPago),
       pedidoId: pedidoId,
       tipo: TipoFactura.pedido,
@@ -380,7 +386,7 @@ class PedidosService {
       'historial': FieldValue.arrayUnion([entrada.toMap()]),
     });
 
-    return factura.id;
+    return factura;
   }
 
   MetodoPagoFactura? _pedidoMetodoToFactura(MetodoPago m) => switch (m) {

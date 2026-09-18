@@ -6,130 +6,156 @@ import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../core/providers/empresa_config_provider.dart';
+import '../../../core/utils/app_settings.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../services/contabilidad_service.dart';
 import '../../../domain/modelos/contabilidad.dart';
-import 'tab_libro_ingresos.dart';
-import 'tab_graficos_contabilidad.dart';
 import 'tab_modelos_fiscales.dart';
-import 'tab_facturas_recibidas.dart';
-import 'tab_mod_347.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// PANTALLA PRINCIPAL CONTABILIDAD
+// PANTALLA PRINCIPAL CONTABILIDAD — diseño con pill toggle
 // ═════════════════════════════════════════════════════════════════════════════
 
 class PantallaContabilidad extends StatefulWidget {
   final String empresaId;
-  const PantallaContabilidad({super.key, required this.empresaId});
+  final int initialTab;
+  const PantallaContabilidad({super.key, required this.empresaId, this.initialTab = 0});
 
   @override
   State<PantallaContabilidad> createState() => _PantallaContabilidadState();
 }
 
-class _PantallaContabilidadState extends State<PantallaContabilidad>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
+class _PantallaContabilidadState extends State<PantallaContabilidad> {
   final ContabilidadService _svc = ContabilidadService();
-  int _anio = DateTime.now().year;
+  int  _anio    = DateTime.now().year;
+  int  _seccion = 0; // 0 = Resumen, 1 = Modelos
+  bool _isDark  = false;
+
+  Color get _bg     => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+  Color get _surf   => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _text   => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _sub    => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+  Color get _border => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 9, vsync: this);
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDarkChange);
+    // initialTab >= 5 era "Modelos" en el TabBar antiguo
+    _seccion = widget.initialTab >= 5 ? 1 : 0;
   }
 
   @override
   void dispose() {
-    _tab.dispose();
+    AppSettings.darkMode.removeListener(_onDarkChange);
     super.dispose();
+  }
+
+  void _onDarkChange() {
+    if (mounted) setState(() => _isDark = AppSettings.darkMode.value);
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = context.watch<AppConfigProvider>().colorPrimario;
     return ChangeNotifierProvider(
       create: (_) => EmpresaConfigProvider(widget.empresaId)..cargar(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          title: const Text(
-            'Contabilidad',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
-                  value: _anio,
-                  dropdownColor: color,
-                  iconEnabledColor: Colors.white,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                  items: [2024, 2025, 2026]
-                      .map((y) => DropdownMenuItem(
-                            value: y,
-                            child: Text('$y', style: const TextStyle(color: Colors.white)),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _anio = v);
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
+        backgroundColor: _bg,
+        appBar: Navigator.of(context).canPop()
+            ? const FluixAppBar(titulo: 'Contabilidad', showLeading: true)
+            : null,
         body: Column(children: [
-          TabBar(
-            controller: _tab,
-            labelColor: color,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: color,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: const [
-              Tab(icon: Icon(Icons.dashboard, size: 18), text: 'Resumen'),
-              Tab(icon: Icon(Icons.trending_up, size: 18), text: 'Ingresos'),
-              Tab(icon: Icon(Icons.shopping_cart_outlined, size: 18), text: 'F. Recibidas'),
-              Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'Gastos manuales'),
-              Tab(icon: Icon(Icons.bar_chart, size: 18), text: 'Gráficos'),
-              Tab(icon: Icon(Icons.account_balance, size: 18), text: 'Modelos'),
-              Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: 'MOD 347'),
-              Tab(icon: Icon(Icons.people, size: 18), text: 'Proveedores'),
-              Tab(icon: Icon(Icons.file_download, size: 18), text: 'Exportar'),
+          _buildTopBar(),
+          Divider(height: 1, thickness: 1, color: _border),
+          Expanded(child: IndexedStack(
+            index: _seccion,
+            children: [
+              ContabTabResumen(
+                empresaId: widget.empresaId,
+                anio: _anio, svc: _svc,
+                color: const Color(0xFF3B82F6),
+                isDark: _isDark,
+              ),
+              TabModelosFiscales(
+                empresaId: widget.empresaId,
+                anio: _anio, svc: _svc,
+                isDark: _isDark,
+              ),
             ],
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              children: [
-                ContabTabResumen(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
-                TabLibroIngresos(empresaId: widget.empresaId, anio: _anio, svc: _svc),
-                TabFacturasRecibidas(empresaId: widget.empresaId, svc: _svc),
-                ContabTabGastos(empresaId: widget.empresaId, svc: _svc, color: color),
-                TabGraficosContabilidad(empresaId: widget.empresaId, anio: _anio, svc: _svc),
-                TabModelosFiscales(empresaId: widget.empresaId, anio: _anio, svc: _svc),
-                TabMod347(
-                  empresaId: widget.empresaId,
-                  anio: _anio,
-                ),
-                ContabTabProveedores(empresaId: widget.empresaId, svc: _svc, color: color),
-                ContabTabExportar(empresaId: widget.empresaId, anio: _anio, svc: _svc, color: color),
-              ],
-            ),
-          ),
+          )),
         ]),
       ),
     );
   }
 
+  // Header + toggle en una sola barra compacta (~48px)
+  Widget _buildTopBar() {
+    const acento = Color(0xFF3B82F6);
+    return Container(
+      color: _surf,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      child: Row(children: [
+        // ── Toggle segmentado ──────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _segBtn('Resumen',  Icons.dashboard_outlined,     0, acento),
+            const SizedBox(width: 2),
+            _segBtn('Modelos',  Icons.account_balance_outlined, 1, acento),
+          ]),
+        ),
+        const Spacer(),
+        // ── Selector de año ────────────────────────────────────────────────
+        Icon(Icons.calendar_today_outlined, size: 13, color: _sub),
+        const SizedBox(width: 5),
+        Theme(
+          data: Theme.of(context).copyWith(canvasColor: _surf),
+          child: DropdownButton<int>(
+            value: _anio,
+            isDense: true,
+            style: TextStyle(color: _text, fontWeight: FontWeight.w700, fontSize: 13),
+            underline: const SizedBox.shrink(),
+            icon: Icon(Icons.expand_more_rounded, size: 16, color: _sub),
+            items: [2024, 2025, 2026]
+                .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                .toList(),
+            onChanged: (v) => setState(() => _anio = v!),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _segBtn(String label, IconData icon, int idx, Color acento) {
+    final sel = _seccion == idx;
+    return GestureDetector(
+      onTap: () => setState(() => _seccion = idx),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: sel ? acento : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: sel ? [const BoxShadow(color: Color(0x283B82F6), blurRadius: 4, offset: Offset(0, 1))] : null,
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: sel ? Colors.white : _sub),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(
+            fontSize: 12,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+            color: sel ? Colors.white : _sub,
+          )),
+        ]),
+      ),
+    );
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -141,8 +167,9 @@ class ContabTabResumen extends StatefulWidget {
   final int anio;
   final ContabilidadService svc;
   final Color color;
+  final bool isDark;
   const ContabTabResumen({required this.empresaId, required this.anio,
-      required this.svc, required this.color});
+      required this.svc, required this.color, this.isDark = false});
 
   @override
   State<ContabTabResumen> createState() => ContabTabResumenState();
@@ -154,6 +181,13 @@ class ContabTabResumenState extends State<ContabTabResumen> {
   bool _cargando = true;
   String? _error;
   int _trimestreSeleccionado = 0; // 0 = anual
+
+  bool get _d => widget.isDark;
+  Color get _bg   => _d ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+  Color get _surf => _d ? const Color(0xFF1E293B) : Colors.white;
+  Color get _txt  => _d ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _sub  => _d ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+  Color get _bdr  => _d ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
   @override
   void initState() {
@@ -212,7 +246,9 @@ class ContabTabResumenState extends State<ContabTabResumen> {
     final r = _resumenActual;
     if (r == null) return const Center(child: Text('Sin datos'));
 
-    return ListView(
+    return ColoredBox(
+      color: _bg,
+      child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         // ── Selector trimestre ──────────────────────────────────────────
@@ -353,7 +389,7 @@ class ContabTabResumenState extends State<ContabTabResumen> {
             child: _buildPyL(_resumenAnual!),
           ),
       ],
-    );
+    ));
   }
 
   Widget _buildPyL(ResumenContable r) {
@@ -490,18 +526,14 @@ class ContabTabResumenState extends State<ContabTabResumen> {
             margin: const EdgeInsets.only(right: 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: sel ? widget.color : Colors.white,
+              color: sel ? widget.color : _surf,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: sel ? widget.color : Colors.grey.withValues(alpha: 0.3)),
-              boxShadow: sel
-                  ? [BoxShadow(color: widget.color.withValues(alpha: 0.3),
-                      blurRadius: 6)]
-                  : null,
+              border: Border.all(color: sel ? widget.color : _bdr),
+              boxShadow: sel ? [BoxShadow(color: widget.color.withValues(alpha: 0.3), blurRadius: 6)] : null,
             ),
             child: Text(e.value,
                 style: TextStyle(
-                    color: sel ? Colors.white : Colors.grey[700],
+                    color: sel ? Colors.white : _sub,
                     fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         );
@@ -514,27 +546,21 @@ class ContabTabResumenState extends State<ContabTabResumen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surf,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: _bdr),
+        boxShadow: _d ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(icono, color: color, size: 18),
           const SizedBox(width: 6),
-          Expanded(child: Text(titulo,
-              style: TextStyle(color: Colors.grey[600],
-                  fontSize: 11, fontWeight: FontWeight.w500))),
+          Expanded(child: Text(titulo, style: TextStyle(color: _sub, fontSize: 11, fontWeight: FontWeight.w500))),
         ]),
         const SizedBox(height: 8),
-        Text('${valor.toStringAsFixed(2)}€',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                color: color)),
+        Text('${valor.toStringAsFixed(2)}€', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(subtitulo,
-            style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+        Text(subtitulo, style: TextStyle(color: _sub, fontSize: 10)),
       ]),
     );
   }
@@ -560,18 +586,16 @@ class ContabTabResumenState extends State<ContabTabResumen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surf,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: _bdr),
+        boxShadow: _d ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(icono, color: color, size: 18),
           const SizedBox(width: 8),
-          Text(titulo, style: const TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _txt)),
         ]),
         const SizedBox(height: 12),
         child,
@@ -843,117 +867,341 @@ class _TarjetaGasto extends StatelessWidget {
 // TAB 3 — PROVEEDORES
 // ═════════════════════════════════════════════════════════════════════════════
 
-class ContabTabProveedores extends StatelessWidget {
+class ContabTabProveedores extends StatefulWidget {
   final String empresaId;
   final ContabilidadService svc;
   final Color color;
   const ContabTabProveedores({required this.empresaId, required this.svc,
-      required this.color});
+      required this.color, super.key});
+
+  @override
+  State<ContabTabProveedores> createState() => _ContabTabProveedoresState();
+}
+
+class _ContabTabProveedoresState extends State<ContabTabProveedores> {
+  String _busqueda = '';
+  String _categoriaFiltro = 'Todos';
+  bool _isDark = false;
+
+  // Colores adaptativos
+  Color get _bg      => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+  Color get _surf    => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _bdr     => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+  Color get _txt     => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _sub     => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+  Color get _input   => _isDark ? const Color(0xFF162032) : const Color(0xFFF8FAFC);
+  Color get _chipBg  => _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+  Color get _chipBdr => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+  static const _categorias = [
+    'Todos', 'suministros', 'servicios', 'software', 'alquiler',
+    'transporte', 'marketing', 'seguros', 'otros',
+  ];
+
+  static const _catColors = {
+    'suministros':  Color(0xFF10B981),
+    'servicios':    Color(0xFF3B82F6),
+    'software':     Color(0xFF8B5CF6),
+    'alquiler':     Color(0xFFEAB308),
+    'transporte':   Color(0xFF06B6D4),
+    'marketing':    Color(0xFFF97316),
+    'seguros':      Color(0xFFEC4899),
+    'otros':        Color(0xFF6B7280),
+  };
+
+  Color _colorCat(String cat) => _catColors[cat.toLowerCase()] ?? const Color(0xFF6B7280);
+
+  @override
+  void initState() {
+    super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDark);
+  }
+
+  @override
+  void dispose() {
+    AppSettings.darkMode.removeListener(_onDark);
+    super.dispose();
+  }
+
+  void _onDark() { if (mounted) setState(() => _isDark = AppSettings.darkMode.value); }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Proveedor>>(
-      stream: svc.obtenerProveedores(empresaId),
+      stream: widget.svc.obtenerProveedores(widget.empresaId),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final proveedores = snap.data ?? [];
+        var proveedores = snap.data ?? [];
 
-        return Stack(children: [
-          // ── Lista ─────────────────────────────────────────────────────
-          proveedores.isEmpty
-              ? Center(child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.storefront_outlined,
-                        size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    Text('Sin proveedores',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text('Genera datos de prueba o añade uno manualmente',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () => _abrirFormProveedor(context, null),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Añadir proveedor'),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: color, foregroundColor: Colors.white),
-                    ),
-                  ],
-                ))
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-                  itemCount: proveedores.length,
-                  itemBuilder: (ctx, i) {
-                    final p = proveedores[i];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6)],
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: color.withValues(alpha: 0.1),
-                          child: Text(
-                              p.nombre.isNotEmpty ? p.nombre[0].toUpperCase() : '?',
-                              style: TextStyle(color: color,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                        title: Text(p.nombre,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (p.nif != null)
-                              Text('NIF: ${p.nif}',
-                                  style: const TextStyle(fontSize: 11)),
-                            Text(p.categoria,
-                                style: TextStyle(color: color, fontSize: 11)),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () => _abrirFormProveedor(context, p),
-                        ),
-                        onTap: () => _abrirFormProveedor(context, p),
-                      ),
-                    );
-                  },
+        // Filtros
+        if (_busqueda.isNotEmpty) {
+          final q = _busqueda.toLowerCase();
+          proveedores = proveedores.where((p) =>
+            p.nombre.toLowerCase().contains(q) ||
+            (p.nif?.toLowerCase().contains(q) ?? false) ||
+            p.categoria.toLowerCase().contains(q)).toList();
+        }
+        if (_categoriaFiltro != 'Todos') {
+          proveedores = proveedores.where((p) => p.categoria == _categoriaFiltro).toList();
+        }
+
+        return ColoredBox(
+          color: _bg,
+          child: Column(children: [
+          // ── Barra búsqueda + botón nuevo ───────────────────────────────
+          Container(
+            color: _surf,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  onChanged: (v) => setState(() => _busqueda = v),
+                  style: TextStyle(fontSize: 13, color: _txt),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar proveedor…',
+                    hintStyle: TextStyle(fontSize: 12, color: _sub),
+                    prefixIcon: Icon(Icons.search, size: 18, color: _sub),
+                    suffixIcon: _busqueda.isNotEmpty
+                        ? IconButton(icon: Icon(Icons.clear, size: 16, color: _sub), onPressed: () => setState(() => _busqueda = ''))
+                        : null,
+                    filled: true,
+                    fillColor: _input,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _bdr)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _bdr)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: widget.color, width: 1.5)),
+                  ),
                 ),
-
-          // ── FAB ───────────────────────────────────────────────────────
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.extended(
-              heroTag: 'fab_nuevo_proveedor',
-              onPressed: () => _abrirFormProveedor(context, null),
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo proveedor'),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                onPressed: () => _abrirFormProveedor(context, null),
+                icon: const Icon(Icons.add, size: 15, color: Colors.white),
+                label: const Text('Nuevo', style: TextStyle(fontSize: 12, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.color,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  elevation: 0,
+                ),
+              ),
+            ]),
+          ),
+          // ── Chips de categoría ─────────────────────────────────────────
+          Container(
+            color: _surf,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: SizedBox(
+              height: 28,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: _categorias.map((cat) {
+                  final sel = _categoriaFiltro == cat;
+                  final c = cat == 'Todos' ? widget.color : _colorCat(cat);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _categoriaFiltro = cat),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 130),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: sel ? c : _chipBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: sel ? c : _chipBdr),
+                        ),
+                        child: Text(cat.substring(0, 1).toUpperCase() + cat.substring(1),
+                            style: TextStyle(fontSize: 11,
+                                color: sel ? Colors.white : _sub,
+                                fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
-        ]);
+          Divider(height: 1, color: _bdr),
+          // ── Lista ──────────────────────────────────────────────────────
+          Expanded(
+            child: proveedores.isEmpty
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.storefront_outlined, size: 64, color: _sub.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text('Sin proveedores', style: TextStyle(color: _sub, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(_busqueda.isNotEmpty || _categoriaFiltro != 'Todos'
+                        ? 'No hay resultados para este filtro'
+                        : 'Añade tu primer proveedor',
+                        style: TextStyle(color: _sub, fontSize: 12)),
+                    if (_busqueda.isEmpty && _categoriaFiltro == 'Todos') ...[
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () => _abrirFormProveedor(context, null),
+                        icon: const Icon(Icons.add, size: 15),
+                        label: const Text('Añadir proveedor'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.color, foregroundColor: Colors.white),
+                      ),
+                    ],
+                  ]))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: proveedores.length,
+                    itemBuilder: (ctx, i) => _buildCard(context, proveedores[i]),
+                  ),
+          ),
+        ]));
       },
     );
   }
 
+  Widget _buildCard(BuildContext context, Proveedor p) {
+    final catColor = _colorCat(p.categoria);
+    return GestureDetector(
+      onTap: () => _abrirFormProveedor(context, p),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: _surf,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _bdr),
+          boxShadow: _isDark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Column(children: [
+          // Header con avatar + nombre + acción
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 10, 10),
+            child: Row(children: [
+              // Avatar con inicial
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [catColor.withValues(alpha: 0.8), catColor],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: Text(
+                  p.nombre.isNotEmpty ? p.nombre[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+                )),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.nombre, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _txt),
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: catColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(p.categoria, style: TextStyle(fontSize: 10, color: catColor, fontWeight: FontWeight.w600)),
+                  ),
+                  if (p.esIntracomunitario) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                      child: const Text('UE', style: TextStyle(fontSize: 9, color: Color(0xFF3B82F6), fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ]),
+              ])),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 17, color: Color(0xFF94A3B8)),
+                onPressed: () => _abrirFormProveedor(context, p),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ]),
+          ),
+          // Info row
+          if (p.nif != null || p.email != null || p.telefono != null)
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: _bdr)),
+              ),
+              child: Wrap(spacing: 16, runSpacing: 4, children: [
+                if (p.nif != null) _infoChip(Icons.badge_outlined, p.nif!),
+                if (p.email != null) _infoChip(Icons.email_outlined, p.email!),
+                if (p.telefono != null) _infoChip(Icons.phone_outlined, p.telefono!),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Icon(icon, size: 12, color: _sub),
+    const SizedBox(width: 4),
+    Text(text, style: TextStyle(fontSize: 11, color: _sub)),
+  ]);
+
   void _abrirFormProveedor(BuildContext context, Proveedor? p) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PantallaFormProveedor(
-          empresaId: empresaId,
-          svc: svc,
-          proveedor: p,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        maxChildSize: 0.98,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Container(
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [
+            // Handle + header
+            Container(
+              color: _surf,
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 4),
+                  child: Container(width: 40, height: 4,
+                      decoration: BoxDecoration(color: _isDark ? Colors.white24 : Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                      child: Icon(p == null ? Icons.add_business_outlined : Icons.edit_outlined, color: widget.color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(
+                      p == null ? 'Nuevo proveedor' : 'Editar proveedor',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    )),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, size: 20)),
+                  ]),
+                ),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              ]),
+            ),
+            Expanded(child: _FormProveedorInline(
+              empresaId: widget.empresaId,
+              svc: widget.svc,
+              proveedor: p,
+              color: widget.color,
+              scrollController: scrollCtrl,
+              onGuardado: () => Navigator.pop(ctx),
+            )),
+          ]),
         ),
       ),
     );
@@ -1558,6 +1806,254 @@ class _PantallaFormGastoState extends State<PantallaFormGasto> {
 
 // ═════════════════════════════════════════════════════════════════════════════
 // FORMULARIO DE PROVEEDOR
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULARIO INLINE DE PROVEEDOR (para usar dentro del popup)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FormProveedorInline extends StatefulWidget {
+  final String empresaId;
+  final ContabilidadService svc;
+  final Proveedor? proveedor;
+  final Color color;
+  final ScrollController scrollController;
+  final VoidCallback onGuardado;
+
+  const _FormProveedorInline({
+    required this.empresaId, required this.svc, this.proveedor,
+    required this.color, required this.scrollController, required this.onGuardado,
+  });
+
+  @override
+  State<_FormProveedorInline> createState() => _FormProveedorInlineState();
+}
+
+class _FormProveedorInlineState extends State<_FormProveedorInline> {
+  final _formKey = GlobalKey<FormState>();
+  final _nombreCtrl = TextEditingController();
+  final _nifCtrl    = TextEditingController();
+  final _emailCtrl  = TextEditingController();
+  final _telCtrl    = TextEditingController();
+  final _dirCtrl    = TextEditingController();
+  final _webCtrl    = TextEditingController();
+  final _notasCtrl  = TextEditingController();
+  String _categoria = 'servicios';
+  bool _guardando   = false;
+
+  static const _categorias = [
+    ('suministros', Icons.inventory_2_outlined, Color(0xFF10B981)),
+    ('servicios',   Icons.build_outlined,       Color(0xFF3B82F6)),
+    ('software',    Icons.computer_outlined,    Color(0xFF8B5CF6)),
+    ('alquiler',    Icons.home_work_outlined,   Color(0xFFEAB308)),
+    ('transporte',  Icons.local_shipping_outlined, Color(0xFF06B6D4)),
+    ('marketing',   Icons.campaign_outlined,    Color(0xFFF97316)),
+    ('seguros',     Icons.shield_outlined,      Color(0xFFEC4899)),
+    ('gestor',      Icons.account_balance_outlined, Color(0xFF6366F1)),
+    ('otros',       Icons.more_horiz,           Color(0xFF6B7280)),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.proveedor != null) {
+      final p = widget.proveedor!;
+      _nombreCtrl.text = p.nombre;
+      _nifCtrl.text    = p.nif ?? '';
+      _emailCtrl.text  = p.email ?? '';
+      _telCtrl.text    = p.telefono ?? '';
+      _dirCtrl.text    = p.direccion ?? '';
+      _notasCtrl.text  = p.notas ?? '';
+      _categoria       = p.categoria;
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_nombreCtrl,_nifCtrl,_emailCtrl,_telCtrl,_dirCtrl,_webCtrl,_notasCtrl]) c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _guardando = true);
+    try {
+      final p = Proveedor(
+        id: widget.proveedor?.id ?? '',
+        nombre: _nombreCtrl.text.trim(),
+        nif: _nifCtrl.text.trim().isEmpty ? null : _nifCtrl.text.trim(),
+        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        telefono: _telCtrl.text.trim().isEmpty ? null : _telCtrl.text.trim(),
+        direccion: _dirCtrl.text.trim().isEmpty ? null : _dirCtrl.text.trim(),
+        categoria: _categoria,
+        activo: true,
+        fechaAlta: widget.proveedor?.fechaAlta ?? DateTime.now(),
+        notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
+      );
+      await widget.svc.guardarProveedor(widget.empresaId, p);
+      if (mounted) {
+        widget.onGuardado();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(widget.proveedor == null ? '✅ Proveedor creado' : '✅ Proveedor actualizado'),
+          backgroundColor: Colors.green.shade700,
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catColor = _categorias.firstWhere((c) => c.$1 == _categoria, orElse: () => _categorias.last).$3;
+    return Form(
+      key: _formKey,
+      child: ListView(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── Sección datos principales ──────────────────────────────────
+          _seccion('Datos del proveedor', child: Column(children: [
+            _campo(_nombreCtrl, 'Nombre / Razón social *', Icons.storefront_outlined, obligatorio: true),
+            _divider(),
+            _campo(_nifCtrl,   'NIF / CIF',  Icons.badge_outlined),
+            _divider(),
+            _campo(_emailCtrl, 'Email',       Icons.email_outlined, tipo: TextInputType.emailAddress),
+            _divider(),
+            _campo(_telCtrl,   'Teléfono',    Icons.phone_outlined,  tipo: TextInputType.phone),
+            _divider(),
+            _campo(_dirCtrl,   'Dirección',   Icons.location_on_outlined),
+          ])),
+          const SizedBox(height: 14),
+          // ── Categoría ──────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.category_outlined, size: 16, color: Colors.grey[500]),
+                const SizedBox(width: 8),
+                Text('Categoría', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+              ]),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: _categorias.map((cat) {
+                final sel = _categoria == cat.$1;
+                return GestureDetector(
+                  onTap: () => setState(() => _categoria = cat.$1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: sel ? cat.$3 : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: sel ? cat.$3 : const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(cat.$2, size: 14, color: sel ? Colors.white : Colors.grey[600]),
+                      const SizedBox(width: 5),
+                      Text(cat.$1[0].toUpperCase() + cat.$1.substring(1),
+                          style: TextStyle(fontSize: 12, color: sel ? Colors.white : Colors.grey[700],
+                              fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
+                    ]),
+                  ),
+                );
+              }).toList()),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          // ── Notas ──────────────────────────────────────────────────────
+          _seccion('Notas', child: TextFormField(
+            controller: _notasCtrl,
+            maxLines: 3,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Observaciones, condiciones de pago…',
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
+              border: InputBorder.none,
+            ),
+          )),
+          const SizedBox(height: 20),
+          // ── Botón guardar ──────────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _guardando
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(widget.proveedor == null ? 'Crear proveedor' : 'Guardar cambios',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+          if (widget.proveedor != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  await widget.svc.eliminarProveedor(widget.empresaId, widget.proveedor!.id);
+                  if (mounted) widget.onGuardado();
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Eliminar proveedor'),
+              ),
+            ),
+          ],
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _seccion(String titulo, {required Widget child}) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white, borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        child: Text(titulo, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+            color: Colors.grey[500], letterSpacing: 1.1)),
+      ),
+      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: child),
+    ]),
+  );
+
+  Widget _campo(TextEditingController ctrl, String label, IconData icon,
+      {TextInputType tipo = TextInputType.text, bool obligatorio = false}) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: tipo,
+      style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        prefixIcon: Icon(icon, size: 18, color: Colors.grey[400]),
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      ),
+      validator: obligatorio ? (v) => v == null || v.trim().isEmpty ? 'Campo obligatorio' : null : null,
+    );
+  }
+
+  Widget _divider() => const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 46);
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 class PantallaFormProveedor extends StatefulWidget {

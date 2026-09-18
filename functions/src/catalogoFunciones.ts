@@ -9,7 +9,9 @@ import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
-const REGION = "europe-west1";
+const REGION         = "europe-west1";
+// El bucket de Storage del proyecto está en us-west1; el trigger debe coincidir.
+const REGION_STORAGE = "us-west1";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // generarThumbnailCatalogo
@@ -18,7 +20,7 @@ const REGION = "europe-west1";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const generarThumbnailCatalogo = onObjectFinalized(
-  { region: REGION, memory: "512MiB" },
+  { region: REGION_STORAGE, memory: "512MiB" },
   async (event) => {
     const filePath = event.data.name;
     if (!filePath) return;

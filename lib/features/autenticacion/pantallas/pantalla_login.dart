@@ -417,6 +417,20 @@ class _PantallaLoginState extends State<PantallaLogin> {
       await _postLoginExitoso(user, MetodoAuth.email);
 
     } on FirebaseAuthException catch (e) {
+      // internal-error: limpiar sesión caducada/revocada y reintentar
+      if (e.code == 'internal-error' || e.code == 'user-token-expired') {
+        try {
+          await FirebaseAuth.instance.signOut();
+          // Pequeña pausa y reintento automático limpio
+          await Future.delayed(const Duration(milliseconds: 800));
+          final cred2 = await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: correo, password: password,
+          );
+          await FuerzaBrutaService().registrarIntento(email: correo, exito: true);
+          await _postLoginExitoso(cred2.user!, MetodoAuth.email);
+          return;
+        } catch (_) {}
+      }
       await FuerzaBrutaService().registrarIntento(email: correo, exito: false);
       await AuditoriaService().registrar(
         tipo: TipoEventoAuditoria.loginFallido,
@@ -539,6 +553,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
       'invalid-email'          => 'El correo no tiene un formato válido.',
       'user-disabled'          => 'Esta cuenta ha sido deshabilitada.',
       'too-many-requests'      => 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+      'internal-error'         => 'Error de sesión. Cierra la app completamente y vuelve a abrirla.',
+      'user-token-expired'     => 'Sesión expirada. Vuelve a iniciar sesión.',
       'network-request-failed' => 'Sin conexión a internet. Comprueba tu red.',
       'email-already-in-use'   => 'Ya existe una cuenta con este correo.',
       'operation-not-allowed'  => 'Método de inicio de sesión no habilitado.',

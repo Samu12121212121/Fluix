@@ -36,8 +36,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
-exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = void 0;
+exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = exports.onReservaCRM = exports.onReservaCreatedCRM = exports.onNuevoClienteCRM = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.generarThumbnailCatalogo = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
+exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onNuevoPedido = exports.onNuevaValoracion = exports.onReservaCancelada = exports.onReservaConfirmada = exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = void 0;
+exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.crearCheckoutNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.getBlogLista = exports.getBlogEntry = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -53,6 +54,7 @@ Object.defineProperty(exports, "scheduledGenerarTareasRecurrentes", { enumerable
 Object.defineProperty(exports, "scheduledRecordatoriosTareas", { enumerable: true, get: function () { return tareasFunciones_1.scheduledRecordatoriosTareas; } });
 Object.defineProperty(exports, "scheduledTareasVencenHoy", { enumerable: true, get: function () { return tareasFunciones_1.scheduledTareasVencenHoy; } });
 Object.defineProperty(exports, "onNuevaSugerencia", { enumerable: true, get: function () { return tareasFunciones_1.onNuevaSugerencia; } });
+Object.defineProperty(exports, "onNuevoContactoSoporte", { enumerable: true, get: function () { return tareasFunciones_1.onNuevoContactoSoporte; } });
 const alertaCertificado_1 = require("./alertaCertificado");
 Object.defineProperty(exports, "scheduledAlertaCertificado", { enumerable: true, get: function () { return alertaCertificado_1.scheduledAlertaCertificado; } });
 const authGuard_1 = require("./utils/authGuard");
@@ -73,10 +75,8 @@ Object.defineProperty(exports, "whatsappWebhook", { enumerable: true, get: funct
 Object.defineProperty(exports, "enviarPlantillaWhatsApp", { enumerable: true, get: function () { return whatsappBot_1.enviarPlantillaWhatsApp; } });
 Object.defineProperty(exports, "enviarMensajeAdminWhatsApp", { enumerable: true, get: function () { return whatsappBot_1.enviarMensajeAdminWhatsApp; } });
 Object.defineProperty(exports, "cambiarEstadoChatBot", { enumerable: true, get: function () { return whatsappBot_1.cambiarEstadoChatBot; } });
-// NOTA: generarThumbnailCatalogo desactivado temporalmente por bug del CLI
-// "Can't find the storage bucket region" — se reactiva tras actualizar firebase-tools
-// export { generarThumbnailCatalogo } from "./catalogoFunciones";
 var catalogoFunciones_1 = require("./catalogoFunciones");
+Object.defineProperty(exports, "generarThumbnailCatalogo", { enumerable: true, get: function () { return catalogoFunciones_1.generarThumbnailCatalogo; } });
 Object.defineProperty(exports, "scheduledAlertaPreciosAntiguos", { enumerable: true, get: function () { return catalogoFunciones_1.scheduledAlertaPreciosAntiguos; } });
 var trofeos_1 = require("./trofeos");
 Object.defineProperty(exports, "onCitaCompletadaTrofeos", { enumerable: true, get: function () { return trofeos_1.onCitaCompletadaTrofeos; } });
@@ -119,6 +119,27 @@ Object.defineProperty(exports, "onReservaCompletadaValoracion", { enumerable: tr
 Object.defineProperty(exports, "procesarSolicitudesValoracion", { enumerable: true, get: function () { return notificaciones_cliente_1.procesarSolicitudesValoracion; } });
 Object.defineProperty(exports, "onSelloFidelizacionInApp", { enumerable: true, get: function () { return notificaciones_cliente_1.onSelloFidelizacionInApp; } });
 Object.defineProperty(exports, "onBienvenidaClienteNuevo", { enumerable: true, get: function () { return notificaciones_cliente_1.onBienvenidaClienteNuevo; } });
+var automaciones_clientes_1 = require("./automaciones_clientes");
+Object.defineProperty(exports, "onNuevoClienteCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onNuevoClienteCRM; } });
+Object.defineProperty(exports, "onReservaCreatedCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onReservaCreatedCRM; } });
+Object.defineProperty(exports, "onReservaCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onReservaCRM; } });
+Object.defineProperty(exports, "onPedidoCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onPedidoCRM; } });
+Object.defineProperty(exports, "onPedidoWhatsAppCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onPedidoWhatsAppCRM; } });
+Object.defineProperty(exports, "onFacturaCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onFacturaCRM; } });
+Object.defineProperty(exports, "onFacturaAnuladaCRM", { enumerable: true, get: function () { return automaciones_clientes_1.onFacturaAnuladaCRM; } });
+Object.defineProperty(exports, "recalcularStatsCliente", { enumerable: true, get: function () { return automaciones_clientes_1.recalcularStatsCliente; } });
+var cdnPurge_1 = require("./cdnPurge");
+Object.defineProperty(exports, "purgeEventoCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeEventoCdn; } });
+Object.defineProperty(exports, "purgeBlogCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeBlogCdn; } });
+Object.defineProperty(exports, "purgeCatalogoCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeCatalogoCdn; } });
+var webPush_1 = require("./webPush");
+Object.defineProperty(exports, "pushNuevoEvento", { enumerable: true, get: function () { return webPush_1.pushNuevoEvento; } });
+Object.defineProperty(exports, "pushNuevoPost", { enumerable: true, get: function () { return webPush_1.pushNuevoPost; } });
+Object.defineProperty(exports, "pushNuevoCatalogo", { enumerable: true, get: function () { return webPush_1.pushNuevoCatalogo; } });
+var nazariMigracion_1 = require("./nazariMigracion");
+Object.defineProperty(exports, "buscarArchivoNazari", { enumerable: true, get: function () { return nazariMigracion_1.buscarArchivoNazari; } });
+Object.defineProperty(exports, "importarContenidoNazari", { enumerable: true, get: function () { return nazariMigracion_1.importarContenidoNazari; } });
+Object.defineProperty(exports, "migrarDatosNazariDesdeWeb", { enumerable: true, get: function () { return nazariMigracion_1.migrarDatosNazariDesdeWeb; } });
 if (!admin.apps.length)
     admin.initializeApp();
 const db = admin.firestore();
@@ -269,116 +290,14 @@ Object.defineProperty(exports, "resumenSemanalResenas", { enumerable: true, get:
 // ── SECRETS via variables de entorno (.env o Firebase env config) ─────────
 // Valores reales: edita functions/.env (no subir a git)
 const stripeSecretKey = { value: () => { var _a; return (_a = process.env.STRIPE_SECRET_KEY) !== null && _a !== void 0 ? _a : ""; } };
+const stripeSecretKeyTest = { value: () => { var _a; return (_a = process.env.STRIPE_SECRET_KEY_TEST) !== null && _a !== void 0 ? _a : ""; } };
 const stripeWebhookSecret = { value: () => { var _a; return (_a = process.env.STRIPE_WEBHOOK_SECRET) !== null && _a !== void 0 ? _a : ""; } };
+const stripeWebhookSecretTest = { value: () => { var _a; return (_a = process.env.STRIPE_WEBHOOK_SECRET_TEST) !== null && _a !== void 0 ? _a : ""; } };
 // Secret para webhooks de tiendas de clientes — puede ser el mismo o uno propio
 const stripeTiendaWebhookSecret = { value: () => { var _a, _b; return (_b = (_a = process.env.STRIPE_TIENDA_WEBHOOK_SECRET) !== null && _a !== void 0 ? _a : process.env.STRIPE_WEBHOOK_SECRET) !== null && _b !== void 0 ? _b : ""; } };
 // Resend API key — configurado en functions/.env como RESEND_API_KEY
 // ── UTILIDADES ────────────────────────────────────────────────────────────────
-async function obtenerTokensEmpresa(empresaId) {
-    const col = db.collection("empresas").doc(empresaId).collection("dispositivos");
-    // Primero intenta con filtro activo == true
-    let snapshot = await col.where("activo", "==", true).get();
-    // Si no hay resultados, coge todos (puede que el campo se llame diferente)
-    if (snapshot.empty) {
-        snapshot = await col.get();
-    }
-    const tokens = [];
-    snapshot.forEach((doc) => {
-        const token = doc.data().token;
-        if (token && token.length > 10)
-            tokens.push(token);
-    });
-    // Fallback: si no hay tokens en dispositivos, buscar en colección usuarios
-    if (tokens.length === 0) {
-        console.log(`⚠️ Sin tokens en dispositivos para ${empresaId}, buscando en usuarios...`);
-        const usuariosSnap = await db
-            .collection("usuarios")
-            .where("empresa_id", "==", empresaId)
-            .where("activo", "!=", false)
-            .get();
-        for (const userDoc of usuariosSnap.docs) {
-            const tokenUsuario = userDoc.data().token_dispositivo;
-            if (tokenUsuario && tokenUsuario.length > 10 && !tokens.includes(tokenUsuario)) {
-                tokens.push(tokenUsuario);
-                // Sincronizar: guardar también en dispositivos para la próxima vez
-                try {
-                    await col.doc(userDoc.id).set({
-                        token: tokenUsuario,
-                        uid_usuario: userDoc.id,
-                        activo: true,
-                        sincronizado_desde: "fallback_usuarios",
-                        ultima_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-                    }, { merge: true });
-                    console.log(`🔄 Token sincronizado de usuarios/${userDoc.id} → dispositivos`);
-                }
-                catch (_) { /* no bloquear el envío */ }
-            }
-        }
-    }
-    return tokens;
-}
-async function enviarNotificacionEmpresa(empresaId, titulo, cuerpo, data = {}) {
-    const tokens = await obtenerTokensEmpresa(empresaId);
-    if (tokens.length === 0) {
-        console.log(`❌ No hay tokens para empresa ${empresaId} — NO se envía push`);
-        return;
-    }
-    console.log(`📤 Enviando push a ${tokens.length} token(s) para empresa ${empresaId}: "${titulo}"`);
-    const mensaje = {
-        tokens,
-        notification: { title: titulo, body: cuerpo },
-        data: Object.assign({ empresa_id: empresaId }, data),
-        android: {
-            priority: "high",
-            notification: {
-                channelId: "fluixcrm_canal_principal",
-                sound: "default",
-                priority: "high",
-            },
-        },
-        apns: {
-            payload: {
-                aps: {
-                    sound: "default",
-                    badge: 1,
-                },
-            },
-        },
-    };
-    try {
-        const respuesta = await messaging.sendEachForMulticast(mensaje);
-        console.log(`✅ Notificaciones enviadas: ${respuesta.successCount}/${tokens.length}`);
-        if (respuesta.failureCount > 0) {
-            const tokensAEliminar = [];
-            respuesta.responses.forEach((resp, idx) => {
-                if (!resp.success) {
-                    const error = resp.error;
-                    if ((error === null || error === void 0 ? void 0 : error.code) === "messaging/registration-token-not-registered" ||
-                        (error === null || error === void 0 ? void 0 : error.code) === "messaging/invalid-registration-token") {
-                        tokensAEliminar.push(tokens[idx]);
-                    }
-                }
-            });
-            if (tokensAEliminar.length > 0) {
-                const dispositivosRef = db
-                    .collection("empresas")
-                    .doc(empresaId)
-                    .collection("dispositivos");
-                const snapshotInvalidos = await dispositivosRef
-                    .where("token", "in", tokensAEliminar)
-                    .get();
-                const batch = db.batch();
-                snapshotInvalidos.forEach((doc) => {
-                    batch.update(doc.ref, { activo: false });
-                });
-                await batch.commit();
-            }
-        }
-    }
-    catch (error) {
-        console.error("❌ Error enviando notificaciones:", error);
-    }
-}
+const notificaciones_1 = require("./utils/notificaciones");
 // ── Sitemap.xml dinámico por empresa ─────────────────────────────────────────
 // GET /generarSitemap?empresa={empresaId}&base={baseUrl}
 // Devuelve un sitemap.xml con blog posts publicados + páginas estáticas.
@@ -550,7 +469,7 @@ async function procesarNuevaReservaOCita(empresaId, entidadId, reserva, coleccio
         alergenos_detalle: tieneAlergenos && alergenosDetalle ? alergenosDetalle : null,
     });
     // 2. Enviar push FCM
-    await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: entidadId, coleccion });
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, titulo, cuerpo, { tipo: "nueva_reserva", reserva_id: entidadId, coleccion });
     console.log(`✅ ${label} guardada en bandeja y push enviado — empresa ${empresaId}`);
 }
 /**
@@ -632,7 +551,21 @@ exports.onNuevoMensajeContacto = (0, firestore_1.onDocumentCreated)({ document: 
     catch (e) {
         console.error("onNuevoMensajeContacto push error:", e);
     }
-    // ── 2. Email al empresario ────────────────────────────────────────────────
+    // ── 2. Notificación en colección (para Windows polling) ──────────────────
+    try {
+        await db.collection(`empresas/${empresaId}/notificaciones`).add({
+            titulo: "💬 Nuevo mensaje de contacto",
+            cuerpo,
+            tipo: "contacto_web",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            datos: { mensajeId: event.params.mensajeId, tipo: "contacto_web", empresaId },
+        });
+    }
+    catch (e) {
+        console.error("onNuevoMensajeContacto notificacion error:", e);
+    }
+    // ── 3. Email al empresario ────────────────────────────────────────────────
     if (empresa.email) {
         try {
             await (0, resend_service_1.enviarNotificacionContactoWeb)({
@@ -692,6 +625,175 @@ exports.onMensajeContactoRespondido = (0, firestore_1.onDocumentUpdated)({ docum
         console.error("onMensajeContactoRespondido email error:", e);
     }
 });
+// ── TEST EMAIL (temporal — quitar tras diagnosticar) ──────────────────────────
+exports.testEmail = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a;
+    if (req.method !== "POST") {
+        res.status(405).send("POST only");
+        return;
+    }
+    const to = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.to) || "sacoor80@gmail.com";
+    try {
+        const apiKey = process.env.RESEND_API_KEY || "";
+        if (!apiKey) {
+            res.json({ ok: false, error: "RESEND_API_KEY not set" });
+            return;
+        }
+        const result = await (0, resend_service_1.enviarPdfGenerico)({
+            from: "Editorial Nazarí <noreply@fluixtech.com>",
+            to,
+            subject: "Test email desde Cloud Functions",
+            html: `<p>Email de prueba enviado desde la función. API Key presente: ${apiKey.length > 0 ? 'SÍ (' + apiKey.slice(0, 8) + '...)' : 'NO'}</p>`,
+        });
+        res.json({ ok: result.exito, id: result.id, error: result.error });
+    }
+    catch (e) {
+        res.json({ ok: false, error: e.message });
+    }
+});
+// ── ENVÍO DE CAMPAÑAS DE EMAIL ─────────────────────────────────────────────────
+//
+// Trigger: campanas_email/{campanaId} pasa a estado 'enviando'
+// 1. Recoge la lista de destinatarios según segmento
+// 2. Envía con Resend en lotes de 10 (evita rate-limit)
+// 3. Actualiza estado → 'enviada' | 'fallida' + total_enviados
+exports.enviarCampanaEmail = (0, firestore_1.onDocumentUpdated)({ document: "empresas/{empresaId}/campanas_email/{campanaId}", region: REGION }, async (event) => {
+    var _a, _b;
+    const antes = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const despues = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!antes || !despues)
+        return;
+    if (antes.estado === "enviando")
+        return;
+    if (despues.estado !== "enviando")
+        return;
+    const empresaId = event.params.empresaId;
+    const campanaId = event.params.campanaId;
+    const campanaRef = db.collection(`empresas/${empresaId}/campanas_email`).doc(campanaId);
+    const asunto = despues.asunto || "(Sin asunto)";
+    const contenidoRaw = despues.contenido_html || "";
+    const segmento = despues.segmento || "todos";
+    const destinatariosManual = despues.destinatarios_manual || [];
+    const empresa = await _getDatosEmpresa(empresaId);
+    const fromEmail = `${empresa.nombre} <noreply@fluixtech.com>`;
+    // Convertir saltos de línea a <br> si el contenido no tiene tags HTML
+    const tieneHtml = /<[a-z][\s\S]*>/i.test(contenidoRaw);
+    const contenidoProcessed = tieneHtml
+        ? contenidoRaw
+        : contenidoRaw.replace(/\n/g, "<br>");
+    // Envolver en template HTML profesional
+    const anio = new Date().getFullYear();
+    const contenidoHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${asunto}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f0;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:10px;overflow:hidden;max-width:620px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <!-- HEADER -->
+        <tr>
+          <td style="background:#1a1a2e;padding:28px 40px;text-align:center;">
+            <span style="color:#ffffff;font-size:24px;font-weight:bold;letter-spacing:.5px;">${empresa.nombre}</span>
+          </td>
+        </tr>
+        <!-- ASUNTO -->
+        <tr>
+          <td style="padding:28px 40px 0;border-bottom:1px solid #e8eaed;">
+            <h2 style="margin:0 0 16px;font-size:20px;color:#1a1a2e;font-weight:700;line-height:1.3;">${asunto}</h2>
+          </td>
+        </tr>
+        <!-- CONTENIDO -->
+        <tr>
+          <td style="padding:28px 40px;font-size:15px;color:#374151;line-height:1.7;">
+            ${contenidoProcessed}
+          </td>
+        </tr>
+        <!-- FOOTER -->
+        <tr>
+          <td style="background:#f8f9fa;padding:20px 40px;text-align:center;border-top:1px solid #e8eaed;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              © ${anio} ${empresa.nombre}. Todos los derechos reservados.<br>
+              Para dejar de recibir este tipo de comunicaciones responde con "BAJA".
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+    // Construir lista de destinatarios
+    let emails = [];
+    try {
+        if (segmento === "manual") {
+            emails = destinatariosManual.filter(e => e.includes("@"));
+        }
+        else {
+            // Segmento 'todos' o 'clientes_activos': leer de colección clientes
+            const corte = segmento === "clientes_activos"
+                ? new Date(Date.now() - 90 * 24 * 3600 * 1000)
+                : null;
+            let q = db.collection(`empresas/${empresaId}/clientes`)
+                .where("activo", "!=", false);
+            if (corte) {
+                q = db.collection(`empresas/${empresaId}/clientes`)
+                    .where("fecha_creacion", ">=", admin.firestore.Timestamp.fromDate(corte));
+            }
+            const snap = await q.get();
+            snap.docs.forEach(d => {
+                const email = d.data().email || d.data().correo || "";
+                if (email.includes("@"))
+                    emails.push(email);
+            });
+            // También leer de colección 'clientes_web' si existe
+            try {
+                const snapWeb = await db.collection(`empresas/${empresaId}/contacto_web`)
+                    .where("origen", "!=", "manuscrito").get();
+                snapWeb.docs.forEach(d => {
+                    const email = d.data().email || "";
+                    if (email.includes("@") && !emails.includes(email))
+                        emails.push(email);
+                });
+            }
+            catch (_) { }
+        }
+    }
+    catch (e) {
+        console.error("❌ [Campaña] Error obteniendo destinatarios:", e);
+        await campanaRef.update({ estado: "fallida", error_mensaje: "Error obteniendo destinatarios" });
+        return;
+    }
+    if (emails.length === 0) {
+        console.warn(`⚠️ [Campaña] ${campanaId} — sin destinatarios`);
+        await campanaRef.update({ estado: "enviada", total_enviados: 0, fecha_envio: admin.firestore.FieldValue.serverTimestamp() });
+        return;
+    }
+    // Envío en lotes de 10
+    let enviados = 0;
+    const LOTE = 10;
+    for (let i = 0; i < emails.length; i += LOTE) {
+        const lote = emails.slice(i, i + LOTE);
+        await Promise.allSettled(lote.map(to => (0, resend_service_1.enviarPdfGenerico)({ from: fromEmail, to, subject: asunto, html: contenidoHtml })
+            .then(r => { if (r.exito)
+            enviados++; })
+            .catch(() => { })));
+        // Pausa breve entre lotes para no saturar Resend
+        if (i + LOTE < emails.length)
+            await new Promise(r => setTimeout(r, 500));
+    }
+    await campanaRef.update({
+        estado: "enviada",
+        total_enviados: enviados,
+        fecha_envio: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`✅ [Campaña] ${campanaId} enviada — ${enviados}/${emails.length} emails`);
+});
 // ── HELPER: obtiene nombre e email de la empresa ───────────────────────────────
 async function _getDatosEmpresa(empresaId) {
     try {
@@ -737,7 +839,7 @@ exports.onReservaConfirmada = (0, firestore_1.onDocumentUpdated)({ document: "em
         remitente_telefono: despues.telefono_cliente || null,
         remitente_email: emailCliente,
     });
-    await enviarNotificacionEmpresa(empresaId, "✅ Reserva Confirmada", cuerpo, { tipo: "reserva_confirmada", reserva_id: event.params.reservaId });
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "✅ Reserva Confirmada", cuerpo, { tipo: "reserva_confirmada", reserva_id: event.params.reservaId });
     // 2. Email al cliente si tiene correo
     if (emailCliente) {
         try {
@@ -796,7 +898,7 @@ exports.onReservaCancelada = (0, firestore_1.onDocumentUpdated)({ document: "emp
         remitente_telefono: despues.telefono_cliente || null,
         remitente_email: emailCliente,
     });
-    await enviarNotificacionEmpresa(empresaId, "❌ Reserva Cancelada", cuerpo, { tipo: "reserva_cancelada", reserva_id: event.params.reservaId });
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "❌ Reserva Cancelada", cuerpo, { tipo: "reserva_cancelada", reserva_id: event.params.reservaId });
     // 2. Email al cliente si tiene correo
     if (emailCliente) {
         try {
@@ -882,7 +984,7 @@ exports.onNuevaValoracion = (0, firestore_1.onDocumentCreated)({ document: "empr
             },
         },
     };
-    await enviarNotificacionEmpresa(empresaId, titulo, cuerpo, mensaje.data);
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, titulo, cuerpo, mensaje.data);
 });
 /**
  * 4. NUEVO PEDIDO
@@ -899,12 +1001,16 @@ exports.onNuevoPedido = (0, firestore_1.onDocumentCreated)({ document: "empresas
     const email = pedido.cliente_correo || pedido.email || null;
     const total = pedido.precio_total || pedido.total || 0;
     const origen = pedido.origen || "app";
+    // Las funciones Stripe crean la notificación directamente para garantizar entrega.
+    // Evitar duplicados saltando sus orígenes aquí.
+    if (origen === "web_nazari" || origen === "tienda_online")
+        return;
     const cuerpo = `${cliente} — €${total.toFixed(2)} (vía ${origen})`;
     // Guardar en bandeja in-app
     await db.collection("notificaciones").doc(empresaId).collection("items").add({
-        titulo: "🛒 Nuevo Pedido",
+        titulo: "📦 Nuevo Pedido",
         cuerpo,
-        tipo: "reservaNueva", // usamos reservaNueva como tipo genérico hasta añadir tipo pedido
+        tipo: "pedidoNuevo",
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         leida: false,
         modulo_destino: "pedidos",
@@ -913,7 +1019,7 @@ exports.onNuevoPedido = (0, firestore_1.onDocumentCreated)({ document: "empresas
         remitente_telefono: telefono,
         remitente_email: email,
     });
-    await enviarNotificacionEmpresa(empresaId, "🛒 Nuevo Pedido", cuerpo, { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId });
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "📦 Nuevo Pedido", cuerpo, { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId });
 });
 /**
  * 5. NUEVO PEDIDO → GENERAR FACTURA AUTOMÁTICAMENTE
@@ -1061,14 +1167,14 @@ exports.verificarSuscripciones = (0, scheduler_1.onSchedule)({
                     estado: "VENCIDA",
                     fecha_vencimiento_real: admin.firestore.FieldValue.serverTimestamp(),
                 });
-                await enviarNotificacionEmpresa(empresaId, "🔒 Suscripción Vencida", "Tu suscripción ha expirado. Renueva en fluixtech.com para seguir usando la app.", { tipo: "suscripcion_vencida" });
+                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "🔒 Suscripción Vencida", "Tu suscripción ha expirado. Renueva en fluixtech.com para seguir usando la app.", { tipo: "suscripcion_vencida" });
                 console.log(`🔒 Suscripción VENCIDA para empresa ${empresaId}`);
                 continue;
             }
             if (diasRestantes < 0 && diasRestantes >= -7 && suscripcion.estado === "ACTIVA") {
                 // Periodo de gracia (0-7 días tras vencimiento): avisar pero no bloquear
                 if (!suscripcion.aviso_gracia_enviado) {
-                    await enviarNotificacionEmpresa(empresaId, "⚠️ Suscripción expirada — periodo de gracia", `Tu suscripción venció hace ${Math.abs(diasRestantes)} día(s). Renueva antes de ${7 + diasRestantes} días para no perder acceso.`, { tipo: "suscripcion_gracia", dias_restantes: String(diasRestantes) });
+                    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción expirada — periodo de gracia", `Tu suscripción venció hace ${Math.abs(diasRestantes)} día(s). Renueva antes de ${7 + diasRestantes} días para no perder acceso.`, { tipo: "suscripcion_gracia", dias_restantes: String(diasRestantes) });
                     await suscripcionDoc.ref.update({
                         aviso_gracia_enviado: true,
                         ultimo_aviso: admin.firestore.FieldValue.serverTimestamp(),
@@ -1079,7 +1185,7 @@ exports.verificarSuscripciones = (0, scheduler_1.onSchedule)({
             }
             // ── AVISOS PRE-VENCIMIENTO: 7, 3 y 1 día antes ──
             if ([7, 3, 1].includes(diasRestantes)) {
-                await enviarNotificacionEmpresa(empresaId, "⚠️ Suscripción por Vencer", `Tu suscripción vence en ${diasRestantes} día${diasRestantes !== 1 ? "s" : ""}. ¡Renueva para continuar!`, {
+                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción por Vencer", `Tu suscripción vence en ${diasRestantes} día${diasRestantes !== 1 ? "s" : ""}. ¡Renueva para continuar!`, {
                     tipo: "suscripcion_por_vencer",
                     dias_restantes: String(diasRestantes),
                 });
@@ -1107,7 +1213,7 @@ exports.onNuevoPedidoWhatsApp = (0, firestore_1.onDocumentCreated)({ document: "
         return;
     const cliente = pedido.nombre_cliente || pedido.telefono || "Cliente WhatsApp";
     const total = pedido.total || 0;
-    await enviarNotificacionEmpresa(empresaId, "💬 Pedido por WhatsApp", `${cliente} — €${total.toFixed(2)}`, { tipo: "pedido_whatsapp", pedido_id: event.params.pedidoId });
+    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "💬 Pedido por WhatsApp", `${cliente} — €${total.toFixed(2)}`, { tipo: "pedido_whatsapp", pedido_id: event.params.pedidoId });
 });
 // ── GENERADOR DE SCRIPTS DINÁMICOS ────────────────────────────────────────────
 // ⛔ generarScriptEmpresa ELIMINADA — causaba doble push al tener formulario de
@@ -1570,47 +1676,52 @@ exports.crearEmpresaHTTP = (0, https_1.onRequest)({ region: REGION, cors: true }
 });
 // ── STRIPE WEBHOOK (v2 onRequest) ─────────────────────────────────────────────
 exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (req.method !== "POST") {
         res.status(405).send("Method Not Allowed");
         return;
     }
-    const secretKey = stripeSecretKey.value() || "";
-    const webhookSec = stripeWebhookSecret.value() || "";
-    if (!secretKey) {
-        console.error("❌ STRIPE_SECRET_KEY no configurada. Ejecuta: firebase functions:secrets:set STRIPE_SECRET_KEY");
+    const liveKey = stripeSecretKey.value() || "";
+    const testKey = stripeSecretKeyTest.value() || "";
+    const liveSec = stripeWebhookSecret.value() || "";
+    const testSec = stripeWebhookSecretTest.value() || "";
+    if (!liveKey && !testKey) {
+        console.error("❌ STRIPE_SECRET_KEY no configurada");
         res.status(500).json({ error: "Stripe no configurado en el servidor" });
         return;
     }
-    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
-    let event;
-    try {
-        const sig = req.headers["stripe-signature"];
-        const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
-        if (!webhookSec) {
-            console.error("❌ STRIPE_WEBHOOK_SECRET no configurada");
-            res.status(500).json({ error: "Webhook no configurado" });
-            return;
-        }
-        if (!sig) {
-            res.status(400).json({ error: "Firma de Stripe ausente" });
-            return;
-        }
-        try {
-            event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
-        }
-        catch (err) {
-            console.error("❌ Firma Stripe inválida:", err);
-            res.status(400).json({ error: "Firma inválida" });
-            return;
-        }
-    }
-    catch (err) {
-        console.error("❌ Error verificando firma Stripe:", err);
-        res.status(400).json({ error: `Webhook signature verification failed: ${err}` });
+    const sig = req.headers["stripe-signature"];
+    const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
+    if (!sig) {
+        res.status(400).json({ error: "Firma de Stripe ausente" });
         return;
     }
-    console.log(`📥 Stripe evento recibido: ${event.type} [${event.id}]`);
+    // Intentar verificar con LIVE secret primero, luego con TEST secret
+    let event;
+    let isTestEvent = false;
+    const stripeVerifier = new stripe_1.default(liveKey || testKey, { apiVersion: "2024-06-20" });
+    let verified = false;
+    if (liveSec) {
+        try {
+            event = stripeVerifier.webhooks.constructEvent(rawBody, sig, liveSec);
+            verified = true;
+        }
+        catch (_) { /* probar con TEST */ }
+    }
+    if (!verified && testSec) {
+        try {
+            event = stripeVerifier.webhooks.constructEvent(rawBody, sig, testSec);
+            verified = true;
+            isTestEvent = true;
+        }
+        catch (_) { /* ninguno funcionó */ }
+    }
+    if (!verified) {
+        console.error("❌ Firma Stripe inválida — comprueba STRIPE_WEBHOOK_SECRET y STRIPE_WEBHOOK_SECRET_TEST");
+        res.status(400).json({ error: "Firma inválida" });
+        return;
+    }
+    console.log(`📥 Stripe evento: ${event.type} [${event.id}] modo=${isTestEvent ? "TEST" : "LIVE"}`);
     // ── IDEMPOTENCIA: evitar procesar el mismo evento dos veces ──────────────
     // Stripe puede reenviar eventos ante timeouts o fallos de red.
     const eventDocRef = db.collection("stripe_processed_events").doc(event.id);
@@ -1630,12 +1741,17 @@ exports.stripeWebhook = (0, https_1.onRequest)({ region: REGION }, async (req, r
         switch (event.type) {
             case "checkout.session.completed": {
                 const session = event.data.object;
-                await _procesarCheckoutCompletado(session, db);
+                if (((_b = session.metadata) === null || _b === void 0 ? void 0 : _b.tipo) === "pedido_nazari") {
+                    await _procesarPedidoNazari(session, db);
+                }
+                else {
+                    await _procesarCheckoutCompletado(session, db);
+                }
                 break;
             }
             case "payment_intent.succeeded": {
                 const pi = event.data.object;
-                if ((_b = pi.metadata) === null || _b === void 0 ? void 0 : _b.empresa_id) {
+                if ((_c = pi.metadata) === null || _c === void 0 ? void 0 : _c.empresa_id) {
                     await _procesarPaymentIntentExitoso(pi, db);
                 }
                 break;
@@ -1711,6 +1827,142 @@ exports.enviarEmailConPdf = (0, https_1.onCall)({ region: REGION }, async (reque
     return { exito: true, mensaje: `Email enviado a ${destinatario}` };
 });
 // ── FUNCIONES HELPER STRIPE ───────────────────────────────────────────────────
+// ── Pedido de libro Editorial Nazarí (via Payment Link o Checkout) ────────────
+async function _procesarPedidoNazari(session, db) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const modoLabel = session.livemode ? "LIVE" : "TEST";
+    const libroId = ((_a = session.metadata) === null || _a === void 0 ? void 0 : _a.libro_id) || "";
+    const totalEuros = ((_b = session.amount_total) !== null && _b !== void 0 ? _b : 0) / 100;
+    const clienteNombre = ((_c = session.customer_details) === null || _c === void 0 ? void 0 : _c.name) || "Cliente web";
+    const clienteEmail = ((_d = session.customer_details) === null || _d === void 0 ? void 0 : _d.email) || null;
+    const clienteTelefono = ((_e = session.customer_details) === null || _e === void 0 ? void 0 : _e.phone) || null;
+    const direccionEnvio = _formatearDireccion(session.shipping_details);
+    // ── Line items desde Stripe (expande nombre real, cantidad, precio) ──────────
+    const stripeKey = session.livemode ? stripeSecretKey.value() : stripeSecretKeyTest.value();
+    const stripeInst = new stripe_1.default(stripeKey, { apiVersion: "2024-06-20" });
+    let lineas = [];
+    try {
+        const items = await stripeInst.checkout.sessions.listLineItems(session.id, { limit: 100, expand: ["data.price.product"] });
+        lineas = items.data.map(item => {
+            var _a, _b, _c, _d, _e, _f;
+            const prod = (_a = item.price) === null || _a === void 0 ? void 0 : _a.product;
+            const catId = ((_b = prod === null || prod === void 0 ? void 0 : prod.metadata) === null || _b === void 0 ? void 0 : _b.catalogo_id) || libroId;
+            const titulo = (prod === null || prod === void 0 ? void 0 : prod.name) || item.description || ((_c = session.metadata) === null || _c === void 0 ? void 0 : _c.libro_titulo) || "Libro";
+            const precioUnitario = (((_e = (_d = item.price) === null || _d === void 0 ? void 0 : _d.unit_amount) !== null && _e !== void 0 ? _e : 0) / 100) / 1.04;
+            return {
+                libro_id: catId,
+                producto_nombre: titulo,
+                descripcion: `${titulo} — venta online Editorial Nazarí`,
+                cantidad: (_f = item.quantity) !== null && _f !== void 0 ? _f : 1,
+                precio_unitario: parseFloat(precioUnitario.toFixed(2)),
+                porcentaje_iva: 4, // IVA superreducido libros España
+            };
+        });
+    }
+    catch (_) {
+        // Fallback: usar metadata del payment link
+        const titulo = ((_f = session.metadata) === null || _f === void 0 ? void 0 : _f.libro_titulo) || "Libro";
+        lineas = [{
+                libro_id: libroId,
+                producto_nombre: titulo,
+                descripcion: `${titulo} — venta online Editorial Nazarí`,
+                cantidad: 1,
+                precio_unitario: parseFloat((totalEuros / 1.04).toFixed(2)),
+                porcentaje_iva: 4,
+            }];
+    }
+    const baseImponible = parseFloat(lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0).toFixed(2));
+    const importeIva = parseFloat((totalEuros - baseImponible).toFixed(2));
+    // ── Número de ticket correlativo ──────────────────────────────────────────
+    const contadorRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("contadores").doc("tickets");
+    let numTicket = 1;
+    const contSnap = await contadorRef.get();
+    numTicket = contSnap.exists ? ((_h = (_g = contSnap.data()) === null || _g === void 0 ? void 0 : _g.ultimo) !== null && _h !== void 0 ? _h : 0) + 1 : 1;
+    await contadorRef.set({ ultimo: numTicket }, { merge: true });
+    // ── Crear pedido ──────────────────────────────────────────────────────────
+    const pedidoData = {
+        empresa_id: NAZARI_EMPRESA_ID,
+        numero_ticket: numTicket,
+        cliente_nombre: clienteNombre,
+        cliente_correo: clienteEmail,
+        cliente_telefono: clienteTelefono,
+        direccion_envio: direccionEnvio,
+        origen: "web_nazari",
+        estado: "pendiente",
+        estado_pago: "pagado",
+        metodo_pago: "tarjeta",
+        lineas,
+        subtotal: baseImponible,
+        importe_iva: importeIva,
+        total: totalEuros,
+        stripe_session_id: session.id,
+        stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        livemode: session.livemode,
+        notas_internas: `Compra online via Stripe ${modoLabel}. Session: ${session.id}`,
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    const pedidoRef = await db
+        .collection("empresas").doc(NAZARI_EMPRESA_ID)
+        .collection("pedidos").add(pedidoData);
+    console.log(`✅ [NAZARI-${modoLabel}] Pedido #${numTicket} (${pedidoRef.id}) — ${clienteNombre} — €${totalEuros}`);
+    // ── Notificación en bandeja + push FCM ────────────────────────────────────
+    const cuerpoNotif = `${clienteNombre} — €${totalEuros.toFixed(2)} (web Editorial Nazarí)`;
+    try {
+        await db.collection("notificaciones").doc(NAZARI_EMPRESA_ID).collection("items").add({
+            titulo: "📦 Nuevo Pedido Web",
+            cuerpo: cuerpoNotif,
+            tipo: "pedidoNuevo",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            modulo_destino: "pedidos",
+            entidad_id: pedidoRef.id,
+            remitente_nombre: clienteNombre !== "Cliente online" ? clienteNombre : null,
+            remitente_email: clienteEmail,
+        });
+        await (0, notificaciones_1.enviarNotificacionEmpresa)(NAZARI_EMPRESA_ID, "📦 Nuevo Pedido Web", cuerpoNotif, { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "web_nazari" });
+    }
+    catch (e) {
+        console.warn(`⚠️ [NAZARI-${modoLabel}] Error enviando notificación:`, e);
+    }
+    // ── Descontar stock en colección libros ───────────────────────────────────
+    for (const linea of lineas) {
+        if (!linea.libro_id)
+            continue;
+        try {
+            await db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+                .collection("libros").doc(linea.libro_id)
+                .update({ stock: admin.firestore.FieldValue.increment(-linea.cantidad) });
+            console.log(`📦 [NAZARI-${modoLabel}] Stock decrementado: ${linea.producto_nombre} -${linea.cantidad}`);
+        }
+        catch (_) { /* libro sin campo stock — ignorar */ }
+    }
+    // ── Email de confirmación al cliente ──────────────────────────────────────
+    if (clienteEmail) {
+        try {
+            const lineasHtml = lineas.map(l => `<tr><td style="padding:6px 0;">${l.producto_nombre}</td><td style="text-align:right;padding:6px 0;">${l.cantidad}x ${l.precio_unitario.toFixed(2)} €</td></tr>`).join("");
+            await (0, resend_service_1.enviarPdfGenerico)({
+                from: "Editorial Nazarí <noreply@fluixtech.com>",
+                to: clienteEmail,
+                subject: `✅ Pedido #${numTicket} confirmado — Editorial Nazarí`,
+                html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#1B5E20;">¡Pedido recibido!</h2>
+            <p>Hola ${clienteNombre}, hemos recibido tu pedido correctamente.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">${lineasHtml}</table>
+            <p style="font-size:18px;font-weight:bold;text-align:right;">Total: ${totalEuros.toFixed(2)} €</p>
+            <p style="color:#555;">IVA incluido (4% libros). Te enviaremos el libro a la dirección indicada.</p>
+            <p style="color:#999;font-size:11px;">— Editorial Nazarí · noreply@fluixtech.com</p>
+          </div>`,
+            });
+            console.log(`📧 [NAZARI-${modoLabel}] Email enviado a ${clienteEmail}`);
+        }
+        catch (e) {
+            console.warn(`⚠️ [NAZARI-${modoLabel}] No se pudo enviar email:`, e);
+        }
+    }
+}
 async function _procesarCheckoutCompletado(session, db) {
     var _a, _b, _c, _d, _e, _f;
     const empresaClienteId = ((_a = session.metadata) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
@@ -2056,6 +2308,12 @@ var firmarXMLVerifactu_1 = require("./firmarXMLVerifactu");
 Object.defineProperty(exports, "firmarXMLVerifactu", { enumerable: true, get: function () { return firmarXMLVerifactu_1.firmarXMLVerifactu; } });
 var remitirVerifactu_1 = require("./remitirVerifactu");
 Object.defineProperty(exports, "remitirVerifactu", { enumerable: true, get: function () { return remitirVerifactu_1.remitirVerifactu; } });
+// ── BLOG: Publicar posts programados (cada 15 min) ────────────────────────────
+var schedulerBlog_1 = require("./schedulerBlog");
+Object.defineProperty(exports, "publicarPostsProgramados", { enumerable: true, get: function () { return schedulerBlog_1.publicarPostsProgramados; } });
+var blogApi_1 = require("./blogApi");
+Object.defineProperty(exports, "getBlogEntry", { enumerable: true, get: function () { return blogApi_1.getBlogEntry; } });
+Object.defineProperty(exports, "getBlogLista", { enumerable: true, get: function () { return blogApi_1.getBlogLista; } });
 // ── GESTIÓN DE CUENTAS Y SUSCRIPCIONES (sin pasar por Apple/Google) ──────────
 var gestionCuentas_1 = require("./gestionCuentas");
 Object.defineProperty(exports, "crearCuentaConPlan", { enumerable: true, get: function () { return gestionCuentas_1.crearCuentaConPlan; } });
@@ -2241,25 +2499,42 @@ exports.stripeWebhookTienda = (0, https_1.onRequest)({ region: REGION }, async (
         res.status(405).send("Method Not Allowed");
         return;
     }
-    const secretKey = stripeSecretKey.value() || "";
-    const webhookSec = stripeTiendaWebhookSecret.value() || "";
-    if (!secretKey || !webhookSec) {
-        console.error("❌ STRIPE_SECRET_KEY o STRIPE_TIENDA_WEBHOOK_SECRET no configuradas");
-        res.status(500).json({ error: "Webhook de tienda no configurado" });
+    const liveKey = stripeSecretKey.value() || "";
+    const testKey = stripeSecretKeyTest.value() || "";
+    const liveSec = stripeTiendaWebhookSecret.value() || "";
+    const testSec = stripeWebhookSecretTest.value() || "";
+    const sig = req.headers["stripe-signature"];
+    const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
+    if (!sig) {
+        res.status(400).json({ error: "Firma ausente" });
         return;
     }
-    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
     let event;
-    try {
-        const sig = req.headers["stripe-signature"];
-        const rawBody = (_a = req.rawBody) !== null && _a !== void 0 ? _a : Buffer.from(JSON.stringify(req.body));
-        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSec);
+    let isTestEvent = false;
+    const verifier = new stripe_1.default(liveKey || testKey, { apiVersion: "2024-06-20" });
+    let verified = false;
+    if (liveSec) {
+        try {
+            event = verifier.webhooks.constructEvent(rawBody, sig, liveSec);
+            verified = true;
+        }
+        catch (_) { }
     }
-    catch (err) {
-        console.error("❌ Firma Stripe inválida en stripeWebhookTienda:", err);
+    if (!verified && testSec) {
+        try {
+            event = verifier.webhooks.constructEvent(rawBody, sig, testSec);
+            verified = true;
+            isTestEvent = true;
+        }
+        catch (_) { }
+    }
+    if (!verified) {
+        console.error("❌ Firma inválida en stripeWebhookTienda");
         res.status(400).json({ error: "Firma inválida" });
         return;
     }
+    const stripe = new stripe_1.default(isTestEvent ? (testKey || liveKey) : liveKey, { apiVersion: "2024-06-20" });
+    console.log(`📥 [stripeWebhookTienda] ${event.type} modo=${isTestEvent ? "TEST" : "LIVE"}`);
     // Idempotencia: ignorar eventos ya procesados
     const eventDocRef = db.collection("stripe_processed_events").doc(`tienda_${event.id}`);
     if ((await eventDocRef.get()).exists) {
@@ -2272,12 +2547,18 @@ exports.stripeWebhookTienda = (0, https_1.onRequest)({ region: REGION }, async (
             const session = event.data.object;
             const empresaId = ((_b = session.metadata) === null || _b === void 0 ? void 0 : _b.empresa_id) || "";
             const tipo = ((_c = session.metadata) === null || _c === void 0 ? void 0 : _c.tipo) || "";
-            if (!empresaId || tipo !== "pedido_tienda") {
-                console.log(`ℹ️ Session ${session.id} sin empresa_id o tipo!=pedido_tienda — ignorado`);
-                res.status(200).json({ received: true, ignorado: true });
-                return;
+            if (tipo === "pedido_nazari" || empresaId === NAZARI_EMPRESA_ID) {
+                await _procesarPedidoNazari(session, db);
             }
-            await _procesarPedidoTienda(session, stripe, empresaId, db);
+            else if (empresaId && tipo === "pedido_tienda") {
+                await _procesarPedidoTienda(session, stripe, empresaId, db);
+            }
+            else {
+                // Sin metadata → Payment Link de Nazarí sin tipo configurado.
+                // Este webhook es exclusivo de Nazarí, por lo que tratamos la sesión como suya.
+                console.log(`ℹ️ [stripeWebhookTienda] Sin metadata tipo/empresa — procesando como pedido Nazarí. Session: ${session.id}`);
+                await _procesarPedidoNazari(session, db);
+            }
         }
         await eventDocRef.set({ procesado: true, ts: admin.firestore.FieldValue.serverTimestamp() });
         res.status(200).json({ received: true, tipo: event.type });
@@ -2356,6 +2637,7 @@ async function _procesarPedidoTienda(session, stripe, empresaId, db) {
         total: totalEuros,
         stripe_session_id: session.id,
         stripe_payment_intent: session.payment_intent,
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
         fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
         fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
     };
@@ -2365,21 +2647,38 @@ async function _procesarPedidoTienda(session, stripe, empresaId, db) {
         .collection("pedidos")
         .add(pedidoData);
     console.log(`✅ [TIENDA] Pedido #${numTicket} creado para empresa ${empresaId} — ${clienteNombre} — €${totalEuros} — id: ${pedidoRef.id}`);
-    // ── Descontar stock del catálogo ──────────────────────────────────────────
+    // ── Notificación en bandeja + push FCM ────────────────────────────────────
+    const cuerpoNotifTienda = `${clienteNombre} — €${totalEuros.toFixed(2)} (tienda online)`;
+    try {
+        await db.collection("notificaciones").doc(empresaId).collection("items").add({
+            titulo: "📦 Nuevo Pedido Web",
+            cuerpo: cuerpoNotifTienda,
+            tipo: "pedidoNuevo",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            modulo_destino: "pedidos",
+            entidad_id: pedidoRef.id,
+            remitente_nombre: clienteNombre !== "Cliente online" ? clienteNombre : null,
+            remitente_email: clienteEmail,
+        });
+        await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "📦 Nuevo Pedido Web", cuerpoNotifTienda, { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "tienda_online" });
+    }
+    catch (e) {
+        console.warn("⚠️ [TIENDA] Error enviando notificación:", e);
+    }
+    // ── Descontar stock (catalogo, catalogo_web y libros) ────────────────────
     for (const linea of lineas) {
         if (!linea.productoId || linea.productoId.startsWith("stripe_"))
             continue;
-        try {
-            await db
-                .collection("empresas")
-                .doc(empresaId)
-                .collection("catalogo")
-                .doc(linea.productoId)
-                .update({ stock: admin.firestore.FieldValue.increment(-linea.cantidad) });
-            console.log(`📦 Stock decrementado: ${linea.nombre} -${linea.cantidad}`);
-        }
-        catch (e) {
-            console.warn(`⚠️ No se pudo decrementar stock de ${linea.productoId}:`, e);
+        const decremento = admin.firestore.FieldValue.increment(-linea.cantidad);
+        const base = db.collection("empresas").doc(empresaId);
+        // Intentar en las tres colecciones posibles; cada una puede o no existir
+        for (const col of ["catalogo", "catalogo_web", "libros"]) {
+            try {
+                await base.collection(col).doc(linea.productoId).update({ stock: decremento });
+                console.log(`📦 Stock ${col} decrementado: ${linea.nombre} -${linea.cantidad}`);
+            }
+            catch (_) { /* no existe en esta colección — silencioso */ }
         }
     }
     // ── Email de confirmación al cliente ─────────────────────────────────────
@@ -2803,7 +3102,7 @@ exports.scheduledAlertaCobertura = (0, scheduler_1.onSchedule)({ schedule: "0 7 
         if (diasCriticos.length > 0) {
             const mensaje = `⚠️ Cobertura crítica en los próximos 7 días:\n${diasCriticos.join(", ")}`;
             // Enviar a todos los dispositivos de la empresa (propietarios)
-            await enviarNotificacionEmpresa(empresaId, "⚠️ Alerta de cobertura", mensaje, { tipo: "alerta_cobertura" });
+            await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Alerta de cobertura", mensaje, { tipo: "alerta_cobertura" });
             console.log(`⚠️ Empresa ${empresaId}: ${diasCriticos.length} días críticos`);
         }
     }
@@ -3436,5 +3735,549 @@ exports.enviarEmailsContactoInteres = (0, https_1.onCall)({ region: REGION }, as
         console.error("❌ Error enviando emails de contacto:", error);
         throw new https_1.HttpsError("internal", `Error enviando emails: ${error.message}`);
     }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// crearCheckoutNazari — Crea una sesión de Stripe Checkout para la tienda web
+//   de Editorial Nazarí y devuelve la URL de pago.
+//
+// POST body: { items: [{ titulo, precio, cantidad, imagen?, catalogo_id? }] }
+// Respuesta: { url: "https://checkout.stripe.com/..." }
+// ─────────────────────────────────────────────────────────────────────────────
+const NAZARI_EMPRESA_ID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+// ── Helper: cliente Stripe configurado para Nazarí (TEST o LIVE) ──────────────
+// Devuelve el cliente Stripe con la clave correcta para el modo indicado.
+// Si existe stripe_account_id en integraciones/stripe (Stripe Connect) lo usa;
+// de lo contrario opera directamente sobre la cuenta cuya clave está configurada.
+async function getNazariStripeConfig(isTest) {
+    var _a, _b;
+    const key = isTest ? stripeSecretKeyTest.value() : stripeSecretKey.value();
+    const mode = isTest ? "TEST" : "LIVE";
+    if (!key)
+        throw new Error(`STRIPE_SECRET_KEY${isTest ? "_TEST" : ""} no configurada — añádela a functions/.env`);
+    const stripe = new stripe_1.default(key, { apiVersion: "2024-06-20" });
+    // Stripe Connect opcional: si existe stripe_account_id lo usamos;
+    // si no, operamos directamente (connOpts = undefined, no pasar al SDK).
+    let connOpts;
+    let stripeAccountId = "";
+    try {
+        const integSnap = await db
+            .collection("empresas").doc(NAZARI_EMPRESA_ID)
+            .collection("integraciones").doc("stripe").get();
+        stripeAccountId = (_b = (_a = integSnap.data()) === null || _a === void 0 ? void 0 : _a.stripe_account_id) !== null && _b !== void 0 ? _b : "";
+        if (stripeAccountId)
+            connOpts = { stripeAccount: stripeAccountId };
+    }
+    catch (_) { /* sin doc de integración — operar directamente */ }
+    const acctLabel = stripeAccountId ? ` / Connect: ${stripeAccountId}` : " / cuenta directa";
+    console.log(`🔑 [${mode}${acctLabel}] Stripe config lista`);
+    return { stripe, connOpts, mode, stripeAccountId };
+}
+exports.crearCheckoutNazari = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a, _b, _c, _d;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method Not Allowed" });
+        return;
+    }
+    const isTest = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.test) === true || ((_b = req.query) === null || _b === void 0 ? void 0 : _b.test) === "true";
+    let stripe;
+    let connOpts;
+    let modeLabel;
+    try {
+        const cfg = await getNazariStripeConfig(isTest);
+        stripe = cfg.stripe;
+        connOpts = cfg.connOpts;
+        modeLabel = cfg.mode;
+    }
+    catch (e) {
+        console.error("❌ Error configurando Stripe:", e.message);
+        res.status(500).json({ error: e.message });
+        return;
+    }
+    const items = (_d = (_c = req.body) === null || _c === void 0 ? void 0 : _c.items) !== null && _d !== void 0 ? _d : [];
+    if (!items.length) {
+        res.status(400).json({ error: "El carrito está vacío" });
+        return;
+    }
+    console.log(`🛒 [${modeLabel}] Creando checkout Nazarí — ${items.length} ítem(s)`);
+    try {
+        const lineItems = items.map((it) => {
+            const precioNum = Math.round(parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+            const pd = {
+                name: it.titulo || "Libro",
+            };
+            // Stripe solo acepta URLs HTTPS absolutas para imágenes
+            if (it.imagen && /^https:\/\/.+/.test(it.imagen))
+                pd.images = [it.imagen];
+            if (it.catalogo_id)
+                pd.metadata = { catalogo_id: it.catalogo_id };
+            return {
+                price_data: {
+                    currency: "eur",
+                    product_data: pd,
+                    unit_amount: precioNum > 0 ? precioNum : 100,
+                },
+                quantity: it.cantidad || 1,
+            };
+        });
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            line_items: lineItems,
+            metadata: {
+                empresa_id: NAZARI_EMPRESA_ID,
+                tipo: "pedido_nazari",
+            },
+            shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
+            success_url: "https://www.editorialnazari.com/gracias.html?session={CHECKOUT_SESSION_ID}",
+            cancel_url: "https://www.editorialnazari.com/catalogo.html",
+        }, connOpts);
+        console.log(`✅ [${modeLabel}] Checkout creado: ${session.url}`);
+        res.status(200).json({ url: session.url, mode: modeLabel });
+    }
+    catch (error) {
+        console.error(`❌ [${modeLabel}] Error creando checkout Nazarí:`, error);
+        res.status(500).json({ error: "Error creando sesión de pago" });
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// crearCheckoutTienda — Versión genérica de crearCheckoutNazari.
+//   Crea sesión de Stripe Checkout para CUALQUIER empresa de Fluix.
+//
+// POST body: {
+//   empresa_id:  string,           // ID Firestore de la empresa
+//   items:       [{ titulo, precio, cantidad, imagen?, catalogo_id? }],
+//   success_url: string,           // URL de éxito (la web de la empresa)
+//   cancel_url:  string,           // URL de cancelación
+// }
+// Respuesta: { url: "https://checkout.stripe.com/..." }
+// ─────────────────────────────────────────────────────────────────────────────
+exports.crearCheckoutTienda = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a, _b, _c, _d, _e, _f;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "Method Not Allowed" });
+        return;
+    }
+    const empresaId = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.empresa_id) || "";
+    const successUrl = ((_b = req.body) === null || _b === void 0 ? void 0 : _b.success_url) || "";
+    const cancelUrl = ((_c = req.body) === null || _c === void 0 ? void 0 : _c.cancel_url) || "";
+    const items = (_e = (_d = req.body) === null || _d === void 0 ? void 0 : _d.items) !== null && _e !== void 0 ? _e : [];
+    if (!empresaId) {
+        res.status(400).json({ error: "empresa_id requerido" });
+        return;
+    }
+    if (!items.length) {
+        res.status(400).json({ error: "El carrito está vacío" });
+        return;
+    }
+    if (!successUrl || !cancelUrl) {
+        res.status(400).json({ error: "success_url y cancel_url requeridos" });
+        return;
+    }
+    // Usar la clave Stripe de la empresa si está configurada; si no, la global
+    let secretKey = stripeSecretKey.value() || "";
+    try {
+        const integDoc = await db.collection("empresas").doc(empresaId)
+            .collection("integraciones").doc("stripe").get();
+        if (integDoc.exists) {
+            const empresaKey = ((_f = integDoc.data()) === null || _f === void 0 ? void 0 : _f.secret_key) || "";
+            if (empresaKey)
+                secretKey = empresaKey;
+        }
+    }
+    catch (_) { /* usa la global como fallback */ }
+    if (!secretKey) {
+        res.status(500).json({ error: "Pagos no configurados" });
+        return;
+    }
+    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
+    try {
+        const lineItems = items.map((it) => {
+            const precioNum = Math.round(parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+            const pd = {
+                name: it.titulo || "Producto",
+            };
+            if (it.imagen)
+                pd.images = [encodeURI(it.imagen)];
+            if (it.catalogo_id)
+                pd.metadata = { catalogo_id: it.catalogo_id };
+            return {
+                price_data: {
+                    currency: "eur",
+                    product_data: pd,
+                    unit_amount: precioNum > 0 ? precioNum : 100,
+                },
+                quantity: it.cantidad || 1,
+            };
+        });
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            line_items: lineItems,
+            metadata: {
+                empresa_id: empresaId,
+                tipo: "pedido_tienda",
+            },
+            shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+        });
+        res.status(200).json({ url: session.url });
+    }
+    catch (error) {
+        console.error("❌ Error creando checkout tienda:", error);
+        res.status(500).json({ error: "Error creando sesión de pago" });
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// sincronizarLibroStripe — Sincroniza automáticamente libros de Nazarí con
+//   el catálogo de productos de Stripe cuando se crean o modifican en Firestore.
+//
+// Trigger: escritura en empresas/{empresaId}/libros/{libroId}
+// Solo actúa si empresaId === NAZARI_EMPRESA_ID y STRIPE_SECRET_KEY está configurada.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.sincronizarLibroStripe = (0, firestore_1.onDocumentWritten)("empresas/{empresaId}/libros/{libroId}", async (event) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    if (event.params.empresaId !== NAZARI_EMPRESA_ID)
+        return;
+    if (!stripeSecretKey.value())
+        return;
+    const after = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.after) === null || _b === void 0 ? void 0 : _b.data();
+    const before = (_d = (_c = event.data) === null || _c === void 0 ? void 0 : _c.before) === null || _d === void 0 ? void 0 : _d.data();
+    const docRef = (_g = (_f = (_e = event.data) === null || _e === void 0 ? void 0 : _e.after) === null || _f === void 0 ? void 0 : _f.ref) !== null && _g !== void 0 ? _g : (_j = (_h = event.data) === null || _h === void 0 ? void 0 : _h.before) === null || _j === void 0 ? void 0 : _j.ref;
+    if (!docRef)
+        return;
+    let stripe;
+    let connOpts;
+    try {
+        const cfg = await getNazariStripeConfig(false);
+        stripe = cfg.stripe;
+        connOpts = cfg.connOpts;
+    }
+    catch (e) {
+        console.error("❌ [LIVE] Config Stripe:", e.message);
+        return;
+    }
+    // Libro eliminado o desactivado → archivar en Stripe
+    if (!after || after.activo === false) {
+        if (before === null || before === void 0 ? void 0 : before.stripe_product_id) {
+            try {
+                await stripe.products.update(before.stripe_product_id, { active: false }, connOpts);
+                console.log(`📦 [LIVE] Libro ${docRef.id} archivado`);
+            }
+            catch (e) {
+                console.warn("⚠️ [LIVE] No se pudo archivar:", e);
+            }
+        }
+        return;
+    }
+    const parsePrecio = (p) => Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+    const precioActual = parsePrecio(after.precio);
+    const precioAnterior = before ? parsePrecio(before.precio) : null;
+    // ── Producto ──────────────────────────────────────────────────────────────
+    let stripeProductId = after.stripe_product_id || "";
+    const productBase = Object.assign(Object.assign({ name: after.titulo || "Libro", metadata: { catalogo_id: docRef.id, empresa_id: NAZARI_EMPRESA_ID, autor: after.autor || "", isbn: after.isbn || "" } }, (after.sinopsis ? { description: after.sinopsis.slice(0, 500) } : {})), (after.imagen_url ? { images: [encodeURI(after.imagen_url)] } : {}));
+    try {
+        if (!stripeProductId) {
+            const prod = await stripe.products.create(productBase, connOpts);
+            stripeProductId = prod.id;
+            console.log(`✅ [LIVE] Producto creado: ${stripeProductId} ("${after.titulo}")`);
+        }
+        else {
+            await stripe.products.update(stripeProductId, productBase, connOpts);
+            console.log(`🔄 [LIVE] Producto actualizado: ${stripeProductId}`);
+        }
+    }
+    catch (e) {
+        console.error("❌ [LIVE] Error en producto:", e);
+        return;
+    }
+    // ── Precio ────────────────────────────────────────────────────────────────
+    let stripePriceId = after.stripe_price_id || "";
+    const precioChanged = precioActual > 0 && (precioActual !== precioAnterior || !stripePriceId);
+    if (precioChanged) {
+        try {
+            if (stripePriceId)
+                await stripe.prices.update(stripePriceId, { active: false }, connOpts);
+            const price = await stripe.prices.create({ product: stripeProductId, unit_amount: precioActual, currency: "eur" }, connOpts);
+            stripePriceId = price.id;
+            console.log(`💶 [LIVE] Precio: ${stripePriceId} (${precioActual / 100} €)`);
+        }
+        catch (e) {
+            console.error("❌ [LIVE] Error en precio:", e);
+        }
+    }
+    // ── Payment Link ──────────────────────────────────────────────────────────
+    let paymentLink = after.payment_link || "";
+    if (stripePriceId && (!paymentLink || precioChanged)) {
+        try {
+            const pl = await stripe.paymentLinks.create({
+                line_items: [{ price: stripePriceId, quantity: 1 }],
+                metadata: {
+                    empresa_id: NAZARI_EMPRESA_ID,
+                    tipo: "pedido_nazari",
+                    libro_id: docRef.id,
+                    libro_titulo: after.titulo || "Libro",
+                    precio_str: after.precio || "",
+                },
+            }, connOpts);
+            paymentLink = pl.url;
+            console.log(`🔗 [LIVE] Payment Link: ${paymentLink}`);
+        }
+        catch (e) {
+            console.error("❌ [LIVE] Error en Payment Link:", e);
+        }
+    }
+    // ── Firestore ─────────────────────────────────────────────────────────────
+    await docRef.update(Object.assign(Object.assign({ stripe_product_id: stripeProductId, stripe_price_id: stripePriceId }, (paymentLink ? { payment_link: paymentLink } : {})), { stripe_sync_ts: admin.firestore.FieldValue.serverTimestamp() }));
+    console.log(`📝 [LIVE] OK → product: ${stripeProductId} | price: ${stripePriceId} | link: ${paymentLink || "n/a"}`);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// sincronizarLibroStripeTest — Sincroniza UN libro específico de Nazarí en el
+//   entorno TEST de Stripe. Idempotente: omite si ya existe, --force lo rehace.
+//   Guarda los IDs TEST en campos _test separados, sin tocar los LIVE.
+//
+// Uso:
+//   curl -X POST \
+//     -H "x-sync-secret: fluix-stripe-test-2026" \
+//     -H "Content-Type: application/json" \
+//     -d '{"libroId":"ID_DEL_LIBRO"}' \
+//     https://REGION-planeaapp-4bea4.cloudfunctions.net/sincronizarLibroStripeTest
+//
+//   Añadir {"force":true} para regenerar aunque ya existan los IDs TEST.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.sincronizarLibroStripeTest = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a, _b;
+    if (req.method !== "POST") {
+        res.status(405).json({ error: "POST requerido" });
+        return;
+    }
+    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+        res.status(401).json({ error: "No autorizado" });
+        return;
+    }
+    const libroId = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.libroId) || "";
+    const force = ((_b = req.body) === null || _b === void 0 ? void 0 : _b.force) === true;
+    if (!libroId) {
+        res.status(400).json({ error: "Falta libroId" });
+        return;
+    }
+    let stripe;
+    let connOpts;
+    let mode;
+    try {
+        const cfg = await getNazariStripeConfig(true);
+        stripe = cfg.stripe;
+        connOpts = cfg.connOpts;
+        mode = cfg.mode;
+    }
+    catch (e) {
+        console.error("❌ [TEST] Config Stripe:", e.message);
+        res.status(500).json({ error: e.message });
+        return;
+    }
+    const libroRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("libros").doc(libroId);
+    const libroSnap = await libroRef.get();
+    if (!libroSnap.exists) {
+        res.status(404).json({ error: `Libro ${libroId} no encontrado` });
+        return;
+    }
+    const libro = libroSnap.data();
+    console.log(`🧪 [${mode}] Sincronizando "${libro.titulo}" (${libroId})`);
+    const parsePrecio = (p) => Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+    const precioNum = parsePrecio(libro.precio);
+    // ── Producto ──────────────────────────────────────────────────────────────
+    let productId = libro.stripe_product_id_test || "";
+    if (!productId || force) {
+        const pd = {
+            name: libro.titulo || "Libro",
+            metadata: { catalogo_id: libroId, empresa_id: NAZARI_EMPRESA_ID, autor: libro.autor || "", isbn: libro.isbn || "", mode: "test" },
+        };
+        if (libro.sinopsis)
+            pd.description = libro.sinopsis.slice(0, 500);
+        if (libro.imagen_url && /^https:\/\//.test(libro.imagen_url))
+            pd.images = [encodeURI(libro.imagen_url)];
+        if (productId && force) {
+            await stripe.products.update(productId, pd, connOpts);
+            console.log(`🔄 [${mode}] Producto actualizado: ${productId}`);
+        }
+        else {
+            const prod = await stripe.products.create(pd, connOpts);
+            productId = prod.id;
+            console.log(`✅ [${mode}] Producto creado: ${productId}`);
+        }
+    }
+    else {
+        console.log(`⏭  [${mode}] Producto ya existe: ${productId}`);
+    }
+    // ── Precio ────────────────────────────────────────────────────────────────
+    let priceId = libro.stripe_price_id_test || "";
+    if ((!priceId || force) && precioNum > 0) {
+        if (priceId && force)
+            await stripe.prices.update(priceId, { active: false }, connOpts);
+        const price = await stripe.prices.create({ product: productId, unit_amount: precioNum, currency: "eur" }, connOpts);
+        priceId = price.id;
+        console.log(`💶 [${mode}] Precio: ${priceId} (${precioNum / 100} €)`);
+    }
+    else {
+        console.log(`⏭  [${mode}] Precio ya existe: ${priceId}`);
+    }
+    // ── Payment Link ──────────────────────────────────────────────────────────
+    let paymentLinkUrl = libro.payment_link_test || "";
+    if ((!paymentLinkUrl || force) && priceId) {
+        const pl = await stripe.paymentLinks.create({
+            line_items: [{ price: priceId, quantity: 1 }],
+            metadata: {
+                empresa_id: NAZARI_EMPRESA_ID,
+                tipo: "pedido_nazari",
+                libro_id: libroId,
+                libro_titulo: libro.titulo || "Libro",
+                precio_str: libro.precio || "",
+            },
+        }, connOpts);
+        paymentLinkUrl = pl.url;
+        console.log(`🔗 [${mode}] Payment Link: ${paymentLinkUrl}`);
+    }
+    else {
+        console.log(`⏭  [${mode}] Payment Link ya existe: ${paymentLinkUrl}`);
+    }
+    // ── Firestore ─────────────────────────────────────────────────────────────
+    await libroRef.update({
+        stripe_product_id_test: productId,
+        stripe_price_id_test: priceId,
+        payment_link_test: paymentLinkUrl,
+        stripe_test_sync_ts: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`📝 [${mode}] OK → product: ${productId} | price: ${priceId} | link: ${paymentLinkUrl}`);
+    res.status(200).json({
+        modo: mode,
+        libro_id: libroId,
+        titulo: libro.titulo,
+        product_id: productId,
+        price_id: priceId,
+        payment_link: paymentLinkUrl,
+    });
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// migrarLibrosStripe — Migración puntual: sube todos los libros existentes de
+//   Nazarí a Stripe. Llamar UNA sola vez via GET con el header secreto.
+//
+// Uso:
+//   curl -H "x-migration-secret: fluix-migrate-2026" \
+//     https://europe-west1-planeaapp-4bea4.cloudfunctions.net/migrarLibrosStripe
+// ─────────────────────────────────────────────────────────────────────────────
+// ── Test: crea pedido de prueba para verificar notificaciones ────────────────
+exports.crearPedidoPruebaTest = (0, https_1.onRequest)({ region: REGION }, async (req, res) => {
+    var _a, _b, _c, _d;
+    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+        res.status(401).json({ error: "No autorizado" });
+        return;
+    }
+    const libroId = (((_a = req.body) === null || _a === void 0 ? void 0 : _a.libroId) || "33-suenos");
+    const libroSnap = await db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("libros").doc(libroId).get();
+    const libro = (_b = libroSnap.data()) !== null && _b !== void 0 ? _b : {};
+    const totalEuros = parseFloat((libro.precio || "10").replace(",", ".").replace(/[^0-9.]/g, ""));
+    const contadorRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("contadores").doc("tickets");
+    let numTicket = 1;
+    const contSnap = await contadorRef.get();
+    numTicket = contSnap.exists ? ((_d = (_c = contSnap.data()) === null || _c === void 0 ? void 0 : _c.ultimo) !== null && _d !== void 0 ? _d : 0) + 1 : 1;
+    await contadorRef.set({ ultimo: numTicket }, { merge: true });
+    const pedidoRef = await db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("pedidos").add({
+        empresa_id: NAZARI_EMPRESA_ID, numero_ticket: numTicket,
+        cliente_nombre: "Cliente Prueba TEST", cliente_correo: "test@test.com",
+        origen: "web_nazari", estado: "pendiente", estado_pago: "pagado", metodo_pago: "tarjeta",
+        lineas: [{ libro_id: libroId, producto_nombre: libro.titulo || libroId, cantidad: 1, precio_unitario: parseFloat((totalEuros / 1.04).toFixed(2)), porcentaje_iva: 4 }],
+        subtotal: parseFloat((totalEuros / 1.04).toFixed(2)), importe_iva: parseFloat((totalEuros - totalEuros / 1.04).toFixed(2)), total: totalEuros,
+        livemode: false, notas_internas: "PEDIDO DE PRUEBA — borrar después",
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_pedido: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // Notificación directa (onNuevoPedido salta web_nazari para evitar duplicados)
+    const cuerpoTest = `Cliente Prueba TEST — €${totalEuros.toFixed(2)} (web Editorial Nazarí · TEST)`;
+    try {
+        await db.collection("notificaciones").doc(NAZARI_EMPRESA_ID).collection("items").add({
+            titulo: "📦 Nuevo Pedido Web (TEST)",
+            cuerpo: cuerpoTest,
+            tipo: "pedidoNuevo",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            modulo_destino: "pedidos",
+            entidad_id: pedidoRef.id,
+            remitente_nombre: "Cliente Prueba TEST",
+            remitente_email: "test@test.com",
+        });
+        await (0, notificaciones_1.enviarNotificacionEmpresa)(NAZARI_EMPRESA_ID, "📦 Nuevo Pedido Web (TEST)", cuerpoTest, { tipo: "nuevo_pedido", pedido_id: pedidoRef.id, origen: "web_nazari" });
+    }
+    catch (_) { }
+    console.log(`🧪 Pedido prueba #${numTicket} creado: ${pedidoRef.id}`);
+    res.status(200).json({ pedido_id: pedidoRef.id, numero_ticket: numTicket, mensaje: "Pedido + notificación creados directamente" });
+});
+exports.migrarLibrosStripe = (0, https_1.onRequest)({ region: REGION, timeoutSeconds: 540 }, async (req, res) => {
+    if (req.headers["x-migration-secret"] !== "fluix-migrate-2026") {
+        res.status(401).json({ error: "No autorizado" });
+        return;
+    }
+    const secretKey = stripeSecretKey.value() || "";
+    if (!secretKey) {
+        res.status(500).json({ error: "STRIPE_SECRET_KEY no configurada" });
+        return;
+    }
+    const stripe = new stripe_1.default(secretKey, { apiVersion: "2024-06-20" });
+    const parsePrecio = (p) => Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+    const snap = await db
+        .collection("empresas")
+        .doc(NAZARI_EMPRESA_ID)
+        .collection("libros")
+        .get();
+    const resultados = [];
+    for (const doc of snap.docs) {
+        const libro = doc.data();
+        if (libro.stripe_product_id) {
+            resultados.push({ id: doc.id, titulo: libro.titulo, estado: "ya_sincronizado", stripe_product_id: libro.stripe_product_id });
+            continue;
+        }
+        try {
+            const productData = {
+                name: libro.titulo || "Libro",
+                metadata: {
+                    catalogo_id: doc.id,
+                    empresa_id: NAZARI_EMPRESA_ID,
+                    autor: libro.autor || "",
+                    isbn: libro.isbn || "",
+                },
+            };
+            if (libro.sinopsis)
+                productData.description = libro.sinopsis.slice(0, 500);
+            if (libro.imagen_url)
+                productData.images = [encodeURI(libro.imagen_url)];
+            const prod = await stripe.products.create(productData);
+            let stripePriceId = "";
+            const precioNum = parsePrecio(libro.precio);
+            if (precioNum > 0) {
+                const price = await stripe.prices.create({
+                    product: prod.id,
+                    unit_amount: precioNum,
+                    currency: "eur",
+                });
+                stripePriceId = price.id;
+            }
+            await doc.ref.update({
+                stripe_product_id: prod.id,
+                stripe_price_id: stripePriceId,
+                stripe_sync_ts: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            resultados.push({ id: doc.id, titulo: libro.titulo, estado: "creado", stripe_product_id: prod.id });
+            // pequeña pausa para respetar rate limits de Stripe
+            await new Promise(r => setTimeout(r, 80));
+        }
+        catch (e) {
+            resultados.push({ id: doc.id, titulo: libro.titulo, estado: `error: ${e.message}` });
+        }
+    }
+    const creados = resultados.filter(r => r.estado === "creado").length;
+    const yaSync = resultados.filter(r => r.estado === "ya_sincronizado").length;
+    const errores = resultados.filter(r => r.estado.startsWith("error")).length;
+    console.log(`✅ Migración completada: ${creados} creados, ${yaSync} ya sincronizados, ${errores} errores`);
+    res.status(200).json({ resumen: { creados, ya_sincronizados: yaSync, errores }, detalle: resultados });
 });
 //# sourceMappingURL=index.js.map

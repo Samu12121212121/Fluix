@@ -1,0 +1,2352 @@
+{
+  "generado": "2026-09-16T23:19:10.861Z",
+  "empresa_id": "0PoomHYDUJf5w8tDFRLhFi9iURF3",
+  "modo": "dry-run",
+  "resumen": {
+    "total_docs": 1331,
+    "grupos_duplicados": 17,
+    "docs_a_eliminar": 19,
+    "docs_unicos": 1295,
+    "casos_dudosos": 13
+  },
+  "grupos": [
+    {
+      "clave": "noticia-de-prueba",
+      "tipo_clave": "slug",
+      "total_docs": 4,
+      "id_canonico": "1wbClaLdFa4ryrAnIzrl",
+      "docs_a_eliminar": [
+        "x67Os3TOxEpf7k1Fxo8F",
+        "qFHxdxffIH9HJu8X602S",
+        "t7vbR6cVXSiSypJRvOOz"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "1wbClaLdFa4ryrAnIzrl",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen co",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        },
+        {
+          "id": "x67Os3TOxEpf7k1Fxo8F",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Noticia creada por samuel",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        },
+        {
+          "id": "qFHxdxffIH9HJu8X602S",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen co",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 21
+        },
+        {
+          "id": "t7vbR6cVXSiSypJRvOOz",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Noticia creada por samuel",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 21
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Noticia de prueba",
+        "slug": "noticia-de-prueba",
+        "resumen": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen con nuestro autora Belen",
+        "contenido": "[{\"insert\":\"El jueves 24 de septiembre a las 19:00 el Grupo Bojador presenta en Granada La habitación 320, una colección de relatos. El acto será presentado por César de Requesens, escritor y periodista. El evento tendrá lugar en la Librería Sostiene Pereira, calle Horno de la Merced, 4, Granada.\",\"attributes\":{\"font\":\"\\\"Cormorant Garamond\\\", Georgia, serif\",\"line-height\":2.0,\"color\":\"#FF1A1A1A\",\"size\":\"16\",\"background\":\"#FFFFFFFF\"}},{\"insert\":\"\\n\",\"attributes\":{\"align\":\"start\"}},{\"insert\":\"«La Habitación 320» implica una puerta. Una puerta que podemos franquear o no, que nos atrae o nos asusta, y detrás de la cual hay un espacio ignoto que podemos rellenar con todo aquello que tememos o deseamos. La colección reúne momentos extraordinarios dentro de habitaciones que pueden estar en cualquier parte: hoteles, consultas de psicólogos, casas rurales, institutos de investigación.\",\"attributes\":{\"font\":\"\\\"Cormorant Garamond\\\", Georgia, serif\",\"line-height\":2.0,\"color\":\"#FF1A1A1A\",\"size\":\"16\",\"background\":\"#FFFFFFFF\"}},{\"insert\":\"\\n\",\"attributes\":{\"align\":\"start\"}},{\"insert\":\"\\n\\n\"}]",
+        "autor": "Alejandro A. Bolívar",
+        "imagen_url": "https://firebasestorage.googleapis.com/v0/b/planeaapp-4bea4.firebasestorage.app/o/empresas%2F0PoomHYDUJf5w8tDFRLhFi9iURF3%2Fblog%2Fportadas%2F1789387522055.jpg?alt=media&token=0ada5644-07e4-4dcd-8f90-ad388fdf8c05",
+        "url_externa": "",
+        "tipo": "noticia",
+        "categoria_id": "",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-09-14",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [],
+        "_ids_originales": [
+          "1wbClaLdFa4ryrAnIzrl",
+          "x67Os3TOxEpf7k1Fxo8F",
+          "qFHxdxffIH9HJu8X602S",
+          "t7vbR6cVXSiSypJRvOOz"
+        ]
+      }
+    },
+    {
+      "clave": "acordes-de-tormenta-y-cielo-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15809",
+      "docs_a_eliminar": [
+        "acordes-de-tormenta-y-cielo-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15809",
+          "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+          "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-11-10",
+          "resumen_preview": "<p>Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "acordes-de-tormenta-y-cielo-en-ideal",
+          "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+          "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-11-10",
+          "resumen_preview": "Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo de",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+        "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+        "resumen": "<p>Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo de la presentación de su última publicación, &#8216;Acordes de tormenta y cielo&#8217;, 60 textos en prosa poética.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">&#8216;Acordes de tormenta y cielo&#8217; en Ideal</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><img decoding=\"async\" width=\"1024\" height=\"439\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F675b093a_Ideal-10-11-2021-1024x439.jpg\" alt=\"Acordes de tormenta y cielo - Juan de Dios Villanueva Roa - Ideal (10-11-2021)\" class=\"wp-image-15810\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F8a290e17_Ideal-10-11-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2Ff5fec1d6_Ideal-10-11-2021-648x278.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F19736470_Ideal-10-11-2021-300x129.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F3d6fc49e_Ideal-10-11-2021-768x330.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\"><strong>Antonio Arenas</strong>&nbsp;entrevistó a <a href=\"https://www.editorialnazari.com/team/juan-de-dios-villanueva-roa/\"><span style=\"color: #0000ff;\"><strong>Juan de Dios Villanueva Roa</strong></span></a> para <em><strong>Ideal</strong></em> con motivo de la presentación de su última publicación, <a href=\"https://www.editorialnazari.com/libro/acordes-de-tormenta-y-cielo/\"><span style=\"color: #0000ff;\"><em><strong>Acordes de tormenta y cielo</strong></em></span></a>, 60 textos en prosa poética, donde el autor dialoga sobre los sueños y miedos que transitan nuestra mente en algún momento de nuestra existencia. El tiempo y su discurrir está presente en todo el libro. <a href=\"https://www.editorialnazari.com/eventos/acordes-de-tormenta-y-cielo-en-granada/\"><span style=\"color: #0000ff;\">Esta tarde a las 19h. se presenta en La Madraza</span></a>.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Os dejamos también el vídeo realizado por el periodista y el enlace a <a href=\"https://en-clase.ideal.es/2021/11/10/juan-de-dios-villanueva-en-acordes-de-tormenta-y-cielo-he-buscado-una-sinfonia-entre-los-sufrimientos-de-la-persona-y-las-cosas-buenas-que-tiene-la-vida/\"><strong><span style=\"color: #0000ff;\">Ideal en Clase</span></strong></a>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/haW8bILB__Y\" width=\"962\" height=\"541\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/haW8bILB__Y/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-11-10",
+        "etiquetas": [
+          "Acordes de tormenta y cielo",
+          "Antonio Arenas",
+          "entrevista",
+          "Ideal",
+          "Juan de Dios Villanueva Roa",
+          "La Madraza"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15809,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15809",
+          "acordes-de-tormenta-y-cielo-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "al-tercer-dia-podcast-mi-experiencia",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "al-tercer-dia-podcast-mi-experiencia",
+      "docs_a_eliminar": [
+        "static-9"
+      ],
+      "es_dudoso": false,
+      "conflictos": [],
+      "docs_actuales": [
+        {
+          "id": "static-9",
+          "slug": "al-tercer-dia-podcast-mi-experiencia",
+          "titulo": "«Al tercer día» en el pódcast «Mi experiencia como escritor»",
+          "tipo": "entrevista",
+          "fecha": "2026-01-26",
+          "resumen_preview": "David Macías habla de su novela histórica «Al tercer día», donde un centurión ro",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "al-tercer-dia-podcast-mi-experiencia",
+          "slug": "al-tercer-dia-podcast-mi-experiencia",
+          "titulo": "«Al tercer día» en el pódcast «Mi experiencia como escritor»",
+          "tipo": "entrevista",
+          "fecha": "2026-01-26",
+          "resumen_preview": "David Macías habla de su novela histórica «Al tercer día», donde un centurión ro",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Al tercer día» en el pódcast «Mi experiencia como escritor»",
+        "slug": "al-tercer-dia-podcast-mi-experiencia",
+        "resumen": "David Macías habla de su novela histórica «Al tercer día», donde un centurión romano documenta la ejecución de Jesús desde una perspectiva política y terrenal, cuestionando siglos de dogma.",
+        "contenido": "",
+        "autor": "David Macías Gómez",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/01/imagen_cabecera_al_tercer_dia.jpg",
+        "url_externa": "https://www.editorialnazari.com/al-tercer-dia-en-el-podcast-mi-experiencia-como-escritor/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-01-26",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-9",
+          "al-tercer-dia-podcast-mi-experiencia"
+        ]
+      }
+    },
+    {
+      "clave": "comodamente-adormecido-fuengirola-tv",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "comodamente-adormecido-fuengirola-tv",
+      "docs_a_eliminar": [
+        "static-13"
+      ],
+      "es_dudoso": false,
+      "conflictos": [],
+      "docs_actuales": [
+        {
+          "id": "static-13",
+          "slug": "comodamente-adormecido-fuengirola-tv",
+          "titulo": "«Cómodamente adormecido» en Fuengirola TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero habla de «Cómodamente adormecido» en el programa El Patio de Fuengiro",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "comodamente-adormecido-fuengirola-tv",
+          "slug": "comodamente-adormecido-fuengirola-tv",
+          "titulo": "«Cómodamente adormecido» en Fuengirola TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero habla de «Cómodamente adormecido» en el programa El Patio de Fuengiro",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Cómodamente adormecido» en Fuengirola TV",
+        "slug": "comodamente-adormecido-fuengirola-tv",
+        "resumen": "Juan Quero habla de «Cómodamente adormecido» en el programa El Patio de Fuengirola TV, explorando los temas centrales de su novela.",
+        "contenido": "",
+        "autor": "Juan Quero",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/comodamente-adormecido-en-fuengirola-tv/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-04-22",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-13",
+          "comodamente-adormecido-fuengirola-tv"
+        ]
+      }
+    },
+    {
+      "clave": "comodamente-adormecido-mijas-tv",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "comodamente-adormecido-mijas-tv",
+      "docs_a_eliminar": [
+        "static-12"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-12",
+          "slug": "comodamente-adormecido-mijas-tv",
+          "titulo": "«Cómodamente adormecido» en Mijas TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero presenta su novela en el ciclo literario de Mijas TV.",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "comodamente-adormecido-mijas-tv",
+          "slug": "comodamente-adormecido-mijas-tv",
+          "titulo": "«Cómodamente adormecido» en Mijas TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero presenta su novela «Cómodamente adormecido» en el ciclo literario de ",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Cómodamente adormecido» en Mijas TV",
+        "slug": "comodamente-adormecido-mijas-tv",
+        "resumen": "Juan Quero presenta su novela «Cómodamente adormecido» en el ciclo literario de Mijas TV, una obra que invita a reflexionar sobre la comodidad y el conformismo contemporáneo.",
+        "contenido": "",
+        "autor": "Juan Quero",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/comodamente-adormecido-en-mijas-tv/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-04-22",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-12",
+          "comodamente-adormecido-mijas-tv"
+        ]
+      }
+    },
+    {
+      "clave": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+      "docs_a_eliminar": [
+        "static-14"
+      ],
+      "es_dudoso": false,
+      "conflictos": [],
+      "docs_actuales": [
+        {
+          "id": "static-14",
+          "slug": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+          "titulo": "«Cuando termina la ciencia» en La voz a ti debida",
+          "tipo": "entrevista",
+          "fecha": "2025-02-06",
+          "resumen_preview": "Susana Collado presenta «Cuando termina la ciencia y empieza la ficción» en este",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+          "slug": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+          "titulo": "«Cuando termina la ciencia» en La voz a ti debida",
+          "tipo": "entrevista",
+          "fecha": "2025-02-06",
+          "resumen_preview": "Susana Collado presenta «Cuando termina la ciencia y empieza la ficción» en este",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Cuando termina la ciencia» en La voz a ti debida",
+        "slug": "cuando-termina-la-ciencia-la-voz-a-ti-debida",
+        "resumen": "Susana Collado presenta «Cuando termina la ciencia y empieza la ficción» en este programa cultural y literario, dialogando sobre la intersección entre ciencia y narrativa.",
+        "contenido": "",
+        "autor": "Susana Collado",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/cuando-termina-la-ciencia-y-empieza-la-ficcion-en-la-voz-a-ti-debida/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-02-06",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-14",
+          "cuando-termina-la-ciencia-la-voz-a-ti-debida"
+        ]
+      }
+    },
+    {
+      "clave": "destilacion-en-ribadavia",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "destilacion-en-ribadavia",
+      "docs_a_eliminar": [
+        "noticia-1"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "noticia-1",
+          "slug": "destilacion-en-ribadavia",
+          "titulo": "«Destilación» en Ribadavia",
+          "tipo": "noticia",
+          "fecha": "2026-08-24",
+          "resumen_preview": "Paula R. Bouzas presenta «Destilación» en el Museo Etnológico de Ribadavia. Una ",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "destilacion-en-ribadavia",
+          "slug": "destilacion-en-ribadavia",
+          "titulo": "‘Destilación’ en Ribadavia",
+          "tipo": "noticia",
+          "fecha": "2026-08-23",
+          "resumen_preview": "El Museo Etnológico de Ribadavia, ubicado en el Pazo de Baamonde, prestó sus mur",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Destilación» en Ribadavia",
+        "slug": "destilacion-en-ribadavia",
+        "resumen": "El Museo Etnológico de Ribadavia, ubicado en el Pazo de Baamonde, prestó sus muros y su patio para la presentación de ‘Destilación’, de Paula R. Bouzas. José Luis Chao, humanista y escritor versado en historia del Ribeiro, se encargó de introducir el acto.",
+        "contenido": "<h2>Así fue la presentación de ‘Destilación’ en Ribadavia</h2>\n\n\n\n<p><em>Rasga en dos y mil pedazos</em><br><em>el velo del sanctasanctórum.</em></p>\n\n\n\n<p>Tras unos días de calor sofocante, alguna conspiración anónima trajo algo de brisa y se llevó unos cuantos grados para acompañar adecuadamente poesía cargada de verde, agua, vida y preguntas.</p>\n\n\n\n<p>El escenario, también resultó acorde al evento. El <strong>Museo Etnológico de Ribadavia</strong>, ubicado en el Pazo de Baamonde, prestó sus muros y su patio para la presentación de <strong><em><a href=\"https://www.editorialnazari.com/libro/al-tercer-dia/\">Destilación</a></em></strong>, de <strong><a href=\"https://www.editorialnazari.com/team/paula-r-bouzas/\">Paula R. Bouzas</a></strong>.</p>\n\n\n\n<p><strong>José Luis Chao</strong>, humanista y escritor versado en historia del Ribeiro, se encargó de introducir el acto. No solo presentó a la autora profesionalmente sino que puso de manifiesto el cariño y complicidad de ambos, buen comienzo para crear un ambiente amable e íntimo.</p>\n\n\n\n<p>La lectura de los poemas nos invitó a rasgar los velos con los que nos envolvemos en tiempos de penas y penumbra para salir al mundo, cerrar cicatrices y abandonar la autocompasión. Lejos de proponer una esperanza rosa empolvado, falaz, pueril, los versos proponían hacer funambulismo entre la realidad y el deseo, dar pasos gráciles entre las luces y sombras de la vida y, cuando el reloj quiebre, ser lluvia sobre piedra y la tierra negra de castaños y hortensias.</p>\n\n\n\n<p>El último poema recitado, Rosalías, fue un homenaje de la autora a su tierra, Galicia. Escuchamos, comprendimos, cómo los verdes, las mañanas lentas, las ermitas románicas, las vides… se inspiran y se exhalan en poemas. Después de eso, la música con la que <strong>Stephen P. Hughes</strong> cerró el acto puso el punto final perfecto a la velada. Tocó y cantó una personal adaptación de los famosos versos de Rosalía de Castro Adiós ríos, adiós fontes.</p>\n\n\n\n<p>Quedó en el aire el olor a vida, naturaleza y, como dice uno de los poemas, la esencia que se filtra entre la tapa y el reborde del ánfora que portaba Pandora.</p>\n\n\n\n<figure>\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg\"><img decoding=\"async\" width=\"1024\" height=\"768\" data-id=\"31027\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1024x768.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1024x768.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-300x225.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-768x576.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1536x1152.jpg 1536w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-648x486.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-760x570.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-370x278.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg 2048w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n\n\n\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02.jpg\"><img decoding=\"async\" width=\"1024\" height=\"576\" data-id=\"31028\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1024x576.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1024x576.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-300x169.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-768x432.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1536x864.jpg 1536w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-648x365.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1170x658.jpg 1170w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-760x428.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-370x208.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-270x152.jpg 270w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02.jpg 2048w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n\n\n\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03.jpg\"><img decoding=\"async\" width=\"1024\" height=\"726\" data-id=\"31029\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-1024x726.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-1024x726.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-300x213.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-768x545.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-648x459.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-760x539.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-370x262.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03.jpg 1203w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n</figure>",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg",
+        "url_externa": "https://www.editorialnazari.com/destilacion-en-ribadavia/",
+        "tipo": "noticia",
+        "categoria_id": "Noticias",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-08-24",
+        "etiquetas": [
+          "Destilación",
+          "José Luis Chao",
+          "Museo Etnológico de Ribadavia",
+          "Paula R. Bouzas",
+          "presentaciones",
+          "Ribadavia",
+          "Stephen P. Hughes"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": 31025,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "noticia-1",
+          "destilacion-en-ribadavia"
+        ]
+      }
+    },
+    {
+      "clave": "dulce-lopez-cafes-literarios",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "dulce-lopez-cafes-literarios",
+      "docs_a_eliminar": [
+        "static-7"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-7",
+          "slug": "dulce-lopez-cafes-literarios",
+          "titulo": "Dulce López Rodríguez en Cafés literarios",
+          "tipo": "entrevista",
+          "fecha": "2026-02-10",
+          "resumen_preview": "La autora dialoga en el pódcast «Cafés literarios» de la Universidad de Jaén sob",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "dulce-lopez-cafes-literarios",
+          "slug": "dulce-lopez-cafes-literarios",
+          "titulo": "Dulce López Rodríguez en Cafés literarios",
+          "tipo": "entrevista",
+          "fecha": "2026-02-10",
+          "resumen_preview": "La autora dialoga con Álvaro García Conde en el pódcast «Cafés literarios» de la",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Dulce López Rodríguez en Cafés literarios",
+        "slug": "dulce-lopez-cafes-literarios",
+        "resumen": "La autora dialoga con Álvaro García Conde en el pódcast «Cafés literarios» de la Universidad de Jaén sobre «Creo que te quiero», sus temas y su proceso creativo.",
+        "contenido": "",
+        "autor": "Dulce López Rodríguez",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/02/entrevista-dulce-lopez-1024x761.jpeg",
+        "url_externa": "https://www.editorialnazari.com/dulce-lopez-rodriguez-y-creo-que-te-quiero-en-cafes-literarios/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-02-10",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-7",
+          "dulce-lopez-cafes-literarios"
+        ]
+      }
+    },
+    {
+      "clave": "eduardo-cano-mazuecos-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15406",
+      "docs_a_eliminar": [
+        "eduardo-cano-mazuecos-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15406",
+          "slug": "eduardo-cano-mazuecos-en-ideal",
+          "titulo": "Eduardo Cano Mazuecos en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-10",
+          "resumen_preview": "<p>Ayer publicaba Ideal la noticia de la presentación de &#8216;Cautivos en libe",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "eduardo-cano-mazuecos-en-ideal",
+          "slug": "eduardo-cano-mazuecos-en-ideal",
+          "titulo": "Eduardo Cano Mazuecos en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-10",
+          "resumen_preview": "Ayer publicaba Ideal la noticia de la presentación de ‘Cautivos en libertad’, el",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Eduardo Cano Mazuecos en Ideal",
+        "slug": "eduardo-cano-mazuecos-en-ideal",
+        "resumen": "<p>Ayer publicaba Ideal la noticia de la presentación de &#8216;Cautivos en libertad&#8217;, el último libro de Eduardo Cano Mazuecos, novela de ficción ambientada en el campo de concentración de Auschwitz. Podéis ver el artículo más extenso en Ideal en Clase, con el audio de la entrevista y un vídeo promocional que compartimos también.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Eduardo Cano Mazuecos en Ideal</h1>\n<p>&nbsp;</p>\n<p><img decoding=\"async\" class=\"aligncenter size-large wp-image-15407\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fac817ccc_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-1024x340.jpg\" alt=\"Cautivos en libertad - Eduardo Cano Mazuecos - Ideal (09-06-2021)\" width=\"1024\" height=\"340\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2F84c3641b_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2F529223e0_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-648x215.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fbd987935_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-300x100.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fbe9c4b15_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-768x255.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></p>\n<p>Ayer publicaba <strong>Ideal</strong> la noticia de la presentación de <a href=\"https://www.editorialnazari.com/libro/cautivos-en-libertad/\"><span style=\"color: #0000ff;\"><strong><em>Cautivos en libertad</em></strong></span></a>, el último libro de <a href=\"https://www.editorialnazari.com/team/eduardo-cano-mazuecos/\"><span style=\"color: #0000ff;\"><strong>Eduardo Cano Mazuecos</strong></span></a>, novela de ficción ambientada en el campo de concentración de Auschwitz. Podéis ver el artículo más extenso en <a href=\"https://en-clase.ideal.es/2021/06/10/eduardo-cano-presenta-su-cuarto-libro-cautivos-en-libertad-ambientada-en-el-campo-de-concentracion-de-auschwitz/\"><span style=\"color: #0000ff;\"><strong>Ideal en Clase</strong></span></a>, con el audio de la entrevista y un vídeo promocional que compartimos también.</p>\n<p style=\"text-align: center;\"><iframe id=\"audio_71228687\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_71228687_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n<p style=\"text-align: center;\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/fuPA4Ij-9c8\" width=\"727\" height=\"409\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/fuPA4Ij-9c8/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-10",
+        "etiquetas": [
+          "Cautivos en libertad",
+          "Eduardo Cano Mazuecos",
+          "Ideal",
+          "Ideal en Clase"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15406,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15406",
+          "eduardo-cano-mazuecos-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15640",
+      "docs_a_eliminar": [
+        "el-corazon-del-roble-en-hoy-por-hoy-granada"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15640",
+          "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-10-02",
+          "resumen_preview": "<p>Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de l",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-10-02",
+          "resumen_preview": "Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de la C",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+        "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+        "resumen": "<p>Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de la Cadena SER sobre sus firmas en la Feria del Libro de Granada, donde estará presente en varias casetas firmando ejemplares de &#8216;El corazón del roble&#8217; y &#8216;Huyendo a Granada&#8217;.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\"><em>El corazón del roble</em> en Hoy por hoy Granada</h1>\n<p>&nbsp;</p>\n<p><a href=\"https://www.editorialnazari.com/team/victoria-e-munoz-jimenez/\"><span style=\"color: #0000ff;\"><strong>Victoria E. Muñoz Jiménez</strong></span></a> habla con <strong>Enrique Árbol</strong> en <strong>Hoy por hoy Granada</strong> de la <strong>Cadena SER</strong> sobre sus firmas en la <strong>Feria del Libro de Granada</strong>, donde estará presente en varias casetas firmando ejemplares de <a href=\"https://www.editorialnazari.com/libro/el-corazon-del-roble/\"><span style=\"color: #0000ff;\"><em><strong>El corazón del roble</strong></em></span></a> y <em>Huyendo a Granada</em>. Firmará ejemplares en la caseta de Editorial Nazarí y en la que tendrá la Librería Paulinas.</p>\n<p>&nbsp;</p>\n<p><iframe id=\"audio_76259678\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_76259678_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fel-corazon-del-roble-en-hoy-por-hoy-granada%2Ff868fa1b_images_ECDR-Radio-_Granada-21-04-15-scaled.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-10-02",
+        "etiquetas": [
+          "El Corazón del Roble",
+          "Feria del Libro de Granada",
+          "Hoy por hoy Granada",
+          "Victoria Muñoz Jiménez"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15640,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15640",
+          "el-corazon-del-roble-en-hoy-por-hoy-granada"
+        ]
+      }
+    },
+    {
+      "clave": "jonas-y-la-esperanza-buenos-dias-albolote",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "jonas-y-la-esperanza-buenos-dias-albolote",
+      "docs_a_eliminar": [
+        "static-16"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-16",
+          "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+          "tipo": "entrevista",
+          "fecha": "2025-01-13",
+          "resumen_preview": "Juan Carlos Rodríguez Torres presenta su novela en el programa local Buenos Días",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+          "tipo": "entrevista",
+          "fecha": "2025-01-13",
+          "resumen_preview": "Juan Carlos Rodríguez Torres presenta su novela «Jonás y la esperanza» en el pro",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+        "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+        "resumen": "Juan Carlos Rodríguez Torres presenta su novela «Jonás y la esperanza» en el programa local Buenos Días Albolote, hablando del proceso creativo y los temas de su obra.",
+        "contenido": "",
+        "autor": "Juan Carlos Rodríguez Torres",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/jonas-y-la-esperanza-en-buenos-dias-albolote/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-01-13",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-16",
+          "jonas-y-la-esperanza-buenos-dias-albolote"
+        ]
+      }
+    },
+    {
+      "clave": "juan-antonio-nunez-en-radio-5",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_16254",
+      "docs_a_eliminar": [
+        "juan-antonio-nunez-en-radio-5"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_16254",
+          "slug": "juan-antonio-nunez-en-radio-5",
+          "titulo": "Juan Antonio Núñez en RNE Radio 5",
+          "tipo": "entrevista",
+          "fecha": "2022-04-03",
+          "resumen_preview": "<p>Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la ",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "juan-antonio-nunez-en-radio-5",
+          "slug": "juan-antonio-nunez-en-radio-5",
+          "titulo": "Juan Antonio Núñez en RNE Radio 5",
+          "tipo": "entrevista",
+          "fecha": "2022-04-03",
+          "resumen_preview": "Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la pub",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Juan Antonio Núñez en RNE Radio 5",
+        "slug": "juan-antonio-nunez-en-radio-5",
+        "resumen": "<p>Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la publicación de su nueva novela, &#8216;Azul Klein&#8217;, que se presenta en Almería.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">Juan Antonio Núñez en RNE Radio 5</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><img decoding=\"async\" width=\"300\" height=\"300\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Fd838eb19_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2.jpg\" alt=\"Azul Klein - Juan Antonio Núñez\" class=\"wp-image-16257\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Fd838eb19_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Faee77a74_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2-100x100.jpg 100w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2F77168cba_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2-150x150.jpg 150w\" sizes=\"(max-width: 300px) 100vw, 300px\" /></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\"><a href=\"https://www.editorialnazari.com/team/juan-antonio-nunez/\"><span style=\"color: #0000ff;\"><strong>Juan Antonio Núñez</strong></span></a> es entrevistado en <a href=\"https://listaradio.com/radio-5\"><strong>RNE Radio 5 Todo Noticias</strong></a> con motivo de la publicación de su nueva novela, <a href=\"https://www.editorialnazari.com/libro/azul-klein/\"><span style=\"color: #0000ff;\"><em><strong>Azul Klein</strong></em></span></a>, que reflexiona sobre la soledad y las relaciones tóxicas. Se presentará en la <a href=\"https://www.editorialnazari.com/eventos/azul-klein-en-almeria/\"><span style=\"color: #0000ff;\">Biblioteca Villaespesa el 6 de abril (19:30)</span></a> en un acto organizado por el <strong>Centro Andaluz de las Letras</strong>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe src=\"https://www.ivoox.com/player_ej_85248565_6_1.html?c1=04040c\" width=\"100%\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n\n\n\n<p class=\"wp-block-paragraph\">También podéis escuchar el programa entero en la <a href=\"https://www.rtve.es/play/audios/informativo-de-andalucia/informativo-almeria-28-03-22/6468716/\"><span style=\"color: #0000ff;\">web de RNE</span></a>.</p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2022/04/Azul-Klein-Juan-Antonio-Núñez2.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2022-04-03",
+        "etiquetas": [
+          "Almería",
+          "Azul Klein",
+          "Centro Andaluz de las Letras",
+          "entrevista",
+          "Juan Antonio Núñez",
+          "RNE"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 16254,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_16254",
+          "juan-antonio-nunez-en-radio-5"
+        ]
+      }
+    },
+    {
+      "clave": "manuel-bayona-medico-interactivo",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "manuel-bayona-medico-interactivo",
+      "docs_a_eliminar": [
+        "static-8"
+      ],
+      "es_dudoso": false,
+      "conflictos": [],
+      "docs_actuales": [
+        {
+          "id": "static-8",
+          "slug": "manuel-bayona-medico-interactivo",
+          "titulo": "Manuel Bayona en El Médico Interactivo",
+          "tipo": "entrevista",
+          "fecha": "2026-02-04",
+          "resumen_preview": "Entrevista a Manuel Bayona sobre «La gestión del silencio», una obra que defiend",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "manuel-bayona-medico-interactivo",
+          "slug": "manuel-bayona-medico-interactivo",
+          "titulo": "Manuel Bayona en El Médico Interactivo",
+          "tipo": "entrevista",
+          "fecha": "2026-02-04",
+          "resumen_preview": "Entrevista a Manuel Bayona sobre «La gestión del silencio», una obra que defiend",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Manuel Bayona en El Médico Interactivo",
+        "slug": "manuel-bayona-medico-interactivo",
+        "resumen": "Entrevista a Manuel Bayona sobre «La gestión del silencio», una obra que defiende la humanización sanitaria, la empatía y la comunicación ética como pilares del liderazgo en salud.",
+        "contenido": "",
+        "autor": "Manuel Bayona",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/02/manuel-bayona-entrevista-1024x683.jpg",
+        "url_externa": "https://www.editorialnazari.com/manuel-bayona-y-la-gestion-del-silencio-en-el-medico-interactivo/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-02-04",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-8",
+          "manuel-bayona-medico-interactivo"
+        ]
+      }
+    },
+    {
+      "clave": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_17041",
+      "docs_a_eliminar": [
+        "miguel-huguet-en-gaceta-radio-tv-onda-cartagena"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_17041",
+          "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+          "tipo": "entrevista",
+          "fecha": "2022-11-13",
+          "resumen_preview": "<p>Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Rad",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+          "tipo": "entrevista",
+          "fecha": "2022-11-13",
+          "resumen_preview": "Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Radio ",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+        "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+        "resumen": "<p>Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Radio TV. Onda Cartagena con motivo de la publicación de su último libro, &#8216;Transgresión&#8217;, que se presentará el 16 de noviembre en el Auditorio del Centro Cultural Ramón Alonso Luzzy de Cartagena.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">Miguel Huguet en Gaceta Radio TV. Onda Cartagena</h2>\n\n\n\n<figure class=\"wp-block-image size-large\"><img decoding=\"async\" width=\"1024\" height=\"1021\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F6fb6cf94_IMG-20221020-WA0019-1024x1021.jpg\" alt=\"\" class=\"wp-image-17043\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2Fba9ed444_IMG-20221020-WA0019-scaled.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F6dba95ca_IMG-20221020-WA0019-100x100.jpg 100w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F14eca03f_IMG-20221020-WA0019-648x646.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2Fc9b87047_IMG-20221020-WA0019-300x300.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F8d79578f_IMG-20221020-WA0019-150x150.jpg 150w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F8504250a_IMG-20221020-WA0019-768x766.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></figure>\n\n\n\n<p class=\"wp-block-paragraph\"></p>\n\n\n\n<p class=\"wp-block-paragraph\">Compartimos la amplia entrevista que realizaron a <strong><a href=\"https://www.editorialnazari.com/team/miguel-huguet/\">Miguel Huguet</a></strong> en <strong>Gaceta Radio TV. Onda Cartagena</strong> con motivo de la publicación de su último libro, <strong><em><a href=\"https://www.editorialnazari.com/libro/transgresion/\">Transgresión</a></em></strong>, que se presentará el 16 de noviembre en el Auditorio del Centro Cultural Ramón Alonso Luzzy de Cartagena.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Durante la entrevista en el programa Las mañanas de Gaceta, con <strong>Chelo Cánovas</strong> y <strong>Soledad Garaizábal</strong>, comentaron varios aspecto sobre la faceta empresarial de Miguel Huguet y sobre su faceta literaria, y las inquietudes que le llevaron a escribir este libro, a transgredir.</p>\n\n\n<p style=\"text-align: center;\"><iframe src=\"https://www.ivoox.com/player_ej_96311071_6_1.html?c1=04040c\" width=\"100%\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2022/11/IMG-20221020-WA0019-1024x1021.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2022-11-13",
+        "etiquetas": [
+          "entrevista",
+          "Miguel Huguet",
+          "Radio",
+          "Transgresión"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 17041,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_17041",
+          "miguel-huguet-en-gaceta-radio-tv-onda-cartagena"
+        ]
+      }
+    },
+    {
+      "clave": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15426",
+      "docs_a_eliminar": [
+        "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15426",
+          "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-06-11",
+          "resumen_preview": "<p>Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-06-11",
+          "resumen_preview": "Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.) d",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+        "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+        "resumen": "<p>Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.) del cuento infantil &#8216;La niña que estuvo&#8217;, Luis Javier López ha entrevistado a su autor, Pedro Rojas Pedregosa, en el programa de radio Canal Sur Mediodía, Granada.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada</h1>\n<p>&nbsp;</p>\n<p>Con motivo de la presentación esta tarde en <strong>Ugíjar</strong> (<a href=\"https://www.editorialnazari.com/eventos/la-nina-que-estuvo-en-ugijar/\"><span style=\"color: #0000ff;\">Plaza de las Flores, 20h.</span></a>) del cuento infantil <a href=\"https://www.editorialnazari.com/libro/la-nina-que-estuvo/\"><span style=\"color: #0000ff;\"><strong><em>La niña que estuvo</em></strong></span></a>, <strong>Luis Javier López</strong> ha entrevistado a su autor, <a href=\"https://www.editorialnazari.com/team/pedro-rojas-pedregosa/\"><span style=\"color: #0000ff;\"><strong>Pedro Rojas Pedregosa</strong></span></a>, en el programa de radio <a href=\"https://www.canalsur.es/radio/programas/canal-sur-mediodia-granada/detalle/2894707.html?video=1724331\"><span style=\"color: #0000ff;\"><strong>Canal Sur Mediodía, Granada</strong></span></a>. El cuento trata el Síndrome de Alienación Parental (SAP), que se ha puesto muy de moda en los medios en los últimos tiempos, pero es una problemática demasiado común.</p>\n<p style=\"text-align: center;\"><iframe id=\"audio_71307271\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_71307271_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fpedro-rojas-pedregosa-en-canal-sur-mediodia-granada%2F02c3f5cd_La-ni%C3%B1a-que-estuvo-Granada-01.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-11",
+        "etiquetas": [
+          "Canal Sur Mediodía",
+          "Canal Sur Radio",
+          "entrevista",
+          "La niña que estuvo",
+          "Pedro Rojas Pedregosa"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15426,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15426",
+          "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada"
+        ]
+      }
+    },
+    {
+      "clave": "teresa-ariza-perianez-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15462",
+      "docs_a_eliminar": [
+        "teresa-ariza-perianez-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15462",
+          "slug": "teresa-ariza-perianez-en-ideal",
+          "titulo": "Teresa Ariza Periáñez en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-16",
+          "resumen_preview": "<p>Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariz",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "teresa-ariza-perianez-en-ideal",
+          "slug": "teresa-ariza-perianez-en-ideal",
+          "titulo": "Teresa Ariza Periáñez en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-16",
+          "resumen_preview": "Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariza P",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Teresa Ariza Periáñez en Ideal",
+        "slug": "teresa-ariza-perianez-en-ideal",
+        "resumen": "<p>Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariza Periáñez con motivo de la presentación de &#8216;La mirada del frío&#8217;, su último poemario, que se presentará esta tarde (19h) en el Salón de Plenos del Excmo. Ayuntamiento de Granada.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Teresa Ariza Periáñez en Ideal</h1>\n<p>&nbsp;</p>\n<p><img decoding=\"async\" class=\"aligncenter size-large wp-image-15463\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F22efe9a8_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-1024x879.jpg\" alt=\"La mirada del frío - Teresa Ariza Periáñez - Ideal (16-06-2021)\" width=\"1024\" height=\"879\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F9e038535_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2Fdb2657fb_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-648x556.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2Faa3f783d_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-300x258.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F2146e4f0_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-768x660.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></p>\n<p>Compartimos la entrevista que realizó Antonio Arenas para <strong>Ideal</strong> a <a href=\"https://www.editorialnazari.com/team/teresa-ariza-perianez/\"><span style=\"color: #0000ff;\"><strong>Teresa Ariza Periáñez</strong></span></a> con motivo de la presentación de <a href=\"https://www.editorialnazari.com/libro/la-mirada-del-frio/\"><span style=\"color: #0000ff;\"><em><strong>La mirada del frío</strong></em></span></a>, su último poemario, que se <span style=\"color: #0000ff;\">presentará esta tarde (19h) en el Salón de Plenos del Excmo. Ayuntamiento de Granada</span>.</p>\n<p>Podéis leer cómodamente el artículo en <a href=\"https://en-clase.ideal.es/2021/06/16/maria-teresa-ariza-presenta-esta-tarde-en-el-ayuntamiento-su-cuarto-poemario-la-mirada-del-frio/\"><span style=\"color: #0000ff;\"><strong>Ideal en Clase</strong></span></a> y disfrutar de este vídeo donde Teresa os invita a la presentación.</p>\n<p style=\"text-align: center;\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/V6OcjtbsQ0Y\" width=\"727\" height=\"409\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/V6OcjtbsQ0Y/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-16",
+        "etiquetas": [
+          "entrevista",
+          "Ideal",
+          "La mirada del frío",
+          "Teresa Ariza Periáñez"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15462,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15462",
+          "teresa-ariza-perianez-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "sonetario-en-ideal-en-clase",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15828",
+      "docs_a_eliminar": [
+        "sonetario-en-ideal-en-clase"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15828",
+          "slug": "sonetario-en-ideal-en-clase",
+          "titulo": "‘Sonetario’ en Ideal en Clase",
+          "tipo": "entrevista",
+          "fecha": "2021-11-23",
+          "resumen_preview": "<p>Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentaci",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "sonetario-en-ideal-en-clase",
+          "slug": "sonetario-en-ideal-en-clase",
+          "titulo": "‘Sonetario’ en Ideal en Clase",
+          "tipo": "entrevista",
+          "fecha": "2021-11-23",
+          "resumen_preview": "Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentacione",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘Sonetario’ en Ideal en Clase",
+        "slug": "sonetario-en-ideal-en-clase",
+        "resumen": "<p>Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentaciones en Granada, entre ellas el poemario de Enrique Morón titulado &#8216;Sonetario&#8217;, que se presenta con más de un año y medio de retraso por motivo de la COVID.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">&#8216;Sonetario&#8217; en Ideal en Clase</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><a href=\"https://en-clase.ideal.es/2021/11/23/presentaciones-de-libros-para-la-tarde-del-martes-23-de-noviembre-nicolas-estevez-miguel-j-dean-y-enrique-moron/\"><img decoding=\"async\" width=\"857\" height=\"754\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fac97ba89_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021.jpg\" alt=\"\" class=\"wp-image-15829\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fac97ba89_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021.jpg 857w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2F175a6003_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-648x570.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2F7902e264_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-300x264.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fe9bc08e1_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-768x676.jpg 768w\" sizes=\"(max-width: 857px) 100vw, 857px\" /></a></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\">Como recoge <strong>Antonio Arenas</strong>&nbsp;en <strong>Ideal en Clase</strong>, hoy tendremos varias presentaciones en Granada, entre ellas el poemario de <a href=\"https://www.editorialnazari.com/team/enrique-moron/\"><strong><span style=\"color: #0000ff;\">Enrique Morón</span></strong></a> titulado <a href=\"https://www.editorialnazari.com/libro/sonetario/\"><span style=\"color: #0000ff;\"><em><strong>Sonetario</strong></em></span></a>, que se presenta con más de un año y medio de retraso por motivo de la COVID.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Esta tarde (20 h.) disfrutaremos de los versos de <a href=\"https://www.editorialnazari.com/team/enrique-moron/\"><strong><span style=\"color: #0000ff;\">Enrique Morón</span></strong></a> en el <strong>Centro Artístico, Literario y Científico de Granada</strong> junto al poeta <strong>Pedro López Ávila</strong>. Os esperamos.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Podéis escuchar la entrevista realizada por el periodista directamente en su podcast y que también la encontraréis en&nbsp;<a href=\"https://en-clase.ideal.es/2021/11/23/presentaciones-de-libros-para-la-tarde-del-martes-23-de-noviembre-nicolas-estevez-miguel-j-dean-y-enrique-moron/\"><strong><span style=\"color: #0000ff;\">Ideal en Clase</span></strong></a>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe id=\"audio_78567993\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_78567993_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2021/11/Enrique-Morón-Ideal-en-Clase-23-11-2021.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-11-23",
+        "etiquetas": [
+          "Antonio Arenas",
+          "Centro Artístico",
+          "Enrique Morón",
+          "entrevista",
+          "Ideal en Clase",
+          "Pedro López Ávila",
+          "Sonetario"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15828,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15828",
+          "sonetario-en-ideal-en-clase"
+        ]
+      }
+    }
+  ],
+  "casos_dudosos": [
+    {
+      "clave": "noticia-de-prueba",
+      "tipo_clave": "slug",
+      "total_docs": 4,
+      "id_canonico": "1wbClaLdFa4ryrAnIzrl",
+      "docs_a_eliminar": [
+        "x67Os3TOxEpf7k1Fxo8F",
+        "qFHxdxffIH9HJu8X602S",
+        "t7vbR6cVXSiSypJRvOOz"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "1wbClaLdFa4ryrAnIzrl",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen co",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        },
+        {
+          "id": "x67Os3TOxEpf7k1Fxo8F",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Noticia creada por samuel",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        },
+        {
+          "id": "qFHxdxffIH9HJu8X602S",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen co",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 21
+        },
+        {
+          "id": "t7vbR6cVXSiSypJRvOOz",
+          "slug": "noticia-de-prueba",
+          "titulo": "Noticia de prueba",
+          "tipo": "noticia",
+          "fecha": "2026-09-14",
+          "resumen_preview": "Noticia creada por samuel",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 21
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Noticia de prueba",
+        "slug": "noticia-de-prueba",
+        "resumen": "Hoy presentamos a nuestros lectores lo ocurrido en la feria del libro de Jaen con nuestro autora Belen",
+        "contenido": "[{\"insert\":\"El jueves 24 de septiembre a las 19:00 el Grupo Bojador presenta en Granada La habitación 320, una colección de relatos. El acto será presentado por César de Requesens, escritor y periodista. El evento tendrá lugar en la Librería Sostiene Pereira, calle Horno de la Merced, 4, Granada.\",\"attributes\":{\"font\":\"\\\"Cormorant Garamond\\\", Georgia, serif\",\"line-height\":2.0,\"color\":\"#FF1A1A1A\",\"size\":\"16\",\"background\":\"#FFFFFFFF\"}},{\"insert\":\"\\n\",\"attributes\":{\"align\":\"start\"}},{\"insert\":\"«La Habitación 320» implica una puerta. Una puerta que podemos franquear o no, que nos atrae o nos asusta, y detrás de la cual hay un espacio ignoto que podemos rellenar con todo aquello que tememos o deseamos. La colección reúne momentos extraordinarios dentro de habitaciones que pueden estar en cualquier parte: hoteles, consultas de psicólogos, casas rurales, institutos de investigación.\",\"attributes\":{\"font\":\"\\\"Cormorant Garamond\\\", Georgia, serif\",\"line-height\":2.0,\"color\":\"#FF1A1A1A\",\"size\":\"16\",\"background\":\"#FFFFFFFF\"}},{\"insert\":\"\\n\",\"attributes\":{\"align\":\"start\"}},{\"insert\":\"\\n\\n\"}]",
+        "autor": "Alejandro A. Bolívar",
+        "imagen_url": "https://firebasestorage.googleapis.com/v0/b/planeaapp-4bea4.firebasestorage.app/o/empresas%2F0PoomHYDUJf5w8tDFRLhFi9iURF3%2Fblog%2Fportadas%2F1789387522055.jpg?alt=media&token=0ada5644-07e4-4dcd-8f90-ad388fdf8c05",
+        "url_externa": "",
+        "tipo": "noticia",
+        "categoria_id": "",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-09-14",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [],
+        "_ids_originales": [
+          "1wbClaLdFa4ryrAnIzrl",
+          "x67Os3TOxEpf7k1Fxo8F",
+          "qFHxdxffIH9HJu8X602S",
+          "t7vbR6cVXSiSypJRvOOz"
+        ]
+      }
+    },
+    {
+      "clave": "acordes-de-tormenta-y-cielo-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15809",
+      "docs_a_eliminar": [
+        "acordes-de-tormenta-y-cielo-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15809",
+          "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+          "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-11-10",
+          "resumen_preview": "<p>Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "acordes-de-tormenta-y-cielo-en-ideal",
+          "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+          "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-11-10",
+          "resumen_preview": "Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo de",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘Acordes de tormenta y cielo’ en Ideal",
+        "slug": "acordes-de-tormenta-y-cielo-en-ideal",
+        "resumen": "<p>Antonio Arenas entrevistó a Juan de Dios Villanueva Roa para Ideal con motivo de la presentación de su última publicación, &#8216;Acordes de tormenta y cielo&#8217;, 60 textos en prosa poética.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">&#8216;Acordes de tormenta y cielo&#8217; en Ideal</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><img decoding=\"async\" width=\"1024\" height=\"439\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F675b093a_Ideal-10-11-2021-1024x439.jpg\" alt=\"Acordes de tormenta y cielo - Juan de Dios Villanueva Roa - Ideal (10-11-2021)\" class=\"wp-image-15810\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F8a290e17_Ideal-10-11-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2Ff5fec1d6_Ideal-10-11-2021-648x278.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F19736470_Ideal-10-11-2021-300x129.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Facordes-de-tormenta-y-cielo-en-ideal%2F3d6fc49e_Ideal-10-11-2021-768x330.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\"><strong>Antonio Arenas</strong>&nbsp;entrevistó a <a href=\"https://www.editorialnazari.com/team/juan-de-dios-villanueva-roa/\"><span style=\"color: #0000ff;\"><strong>Juan de Dios Villanueva Roa</strong></span></a> para <em><strong>Ideal</strong></em> con motivo de la presentación de su última publicación, <a href=\"https://www.editorialnazari.com/libro/acordes-de-tormenta-y-cielo/\"><span style=\"color: #0000ff;\"><em><strong>Acordes de tormenta y cielo</strong></em></span></a>, 60 textos en prosa poética, donde el autor dialoga sobre los sueños y miedos que transitan nuestra mente en algún momento de nuestra existencia. El tiempo y su discurrir está presente en todo el libro. <a href=\"https://www.editorialnazari.com/eventos/acordes-de-tormenta-y-cielo-en-granada/\"><span style=\"color: #0000ff;\">Esta tarde a las 19h. se presenta en La Madraza</span></a>.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Os dejamos también el vídeo realizado por el periodista y el enlace a <a href=\"https://en-clase.ideal.es/2021/11/10/juan-de-dios-villanueva-en-acordes-de-tormenta-y-cielo-he-buscado-una-sinfonia-entre-los-sufrimientos-de-la-persona-y-las-cosas-buenas-que-tiene-la-vida/\"><strong><span style=\"color: #0000ff;\">Ideal en Clase</span></strong></a>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/haW8bILB__Y\" width=\"962\" height=\"541\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/haW8bILB__Y/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-11-10",
+        "etiquetas": [
+          "Acordes de tormenta y cielo",
+          "Antonio Arenas",
+          "entrevista",
+          "Ideal",
+          "Juan de Dios Villanueva Roa",
+          "La Madraza"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15809,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15809",
+          "acordes-de-tormenta-y-cielo-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "comodamente-adormecido-mijas-tv",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "comodamente-adormecido-mijas-tv",
+      "docs_a_eliminar": [
+        "static-12"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-12",
+          "slug": "comodamente-adormecido-mijas-tv",
+          "titulo": "«Cómodamente adormecido» en Mijas TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero presenta su novela en el ciclo literario de Mijas TV.",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "comodamente-adormecido-mijas-tv",
+          "slug": "comodamente-adormecido-mijas-tv",
+          "titulo": "«Cómodamente adormecido» en Mijas TV",
+          "tipo": "entrevista",
+          "fecha": "2025-04-22",
+          "resumen_preview": "Juan Quero presenta su novela «Cómodamente adormecido» en el ciclo literario de ",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Cómodamente adormecido» en Mijas TV",
+        "slug": "comodamente-adormecido-mijas-tv",
+        "resumen": "Juan Quero presenta su novela «Cómodamente adormecido» en el ciclo literario de Mijas TV, una obra que invita a reflexionar sobre la comodidad y el conformismo contemporáneo.",
+        "contenido": "",
+        "autor": "Juan Quero",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/comodamente-adormecido-en-mijas-tv/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-04-22",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-12",
+          "comodamente-adormecido-mijas-tv"
+        ]
+      }
+    },
+    {
+      "clave": "destilacion-en-ribadavia",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "destilacion-en-ribadavia",
+      "docs_a_eliminar": [
+        "noticia-1"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "noticia-1",
+          "slug": "destilacion-en-ribadavia",
+          "titulo": "«Destilación» en Ribadavia",
+          "tipo": "noticia",
+          "fecha": "2026-08-24",
+          "resumen_preview": "Paula R. Bouzas presenta «Destilación» en el Museo Etnológico de Ribadavia. Una ",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "destilacion-en-ribadavia",
+          "slug": "destilacion-en-ribadavia",
+          "titulo": "‘Destilación’ en Ribadavia",
+          "tipo": "noticia",
+          "fecha": "2026-08-23",
+          "resumen_preview": "El Museo Etnológico de Ribadavia, ubicado en el Pazo de Baamonde, prestó sus mur",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Destilación» en Ribadavia",
+        "slug": "destilacion-en-ribadavia",
+        "resumen": "El Museo Etnológico de Ribadavia, ubicado en el Pazo de Baamonde, prestó sus muros y su patio para la presentación de ‘Destilación’, de Paula R. Bouzas. José Luis Chao, humanista y escritor versado en historia del Ribeiro, se encargó de introducir el acto.",
+        "contenido": "<h2>Así fue la presentación de ‘Destilación’ en Ribadavia</h2>\n\n\n\n<p><em>Rasga en dos y mil pedazos</em><br><em>el velo del sanctasanctórum.</em></p>\n\n\n\n<p>Tras unos días de calor sofocante, alguna conspiración anónima trajo algo de brisa y se llevó unos cuantos grados para acompañar adecuadamente poesía cargada de verde, agua, vida y preguntas.</p>\n\n\n\n<p>El escenario, también resultó acorde al evento. El <strong>Museo Etnológico de Ribadavia</strong>, ubicado en el Pazo de Baamonde, prestó sus muros y su patio para la presentación de <strong><em><a href=\"https://www.editorialnazari.com/libro/al-tercer-dia/\">Destilación</a></em></strong>, de <strong><a href=\"https://www.editorialnazari.com/team/paula-r-bouzas/\">Paula R. Bouzas</a></strong>.</p>\n\n\n\n<p><strong>José Luis Chao</strong>, humanista y escritor versado en historia del Ribeiro, se encargó de introducir el acto. No solo presentó a la autora profesionalmente sino que puso de manifiesto el cariño y complicidad de ambos, buen comienzo para crear un ambiente amable e íntimo.</p>\n\n\n\n<p>La lectura de los poemas nos invitó a rasgar los velos con los que nos envolvemos en tiempos de penas y penumbra para salir al mundo, cerrar cicatrices y abandonar la autocompasión. Lejos de proponer una esperanza rosa empolvado, falaz, pueril, los versos proponían hacer funambulismo entre la realidad y el deseo, dar pasos gráciles entre las luces y sombras de la vida y, cuando el reloj quiebre, ser lluvia sobre piedra y la tierra negra de castaños y hortensias.</p>\n\n\n\n<p>El último poema recitado, Rosalías, fue un homenaje de la autora a su tierra, Galicia. Escuchamos, comprendimos, cómo los verdes, las mañanas lentas, las ermitas románicas, las vides… se inspiran y se exhalan en poemas. Después de eso, la música con la que <strong>Stephen P. Hughes</strong> cerró el acto puso el punto final perfecto a la velada. Tocó y cantó una personal adaptación de los famosos versos de Rosalía de Castro Adiós ríos, adiós fontes.</p>\n\n\n\n<p>Quedó en el aire el olor a vida, naturaleza y, como dice uno de los poemas, la esencia que se filtra entre la tapa y el reborde del ánfora que portaba Pandora.</p>\n\n\n\n<figure>\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg\"><img decoding=\"async\" width=\"1024\" height=\"768\" data-id=\"31027\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1024x768.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1024x768.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-300x225.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-768x576.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-1536x1152.jpg 1536w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-648x486.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-760x570.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01-370x278.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg 2048w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n\n\n\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02.jpg\"><img decoding=\"async\" width=\"1024\" height=\"576\" data-id=\"31028\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1024x576.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1024x576.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-300x169.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-768x432.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1536x864.jpg 1536w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-648x365.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-1170x658.jpg 1170w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-760x428.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-370x208.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02-270x152.jpg 270w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-02.jpg 2048w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n\n\n\n<figure><a href=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03.jpg\"><img decoding=\"async\" width=\"1024\" height=\"726\" data-id=\"31029\" src=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-1024x726.jpg\" alt=\"\" srcset=\"https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-1024x726.jpg 1024w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-300x213.jpg 300w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-768x545.jpg 768w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-648x459.jpg 648w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-760x539.jpg 760w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03-370x262.jpg 370w, https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-03.jpg 1203w\" sizes=\"(max-width: 1024px) 100vw, 1024px\"></a></figure>\n</figure>",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/08/destilacion-ribadavia-01.jpg",
+        "url_externa": "https://www.editorialnazari.com/destilacion-en-ribadavia/",
+        "tipo": "noticia",
+        "categoria_id": "Noticias",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-08-24",
+        "etiquetas": [
+          "Destilación",
+          "José Luis Chao",
+          "Museo Etnológico de Ribadavia",
+          "Paula R. Bouzas",
+          "presentaciones",
+          "Ribadavia",
+          "Stephen P. Hughes"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": 31025,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "noticia-1",
+          "destilacion-en-ribadavia"
+        ]
+      }
+    },
+    {
+      "clave": "dulce-lopez-cafes-literarios",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "dulce-lopez-cafes-literarios",
+      "docs_a_eliminar": [
+        "static-7"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-7",
+          "slug": "dulce-lopez-cafes-literarios",
+          "titulo": "Dulce López Rodríguez en Cafés literarios",
+          "tipo": "entrevista",
+          "fecha": "2026-02-10",
+          "resumen_preview": "La autora dialoga en el pódcast «Cafés literarios» de la Universidad de Jaén sob",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 28
+        },
+        {
+          "id": "dulce-lopez-cafes-literarios",
+          "slug": "dulce-lopez-cafes-literarios",
+          "titulo": "Dulce López Rodríguez en Cafés literarios",
+          "tipo": "entrevista",
+          "fecha": "2026-02-10",
+          "resumen_preview": "La autora dialoga con Álvaro García Conde en el pódcast «Cafés literarios» de la",
+          "tiene_imagen": true,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 24
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Dulce López Rodríguez en Cafés literarios",
+        "slug": "dulce-lopez-cafes-literarios",
+        "resumen": "La autora dialoga con Álvaro García Conde en el pódcast «Cafés literarios» de la Universidad de Jaén sobre «Creo que te quiero», sus temas y su proceso creativo.",
+        "contenido": "",
+        "autor": "Dulce López Rodríguez",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2026/02/entrevista-dulce-lopez-1024x761.jpeg",
+        "url_externa": "https://www.editorialnazari.com/dulce-lopez-rodriguez-y-creo-que-te-quiero-en-cafes-literarios/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2026-02-10",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-7",
+          "dulce-lopez-cafes-literarios"
+        ]
+      }
+    },
+    {
+      "clave": "eduardo-cano-mazuecos-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15406",
+      "docs_a_eliminar": [
+        "eduardo-cano-mazuecos-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15406",
+          "slug": "eduardo-cano-mazuecos-en-ideal",
+          "titulo": "Eduardo Cano Mazuecos en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-10",
+          "resumen_preview": "<p>Ayer publicaba Ideal la noticia de la presentación de &#8216;Cautivos en libe",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "eduardo-cano-mazuecos-en-ideal",
+          "slug": "eduardo-cano-mazuecos-en-ideal",
+          "titulo": "Eduardo Cano Mazuecos en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-10",
+          "resumen_preview": "Ayer publicaba Ideal la noticia de la presentación de ‘Cautivos en libertad’, el",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Eduardo Cano Mazuecos en Ideal",
+        "slug": "eduardo-cano-mazuecos-en-ideal",
+        "resumen": "<p>Ayer publicaba Ideal la noticia de la presentación de &#8216;Cautivos en libertad&#8217;, el último libro de Eduardo Cano Mazuecos, novela de ficción ambientada en el campo de concentración de Auschwitz. Podéis ver el artículo más extenso en Ideal en Clase, con el audio de la entrevista y un vídeo promocional que compartimos también.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Eduardo Cano Mazuecos en Ideal</h1>\n<p>&nbsp;</p>\n<p><img decoding=\"async\" class=\"aligncenter size-large wp-image-15407\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fac817ccc_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-1024x340.jpg\" alt=\"Cautivos en libertad - Eduardo Cano Mazuecos - Ideal (09-06-2021)\" width=\"1024\" height=\"340\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2F84c3641b_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2F529223e0_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-648x215.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fbd987935_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-300x100.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Feduardo-cano-mazuecos-en-ideal%2Fbe9c4b15_Cautivos-en-libertad-Eduardo-Cano-Mazuecos-Ideal-09-06-2021-768x255.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></p>\n<p>Ayer publicaba <strong>Ideal</strong> la noticia de la presentación de <a href=\"https://www.editorialnazari.com/libro/cautivos-en-libertad/\"><span style=\"color: #0000ff;\"><strong><em>Cautivos en libertad</em></strong></span></a>, el último libro de <a href=\"https://www.editorialnazari.com/team/eduardo-cano-mazuecos/\"><span style=\"color: #0000ff;\"><strong>Eduardo Cano Mazuecos</strong></span></a>, novela de ficción ambientada en el campo de concentración de Auschwitz. Podéis ver el artículo más extenso en <a href=\"https://en-clase.ideal.es/2021/06/10/eduardo-cano-presenta-su-cuarto-libro-cautivos-en-libertad-ambientada-en-el-campo-de-concentracion-de-auschwitz/\"><span style=\"color: #0000ff;\"><strong>Ideal en Clase</strong></span></a>, con el audio de la entrevista y un vídeo promocional que compartimos también.</p>\n<p style=\"text-align: center;\"><iframe id=\"audio_71228687\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_71228687_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n<p style=\"text-align: center;\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/fuPA4Ij-9c8\" width=\"727\" height=\"409\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/fuPA4Ij-9c8/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-10",
+        "etiquetas": [
+          "Cautivos en libertad",
+          "Eduardo Cano Mazuecos",
+          "Ideal",
+          "Ideal en Clase"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15406,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15406",
+          "eduardo-cano-mazuecos-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15640",
+      "docs_a_eliminar": [
+        "el-corazon-del-roble-en-hoy-por-hoy-granada"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15640",
+          "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-10-02",
+          "resumen_preview": "<p>Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de l",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+          "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-10-02",
+          "resumen_preview": "Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de la C",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘El corazón del roble’ en Hoy por hoy Granada",
+        "slug": "el-corazon-del-roble-en-hoy-por-hoy-granada",
+        "resumen": "<p>Victoria E. Muñoz Jiménez habla con Enrique Árbol en Hoy por hoy Granada de la Cadena SER sobre sus firmas en la Feria del Libro de Granada, donde estará presente en varias casetas firmando ejemplares de &#8216;El corazón del roble&#8217; y &#8216;Huyendo a Granada&#8217;.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\"><em>El corazón del roble</em> en Hoy por hoy Granada</h1>\n<p>&nbsp;</p>\n<p><a href=\"https://www.editorialnazari.com/team/victoria-e-munoz-jimenez/\"><span style=\"color: #0000ff;\"><strong>Victoria E. Muñoz Jiménez</strong></span></a> habla con <strong>Enrique Árbol</strong> en <strong>Hoy por hoy Granada</strong> de la <strong>Cadena SER</strong> sobre sus firmas en la <strong>Feria del Libro de Granada</strong>, donde estará presente en varias casetas firmando ejemplares de <a href=\"https://www.editorialnazari.com/libro/el-corazon-del-roble/\"><span style=\"color: #0000ff;\"><em><strong>El corazón del roble</strong></em></span></a> y <em>Huyendo a Granada</em>. Firmará ejemplares en la caseta de Editorial Nazarí y en la que tendrá la Librería Paulinas.</p>\n<p>&nbsp;</p>\n<p><iframe id=\"audio_76259678\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_76259678_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fel-corazon-del-roble-en-hoy-por-hoy-granada%2Ff868fa1b_images_ECDR-Radio-_Granada-21-04-15-scaled.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-10-02",
+        "etiquetas": [
+          "El Corazón del Roble",
+          "Feria del Libro de Granada",
+          "Hoy por hoy Granada",
+          "Victoria Muñoz Jiménez"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15640,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15640",
+          "el-corazon-del-roble-en-hoy-por-hoy-granada"
+        ]
+      }
+    },
+    {
+      "clave": "jonas-y-la-esperanza-buenos-dias-albolote",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "jonas-y-la-esperanza-buenos-dias-albolote",
+      "docs_a_eliminar": [
+        "static-16"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "static-16",
+          "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+          "tipo": "entrevista",
+          "fecha": "2025-01-13",
+          "resumen_preview": "Juan Carlos Rodríguez Torres presenta su novela en el programa local Buenos Días",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "web-nazari",
+          "score": 23
+        },
+        {
+          "id": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+          "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+          "tipo": "entrevista",
+          "fecha": "2025-01-13",
+          "resumen_preview": "Juan Carlos Rodríguez Torres presenta su novela «Jonás y la esperanza» en el pro",
+          "tiene_imagen": false,
+          "tiene_url_ext": true,
+          "tiene_eliminado": true,
+          "fuente": "—",
+          "score": 19
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "«Jonás y la esperanza» en Buenos Días Albolote",
+        "slug": "jonas-y-la-esperanza-buenos-dias-albolote",
+        "resumen": "Juan Carlos Rodríguez Torres presenta su novela «Jonás y la esperanza» en el programa local Buenos Días Albolote, hablando del proceso creativo y los temas de su obra.",
+        "contenido": "",
+        "autor": "Juan Carlos Rodríguez Torres",
+        "imagen_url": "",
+        "url_externa": "https://www.editorialnazari.com/jonas-y-la-esperanza-en-buenos-dias-albolote/",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2025-01-13",
+        "etiquetas": [],
+        "visitas": 0,
+        "seo": {
+          "meta_description": "",
+          "keywords": [],
+          "meta_title": ""
+        },
+        "wp_id": null,
+        "_fusionado": true,
+        "_fuentes": [
+          "web-nazari"
+        ],
+        "_ids_originales": [
+          "static-16",
+          "jonas-y-la-esperanza-buenos-dias-albolote"
+        ]
+      }
+    },
+    {
+      "clave": "juan-antonio-nunez-en-radio-5",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_16254",
+      "docs_a_eliminar": [
+        "juan-antonio-nunez-en-radio-5"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_16254",
+          "slug": "juan-antonio-nunez-en-radio-5",
+          "titulo": "Juan Antonio Núñez en RNE Radio 5",
+          "tipo": "entrevista",
+          "fecha": "2022-04-03",
+          "resumen_preview": "<p>Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la ",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "juan-antonio-nunez-en-radio-5",
+          "slug": "juan-antonio-nunez-en-radio-5",
+          "titulo": "Juan Antonio Núñez en RNE Radio 5",
+          "tipo": "entrevista",
+          "fecha": "2022-04-03",
+          "resumen_preview": "Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la pub",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Juan Antonio Núñez en RNE Radio 5",
+        "slug": "juan-antonio-nunez-en-radio-5",
+        "resumen": "<p>Juan Antonio Núñez es entrevistado en Radio 5 Todo Noticias con motivo de la publicación de su nueva novela, &#8216;Azul Klein&#8217;, que se presenta en Almería.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">Juan Antonio Núñez en RNE Radio 5</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><img decoding=\"async\" width=\"300\" height=\"300\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Fd838eb19_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2.jpg\" alt=\"Azul Klein - Juan Antonio Núñez\" class=\"wp-image-16257\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Fd838eb19_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2Faee77a74_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2-100x100.jpg 100w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fjuan-antonio-nunez-en-radio-5%2F77168cba_Azul-Klein-Juan-Antonio-N%C3%BA%C3%B1ez2-150x150.jpg 150w\" sizes=\"(max-width: 300px) 100vw, 300px\" /></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\"><a href=\"https://www.editorialnazari.com/team/juan-antonio-nunez/\"><span style=\"color: #0000ff;\"><strong>Juan Antonio Núñez</strong></span></a> es entrevistado en <a href=\"https://listaradio.com/radio-5\"><strong>RNE Radio 5 Todo Noticias</strong></a> con motivo de la publicación de su nueva novela, <a href=\"https://www.editorialnazari.com/libro/azul-klein/\"><span style=\"color: #0000ff;\"><em><strong>Azul Klein</strong></em></span></a>, que reflexiona sobre la soledad y las relaciones tóxicas. Se presentará en la <a href=\"https://www.editorialnazari.com/eventos/azul-klein-en-almeria/\"><span style=\"color: #0000ff;\">Biblioteca Villaespesa el 6 de abril (19:30)</span></a> en un acto organizado por el <strong>Centro Andaluz de las Letras</strong>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe src=\"https://www.ivoox.com/player_ej_85248565_6_1.html?c1=04040c\" width=\"100%\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n\n\n\n<p class=\"wp-block-paragraph\">También podéis escuchar el programa entero en la <a href=\"https://www.rtve.es/play/audios/informativo-de-andalucia/informativo-almeria-28-03-22/6468716/\"><span style=\"color: #0000ff;\">web de RNE</span></a>.</p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2022/04/Azul-Klein-Juan-Antonio-Núñez2.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2022-04-03",
+        "etiquetas": [
+          "Almería",
+          "Azul Klein",
+          "Centro Andaluz de las Letras",
+          "entrevista",
+          "Juan Antonio Núñez",
+          "RNE"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 16254,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_16254",
+          "juan-antonio-nunez-en-radio-5"
+        ]
+      }
+    },
+    {
+      "clave": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_17041",
+      "docs_a_eliminar": [
+        "miguel-huguet-en-gaceta-radio-tv-onda-cartagena"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_17041",
+          "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+          "tipo": "entrevista",
+          "fecha": "2022-11-13",
+          "resumen_preview": "<p>Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Rad",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+          "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+          "tipo": "entrevista",
+          "fecha": "2022-11-13",
+          "resumen_preview": "Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Radio ",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Miguel Huguet en Gaceta Radio TV. Onda Cartagena",
+        "slug": "miguel-huguet-en-gaceta-radio-tv-onda-cartagena",
+        "resumen": "<p>Compartimos la amplia entrevista que realizaron a Miguel Huguet en Gaceta Radio TV. Onda Cartagena con motivo de la publicación de su último libro, &#8216;Transgresión&#8217;, que se presentará el 16 de noviembre en el Auditorio del Centro Cultural Ramón Alonso Luzzy de Cartagena.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">Miguel Huguet en Gaceta Radio TV. Onda Cartagena</h2>\n\n\n\n<figure class=\"wp-block-image size-large\"><img decoding=\"async\" width=\"1024\" height=\"1021\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F6fb6cf94_IMG-20221020-WA0019-1024x1021.jpg\" alt=\"\" class=\"wp-image-17043\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2Fba9ed444_IMG-20221020-WA0019-scaled.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F6dba95ca_IMG-20221020-WA0019-100x100.jpg 100w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F14eca03f_IMG-20221020-WA0019-648x646.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2Fc9b87047_IMG-20221020-WA0019-300x300.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F8d79578f_IMG-20221020-WA0019-150x150.jpg 150w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fmiguel-huguet-en-gaceta-radio-tv-onda-cartagena%2F8504250a_IMG-20221020-WA0019-768x766.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></figure>\n\n\n\n<p class=\"wp-block-paragraph\"></p>\n\n\n\n<p class=\"wp-block-paragraph\">Compartimos la amplia entrevista que realizaron a <strong><a href=\"https://www.editorialnazari.com/team/miguel-huguet/\">Miguel Huguet</a></strong> en <strong>Gaceta Radio TV. Onda Cartagena</strong> con motivo de la publicación de su último libro, <strong><em><a href=\"https://www.editorialnazari.com/libro/transgresion/\">Transgresión</a></em></strong>, que se presentará el 16 de noviembre en el Auditorio del Centro Cultural Ramón Alonso Luzzy de Cartagena.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Durante la entrevista en el programa Las mañanas de Gaceta, con <strong>Chelo Cánovas</strong> y <strong>Soledad Garaizábal</strong>, comentaron varios aspecto sobre la faceta empresarial de Miguel Huguet y sobre su faceta literaria, y las inquietudes que le llevaron a escribir este libro, a transgredir.</p>\n\n\n<p style=\"text-align: center;\"><iframe src=\"https://www.ivoox.com/player_ej_96311071_6_1.html?c1=04040c\" width=\"100%\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2022/11/IMG-20221020-WA0019-1024x1021.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2022-11-13",
+        "etiquetas": [
+          "entrevista",
+          "Miguel Huguet",
+          "Radio",
+          "Transgresión"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 17041,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_17041",
+          "miguel-huguet-en-gaceta-radio-tv-onda-cartagena"
+        ]
+      }
+    },
+    {
+      "clave": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15426",
+      "docs_a_eliminar": [
+        "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15426",
+          "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-06-11",
+          "resumen_preview": "<p>Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+          "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+          "tipo": "entrevista",
+          "fecha": "2021-06-11",
+          "resumen_preview": "Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.) d",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada",
+        "slug": "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada",
+        "resumen": "<p>Con motivo de la presentación esta tarde en Ugíjar (Plaza de las Flores, 20h.) del cuento infantil &#8216;La niña que estuvo&#8217;, Luis Javier López ha entrevistado a su autor, Pedro Rojas Pedregosa, en el programa de radio Canal Sur Mediodía, Granada.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Pedro Rojas Pedregosa en Canal Sur Mediodía, Granada</h1>\n<p>&nbsp;</p>\n<p>Con motivo de la presentación esta tarde en <strong>Ugíjar</strong> (<a href=\"https://www.editorialnazari.com/eventos/la-nina-que-estuvo-en-ugijar/\"><span style=\"color: #0000ff;\">Plaza de las Flores, 20h.</span></a>) del cuento infantil <a href=\"https://www.editorialnazari.com/libro/la-nina-que-estuvo/\"><span style=\"color: #0000ff;\"><strong><em>La niña que estuvo</em></strong></span></a>, <strong>Luis Javier López</strong> ha entrevistado a su autor, <a href=\"https://www.editorialnazari.com/team/pedro-rojas-pedregosa/\"><span style=\"color: #0000ff;\"><strong>Pedro Rojas Pedregosa</strong></span></a>, en el programa de radio <a href=\"https://www.canalsur.es/radio/programas/canal-sur-mediodia-granada/detalle/2894707.html?video=1724331\"><span style=\"color: #0000ff;\"><strong>Canal Sur Mediodía, Granada</strong></span></a>. El cuento trata el Síndrome de Alienación Parental (SAP), que se ha puesto muy de moda en los medios en los últimos tiempos, pero es una problemática demasiado común.</p>\n<p style=\"text-align: center;\"><iframe id=\"audio_71307271\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_71307271_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fpedro-rojas-pedregosa-en-canal-sur-mediodia-granada%2F02c3f5cd_La-ni%C3%B1a-que-estuvo-Granada-01.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-11",
+        "etiquetas": [
+          "Canal Sur Mediodía",
+          "Canal Sur Radio",
+          "entrevista",
+          "La niña que estuvo",
+          "Pedro Rojas Pedregosa"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15426,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15426",
+          "pedro-rojas-pedregosa-en-canal-sur-mediodia-granada"
+        ]
+      }
+    },
+    {
+      "clave": "teresa-ariza-perianez-en-ideal",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15462",
+      "docs_a_eliminar": [
+        "teresa-ariza-perianez-en-ideal"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15462",
+          "slug": "teresa-ariza-perianez-en-ideal",
+          "titulo": "Teresa Ariza Periáñez en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-16",
+          "resumen_preview": "<p>Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariz",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 27
+        },
+        {
+          "id": "teresa-ariza-perianez-en-ideal",
+          "slug": "teresa-ariza-perianez-en-ideal",
+          "titulo": "Teresa Ariza Periáñez en Ideal",
+          "tipo": "entrevista",
+          "fecha": "2021-06-16",
+          "resumen_preview": "Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariza P",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "Teresa Ariza Periáñez en Ideal",
+        "slug": "teresa-ariza-perianez-en-ideal",
+        "resumen": "<p>Compartimos la entrevista que realizó Antonio Arenas para Ideal a Teresa Ariza Periáñez con motivo de la presentación de &#8216;La mirada del frío&#8217;, su último poemario, que se presentará esta tarde (19h) en el Salón de Plenos del Excmo. Ayuntamiento de Granada.</p>\n",
+        "contenido": "<h1 style=\"text-align: center;\">Teresa Ariza Periáñez en Ideal</h1>\n<p>&nbsp;</p>\n<p><img decoding=\"async\" class=\"aligncenter size-large wp-image-15463\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F22efe9a8_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-1024x879.jpg\" alt=\"La mirada del frío - Teresa Ariza Periáñez - Ideal (16-06-2021)\" width=\"1024\" height=\"879\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F9e038535_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021.jpg 1024w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2Fdb2657fb_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-648x556.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2Faa3f783d_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-300x258.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fteresa-ariza-perianez-en-ideal%2F2146e4f0_La-mirada-del-fr%C3%ADo-Ideal-16-06-2021-768x660.jpg 768w\" sizes=\"(max-width: 1024px) 100vw, 1024px\" /></p>\n<p>Compartimos la entrevista que realizó Antonio Arenas para <strong>Ideal</strong> a <a href=\"https://www.editorialnazari.com/team/teresa-ariza-perianez/\"><span style=\"color: #0000ff;\"><strong>Teresa Ariza Periáñez</strong></span></a> con motivo de la presentación de <a href=\"https://www.editorialnazari.com/libro/la-mirada-del-frio/\"><span style=\"color: #0000ff;\"><em><strong>La mirada del frío</strong></em></span></a>, su último poemario, que se <span style=\"color: #0000ff;\">presentará esta tarde (19h) en el Salón de Plenos del Excmo. Ayuntamiento de Granada</span>.</p>\n<p>Podéis leer cómodamente el artículo en <a href=\"https://en-clase.ideal.es/2021/06/16/maria-teresa-ariza-presenta-esta-tarde-en-el-ayuntamiento-su-cuarto-poemario-la-mirada-del-frio/\"><span style=\"color: #0000ff;\"><strong>Ideal en Clase</strong></span></a> y disfrutar de este vídeo donde Teresa os invita a la presentación.</p>\n<p style=\"text-align: center;\"><iframe title=\"YouTube video player\" src=\"https://www.youtube.com/embed/V6OcjtbsQ0Y\" width=\"727\" height=\"409\" frameborder=\"0\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://img.youtube.com/vi/V6OcjtbsQ0Y/hqdefault.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-06-16",
+        "etiquetas": [
+          "entrevista",
+          "Ideal",
+          "La mirada del frío",
+          "Teresa Ariza Periáñez"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15462,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15462",
+          "teresa-ariza-perianez-en-ideal"
+        ]
+      }
+    },
+    {
+      "clave": "sonetario-en-ideal-en-clase",
+      "tipo_clave": "slug",
+      "total_docs": 2,
+      "id_canonico": "nazari_wp_entrevista_15828",
+      "docs_a_eliminar": [
+        "sonetario-en-ideal-en-clase"
+      ],
+      "es_dudoso": true,
+      "conflictos": [
+        "Resúmenes distintos entre duplicados — la fusión toma el más largo"
+      ],
+      "docs_actuales": [
+        {
+          "id": "nazari_wp_entrevista_15828",
+          "slug": "sonetario-en-ideal-en-clase",
+          "titulo": "‘Sonetario’ en Ideal en Clase",
+          "tipo": "entrevista",
+          "fecha": "2021-11-23",
+          "resumen_preview": "<p>Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentaci",
+          "tiene_imagen": false,
+          "tiene_url_ext": false,
+          "tiene_eliminado": true,
+          "fuente": "wp_migracion",
+          "score": 22
+        },
+        {
+          "id": "sonetario-en-ideal-en-clase",
+          "slug": "sonetario-en-ideal-en-clase",
+          "titulo": "‘Sonetario’ en Ideal en Clase",
+          "tipo": "entrevista",
+          "fecha": "2021-11-23",
+          "resumen_preview": "Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentacione",
+          "tiene_imagen": true,
+          "tiene_url_ext": false,
+          "tiene_eliminado": false,
+          "fuente": "wp_import",
+          "score": 20
+        }
+      ],
+      "documento_fusionado": {
+        "titulo": "‘Sonetario’ en Ideal en Clase",
+        "slug": "sonetario-en-ideal-en-clase",
+        "resumen": "<p>Como recoge Antonio Arenas en Ideal en Clase, hoy tendremos varias presentaciones en Granada, entre ellas el poemario de Enrique Morón titulado &#8216;Sonetario&#8217;, que se presenta con más de un año y medio de retraso por motivo de la COVID.</p>\n",
+        "contenido": "\n<h2 class=\"wp-block-heading has-text-align-center\">&#8216;Sonetario&#8217; en Ideal en Clase</h2>\n\n\n<div class=\"wp-block-image\">\n<figure class=\"aligncenter\"><a href=\"https://en-clase.ideal.es/2021/11/23/presentaciones-de-libros-para-la-tarde-del-martes-23-de-noviembre-nicolas-estevez-miguel-j-dean-y-enrique-moron/\"><img decoding=\"async\" width=\"857\" height=\"754\" src=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fac97ba89_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021.jpg\" alt=\"\" class=\"wp-image-15829\" srcset=\"https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fac97ba89_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021.jpg 857w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2F175a6003_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-648x570.jpg 648w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2F7902e264_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-300x264.jpg 300w, https://storage.googleapis.com/planeaapp-4bea4.firebasestorage.app/nazari%2Fmigracion%2Fentrevista%2Fsonetario-en-ideal-en-clase%2Fe9bc08e1_Enrique-Mor%C3%B3n-Ideal-en-Clase-23-11-2021-768x676.jpg 768w\" sizes=\"(max-width: 857px) 100vw, 857px\" /></a></figure>\n</div>\n\n\n<p class=\"wp-block-paragraph\">Como recoge <strong>Antonio Arenas</strong>&nbsp;en <strong>Ideal en Clase</strong>, hoy tendremos varias presentaciones en Granada, entre ellas el poemario de <a href=\"https://www.editorialnazari.com/team/enrique-moron/\"><strong><span style=\"color: #0000ff;\">Enrique Morón</span></strong></a> titulado <a href=\"https://www.editorialnazari.com/libro/sonetario/\"><span style=\"color: #0000ff;\"><em><strong>Sonetario</strong></em></span></a>, que se presenta con más de un año y medio de retraso por motivo de la COVID.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Esta tarde (20 h.) disfrutaremos de los versos de <a href=\"https://www.editorialnazari.com/team/enrique-moron/\"><strong><span style=\"color: #0000ff;\">Enrique Morón</span></strong></a> en el <strong>Centro Artístico, Literario y Científico de Granada</strong> junto al poeta <strong>Pedro López Ávila</strong>. Os esperamos.</p>\n\n\n\n<p class=\"wp-block-paragraph\">Podéis escuchar la entrevista realizada por el periodista directamente en su podcast y que también la encontraréis en&nbsp;<a href=\"https://en-clase.ideal.es/2021/11/23/presentaciones-de-libros-para-la-tarde-del-martes-23-de-noviembre-nicolas-estevez-miguel-j-dean-y-enrique-moron/\"><strong><span style=\"color: #0000ff;\">Ideal en Clase</span></strong></a>.</p>\n\n\n\n<p class=\"has-text-align-center wp-block-paragraph\"><iframe id=\"audio_78567993\" style=\"width: 100%;\" src=\"https://www.ivoox.com/player_ej_78567993_6_1.html\" height=\"200\" frameborder=\"0\" scrolling=\"no\" allowfullscreen=\"allowfullscreen\"></iframe></p>\n",
+        "autor": "Editorial Nazarí",
+        "imagen_url": "https://www.editorialnazari.com/wp-content/uploads/2021/11/Enrique-Morón-Ideal-en-Clase-23-11-2021.jpg",
+        "url_externa": "",
+        "tipo": "entrevista",
+        "categoria_id": "Entrevistas",
+        "estado": "publicado",
+        "publicada": true,
+        "eliminado": false,
+        "fecha_publicacion": "2021-11-23",
+        "etiquetas": [
+          "Antonio Arenas",
+          "Centro Artístico",
+          "Enrique Morón",
+          "entrevista",
+          "Ideal en Clase",
+          "Pedro López Ávila",
+          "Sonetario"
+        ],
+        "visitas": 0,
+        "seo": {
+          "meta_title": "",
+          "meta_description": "",
+          "keywords": [],
+          "og_image": ""
+        },
+        "wp_id": 15828,
+        "_fusionado": true,
+        "_fuentes": [
+          "wp_migracion"
+        ],
+        "_ids_originales": [
+          "nazari_wp_entrevista_15828",
+          "sonetario-en-ideal-en-clase"
+        ]
+      }
+    }
+  ]
+}

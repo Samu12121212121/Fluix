@@ -6,7 +6,9 @@ import '../../data/pdf_template_service.dart';
 import 'template_editor_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../services/pdf_service.dart';
+import '../../../../services/email_service.dart';
 import '../../../../core/utils/app_settings.dart';
+import '../../../../core/utils/permisos_service.dart';
 
 // ── Colores fijos (acento morado, siempre igual en claro/oscuro) ─────────────
 const _kPurple      = Color(0xFF6D5EF8);
@@ -42,6 +44,10 @@ class _State extends State<PdfTemplatesListScreen> {
   bool _init = false;
   bool _guardandoGaleria = false;
   bool _isDark = false;
+  String? _enviandoEmailKey;
+  bool _enviandoBulk = false;
+
+  static const _kDestinatario = 'sacoor90@gmail.com';
 
   // Colores adaptativos al modo oscuro
   Color get _kBg      => _isDark ? const Color(0xFF0F172A) : const Color(0xFFEEF1F6);
@@ -207,12 +213,36 @@ class _State extends State<PdfTemplatesListScreen> {
             ])),
             const SizedBox(height: 12),
           ],
-          // Contador
+          // Contador + botón de envío masivo (solo propietario)
           Row(children: [
             Text('${items.length} diseño${items.length != 1 ? "s" : ""}',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kTextSec)),
             const Spacer(),
-            Text('Elige uno y personaliza los colores', style: TextStyle(fontSize: 11, color: _kTextSec)),
+            if (_esPropietario)
+              _enviandoBulk
+                ? Row(mainAxisSize: MainAxisSize.min, children: [
+                    SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: _kPurple)),
+                    const SizedBox(width: 6),
+                    Text('Enviando...', style: TextStyle(fontSize: 10, color: _kPurple, fontWeight: FontWeight.w600)),
+                  ])
+                : GestureDetector(
+                    onTap: _enviarTodosLosDisenos,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _kPurpleLight,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _kPurple.withValues(alpha: 0.35)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.email_outlined, size: 11, color: _kPurple),
+                        const SizedBox(width: 4),
+                        Text('Enviar todos', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _kPurple)),
+                      ]),
+                    ),
+                  )
+            else
+              Text('Elige uno y personaliza los colores', style: TextStyle(fontSize: 11, color: _kTextSec)),
           ]),
           const SizedBox(height: 10),
           // Grid con ratio A4
@@ -286,6 +316,10 @@ class _State extends State<PdfTemplatesListScreen> {
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: _btn('Preview', Icons.visibility_outlined, false, () => PdfService.previewPlantilla(context, p, widget.empresaId))),
+            if (_esPropietario) ...[
+              const SizedBox(width: 6),
+              _emailIconBtn(p),
+            ],
             const SizedBox(width: 6),
             Expanded(child: _guardandoGaleria
               ? Container(height: 30, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(8)), child: const Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))))
@@ -434,6 +468,10 @@ class _State extends State<PdfTemplatesListScreen> {
               )),
               const SizedBox(width: 3),
               _iconBtn(Icons.visibility_outlined, 'Preview', () => PdfService.previewPlantilla(context, p, widget.empresaId)),
+              if (_esPropietario) ...[
+                const SizedBox(width: 3),
+                _emailIconBtn(p),
+              ],
               const SizedBox(width: 3),
               Expanded(child: _btn('Editar', Icons.edit_outlined, true, () => _editar(p))),
             ]),
@@ -589,6 +627,125 @@ class _State extends State<PdfTemplatesListScreen> {
   Widget _stat(Color c) => Column(mainAxisSize:MainAxisSize.min,children:[Container(height:6,width:14,color:c.withValues(alpha:0.7),margin:const EdgeInsets.only(bottom:1)),Container(height:2,width:10,color:Colors.grey.shade300)]);
 
   // ── Acciones ────────────────────────────────────────────────────────────────
+
+  bool get _esPropietario => PermisosService().sesion?.esAdmin ?? false;
+
+  String _emailKey(PdfTemplate p) => '${p.tipo.name}_${p.nombre}_${p.id}';
+
+  Future<void> _enviarPreviewPorEmail(PdfTemplate p) async {
+    if (!_esPropietario) return;
+    final key = _emailKey(p);
+    if (_enviandoEmailKey != null) return;
+    setState(() => _enviandoEmailKey = key);
+    try {
+      final bytes = await PdfService.generarPreviewBytes(p, widget.empresaId);
+      await EmailService.enviarPdfPorEmail(
+        destinatario: _kDestinatario,
+        asunto: 'Preview: ${p.nombre} — ${p.tipo.label}',
+        pdfBytes: bytes,
+        nombreArchivo: 'preview_${_sanitizeFilename(p.nombre)}.pdf',
+        empresaId: widget.empresaId,
+        cuerpoHtml: _htmlPreview(p.nombre, p.tipo.label),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('📧 Preview enviado a $_kDestinatario'),
+          backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error al enviar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _enviandoEmailKey = null);
+    }
+  }
+
+  Future<void> _enviarTodosLosDisenos() async {
+    if (!_esPropietario || _enviandoBulk) return;
+    final items = _galeriaActual;
+    if (items.isEmpty) return;
+    setState(() => _enviandoBulk = true);
+    int enviados = 0;
+    int errores = 0;
+    for (final p in items) {
+      try {
+        final bytes = await PdfService.generarPreviewBytes(p, widget.empresaId);
+        await EmailService.enviarPdfPorEmail(
+          destinatario: _kDestinatario,
+          asunto: 'Preview: ${p.nombre} — ${p.tipo.label}',
+          pdfBytes: bytes,
+          nombreArchivo: 'preview_${_sanitizeFilename(p.nombre)}.pdf',
+          empresaId: widget.empresaId,
+          cuerpoHtml: _htmlPreview(p.nombre, p.tipo.label),
+        );
+        enviados++;
+      } catch (_) {
+        errores++;
+      }
+    }
+    if (mounted) {
+      setState(() => _enviandoBulk = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('📧 $enviados email${enviados != 1 ? "s" : ""} enviado${enviados != 1 ? "s" : ""} a $_kDestinatario'
+          '${errores > 0 ? " — $errores con error" : ""}'),
+        backgroundColor: errores > 0 ? Colors.orange : const Color(0xFF10B981),
+        duration: const Duration(seconds: 4),
+      ));
+    }
+  }
+
+  // Convierte nombre con tildes/puntos en filename seguro para adjuntos de email
+  static String _sanitizeFilename(String name) {
+    const tildes = {
+      'á':'a','é':'e','í':'i','ó':'o','ú':'u','ü':'u','ñ':'n',
+      'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U','Ñ':'N',
+    };
+    var r = name;
+    tildes.forEach((k, v) => r = r.replaceAll(k, v));
+    return r
+        .replaceAll(RegExp(r'[^\w\s]'), '')  // quitar puntos, acentos residuales, etc.
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'[_]+$'), '');    // sin guión bajo al final
+  }
+
+  static String _htmlPreview(String nombre, String tipoLabel) => '''
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #6D5EF8;">Preview de plantilla PDF</h2>
+      <p>Plantilla <strong>$nombre</strong> — tipo <strong>$tipoLabel</strong>.</p>
+      <p>Datos de muestra para evaluar el diseño final.</p>
+      <hr style="border: 1px solid #E0E0E0; margin: 16px 0;">
+      <p style="color: #757575; font-size: 12px;">Fluix CRM — módulo de plantillas PDF.</p>
+    </div>
+  ''';
+
+  Widget _emailIconBtn(PdfTemplate p) {
+    final loading = _enviandoEmailKey == _emailKey(p);
+    return Tooltip(
+      message: 'Enviar preview por email',
+      child: GestureDetector(
+        onTap: loading ? null : () => _enviarPreviewPorEmail(p),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _kCanvas,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: _kBorder),
+          ),
+          child: loading
+            ? SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: _kPurple))
+            : Icon(Icons.email_outlined, size: 10, color: _kTextSec),
+        ),
+      ),
+    );
+  }
+
   void _nueva() => Navigator.push(context, MaterialPageRoute(builder:(_) => TemplateEditorScreen(empresaId:widget.empresaId)));
   void _editar(PdfTemplate p) => Navigator.push(context, MaterialPageRoute(builder:(_) => TemplateEditorScreen(empresaId:widget.empresaId, plantillaInicial:p)));
 

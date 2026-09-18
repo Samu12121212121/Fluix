@@ -60,22 +60,7 @@ class ValidadorVerifactu {
     }
 
 
-    if (RegistroFacturacionAnulacion.idVersion != '1.0') {
-      errores.add('HAC1177-ANU-001: IDVersion debe ser 1.0.');
-    }
-
-    if (registroAnterior != null &&
-        registro.registroAnterior.hash64Caracteres != registroAnterior.hash64) {
-      errores.add('VERIFACTU-A-001: Encadenamiento roto en RegistroAnulacion.');
-    }
-
-    if (!const {'E', 'D', 'T'}.contains(registro.solicitanteCodigo)) {
-      errores.add('HAC1177-ANU-002: GeneradoPor inválido (usar E/D/T).');
-    }
-
-    if (!_esHashValido(registro.hash)) {
-      errores.add('VERIFACTU-A-003: Hash SHA-256 inválido en RegistroAnulacion.');
-    }
+    // Nota: las validaciones de RegistroAnulacion se hacen en validarRegistroAnulacion()
 
     return ValidacionVerifactuResultado(
       esValido: errores.isEmpty,

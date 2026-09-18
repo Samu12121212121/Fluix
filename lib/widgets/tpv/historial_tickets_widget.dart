@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -174,21 +175,61 @@ class HistorialTicketsWidget extends StatelessWidget {
   }
 
   Future<void> _reenviarEmail(BuildContext context, Map<String, dynamic> data) async {
-    final email = data['cliente_email'] as String? ??
-        data['email_cliente'] as String?;
+    String? email = data['cliente_email'] as String? ?? data['email_cliente'] as String?;
+
+    // Si no hay email, pedir uno al usuario
     if (email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Este ticket no tiene email de cliente registrado'),
-        backgroundColor: Colors.orange,
-      ));
-      return;
+      final ctrl = TextEditingController();
+      final introducido = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.email_outlined, color: _kVerde, size: 20),
+            SizedBox(width: 8),
+            Text('Enviar ticket por email', style: TextStyle(fontSize: 16)),
+          ]),
+          content: SizedBox(
+            width: 300,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Este ticket no tiene email registrado.\nIntroduce una dirección para enviarlo.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.alternate_email, size: 16),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                final e = ctrl.text.trim();
+                if (e.contains('@') && e.contains('.')) {
+                  Navigator.pop(ctx, e);
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: _kVerde, foregroundColor: _kBg),
+              child: const Text('Enviar'),
+            ),
+          ],
+        ),
+      );
+      if (introducido == null || !context.mounted) return;
+      email = introducido;
     }
 
-    // Generar PDF del ticket
+    // Construir PDF y enviar
     final nombre = await _nombreEmpresa();
     final ticket = data['numero_ticket'] ?? '';
     final lineas = (data['lineas'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-    final total = (data['total'] as num?)?.toDouble() ?? 0.0;
+    final total  = (data['total'] as num?)?.toDouble() ?? 0.0;
     final metodo = data['metodo_pago'] ?? '';
     final fmtFecha = DateFormat('dd/MM/yyyy HH:mm');
     final fecha = data['fecha_creacion'] is Timestamp
@@ -204,18 +245,18 @@ class HistorialTicketsWidget extends StatelessWidget {
         pw.Center(child: pw.Text(fmtFecha.format(fecha))),
         pw.Divider(),
         ...lineas.map((l) {
-          final qty = l['cantidad'] ?? 1;
-          final nom = l['producto_nombre'] ?? '';
+          final qty   = (l['cantidad'] as num?)?.toDouble() ?? 1;
+          final nom   = l['producto_nombre'] ?? '';
           final precio = (l['precio_unitario'] as num?)?.toDouble() ?? 0.0;
           return pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-            pw.Text('$qty x $nom', style: const pw.TextStyle(fontSize: 10)),
-            pw.Text('${(precio * qty).toStringAsFixed(2)} EUR', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('${qty.toInt()} × $nom', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('${(precio * qty).toStringAsFixed(2)} €', style: const pw.TextStyle(fontSize: 10)),
           ]);
         }),
         pw.Divider(),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
           pw.Text('TOTAL', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-          pw.Text('${total.toStringAsFixed(2)} EUR', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.Text('${total.toStringAsFixed(2)} €', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
         ]),
         pw.SizedBox(height: 4),
         pw.Text('Pago: $metodo', style: const pw.TextStyle(fontSize: 10)),
@@ -225,19 +266,33 @@ class HistorialTicketsWidget extends StatelessWidget {
     try {
       final pdfBytes = await doc.save();
       final pdfBase64 = base64Encode(pdfBytes);
-      await FirebaseFunctions.instanceFor(region: 'europe-west1')
-          .httpsCallable('enviarEmailConPdf')
-          .call({
-        'destinatario': email,
-        'asunto': '🧾 Tu ticket #$ticket — $nombre',
-        'cuerpoHtml': '<p>Adjuntamos el ticket de tu compra del ${fmtFecha.format(fecha)}.</p><p>Total: ${total.toStringAsFixed(2)} €</p><p>— $nombre</p>',
-        'pdfBase64': pdfBase64,
-        'nombreArchivo': 'ticket_$ticket.pdf',
-        'empresaId': empresaId,
-      });
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final resp = await http.post(
+        Uri.parse('https://europe-west1-planeaapp-4bea4.cloudfunctions.net/enviarEmailConPdf'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (idToken != null) 'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({'data': {
+          'destinatario': email,
+          'asunto': '🧾 Tu ticket #$ticket — $nombre',
+          'cuerpoHtml': _buildHtmlTicket(
+            empresaNombre: nombre,
+            ticket: '$ticket',
+            fecha: fmtFecha.format(fecha),
+            lineas: lineas,
+            total: total,
+            metodo: metodo,
+          ),
+          'pdfBase64': pdfBase64,
+          'nombreArchivo': 'ticket_$ticket.pdf',
+          'empresaId': empresaId,
+        }}),
+      );
+      if (resp.statusCode >= 400) throw Exception('HTTP ${resp.statusCode}');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Ticket enviado a $email'),
+          content: Text('✅ Ticket enviado a $email'),
           backgroundColor: Colors.green.shade700,
         ));
       }
@@ -249,6 +304,69 @@ class HistorialTicketsWidget extends StatelessWidget {
         ));
       }
     }
+  }
+
+  /// Template HTML profesional para el email del ticket.
+  static String _buildHtmlTicket({
+    required String empresaNombre,
+    required String ticket,
+    required String fecha,
+    required List<Map<String, dynamic>> lineas,
+    required double total,
+    required String metodo,
+  }) {
+    final lineasHtml = lineas.map((l) {
+      final qty    = (l['cantidad'] as num?)?.toDouble() ?? 1;
+      final nom    = l['producto_nombre'] ?? '';
+      final precio = (l['precio_unitario'] as num?)?.toDouble() ?? 0.0;
+      final subtotal = (precio * qty).toStringAsFixed(2);
+      return '<tr>'
+          '<td style="padding:7px 0;color:#374151;border-bottom:1px solid #f3f4f6;">'
+          '${qty.toInt()} × $nom</td>'
+          '<td style="padding:7px 0;color:#374151;border-bottom:1px solid #f3f4f6;'
+          'text-align:right;">$subtotal&nbsp;€</td>'
+          '</tr>';
+    }).join('');
+
+    return '''<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:20px;background:#f5f5f5;font-family:-apple-system,Helvetica,Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.10);">
+    <!-- Header -->
+    <div style="background:#111827;padding:28px 24px;text-align:center;">
+      <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">$empresaNombre</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,.55);">Comprobante de compra</p>
+    </div>
+    <!-- Badge ticket -->
+    <div style="padding:20px 24px 0;">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;display:inline-block;">
+        <span style="font-size:13px;font-weight:700;color:#1d4ed8;">Ticket&nbsp;#$ticket</span>
+        <span style="font-size:12px;color:#3b82f6;margin-left:10px;">$fecha</span>
+      </div>
+    </div>
+    <!-- Líneas -->
+    <div style="padding:16px 24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        $lineasHtml
+        <!-- Total -->
+        <tr>
+          <td style="padding:12px 0 4px;font-weight:800;font-size:16px;color:#111827;border-top:2px solid #e5e7eb;">TOTAL</td>
+          <td style="padding:12px 0 4px;font-weight:800;font-size:16px;color:#111827;border-top:2px solid #e5e7eb;text-align:right;">${total.toStringAsFixed(2)}&nbsp;€</td>
+        </tr>
+      </table>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Forma de pago: $metodo</p>
+    </div>
+    <!-- Footer -->
+    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;">Gracias por su compra · $empresaNombre</p>
+    </div>
+  </div>
+</body>
+</html>''';
   }
 
   @override

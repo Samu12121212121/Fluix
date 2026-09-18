@@ -560,6 +560,50 @@ export async function enviarNotificacionContactoInteres(opts: {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// CONTACTO SOPORTE IN-APP — Formulario de la pantalla Soporte de Fluix
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Email al administrador de Fluix cuando una empresa envía un mensaje de soporte */
+export async function enviarContactoSoporte(opts: {
+  empresaNombre: string;
+  empresaId: string;
+  nombreContacto: string;
+  emailContacto: string;
+  asunto: string;
+  mensaje: string;
+}): Promise<EmailResult> {
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      <div style="background:#6D5EF8;padding:20px 24px;border-radius:10px 10px 0 0">
+        <h2 style="color:#fff;margin:0;font-size:18px">📨 Nuevo mensaje de soporte</h2>
+        <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px">Formulario in-app — Fluix CRM</p>
+      </div>
+      <div style="background:#F8FAFC;padding:20px 24px;border:1px solid #E2E8F0;border-top:none">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr><td style="padding:8px 0;color:#6B7280;width:140px">Empresa</td><td style="padding:8px 0;font-weight:600;color:#0F172A">${opts.empresaNombre}</td></tr>
+          <tr><td style="padding:8px 0;color:#6B7280">ID Empresa</td><td style="padding:8px 0;color:#64748B;font-size:12px">${opts.empresaId}</td></tr>
+          <tr><td style="padding:8px 0;color:#6B7280">Contacto</td><td style="padding:8px 0;font-weight:600;color:#0F172A">${opts.nombreContacto}</td></tr>
+          <tr><td style="padding:8px 0;color:#6B7280">Email</td><td style="padding:8px 0"><a href="mailto:${opts.emailContacto}" style="color:#6D5EF8">${opts.emailContacto}</a></td></tr>
+          <tr><td style="padding:8px 0;color:#6B7280">Asunto</td><td style="padding:8px 0;font-weight:700;color:#0F172A">${opts.asunto}</td></tr>
+        </table>
+        <div style="margin-top:16px;padding:16px;background:#fff;border-radius:8px;border:1px solid #E2E8F0">
+          <p style="margin:0;color:#374151;font-size:14px;line-height:1.6">${opts.mensaje.replace(/\n/g, "<br>")}</p>
+        </div>
+      </div>
+      <div style="background:#1E293B;padding:14px 24px;border-radius:0 0 10px 10px">
+        <p style="color:#94A3B8;margin:0;font-size:12px">Fluix CRM — Panel de administración · ${new Date().toLocaleDateString("es-ES")}</p>
+      </div>
+    </div>
+  `;
+  return enviar({
+    from: "Fluix Soporte <noreply@fluixtech.com>",
+    to: "sacoor80@gmail.com",
+    subject: `📨 Soporte: ${opts.asunto} — ${opts.empresaNombre}`,
+    html,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // CONTACTO WEB — Formulario de contacto en sitio web de cliente
 // ──────────────────────────────────────────────────────────────────────────────
 

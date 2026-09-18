@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import '../../../core/providers/empresa_config_provider.dart';
 import '../../../domain/modelos/empresa.dart';
 import '../../../domain/modelos/empresa_config.dart';
@@ -18,6 +20,7 @@ class _PantallaConfiguracionFiscalEmpresaState
     extends State<PantallaConfiguracionFiscalEmpresa> {
   final _formKey = GlobalKey<FormState>();
   bool _inicializado = false;
+  bool _tieneCertificadoVf = false;
 
   final _nifCtrl = TextEditingController();
   final _razonCtrl = TextEditingController();
@@ -50,8 +53,7 @@ class _PantallaConfiguracionFiscalEmpresaState
     super.dispose();
   }
 
-  void _cargarDesdeConfig(EmpresaConfig config, bool cargado) {
-    // Esperar a que el provider haya completado la carga desde Firestore
+  void _cargarDesdeConfig(EmpresaConfig config, bool cargado, String empresaId) {
     if (_inicializado || !cargado) return;
     _nifCtrl.text = config.nif;
     _razonCtrl.text = config.razonSocial;
@@ -68,13 +70,22 @@ class _PantallaConfiguracionFiscalEmpresaState
     _criterioIva = config.criterioIva;
     _formaJuridica = config.formaJuridica;
     _inicializado = true;
+    _verificarCertificadoVf(empresaId);
+  }
+
+  Future<void> _verificarCertificadoVf(String empresaId) async {
+    if (empresaId.isEmpty) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('empresas').doc(empresaId)
+        .collection('configuracion').doc('certificado_verifactu').get();
+    if (mounted) setState(() => _tieneCertificadoVf = doc.exists);
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<EmpresaConfigProvider>();
     final color = Theme.of(context).colorScheme.primary;
-    _cargarDesdeConfig(provider.config, provider.cargado);
+    _cargarDesdeConfig(provider.config, provider.cargado, provider.empresaId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -171,20 +182,66 @@ class _PantallaConfiguracionFiscalEmpresaState
                   ]),
                   const SizedBox(height: 20),
                   // ── Certificado Verifactu ──
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SubirCertificadoVerifactuScreen(
-                          empresaId: provider.empresaId,
+                  GestureDetector(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubirCertificadoVerifactuScreen(
+                            empresaId: provider.empresaId,
+                          ),
+                        ),
+                      );
+                      // Recargar estado al volver
+                      _verificarCertificadoVf(provider.empresaId);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: (_tieneCertificadoVf
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B)).withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: (_tieneCertificadoVf
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B)).withValues(alpha: 0.4),
                         ),
                       ),
-                    ),
-                    icon: const Icon(Icons.verified_user, size: 18),
-                    label: const Text('Certificado Verifactu (firma digital)'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      side: BorderSide(color: color.withValues(alpha: 0.4)),
+                      child: Row(children: [
+                        Icon(
+                          _tieneCertificadoVf ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                          color: _tieneCertificadoVf ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(
+                            'Certificado Verifactu',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13.5,
+                              color: _tieneCertificadoVf ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            ),
+                          ),
+                          Text(
+                            _tieneCertificadoVf
+                                ? 'Configurado · Toca para gestionar'
+                                : 'Sin certificado · Toca para configurar',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: (_tieneCertificadoVf
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFF59E0B)).withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ])),
+                        Icon(Icons.chevron_right_rounded,
+                            color: _tieneCertificadoVf
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFF59E0B),
+                            size: 18),
+                      ]),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -237,16 +294,12 @@ class _PantallaConfiguracionFiscalEmpresaState
     try {
       await provider.guardar(nuevo);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Configuración fiscal guardada'), backgroundColor: Colors.green),
-        );
+        FluxToast.exito(context, 'Configuración fiscal guardada');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, '$e');
       }
     }
   }

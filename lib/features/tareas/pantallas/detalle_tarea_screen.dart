@@ -8,6 +8,7 @@ import 'package:planeag_flutter/services/recurrencia_service.dart';
 import '../widgets/cronometro_tarea_widget.dart';
 import '../widgets/adjuntos_grid_widget.dart';
 import '../widgets/cliente_vinculado_widget.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 class DetalleTareaScreen extends StatefulWidget {
   final Tarea tarea;
@@ -65,61 +66,136 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   }
 
   Widget _buildScaffold() {
+    const accent = Color(0xFF3B82F6);
+    const bg     = Color(0xFFF1F5F9);
+    const textC  = Color(0xFF1F2937);
+    const subC   = Color(0xFF6B7280);
+    const borderC = Color(0xFFE5E7EB);
+
+    Color estadoColor(EstadoTarea e) => switch (e) {
+      EstadoTarea.pendiente  => const Color(0xFFF59E0B),
+      EstadoTarea.enProgreso => const Color(0xFF3B82F6),
+      EstadoTarea.enRevision => const Color(0xFF8B5CF6),
+      EstadoTarea.completada => const Color(0xFF22C55E),
+      EstadoTarea.cancelada  => const Color(0xFF94A3B8),
+    };
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(_tarea.titulo,
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
-          // Iconos de recurrencia / cliente
-          if (_tarea.configuracionRecurrencia != null)
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: Icon(Icons.repeat, color: Colors.white70, size: 20),
+        backgroundColor: bg,
+        body: Column(children: [
+          // ── Header ───────────────────────────────────────────────────────────
+          Container(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 16, right: 16, bottom: 0,
             ),
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => FormularioTareaScreen(
-                          empresaId: widget.empresaId,
-                          usuarioId: widget.usuarioId,
-                          tareaEditar: _tarea,
-                        ))),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: borderC)),
+            ),
+            child: Column(children: [
+              Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: borderC),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.close_rounded, size: 17, color: Color(0xFF6B7280)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_tarea.titulo, style: const TextStyle(fontSize: 15,
+                      fontWeight: FontWeight.w700, color: textC),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Row(children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: estadoColor(_tarea.estado).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(_nombreEstado(_tarea.estado),
+                          style: TextStyle(fontSize: 10,
+                              fontWeight: FontWeight.w700, color: estadoColor(_tarea.estado))),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      margin: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _colorPrioridad(_tarea.prioridad).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(_labelPrioridad(_tarea.prioridad),
+                          style: TextStyle(fontSize: 10,
+                              fontWeight: FontWeight.w700, color: _colorPrioridad(_tarea.prioridad))),
+                    ),
+                  ]),
+                ])),
+                const SizedBox(width: 8),
+                if (_tarea.configuracionRecurrencia != null)
+                  const Icon(Icons.repeat_rounded, size: 18, color: Color(0xFF6B7280)),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => FormularioTareaScreen(
+                        empresaId: widget.empresaId,
+                        usuarioId: widget.usuarioId,
+                        tareaEditar: _tarea,
+                      ))),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: accent.withValues(alpha: 0.2)),
+                    ),
+                    child: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF3B82F6)),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              // Tabs
+              TabBar(
+                controller: _tabs,
+                labelColor: accent,
+                unselectedLabelColor: subC,
+                indicatorColor: accent,
+                indicatorWeight: 2,
+                isScrollable: true,
+                padding: EdgeInsets.zero,
+                tabAlignment: TabAlignment.start,
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                tabs: const [
+                  Tab(icon: Icon(Icons.info_outline_rounded, size: 16), text: 'Detalle'),
+                  Tab(icon: Icon(Icons.attach_file_rounded, size: 16), text: 'Adjuntos'),
+                  Tab(icon: Icon(Icons.chat_bubble_outline_rounded, size: 16), text: 'Chat'),
+                  Tab(icon: Icon(Icons.history_rounded, size: 16), text: 'Historial'),
+                ],
+              ),
+            ]),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          indicatorColor: Colors.white,
-          isScrollable: true,
-          padding: EdgeInsets.zero,
-          tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(icon: Icon(Icons.info_outline, size: 18), text: 'Detalle'),
-            Tab(icon: Icon(Icons.attach_file, size: 18), text: 'Adjuntos'),
-            Tab(icon: Icon(Icons.chat_bubble_outline, size: 18), text: 'Chat'),
-            Tab(icon: Icon(Icons.history, size: 18), text: 'Historial'),
-          ],
-        ),
+          // ── Tabs body ─────────────────────────────────────────────────────────
+          Expanded(child: TabBarView(
+            controller: _tabs,
+            children: [
+              _buildTabDetalle(),
+              _buildTabAdjuntos(),
+              _buildTabChat(),
+              _buildTabHistorial(),
+            ],
+          )),
+        ]),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          _buildTabDetalle(),
-          _buildTabAdjuntos(),
-          _buildTabChat(),
-          _buildTabHistorial(),
-        ],
-      ),
-    ),
     );
   }
 
@@ -152,10 +228,8 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
           const SizedBox(height: 12),
           _cardInfoGeneral(),
           const SizedBox(height: 12),
-          if (_tarea.subtareas.isNotEmpty) ...[
-            _cardSubtareas(),
-            const SizedBox(height: 12),
-          ],
+          _cardSubtareas(),
+          const SizedBox(height: 12),
           if (_tarea.etiquetas.isNotEmpty) ...[
             _cardEtiquetas(),
             const SizedBox(height: 12),
@@ -166,182 +240,96 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   }
 
   Widget _cardClienteVinculado() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(Icons.person, color: Color(0xFF00796B)),
-            const SizedBox(width: 8),
-            const Text('Cliente:',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 12),
-            ClienteVinculadoWidget(
-              empresaId: widget.empresaId,
-              clienteId: _tarea.clienteId!,
-            ),
-          ],
-        ),
-      ),
-    );
+    return _dsCard([
+      const Row(children: [
+        Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF3B82F6)),
+        SizedBox(width: 6),
+        Text('Cliente vinculado', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
+      ]),
+      const SizedBox(height: 8),
+      ClienteVinculadoWidget(empresaId: widget.empresaId, clienteId: _tarea.clienteId!),
+    ]);
   }
 
   Widget _cardRecurrencia() {
     final config = _tarea.configuracionRecurrencia!;
     final pausada = config.pausada;
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.repeat,
-                color: pausada ? Colors.grey : const Color(0xFF1976D2)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    pausada ? 'Recurrente (pausada)' : 'Tarea recurrente',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: pausada ? Colors.grey : const Color(0xFF1976D2),
-                    ),
-                  ),
-                  Text(
-                    'Cada ${_nombreFrecuencia(config.frecuencia)}',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  if (_tarea.proximaFechaRecurrencia != null)
-                    Text(
-                      'Próxima: ${DateFormat('dd/MM/yyyy').format(_tarea.proximaFechaRecurrencia!)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF1976D2)),
-                    ),
-                ],
-              ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (v) async {
-                if (v == 'pausar') {
-                  await _recSvc.pausarRecurrencia(
-                      widget.empresaId, _tarea.id);
-                } else if (v == 'reanudar') {
-                  await _recSvc.reanudarRecurrencia(
-                      widget.empresaId, _tarea.id);
-                } else if (v == 'cancelar') {
-                  await _recSvc.cancelarRecurrencia(
-                      widget.empresaId, _tarea.id);
-                }
-              },
-              itemBuilder: (_) => [
-                if (!pausada)
-                  const PopupMenuItem(
-                      value: 'pausar',
-                      child: ListTile(
-                          leading: Icon(Icons.pause),
-                          title: Text('Pausar recurrencia'))),
-                if (pausada)
-                  const PopupMenuItem(
-                      value: 'reanudar',
-                      child: ListTile(
-                          leading: Icon(Icons.play_arrow),
-                          title: Text('Reanudar recurrencia'))),
-                const PopupMenuItem(
-                    value: 'cancelar',
-                    child: ListTile(
-                        leading: Icon(Icons.cancel, color: Colors.red),
-                        title: Text('Cancelar recurrencia'))),
-              ],
-            ),
+    final color = pausada ? const Color(0xFF94A3B8) : const Color(0xFF3B82F6);
+    return _dsCard([
+      Row(children: [
+        Icon(Icons.repeat_rounded, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(pausada ? 'Recurrente (pausada)' : 'Tarea recurrente',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+        const Spacer(),
+        PopupMenuButton<String>(
+          onSelected: (v) async {
+            if (v == 'pausar') { await _recSvc.pausarRecurrencia(widget.empresaId, _tarea.id); }
+            else if (v == 'reanudar') { await _recSvc.reanudarRecurrencia(widget.empresaId, _tarea.id); }
+            else if (v == 'cancelar') { await _recSvc.cancelarRecurrencia(widget.empresaId, _tarea.id); }
+          },
+          itemBuilder: (_) => [
+            if (!pausada) const PopupMenuItem(value: 'pausar',
+                child: ListTile(leading: Icon(Icons.pause), title: Text('Pausar'), contentPadding: EdgeInsets.zero, dense: true)),
+            if (pausada) const PopupMenuItem(value: 'reanudar',
+                child: ListTile(leading: Icon(Icons.play_arrow), title: Text('Reanudar'), contentPadding: EdgeInsets.zero, dense: true)),
+            const PopupMenuItem(value: 'cancelar',
+                child: ListTile(leading: Icon(Icons.cancel, color: Colors.red), title: Text('Cancelar', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero, dense: true)),
           ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(6)),
+            child: const Icon(Icons.more_horiz, size: 14, color: Color(0xFF6B7280)),
+          ),
         ),
-      ),
-    );
+      ]),
+      const SizedBox(height: 6),
+      Text('Cada ${_nombreFrecuencia(config.frecuencia)}',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+      if (_tarea.proximaFechaRecurrencia != null)
+        Text('Próxima: ${DateFormat('dd/MM/yyyy').format(_tarea.proximaFechaRecurrencia!)}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
+    ]);
   }
 
   Widget _cardEstadoPrioridad() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text('Estado',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.grey)),
-                const Spacer(),
-                _selectorEstado(),
-              ],
+    return _dsCard([
+      Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Estado', style: TextStyle(fontSize: 10, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          _selectorEstado(),
+        ])),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Prioridad', style: TextStyle(fontSize: 10, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          _tarea.creadoPorId == widget.usuarioId ? _selectorPrioridad() : _badgePrioridad(_tarea.prioridad),
+        ])),
+      ]),
+      if (_tarea.fechaLimite != null) ...[
+        const Divider(height: 16, color: Color(0xFFE5E7EB)),
+        Row(children: [
+          Icon(Icons.schedule_rounded, size: 14,
+              color: _tarea.estaAtrasada ? const Color(0xFFEF4444) : const Color(0xFF6B7280)),
+          const SizedBox(width: 8),
+          Text('Vence: ${DateFormat('dd/MM/yyyy HH:mm').format(_tarea.fechaLimite!)}',
+              style: TextStyle(fontSize: 12,
+                  color: _tarea.estaAtrasada ? const Color(0xFFEF4444) : const Color(0xFF374151),
+                  fontWeight: _tarea.estaAtrasada ? FontWeight.w700 : FontWeight.normal)),
+          if (_tarea.estaAtrasada) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(4)),
+              child: const Text('ATRASADA', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text('Prioridad',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.grey)),
-                const Spacer(),
-                _tarea.creadoPorId == widget.usuarioId
-                    ? _selectorPrioridad()
-                    : _badgePrioridad(_tarea.prioridad),
-              ],
-            ),
-            if (_tarea.fechaLimite != null) ...[
-              const Divider(height: 20),
-              Row(
-                children: [
-                  Icon(Icons.schedule,
-                      size: 16,
-                      color: _tarea.estaAtrasada
-                          ? Colors.red
-                          : Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Vence: ${DateFormat('dd/MM/yyyy HH:mm').format(_tarea.fechaLimite!)}',
-                    style: TextStyle(
-                      color: _tarea.estaAtrasada
-                          ? Colors.red
-                          : Colors.grey[700],
-                      fontWeight: _tarea.estaAtrasada
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  if (_tarea.estaAtrasada) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(4)),
-                      child: const Text('ATRASADA',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ],
-              ),
-            ],
           ],
-        ),
-      ),
-    );
+        ]),
+      ],
+    ]);
   }
 
   Widget _selectorEstado() {
@@ -377,15 +365,9 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
           final proxima = recSvc.calcularProximaFecha(
               _tarea.configuracionRecurrencia!, DateTime.now());
           if (proxima != null && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '✅ Tarea completada. La siguiente se creará el '
-                  '${DateFormat('dd/MM/yyyy').format(proxima)}',
-                ),
-                backgroundColor: const Color(0xFF4CAF50),
-                duration: const Duration(seconds: 5),
-              ),
+            FluxToast.exito(context,
+              'Tarea completada. La siguiente se creará el '
+              '${DateFormat('dd/MM/yyyy').format(proxima)}',
             );
             // Generar la instancia
             await recSvc.crearInstanciaDesde(
@@ -402,253 +384,179 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   }
 
   Widget _cardInfoGeneral() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Información',
-                style:
-                    TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            const Divider(height: 20),
-            if (_tarea.descripcion != null) ...[
-              Text(_tarea.descripcion!,
-                  style: const TextStyle(height: 1.5)),
-              const SizedBox(height: 12),
-            ],
-            _filaInfo(Icons.category, 'Tipo', _nombreTipo(_tarea.tipo)),
-            if (_tarea.ubicacion != null)
-              _filaInfo(
-                  Icons.location_on, 'Ubicación', _tarea.ubicacion!),
-            if (_tarea.tiempoEstimadoMin != null)
-              _filaInfo(Icons.hourglass_empty, 'Estimado',
-                  '${_tarea.tiempoEstimadoMin} min'),
-            _filaInfo(
-                Icons.calendar_today,
-                'Creada',
-                DateFormat('dd/MM/yyyy').format(_tarea.fechaCreacion)),
-            // Recordatorio
-            if (_tarea.recordatorio != null &&
-                _tarea.recordatorio!.tipo != TipoRecordatorio.ninguno)
-              _filaInfo(
-                  Icons.alarm,
-                  'Recordatorio',
-                  _tarea.recordatorio!.tipo.etiqueta),
-          ],
+    return _dsCard([
+      const Row(children: [
+        Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF3B82F6)),
+        SizedBox(width: 6),
+        Text('Información', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
+      ]),
+      if (_tarea.descripcion != null && _tarea.descripcion!.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Text(_tarea.descripcion!, style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF374151))),
         ),
-      ),
-    );
+      ],
+      const SizedBox(height: 10),
+      _filaInfoDs(Icons.category_outlined, 'Tipo', _nombreTipo(_tarea.tipo)),
+      if (_tarea.ubicacion != null)
+        _filaInfoDs(Icons.location_on_outlined, 'Ubicación', _tarea.ubicacion!),
+      if (_tarea.tiempoEstimadoMin != null)
+        _filaInfoDs(Icons.hourglass_empty_rounded, 'Estimado', '${_tarea.tiempoEstimadoMin} min'),
+      _filaInfoDs(Icons.calendar_today_outlined, 'Creada', DateFormat('dd/MM/yyyy').format(_tarea.fechaCreacion)),
+      if (_tarea.recordatorio != null && _tarea.recordatorio!.tipo != TipoRecordatorio.ninguno)
+        _filaInfoDs(Icons.alarm_outlined, 'Recordatorio', _tarea.recordatorio!.tipo.etiqueta),
+    ]);
   }
 
-  Widget _filaInfo(IconData icono, String label, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icono, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 10),
-          Text(label,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          const Spacer(),
-          Text(valor,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 13)),
-        ],
-      ),
-    );
-  }
+  Widget _filaInfoDs(IconData icon, String label, String valor) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(children: [
+      Icon(icon, size: 14, color: const Color(0xFF6B7280)),
+      const SizedBox(width: 10),
+      Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+      const Spacer(),
+      Text(valor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+    ]),
+  );
 
   Widget _cardSubtareas() {
-    final subtareas = List<Subtarea>.from(_tarea.subtareas);
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.checklist, color: Color(0xFF1976D2)),
-                const SizedBox(width: 8),
-                Text(
-                    'Checklist (${_tarea.subtareasCompletadas}/${subtareas.length})',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 15)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            LinearProgressIndicator(
-              value: subtareas.isEmpty
-                  ? 0
-                  : _tarea.subtareasCompletadas / subtareas.length,
-              backgroundColor: Colors.grey[200],
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF4CAF50)),
-              minHeight: 6,
-            ),
-            const SizedBox(height: 12),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: subtareas.length,
-              onReorder: (oldIndex, newIndex) {
-                if (oldIndex < newIndex) newIndex -= 1;
-                final item = subtareas.removeAt(oldIndex);
-                subtareas.insert(newIndex, item);
-                _svc.actualizarSubtareas(
-                    widget.empresaId, _tarea.id, subtareas);
-              },
-              itemBuilder: (context, index) {
-                final sub = subtareas[index];
-                return Padding(
-                  key: ValueKey(sub.id),
-                  padding: EdgeInsets.zero,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.drag_indicator,
-                          color: Colors.grey, size: 20),
-                      Checkbox(
-                        value: sub.completada,
-                        activeColor: const Color(0xFF4CAF50),
-                        onChanged: (val) {
-                          subtareas[index] = Subtarea(
-                            id: sub.id,
-                            titulo: sub.titulo,
-                            completada: val ?? false,
-                          );
-                          _svc.actualizarSubtareas(
-                              widget.empresaId, _tarea.id, subtareas);
-                        },
-                      ),
-                      Expanded(
-                        child: Text(
-                          sub.titulo,
-                          style: TextStyle(
-                            decoration: sub.completada
-                                ? TextDecoration.lineThrough
-                                : null,
-                            color: sub.completada
-                                ? Colors.grey
-                                : Colors.black87,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 18, color: Colors.grey),
-                        onPressed: () {
-                          subtareas.removeAt(index);
-                          _svc.actualizarSubtareas(
-                              widget.empresaId, _tarea.id, subtareas);
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (_agregandoSubtarea)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _subtareaCtrl,
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          hintText: 'Nueva subtarea...',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 0, vertical: 8),
-                          border: InputBorder.none,
-                        ),
-                        onSubmitted: (_) => _agregarSubtarea(),
-                      ),
-                    ),
-                    IconButton(
-                      icon:
-                          const Icon(Icons.check, color: Color(0xFF4CAF50)),
-                      onPressed: _agregarSubtarea,
-                    ),
-                  ],
-                ),
-              )
-            else
-              TextButton.icon(
-                onPressed: () =>
-                    setState(() => _agregandoSubtarea = true),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Añadir elemento'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey[700],
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 0, vertical: 8),
-                  alignment: Alignment.centerLeft,
-                ),
-              ),
-          ],
+    final completadas = _tarea.subtareas.where((s) => s.completada).length;
+    final total = _tarea.subtareas.length;
+    return _dsCard([
+      Row(children: [
+        const Icon(Icons.checklist_rounded, size: 14, color: Color(0xFF3B82F6)),
+        const SizedBox(width: 6),
+        const Text('Checklist', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
+        const Spacer(),
+        Text('$completadas/$total', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280))),
+      ]),
+      const SizedBox(height: 8),
+      if (total > 0) ...[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: total > 0 ? completadas / total : 0,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E7EB),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF22C55E)),
+          ),
         ),
-      ),
-    );
+        const SizedBox(height: 10),
+      ],
+      ..._tarea.subtareas.map((s) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(children: [
+          GestureDetector(
+            onTap: () async {
+              final updated = _tarea.subtareas.map((st) =>
+                  st.id == s.id ? Subtarea(id: st.id, titulo: st.titulo, completada: !st.completada) : st
+              ).toList();
+              await _svc.actualizarSubtareas(widget.empresaId, _tarea.id, updated);
+            },
+            child: Container(
+              width: 18, height: 18,
+              decoration: BoxDecoration(
+                color: s.completada ? const Color(0xFF22C55E) : Colors.transparent,
+                border: Border.all(color: s.completada ? const Color(0xFF22C55E) : const Color(0xFFE5E7EB), width: 1.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: s.completada ? const Icon(Icons.check_rounded, size: 12, color: Colors.white) : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(s.titulo, style: TextStyle(
+            fontSize: 13, color: const Color(0xFF1F2937),
+            decoration: s.completada ? TextDecoration.lineThrough : null,
+            decorationColor: const Color(0xFF6B7280),
+          ))),
+        ]),
+      )),
+      if (_agregandoSubtarea) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: TextField(
+            controller: _subtareaCtrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Nuevo paso...',
+              hintStyle: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Color(0xFFE5E7EB))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Color(0xFFE5E7EB))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+            ),
+            onSubmitted: (_) => _guardarSubtarea(),
+          )),
+          const SizedBox(width: 8),
+          GestureDetector(onTap: _guardarSubtarea, child: Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: const Color(0xFF3B82F6), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+          )),
+          const SizedBox(width: 4),
+          GestureDetector(onTap: () => setState(() => _agregandoSubtarea = false), child: Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE5E7EB)), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF6B7280)),
+          )),
+        ]),
+      ] else ...[
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () => setState(() => _agregandoSubtarea = true),
+          child: Row(children: [
+            Container(width: 18, height: 18,
+                decoration: BoxDecoration(border: Border.all(color: const Color(0xFF3B82F6), width: 1.5),
+                    borderRadius: BorderRadius.circular(4)),
+                child: const Icon(Icons.add_rounded, size: 12, color: Color(0xFF3B82F6))),
+            const SizedBox(width: 10),
+            const Text('Añadir paso', style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ],
+    ]);
   }
 
-  void _agregarSubtarea() {
-    final titulo = _subtareaCtrl.text.trim();
-    if (titulo.isEmpty) {
-      setState(() => _agregandoSubtarea = false);
-      return;
-    }
-    final nueva = Subtarea(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      titulo: titulo,
-      completada: false,
-    );
-    final nuevas = [..._tarea.subtareas, nueva];
-    _svc.actualizarSubtareas(widget.empresaId, _tarea.id, nuevas);
+  Future<void> _guardarSubtarea() async {
+    final texto = _subtareaCtrl.text.trim();
+    if (texto.isEmpty) return;
+    final nuevas = [..._tarea.subtareas, Subtarea(id: DateTime.now().millisecondsSinceEpoch.toString(), titulo: texto)];
+    await _svc.actualizarSubtareas(widget.empresaId, _tarea.id, nuevas);
     _subtareaCtrl.clear();
+    if (mounted) setState(() => _agregandoSubtarea = false);
   }
 
   Widget _cardEtiquetas() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Etiquetas',
-                style:
-                    TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _tarea.etiquetas
-                  .map((e) => Chip(
-                        label: Text(e,
-                            style: const TextStyle(fontSize: 12)),
-                        backgroundColor: const Color(0xFF1976D2)
-                            .withValues(alpha: 0.1),
-                        side: const BorderSide(color: Color(0xFF1976D2)),
-                        labelStyle: const TextStyle(
-                            color: Color(0xFF1976D2)),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                      ))
-                  .toList(),
-            ),
-          ],
-        ),
-      ),
-    );
+    return _dsCard([
+      const Row(children: [
+        Icon(Icons.local_offer_outlined, size: 14, color: Color(0xFF3B82F6)),
+        SizedBox(width: 6),
+        Text('Etiquetas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
+      ]),
+      const SizedBox(height: 8),
+      Wrap(spacing: 6, runSpacing: 6, children: _tarea.etiquetas.map((e) =>
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: _colorTag(e).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _colorTag(e).withValues(alpha: 0.25)),
+          ),
+          child: Text(e, style: TextStyle(fontSize: 11, color: _colorTag(e), fontWeight: FontWeight.w600)),
+        )
+      ).toList()),
+    ]);
   }
 
   // ── TAB ADJUNTOS ─────────────────────────────────────────────────────────
@@ -816,7 +724,7 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: historial.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      separatorBuilder: (context, index) => const SizedBox(height: 4),
       itemBuilder: (_, i) {
         final h = historial[i];
         return Row(
@@ -903,11 +811,7 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
           'Prioridad cambiada a ${nuevo.name}',
         );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Prioridad cambiada a ${nuevo.name}'),
-            backgroundColor: const Color(0xFF4CAF50),
-            duration: const Duration(seconds: 2),
-          ));
+          FluxToast.exito(context, 'Prioridad cambiada a ${nuevo.name}');
         }
       },
     );
@@ -931,6 +835,42 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
               color: color, fontWeight: FontWeight.w600)),
     );
   }
+
+  Widget _dsCard(List<Widget> children) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    margin: const EdgeInsets.only(bottom: 0),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE5E7EB)),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1))],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+  );
+
+  Color _colorTag(String tag) {
+    const palette = [
+      Color(0xFF3B82F6), Color(0xFF8B5CF6), Color(0xFF10B981),
+      Color(0xFFEF4444), Color(0xFFF59E0B), Color(0xFF06B6D4),
+      Color(0xFFF97316), Color(0xFFEC4899),
+    ];
+    return palette[tag.hashCode.abs() % palette.length];
+  }
+
+  Color _colorPrioridad(PrioridadTarea p) => switch (p) {
+    PrioridadTarea.urgente => const Color(0xFFDC2626),
+    PrioridadTarea.alta    => const Color(0xFFEF4444),
+    PrioridadTarea.media   => const Color(0xFFF59E0B),
+    PrioridadTarea.baja    => const Color(0xFF94A3B8),
+  };
+
+  String _labelPrioridad(PrioridadTarea p) => switch (p) {
+    PrioridadTarea.urgente => 'Urgente',
+    PrioridadTarea.alta    => 'Alta',
+    PrioridadTarea.media   => 'Media',
+    PrioridadTarea.baja    => 'Baja',
+  };
 
   Color _colorEstado(EstadoTarea e) => switch (e) {
         EstadoTarea.pendiente   => Colors.orange,

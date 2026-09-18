@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-const _kBg = Color(0xFF0A0F23);
-const _kCard = Color(0xFF1E2139);
-const _kVerde = Color(0xFF00FFC8);
-const _kRosa = Color(0xFFFF3296);
-const _kSecondary = Color(0xFFB0B3C1);
+const _kBg      = Color(0xFF0A0F23);
+const _kCard    = Color(0xFF1E2139);
+const _kVerde   = Color(0xFF00FFC8);
+const _kRosa    = Color(0xFFFF3296);
+const _kSec     = Color(0xFFB0B3C1);
+const _kDivider = Color(0xFF2E3355);
 
 class ArqueoCajaWidget extends StatefulWidget {
   final double totalSistema;
@@ -18,11 +18,12 @@ class ArqueoCajaWidget extends StatefulWidget {
     required this.onConfirmar,
   });
 
-  static Future<Map<String, int>?> mostrar(
+  /// Devuelve `(dens, total)` al confirmar, o null si se cancela.
+  static Future<({Map<String, int> dens, double total})?> mostrar(
     BuildContext context, {
     required double totalSistema,
   }) async {
-    Map<String, int>? resultado;
+    ({Map<String, int> dens, double total})? resultado;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -32,7 +33,8 @@ class ArqueoCajaWidget extends StatefulWidget {
       ),
       builder: (_) => ArqueoCajaWidget(
         totalSistema: totalSistema,
-        onConfirmar: (dens, _) => resultado = dens,
+        onConfirmar: (dens, total) =>
+            resultado = (dens: dens, total: total),
       ),
     );
     return resultado;
@@ -43,264 +45,344 @@ class ArqueoCajaWidget extends StatefulWidget {
 }
 
 class _ArqueoCajaWidgetState extends State<ArqueoCajaWidget> {
-  static const _billetes = [500.0, 200.0, 100.0, 50.0, 20.0, 10.0, 5.0];
-  static const _monedas = [2.0, 1.0, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
+  static const _billetes = [200.0, 100.0, 50.0, 20.0, 10.0, 5.0];
+  static const _monedas  = [2.0, 1.0, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
 
-  late final Map<String, TextEditingController> _controllers;
+  // Persistencia en memoria: clave = fecha de hoy.
+  // Se restaura automáticamente si el usuario cierra y vuelve a abrir el arqueo.
+  static final Map<String, Map<String, int>> _cache = {};
+  static String get _claveHoy =>
+      DateTime.now().toLocal().toString().substring(0, 10);
+
+  final Map<String, int> _qty = {};
   final _fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
+  final _fmtShort = NumberFormat('#,##0.00', 'es_ES');
 
   @override
   void initState() {
     super.initState();
-    final todas = [..._billetes, ..._monedas];
-    _controllers = {
-      for (final d in todas) _key(d): TextEditingController(text: '0'),
-    };
-    for (final ctrl in _controllers.values) {
-      ctrl.addListener(() => setState(() {}));
+    // Inicializar con ceros
+    for (final d in [..._billetes, ..._monedas]) {
+      _qty[_k(d)] = 0;
+    }
+    // Restaurar último estado del día si existe
+    final guardado = _cache[_claveHoy];
+    if (guardado != null) {
+      _qty.addAll(guardado);
     }
   }
 
-  @override
-  void dispose() {
-    for (final ctrl in _controllers.values) {
-      ctrl.dispose();
+  String _k(double d) => d.toStringAsFixed(2);
+  int    _get(double d) => _qty[_k(d)] ?? 0;
+  double _sub(double d) => d * _get(d);
+
+  void _guardarCache() => _cache[_claveHoy] = Map.from(_qty);
+
+  void _inc(double d) => setState(() {
+    _qty[_k(d)] = _get(d) + 1;
+    _guardarCache();
+  });
+
+  void _dec(double d) {
+    final v = _get(d);
+    if (v > 0) {
+      setState(() {
+        _qty[_k(d)] = v - 1;
+        _guardarCache();
+      });
     }
-    super.dispose();
   }
 
-  String _key(double d) => d.toStringAsFixed(2);
-
-  double _subtotal(double denominacion) {
-    final qty = int.tryParse(_controllers[_key(denominacion)]?.text ?? '0') ?? 0;
-    return denominacion * qty;
-  }
-
-  double get _totalContado {
-    final todas = [..._billetes, ..._monedas];
-    return todas.fold(0.0, (sum, d) => sum + _subtotal(d));
-  }
-
+  double get _totalContado =>
+      [..._billetes, ..._monedas].fold(0.0, (s, d) => s + _sub(d));
   double get _diferencia => _totalContado - widget.totalSistema;
 
-  Map<String, int> _buildDenominaciones() {
-    final todas = [..._billetes, ..._monedas];
-    return {
-      for (final d in todas)
-        _key(d): int.tryParse(_controllers[_key(d)]?.text ?? '0') ?? 0,
-    };
-  }
+  Map<String, int> _build() => {
+    for (final d in [..._billetes, ..._monedas]) _k(d): _get(d),
+  };
 
-  Widget _filaDenomin(double denominacion, String etiqueta) {
-    final ctrl = _controllers[_key(denominacion)]!;
-    final sub = _subtotal(denominacion);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              etiqueta,
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 80,
-            child: TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: _kBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: _kSecondary),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      BorderSide(color: _kSecondary.withOpacity(0.4)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: _kVerde),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            _fmt.format(sub),
-            style: TextStyle(
-              color: sub > 0 ? _kVerde : _kSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  String _labelBillete(double d) => '${d.toInt()} €';
+  String _labelMoneda(double d) =>
+      d >= 1 ? '${d.toInt()} €' : '${(d * 100).round()} ct';
 
   @override
   Widget build(BuildContext context) {
     final diferencia = _diferencia;
     final colorDif = diferencia.abs() < 0.01
         ? _kVerde
-        : (diferencia < 0 ? _kRosa : _kVerde);
+        : (diferencia < 0 ? _kRosa : Colors.amber);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.9,
+      initialChildSize: 0.92,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: 0.97,
       expand: false,
-      builder: (_, scrollCtrl) => Column(
-        children: [
-          // Handle
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _kSecondary,
-                borderRadius: BorderRadius.circular(2),
+      builder: (_, sc) => Column(children: [
+        // ── Handle + título ──────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Column(children: [
+            Center(child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: _kSec.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(2)),
+            )),
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.calculate_outlined, color: _kVerde, size: 18),
+              const SizedBox(width: 8),
+              const Text('Arqueo de caja',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _kCard,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kSec.withValues(alpha: 0.3)),
+                ),
+                child: Text('Sistema: ${_fmt.format(widget.totalSistema)}',
+                    style: const TextStyle(color: _kSec, fontSize: 12)),
               ),
-            ),
-          ),
-          const Text(
-            'Arqueo de caja',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Sistema: ${_fmt.format(widget.totalSistema)}',
-            style: const TextStyle(color: _kSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              controller: scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                _seccion('Billetes', _billetes),
-                const SizedBox(height: 8),
-                _seccion('Monedas', _monedas),
-                const SizedBox(height: 16),
-                _resumenTotales(colorDif, diferencia),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        // ── Contenido scrollable ────────────────────────────────────────
+        Expanded(child: ListView(
+          controller: sc,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            // Billetes en grid 2 columnas
+            _sectionLabel('BILLETES'),
+            const SizedBox(height: 6),
+            _billetesGrid(),
+            const SizedBox(height: 12),
+            // Monedas en grid 4 columnas
+            _sectionLabel('MONEDAS'),
+            const SizedBox(height: 6),
+            _monedasGrid(),
+            const SizedBox(height: 14),
+            // Resumen
+            _resumen(colorDif, diferencia),
+            const SizedBox(height: 16),
+          ],
+        )),
+        // ── Botón confirmar ─────────────────────────────────────────────
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kVerde,
                   foregroundColor: _kBg,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: Text(
+                  'Confirmar  ${_fmt.format(_totalContado)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 onPressed: () {
-                  widget.onConfirmar(_buildDenominaciones(), _totalContado);
+                  widget.onConfirmar(_build(), _totalContado);
                   Navigator.pop(context);
                 },
-                child: const Text('Confirmar arqueo',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _seccion(String titulo, List<double> denominaciones) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(titulo,
-            style: const TextStyle(
-                color: _kSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2)),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _kCard,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: denominaciones.map((d) {
-              final label = d >= 1
-                  ? '${d.toInt()} €'
-                  : '${(d * 100).toInt()} ct';
-              return _filaDenomin(d, label);
-            }).toList(),
-          ),
         ),
-      ],
+      ]),
     );
   }
 
-  Widget _resumenTotales(Color colorDif, double diferencia) {
-    return Container(
-      padding: const EdgeInsets.all(16),
+  Widget _sectionLabel(String label) => Text(
+    label,
+    style: const TextStyle(
+        color: _kSec, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+  );
+
+  // ── Grid billetes: 2 columnas, tarjetas grandes ─────────────────────
+  Widget _billetesGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _billetes.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisExtent: 90,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemBuilder: (_, i) => _cardBillete(_billetes[i]),
+    );
+  }
+
+  // ── Grid monedas: 4 columnas, tarjetas compactas ────────────────────
+  Widget _monedasGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _monedas.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisExtent: 80,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+      ),
+      itemBuilder: (_, i) => _cardMoneda(_monedas[i]),
+    );
+  }
+
+  // ── Tarjeta de billete ───────────────────────────────────────────────
+  Widget _cardBillete(double d) {
+    final qty = _get(d);
+    final sub = _sub(d);
+    final activo = qty > 0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
         color: _kCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorDif.withOpacity(0.4)),
+        border: Border.all(
+          color: activo ? _kVerde.withValues(alpha: 0.5) : _kDivider,
+          width: activo ? 1.5 : 1,
+        ),
       ),
-      child: Column(
-        children: [
-          _filaTotales('Total contado', _fmt.format(_totalContado),
-              _kVerde),
-          const SizedBox(height: 8),
-          _filaTotales('Total sistema',
-              _fmt.format(widget.totalSistema), _kSecondary),
-          const Divider(color: Color(0xFF2E3355), height: 20),
-          _filaTotales(
-            'Diferencia',
-            '${diferencia >= 0 ? '+' : ''}${_fmt.format(diferencia)}',
-            colorDif,
-            bold: true,
+      child: Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        // Denominación
+        Text(_labelBillete(d),
+            style: TextStyle(
+              color: activo ? _kVerde : Colors.white,
+              fontSize: 15, fontWeight: FontWeight.w800,
+            )),
+        // Controles +/-
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _btnCounter(() => _dec(d), Icons.remove_rounded, compact: false),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: SizedBox(
+              width: 28,
+              child: Text('$qty',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: activo ? Colors.white : _kSec,
+                    fontSize: 16, fontWeight: FontWeight.bold,
+                  )),
+            ),
           ),
-        ],
+          _btnCounter(() => _inc(d), Icons.add_rounded, compact: false),
+        ]),
+        // Subtotal
+        Text(
+          sub > 0 ? '${_fmtShort.format(sub)} €' : '—',
+          style: TextStyle(color: activo ? _kVerde : _kDivider, fontSize: 10.5),
+        ),
+      ]),
+    );
+  }
+
+  // ── Tarjeta de moneda ────────────────────────────────────────────────
+  Widget _cardMoneda(double d) {
+    final qty = _get(d);
+    final sub = _sub(d);
+    final activo = qty > 0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: activo ? _kVerde.withValues(alpha: 0.4) : _kDivider,
+          width: activo ? 1.5 : 1,
+        ),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        // Denominación
+        Text(_labelMoneda(d),
+            style: TextStyle(
+              color: activo ? _kVerde : Colors.white,
+              fontSize: 11.5, fontWeight: FontWeight.w700,
+            )),
+        // Controles +/-
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _btnCounter(() => _dec(d), Icons.remove_rounded, compact: true),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('$qty',
+                style: TextStyle(
+                  color: activo ? Colors.white : _kSec,
+                  fontSize: 14, fontWeight: FontWeight.bold,
+                )),
+          ),
+          _btnCounter(() => _inc(d), Icons.add_rounded, compact: true),
+        ]),
+        // Subtotal
+        Text(
+          sub > 0 ? '${_fmtShort.format(sub)} €' : '',
+          style: const TextStyle(color: _kVerde, fontSize: 9),
+        ),
+      ]),
+    );
+  }
+
+  // ── Botón +/- ────────────────────────────────────────────────────────
+  Widget _btnCounter(VoidCallback onTap, IconData icon, {required bool compact}) {
+    final size = compact ? 24.0 : 28.0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size, height: size,
+        decoration: BoxDecoration(
+          color: _kBg,
+          borderRadius: BorderRadius.circular(compact ? 6 : 8),
+          border: Border.all(color: _kSec.withValues(alpha: 0.3)),
+        ),
+        child: Icon(icon, size: compact ? 13 : 16, color: _kSec),
       ),
     );
   }
 
-  Widget _filaTotales(String label, String valor, Color colorValor,
-      {bool bold = false}) {
+  // ── Resumen: total contado / sistema / diferencia ───────────────────
+  Widget _resumen(Color colorDif, double diferencia) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorDif.withValues(alpha: 0.4)),
+      ),
+      child: Column(children: [
+        _filaResumen('Total contado', _fmt.format(_totalContado), _kVerde),
+        const SizedBox(height: 6),
+        _filaResumen('Total sistema', _fmt.format(widget.totalSistema), _kSec),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Divider(color: _kDivider, height: 1),
+        ),
+        _filaResumen(
+          'Diferencia',
+          '${diferencia >= 0 ? '+' : ''}${_fmt.format(diferencia)}',
+          colorDif,
+          bold: true,
+        ),
+      ]),
+    );
+  }
+
+  Widget _filaResumen(String label, String valor, Color c, {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: TextStyle(
-                color: _kSecondary,
-                fontSize: bold ? 14 : 13,
+            style: TextStyle(color: _kSec, fontSize: bold ? 14 : 12,
                 fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
         Text(valor,
-            style: TextStyle(
-                color: colorValor,
-                fontSize: bold ? 16 : 14,
+            style: TextStyle(color: c, fontSize: bold ? 16 : 13,
                 fontWeight: FontWeight.bold)),
       ],
     );

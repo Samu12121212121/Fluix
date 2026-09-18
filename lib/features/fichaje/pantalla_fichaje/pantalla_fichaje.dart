@@ -233,117 +233,136 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
                     cerrado ||
                     enPausa;
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _HeaderFichaje(ahora: _ahora, fichaje: fichaje),
-                      const SizedBox(height: 20),
+                return LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isWide = constraints.maxWidth >= 600;
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.all(isWide ? 24 : 16),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxWidth: isWide ? 500 : double.infinity),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _HeaderFichaje(ahora: _ahora, fichaje: fichaje),
+                              const SizedBox(height: 20),
 
-                      _BotonFichar(
-                        label: 'Fichar Entrada',
-                        icono: Icons.login_rounded,
-                        color: Colors.green[700]!,
-                        colorFondo: Colors.green[50]!,
-                        deshabilitado: entradaDeshabilitada,
-                        cargando: _cargandoEntrada,
-                        onTap: _ficharEntrada,
-                      ),
-                      const SizedBox(height: 8),
-
-                      if (trabajando || enPausa)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: AnimatedOpacity(
-                            opacity: _cargandoPausa ? 0.4 : 1.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: GestureDetector(
-                              onTap: _cargandoPausa
-                                  ? null
-                                  : () => _ficharPausa(!enPausa),
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: _cargandoPausa
-                                    ? Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.orange[700],
-                                          ),
-                                        ),
-                                      )
-                                    : Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.orange[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Icon(
-                                              enPausa
-                                                  ? Icons.play_arrow_rounded
-                                                  : Icons.pause_rounded,
-                                              color: Colors.orange[700],
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            enPausa
-                                                ? 'Volver de pausa'
-                                                : 'Iniciar pausa',
-                                            style: TextStyle(
-                                              color: Colors.orange[700],
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                              _BotonFichar(
+                                label: 'Fichar Entrada',
+                                icono: Icons.login_rounded,
+                                color: Colors.green[700]!,
+                                colorFondo: Colors.green[50]!,
+                                deshabilitado: entradaDeshabilitada,
+                                cargando: _cargandoEntrada,
+                                onTap: _ficharEntrada,
                               ),
-                            ),
+                              const SizedBox(height: 8),
+
+                              if (trabajando || enPausa)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: AnimatedOpacity(
+                                    opacity: _cargandoPausa ? 0.4 : 1.0,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: GestureDetector(
+                                      onTap: _cargandoPausa
+                                          ? null
+                                          : () => _ficharPausa(!enPausa),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withOpacity(0.04),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: _cargandoPausa
+                                            ? Center(
+                                                child: SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.orange[700],
+                                                  ),
+                                                ),
+                                              )
+                                            : Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orange[50],
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                    child: Icon(
+                                                      enPausa
+                                                          ? Icons
+                                                              .play_arrow_rounded
+                                                          : Icons.pause_rounded,
+                                                      color: Colors.orange[700],
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    enPausa
+                                                        ? 'Volver de pausa'
+                                                        : 'Iniciar pausa',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.orange[700],
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              _BotonFichar(
+                                label: 'Fichar Salida',
+                                icono: Icons.logout_rounded,
+                                color: _azulPrimario,
+                                colorFondo: const Color(0xFFE3F0FF),
+                                deshabilitado: salidaDeshabilitada,
+                                cargando: _cargandoSalida,
+                                onTap: _ficharSalida,
+                              ),
+                              const SizedBox(height: 24),
+
+                              _SeccionFichajesHoy(fichaje: fichaje),
+                              const SizedBox(height: 16),
+
+                              MisHorasMesSection(
+                                empresaId: empresaId,
+                                empleadoId: uid,
+                              ),
+                            ],
                           ),
                         ),
-
-                      _BotonFichar(
-                        label: 'Fichar Salida',
-                        icono: Icons.logout_rounded,
-                        color: _azulPrimario,
-                        colorFondo: const Color(0xFFE3F0FF),
-                        deshabilitado: salidaDeshabilitada,
-                        cargando: _cargandoSalida,
-                        onTap: _ficharSalida,
                       ),
-                      const SizedBox(height: 24),
-
-                      _SeccionFichajesHoy(fichaje: fichaje),
-                      const SizedBox(height: 16),
-
-                      MisHorasMesSection(
-                        empresaId: empresaId,
-                        empleadoId: uid,
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             )

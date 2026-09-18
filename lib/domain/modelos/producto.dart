@@ -106,6 +106,8 @@ class Producto {
   final List<String> alergenos;     // códigos UE: 'gluten','huevos','leche'…
   final String? destino;            // 'cocina' | 'barra' | null (= cocina)
   final double? precioWeb;          // precio diferente para la tienda online (null = usa precio)
+  final double? precio2;            // segundo precio seleccionable en el TPV (ej. mayorista, llevar)
+  final String? etiquetaPrecio2;    // etiqueta del segundo precio (ej. "Llevar", "Mayorista")
   final int? stockMinimo;           // umbral de stock bajo (alerta y auto-pedido)
   final double? precioCoste;        // precio de coste para calcular márgenes
   final String? ubicacion;          // almacén/ubicación principal (estantería, almacén A…)
@@ -135,6 +137,8 @@ class Producto {
     this.alergenos = const [],
     this.destino,
     this.precioWeb,
+    this.precio2,
+    this.etiquetaPrecio2,
     this.stockMinimo,
     this.precioCoste,
     this.ubicacion,
@@ -210,6 +214,8 @@ class Producto {
       alergenos: List<String>.from(d['alergenos'] ?? []),
       destino: d['destino'] as String?,
       precioWeb: (d['precio_web'] as num?)?.toDouble(),
+      precio2: (d['precio2'] as num?)?.toDouble(),
+      etiquetaPrecio2: d['etiqueta_precio2'] as String?,
       stockMinimo: (d['stock_minimo'] as num?)?.toInt(),
       precioCoste: (d['precio_coste'] as num?)?.toDouble(),
       ubicacion: d['ubicacion'] as String?,
@@ -244,6 +250,8 @@ class Producto {
     'alergenos': alergenos,
     if (destino != null) 'destino': destino,
     if (precioWeb != null) 'precio_web': precioWeb,
+    if (precio2 != null) 'precio2': precio2,
+    if (etiquetaPrecio2 != null) 'etiqueta_precio2': etiquetaPrecio2,
     if (stockMinimo != null) 'stock_minimo': stockMinimo,
     if (precioCoste != null) 'precio_coste': precioCoste,
     if (ubicacion != null) 'ubicacion': ubicacion,
@@ -275,6 +283,9 @@ class Producto {
     String? destino,
     double? precioWeb,
     bool clearPrecioWeb = false,
+    double? precio2,
+    bool clearPrecio2 = false,
+    String? etiquetaPrecio2,
     int? stockMinimo,
     double? precioCoste,
     String? ubicacion,
@@ -301,6 +312,8 @@ class Producto {
     alergenos: alergenos ?? this.alergenos,
     destino: destino ?? this.destino,
     precioWeb: clearPrecioWeb ? null : (precioWeb ?? this.precioWeb),
+    precio2: clearPrecio2 ? null : (precio2 ?? this.precio2),
+    etiquetaPrecio2: etiquetaPrecio2 ?? this.etiquetaPrecio2,
     stockMinimo: stockMinimo ?? this.stockMinimo,
     precioCoste: precioCoste ?? this.precioCoste,
     ubicacion: ubicacion ?? this.ubicacion,

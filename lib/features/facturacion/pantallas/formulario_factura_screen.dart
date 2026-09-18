@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,11 +11,13 @@ import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/services/pdf_service.dart';
 import 'package:planeag_flutter/services/email_service.dart';
 import 'package:planeag_flutter/core/utils/validador_nif_cif.dart';
+import 'package:planeag_flutter/core/utils/app_settings.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 import 'package:planeag_flutter/widgets/cliente_selector_rapido.dart';
 import 'formulario_linea_factura_sheet.dart';
 
 const _kPrimario = Color(0xFF0D47A1);
-const _kFondo = Color(0xFFF5F7FA);
+const _kFondo    = Color(0xFFF5F7FA);
 
 enum TipoClienteFactura { particular, empresaAutonomo }
 
@@ -43,7 +46,16 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   final _service = FacturacionService();
   final _firestore = FirebaseFirestore.instance;
   bool _guardando = false;
+  bool _isDark = false;
   bool get _esEdicion => widget.facturaExistente != null;
+
+  // ── Colores reactivos al modo oscuro ──────────────────────────────────────
+  Color get _bgColor   => _isDark ? const Color(0xFF0F172A) : _kFondo;
+  Color get _surf      => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _textColor => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _subColor  => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+  Color get _bdrColor  => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+  Color get _fieldBg   => _isDark ? const Color(0xFF1E293B) : _kFondo;
 
   // Cliente
   final _ctrlNombre = TextEditingController();
@@ -80,6 +92,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   @override
   void initState() {
     super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDarkChange);
     if (widget.facturaExistente != null) {
       _precargar(widget.facturaExistente!);
     } else {
@@ -101,10 +115,15 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
   @override
   void dispose() {
+    AppSettings.darkMode.removeListener(_onDarkChange);
     for (final c in [_ctrlNombre, _ctrlTelefono, _ctrlCorreo, _ctrlNif, _ctrlRazonSocial, _ctrlDireccion, _ctrlDiasVenc, _ctrlNotasInternas, _ctrlNotasCliente]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _onDarkChange() {
+    if (mounted) setState(() => _isDark = AppSettings.darkMode.value);
   }
 
   Future<void> _cargarSector() async {
@@ -158,13 +177,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   Widget build(BuildContext context) {
     final t = _t;
     return Scaffold(
-      backgroundColor: _kFondo,
-      appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar Factura' : 'Nueva Factura', style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: _kPrimario,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      backgroundColor: _bgColor,
       body: Form(
         key: _formKey,
         child: ListView(
@@ -374,11 +387,11 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
         padding: const EdgeInsets.symmetric(vertical: 24),
         alignment: Alignment.center,
         child: Column(children: [
-          Icon(Icons.add_shopping_cart_outlined, size: 48, color: Colors.grey[300]),
+          Icon(Icons.add_shopping_cart_outlined, size: 48, color: _bdrColor),
           const SizedBox(height: 8),
-          Text('Sin líneas todavía', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          Text('Sin líneas todavía', style: TextStyle(color: _subColor, fontSize: 14)),
           const SizedBox(height: 4),
-          Text('Pulsa el botón para añadir productos o servicios', style: TextStyle(color: Colors.grey[400], fontSize: 12), textAlign: TextAlign.center),
+          Text('Pulsa el botón para añadir productos o servicios', style: TextStyle(color: _subColor.withValues(alpha: 0.7), fontSize: 12), textAlign: TextAlign.center),
         ]),
       )
     else
@@ -399,10 +412,13 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
   Widget _buildItemLinea(int i, LineaFactura l) {
     final ivaColor = l.porcentajeIva == 21 ? const Color(0xFF1565C0) : l.porcentajeIva == 10 ? const Color(0xFF2E7D32) : l.porcentajeIva == 4 ? const Color(0xFFEF6C00) : Colors.grey;
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: _surf,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _bdrColor),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _editarLinea(i),
@@ -416,7 +432,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(child: Text(l.descripcion, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(child: Text(l.descripcion, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: _textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
                   Text('${l.subtotalConIva.toStringAsFixed(2)}€', style: const TextStyle(fontWeight: FontWeight.bold, color: _kPrimario, fontSize: 14)),
                 ]),
                 const SizedBox(height: 4),
@@ -455,9 +471,10 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+      decoration: BoxDecoration(
+        color: _surf,
+        border: Border(top: BorderSide(color: _bdrColor)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _isDark ? 0.4 : 0.08), blurRadius: 10, offset: const Offset(0, -3))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -505,8 +522,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-      Text('${valor.toStringAsFixed(2)}€', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? Colors.grey[800])),
+      Text(label, style: TextStyle(fontSize: 10, color: _subColor)),
+      Text('${valor.toStringAsFixed(2)}€', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? _textColor)),
     ],
   );
 
@@ -525,14 +542,14 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_lineas.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Añade al menos una línea'), backgroundColor: Colors.orange));
+      FluxToast.aviso(context, 'Añade al menos una línea');
       return;
     }
     final nifTexto = _ctrlNif.text.trim();
     final hayNifValido = nifTexto.isNotEmpty && validarNIF(nifTexto);
     if (_nifEstricto && !hayNifValido) {
       setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('NIF/CIF obligatorio para empresas y autónomos'), backgroundColor: Colors.red, duration: Duration(seconds: 4)));
+      FluxToast.error(context, 'NIF/CIF obligatorio para empresas y autónomos');
       return;
     }
     if (_nifObligatorio && !_nifEstricto && !hayNifValido) {
@@ -591,23 +608,23 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
           usuarioId: uid, usuarioNombre: nombre,
         );
         if (mounted && (res.verifactuOk || res.verifactuError)) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(res.mensajeVerifactu),
-            backgroundColor: res.verifactuOk ? const Color(0xFF2196F3) : Colors.orange,
-            duration: const Duration(seconds: 4),
-          ));
+          if (res.verifactuOk) {
+            FluxToast.info(context, res.mensajeVerifactu);
+          } else {
+            FluxToast.aviso(context, res.mensajeVerifactu);
+          }
         }
         if (mounted) {
           await _mostrarOpcionesPostGuardado(res.factura);
         }
       }
       if (mounted && _esEdicion) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Factura actualizada'), backgroundColor: Colors.green));
+        FluxToast.exito(context, 'Factura actualizada');
         Navigator.pop(context, true);
       }
     } catch (e) {
       setState(() => _guardando = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) FluxToast.error(context, 'Error: $e');
     }
   }
 
@@ -623,10 +640,14 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
 
-  Widget _seccion(int n, String titulo, IconData icono, List<Widget> children) => Card(
+  Widget _seccion(int n, String titulo, IconData icono, List<Widget> children) => Container(
     margin: const EdgeInsets.only(bottom: 16),
-    elevation: 2,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    decoration: BoxDecoration(
+      color: _surf,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: _bdrColor),
+      boxShadow: _isDark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+    ),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -640,7 +661,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
           const SizedBox(width: 8),
           Icon(icono, size: 15, color: _kPrimario),
           const SizedBox(width: 6),
-          Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _textColor)),
         ]),
         const SizedBox(height: 14),
         ...children,
@@ -675,9 +696,12 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
 
   InputDecoration _deco(String label, {String? hint, String? error, Widget? prefijo}) => InputDecoration(
     labelText: label, hintText: hint, errorText: error, prefixIcon: prefijo,
-    filled: true, fillColor: _kFondo,
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimario)),
+    labelStyle: TextStyle(color: _subColor, fontSize: 13),
+    hintStyle: TextStyle(color: _subColor.withValues(alpha: 0.6), fontSize: 13),
+    filled: true, fillColor: _fieldBg,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _bdrColor)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _bdrColor)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimario, width: 1.5)),
     errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.red)),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
   );
@@ -810,7 +834,7 @@ class _PostGuardadoSheetState extends State<_PostGuardadoSheet> {
         text: 'Factura ${f.numeroFactura} · ${f.total.toStringAsFixed(2)}€',
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -830,7 +854,7 @@ class _PostGuardadoSheetState extends State<_PostGuardadoSheet> {
           empresaId: widget.empresaId,
           nombreCliente: f.clienteNombre,
         );
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email enviado'), backgroundColor: Colors.green));
+        if (mounted) FluxToast.exito(context, 'Email enviado');
       } else {
         // Sin correo: fallback a compartir
         final dir = await getTemporaryDirectory();
@@ -841,7 +865,7 @@ class _PostGuardadoSheetState extends State<_PostGuardadoSheet> {
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }

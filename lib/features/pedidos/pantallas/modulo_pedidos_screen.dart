@@ -17,6 +17,8 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
   late TabController _tabs;
   final PedidosService _svc = PedidosService();
   bool _creandoPrueba = false;
+  String _busqueda = '';
+  final _busquedaCtrl = TextEditingController();
 
   // Estados que se muestran en las pestañas
   static const _tabEstados = [
@@ -37,7 +39,17 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
   @override
   void dispose() {
     _tabs.dispose();
+    _busquedaCtrl.dispose();
     super.dispose();
+  }
+
+  List<Pedido> _filtrar(List<Pedido> todos) {
+    if (_busqueda.isEmpty) return todos;
+    final q = _busqueda.toLowerCase();
+    return todos.where((p) =>
+        p.clienteNombre.toLowerCase().contains(q) ||
+        (p.clienteTelefono?.toLowerCase().contains(q) ?? false) ||
+        p.numeroTicket.toString().contains(q)).toList();
   }
 
   @override
@@ -91,11 +103,41 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-          final todos = snapshot.data ?? [];
+          final todos = _filtrar(snapshot.data ?? []);
 
           return Column(
             children: [
-              _buildResumen(todos),
+              _buildResumen(snapshot.data ?? []),
+              // ── Buscador ───────────────────────────────────────────────────
+              Container(
+                color: const Color(0xFF1565C0),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: TextField(
+                  controller: _busquedaCtrl,
+                  onChanged: (v) => setState(() => _busqueda = v.trim()),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por cliente, teléfono o nº ticket…',
+                    hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54, size: 18),
+                    suffixIcon: _busqueda.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, color: Colors.white54, size: 16),
+                            onPressed: () {
+                              _busquedaCtrl.clear();
+                              setState(() => _busqueda = '');
+                            })
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.1),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    isDense: true,
+                  ),
+                ),
+              ),
               Expanded(
                 child: TabBarView(
                   controller: _tabs,

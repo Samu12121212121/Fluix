@@ -11,8 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/layout/fluix_module_actions.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/providers/app_config_provider.dart';
+import 'core/utils/app_settings.dart';
 import 'features/tpv/providers/mesa_theme_provider.dart';
 import 'core/utils/admin_initializer.dart';
 import 'features/autenticacion/pantallas/pantalla_login.dart';
@@ -67,6 +69,7 @@ Future<void> main() async {
   }
 
   await _configurarFirestore();
+  await AppSettings.init();
 
   if (!kIsWeb &&
       !kDebugMode &&
@@ -84,6 +87,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AppConfigProvider()..inicializar()),
         ChangeNotifierProvider(create: (_) => MesaThemeProvider()..cargarTema()),
+        ChangeNotifierProvider(create: (_) => FluixModuleActionsNotifier()),
       ],
       child: const FluixCrmApp(),
     ),
