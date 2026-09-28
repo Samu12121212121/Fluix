@@ -3,6 +3,7 @@ import '../../../services/pdf/pdf_template_service.dart';
 import '../../../services/pdf_service.dart';
 import '../../../domain/modelos/pdf_template.dart';
 import '../../pdf_templates/domain/models/pdf_template.dart' as uiTpl;
+import '../../pdf_templates/presentation/screens/template_editor_screen.dart';
 
 class PdfTemplatesListScreen extends StatefulWidget {
   final String empresaId;
@@ -103,14 +104,12 @@ class _PdfTemplatesListScreenState extends State<PdfTemplatesListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('📝 Editor visual próximamente disponible'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TemplateEditorScreen(empresaId: widget.empresaId),
+          ),
+        ).then((_) => setState(() {})),
         icon: const Icon(Icons.add),
         label: const Text('Nueva Plantilla'),
         backgroundColor: const Color(0xFF1565C0),
@@ -146,14 +145,12 @@ class _PdfTemplatesListScreenState extends State<PdfTemplatesListScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () {
-                // TODO: Navegar a editor
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('📝 Editor avanzado próximamente'),
-                  ),
-                );
-              },
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TemplateEditorScreen(empresaId: widget.empresaId),
+                ),
+              ).then((_) => setState(() {})),
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Crear Primera Plantilla'),
               style: ElevatedButton.styleFrom(
@@ -335,12 +332,12 @@ class _PdfTemplatesListScreenState extends State<PdfTemplatesListScreen> {
               ),
           ],
         ),
-        onTap: () {
-          // TODO: Abrir editor
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Editar: ${template.name}')),
-          );
-        },
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TemplateEditorScreen(empresaId: widget.empresaId),
+          ),
+        ).then((_) => setState(() {})),
       ),
     );
   }
