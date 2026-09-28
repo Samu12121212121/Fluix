@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/albaran_recibido.dart';
+import 'package:planeag_flutter/domain/modelos/contabilidad.dart';
 import 'package:planeag_flutter/services/contabilidad_service.dart';
 
 class FormularioAlbaranRecibidoScreen extends StatefulWidget {
@@ -26,9 +27,13 @@ class _FormularioAlbaranRecibidoScreenState
   bool get _esEdicion => widget.existente != null;
 
   // Proveedor
-  final _ctrlNombre    = TextEditingController();
-  final _ctrlNif       = TextEditingController();
-  final _ctrlTelefono  = TextEditingController();
+  final _ctrlNombre   = TextEditingController();
+  final _ctrlNif      = TextEditingController();
+  final _ctrlTelefono = TextEditingController();
+
+  // Autocomplete
+  List<Proveedor> _proveedores = [];
+  List<Proveedor> _sugerencias = [];
 
   // Documento
   final _ctrlNumero    = TextEditingController();
@@ -44,13 +49,13 @@ class _FormularioAlbaranRecibidoScreenState
   // Notas
   final _ctrlNotas = TextEditingController();
 
-  // ── colores ──────────────────────────────────────────────────────────────
   static const _primary = Color(0xFF1565C0);
   static const _bg      = Color(0xFFF5F7FA);
 
   @override
   void initState() {
     super.initState();
+    _cargarProveedores();
     final e = widget.existente;
     if (e != null) {
       _ctrlNombre.text   = e.nombreProveedor;
@@ -64,10 +69,44 @@ class _FormularioAlbaranRecibidoScreenState
       _lineas.addAll(e.lineas.map(_LineaEditable.fromLinea));
     }
     if (_lineas.isEmpty) _lineas.add(_LineaEditable());
+
+    _ctrlNombre.addListener(_filtrarSugerencias);
+  }
+
+  Future<void> _cargarProveedores() async {
+    _svc.obtenerProveedores(widget.empresaId).first.then((lista) {
+      if (mounted) setState(() => _proveedores = lista);
+    });
+  }
+
+  void _filtrarSugerencias() {
+    final q = _ctrlNombre.text.trim().toLowerCase();
+    setState(() {
+      _sugerencias = q.length < 2
+          ? []
+          : _proveedores
+              .where((p) =>
+                  p.nombre.toLowerCase().contains(q) ||
+                  (p.nif?.toLowerCase().contains(q) ?? false))
+              .take(5)
+              .toList();
+    });
+  }
+
+  void _seleccionarProveedor(Proveedor p) {
+    setState(() {
+      _ctrlNombre.text   = p.nombre;
+      _ctrlNif.text      = p.nif ?? '';
+      _ctrlTelefono.text = p.telefono ?? '';
+      _sugerencias       = [];
+    });
+    // quitar foco del campo nombre
+    FocusScope.of(context).nextFocus();
   }
 
   @override
   void dispose() {
+    _ctrlNombre.removeListener(_filtrarSugerencias);
     _ctrlNombre.dispose();
     _ctrlNif.dispose();
     _ctrlTelefono.dispose();
@@ -94,16 +133,7 @@ class _FormularioAlbaranRecibidoScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _seccion('Proveedor', Icons.business, [
-              _campo(_ctrlNombre, 'Nombre del proveedor *',
-                  validator: _requerido),
-              const SizedBox(height: 12),
-              _campo(_ctrlNif, 'NIF/CIF (opcional)',
-                  hint: 'Déjalo vacío si no lo tienes'),
-              const SizedBox(height: 12),
-              _campo(_ctrlTelefono, 'Teléfono (opcional)',
-                  tipo: TextInputType.phone),
-            ]),
+            _seccionProveedor(),
             const SizedBox(height: 16),
             _seccion('Documento', Icons.receipt_long, [
               _campo(_ctrlNumero, 'Nº albarán del proveedor *',
@@ -120,19 +150,102 @@ class _FormularioAlbaranRecibidoScreenState
             const SizedBox(height: 16),
             _seccionLineas(),
             const SizedBox(height: 16),
-            _seccion('Estado', Icons.flag_outlined, [
-              _estadoPicker(),
-            ]),
+            _seccion('Estado', Icons.flag_outlined, [_estadoPicker()]),
             const SizedBox(height: 16),
             _seccion('Notas', Icons.notes, [
-              _campo(_ctrlNotas, 'Observaciones, incidencias...',
-                  maxLines: 3),
+              _campo(_ctrlNotas, 'Observaciones, incidencias...', maxLines: 3),
             ]),
             const SizedBox(height: 80),
           ],
         ),
       ),
       bottomNavigationBar: _botonGuardar(),
+    );
+  }
+
+  // ── Sección proveedor con autocomplete ────────────────────────────────────
+
+  Widget _seccionProveedor() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.business, color: _primary, size: 18),
+            SizedBox(width: 8),
+            Text('Proveedor',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          ]),
+          const SizedBox(height: 12),
+
+          // Campo nombre con sugerencias
+          _campo(_ctrlNombre, 'Nombre del proveedor *', validator: _requerido),
+
+          // Sugerencias desplegables
+          if (_sugerencias.isNotEmpty) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey[300]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _sugerencias.map((p) => _itemSugerencia(p)).toList(),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+          _campo(_ctrlNif, 'NIF/CIF (opcional)',
+              hint: 'Se rellena solo si eliges un proveedor guardado'),
+          const SizedBox(height: 12),
+          _campo(_ctrlTelefono, 'Teléfono (opcional)',
+              tipo: TextInputType.phone),
+        ]),
+      ),
+    );
+  }
+
+  Widget _itemSugerencia(Proveedor p) {
+    return InkWell(
+      onTap: () => _seleccionarProveedor(p),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(Icons.business, size: 16, color: _primary),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(p.nombre,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              if (p.nif != null)
+                Text(p.nif!, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+            ],
+          )),
+          const Icon(Icons.north_west, size: 14, color: Colors.grey),
+        ]),
+      ),
     );
   }
 
@@ -159,8 +272,7 @@ class _FormularioAlbaranRecibidoScreenState
             ),
           ]),
           const SizedBox(height: 8),
-          ..._lineas.asMap().entries.map((entry) =>
-              _tarjetaLinea(entry.key, entry.value)),
+          ..._lineas.asMap().entries.map((e) => _tarjetaLinea(e.key, e.value)),
         ]),
       ),
     );
@@ -202,21 +314,16 @@ class _FormularioAlbaranRecibidoScreenState
             hint: 'Código del proveedor, EAN...'),
         const SizedBox(height: 8),
         Row(children: [
-          Expanded(
-            child: _campo(linea.ctrlCantPedida, 'Cant. pedida',
-                tipo: const TextInputType.numberWithOptions(decimal: true),
-                hint: '0'),
-          ),
+          Expanded(child: _campo(linea.ctrlCantPedida, 'Cant. pedida',
+              tipo: const TextInputType.numberWithOptions(decimal: true),
+              hint: '0')),
           const SizedBox(width: 8),
-          Expanded(
-            child: _campo(linea.ctrlCantRecibida, 'Cant. recibida *',
-                tipo: const TextInputType.numberWithOptions(decimal: true),
-                validator: _requerido),
-          ),
+          Expanded(child: _campo(linea.ctrlCantRecibida, 'Cant. recibida *',
+              tipo: const TextInputType.numberWithOptions(decimal: true),
+              validator: _requerido)),
         ]),
         const SizedBox(height: 8),
-        _campo(linea.ctrlNotas, 'Notas (daños, discrepancias...)',
-            maxLines: 2),
+        _campo(linea.ctrlNotas, 'Notas (daños, discrepancias...)', maxLines: 2),
       ]),
     );
   }
@@ -257,13 +364,9 @@ class _FormularioAlbaranRecibidoScreenState
     );
   }
 
-  // ── Selector de fecha ─────────────────────────────────────────────────────
+  // ── Selector fecha ────────────────────────────────────────────────────────
 
-  Widget _selectorFecha(
-    String label,
-    DateTime fecha,
-    ValueChanged<DateTime> onChanged,
-  ) {
+  Widget _selectorFecha(String label, DateTime fecha, ValueChanged<DateTime> onChanged) {
     return GestureDetector(
       onTap: () async {
         final picked = await showDatePicker(
@@ -282,9 +385,8 @@ class _FormularioAlbaranRecibidoScreenState
           border: Border.all(color: Colors.grey[300]!),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Colors.grey,
-                  fontWeight: FontWeight.w500)),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey,
+              fontWeight: FontWeight.w500)),
           const SizedBox(height: 2),
           Row(children: [
             const Icon(Icons.calendar_today_outlined, size: 13, color: _primary),
@@ -337,11 +439,9 @@ class _FormularioAlbaranRecibidoScreenState
         hintText: hint,
         filled: true,
         fillColor: _bg,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none),
+            borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: _primary)),
@@ -357,13 +457,13 @@ class _FormularioAlbaranRecibidoScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+        boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
       ),
       child: ElevatedButton.icon(
         onPressed: _guardando ? null : _guardar,
         icon: _guardando
-            ? const SizedBox(
-                width: 20, height: 20,
+            ? const SizedBox(width: 20, height: 20,
                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
             : const Icon(Icons.save),
         label: Text(_guardando
@@ -383,7 +483,6 @@ class _FormularioAlbaranRecibidoScreenState
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _guardando = true);
     try {
       final lineas = _lineas
@@ -398,17 +497,17 @@ class _FormularioAlbaranRecibidoScreenState
           .toList();
 
       await _svc.guardarAlbaranRecibido(
-        empresaId:        widget.empresaId,
-        numeroAlbaran:    _ctrlNumero.text,
-        nombreProveedor:  _ctrlNombre.text,
-        fechaAlbaran:     _fechaAlbaran,
-        fechaRecepcion:   _fechaRecepcion,
-        lineas:           lineas,
-        nifProveedor:     _ctrlNif.text,
+        empresaId:         widget.empresaId,
+        numeroAlbaran:     _ctrlNumero.text,
+        nombreProveedor:   _ctrlNombre.text,
+        fechaAlbaran:      _fechaAlbaran,
+        fechaRecepcion:    _fechaRecepcion,
+        lineas:            lineas,
+        nifProveedor:      _ctrlNif.text,
         telefonoProveedor: _ctrlTelefono.text,
-        estado:           _estado,
-        notas:            _ctrlNotas.text,
-        idEditar:         widget.existente?.id,
+        estado:            _estado,
+        notas:             _ctrlNotas.text,
+        idEditar:          widget.existente?.id,
       );
 
       if (mounted) {
@@ -421,9 +520,7 @@ class _FormularioAlbaranRecibidoScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ));
+          content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
@@ -458,7 +555,7 @@ class _FormularioAlbaranRecibidoScreenState
   }
 }
 
-// ── Clase auxiliar para editar una línea con controladores ───────────────────
+// ── Clase auxiliar para editar una línea ─────────────────────────────────────
 
 class _LineaEditable {
   final ctrlDescripcion  = TextEditingController();
@@ -474,11 +571,9 @@ class _LineaEditable {
     e.ctrlDescripcion.text  = l.descripcion;
     e.ctrlReferencia.text   = l.referencia;
     e.ctrlCantPedida.text   = l.cantidadPedida > 0
-        ? l.cantidadPedida.toStringAsFixed(2)
-        : '';
+        ? l.cantidadPedida.toStringAsFixed(2) : '';
     e.ctrlCantRecibida.text = l.cantidadRecibida > 0
-        ? l.cantidadRecibida.toStringAsFixed(2)
-        : '';
+        ? l.cantidadRecibida.toStringAsFixed(2) : '';
     e.ctrlNotas.text        = l.notas;
     return e;
   }

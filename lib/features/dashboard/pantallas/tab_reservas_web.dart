@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../domain/modelos/reserva.dart';
 import '../../../services/contenido_web_service.dart';
 
@@ -88,6 +89,40 @@ class _TabReservasWebState extends State<TabReservasWeb> {
     );
   }
 
+  Widget _buildUrlReservas() {
+    final url = 'https://app.fluix.es/reservar/${widget.empresaId}';
+    return GestureDetector(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: url));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('URL copiada — pégala en tu web o compártela'),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _color.withValues(alpha: 0.2)),
+        ),
+        child: Row(children: [
+          Icon(Icons.link_rounded, size: 14, color: _color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(url,
+              style: TextStyle(fontSize: 11, color: _color,
+                  fontFamily: 'monospace'),
+              overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 6),
+          Icon(Icons.copy_rounded, size: 13, color: _color),
+        ]),
+      ),
+    );
+  }
+
   Widget _buildHeader(int total, int pendientes, int hoy, int confirmadas) {
     return Container(
       color: Colors.white,
@@ -99,6 +134,9 @@ class _TabReservasWebState extends State<TabReservasWeb> {
                 fontWeight: FontWeight.w800, color: _color)),
             const Text('Gestiona las reservas recibidas desde tu web',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            // URL pública de reservas
+            const SizedBox(height: 8),
+            _buildUrlReservas(),
           ]),
           const Spacer(),
           ElevatedButton.icon(

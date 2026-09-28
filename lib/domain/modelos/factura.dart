@@ -55,13 +55,14 @@ extension EstadoPresupuestoExt on EstadoPresupuesto {
     }
   }
 
-  Color get color {
+  /// Valor ARGB para usar en la UI: Color(estado.colorValue)
+  int get colorValue {
     switch (this) {
-      case EstadoPresupuesto.borrador:  return const Color(0xFF6B7280);
-      case EstadoPresupuesto.enviado:   return const Color(0xFF3B82F6);
-      case EstadoPresupuesto.aceptado:  return const Color(0xFF22C55E);
-      case EstadoPresupuesto.rechazado: return const Color(0xFFEF4444);
-      case EstadoPresupuesto.expirado:  return const Color(0xFFF59E0B);
+      case EstadoPresupuesto.borrador:  return 0xFF6B7280;
+      case EstadoPresupuesto.enviado:   return 0xFF3B82F6;
+      case EstadoPresupuesto.aceptado:  return 0xFF22C55E;
+      case EstadoPresupuesto.rechazado: return 0xFFEF4444;
+      case EstadoPresupuesto.expirado:  return 0xFFF59E0B;
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/albaran_recibido.dart';
 import 'package:planeag_flutter/services/contabilidad_service.dart';
 import 'formulario_albaran_recibido_screen.dart';
+import 'formulario_factura_recibida_screen.dart';
 
 class TabAlbaranesRecibidos extends StatefulWidget {
   final String empresaId;
@@ -389,7 +390,40 @@ class _DetalleAlbaranSheet extends StatelessWidget {
           ],
 
           const SizedBox(height: 24),
-          // Acciones
+
+          // Botón principal: crear factura a partir de este albarán
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FormularioFacturaRecibidaScreen(
+                      empresaId: empresaId,
+                      nombreProveedorInicial: albaran.nombreProveedor,
+                      nifProveedorInicial: albaran.nifProveedor.isNotEmpty
+                          ? albaran.nifProveedor
+                          : null,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.receipt_long, size: 18),
+              label: const Text('Crear factura de este albarán'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Acciones secundarias
           Row(children: [
             Expanded(child: OutlinedButton.icon(
               onPressed: () { Navigator.pop(context); onEditar(); },

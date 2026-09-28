@@ -625,7 +625,10 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
               decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: _border))),
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              child: Wrap(
+                alignment: WrapAlignment.spaceAround,
+                spacing: 4,
+                children: [
                 _cliBtn(Icons.edit_outlined, 'Editar', _kBlue,
                     () => _mostrarDetalleCliente(doc.id, d)),
                 _cliBtn(Icons.description_outlined, 'Presup.', const Color(0xFF8B5CF6),
@@ -636,6 +639,9 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
                 if (correo.isNotEmpty)
                   _cliBtn(Icons.email_outlined, 'Email', _kOrange,
                       () => launchUrl(Uri.parse('mailto:$correo'))),
+                _cliBtn(Icons.shopping_bag_outlined, 'Pedidos',
+                    const Color(0xFF6366F1),
+                    () => _mostrarPedidosCliente(context, nombre, correo, doc.id, d)),
                 _cliBtn(
                   isVip ? Icons.star_rounded : Icons.star_outline_rounded,
                   'VIP', _kOrange,

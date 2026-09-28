@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import 'features/registro/pantallas/pantalla_registro_invitacion.dart';
+import 'features/reservas_publicas/pantalla_reserva_publica.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -238,6 +239,26 @@ class _FluixCrmAppState extends State<FluixCrmApp>
 
   @override
   Widget build(BuildContext context) {
+    // Ruta pública /reservar/{empresaId} — sin autenticación (solo web)
+    if (kIsWeb) {
+      final segments = Uri.base.pathSegments;
+      if (segments.length >= 2 && segments[0] == 'reservar') {
+        return MaterialApp(
+          title: 'Reservar',
+          debugShowCheckedModeBanner: false,
+          locale: const Locale('es', 'ES'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('es', 'ES'), Locale('en', 'US')],
+          theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+          home: PantallaReservaPublica(empresaId: segments[1]),
+        );
+      }
+    }
+
     return Consumer<AppConfigProvider>(
       builder: (context, config, _) => GestureDetector(
         behavior: HitTestBehavior.translucent,

@@ -11,6 +11,7 @@ import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../services/contabilidad_service.dart';
 import '../../../domain/modelos/contabilidad.dart';
 import 'tab_modelos_fiscales.dart';
+import 'formulario_factura_recibida_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL CONTABILIDAD — diseño con pill toggle
@@ -1116,6 +1117,13 @@ class _ContabTabProveedoresState extends State<ContabTabProveedores> {
                 ]),
               ])),
               IconButton(
+                icon: Icon(Icons.receipt_long_outlined, size: 17, color: widget.color),
+                tooltip: 'Registrar factura recibida',
+                onPressed: () => _registrarFacturaProveedor(context, p),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 17, color: Color(0xFF94A3B8)),
                 onPressed: () => _abrirFormProveedor(context, p),
                 padding: EdgeInsets.zero,
@@ -1146,6 +1154,33 @@ class _ContabTabProveedoresState extends State<ContabTabProveedores> {
     const SizedBox(width: 4),
     Text(text, style: TextStyle(fontSize: 11, color: _sub)),
   ]);
+
+  void _registrarFacturaProveedor(BuildContext context, Proveedor p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.92,
+        maxChildSize: 0.98,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (_, sc) => Container(
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: FormularioFacturaRecibidaScreen(
+            empresaId: widget.empresaId,
+            nombreProveedorInicial: p.nombre,
+            nifProveedorInicial: p.nif,
+          ),
+        ),
+      ),
+    );
+  }
 
   void _abrirFormProveedor(BuildContext context, Proveedor? p) {
     showModalBottomSheet(
