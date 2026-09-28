@@ -1,642 +1,739 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dio/dio.dart';
+import '../../../services/contenido_web_service.dart';
 
-class PantallaIntegracionScript extends StatefulWidget {
+// ignore_for_file: use_build_context_synchronously
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PANEL DE INTEGRACIÓN WEB — Fluix Web SDK
+// Muestra módulos detectados en la web, suscriptores push y permite copiar SDK
+// ═════════════════════════════════════════════════════════════════════════════
+
+class PantallaIntegracionScript extends StatelessWidget {
   final String empresaId;
-
-  const PantallaIntegracionScript({
-    Key? key,
-    required this.empresaId,
-  }) : super(key: key);
-
-  @override
-  State<PantallaIntegracionScript> createState() =>
-      _PantallaIntegracionScriptState();
-}
-
-class _PantallaIntegracionScriptState extends State<PantallaIntegracionScript> {
-  late Future<Map<String, dynamic>> _scriptFuture;
-  bool _scriptCopiado = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scriptFuture = _obtenerScript();
-  }
-
-  Future<Map<String, dynamic>> _obtenerScript() async {
-    try {
-      // Obtener datos de la empresa
-      final empresaDoc = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(widget.empresaId)
-          .get();
-
-      if (!empresaDoc.exists) {
-        throw Exception('Empresa no encontrada');
-      }
-
-      final empresaData = empresaDoc.data()!;
-      final nombreEmpresa = empresaData['nombre'] ?? 'Mi Negocio';
-      final dominio = empresaData['sitio_web'] ?? 'midominio.com';
-
-      // Llamar a la Cloud Function para obtener el script
-      const functionUrl =
-          'https://europe-west1-planeaapp-4bea4.cloudfunctions.net/obtenerScriptJSON';
-
-      final dio = Dio();
-      final response = await dio.get(
-        '$functionUrl?empresaId=${widget.empresaId}',
-      );
-
-      if (response.statusCode == 200) {
-        final data = response.data;
-        return {
-          'nombre': nombreEmpresa,
-          'dominio': dominio,
-          'script': data['script'],
-          'exito': true,
-        };
-      } else {
-        // Si falla la Cloud Function, generar el script localmente
-        final scriptLocal = _generarScriptLocal(
-          widget.empresaId,
-          nombreEmpresa,
-          dominio,
-        );
-        return {
-          'nombre': nombreEmpresa,
-          'dominio': dominio,
-          'script': scriptLocal,
-          'exito': true,
-        };
-      }
-    } catch (e) {
-      return {
-        'error': e.toString(),
-        'exito': false,
-      };
-    }
-  }
-
-  String _generarScriptLocal(
-    String empresaId,
-    String nombreEmpresa,
-    String dominio,
-  ) {
-    return '''<!-- ============================================================
-     🔥 FLUIX CRM - SCRIPT COMPLETO: CONTENIDO DINÁMICO + ANALYTICS
-     Web: $dominio
-     Empresa: $nombreEmpresa
-     Versión: SEGURA (no bloquea la web si Firebase falla)
-     ============================================================ -->
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- PON ESTOS DIVS DONDE QUIERAS EN TU WEB                        -->
-<!-- <div id="fluixcrm_SECCION_ID"></div>  → Secciones de la app    -->
-<!-- <div id="fluixcrm_contacto"></div>    → Formulario de contacto  -->
-<!-- <div id="fluixcrm_reservas"></div>    → Formulario de reservas  -->
-<!-- <div id="fluixcrm_blog"></div>        → Blog / Noticias         -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-<script>
-(function () {
-  'use strict';
-
-  var FIREBASE_CONFIG = {
-    apiKey: "AIzaSyCvOaB1hF_sF-A6jMZ0MusttuhzSMDezb4",
-    authDomain: "planeaapp-4bea4.firebaseapp.com",
-    projectId: "planeaapp-4bea4",
-    storageBucket: "planeaapp-4bea4.firebasestorage.app",
-    messagingSenderId: "1085482191658",
-    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
-  };
-
-  var EMPRESA_ID = "$empresaId";
-  var DOMINIO_WEB = "$dominio";
-  var NOMBRE_EMPRESA = "$nombreEmpresa";
-
-  window.addEventListener('load', function () {
-    try { inicializar(); }
-    catch (e) { console.warn('Fluix CRM: error al inicializar', e); }
-  });
-
-  function inicializar() {
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(FIREBASE_CONFIG);
-    }
-    var db = firebase.firestore();
-    registrarVisita(db).catch(function(e){ console.warn('Fluix CRM: visita error', e); });
-    rastrearEventos(db).catch(function(e){ console.warn('Fluix CRM: eventos error', e); });
-    cargarContenidoDinamico(db);
-    cargarFormularioContacto(db);
-    cargarFormularioReservas(db);
-    cargarBlog(db);
-  }
-
-  function render(id, html, show) {
-    var el = document.getElementById("fluixcrm_" + id);
-    if (!el) return;
-    el.innerHTML = html;
-    el.style.display = (show === false) ? "none" : "";
-  }
-
-  function cargarContenidoDinamico(db) {
-    db.collection("empresas").doc(EMPRESA_ID)
-      .collection("contenido_web").onSnapshot(function(snap) {
-      snap.docChanges().forEach(function(ch) {
-        if (ch.type === "removed") render(ch.doc.id, "", false);
-      });
-      snap.forEach(function(doc) {
-        var d = doc.data(), tipo = d.tipo || "texto", c = d.contenido || {};
-        if (!d.activa) { render(doc.id, "", false); return; }
-        var html = "";
-        if (tipo === "texto") {
-          html = '<h3>'+(c.titulo||'')+'</h3><p>'+(c.texto||'')+'</p>'+(c.imagen_url?'<img src="'+c.imagen_url+'" style="max-width:100%;border-radius:8px">':'')
-        } else if (tipo === "carta") {
-          html = (c.items_carta||[]).filter(function(p){return p.disponible!==false;}).map(function(p){
-            return '<div style="border-bottom:1px solid #eee;padding:10px 0;display:flex;gap:12px;align-items:start">'
-              +(p.imagen_url?'<img src="'+p.imagen_url+'" style="width:70px;height:70px;object-fit:cover;border-radius:8px">':'')
-              +'<div style="flex:1"><div><strong style="font-size:15px">'+p.nombre+'</strong>'
-              +'<span style="float:right;font-weight:bold;color:#e65100">'+p.precio+'€</span></div>'
-              +'<p style="margin:4px 0 0;color:#666;font-size:13px">'+(p.descripcion||'')+'</p></div></div>';
-          }).join("");
-        } else if (tipo === "galeria") {
-          html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">'
-            +(c.imagenes_galeria||[]).map(function(i){return '<img src="'+i.url+'" style="width:100%;border-radius:8px;object-fit:cover;aspect-ratio:1" loading="lazy">';}).join("")+'</div>';
-        } else if (tipo === "ofertas") {
-          html = (c.ofertas||[]).filter(function(o){return o.activa;}).map(function(o){
-            return '<div style="border:1px solid #eee;border-radius:8px;padding:14px;margin-bottom:12px">'
-              +(o.imagen_url?'<img src="'+o.imagen_url+'" style="width:100%;border-radius:6px;margin-bottom:8px">':'')
-              +'<h4 style="margin:0 0 6px">'+o.titulo+'</h4><p style="color:#666;font-size:13px">'+(o.descripcion||'')+'</p>'
-              +(o.precio_original?'<s style="color:#999">'+o.precio_original+'€</s> ':'')
-              +(o.precio_oferta?'<strong style="color:#e53935;font-size:18px">'+o.precio_oferta+'€</strong>':'')+'</div>';
-          }).join("");
-        } else if (tipo === "horarios") {
-          html = '<table style="width:100%;border-collapse:collapse">'+(c.horarios||[]).map(function(h){
-            return '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:8px 12px;font-weight:bold">'+h.dia+'</td>'
-              +'<td style="padding:8px 12px;color:'+(h.cerrado?'#e53935':'#2e7d32')+'">'+(h.cerrado?'Cerrado':h.apertura+' – '+h.cierre)+'</td></tr>';
-          }).join("")+'</table>';
-        }
-        render(doc.id, html, true);
-      });
-    });
-  }
-
-  function cargarFormularioContacto(db) {
-    var el = document.getElementById("fluixcrm_contacto"); if (!el) return;
-    el.innerHTML = '<div style="max-width:480px"><h3>Contáctanos</h3>'
-      +'<form id="fluixcrm_form_contacto" style="display:flex;flex-direction:column;gap:12px">'
-      +'<input name="nombre" placeholder="Tu nombre" required style="padding:10px;border:1px solid #ddd;border-radius:8px">'
-      +'<input name="email" type="email" placeholder="Tu email" required style="padding:10px;border:1px solid #ddd;border-radius:8px">'
-      +'<textarea name="mensaje" placeholder="Tu mensaje" rows="4" required style="padding:10px;border:1px solid #ddd;border-radius:8px;resize:vertical"></textarea>'
-      +'<button type="submit" style="background:#1976D2;color:#fff;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:bold">Enviar mensaje</button>'
-      +'</form></div>';
-    document.getElementById("fluixcrm_form_contacto").addEventListener("submit",function(e){
-      e.preventDefault();var fd=new FormData(e.target);
-      db.collection("empresas").doc(EMPRESA_ID).collection("contacto_web").add({
-        nombre:fd.get("nombre"),email:fd.get("email"),mensaje:fd.get("mensaje"),
-        fecha:firebase.firestore.FieldValue.serverTimestamp(),leido:false
-      }).then(function(){e.target.innerHTML='<p style="color:green;font-weight:bold">✅ Mensaje enviado.</p>';
-      }).catch(function(err){alert("Error: "+err.message);});
-    });
-  }
-
-  function cargarFormularioReservas(db) {
-    var el = document.getElementById("fluixcrm_reservas"); if (!el) return;
-    el.innerHTML = '<div style="max-width:480px;border:1px solid #eee;padding:24px;border-radius:12px">'
-      +'<h3>📅 Reservar Mesa / Cita</h3>'
-      +'<form id="fluixcrm_form_reservas" style="display:flex;flex-direction:column;gap:14px">'
-      +'<input name="nombre" placeholder="Tu nombre" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
-      +'<input name="telefono" type="tel" placeholder="Tu teléfono" required style="padding:12px;border:1px solid #ddd;border-radius:8px">'
-      +'<div style="display:flex;gap:10px"><input name="fecha" type="date" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1">'
-      +'<input name="hora" type="time" required style="padding:12px;border:1px solid #ddd;border-radius:8px;flex:1"></div>'
-      +'<input name="personas" type="number" min="1" placeholder="Nº Personas" style="padding:12px;border:1px solid #ddd;border-radius:8px">'
-      +'<button type="submit" style="background:#1976D2;color:#fff;padding:14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px">Solicitar Reserva</button>'
-      +'</form></div>';
-    document.getElementById("fluixcrm_form_reservas").addEventListener("submit",function(e){
-      e.preventDefault();var fd=new FormData(e.target);
-      var fecha=new Date(fd.get("fecha")+"T"+fd.get("hora")+":00");
-      db.collection("empresas").doc(EMPRESA_ID).collection("reservas").add({
-        nombre_cliente:fd.get("nombre"),telefono_cliente:fd.get("telefono"),
-        personas:fd.get("personas")?parseInt(fd.get("personas")):1,
-        fecha:firebase.firestore.Timestamp.fromDate(fecha),fecha_hora:fecha.toISOString(),
-        estado:"PENDIENTE",origen:"web",fecha_creacion:firebase.firestore.FieldValue.serverTimestamp()
-      }).then(function(){e.target.innerHTML='<div style="text-align:center;padding:20px"><h3 style="color:green">✅ ¡Solicitud enviada!</h3><p>Te confirmaremos pronto.</p></div>';
-      }).catch(function(err){alert("Error: "+err.message);});
-    });
-  }
-
-  function cargarBlog(db) {
-    var el = document.getElementById("fluixcrm_blog"); if (!el) return;
-    db.collection("empresas").doc(EMPRESA_ID).collection("blog")
-      .where("publicada","==",true).orderBy("fecha_publicacion","desc").limit(6)
-      .onSnapshot(function(snap){
-        if(snap.empty){el.innerHTML="<p>Sin noticias por el momento.</p>";return;}
-        el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px">'
-          +snap.docs.map(function(d){var b=d.data();var f=b.fecha_publicacion&&b.fecha_publicacion.toDate?b.fecha_publicacion.toDate().toLocaleDateString("es-ES"):"";
-            return '<article style="border:1px solid #eee;border-radius:10px;overflow:hidden">'
-              +(b.imagen_url?'<img src="'+b.imagen_url+'" style="width:100%;height:160px;object-fit:cover">':'<div style="height:6px;background:#1976D2"></div>')
-              +'<div style="padding:14px"><h4 style="margin:0 0 8px">'+b.titulo+'</h4><p style="color:#666;font-size:13px;margin:0 0 10px">'+(b.resumen||'')+'</p><small style="color:#999">'+f+'</small></div></article>';
-          }).join("")+'</div>';
-      });
-  }
-
-  async function registrarVisita(db) {
-    var fechaHoy = new Date().toISOString().substring(0, 10);
-    var paginaActual = window.location.pathname || '/';
-    var hora = new Date().getHours();
-    var referrer = document.referrer || 'Directo';
-    await db.collection('empresas').doc(EMPRESA_ID).collection('estadisticas').doc('web_resumen')
-      .set({visitas_totales:firebase.firestore.FieldValue.increment(1),visitas_mes:firebase.firestore.FieldValue.increment(1),
-        ultima_visita:firebase.firestore.FieldValue.serverTimestamp(),sitio_web:DOMINIO_WEB,nombre_empresa:NOMBRE_EMPRESA,
-        pagina_actual:paginaActual,referrer_actual:referrer},{merge:true});
-    await db.collection('empresas').doc(EMPRESA_ID).collection('estadisticas').doc('visitas_'+fechaHoy)
-      .set({fecha:fechaHoy,sitio:DOMINIO_WEB,visitas:firebase.firestore.FieldValue.increment(1),
-        paginas_vistas:firebase.firestore.FieldValue.arrayUnion(paginaActual),
-        referrers:firebase.firestore.FieldValue.arrayUnion(referrer),
-        ['visitas_hora_'+hora]:firebase.firestore.FieldValue.increment(1),
-        timestamp:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-    console.log('✅ Visita registrada para ' + NOMBRE_EMPRESA);
-  }
-
-  async function rastrearEventos(db) {
-    document.querySelectorAll('a[href^="tel:"], .telefono, .phone').forEach(function(tel){
-      tel.addEventListener('click',function(){db.collection("empresas").doc(EMPRESA_ID).collection("eventos").add({tipo:"llamada_telefonica",sitio:DOMINIO_WEB,fecha:firebase.firestore.FieldValue.serverTimestamp()});});
-    });
-    document.querySelectorAll('form[id*="contact"], form[class*="contact"], .contact-form').forEach(function(form){
-      form.addEventListener('submit',function(){db.collection("empresas").doc(EMPRESA_ID).collection("eventos").add({tipo:"formulario_contacto",sitio:DOMINIO_WEB,fecha:firebase.firestore.FieldValue.serverTimestamp()});});
-    });
-    document.querySelectorAll('a[href*="wa.me"], a[href*="whatsapp"], .whatsapp-btn').forEach(function(btn){
-      btn.addEventListener('click',function(){db.collection("empresas").doc(EMPRESA_ID).collection("eventos").add({tipo:"whatsapp_click",sitio:DOMINIO_WEB,fecha:firebase.firestore.FieldValue.serverTimestamp()});});
-    });
-  }
-
-})();
-</script>''';
-  }
-
-  void _copiarAlPortapapeles(String script) {
-    Clipboard.setData(ClipboardData(text: script));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Script copiado al portapapeles'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    setState(() {
-      _scriptCopiado = true;
-    });
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _scriptCopiado = false;
-        });
-      }
-    });
-  }
+  const PantallaIntegracionScript({super.key, required this.empresaId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Integración Web - Script'),
+        title: const Text('Integración Web'),
         backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _scriptFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!['exito'] != true) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.data?['error'] ?? 'Desconocido'}'),
-                ],
-              ),
-            );
-          }
-
-          final data = snapshot.data!;
-          final nombreEmpresa = data['nombre'] as String;
-          final dominio = data['dominio'] as String;
-          final script = data['script'] as String;
-
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Encabezado
-                  Card(
-                    color: const Color(0xFF1565C0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '🌐 Integración Web Personalizada',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            nombreEmpresa,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            dominio,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Instrucciones
-                  const Text(
-                    '📋 Instrucciones de Instalación:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInstructionStep(
-                    '1',
-                    'Copia el script',
-                    'Haz clic en el botón "Copiar Script" a continuación',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInstructionStep(
-                    '2',
-                    'Accede a WordPress',
-                    'Ve a tu panel de administración de WordPress en $dominio',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInstructionStep(
-                    '3',
-                    'Pega el script',
-                    'Ve a Apariencia > Editor de temas > Busca footer.php\n(O usa un plugin como "Code Snippets")',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInstructionStep(
-                    '4',
-                    'Pega antes de </body>',
-                    'Pega el script completo antes de la etiqueta de cierre </body>',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInstructionStep(
-                    '5',
-                    'Guarda los cambios',
-                    'Haz clic en "Guardar" o "Actualizar"',
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Qué hará el script
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '📊 Qué hará este script:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildFeature('Registra todas las visitas a tu web'),
-                        _buildFeature('Rastreatoda llamadas telefónicas'),
-                        _buildFeature('Rastreera formularios de contacto'),
-                        _buildFeature('Rastreera clicks en WhatsApp'),
-                        _buildFeature('Sincroniza datos en tiempo real con Fluix CRM'),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '📍 Los datos aparecerán en:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        _buildFeature('Módulo de Estadísticas (Tráfico Web)'),
-                        _buildFeature('Módulo de Eventos (Acciones de clientes)'),
-                        _buildFeature('Dashboard principal'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Script Preview
-                  const Text(
-                    '📄 Script para copiar:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[700]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          color: Colors.grey[800],
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'script-fluixcrm.html',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () => _copiarAlPortapapeles(script),
-                                icon: Icon(
-                                  _scriptCopiado ? Icons.check : Icons.copy,
-                                  size: 18,
-                                ),
-                                label: Text(
-                                  _scriptCopiado ? 'Copiado!' : 'Copiar',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _scriptCopiado
-                                      ? Colors.green
-                                      : const Color(0xFF1565C0),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          constraints: const BoxConstraints(maxHeight: 400),
-                          child: SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: SelectableText(
-                                script,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Info adicional
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '⚠️ Notas Importantes:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber[900],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '• El script es seguro y no bloqueará tu web si falla\n'
-                          '• Se ejecuta cuando la página termina de cargar\n'
-                          '• Los datos se registran en tiempo real\n'
-                          '• No requiere mantenimiento adicional',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildInstructionStep(String number, String title, String description) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1565C0),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeature(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          const Text('✓ ', style: TextStyle(color: Colors.green)),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
+          _SdkStatusCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _ModulosDetectadosCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _PushSuscriptoresCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _CopiarSdkCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _PushConfigCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _CdnConfigCard(empresaId: empresaId),
+          const SizedBox(height: 14),
+          _GuiaAtributosCard(),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 }
 
+// ── Card 1: Estado del SDK ────────────────────────────────────────────────────
+
+class _SdkStatusCard extends StatelessWidget {
+  final String empresaId;
+  const _SdkStatusCard({required this.empresaId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ContenidoWebService().obtenerSdkStatus(empresaId),
+      builder: (_, snap) {
+        final data    = snap.data ?? {};
+        final mods    = (data['modulos'] as List?)?.cast<String>() ?? [];
+        final url     = data['url'] as String? ?? '';
+        final ts      = data['ts'];
+        DateTime? ultima;
+        if (ts is Timestamp) ultima = ts.toDate();
+
+        final activo = ultima != null &&
+            DateTime.now().difference(ultima).inHours < 24;
+
+        return _card(
+          child: Row(children: [
+            Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(
+                color: activo
+                    ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                activo ? Icons.wifi_tethering_rounded : Icons.wifi_tethering_off_rounded,
+                color: activo ? const Color(0xFF10B981) : Colors.grey[400],
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text(
+                  activo ? 'SDK activo' : 'SDK sin actividad reciente',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 14,
+                    color: activo ? const Color(0xFF10B981) : Colors.grey[600],
+                  ),
+                ),
+                if (mods.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text('${mods.length} módulo${mods.length == 1 ? '' : 's'}',
+                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF1565C0),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ]),
+              if (url.isNotEmpty)
+                Text(url, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (ultima != null)
+                Text('Última visita: ${_fmtTs(ultima)}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              if (data.isEmpty)
+                const Text('El SDK no ha sido detectado en ninguna web todavía.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            ])),
+          ]),
+        );
+      },
+    );
+  }
+
+  String _fmtTs(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'hace un momento';
+    if (diff.inHours < 1)   return 'hace ${diff.inMinutes} min';
+    if (diff.inDays < 1)    return 'hace ${diff.inHours} h';
+    return '${d.day}/${d.month}/${d.year}';
+  }
+}
+
+// ── Card 2: Módulos detectados ────────────────────────────────────────────────
+
+class _ModulosDetectadosCard extends StatelessWidget {
+  final String empresaId;
+  const _ModulosDetectadosCard({required this.empresaId});
+
+  static const _allMods = [
+    ('agenda',             'Agenda',          Icons.event_rounded,               Color(0xFF1E4D6B)),
+    ('agenda-detalle',     'Evento',          Icons.event_note_rounded,          Color(0xFF1E4D6B)),
+    ('catalogo',           'Catálogo',        Icons.grid_view_rounded,           Color(0xFF6B1E2A)),
+    ('catalogo-detalle',   'Item',            Icons.inventory_2_outlined,        Color(0xFF6B1E2A)),
+    ('seleccion-nazari',   'Selec. Nazarí',   Icons.stars_rounded,               Color(0xFF6B1E2A)),
+    ('blog',               'Blog',            Icons.article_rounded,             Color(0xFF2563EB)),
+    ('blog-post',          'Artículo',        Icons.newspaper_rounded,           Color(0xFF059669)),
+    ('contacto',           'Contacto',        Icons.chat_bubble_outline_rounded, Color(0xFF059669)),
+    ('resenas',            'Reseñas',         Icons.star_outline_rounded,        Color(0xFFF59E0B)),
+    ('secciones',          'Secciones',       Icons.dashboard_customize_rounded, Color(0xFF7C3AED)),
+    ('push',               'Push',            Icons.notifications_outlined,      Color(0xFFE11D48)),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ContenidoWebService().obtenerSdkStatus(empresaId),
+      builder: (_, snap) {
+        final activos = (snap.data?['modulos'] as List?)?.cast<String>() ?? [];
+
+        return _card(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Módulos detectados en la web',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                    color: Color(0xFF0F172A))),
+            const SizedBox(height: 4),
+            const Text('Los módulos con data-fluix-* encontrados la última vez que cargó la web.',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8,
+              children: _allMods.map((m) {
+                final detectado = activos.contains(m.$1);
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: detectado
+                        ? m.$4.withValues(alpha: 0.1)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: detectado ? m.$4.withValues(alpha: 0.4) : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(m.$3,
+                        size: 14,
+                        color: detectado ? m.$4 : Colors.grey[400]),
+                    const SizedBox(width: 5),
+                    Text(m.$2,
+                        style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600,
+                          color: detectado ? m.$4 : Colors.grey[400],
+                        )),
+                    const SizedBox(width: 4),
+                    Icon(
+                      detectado ? Icons.check_circle_rounded : Icons.circle_outlined,
+                      size: 11,
+                      color: detectado ? m.$4 : Colors.grey[300],
+                    ),
+                  ]),
+                );
+              }).toList(),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ── Card 3: Push suscriptores ─────────────────────────────────────────────────
+
+class _PushSuscriptoresCard extends StatelessWidget {
+  final String empresaId;
+  const _PushSuscriptoresCard({required this.empresaId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId)
+          .collection('suscriptores_web')
+          .snapshots(),
+      builder: (_, snap) {
+        final total = snap.data?.docs.length ?? 0;
+
+        return _card(
+          child: Row(children: [
+            Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.notifications_active_rounded,
+                  color: Color(0xFFE11D48), size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('$total suscriptor${total == 1 ? '' : 'es'} web push',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
+                      color: Color(0xFF0F172A))),
+              const Text(
+                'Visitantes que han dado permiso de notificaciones en tu web.',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+              ),
+            ])),
+            if (total > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('$total',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 18,
+                      color: Color(0xFFE11D48),
+                    )),
+              ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ── Card 4: Copiar SDK ────────────────────────────────────────────────────────
+
+class _CopiarSdkCard extends StatefulWidget {
+  final String empresaId;
+  const _CopiarSdkCard({required this.empresaId});
+
+  @override
+  State<_CopiarSdkCard> createState() => _CopiarSdkCardState();
+}
+
+class _CopiarSdkCardState extends State<_CopiarSdkCard> {
+  bool _copiado = false;
+
+  void _copiar() {
+    final sdk = ContenidoWebService().generarScriptHostinger(widget.empresaId);
+    Clipboard.setData(ClipboardData(text: sdk));
+    setState(() => _copiado = true);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _copiado = false);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('✅ Script SDK copiado al portapapeles'),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.code_rounded, color: Color(0xFF1565C0), size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Fluix Web SDK', style: TextStyle(fontWeight: FontWeight.w700,
+                fontSize: 14, color: Color(0xFF0F172A))),
+            Text('Pega este script antes de </body> en tu web.',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+          ])),
+        ]),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _copiar,
+            icon: Icon(_copiado ? Icons.check_rounded : Icons.copy_rounded, size: 16),
+            label: Text(_copiado ? '¡Copiado!' : 'Copiar script SDK'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _copiado ? Colors.green : const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'El script detecta automáticamente qué módulos data-fluix-* tienes en el HTML '
+          'y solo carga los necesarios. Cualquier cambio desde la app se refleja '
+          'en la web en tiempo real sin tocar código.',
+          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.5),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Card 5: Push config ───────────────────────────────────────────────────────
+
+class _PushConfigCard extends StatefulWidget {
+  final String empresaId;
+  const _PushConfigCard({required this.empresaId});
+  @override
+  State<_PushConfigCard> createState() => _PushConfigCardState();
+}
+
+class _PushConfigCardState extends State<_PushConfigCard> {
+  bool _expandida = false;
+  bool _guardando = false;
+  bool _swCopiado = false;
+  final _vapidCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    ContenidoWebService().obtenerConfigPush(widget.empresaId).then((cfg) {
+      if (mounted && cfg != null) {
+        _vapidCtrl.text = cfg['vapid_key'] as String? ?? '';
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _vapidCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    final key = _vapidCtrl.text.trim();
+    if (key.isEmpty) return;
+    setState(() => _guardando = true);
+    await ContenidoWebService().guardarConfigPush(widget.empresaId, key);
+    setState(() => _guardando = false);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('✅ VAPID key guardada'),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  void _copiarSW() {
+    Clipboard.setData(ClipboardData(
+        text: ContenidoWebService.generarServiceWorkerPush()));
+    setState(() => _swCopiado = true);
+    Future.delayed(const Duration(seconds: 3),
+        () { if (mounted) setState(() => _swCopiado = false); });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GestureDetector(
+          onTap: () => setState(() => _expandida = !_expandida),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.notifications_active_rounded,
+                  color: Color(0xFFE11D48), size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Push Web · Configuración',
+                  style: TextStyle(fontWeight: FontWeight.w700,
+                      fontSize: 14, color: Color(0xFF0F172A))),
+              Text('VAPID key + service worker para notificaciones push',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+            ])),
+            Icon(_expandida ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.grey[500]),
+          ]),
+        ),
+        if (_expandida) ...[
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          const Text('1. Consigue tu VAPID public key en Firebase Console → Project Settings → Cloud Messaging.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _vapidCtrl,
+            decoration: InputDecoration(
+              labelText: 'VAPID public key',
+              hintText: 'BNYx...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE11D48),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: _guardando
+                  ? const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Guardar VAPID key'),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text('2. Sube el service worker a la raíz de tu web como /firebase-messaging-sw.js',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _copiarSW,
+              icon: Icon(_swCopiado ? Icons.check_rounded : Icons.copy_rounded, size: 14),
+              label: Text(_swCopiado ? '¡Copiado!' : 'Copiar firebase-messaging-sw.js'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFE11D48),
+                side: const BorderSide(color: Color(0xFFE11D48)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('3. Añade <div data-fluix-push></div> donde quieras el botón "Activar notificaciones" en tu web.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        ],
+      ]),
+    );
+  }
+}
+
+// ── Card 6: CDN / Webhooks ────────────────────────────────────────────────────
+
+class _CdnConfigCard extends StatefulWidget {
+  final String empresaId;
+  const _CdnConfigCard({required this.empresaId});
+  @override
+  State<_CdnConfigCard> createState() => _CdnConfigCardState();
+}
+
+class _CdnConfigCardState extends State<_CdnConfigCard> {
+  bool _expandida = false;
+  bool _guardando = false;
+  final _baseUrlCtrl  = TextEditingController();
+  final _zoneCtrl     = TextEditingController();
+  final _tokenCtrl    = TextEditingController();
+  final _agendaCtrl   = TextEditingController(text: '/agenda');
+  final _blogCtrl     = TextEditingController(text: '/blog');
+  final _catalogoCtrl = TextEditingController(text: '/libros');
+  final _libroCtrl    = TextEditingController(text: '/libro.html');
+  final _eventoCtrl   = TextEditingController(text: '/evento.html');
+
+  @override
+  void initState() {
+    super.initState();
+    ContenidoWebService().obtenerConfigCdn(widget.empresaId).first.then((cfg) {
+      if (!mounted) return;
+      _baseUrlCtrl.text  = cfg['base_url']      as String? ?? '';
+      _zoneCtrl.text     = cfg['cloudflare_zone'] as String? ?? '';
+      _tokenCtrl.text    = cfg['cloudflare_token'] as String? ?? '';
+      _agendaCtrl.text   = cfg['agenda_path']   as String? ?? '/agenda';
+      _blogCtrl.text     = cfg['blog_path']     as String? ?? '/blog';
+      _catalogoCtrl.text = cfg['catalogo_path'] as String? ?? '/libros';
+      _libroCtrl.text    = cfg['libro_path']    as String? ?? '/libro.html';
+      _eventoCtrl.text   = cfg['evento_path']   as String? ?? '/evento.html';
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_baseUrlCtrl, _zoneCtrl, _tokenCtrl,
+        _agendaCtrl, _blogCtrl, _catalogoCtrl, _libroCtrl, _eventoCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    setState(() => _guardando = true);
+    await ContenidoWebService().guardarConfigCdn(widget.empresaId, {
+      'base_url':          _baseUrlCtrl.text.trim(),
+      'cloudflare_zone':   _zoneCtrl.text.trim(),
+      'cloudflare_token':  _tokenCtrl.text.trim(),
+      'agenda_path':       _agendaCtrl.text.trim(),
+      'blog_path':         _blogCtrl.text.trim(),
+      'catalogo_path':     _catalogoCtrl.text.trim(),
+      'libro_path':        _libroCtrl.text.trim(),
+      'evento_path':       _eventoCtrl.text.trim(),
+    });
+    setState(() => _guardando = false);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('✅ Config CDN guardada — se aplicará en el próximo cambio'),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  Widget _field(String label, TextEditingController ctrl, {String? hint}) =>
+    Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          isDense: true,
+        ),
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+
+  @override
+  Widget build(BuildContext context) {
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GestureDetector(
+          onTap: () => setState(() => _expandida = !_expandida),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.cloud_sync_rounded,
+                  color: Color(0xFFF59E0B), size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('CDN Webhooks · Cloudflare',
+                  style: TextStyle(fontWeight: FontWeight.w700,
+                      fontSize: 14, color: Color(0xFF0F172A))),
+              Text('Purga automática de caché al publicar eventos, posts o libros',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+            ])),
+            Icon(_expandida ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.grey[500]),
+          ]),
+        ),
+        if (_expandida) ...[
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          _field('URL base de tu web', _baseUrlCtrl,
+              hint: 'https://editorialnazari.com'),
+          _field('Cloudflare Zone ID', _zoneCtrl,
+              hint: 'abc123def456...'),
+          _field('Cloudflare API Token', _tokenCtrl,
+              hint: 'Token con permiso Cache Purge'),
+          const Divider(height: 20),
+          const Text('Rutas de páginas (para purgar la URL correcta):',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _field('Agenda / Eventos', _agendaCtrl, hint: '/agenda'),
+          _field('Detalle de evento', _eventoCtrl, hint: '/evento.html'),
+          _field('Blog / Noticias', _blogCtrl, hint: '/blog'),
+          _field('Catálogo / Libros', _catalogoCtrl, hint: '/libros'),
+          _field('Detalle de libro', _libroCtrl, hint: '/libro.html'),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _guardando ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: _guardando
+                  ? const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Guardar config CDN',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Necesitas un Cloudflare API Token con permiso "Cache Purge" sobre tu zona. '
+            'Se crea en cloudflare.com → My Profile → API Tokens.',
+            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), height: 1.4),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+// ── Card 7: Guía de atributos ─────────────────────────────────────────────────
+
+class _GuiaAtributosCard extends StatefulWidget {
+  @override
+  State<_GuiaAtributosCard> createState() => _GuiaAtributosCardState();
+}
+
+class _GuiaAtributosCardState extends State<_GuiaAtributosCard> {
+  bool _expandida = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GestureDetector(
+          onTap: () => setState(() => _expandida = !_expandida),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.help_outline_rounded, color: Colors.grey[600], size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Referencia de atributos', style: TextStyle(fontWeight: FontWeight.w700,
+                  fontSize: 14, color: Color(0xFF0F172A))),
+              Text('Cómo usar data-fluix-* en tu HTML',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+            ])),
+            Icon(_expandida ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.grey[500]),
+          ]),
+        ),
+        if (_expandida) ...[
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          ..._atributos.map((a) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(a.$1,
+                    style: const TextStyle(
+                      fontSize: 11.5, color: Color(0xFF7DD3FC),
+                      fontFamily: 'monospace')),
+              ),
+              const SizedBox(height: 4),
+              Text(a.$2, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ]),
+          )),
+        ],
+      ]),
+    );
+  }
+
+  static const _atributos = [
+    ('<div data-fluix-agenda>',           'Lista de eventos en tiempo real'),
+    ('<div data-fluix-agenda-detalle>',   'Detalle de evento (?evento=ID)'),
+    ('<div data-fluix-catalogo>',         'Lista del catálogo en tiempo real'),
+    ('<div data-fluix-catalogo-detalle>', 'Detalle de item (?item=ID)'),
+    ('<div data-fluix-blog>',             'Artículos y noticias del blog'),
+    ('<div data-fluix-blog-post>',        'Artículo completo (?post=slug)'),
+    ('<div data-fluix-contacto>',         'Formulario → llega a Mensajes en Fluix'),
+    ('<div data-fluix-resenas>',          'Valoraciones de clientes'),
+    ('<div data-fluix-seccion="ID">',     'Sección personalizada por ID'),
+    ('<div data-fluix-push>',             'Botón para activar notificaciones push web'),
+    ('data-fluix-limite="10"',           'Máximo de items a mostrar'),
+    ('data-fluix-tipo="Presentación"',   'Filtrar por tipo (agenda/blog)'),
+    ('data-fluix-ciudad="Granada"',      'Filtrar eventos por ciudad'),
+    ('data-fluix-detalle-url="evento.html?evento="', 'URL de la página de detalle'),
+    ('<span data-fluix-campo="titulo">', 'Campo de dato dentro de template'),
+  ];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+Widget _card({required Widget child}) => Container(
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 10, offset: const Offset(0, 2))],
+  ),
+  child: child,
+);

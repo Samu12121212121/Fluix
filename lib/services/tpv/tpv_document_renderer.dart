@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -41,7 +42,19 @@ class TpvDocumentRenderer {
       }
     }
 
-    // 4. Generar según formato
+    // 4. Obtener plantilla configurada para aplicar colores de marca
+    PdfColor? colorPlantilla;
+    try {
+      final plantilla = await _obtenerPlantilla(empresaId, tipoDoc, config);
+      if (plantilla != null && plantilla.colorPrimario.isNotEmpty) {
+        colorPlantilla = PdfColor.fromHex(plantilla.colorPrimario);
+        debugPrint('🎨 [TPV] Plantilla "${plantilla.nombre}" → ${plantilla.colorPrimario}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [TPV] Error cargando plantilla: $e');
+    }
+
+    // 5. Generar según formato
     return config.formatoImpresion == FormatoImpresionTpv.a4
         ? _generarPdfA4(
             pedido: pedido,
@@ -49,6 +62,7 @@ class TpvDocumentRenderer {
             tipoDoc: tipoDoc,
             logoBytes: logoBytes,
             config: config,
+            colorPlantilla: colorPlantilla,
             clienteNif: clienteNif,
             clienteEmail: clienteEmail,
             clienteDireccion: clienteDireccion,
@@ -74,6 +88,7 @@ class TpvDocumentRenderer {
     required TipoDocumentoTpv tipoDoc,
     Uint8List? logoBytes,
     required ConfiguracionFacturacionTpv config,
+    PdfColor? colorPlantilla,
     String? clienteNif,
     String? clienteEmail,
     String? clienteDireccion,
@@ -96,7 +111,7 @@ class TpvDocumentRenderer {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             // Header con logo y datos empresa
-            _buildHeaderA4(branding, logoBytes, tipoDoc),
+            _buildHeaderA4(branding, logoBytes, tipoDoc, colorPlantilla: colorPlantilla),
             pw.SizedBox(height: 20),
 
             // Datos del cliente (si es factura completa o simplificada)
@@ -138,12 +153,18 @@ class TpvDocumentRenderer {
     return pdf.save();
   }
 
-  pw.Widget _buildHeaderA4(PdfBranding branding, Uint8List? logoBytes, TipoDocumentoTpv tipoDoc) {
+  pw.Widget _buildHeaderA4(
+    PdfBranding branding,
+    Uint8List? logoBytes,
+    TipoDocumentoTpv tipoDoc, {
+    PdfColor? colorPlantilla,
+  }) {
+    final color = colorPlantilla ?? _colorPrimario(tipoDoc);
     return pw.Container(
       width: double.infinity,
       padding: const pw.EdgeInsets.all(18),
       decoration: pw.BoxDecoration(
-        color: _colorPrimario(tipoDoc),
+        color: color,
         borderRadius: pw.BorderRadius.circular(12),
       ),
       child: pw.Row(
@@ -214,7 +235,7 @@ class TpvDocumentRenderer {
               _tituloDocumento(tipoDoc).toUpperCase(),
               style: pw.TextStyle(
                 fontSize: 14,
-                color: _colorPrimario(tipoDoc),
+                color: color,
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
@@ -459,7 +480,7 @@ class TpvDocumentRenderer {
       ),
       child: pw.Row(
         children: [
-          pw.Text('✓', style: pw.TextStyle(fontSize: 12, color: PdfColors.green800)),
+          pw.Text('OK', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
           pw.SizedBox(width: 6),
           pw.Text(
             'Pagado con ${_etiquetaMetodoPago(metodo)}',
@@ -660,6 +681,7 @@ class TpvDocumentRenderer {
     TipoDocumentoTpv tipoDoc,
     ConfiguracionFacturacionTpv config,
   ) async {
+    // 1. Intentar con el ID explícito guardado en la config
     String? plantillaId;
     switch (tipoDoc) {
       case TipoDocumentoTpv.facturaCompleta:
@@ -674,10 +696,18 @@ class TpvDocumentRenderer {
     }
 
     if (plantillaId != null) {
-      return _templateSvc.getPlantillaById(plantillaId);
+      final tpl = await _templateSvc.getPlantillaById(plantillaId);
+      if (tpl != null) return tpl;
     }
 
-    // Si no hay plantilla configurada, buscar la por defecto
+    // 2. Fallback: plantilla marcada como default para facturas
+    //    (tickets no tienen tipo propio → no buscamos default para ellos)
+    if (tipoDoc != TipoDocumentoTpv.ticket) {
+      return _templateSvc.getPlantillaDefault(
+        empresaId,
+        pdf_models.TipoDocumentoPdf.factura,
+      );
+    }
     return null;
   }
 
@@ -725,6 +755,8 @@ class TpvDocumentRenderer {
         return 'Presencial';
       case OrigenPedido.tpvExterno:
         return 'TPV Externo';
+      case OrigenPedido.webNazari:
+        return 'Web Nazarí';
     }
   }
 

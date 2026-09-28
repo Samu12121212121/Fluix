@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Servicio para calcular y actualizar métricas web en tiempo real
@@ -12,7 +13,6 @@ class ActualizadorMetricasWeb {
       
       // Fechas para cálculos
       final hace7Dias = hoy.subtract(const Duration(days: 7));
-      final inicioMes = DateTime(hoy.year, hoy.month, 1);
       
       // Leer documento de HOY
       final docHoy = await _db
@@ -73,9 +73,9 @@ class ActualizadorMetricasWeb {
         'ultima_actualizacion': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       
-      print('✅ Métricas web actualizadas: Hoy=$visitasHoy, Semana=$visitasSemana, Mes=$visitasMes, Total=$visitasTotal');
+      debugPrint('ActualizadorMetricasWeb: Hoy=$visitasHoy, Semana=$visitasSemana, Mes=$visitasMes, Total=$visitasTotal');
     } catch (e) {
-      print('❌ Error recalculando métricas web: $e');
+      debugPrint('ActualizadorMetricasWeb error: $e');
     }
   }
   

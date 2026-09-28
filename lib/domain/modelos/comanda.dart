@@ -10,6 +10,7 @@ class LineaComanda {
   final String? notas;
   final bool esNuevo; // badge "nuevo" en UI
   final String? destino; // 'cocina' | 'barra' | null (= cocina)
+  final String? imagenUrl; // display only — not persisted to Firestore
 
   const LineaComanda({
     required this.productoId,
@@ -20,6 +21,7 @@ class LineaComanda {
     this.notas,
     this.esNuevo = false,
     this.destino,
+    this.imagenUrl,
   });
 
   double get total => precioUnitario * cantidad;
@@ -61,6 +63,7 @@ class LineaComanda {
     bool clearNotas = false,
     bool? esNuevo,
     String? destino,
+    String? imagenUrl,
   }) => LineaComanda(
     productoId: productoId,
     nombre: nombre,
@@ -70,6 +73,7 @@ class LineaComanda {
     notas: clearNotas ? null : (notas ?? this.notas),
     esNuevo: esNuevo ?? this.esNuevo,
     destino: destino ?? this.destino,
+    imagenUrl: imagenUrl ?? this.imagenUrl,
   );
 }
 

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Fluix Web SDK — Guía de referencia</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Source+Code+Pro:wght@400;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #1e293b;
+    background: #fff;
+    padding: 36px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Cabecera ── */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 3px solid #6b1e2a;
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  header h1 { font-size: 26px; font-weight: 800; color: #6b1e2a; }
+  header p  { font-size: 13px; color: #64748b; margin-top: 3px; }
+  header .meta { text-align: right; font-size: 11px; color: #94a3b8; }
+
+  /* ── Intro ── */
+  .intro {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+  }
+  .intro h2 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .intro p  { color: #475569; line-height: 1.6; }
+
+  /* ── Módulo ── */
+  .modulo {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .modulo-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #f1f5f9;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .modulo-header span { font-size: 12px; color: #475569; }
+  .code {
+    background: #1e293b;
+    color: #e2e8f0;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    padding: 10px 14px;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .attrs {
+    padding: 8px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .attr { font-size: 11px; color: #475569; }
+  .attr code {
+    font-family: 'Source Code Pro', monospace;
+    font-weight: 600;
+    font-size: 10.5px;
+    color: #334155;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .nota {
+    padding: 5px 14px 8px;
+    font-size: 11px;
+    color: #64748b;
+    font-style: italic;
+  }
+
+  /* ── Sección de título ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin: 24px 0 10px;
+  }
+
+  /* ── Tabla de campos ── */
+  .campos-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .campos-col h4 {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .campos-col li {
+    list-style: none;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10.5px;
+    color: #475569;
+    padding: 1px 0;
+  }
+  .campos-col li::before { content: '· '; color: #94a3b8; }
+
+  /* ── Tabla de atributos ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    margin-bottom: 24px;
+  }
+  thead tr { background: #334155; color: #fff; }
+  thead th { padding: 8px 10px; text-align: left; font-weight: 600; font-size: 11px; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  td:first-child { font-family: 'Source Code Pro', monospace; font-size: 10.5px; font-weight: 600; color: #1e293b; }
+
+  /* ── Notas finales ── */
+  .notas {
+    background: #fff8f8;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #6b1e2a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 20px;
+  }
+  .notas h3 { font-size: 12px; font-weight: 700; color: #6b1e2a; margin-bottom: 8px; }
+  .notas li { font-size: 11.5px; color: #475569; margin-bottom: 4px; line-height: 1.5; list-style: none; }
+  .notas li::before { content: '→ '; color: #6b1e2a; font-weight: 700; }
+
+  /* ── Colores de badge por módulo ── */
+  .c-blue   { background: #2563eb; }
+  .c-nazari { background: #6b1e2a; }
+  .c-green  { background: #059669; }
+  .c-purple { background: #7c3aed; }
+  .c-amber  { background: #d97706; }
+  .c-red    { background: #e11d48; }
+  .c-slate  { background: #475569; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px 24px; font-size: 11.5px; }
+    header h1 { font-size: 22px; }
+    .modulo { break-inside: avoid; }
+    .campos-grid { break-inside: avoid; }
+    .notas { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Fluix Web SDK</h1>
+    <p>Guía de referencia — atributos <code style="font-family:'Source Code Pro',monospace;font-size:13px;color:#6b1e2a">data-fluix-*</code></p>
+  </div>
+  <div class="meta">
+    Versión 2.0 · 2026<br>
+    fluix.app
+  </div>
+</header>
+
+<div class="intro">
+  <h2>¿Cómo funciona?</h2>
+  <p>
+    Copia el script SDK desde <strong>Fluix → Integración Web</strong> y pégalo antes del <code>&lt;/body&gt;</code> en cada página.
+    Luego añade divs con atributos <code>data-fluix-*</code> donde quieras mostrar contenido.
+    El SDK detecta automáticamente qué módulos hay en la página, los conecta con Firestore y actualiza el HTML en tiempo real.
+    Cualquier cambio desde la app se refleja en la web al instante sin tocar código.
+  </p>
+</div>
+
+<div class="section-label">Módulos disponibles</div>
+
+<!-- AGENDA -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-blue">data-fluix-agenda</span>
+    <span>Lista de eventos en tiempo real (presentaciones, ferias, talleres…)</span>
+  </div>
+  <div class="code">&lt;div data-fluix-agenda
+     data-fluix-limite="10"
+     data-fluix-tipo="Presentación"
+     data-fluix-ciudad="Granada"
+     data-fluix-detalle-url="evento.html?evento="&gt;
+&lt;/div&gt;</div>
+  <div class="attrs">
+    <span class="attr"><code>data-fluix-limite</code> Máx. de eventos (por defecto 50)</span>
+    <span class="attr"><code>data-fluix-tipo</code> Filtrar: Presentación, Feria, Taller, Lectura…</span>
+    <span class="attr"><code>data-fluix-ciudad</code> Filtrar por ciudad</span>
+    <span class="attr"><code>data-fluix-detalle-url</code> Prefijo URL de detalle</span>
+  </div>
+</div>
+
+<!-- AGENDA DETALLE -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-blue">data-fluix-agenda-detalle</span>
+    <span>Evento completo — se activa cuando la URL contiene <code>?evento=ID</code></span>
+  </div>
+  <div class="code">&lt;div data-fluix-agenda-detalle&gt;
+  &lt;h1   data-fluix-campo="titulo"&gt;&lt;/h1&gt;
+  &lt;p    data-fluix-campo="descripcion"&gt;&lt;/p&gt;
+  &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+  &lt;span data-fluix-campo="fecha_fmt"&gt;&lt;/span&gt;
+  &lt;span data-fluix-campo="lugar"&gt;&lt;/span&gt;
+  &lt;a    data-fluix-campo="url_inscripcion"&gt;Inscribirse&lt;/a&gt;
+&lt;/div&gt;</div>
+  <div class="nota">ℹ El título se inyecta automáticamente en &lt;title&gt;, meta description y JSON-LD Event para Google.</div>
+</div>
+
+<!-- CATÁLOGO -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-nazari">data-fluix-catalogo</span>
+    <span>Catálogo de libros / productos — conectado al catálogo de Fluix</span>
+  </div>
+  <div class="code">&lt;div data-fluix-catalogo
+     data-fluix-limite="20"
+     data-fluix-categoria="Novela"
+     data-fluix-detalle-url="libro.html?item="&gt;
+&lt;/div&gt;</div>
+  <div class="attrs">
+    <span class="attr"><code>data-fluix-limite</code> Máx. de items</span>
+    <span class="attr"><code>data-fluix-categoria</code> Filtrar por categoría</span>
+    <span class="attr"><code>data-fluix-detalle-url</code> Prefijo URL de detalle</span>
+  </div>
+</div>
+
+<!-- CATÁLOGO DETALLE -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-nazari">data-fluix-catalogo-detalle</span>
+    <span>Ficha completa de un libro/producto — se activa con <code>?item=ID</code> en la URL</span>
+  </div>
+  <div class="code">&lt;div data-fluix-catalogo-detalle&gt;
+  &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+  &lt;h1   data-fluix-campo="nombre"&gt;&lt;/h1&gt;
+  &lt;p    data-fluix-campo="descripcion"&gt;&lt;/p&gt;
+  &lt;span data-fluix-campo="precio"&gt;&lt;/span&gt;
+  &lt;a    data-fluix-campo="stripe_link"&gt;Comprar&lt;/a&gt;
+&lt;/div&gt;</div>
+  <div class="nota">ℹ Inyecta JSON-LD Product automáticamente para SEO.</div>
+</div>
+
+<!-- BLOG -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-green">data-fluix-blog</span>
+    <span>Lista de artículos y noticias del blog — requiere un <code>&lt;template&gt;</code> dentro</span>
+  </div>
+  <div class="code">&lt;div data-fluix-blog data-fluix-limite="9" data-fluix-tipo="noticia"&gt;
+  &lt;template data-fluix-blog-card&gt;
+    &lt;article&gt;
+      &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+      &lt;h3   data-fluix-campo="titulo"&gt;&lt;/h3&gt;
+      &lt;p    data-fluix-campo="resumen"&gt;&lt;/p&gt;
+      &lt;a    data-fluix-campo="link"&gt;Leer más&lt;/a&gt;
+      &lt;span data-fluix-campo="fecha"&gt;&lt;/span&gt;
+    &lt;/article&gt;
+  &lt;/template&gt;
+&lt;/div&gt;</div>
+  <div class="attrs">
+    <span class="attr"><code>data-fluix-tipo</code> Filtrar: articulo | noticia | entrevista | resena</span>
+  </div>
+</div>
+
+<!-- BLOG POST -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-green">data-fluix-blog-post</span>
+    <span>Artículo completo — se activa cuando la URL contiene <code>?post=slug</code></span>
+  </div>
+  <div class="code">&lt;div data-fluix-blog-post style="display:none"&gt;
+  &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+  &lt;h1   data-fluix-campo="titulo"&gt;&lt;/h1&gt;
+  &lt;div  data-fluix-campo="contenido"&gt;&lt;/div&gt;  &lt;!-- Markdown → HTML --&gt;
+  &lt;span data-fluix-campo="autor"&gt;&lt;/span&gt;
+  &lt;span data-fluix-campo="fecha"&gt;&lt;/span&gt;
+&lt;/div&gt;</div>
+  <div class="nota">ℹ Si el artículo tiene varias imágenes, se renderizan como carrusel. Inyecta JSON-LD Article + meta OG automáticamente.</div>
+</div>
+
+<!-- SECCIÓN -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-purple">data-fluix-seccion="ID"</span>
+    <span>Sección personalizada — ID es el identificador de la sección en Fluix → Contenido Web</span>
+  </div>
+  <div class="code">&lt;!-- Modo plantilla: el SDK crea/elimina nodos dinámicamente --&gt;
+&lt;div data-fluix-seccion="autores"&gt;
+  &lt;template data-fluix-plantilla&gt;
+    &lt;div&gt;
+      &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+      &lt;h3   data-fluix-campo="nombre"&gt;&lt;/h3&gt;
+      &lt;p    data-fluix-campo="descripcion"&gt;&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/template&gt;
+  &lt;div data-fluix-lista&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Modo clásico: actualiza elementos existentes en el HTML --&gt;
+&lt;div data-fluix-seccion="horarios"&gt;
+  &lt;span data-fluix-item="lunes"&gt;
+    &lt;b data-fluix-campo="nombre"&gt;&lt;/b&gt;
+    &lt;span data-fluix-campo="horario"&gt;&lt;/span&gt;
+  &lt;/span&gt;
+&lt;/div&gt;</div>
+</div>
+
+<!-- SELECCIÓN NAZARÍ -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-nazari">data-fluix-seleccion-nazari</span>
+    <span>Selección editorial Nazarí — exclusivo cuenta Editorial Nazarí</span>
+  </div>
+  <div class="code">&lt;!-- Carrusel en el index (5 libros) --&gt;
+&lt;div data-fluix-seleccion-nazari data-fluix-limite="5"&gt;
+  &lt;template data-fluix-item&gt;
+    &lt;div class="fluix-naz-item"&gt;
+      &lt;img  data-fluix-campo="imagen_url" alt=""&gt;
+      &lt;h3   data-fluix-campo="titulo"&gt;&lt;/h3&gt;
+      &lt;span data-fluix-campo="autor"&gt;&lt;/span&gt;
+      &lt;p    data-fluix-campo="nota_editorial"&gt;&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/template&gt;
+&lt;/div&gt;
+
+&lt;!-- Página completa (todos los libros) --&gt;
+&lt;div data-fluix-seleccion-nazari data-fluix-limite="50"&gt;
+  &lt;template data-fluix-item&gt;...&lt;/template&gt;
+&lt;/div&gt;</div>
+  <div class="attrs">
+    <span class="attr"><code>data-fluix-limite</code> Máx. de libros (por defecto 50)</span>
+    <span class="attr"><code>data-fluix-libro-del-mes="true"</code> Solo muestra el libro del mes</span>
+  </div>
+  <div class="nota">ℹ Los libros se gestionan desde Fluix → Selección Nazarí. Se ordenan por el orden definido en la app. Ver plantillas en <code>public_web_visor/nazari_index.html</code> y <code>nazari_seleccion.html</code>.</div>
+</div>
+
+<!-- CONTACTO -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-green">data-fluix-contacto</span>
+    <span>Formulario de contacto → los mensajes llegan a Fluix → Mensajes</span>
+  </div>
+  <div class="code">&lt;!-- El SDK genera el formulario completo automáticamente --&gt;
+&lt;div data-fluix-contacto data-fluix-titulo="Escríbenos"&gt;&lt;/div&gt;
+
+&lt;!-- O usa tu propio &lt;form&gt; y el SDK lo conecta --&gt;
+&lt;div data-fluix-contacto&gt;
+  &lt;form&gt;
+    &lt;input  name="nombre"  required&gt;
+    &lt;input  name="email"   type="email" required&gt;
+    &lt;textarea name="mensaje" required&gt;&lt;/textarea&gt;
+    &lt;button type="submit"&gt;Enviar&lt;/button&gt;
+  &lt;/form&gt;
+&lt;/div&gt;</div>
+</div>
+
+<!-- RESEÑAS -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-amber">data-fluix-resenas</span>
+    <span>Valoraciones de clientes sincronizadas desde Fluix</span>
+  </div>
+  <div class="code">&lt;div data-fluix-resenas data-fluix-limite="5"&gt;&lt;/div&gt;</div>
+</div>
+
+<!-- PUSH -->
+<div class="modulo">
+  <div class="modulo-header">
+    <span class="badge c-red">data-fluix-push</span>
+    <span>Botón para activar notificaciones push web</span>
+  </div>
+  <div class="code">&lt;div data-fluix-push data-fluix-texto="Activar alertas"&gt;&lt;/div&gt;</div>
+  <div class="nota">ℹ Requiere configurar la VAPID key en Fluix → Integración Web y subir /firebase-messaging-sw.js a la raíz del dominio.</div>
+</div>
+
+<!-- CAMPOS -->
+<div class="section-label">Campos disponibles en templates (data-fluix-campo)</div>
+<div class="campos-grid">
+  <div class="campos-col">
+    <h4 style="background:#2563eb">Eventos</h4>
+    <ul>
+      <li>titulo</li>
+      <li>subtitulo</li>
+      <li>descripcion</li>
+      <li>fecha_fmt</li>
+      <li>lugar</li>
+      <li>ciudad</li>
+      <li>hora</li>
+      <li>tipo</li>
+      <li>precio</li>
+      <li>imagen_url</li>
+      <li>url_inscripcion</li>
+    </ul>
+  </div>
+  <div class="campos-col">
+    <h4 style="background:#6b1e2a">Catálogo / Libros</h4>
+    <ul>
+      <li>nombre</li>
+      <li>descripcion</li>
+      <li>precio</li>
+      <li>precio_digital</li>
+      <li>imagen_url</li>
+      <li>stripe_link</li>
+      <li>tag</li>
+      <li>campo_autor</li>
+    </ul>
+  </div>
+  <div class="campos-col">
+    <h4 style="background:#059669">Blog / Noticias</h4>
+    <ul>
+      <li>titulo</li>
+      <li>resumen</li>
+      <li>contenido</li>
+      <li>autor</li>
+      <li>fecha</li>
+      <li>imagen_url</li>
+      <li>link</li>
+      <li>etiquetas</li>
+      <li>categoria</li>
+    </ul>
+  </div>
+  <div class="campos-col">
+    <h4 style="background:#7c3aed">Secciones</h4>
+    <ul>
+      <li>nombre</li>
+      <li>descripcion</li>
+      <li>imagen_url</li>
+      <li>precio</li>
+      <li>disponible</li>
+      <li><em>(cualquier campo<br>de tus items)</em></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ATRIBUTOS COMUNES -->
+<div class="section-label">Atributos de configuración comunes</div>
+<table>
+  <thead>
+    <tr>
+      <th>Atributo</th>
+      <th>Descripción</th>
+      <th>Módulos</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>data-fluix-limite="N"</td><td>Máximo de items a mostrar</td><td>agenda, catálogo, blog, reseñas</td></tr>
+    <tr><td>data-fluix-tipo="Valor"</td><td>Filtrar por tipo de contenido</td><td>agenda, blog</td></tr>
+    <tr><td>data-fluix-ciudad="Ciudad"</td><td>Filtrar eventos por ciudad</td><td>agenda</td></tr>
+    <tr><td>data-fluix-categoria="Cat"</td><td>Filtrar catálogo por categoría</td><td>catálogo</td></tr>
+    <tr><td>data-fluix-detalle-url="URL"</td><td>Prefijo de URL para el enlace al detalle de cada item</td><td>agenda, catálogo</td></tr>
+    <tr><td>data-fluix-titulo="Texto"</td><td>Título personalizado del formulario</td><td>contacto</td></tr>
+    <tr><td>data-fluix-texto="Texto"</td><td>Texto del botón de notificaciones</td><td>push</td></tr>
+  </tbody>
+</table>
+
+<div class="notas">
+  <h3>Notas importantes</h3>
+  <ul>
+    <li>El script detecta automáticamente qué módulos hay en la página y solo carga lo necesario.</li>
+    <li>Cualquier cambio en la app (activar/desactivar, editar contenido) se refleja en la web en tiempo real sin tocar código.</li>
+    <li>Puedes combinar varios módulos en la misma página — cada uno escucha su propia colección en Firestore.</li>
+    <li>Los módulos de detalle (agenda-detalle, blog-post, catalogo-detalle) leen el ID/slug de la URL automáticamente.</li>
+    <li>El SEO (title, meta, JSON-LD) se inyecta en el &lt;head&gt; solo cuando se carga un detalle, sin afectar al resto de la página.</li>
+    <li>Para <strong>data-fluix-seccion</strong>: usa modo plantilla cuando quieras que el SDK cree los nodos dinámicamente. Usa modo clásico si el HTML ya tiene los elementos y solo quieres actualizar sus campos.</li>
+  </ul>
+</div>
+
+</body>
+</html>

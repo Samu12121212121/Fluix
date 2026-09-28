@@ -289,31 +289,75 @@ class _FormularioLoginState extends State<FormularioLogin> {
   }
 
   void _mostrarRecuperacionPassword() {
+    final emailCtrl = TextEditingController(text: _correoController.text.trim());
+    bool enviando = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recuperar Contraseña'),
-        content: const Text(
-          'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: const Text('Recuperar Contraseña'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Te enviaremos un enlace para restablecer tu contraseña.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email_outlined),
+                isDense: true,
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: enviando ? null : () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: enviando
+                  ? null
+                  : () async {
+                      final email = emailCtrl.text.trim();
+                      if (email.isEmpty) return;
+                      setSt(() => enviando = true);
+                      try {
+                        await FirebaseAuth.instance
+                            .sendPasswordResetEmail(email: email);
+                        if (ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                '✅ Enlace enviado a $email. Revisa tu bandeja.'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 5),
+                          ));
+                        }
+                      } on FirebaseAuthException catch (e) {
+                        setSt(() => enviando = false);
+                        final msg = e.code == 'user-not-found'
+                            ? 'No existe una cuenta con ese correo.'
+                            : 'Error: ${e.message}';
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(msg),
+                            backgroundColor: Colors.red,
+                          ));
+                        }
+                      }
+                    },
+              child: enviando
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Enviar enlace'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: Implementar recuperación de contraseña
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Funcionalidad próximamente'),
-                ),
-              );
-            },
-            child: const Text('Enviar'),
-          ),
-        ],
       ),
     );
   }

@@ -11,6 +11,7 @@
 import * as admin from "firebase-admin";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { enviarContactoSoporte } from "./resend_service";
 
 const REGION = "europe-west1";
 const TZ = "Europe/Madrid";
@@ -424,6 +425,63 @@ export const onNuevaSugerencia = onDocumentCreated(
     }
 
     console.log(`✅ Notificación sugerencia enviada al propietario (origen empresa: ${empresaId})`);
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. TRIGGER CONTACTO SOPORTE → email + notificación in-app al propietario
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const onNuevoContactoSoporte = onDocumentCreated(
+  { document: "contacto_soporte/{id}", region: REGION },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const empresaNombre  = (data.empresa_nombre as string) ?? "Sin nombre";
+    const empresaId      = (data.empresa_id    as string) ?? "";
+    const nombreContacto = (data.nombre_contacto as string) ?? "";
+    const emailContacto  = (data.email_contacto  as string) ?? "";
+    const asunto         = (data.asunto          as string) ?? "Sin asunto";
+    const mensaje        = (data.mensaje         as string) ?? "";
+
+    // ── 1. Email a sacoor80@gmail.com ────────────────────────────────────────
+    try {
+      await enviarContactoSoporte({ empresaNombre, empresaId, nombreContacto, emailContacto, asunto, mensaje });
+    } catch (e) {
+      console.error("❌ Error enviando email contacto soporte:", e);
+    }
+
+    // ── 2. Notificación in-app para todos los admins de plataforma ───────────
+    const adminsSnap = await admin.firestore()
+      .collection("usuarios")
+      .where("es_plataforma_admin", "==", true)
+      .get();
+
+    for (const adminDoc of adminsSnap.docs) {
+      const adminEmpresaId = adminDoc.data().empresa_id as string | undefined;
+      if (!adminEmpresaId) continue;
+      try {
+        await admin.firestore()
+          .collection("notificaciones")
+          .doc(adminEmpresaId)
+          .collection("items")
+          .add({
+            titulo: `📨 Soporte: ${asunto}`,
+            cuerpo: `${empresaNombre} — ${mensaje.substring(0, 100)}${mensaje.length > 100 ? "…" : ""}`,
+            tipo: "contacto_soporte",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+            modulo_destino: "soporte",
+            entidad_id: event.params.id,
+            remitente_nombre: empresaNombre,
+          });
+      } catch (e) {
+        console.error("❌ Error creando notificación contacto soporte:", e);
+      }
+    }
+
+    console.log(`✅ Contacto soporte procesado: ${asunto} de ${empresaNombre}`);
   }
 );
 

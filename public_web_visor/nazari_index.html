@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  EDITORIAL NAZARÍ — Bloque "Selección Nazarí" para el INDEX
+  ───────────────────────────────────────────────────────────────────────────────
+  INSTRUCCIONES: Sube este fichero a Hostinger y enlázalo como página, o copia
+  el bloque <section class="naz-seleccion"> dentro de tu index existente.
+  El SDK ya lleva el ID de empresa de Nazarí integrado.
+  ═══════════════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editorial Nazarí</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Georgia', serif; background: #FAFAF8; }
+
+    /* ── Sección ── */
+    .naz-seleccion {
+      padding: 64px 0;
+      background: #fff;
+    }
+    .naz-seleccion-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .naz-seleccion-cabecera {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 36px;
+      gap: 16px;
+    }
+    .naz-seleccion-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6B1E2A;
+      margin-bottom: 6px;
+    }
+    .naz-seleccion-titulo {
+      font-size: 28px;
+      font-weight: 800;
+      color: #1a1a1a;
+      line-height: 1.2;
+      margin: 0;
+    }
+    .naz-seleccion-ver-todos {
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+      color: #6B1E2A;
+      text-decoration: none;
+      border-bottom: 2px solid #6B1E2A;
+      padding-bottom: 2px;
+      transition: opacity 0.2s;
+    }
+    .naz-seleccion-ver-todos:hover { opacity: 0.7; }
+
+    /* ── Carrusel wrapper ── */
+    .naz-carousel-wrap { position: relative; }
+    .naz-carousel-track {
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: 4px;
+    }
+    .naz-carousel-track::-webkit-scrollbar { display: none; }
+
+    /* ── Tarjeta libro ── */
+    .fluix-naz-item {
+      flex: 0 0 200px;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+      transition: transform 0.2s;
+    }
+    .fluix-naz-item:hover { transform: translateY(-4px); }
+
+    .fluix-naz-cover {
+      position: relative;
+      aspect-ratio: 2/3;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      background: #f1e8e0;
+      margin-bottom: 12px;
+    }
+    .fluix-naz-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .fluix-naz-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: #6B1E2A;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+    .fluix-naz-titulo {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 0 0 4px;
+      line-height: 1.3;
+    }
+    .fluix-naz-autor {
+      font-size: 12px;
+      color: #6B7280;
+    }
+    .fluix-naz-nota {
+      font-size: 11.5px;
+      color: #9CA3AF;
+      font-style: italic;
+      margin: 6px 0 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Flechas ── */
+    .naz-carousel-btn {
+      position: absolute;
+      top: 38%;
+      transform: translateY(-50%);
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      z-index: 2;
+      font-size: 18px;
+      color: #374151;
+      padding: 0;
+      transition: background 0.2s;
+    }
+    .naz-carousel-btn:hover { background: #F9FAFB; }
+    .naz-carousel-btn.prev { left: -20px; }
+    .naz-carousel-btn.next { right: -20px; }
+
+    @media (max-width: 640px) {
+      .naz-carousel-btn { display: none; }
+      .fluix-naz-item { flex: 0 0 155px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     BLOQUE SELECCIÓN NAZARÍ — copia esto en el index de tu web de Hostinger
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section class="naz-seleccion">
+  <div class="naz-seleccion-inner">
+
+    <div class="naz-seleccion-cabecera">
+      <div>
+        <p class="naz-seleccion-eyebrow">Lo que estamos leyendo</p>
+        <h2 class="naz-seleccion-titulo">La Selección Nazarí</h2>
+      </div>
+      <a class="naz-seleccion-ver-todos" href="/seleccion-nazari">Ver todos →</a>
+    </div>
+
+    <div class="naz-carousel-wrap">
+      <button class="naz-carousel-btn prev" aria-label="Anterior">‹</button>
+      <button class="naz-carousel-btn next" aria-label="Siguiente">›</button>
+
+      <div data-fluix-seleccion-nazari
+           data-fluix-limite="5"
+           class="naz-carousel-track">
+
+        <template data-fluix-item>
+          <div class="fluix-naz-item">
+            <div class="fluix-naz-cover">
+              <img data-fluix-campo="imagen_url" alt="" class="fluix-naz-img">
+            </div>
+            <h3 data-fluix-campo="titulo" class="fluix-naz-titulo"></h3>
+            <span data-fluix-campo="autor" class="fluix-naz-autor"></span>
+            <p data-fluix-campo="nota_editorial" class="fluix-naz-nota"></p>
+          </div>
+        </template>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ Fluix Web SDK — Editorial Nazarí (ID: 0PoomHYDUJf5w8tDFRLhFi9iURF3) ══ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script>
+(function(){
+  var CFG={apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",authDomain:"planeaapp-4bea4.firebaseapp.com",projectId:"planeaapp-4bea4",storageBucket:"planeaapp-4bea4.firebasestorage.app",messagingSenderId:"1085482191658",appId:"1:1085482191658:web:c5461353b123ab92d62c53"};
+  var app=(firebase.apps||[]).find(function(a){return a&&a.name==="FluixApp";})||firebase.initializeApp(CFG,"FluixApp");
+  var db=firebase.firestore();
+  var auth=firebase.auth();
+  var EMPRESA="0PoomHYDUJf5w8tDFRLhFi9iURF3";
+
+  function fcfg(el,k,def){return el.getAttribute("data-fluix-"+k)||def||"";}
+  function fmtFecha(ts){var d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);if(!d||isNaN(d))return"";return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"});}
+  function wField(ce,campo,item){var v=item[campo],tag=ce.tagName.toLowerCase();if(v===undefined||v===null){if(tag==="img")ce.style.display="none";return;}if(campo==="fecha"){ce.textContent=fmtFecha(v);return;}if(tag==="img"){ce.src=v||"";ce.style.display=v?"":"none";return;}if(tag==="a"){ce.href=v||"#";return;}ce.textContent=v;}
+  function fillFields(root,item){root.querySelectorAll("[data-fluix-campo]").forEach(function(ce){wField(ce,ce.getAttribute("data-fluix-campo"),item);});}
+  function renderTpl(container,tpl,items){var cur={};container.querySelectorAll("[data-fluix-id]").forEach(function(el){cur[el.getAttribute("data-fluix-id")]=el;});var del=Object.assign({},cur);items.forEach(function(item){var id=item.id||Math.random().toString(36).slice(2),el=cur[id];if(!el){var cl=tpl.content.cloneNode(true);el=cl.firstElementChild;el.setAttribute("data-fluix-id",id);container.appendChild(el);}delete del[id];fillFields(el,item);});Object.values(del).forEach(function(el){el.remove();});}
+
+  function modSeleccionNazari(){
+    document.querySelectorAll("[data-fluix-seleccion-nazari]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","50"));
+      var tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("seleccion_nazari")
+        .where("activo","==",true).orderBy("orden")
+        .onSnapshot(function(snap){
+          var items=[];
+          snap.forEach(function(doc){var d=doc.data();d.id=doc.id;items.push(d);});
+          items=items.slice(0,limite);
+          if(!items.length){el.innerHTML="";return;}
+          if(tpl){
+            renderTpl(el,tpl,items.map(function(it){return{id:it.id,titulo:it.titulo,autor:it.autor,imagen_url:it.imagen,nota_editorial:it.nota_editorial,es_libro_del_mes:it.es_libro_del_mes,slug:it.slug};}));
+            return;
+          }
+          el.innerHTML=items.map(function(it){
+            return'<div class="fluix-naz-item" data-fluix-id="'+it.id+'">'
+              +(it.imagen?'<div class="fluix-naz-cover">'+(it.es_libro_del_mes?'<span class="fluix-naz-badge">Libro del mes</span>':"")+'<img class="fluix-naz-img" src="'+it.imagen+'" alt="'+it.titulo+'" loading="lazy"></div>':"")
+              +'<h3 class="fluix-naz-titulo">'+it.titulo+'</h3>'
+              +(it.autor?'<span class="fluix-naz-autor">'+it.autor+'</span>':"")
+              +(it.nota_editorial?'<p class="fluix-naz-nota">'+it.nota_editorial+'</p>':"")
+              +'</div>';
+          }).join("");
+        });
+    });
+  }
+
+  auth.signInAnonymously().then(function(){
+    modSeleccionNazari();
+    db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status")
+      .set({modulos:["seleccion-nazari"],url:window.location.href,ts:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(function(){});
+  }).catch(function(e){console.error("Fluix SDK: "+e.message);});
+})();
+</script>
+
+<script>
+  // Lógica de flechas del carrusel
+  (function(){
+    var wrap=document.querySelector('.naz-carousel-wrap');
+    if(!wrap)return;
+    var track=wrap.querySelector('.naz-carousel-track');
+    var STEP=220;
+    wrap.querySelector('.naz-carousel-btn.prev').addEventListener('click',function(){track.scrollBy({left:-STEP,behavior:'smooth'});});
+    wrap.querySelector('.naz-carousel-btn.next').addEventListener('click',function(){track.scrollBy({left:STEP,behavior:'smooth'});});
+  })();
+</script>
+
+</body>
+</html>

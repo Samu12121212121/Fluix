@@ -21,11 +21,18 @@ class TpvSelectorNegocioScreen extends StatefulWidget {
   /// empresaId propia del propietario (como fallback)
   final String empresaIdPropia;
 
+  /// Cuando true, se muestra embebido en el dashboard (sin Scaffold ni AppBar).
+  /// En lugar de navegar, llama a [onEmpresaSeleccionada].
+  final bool embedded;
+  final void Function(String empresaId, String tipoTpv)? onEmpresaSeleccionada;
+
   const TpvSelectorNegocioScreen({
     super.key,
     required this.propietarioUid,
     required this.empresaIdPropia,
     this.esPropietarioPlatforma = false,
+    this.embedded = false,
+    this.onEmpresaSeleccionada,
   });
 
   @override
@@ -68,12 +75,18 @@ class _TpvSelectorNegocioScreenState extends State<TpvSelectorNegocioScreen> {
 
   Future<void> _abrirTpv(String empresaId, String tipoTpv) async {
     if (_lanzando) return;
+
+    // Modo embebido: delegar al padre en lugar de navegar
+    if (widget.embedded) {
+      widget.onEmpresaSeleccionada?.call(empresaId, tipoTpv);
+      return;
+    }
+
     setState(() {
       _lanzando = true;
       _empresaSeleccionadaId = empresaId;
     });
 
-    // Forzar orientación horizontal para el TPV
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
@@ -94,22 +107,15 @@ class _TpvSelectorNegocioScreenState extends State<TpvSelectorNegocioScreen> {
     }
 
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => tpvScreen,
-      ),
+      MaterialPageRoute(fullscreenDialog: true, builder: (_) => tpvScreen),
     );
 
-    // Restaurar orientación al volver
     if (mounted) {
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
       ]);
-      setState(() {
-        _lanzando = false;
-        _empresaSeleccionadaId = null;
-      });
+      setState(() { _lanzando = false; _empresaSeleccionadaId = null; });
     }
   }
 
@@ -139,62 +145,7 @@ class _TpvSelectorNegocioScreenState extends State<TpvSelectorNegocioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
-          children: [
-            const Icon(Icons.point_of_sale, size: 20),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'TPV — Vista Propietario',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                ),
-                Text(
-                  widget.esPropietarioPlatforma
-                      ? 'Todos los negocios de la plataforma'
-                      : 'Tus negocios',
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          // Indicador de modo propietario
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade300, width: 1),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.visibility, size: 13, color: Colors.amber),
-                SizedBox(width: 4),
-                Text(
-                  'Modo Propietario',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.amber,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: Column(
+    final body = Column(
         children: [
           // ── Banner explicativo ────────────────────────────────────────────
           Container(
@@ -553,7 +504,52 @@ class _TpvSelectorNegocioScreenState extends State<TpvSelectorNegocioScreen> {
             ), // StreamBuilder tpvs_personalizados
           ),
         ],
+      );
+
+    // Embebido: devolver el contenido directamente (el Scaffold es del dashboard)
+    if (widget.embedded) return body;
+
+    // Standalone: envolver con Scaffold + AppBar propio
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Row(children: [
+          const Icon(Icons.point_of_sale, size: 20),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('TPV — Vista Propietario',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(
+              widget.esPropietarioPlatforma
+                  ? 'Todos los negocios de la plataforma'
+                  : 'Tus negocios',
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+            ),
+          ]),
+        ]),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade300, width: 1),
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.visibility, size: 13, color: Colors.amber),
+              SizedBox(width: 4),
+              Text('Modo Propietario',
+                  style: TextStyle(fontSize: 11, color: Colors.amber,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ],
       ),
+      body: body,
     );
   }
 

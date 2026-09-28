@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+// import 'firebase_options.dart'; // generated file, ignore in analysis
 
 /// Script para agregar negocios de prueba al catálogo B2C
 /// 
@@ -13,7 +13,7 @@ const String EMPRESA_ID_VINCULADA = 'TU_EMPRESA_ID_AQUI'; // ⚠️ CAMBIAR ESTO
 
 Future<void> main() async {
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    // options: DefaultFirebaseOptions.currentPlatform,
   );
 
   if (EMPRESA_ID_VINCULADA == 'TU_EMPRESA_ID_AQUI') {

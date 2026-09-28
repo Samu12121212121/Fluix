@@ -13,6 +13,12 @@ class MensajeContactoWeb {
   final DateTime fechaCreacion;
   final String? respuesta;
   final DateTime? fechaRespuesta;
+  // Campos específicos de manuscritos
+  final String? tituloObra;
+  final String? genero;
+  final String? enlace;
+  final String? archivoUrl;
+  final String? archivoNombre;
 
   MensajeContactoWeb({
     required this.id,
@@ -27,7 +33,14 @@ class MensajeContactoWeb {
     required this.fechaCreacion,
     this.respuesta,
     this.fechaRespuesta,
+    this.tituloObra,
+    this.genero,
+    this.enlace,
+    this.archivoUrl,
+    this.archivoNombre,
   });
+
+  bool get esManuscrito => origen == 'manuscrito';
 
   factory MensajeContactoWeb.fromMap(Map<String, dynamic> map) {
     return MensajeContactoWeb(
@@ -43,6 +56,11 @@ class MensajeContactoWeb {
       fechaCreacion: (map['fecha_creacion'] as Timestamp?)?.toDate() ?? DateTime.now(),
       respuesta: map['respuesta'],
       fechaRespuesta: (map['fecha_respuesta'] as Timestamp?)?.toDate(),
+      tituloObra:    map['titulo_obra'],
+      genero:        map['genero'],
+      enlace:        map['enlace'],
+      archivoUrl:    map['archivo_url'] as String?,
+      archivoNombre: map['archivo_nombre'] as String?,
     );
   }
 
@@ -111,6 +129,21 @@ class ContactoWebService {
         .collection('contacto_web')
         .doc(mensajeId)
         .delete();
+  }
+
+  /// Marcar todos los mensajes como leídos
+  Future<void> marcarTodosComoLeidos(String empresaId) async {
+    final snap = await _firestore
+        .collection('empresas')
+        .doc(empresaId)
+        .collection('contacto_web')
+        .where('leido', isEqualTo: false)
+        .get();
+    final batch = _firestore.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'leido': true});
+    }
+    await batch.commit();
   }
 
   /// Obtener contador de mensajes sin leer

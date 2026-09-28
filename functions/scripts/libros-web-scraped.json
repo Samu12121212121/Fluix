@@ -1,0 +1,1666 @@
+{
+  "fecha_scraping": "2026-09-22T00:32:52.049Z",
+  "total_validos": 0,
+  "total_errores": 330,
+  "total_sin_datos": 0,
+  "sin_sinopsis": 0,
+  "sin_isbn": 0,
+  "sin_precio": 0,
+  "sin_autor": 0,
+  "sin_etiquetas": 0,
+  "sin_id_producto": 0,
+  "errores": [
+    {
+      "url": "https://www.editorialnazari.com/libro/el-mundial-que-espana-no-gano/",
+      "slug": "el-mundial-que-espana-no-gano",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/espejos/",
+      "slug": "espejos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/premio-volantones-2026/",
+      "slug": "premio-volantones-2026",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/intramuros/",
+      "slug": "intramuros",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/novias-del-sepulcro/",
+      "slug": "novias-del-sepulcro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-monte-de-las-animas-y-otras-leyendas/",
+      "slug": "el-monte-de-las-animas-y-otras-leyendas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/morir-no-es-irse-a-ningun-sitio/",
+      "slug": "morir-no-es-irse-a-ningun-sitio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/johatsu-y-otros-cuentos/",
+      "slug": "johatsu-y-otros-cuentos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-habitacion-320/",
+      "slug": "la-habitacion-320",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-canto-triste-del-cuervo/",
+      "slug": "el-canto-triste-del-cuervo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/tu-y-el-amor/",
+      "slug": "tu-y-el-amor",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/destilacion/",
+      "slug": "destilacion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/las-doce-cosechas/",
+      "slug": "las-doce-cosechas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-rios-nunca-miran-atras/",
+      "slug": "los-rios-nunca-miran-atras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-gestion-del-silencio/",
+      "slug": "la-gestion-del-silencio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/turismo-ruralidad-y-crisis-rural/",
+      "slug": "turismo-ruralidad-y-crisis-rural",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cronica-de-un-profesor-de-instituto/",
+      "slug": "cronica-de-un-profesor-de-instituto",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/creo-que-te-quiero/",
+      "slug": "creo-que-te-quiero",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/al-tercer-dia/",
+      "slug": "al-tercer-dia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lagrimaciendo-sobre-el-vacio/",
+      "slug": "lagrimaciendo-sobre-el-vacio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/orgia-del-silencio/",
+      "slug": "orgia-del-silencio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-vacio-huele-a-tabaco-y-serrin/",
+      "slug": "el-vacio-huele-a-tabaco-y-serrin",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/casa-madre/",
+      "slug": "casa-madre",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/maneras-de-estar-tumbada/",
+      "slug": "maneras-de-estar-tumbada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nostalgias/",
+      "slug": "nostalgias",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/trampantojos/",
+      "slug": "trampantojos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/en-realidad-no/",
+      "slug": "en-realidad-no",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/las-tres-vidas-de-benjamin-cazenave/",
+      "slug": "las-tres-vidas-de-benjamin-cazenave",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-cielo-tras-mis-pasos/",
+      "slug": "el-cielo-tras-mis-pasos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/que-soy-la-vida/",
+      "slug": "que-soy-la-vida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/premio-volantones-2025/",
+      "slug": "premio-volantones-2025",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/culturismo-y-fitness-entrenamiento-dieta-y-anabolizantes/",
+      "slug": "culturismo-y-fitness-entrenamiento-dieta-y-anabolizantes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-tablero-de-ajedrez/",
+      "slug": "el-tablero-de-ajedrez",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-nino-que-hallo-la-felicidad-rodeado-de-palabras/",
+      "slug": "el-nino-que-hallo-la-felicidad-rodeado-de-palabras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-vieja-inquietud-del-aire/",
+      "slug": "la-vieja-inquietud-del-aire",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/asi-me-converti-en-puta/",
+      "slug": "asi-me-converti-en-puta",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/caminando-con-tus-ojos/",
+      "slug": "caminando-con-tus-ojos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/eva-de-ur/",
+      "slug": "eva-de-ur",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/noviembre/",
+      "slug": "noviembre",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/espacios-naturales-con-historia/",
+      "slug": "espacios-naturales-con-historia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/azogues/",
+      "slug": "azogues",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/norberto-y-el-tesoro/",
+      "slug": "norberto-y-el-tesoro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/comodamente-adormecido/",
+      "slug": "comodamente-adormecido",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ritmos-del-desierto/",
+      "slug": "ritmos-del-desierto",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/agridulce/",
+      "slug": "agridulce",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/las-flores-estan-mal/",
+      "slug": "las-flores-estan-mal",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/curso-de-latin-para-principiantes/",
+      "slug": "curso-de-latin-para-principiantes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/volver-a-granada/",
+      "slug": "volver-a-granada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-noche-de-los-cuentos-anonimos/",
+      "slug": "la-noche-de-los-cuentos-anonimos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/con-brevedad-y-alevosia/",
+      "slug": "con-brevedad-y-alevosia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cuando-termina-la-ciencia-y-empieza-la-ficcion/",
+      "slug": "cuando-termina-la-ciencia-y-empieza-la-ficcion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-quinta-en-verde/",
+      "slug": "la-quinta-en-verde",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/donde-esta-la-nueva-recompensa/",
+      "slug": "donde-esta-la-nueva-recompensa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sin-saber-escribirme/",
+      "slug": "sin-saber-escribirme",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/entre-pegas-y-apegos-apuesta-por-ti/",
+      "slug": "entre-pegas-y-apegos-apuesta-por-ti",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sinfonia-criminal/",
+      "slug": "sinfonia-criminal",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-viaje/",
+      "slug": "el-viaje",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/levedad-de-la-sonrisa/",
+      "slug": "levedad-de-la-sonrisa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-novena/",
+      "slug": "la-novena",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-hombre-absurdo/",
+      "slug": "el-hombre-absurdo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cuentame-una-tonteria/",
+      "slug": "cuentame-una-tonteria",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/norberto-rompe-algo/",
+      "slug": "norberto-rompe-algo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ciudades-y-tierras-salvajes-de-andalucia/",
+      "slug": "ciudades-y-tierras-salvajes-de-andalucia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-retorica-del-silencio/",
+      "slug": "la-retorica-del-silencio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/jonas-y-la-esperanza/",
+      "slug": "jonas-y-la-esperanza",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/preludio-muerte-y-fuga/",
+      "slug": "preludio-muerte-y-fuga",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/buenos-vientos/",
+      "slug": "buenos-vientos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/venganza-la-leyenda-del-fenix-iv/",
+      "slug": "venganza-la-leyenda-del-fenix-iv",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-pedestal-de-los-cobardes/",
+      "slug": "el-pedestal-de-los-cobardes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/por-la-vida-rapida/",
+      "slug": "por-la-vida-rapida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-historia-oculta-del-temple/",
+      "slug": "la-historia-oculta-del-temple",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/numen/",
+      "slug": "numen",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/en-el-perfil-del-sueno/",
+      "slug": "en-el-perfil-del-sueno",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/trilce-imaginado/",
+      "slug": "trilce-imaginado",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/mi-vida-en-el-bunker/",
+      "slug": "mi-vida-en-el-bunker",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-organo-y-otros-cuentos-de-navidad-del-s-xxi/",
+      "slug": "el-organo-y-otros-cuentos-de-navidad-del-s-xxi",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/excerpta/",
+      "slug": "excerpta",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-lugar-de-la-caracola/",
+      "slug": "el-lugar-de-la-caracola",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/skordat-iii-al-borde-de-la-muerte/",
+      "slug": "skordat-iii-al-borde-de-la-muerte",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-corona-del-cuervo/",
+      "slug": "la-corona-del-cuervo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-negra-del-prostibulo-y-otros-poemas/",
+      "slug": "la-negra-del-prostibulo-y-otros-poemas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-guardian-de-las-rosas/",
+      "slug": "el-guardian-de-las-rosas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-sofa-de-carmen/",
+      "slug": "el-sofa-de-carmen",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/relatos-fulgurantes/",
+      "slug": "relatos-fulgurantes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ritos-de-paso/",
+      "slug": "ritos-de-paso",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-isla-invertida/",
+      "slug": "la-isla-invertida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/derrubios-del-vacio/",
+      "slug": "derrubios-del-vacio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-norte/",
+      "slug": "el-norte",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/en-las-cavernas-del-alma/",
+      "slug": "en-las-cavernas-del-alma",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/coloquio-de-lo-inefable/",
+      "slug": "coloquio-de-lo-inefable",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/are-lo-que-pude/",
+      "slug": "are-lo-que-pude",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-veranos-que-fuimos/",
+      "slug": "los-veranos-que-fuimos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lejos-de-toda-esa-gente-con-ideas/",
+      "slug": "lejos-de-toda-esa-gente-con-ideas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-primera-persona-alonso-quijano-autor-del-quijote/",
+      "slug": "la-primera-persona-alonso-quijano-autor-del-quijote",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/norberto-y-el-regalo/",
+      "slug": "norberto-y-el-regalo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/amversos/",
+      "slug": "amversos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/oscuridad-la-leyenda-del-fenix-iii/",
+      "slug": "oscuridad-la-leyenda-del-fenix-iii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/versos-de-arena/",
+      "slug": "versos-de-arena",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nada-en-la-vida-es-isla/",
+      "slug": "nada-en-la-vida-es-isla",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/yo-tampoco-me-llamo-ulises/",
+      "slug": "yo-tampoco-me-llamo-ulises",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/frente-a-la-voz-del-mundo/",
+      "slug": "frente-a-la-voz-del-mundo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-verdad-sea-dicha-y-otras-mentiras-verdaderas/",
+      "slug": "la-verdad-sea-dicha-y-otras-mentiras-verdaderas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/escarabajos/",
+      "slug": "escarabajos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/en-voz-baja/",
+      "slug": "en-voz-baja",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nostalgia-del-cielo/",
+      "slug": "nostalgia-del-cielo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-tocadiscos-de-tito/",
+      "slug": "el-tocadiscos-de-tito",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-silla-del-moro/",
+      "slug": "la-silla-del-moro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/gritos-de-silencio/",
+      "slug": "gritos-de-silencio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-espiritu-del-maristan-nazari/",
+      "slug": "el-espiritu-del-maristan-nazari",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-jardin-de-estocolmo/",
+      "slug": "el-jardin-de-estocolmo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ladrar-a-la-luna/",
+      "slug": "ladrar-a-la-luna",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sin-proposito-de-enmienda/",
+      "slug": "sin-proposito-de-enmienda",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-arbol-azul/",
+      "slug": "el-arbol-azul",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-herencia-de-cain-iii/",
+      "slug": "la-herencia-de-cain-iii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/transgresion/",
+      "slug": "transgresion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/muerte-en-el-consistorio/",
+      "slug": "muerte-en-el-consistorio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/de-juzgados-y-sombras/",
+      "slug": "de-juzgados-y-sombras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/en-la-piel-del-tiempo/",
+      "slug": "en-la-piel-del-tiempo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/oximoron/",
+      "slug": "oximoron",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/jueves/",
+      "slug": "jueves",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/azul-klein/",
+      "slug": "azul-klein",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/camino-sin-senalizar/",
+      "slug": "camino-sin-senalizar",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/desabrochar-la-piel/",
+      "slug": "desabrochar-la-piel",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-campo-de-alfalfa/",
+      "slug": "el-campo-de-alfalfa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/huyendo-a-granada/",
+      "slug": "huyendo-a-granada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-diccionario-del-alma/",
+      "slug": "el-diccionario-del-alma",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cautivos-en-libertad/",
+      "slug": "cautivos-en-libertad",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/huella-liquida/",
+      "slug": "huella-liquida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/huellas-en-la-nieve/",
+      "slug": "huellas-en-la-nieve",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/coloquios-con-arturo/",
+      "slug": "coloquios-con-arturo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/crisis-humanitaria/",
+      "slug": "crisis-humanitaria",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cuerpos-de-agua-mujeres-de-luz/",
+      "slug": "cuerpos-de-agua-mujeres-de-luz",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/desde-al-andalus-cartas-a-oria/",
+      "slug": "desde-al-andalus-cartas-a-oria",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-blues-de-ogawa/",
+      "slug": "el-blues-de-ogawa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-dia-y-todas-las-cosas-me-esperan/",
+      "slug": "el-dia-y-todas-las-cosas-me-esperan",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-grito-de-los-arboles/",
+      "slug": "el-grito-de-los-arboles",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-intercambio/",
+      "slug": "el-intercambio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-maristan-nazari-y-sus-hukama/",
+      "slug": "el-maristan-nazari-y-sus-hukama",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-repliegue-de-los-espejos/",
+      "slug": "el-repliegue-de-los-espejos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-secreto-del-castillo-maldito/",
+      "slug": "el-secreto-del-castillo-maldito",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/eres-lo-que-escuchas/",
+      "slug": "eres-lo-que-escuchas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/huerto-sagrado/",
+      "slug": "huerto-sagrado",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-bruma-que-apacigua-la-memoria/",
+      "slug": "la-bruma-que-apacigua-la-memoria",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-cuarentena-de-los-necios/",
+      "slug": "la-cuarentena-de-los-necios",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-herencia-de-cain-ii/",
+      "slug": "la-herencia-de-cain-ii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-herencia-de-cain-i/",
+      "slug": "la-herencia-de-cain-i",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-mirada-del-frio/",
+      "slug": "la-mirada-del-frio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-nina-que-estuvo/",
+      "slug": "la-nina-que-estuvo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-pasion-en-prosa/",
+      "slug": "la-pasion-en-prosa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/las-leyes-de-kirchhoff/",
+      "slug": "las-leyes-de-kirchhoff",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-101-vericuetos-de-marrakech/",
+      "slug": "los-101-vericuetos-de-marrakech",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-castillos-templarios-de-espana/",
+      "slug": "los-castillos-templarios-de-espana",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/origen-la-leyenda-del-fenix-ii/",
+      "slug": "origen-la-leyenda-del-fenix-ii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/enrique-moron-poesia-completa-1970-2021/",
+      "slug": "enrique-moron-poesia-completa-1970-2021",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/poker-de-ases/",
+      "slug": "poker-de-ases",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/skordat-ii-una-sombra-escurridiza/",
+      "slug": "skordat-ii-una-sombra-escurridiza",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/somnium/",
+      "slug": "somnium",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ubicuo-alud-de-nivea-luz-divina/",
+      "slug": "ubicuo-alud-de-nivea-luz-divina",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/una-casa-en-el-albaicin/",
+      "slug": "una-casa-en-el-albaicin",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/acordes-de-tormenta-y-cielo/",
+      "slug": "acordes-de-tormenta-y-cielo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/regreso-al-valle-del-olvido/",
+      "slug": "regreso-al-valle-del-olvido",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-enigma-de-abravanel/",
+      "slug": "el-enigma-de-abravanel",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/donde-termina-la-lluvia/",
+      "slug": "donde-termina-la-lluvia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sit-tibi-terra-levis-iii/",
+      "slug": "sit-tibi-terra-levis-iii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sit-tibi-terra-levis-ii/",
+      "slug": "sit-tibi-terra-levis-ii",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-leyenda-del-fenix/",
+      "slug": "la-leyenda-del-fenix",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-centinela-impaciente/",
+      "slug": "el-centinela-impaciente",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-estupor-de-los-atlantes/",
+      "slug": "el-estupor-de-los-atlantes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/opium/",
+      "slug": "opium",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/gastronomia-y-poesia-en-la-alpujarra/",
+      "slug": "gastronomia-y-poesia-en-la-alpujarra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/elegias/",
+      "slug": "elegias",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/tres-sinfonias/",
+      "slug": "tres-sinfonias",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/laberinto/",
+      "slug": "laberinto",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-oscuridad-volvio-a-quedarse-quieta/",
+      "slug": "la-oscuridad-volvio-a-quedarse-quieta",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/preocupaciones/",
+      "slug": "preocupaciones",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-puente/",
+      "slug": "el-puente",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lo-que-ocultan-sus-miradas/",
+      "slug": "lo-que-ocultan-sus-miradas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/pabellon-d/",
+      "slug": "pabellon-d",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-noche-de-walpurgis/",
+      "slug": "la-noche-de-walpurgis",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/hudson/",
+      "slug": "hudson",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sombra-de-un-animal-bebiendo-sombra/",
+      "slug": "sombra-de-un-animal-bebiendo-sombra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ultima/",
+      "slug": "ultima",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/estancias-a-lo-incierto/",
+      "slug": "estancias-a-lo-incierto",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-caso-solipandi/",
+      "slug": "el-caso-solipandi",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/arponera-cafe/",
+      "slug": "arponera-cafe",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/co-accion/",
+      "slug": "co-accion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/un-verano-en-la-montana/",
+      "slug": "un-verano-en-la-montana",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/tempo/",
+      "slug": "tempo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-heroes-estan-lejos/",
+      "slug": "los-heroes-estan-lejos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/chinas-en-los-zapatos/",
+      "slug": "chinas-en-los-zapatos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-noche-de-los-cascabeles/",
+      "slug": "la-noche-de-los-cascabeles",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sit-tibi-terra-levis/",
+      "slug": "sit-tibi-terra-levis",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-gran-poeta-esta-rezando/",
+      "slug": "el-gran-poeta-esta-rezando",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/igor-el-ogro/",
+      "slug": "igor-el-ogro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/x/",
+      "slug": "x",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ojos-claros-para-dias-oscuros/",
+      "slug": "ojos-claros-para-dias-oscuros",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lo-que-cuesta-nacer/",
+      "slug": "lo-que-cuesta-nacer",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ni-un-dia-sin-una-linea/",
+      "slug": "ni-un-dia-sin-una-linea",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/palabra-iluminada/",
+      "slug": "palabra-iluminada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/skordati-nueve-formas-de-morir-en-el-espacio/",
+      "slug": "skordati-nueve-formas-de-morir-en-el-espacio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/asedio-al-maristan-nazari/",
+      "slug": "asedio-al-maristan-nazari",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/teatro-de-alarma/",
+      "slug": "teatro-de-alarma",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-toque-de-las-animas-y-otros-relatos/",
+      "slug": "el-toque-de-las-animas-y-otros-relatos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ella-y-el-faro/",
+      "slug": "ella-y-el-faro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-hombre-analogico/",
+      "slug": "el-hombre-analogico",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/presencias-y-ausencias/",
+      "slug": "presencias-y-ausencias",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-distancia-encendida/",
+      "slug": "la-distancia-encendida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-circulo-de-aton/",
+      "slug": "el-circulo-de-aton",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/amor-eterno/",
+      "slug": "amor-eterno",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/rilkowk-tramas-trim/",
+      "slug": "rilkowk-tramas-trim",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sonetario/",
+      "slug": "sonetario",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/inventario-del-tiempo/",
+      "slug": "inventario-del-tiempo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/temporada-de-granadas/",
+      "slug": "temporada-de-granadas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-oido-del-viento/",
+      "slug": "el-oido-del-viento",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sembrando-color/",
+      "slug": "sembrando-color",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cazulas/",
+      "slug": "cazulas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/un-ario-andalusi-en-persia/",
+      "slug": "un-ario-andalusi-en-persia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/bombon-midnight-cravings/",
+      "slug": "bombon-midnight-cravings",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-memoria-del-expreso/",
+      "slug": "la-memoria-del-expreso",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sobre-la-nostalgia-y-el-olvido/",
+      "slug": "sobre-la-nostalgia-y-el-olvido",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/hego/",
+      "slug": "hego",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-viaje-de-vuelta-a-casa/",
+      "slug": "el-viaje-de-vuelta-a-casa",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/refutacion-del-efecto-doppler/",
+      "slug": "refutacion-del-efecto-doppler",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ellas-y-ellos-cuentos-de-familia/",
+      "slug": "ellas-y-ellos-cuentos-de-familia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/libro-de-las-imaginaciones/",
+      "slug": "libro-de-las-imaginaciones",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/hotel-penumbra/",
+      "slug": "hotel-penumbra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/fria-aritmetica/",
+      "slug": "fria-aritmetica",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/deconstrucciones/",
+      "slug": "deconstrucciones",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-holocausto-cataro/",
+      "slug": "el-holocausto-cataro",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-naufrago-afortunado/",
+      "slug": "el-naufrago-afortunado",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-mecanismo/",
+      "slug": "el-mecanismo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/tiempos-de-honor/",
+      "slug": "tiempos-de-honor",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lagrima-roja/",
+      "slug": "lagrima-roja",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/porno-para-miopes/",
+      "slug": "porno-para-miopes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/imperutopicoposibles/",
+      "slug": "imperutopicoposibles",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cementerio-de-medicos/",
+      "slug": "cementerio-de-medicos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/gotas-de-doble-filo/",
+      "slug": "gotas-de-doble-filo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-ruido-que-haces-al-vivir/",
+      "slug": "el-ruido-que-haces-al-vivir",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-distancia-trazada-entre-dos-cuerpos/",
+      "slug": "la-distancia-trazada-entre-dos-cuerpos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/vertedero-clausurado/",
+      "slug": "vertedero-clausurado",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-verano-ya-no-esta-aqui/",
+      "slug": "el-verano-ya-no-esta-aqui",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/segundas-oportunidades/",
+      "slug": "segundas-oportunidades",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/voces-de-madrugada/",
+      "slug": "voces-de-madrugada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/teatro-de-sombras/",
+      "slug": "teatro-de-sombras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/mientras-las-limusinas-esperan-en-la-calle/",
+      "slug": "mientras-las-limusinas-esperan-en-la-calle",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nocturnario/",
+      "slug": "nocturnario",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/imposibles-impensables/",
+      "slug": "imposibles-impensables",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/reconexion/",
+      "slug": "reconexion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/mil-formas-de-decir-la-palabra-universo/",
+      "slug": "mil-formas-de-decir-la-palabra-universo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-trigos-tan-azules/",
+      "slug": "los-trigos-tan-azules",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-recuerdo-nunca-duerme/",
+      "slug": "el-recuerdo-nunca-duerme",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/hormonautas/",
+      "slug": "hormonautas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/camino-a-puerto-hermoso/",
+      "slug": "camino-a-puerto-hermoso",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nos/",
+      "slug": "nos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/algo-mas-que-palabras/",
+      "slug": "algo-mas-que-palabras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ultima-batalla-el-senor-de-las-bestias/",
+      "slug": "ultima-batalla-el-senor-de-las-bestias",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-creador-de-animas/",
+      "slug": "el-creador-de-animas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-luz-del-fin-de-la-tierra/",
+      "slug": "la-luz-del-fin-de-la-tierra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/antagonia/",
+      "slug": "antagonia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/suenos-dispersos/",
+      "slug": "suenos-dispersos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/alianzas/",
+      "slug": "alianzas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-ultimo-vuelo-del-microraptor/",
+      "slug": "el-ultimo-vuelo-del-microraptor",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/33-suenos/",
+      "slug": "33-suenos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/donde-lloran-los-dragones/",
+      "slug": "donde-lloran-los-dragones",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/exiliados/",
+      "slug": "exiliados",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/y-tu-cuando-mueres/",
+      "slug": "y-tu-cuando-mueres",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/no-sin-mi-pueblo/",
+      "slug": "no-sin-mi-pueblo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-dias-que-me-debes/",
+      "slug": "los-dias-que-me-debes",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/poesia-con-perdon/",
+      "slug": "poesia-con-perdon",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-alma-del-tonel/",
+      "slug": "el-alma-del-tonel",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/taifar/",
+      "slug": "taifar",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sulayr-dame-cobijo/",
+      "slug": "sulayr-dame-cobijo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/garnibe/",
+      "slug": "garnibe",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/tiempo-gris-de-cosmos/",
+      "slug": "tiempo-gris-de-cosmos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/versos-de-una-crisis/",
+      "slug": "versos-de-una-crisis",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-corriente-de-groenlandia/",
+      "slug": "la-corriente-de-groenlandia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ashaverus-el-libidinoso/",
+      "slug": "ashaverus-el-libidinoso",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/asesinato-en-la-alhambra/",
+      "slug": "asesinato-en-la-alhambra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/art-mariage-los-estados-del-alma/",
+      "slug": "art-mariage-los-estados-del-alma",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/despertando-a-la-vida/",
+      "slug": "despertando-a-la-vida",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/desde-el-puerto-de-la-utopia/",
+      "slug": "desde-el-puerto-de-la-utopia",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-corazon-del-roble/",
+      "slug": "el-corazon-del-roble",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/de-mal-en-peor/",
+      "slug": "de-mal-en-peor",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-viento-en-tu-cara/",
+      "slug": "el-viento-en-tu-cara",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ukigumo/",
+      "slug": "ukigumo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/asoka/",
+      "slug": "asoka",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nocturnos/",
+      "slug": "nocturnos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/alejado-del-tiempo/",
+      "slug": "alejado-del-tiempo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/para-ir-conociendo-nuestras-plantas/",
+      "slug": "para-ir-conociendo-nuestras-plantas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-fatalidad/",
+      "slug": "la-fatalidad",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-leyenda-de-los-cielos/",
+      "slug": "la-leyenda-de-los-cielos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-isla-cerrada/",
+      "slug": "la-isla-cerrada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/no-somos-flores/",
+      "slug": "no-somos-flores",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/lorca-luces-y-sombras/",
+      "slug": "lorca-luces-y-sombras",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/yo-la-tierra-que-ahora-piso/",
+      "slug": "yo-la-tierra-que-ahora-piso",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-suenos-del-naufrago/",
+      "slug": "los-suenos-del-naufrago",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/luciernas/",
+      "slug": "luciernas",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/crepusculo-eviterno-y-elegias-de-anoranza/",
+      "slug": "crepusculo-eviterno-y-elegias-de-anoranza",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-piel-de-la-intemperie/",
+      "slug": "la-piel-de-la-intemperie",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/sales-a-jugar-un-ratito/",
+      "slug": "sales-a-jugar-un-ratito",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/mentre-cambi-sono-con-te/",
+      "slug": "mentre-cambi-sono-con-te",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/al-abrigo-del-frio/",
+      "slug": "al-abrigo-del-frio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/angulos/",
+      "slug": "angulos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/barminan/",
+      "slug": "barminan",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/como-pudiste-hacerme-esto-a-mi/",
+      "slug": "como-pudiste-hacerme-esto-a-mi",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-vida-es-una-palabra-muy-corta/",
+      "slug": "la-vida-es-una-palabra-muy-corta",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-conciertos/",
+      "slug": "los-conciertos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-cuentos-del-arbol-viejo/",
+      "slug": "los-cuentos-del-arbol-viejo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/maldito-vicio/",
+      "slug": "maldito-vicio",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nadie-me-esperaba/",
+      "slug": "nadie-me-esperaba",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/nunca-es-tarde/",
+      "slug": "nunca-es-tarde",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/rapsodia-en-negro-y-rojo/",
+      "slug": "rapsodia-en-negro-y-rojo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-anos-sesenta-en-granada-y-el-centro-eicu/",
+      "slug": "los-anos-sesenta-en-granada-y-el-centro-eicu",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-dadiva-escondida-en-la-palabra/",
+      "slug": "la-dadiva-escondida-en-la-palabra",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-catedral-de-los-suenos/",
+      "slug": "la-catedral-de-los-suenos",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-falsificador-de-la-alcazaba/",
+      "slug": "el-falsificador-de-la-alcazaba",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/gimena-el-sueno-de-una-tortuga/",
+      "slug": "gimena-el-sueno-de-una-tortuga",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/hilvanes-del-agua/",
+      "slug": "hilvanes-del-agua",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-ultimo-angel/",
+      "slug": "el-ultimo-angel",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/relatos-de-una-luna-muerta/",
+      "slug": "relatos-de-una-luna-muerta",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/trilogia-poetica-de-un-hombre-silente/",
+      "slug": "trilogia-poetica-de-un-hombre-silente",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/la-caja-de-pandora/",
+      "slug": "la-caja-de-pandora",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/monodialogos-frente-al-espejo/",
+      "slug": "monodialogos-frente-al-espejo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/memorial-shadow/",
+      "slug": "memorial-shadow",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/los-papeles-de-juan-espanol-la-mano-quemada/",
+      "slug": "los-papeles-de-juan-espanol-la-mano-quemada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/cuentos-de-otro-mundo/",
+      "slug": "cuentos-de-otro-mundo",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/decepciones/",
+      "slug": "decepciones",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-alba-inacabada/",
+      "slug": "el-alba-inacabada",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/el-relampago-en-la-habitacion/",
+      "slug": "el-relampago-en-la-habitacion",
+      "error": "HTTP 202"
+    },
+    {
+      "url": "https://www.editorialnazari.com/libro/ciber-evolucion/",
+      "slug": "ciber-evolucion",
+      "error": "HTTP 202"
+    }
+  ],
+  "sin_datos": [],
+  "libros": []
+}

@@ -1,0 +1,279 @@
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  EDITORIAL NAZARÍ — Ventas cruzadas en el carrito
+  ───────────────────────────────────────────────────────────────────────────────
+  INSTRUCCIONES:
+  1. Copia el bloque <style> dentro de tu <head> en catalogo.html
+  2. Copia el bloque <div id="naz-crosssell-modal"> justo antes de </body>
+  3. Copia el bloque <script> justo antes de </body> (después del modal)
+  4. En tu botón "Pagar" / "Ir al pago", llama a NazariCrossSell.mostrar(carrito)
+     en lugar de llamar directamente a crearCheckoutNazari.
+
+  EJEMPLO DE INTEGRACIÓN en tu botón de pago existente:
+  ─────────────────────────────────────────────────────
+  // Antes (llamada directa a Stripe):
+  botonPagar.addEventListener('click', function() {
+    irACheckout(carrito);  // tu función existente
+  });
+
+  // Después (con ventas cruzadas):
+  botonPagar.addEventListener('click', function() {
+    NazariCrossSell.mostrar(carrito, function(carritoFinal) {
+      irACheckout(carritoFinal);  // se llama con el carrito actualizado
+    });
+  });
+
+  El parámetro `carrito` es un array de objetos { catalogo_id, cantidad }.
+  El callback recibe el carrito final (original + los que el usuario añadió).
+  ═══════════════════════════════════════════════════════════════════════════════
+-->
+
+<!-- ══ CSS — pegar dentro de <head> ══════════════════════════════════════════ -->
+<style>
+#naz-crosssell-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  font-family: 'Georgia', serif;
+}
+#naz-crosssell-modal.visible { display: flex; }
+
+.naz-cs-box {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  padding: 32px 28px 28px;
+}
+.naz-cs-header { text-align: center; margin-bottom: 24px; }
+.naz-cs-eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: #6B1E2A; margin-bottom: 6px;
+}
+.naz-cs-titulo { font-size: 22px; font-weight: 800; color: #1a1a1a; margin: 0 0 6px; }
+.naz-cs-subtitulo { font-size: 14px; color: #666; margin: 0; }
+
+.naz-cs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.naz-cs-card {
+  border: 2px solid #f0ebe6;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  text-align: center;
+}
+.naz-cs-card:hover { border-color: #6B1E2A; }
+.naz-cs-card.seleccionado {
+  border-color: #6B1E2A;
+  box-shadow: 0 0 0 3px rgba(107,30,42,0.15);
+  background: #fdf7f7;
+}
+.naz-cs-card-check {
+  display: none;
+  position: absolute; top: 8px; right: 8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #6B1E2A; color: #fff;
+  font-size: 13px; line-height: 22px; text-align: center;
+  font-weight: 700;
+}
+.naz-cs-card.seleccionado .naz-cs-card-check { display: block; }
+.naz-cs-cover {
+  aspect-ratio: 2/3; border-radius: 6px; overflow: hidden;
+  background: #f1e8e0; margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.naz-cs-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+.naz-cs-nombre { font-size: 12px; font-weight: 700; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3; }
+.naz-cs-autor  { font-size: 11px; color: #888; margin: 0 0 5px; }
+.naz-cs-precio { font-size: 13px; font-weight: 700; color: #6B1E2A; margin: 0; }
+
+.naz-cs-acciones {
+  display: flex; gap: 12px; flex-direction: column;
+}
+.naz-cs-btn-add {
+  background: #6B1E2A; color: #fff;
+  border: none; border-radius: 8px; padding: 14px 24px;
+  font-size: 15px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: background 0.2s;
+}
+.naz-cs-btn-add:hover { background: #8a2535; }
+.naz-cs-btn-add:disabled { background: #ccc; cursor: default; }
+.naz-cs-btn-skip {
+  background: none; border: none; color: #888;
+  font-size: 13px; cursor: pointer; font-family: inherit;
+  text-decoration: underline; padding: 4px;
+}
+.naz-cs-btn-skip:hover { color: #444; }
+
+.naz-cs-loading { text-align: center; padding: 32px; color: #888; font-size: 14px; }
+
+@media (max-width: 480px) {
+  .naz-cs-box { padding: 24px 16px 20px; }
+  .naz-cs-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<!-- ══ Modal HTML — pegar justo antes de </body> ══════════════════════════════ -->
+<div id="naz-crosssell-modal" role="dialog" aria-modal="true" aria-labelledby="naz-cs-titulo-txt">
+  <div class="naz-cs-box">
+    <div class="naz-cs-header">
+      <p class="naz-cs-eyebrow">También de este autor</p>
+      <h2 class="naz-cs-titulo" id="naz-cs-titulo-txt">¿Añades algo más?</h2>
+      <p class="naz-cs-subtitulo" id="naz-cs-subtitulo-txt">Otros libros del mismo autor que puede que te interesen</p>
+    </div>
+    <div id="naz-cs-contenido">
+      <div class="naz-cs-loading">Buscando recomendaciones…</div>
+    </div>
+    <div class="naz-cs-acciones">
+      <button class="naz-cs-btn-add" id="naz-cs-btn-add" disabled>Añadir al pedido y pagar</button>
+      <button class="naz-cs-btn-skip" id="naz-cs-btn-skip">No gracias, continuar sin añadir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Script — pegar justo antes de </body>, después del modal ══════════════ -->
+<script>
+(function () {
+  var ENDPOINT = "https://europe-west1-planeaapp-4bea4.cloudfunctions.net/recomendacionesNazari";
+
+  var _carrito         = [];   // carrito original
+  var _seleccionados   = {};   // catalogo_id → true
+  var _recomendaciones = [];   // libros cargados
+  var _onProceed       = null; // callback final
+
+  var modal     = document.getElementById("naz-crosssell-modal");
+  var contenido = document.getElementById("naz-cs-contenido");
+  var btnAdd    = document.getElementById("naz-cs-btn-add");
+  var btnSkip   = document.getElementById("naz-cs-btn-skip");
+
+  function cerrar() {
+    modal.classList.remove("visible");
+    _seleccionados = {};
+    _recomendaciones = [];
+    contenido.innerHTML = '<div class="naz-cs-loading">Buscando recomendaciones…</div>';
+    btnAdd.disabled = true;
+  }
+
+  function actualizarBoton() {
+    var n = Object.keys(_seleccionados).length;
+    btnAdd.disabled = n === 0;
+    btnAdd.textContent = n > 0
+      ? "Añadir " + n + " libro" + (n > 1 ? "s" : "") + " al pedido y pagar"
+      : "Añadir al pedido y pagar";
+  }
+
+  function renderLibros(libros) {
+    if (!libros.length) {
+      // Sin recomendaciones → saltar modal y proceder directamente
+      cerrar();
+      _onProceed && _onProceed(_carrito);
+      return;
+    }
+    _recomendaciones = libros;
+    var html = '<div class="naz-cs-grid">';
+    libros.forEach(function (lib) {
+      var img = lib.imagen_url
+        ? '<div class="naz-cs-cover"><img src="' + lib.imagen_url + '" alt="' + lib.nombre + '" loading="lazy"></div>'
+        : '<div class="naz-cs-cover"></div>';
+      html +=
+        '<div class="naz-cs-card" data-id="' + lib.catalogo_id + '">'
+        + '<span class="naz-cs-card-check">✓</span>'
+        + img
+        + '<p class="naz-cs-nombre">' + lib.nombre + '</p>'
+        + '<p class="naz-cs-autor">'  + lib.autor   + '</p>'
+        + '<p class="naz-cs-precio">' + lib.precio  + ' €</p>'
+        + '</div>';
+    });
+    html += '</div>';
+    contenido.innerHTML = html;
+
+    contenido.querySelectorAll(".naz-cs-card").forEach(function (card) {
+      card.addEventListener("click", function () {
+        var id = card.getAttribute("data-id");
+        if (_seleccionados[id]) {
+          delete _seleccionados[id];
+          card.classList.remove("seleccionado");
+        } else {
+          _seleccionados[id] = true;
+          card.classList.add("seleccionado");
+        }
+        actualizarBoton();
+      });
+    });
+
+    actualizarBoton();
+  }
+
+  function cargarRecomendaciones(ids) {
+    fetch(ENDPOINT + "?catalogo_ids=" + ids.join(","))
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderLibros(data.libros || []); })
+      .catch(function () {
+        // Error de red → saltar modal
+        cerrar();
+        _onProceed && _onProceed(_carrito);
+      });
+  }
+
+  btnAdd.addEventListener("click", function () {
+    var ids = Object.keys(_seleccionados);
+    var carritoFinal = _carrito.slice();
+    _recomendaciones.forEach(function (lib) {
+      if (_seleccionados[lib.catalogo_id]) {
+        carritoFinal.push({ catalogo_id: lib.catalogo_id, cantidad: 1 });
+      }
+    });
+    cerrar();
+    _onProceed && _onProceed(carritoFinal);
+  });
+
+  btnSkip.addEventListener("click", function () {
+    var carritoOriginal = _carrito.slice();
+    cerrar();
+    _onProceed && _onProceed(carritoOriginal);
+  });
+
+  // Cerrar al hacer clic fuera del box
+  modal.addEventListener("click", function (e) {
+    if (e.target === modal) {
+      var carritoOriginal = _carrito.slice();
+      cerrar();
+      _onProceed && _onProceed(carritoOriginal);
+    }
+  });
+
+  /**
+   * NazariCrossSell.mostrar(carrito, onProceed)
+   *
+   * carrito    → Array de { catalogo_id: string, cantidad: number }
+   * onProceed  → function(carritoFinal) — se llama con el carrito actualizado
+   *              para que puedas llamar a crearCheckoutNazari con él
+   *
+   * Si no hay recomendaciones, llama onProceed inmediatamente sin mostrar el modal.
+   */
+  window.NazariCrossSell = {
+    mostrar: function (carrito, onProceed) {
+      _carrito   = carrito || [];
+      _onProceed = onProceed || function () {};
+      var ids = _carrito.map(function (it) { return it.catalogo_id; }).filter(Boolean);
+      if (!ids.length) { _onProceed(_carrito); return; }
+      modal.classList.add("visible");
+      cargarRecomendaciones(ids);
+    }
+  };
+})();
+</script>

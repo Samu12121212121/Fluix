@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../domain/modelos/producto.dart';
+import '../../../domain/modelos/pedido.dart';
 import '../../../services/pedidos_service.dart';
+import '../../../services/catalogo_web_sync_service.dart';
+import 'detalle_pedido_nuevo_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO PEDIDOS — Catálogo · Inventario · Pedidos
@@ -56,77 +60,93 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     return _StockStatus('Disponible', const Color(0xFF22C55E));
   }
 
+  Future<void> _enviarPedidoPrueba() async {
+    final nombres = ['Ana Torres', 'Carlos Ruiz', 'Lucía Pérez', 'Miguel Sanz'];
+    final productos = [
+      ('Producto Básico', 12.50),
+      ('Pack Premium', 49.99),
+      ('Servicio Extra', 25.00),
+      ('Artículo Web', 8.75),
+    ];
+    final idx = DateTime.now().millisecond % 4;
+    try {
+      await _svc.crearPedido(
+        empresaId: widget.empresaId,
+        clienteNombre: nombres[idx],
+        clienteTelefono: '+34 6${idx}0 ${100 + idx * 111} ${200 + idx * 33}',
+        clienteCorreo: '${nombres[idx].toLowerCase().replaceAll(' ', '.')}@test.com',
+        lineas: [
+          LineaPedido(
+            productoId: 'test_${idx}',
+            productoNombre: productos[idx].$1,
+            precioUnitario: productos[idx].$2,
+            cantidad: (idx % 3) + 1,
+          ),
+        ],
+        origen: OrigenPedido.web,
+        metodoPago: MetodoPago.tarjeta,
+        usuarioNombre: 'Sistema',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📦 Pedido de ${nombres[idx]} enviado'),
+            backgroundColor: _kAzul,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: _kRojo),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(children: [
-        _glow(_kVerde, top: -120, left: -80),
-        _glow(_kAzul,  top: 200,  right: -100),
-        SafeArea(child: Column(children: [
-          _buildTopBar(),
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(children: [
+          // ── Header estilo empleados (sin back button) ─────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            ),
+            child: Row(children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Text('Pedidos y Almacén', style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                SizedBox(height: 2),
+                Text('Catálogo · Inventario · Pedidos',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              ]),
+              const Spacer(),
+              if (kDebugMode)
+                IconButton(
+                  icon: const Icon(Icons.science_outlined, color: Color(0xFF6B7280)),
+                  tooltip: 'Pedido de prueba (web)',
+                  onPressed: _enviarPedidoPrueba,
+                ),
+            ]),
+          ),
           _buildTabBar(),
           Expanded(child: TabBarView(
             controller: _tabs,
             children: [_buildTabCatalogo(), _buildTabInventario(), _buildTabPedidos()],
           )),
-        ])),
-      ]),
+        ]),
+      ),
     );
   }
-
-  // ── Glow ─────────────────────────────────────────────────────────────────
-  Widget _glow(Color c, {double? top, double? left, double? right, double? bottom}) =>
-      Positioned(top: top, left: left, right: right, bottom: bottom,
-        child: IgnorePointer(child: Container(width: 320, height: 320,
-          decoration: BoxDecoration(shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: c.withValues(alpha: _dark ? 0.22 : 0.07),
-              blurRadius: 110, spreadRadius: 40)]))));
-
-  // ── Top bar ───────────────────────────────────────────────────────────────
-  Widget _buildTopBar() => Container(
-    padding: const EdgeInsets.fromLTRB(4, 6, 12, 6),
-    decoration: BoxDecoration(
-      color: _panel.withValues(alpha: 0.9),
-      border: Border(bottom: BorderSide(color: _border)),
-    ),
-    child: Row(children: [
-      IconButton(
-        icon: Icon(Icons.arrow_back_ios_new_rounded, color: _soft, size: 18),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      Container(width: 34, height: 34,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(10),
-          gradient: LinearGradient(colors: [_kVerde.withValues(alpha: 0.18), _kVerde.withValues(alpha: 0.04)]),
-          border: Border.all(color: _kVerde.withValues(alpha: 0.35))),
-        child: const Icon(Icons.inventory_2_rounded, color: _kVerde, size: 17)),
-      const SizedBox(width: 10),
-      Text('Pedidos y Almacén', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _text)),
-      const Spacer(),
-      GestureDetector(
-        onTap: () => setState(() => _dark = !_dark),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          width: 46, height: 24,
-          decoration: BoxDecoration(
-            color: _dark ? const Color(0xFF1E2A3A) : const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _dark ? _kVerde.withValues(alpha: 0.4) : const Color(0xFFCBD5E1)),
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 280), curve: Curves.easeInOutCubic,
-            alignment: _dark ? Alignment.centerLeft : Alignment.centerRight,
-            child: Container(width: 18, height: 18, margin: const EdgeInsets.symmetric(horizontal: 3),
-              decoration: BoxDecoration(shape: BoxShape.circle,
-                gradient: LinearGradient(colors: _dark
-                  ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                  : [const Color(0xFFF59E0B), const Color(0xFFD97706)])),
-              child: Icon(_dark ? Icons.nights_stay_rounded : Icons.wb_sunny_rounded, size: 10, color: Colors.white)),
-          ),
-        ),
-      ),
-    ]),
-  );
 
   // ── Tab bar ───────────────────────────────────────────────────────────────
   Widget _buildTabBar() => Container(
@@ -451,49 +471,115 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
   // TAB 2 — PEDIDOS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTabPedidos() => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-    stream: _movCol.orderBy('fecha', descending: true).limit(200).snapshots(),
+  Widget _buildTabPedidos() => StreamBuilder<List<Pedido>>(
+    stream: _svc.pedidosStream(widget.empresaId),
     builder: (ctx, snap) {
-      final docs = snap.data?.docs ?? [];
-      final filtrados = docs.where((d) {
-        final m = d.data();
-        return (m['producto_nombre'] ?? '').toString().toLowerCase().contains(_busPed.toLowerCase());
-      }).toList();
-      final entradas = docs.where((d) => d.data()['tipo'] == 'entrada').length;
-      final salidas  = docs.where((d) => d.data()['tipo'] == 'salida').length;
-      final ajustes  = docs.where((d) => d.data()['tipo'] == 'ajuste').length;
-      final hoy      = docs.where((d) {
-        final ts = d.data()['fecha'];
-        if (ts == null) return false;
-        final dt = (ts as Timestamp).toDate();
-        final now = DateTime.now();
-        return dt.year == now.year && dt.month == now.month && dt.day == now.day;
-      }).length;
+      if (snap.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final todos = snap.data ?? [];
+      final q = _busPed.toLowerCase();
+      final filtrados = q.isEmpty
+          ? todos
+          : todos.where((p) =>
+              p.clienteNombre.toLowerCase().contains(q) ||
+              p.lineas.any((l) => l.productoNombre.toLowerCase().contains(q))).toList();
+      final now = DateTime.now();
+      final hoy = todos.where((p) =>
+        p.fechaCreacion.year == now.year &&
+        p.fechaCreacion.month == now.month &&
+        p.fechaCreacion.day == now.day).length;
+      final pendientes = todos.where((p) => p.estado == EstadoPedido.pendiente).length;
+      final cobrados   = todos.where((p) => p.estadoPago == EstadoPago.pagado).length;
 
       return Column(children: [
         Container(color: _bg, padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
           child: Row(children: [
-            _kpi('$entradas', 'Entradas', _kVerde),   const SizedBox(width: 8),
-            _kpi('$salidas', 'Salidas', _kRojo),       const SizedBox(width: 8),
-            _kpi('$ajustes', 'Ajustes', _kAzul),       const SizedBox(width: 8),
-            _kpi('$hoy', 'Hoy', _kAmbar),
+            _kpi('${todos.length}', 'Total', _kAzul),   const SizedBox(width: 8),
+            _kpi('$pendientes',     'Pendientes', _kAmbar), const SizedBox(width: 8),
+            _kpi('$cobrados',       'Cobrados', _kVerde), const SizedBox(width: 8),
+            _kpi('$hoy',            'Hoy', _soft),
           ]),
         ),
         Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          child: Row(children: [
-            Expanded(child: _searchBox(_busPed, 'Buscar por producto...', (v) => setState(() => _busPed = v))),
-            const SizedBox(width: 8),
-            _addBtn('Registrar', () => _mostrarPopupMovimiento()),
-          ])),
+          child: _searchBox(_busPed, 'Buscar por cliente o producto…',
+              (v) => setState(() => _busPed = v))),
         Expanded(child: filtrados.isEmpty
-          ? _empty('Sin movimientos registrados')
+          ? _empty('Sin pedidos registrados')
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
               itemCount: filtrados.length,
-              itemBuilder: (_, i) => _movimientoCard(filtrados[i].data()))),
+              itemBuilder: (_, i) => _pedidoCard(filtrados[i]))),
       ]);
     },
   );
+
+  Widget _pedidoCard(Pedido p) {
+    final Color estadoColor;
+    final String estadoLabel;
+    switch (p.estado) {
+      case EstadoPedido.pendiente:     estadoColor = _kAmbar;  estadoLabel = 'Pendiente'; break;
+      case EstadoPedido.confirmado:    estadoColor = _kAzul;   estadoLabel = 'Confirmado'; break;
+      case EstadoPedido.enPreparacion: estadoColor = const Color(0xFF8B5CF6); estadoLabel = 'En preparación'; break;
+      case EstadoPedido.enviado:       estadoColor = const Color(0xFF0EA5E9); estadoLabel = 'Enviado'; break;
+      case EstadoPedido.listo:         estadoColor = _kVerde;  estadoLabel = 'Listo'; break;
+      case EstadoPedido.entregado:     estadoColor = const Color(0xFF6B7280); estadoLabel = 'Entregado'; break;
+      case EstadoPedido.cancelado:     estadoColor = _kRojo;   estadoLabel = 'Cancelado'; break;
+    }
+    final cobrado = p.estadoPago == EstadoPago.pagado;
+    final fecha   = DateFormat('dd/MM HH:mm').format(p.fechaCreacion);
+    final resumen = p.lineas.map((l) => '${l.productoNombre} ×${l.cantidad}').join(', ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: _panel, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => DetallePedidoNuevoScreen.showPopup(context, p, widget.empresaId),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(p.clienteNombre,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _text),
+                overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Text('${p.total.toStringAsFixed(2)} €',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                  color: cobrado ? _kVerde : _text)),
+            ]),
+            const SizedBox(height: 6),
+            Text(resumen, style: TextStyle(fontSize: 12, color: _soft),
+              overflow: TextOverflow.ellipsis, maxLines: 2),
+            const SizedBox(height: 8),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: estadoColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: estadoColor.withValues(alpha: 0.35))),
+                child: Text(estadoLabel,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: estadoColor))),
+              const SizedBox(width: 6),
+              if (cobrado)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _kVerde.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20)),
+                  child: Text('✓ Cobrado',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _kVerde))),
+              const Spacer(),
+              Text(fecha, style: TextStyle(fontSize: 10, color: _soft, fontFamily: 'monospace')),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
 
   Widget _movimientoCard(Map<String, dynamic> m) {
     final tipo    = m['tipo'] as String? ?? 'entrada';
@@ -835,8 +921,9 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
                         if (ubicCtrl.text.trim().isNotEmpty) 'ubicacion': ubicCtrl.text.trim(),
                         if (descCtrl.text.trim().isNotEmpty) 'descripcion': descCtrl.text.trim(),
                       };
+                      Producto productoGuardado;
                       if (prod == null) {
-                        await _svc.crearProducto(
+                        productoGuardado = await _svc.crearProducto(
                           empresaId: widget.empresaId,
                           nombre: nombre,
                           categoria: campos['categoria'] as String,
@@ -851,7 +938,17 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
                         );
                       } else {
                         await _svc.actualizarProducto(widget.empresaId, prod.id, campos);
+                        productoGuardado = prod.copyWith(
+                          nombre: nombre,
+                          categoria: campos['categoria'] as String?,
+                          precio: campos['precio'] as double?,
+                          descripcion: campos['descripcion'] as String?,
+                        );
                       }
+                      // Sincronizar automáticamente con secciones web vinculadas (fire & forget)
+                      CatalogoWebSyncService()
+                          .sincronizarProducto(widget.empresaId, productoGuardado)
+                          .ignore();
                       if (ctx.mounted) Navigator.pop(ctx);
                     } finally {
                       if (ctx.mounted) setS(() => guardando = false);

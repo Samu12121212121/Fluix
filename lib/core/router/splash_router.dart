@@ -44,7 +44,7 @@ class _SplashRouterState extends State<SplashRouter> {
 
       if (userData == null) {
         // Usuario sin datos -> onboarding o registro
-        return const PantallaOnboarding();
+        return PantallaOnboarding(empresaId: uid);
       }
 
       final nombre = (userData['nombre'] as String?) ?? '';
@@ -54,7 +54,7 @@ class _SplashRouterState extends State<SplashRouter> {
       // Sin empresa → flujo de registro social incompleto
       if (empresaId == null) {
         if (nombre.isEmpty && correo.isEmpty) {
-          return const PantallaOnboarding();
+          return PantallaOnboarding(empresaId: uid);
         }
         return PantallaRegistrarEmpresaSocial(
           nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',

@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../domain/modelos/contabilidad.dart';
 import '../domain/modelos/factura.dart';
 import '../domain/modelos/factura_recibida.dart';
+import '../domain/modelos/albaran_recibido.dart';
 import '../core/utils/validador_nif_cif.dart';
 
 /// Servicio central de contabilidad.
@@ -23,6 +24,9 @@ class ContabilidadService {
 
   CollectionReference<Map<String, dynamic>> _facturasRecibidas(String e) =>
       _db.collection('empresas').doc(e).collection('facturas_recibidas');
+
+  CollectionReference<Map<String, dynamic>> _albaranesRecibidos(String e) =>
+      _db.collection('empresas').doc(e).collection('albaranes_recibidos');
 
   // ═════════════════════════════════════════════════════════════════════════
   // PROVEEDORES
@@ -817,6 +821,80 @@ class ContabilidadService {
       'pendientes': facturas.where((f) => f.estaPendiente).length,
     };
   }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // ALBARANES RECIBIDOS (de proveedores)
+  // ═════════════════════════════════════════════════════════════════════════
+
+  Stream<List<AlbaranRecibido>> obtenerAlbaranesRecibidos(String empresaId) {
+    return _albaranesRecibidos(empresaId)
+        .orderBy('fecha_recepcion', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => AlbaranRecibido.fromFirestore(d)).toList());
+  }
+
+  Stream<List<AlbaranRecibido>> obtenerAlbaranesRecibidosPorEstado(
+    String empresaId,
+    EstadoAlbaranRecibido estado,
+  ) {
+    return _albaranesRecibidos(empresaId)
+        .where('estado', isEqualTo: estado.name)
+        .orderBy('fecha_recepcion', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => AlbaranRecibido.fromFirestore(d)).toList());
+  }
+
+  Future<AlbaranRecibido> guardarAlbaranRecibido({
+    required String empresaId,
+    required String numeroAlbaran,
+    required String nombreProveedor,
+    required DateTime fechaAlbaran,
+    required DateTime fechaRecepcion,
+    required List<LineaAlbaran> lineas,
+    String nifProveedor = '',
+    String telefonoProveedor = '',
+    EstadoAlbaranRecibido estado = EstadoAlbaranRecibido.pendiente,
+    String notas = '',
+    String? idEditar,
+  }) async {
+    final ahora = DateTime.now();
+    final albaran = AlbaranRecibido(
+      id:                 idEditar ?? '',
+      empresaId:          empresaId,
+      numeroAlbaran:      numeroAlbaran.trim(),
+      nombreProveedor:    nombreProveedor.trim(),
+      nifProveedor:       nifProveedor.trim(),
+      telefonoProveedor:  telefonoProveedor.trim(),
+      fechaAlbaran:       fechaAlbaran,
+      fechaRecepcion:     fechaRecepcion,
+      lineas:             lineas,
+      estado:             estado,
+      notas:              notas.trim(),
+      fechaCreacion:      ahora,
+      fechaActualizacion: ahora,
+    );
+    final ref = (idEditar != null && idEditar.isNotEmpty)
+        ? _albaranesRecibidos(empresaId).doc(idEditar)
+        : _albaranesRecibidos(empresaId).doc();
+    final data = albaran.toFirestore();
+    data['id'] = ref.id;
+    await ref.set(data);
+    return AlbaranRecibido.fromFirestore(await ref.get());
+  }
+
+  Future<void> actualizarEstadoAlbaranRecibido({
+    required String empresaId,
+    required String albaranId,
+    required EstadoAlbaranRecibido nuevoEstado,
+  }) async {
+    await _albaranesRecibidos(empresaId).doc(albaranId).update({
+      'estado': nuevoEstado.name,
+      'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
+  Future<void> eliminarAlbaranRecibido(String empresaId, String albaranId) =>
+      _albaranesRecibidos(empresaId).doc(albaranId).delete();
 
   // ═════════════════════════════════════════════════════════════════════════
   // CONVERSIÓN DE DIVISA — BCE

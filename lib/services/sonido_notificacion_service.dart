@@ -1,223 +1,80 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-// ── TIPOS DE NOTIFICACIÓN ─────────────────────────────────────────────────────
-
-/// Tipos de evento para los que se puede configurar un sonido
-enum TipoNotificacion {
-  nuevaReserva,
-  nuevaValoracion,
-  nuevoPedido,
-  tareaAsignada,
-  suscripcionPorVencer,
-  general,
-}
+import 'package:flutter/foundation.dart';
+import 'bandeja_notificaciones_service.dart';
 
 extension TipoNotificacionExt on TipoNotificacion {
-  String get id {
-    switch (this) {
-      case TipoNotificacion.nuevaReserva:         return 'nueva_reserva';
-      case TipoNotificacion.nuevaValoracion:      return 'nueva_valoracion';
-      case TipoNotificacion.nuevoPedido:          return 'nuevo_pedido';
-      case TipoNotificacion.tareaAsignada:        return 'tarea_asignada';
-      case TipoNotificacion.suscripcionPorVencer: return 'suscripcion_por_vencer';
-      case TipoNotificacion.general:              return 'general';
-    }
-  }
-
-  String get nombre {
-    switch (this) {
-      case TipoNotificacion.nuevaReserva:         return 'Nueva Reserva';
-      case TipoNotificacion.nuevaValoracion:      return 'Nueva Valoración';
-      case TipoNotificacion.nuevoPedido:          return 'Nuevo Pedido';
-      case TipoNotificacion.tareaAsignada:        return 'Tarea Asignada';
-      case TipoNotificacion.suscripcionPorVencer: return 'Suscripción por Vencer';
-      case TipoNotificacion.general:              return 'General';
-    }
-  }
-
   static TipoNotificacion fromId(String id) {
-    return TipoNotificacion.values.firstWhere(
-      (t) => t.id == id,
-      orElse: () => TipoNotificacion.general,
-    );
-  }
-}
-
-// ── SONIDOS DISPONIBLES ───────────────────────────────────────────────────────
-
-enum SonidoNotif {
-  predeterminado,
-  urgente,
-  suave,
-  digital,
-  clasico,
-  sinSonido,
-}
-
-extension SonidoNotifExt on SonidoNotif {
-  String get id {
-    switch (this) {
-      case SonidoNotif.predeterminado: return 'predeterminado';
-      case SonidoNotif.urgente:        return 'urgente';
-      case SonidoNotif.suave:          return 'suave';
-      case SonidoNotif.digital:        return 'digital';
-      case SonidoNotif.clasico:        return 'clasico';
-      case SonidoNotif.sinSonido:      return 'sin_sonido';
+    switch (id) {
+      case 'tareaAsignada':
+      case 'tarea_asignada':
+        return TipoNotificacion.tareaAsignada;
+      case 'facturaVencida':
+      case 'factura_vencida':
+        return TipoNotificacion.facturaVencida;
+      case 'reservaNueva':
+      case 'reserva_nueva':
+      case 'nueva_reserva':
+        return TipoNotificacion.reservaNueva;
+      case 'alertaFiscal':
+      case 'alerta_fiscal':
+        return TipoNotificacion.alertaFiscal;
+      case 'nominaPendiente':
+      case 'nomina_pendiente':
+        return TipoNotificacion.nominaPendiente;
+      case 'pedidoNuevo':
+      case 'pedido_nuevo':
+      case 'nuevo_pedido':
+        return TipoNotificacion.pedidoNuevo;
+      case 'clienteNuevo':
+      case 'cliente_nuevo':
+        return TipoNotificacion.clienteNuevo;
+      case 'contactoWeb':
+      case 'contacto_web':
+        return TipoNotificacion.contactoWeb;
+      case 'sugerencia':
+        return TipoNotificacion.sugerencia;
+      case 'vacacionesSolicitadas':
+      case 'vacaciones_solicitadas':
+        return TipoNotificacion.vacacionesSolicitadas;
+      default:
+        return TipoNotificacion.generica;
     }
   }
 
-  String get nombre {
+  String get _archivoSonido {
     switch (this) {
-      case SonidoNotif.predeterminado: return 'Predeterminado';
-      case SonidoNotif.urgente:        return 'Urgente';
-      case SonidoNotif.suave:          return 'Suave';
-      case SonidoNotif.digital:        return 'Digital';
-      case SonidoNotif.clasico:        return 'Clásico';
-      case SonidoNotif.sinSonido:      return 'Sin sonido';
+      case TipoNotificacion.alertaFiscal:
+      case TipoNotificacion.facturaVencida:
+        return 'sounds/notif_urgente.wav';
+      case TipoNotificacion.reservaNueva:
+      case TipoNotificacion.contactoWeb:
+        return 'sounds/notif_clasico.wav';
+      case TipoNotificacion.pedidoNuevo:
+        return 'sounds/notif_digital.wav';
+      case TipoNotificacion.tareaAsignada:
+      case TipoNotificacion.clienteNuevo:
+      case TipoNotificacion.sugerencia:
+      case TipoNotificacion.vacacionesSolicitadas:
+        return 'sounds/notif_suave.wav';
+      default:
+        return 'sounds/notif_default.wav';
     }
-  }
-
-  String get nombreArchivo {
-    switch (this) {
-      case SonidoNotif.predeterminado: return 'sounds/notif_default.wav';
-      case SonidoNotif.urgente:        return 'sounds/notif_urgente.wav';
-      case SonidoNotif.suave:          return 'sounds/notif_suave.wav';
-      case SonidoNotif.digital:        return 'sounds/notif_digital.wav';
-      case SonidoNotif.clasico:        return 'sounds/notif_clasico.wav';
-      case SonidoNotif.sinSonido:      return 'sounds/sin_sonido.wav';
-    }
-  }
-
-  static SonidoNotif fromId(String id) {
-    return SonidoNotif.values.firstWhere(
-      (s) => s.id == id,
-      orElse: () => SonidoNotif.predeterminado,
-    );
   }
 }
 
-// ── SERVICIO ──────────────────────────────────────────────────────────────────
-
-/// Servicio para gestionar los sonidos de notificación en primer plano.
-/// Las preferencias se guardan en Firestore bajo usuarios/{uid}/configuracion/sonidos
 class SonidoNotificacionService {
   static final SonidoNotificacionService _instance =
-      SonidoNotificacionService._();
+      SonidoNotificacionService._internal();
   factory SonidoNotificacionService() => _instance;
-  SonidoNotificacionService._();
+  SonidoNotificacionService._internal();
 
   final AudioPlayer _player = AudioPlayer();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Caché local de preferencias para evitar lecturas repetidas
-  Map<String, String>? _preferenciasCache;
-
-  // ── LECTURA / ESCRITURA ────────────────────────────────────────────────────
-
-  /// Devuelve el sonido configurado para un tipo de notificación.
-  /// Primero usa la caché; si no, lee de Firestore.
-  Future<SonidoNotif> obtenerSonido(TipoNotificacion tipo) async {
-    if (_preferenciasCache == null) {
-      await _cargarPreferencias();
-    }
-    final id = _preferenciasCache?[tipo.id] ?? SonidoNotif.predeterminado.id;
-    return SonidoNotifExt.fromId(id);
-  }
-
-  /// Guarda la preferencia de sonido para un tipo en Firestore y en caché.
-  Future<void> guardarSonido(TipoNotificacion tipo, SonidoNotif sonido) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    _preferenciasCache ??= {};
-    _preferenciasCache![tipo.id] = sonido.id;
-
-    try {
-      await _firestore
-          .collection('usuarios')
-          .doc(uid)
-          .collection('configuracion')
-          .doc('sonidos')
-          .set(
-        {tipo.id: sonido.id},
-        SetOptions(merge: true),
-      );
-    } catch (e) {
-      print('❌ Error guardando preferencia de sonido: $e');
-    }
-  }
-
-  /// Devuelve el mapa completo tipo → sonido (para la pantalla de ajustes)
-  Future<Map<TipoNotificacion, SonidoNotif>> obtenerTodas() async {
-    if (_preferenciasCache == null) {
-      await _cargarPreferencias();
-    }
-    final result = <TipoNotificacion, SonidoNotif>{};
-    for (final tipo in TipoNotificacion.values) {
-      final id = _preferenciasCache?[tipo.id] ?? SonidoNotif.predeterminado.id;
-      result[tipo] = SonidoNotifExt.fromId(id);
-    }
-    return result;
-  }
-
-  /// Invalida la caché (útil al hacer logout)
-  void limpiarCache() => _preferenciasCache = null;
-
-  // ── REPRODUCCIÓN ──────────────────────────────────────────────────────────
-
-  /// Reproduce el sonido configurado para un tipo de notificación.
-  /// Llamar desde [NotificacionesService] cuando llega una notificación en primer plano.
   Future<void> reproducirParaTipo(TipoNotificacion tipo) async {
-    final sonido = await obtenerSonido(tipo);
-    await reproducir(sonido);
-  }
-
-  /// Reproduce un sonido concreto. Útil para preescucha en ajustes.
-  Future<void> reproducir(SonidoNotif sonido) async {
-    if (sonido == SonidoNotif.sinSonido) return;
     try {
-      // stop() puede lanzar si el player está en estado IDLE; lo ignoramos
-      try { await _player.stop(); } catch (_) {}
-      // Reproducir desde assets (todos los archivos .wav están en assets/sounds/)
-      await _player.play(AssetSource(sonido.nombreArchivo));
+      await _player.play(AssetSource(tipo._archivoSonido));
     } catch (e) {
-      // No hay fallback con UrlSource: en Android >=10 los URI content:// de
-      // system/notification_sound crashean el MediaPlayer. Simplemente logueamos.
-      print('⚠️ No se pudo reproducir sonido ${sonido.id}: $e');
-    }
-  }
-
-  // ── PRIVADO ───────────────────────────────────────────────────────────────
-
-  Future<void> _cargarPreferencias() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      _preferenciasCache = {};
-      return;
-    }
-    try {
-      final doc = await _firestore
-          .collection('usuarios')
-          .doc(uid)
-          .collection('configuracion')
-          .doc('sonidos')
-          .get();
-
-      if (doc.exists) {
-        _preferenciasCache = Map<String, String>.from(
-          (doc.data() ?? {}).map((k, v) => MapEntry(k, v.toString())),
-        );
-      } else {
-        _preferenciasCache = {};
-      }
-    } catch (e) {
-      print('❌ Error cargando preferencias de sonido: $e');
-      _preferenciasCache = {};
+      if (kDebugMode) print('⚠️ SonidoNotificacionService: $e');
     }
   }
 }
-
-
-

@@ -135,9 +135,7 @@ class Mod390PosicionalService {
 
 class Mod390Builder {
   static const _version = '1.02';
-  // ⚠️ IMPORTANTE: Reemplazar con el NIF REAL de FluixTech (empresa desarrolladora).
-  // Un NIF ficticio puede causar rechazo del fichero por la AEAT.
-  static const _nifDesarrollador = 'B12345678'; // TODO: sustituir por NIF real de FluixTech
+  static const _nifDesarrollador = 'B26997528'; // NIF FluixTech — mismo que verifactu_service.dart NIF_FABRICANTE
   ///
   /// Estructura total:
   ///   Cabecera (328 pos) + páginas + cierre (18 pos)

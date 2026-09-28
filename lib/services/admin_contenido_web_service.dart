@@ -15,6 +15,7 @@ class AdminContenidoWebService {
         nombre: nombre,
         descripcion: descripcion,
         activa: false, // Por defecto desactivada hasta que el empresario la configure
+        tipo: TipoSeccion.texto,
         contenido: ContenidoSeccion(
           titulo: 'Título pendiente de configurar',
           texto: 'Este contenido debe ser editado por el empresario.',

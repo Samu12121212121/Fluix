@@ -15,8 +15,9 @@ import 'pantalla_editor_blog.dart';
 class TabBlogWeb extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
+  final String? seccionId;
 
-  const TabBlogWeb({super.key, required this.empresaId, required this.svc});
+  const TabBlogWeb({super.key, required this.empresaId, required this.svc, this.seccionId});
 
   @override
   State<TabBlogWeb> createState() => _TabBlogWebState();
@@ -87,7 +88,9 @@ class _TabBlogWebState extends State<TabBlogWeb> {
         final categorias = catSnap.data ?? [];
 
         return StreamBuilder<List<EntradaBlog>>(
-          stream: widget.svc.obtenerBlog(widget.empresaId),
+          stream: widget.seccionId != null
+              ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
+              : widget.svc.obtenerBlog(widget.empresaId),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());

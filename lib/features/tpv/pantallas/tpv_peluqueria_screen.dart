@@ -440,12 +440,16 @@ class TpvPeluqueriaScreen extends StatefulWidget {
   final String empresaId;
   final bool esAdmin;
   final bool esPropietario;
+  final bool embedded;
+  final void Function(TpvEmbedActions)? onEmbedReady;
 
   const TpvPeluqueriaScreen({
     super.key,
     required this.empresaId,
     this.esAdmin = false,
     this.esPropietario = false,
+    this.embedded = false,
+    this.onEmbedReady,
   });
 
   @override
@@ -463,6 +467,7 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
 
   // ── Pedidos en espera ─────────────────────────────────────────────────────
   final _holdNotifier = HoldPedidosNotifier();
+  late final ValueNotifier<int> _holdCountNotifier;
 
   Timer? _relojTimer;
   String _hora = '';
@@ -489,10 +494,14 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
   void initState() {
     super.initState();
     _uid = FirebaseAuth.instance.currentUser?.uid;
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    _holdCountNotifier = ValueNotifier(0);
+    _holdNotifier.addListener(() => _holdCountNotifier.value = _holdNotifier.pedidos.length);
+    if (!widget.embedded) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _hora = DateFormat('HH:mm').format(DateTime.now());
     _relojTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (mounted) {
@@ -523,6 +532,112 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
       if (mounted) setState(() => _btConectado = v);
     });
     _cargarTema();
+    // Registrar acciones en el header del dashboard (solo modo embebido)
+    if (widget.embedded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onEmbedReady?.call(TpvEmbedActions(
+          abrirCajon: _abrirCajon,
+          aperturaCaja: () { _mostrarAperturaCaja(); },
+          cierreCaja: () => setState(() => _mostrandoCierre = !_mostrandoCierre),
+          verHold: () async {
+            final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+            if (recuperado != null && mounted) {
+              final lineas = recuperado.lineas;
+              for (final m in lineas) {
+                _lineasTicket.add({
+                  'nombre': m['nombre'] ?? '',
+                  'precio': (m['precioUnitario'] as num?)?.toDouble() ?? 0,
+                  'cantidad': (m['cantidad'] as num?)?.toInt() ?? 1,
+                  'productoId': m['productoId'] ?? '',
+                });
+              }
+              setState(() {});
+            }
+          },
+          holdCount: _holdCountNotifier,
+          masOpciones: () => _mostrarMasOpcionesTPV(context),
+        ));
+      });
+    }
+  }
+
+  Future<void> _mostrarMasOpcionesTPV(BuildContext ctx) async {
+    await showModalBottomSheet(
+      context: ctx,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Tickets del turno'),
+              onTap: () { Navigator.pop(ctx); HistorialTicketsWidget.mostrar(ctx, widget.empresaId); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Estadísticas del turno'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showModalBottomSheet(context: ctx, isScrollControlled: true,
+                    backgroundColor: const Color(0xFF0A0F23),
+                    shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                    builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.keyboard_return_outlined),
+              title: const Text('Devoluciones'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showDialog(context: ctx,
+                    builder: (_) => DialogoDevoluciones(
+                        empresaId: widget.empresaId,
+                        colorPrimario: _colorPrimario));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.schedule_rounded),
+              title: const Text('Fiados pendientes'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(ctx, MaterialPageRoute(
+                    builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId)));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Personalizar tema'),
+              onTap: () { Navigator.pop(ctx); _abrirPersonalizacion(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.print_outlined),
+              title: const Text('Configurar impresora'),
+              onTap: () { Navigator.pop(ctx); _mostrarConfigImpresora(); },
+            ),
+            if (widget.esAdmin)
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Configuración TPV'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(ctx, MaterialPageRoute(
+                      builder: (_) => ConfiguracionFacturacionTpvScreen(
+                          empresaId: widget.empresaId,
+                          esPropietario: widget.esPropietario)));
+                },
+              ),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      ),
+    );
   }
 
   Future<void> _cargarTema() async {
@@ -697,7 +812,10 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
     _relojTimer?.cancel();
     _connectSub?.cancel();
     _holdNotifier.dispose();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    _holdCountNotifier.dispose();
+    if (!widget.embedded) {
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
     super.dispose();
   }
 
@@ -715,7 +833,7 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
   Widget build(BuildContext context) {
     if (_mostrandoCierre) {
       return Scaffold(
-        appBar: _buildAppBar(),
+        appBar: widget.embedded ? null : _buildAppBar(),
         body: _CierreWrapper(
           empresaId: widget.empresaId,
           fecha: DateTime.now(),
@@ -736,7 +854,7 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
       tema: tema,
       child: Scaffold(
       backgroundColor: _colorFondo,
-      appBar: _buildAppBar(),
+      appBar: widget.embedded ? null : _buildAppBar(),
       body: Column(children: [
         // ── Banner offline ─────────────────────────────────────────────────
         if (!_estaOnline)
@@ -831,16 +949,17 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: _colorPrimario,
-      foregroundColor: Colors.white,
+      backgroundColor: widget.embedded ? Colors.white : _colorPrimario,
+      foregroundColor: widget.embedded ? const Color(0xFF374151) : Colors.white,
       elevation: 0,
-      toolbarHeight: 48,
+      toolbarHeight: widget.embedded ? 40 : 48,
       automaticallyImplyLeading: false,
       title: Row(children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
+        if (!widget.embedded)
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            onPressed: () => Navigator.pop(context),
+          ),
         const Icon(Icons.content_cut, size: 18),
         const SizedBox(width: 6),
         const Text('TPV Peluquería',

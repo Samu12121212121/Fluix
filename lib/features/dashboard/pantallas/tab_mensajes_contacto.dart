@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../services/contacto_web_service.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -9,7 +10,7 @@ import '../../../services/contacto_web_service.dart';
 // envía automáticamente un email al visitante con Resend.
 // ═════════════════════════════════════════════════════════════════════════════
 
-class TabMensajesContacto extends StatelessWidget {
+class TabMensajesContacto extends StatefulWidget {
   final String empresaId;
   final Color color;
 
@@ -20,77 +21,156 @@ class TabMensajesContacto extends StatelessWidget {
   });
 
   @override
+  State<TabMensajesContacto> createState() => _TabMensajesContactoState();
+}
+
+class _TabMensajesContactoState extends State<TabMensajesContacto> {
+  // 'contacto' | 'manuscritos'
+  String _filtro = 'contacto';
+  final _svc = ContactoWebService();
+
+  @override
   Widget build(BuildContext context) {
-    final svc = ContactoWebService();
     return StreamBuilder<List<MensajeContactoWeb>>(
-      stream: svc.obtenerMensajes(empresaId),
+      stream: _svc.obtenerMensajes(widget.empresaId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        final mensajes = snapshot.data ?? [];
-        if (mensajes.isEmpty) {
-          return _buildVacio();
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-          itemCount: mensajes.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, i) {
-            final msg = mensajes[i];
-            return _TarjetaMensaje(
-              mensaje: msg,
-              color: color,
-              onTap: () => _abrirDetalle(context, msg),
-            );
-          },
-        );
+        final todos = snapshot.data ?? [];
+        final contacto    = todos.where((m) => !m.esManuscrito).toList();
+        final manuscritos = todos.where((m) => m.esManuscrito).toList();
+        final lista = _filtro == 'manuscritos' ? manuscritos : contacto;
+        final sinLeer = lista.where((m) => !m.leido).length;
+
+        return Column(children: [
+          _buildHeader(sinLeer, contacto.length, manuscritos.length),
+          if (lista.isEmpty)
+            Expanded(child: _buildVacio())
+          else
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                itemCount: lista.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, i) => _TarjetaMensaje(
+                  mensaje: lista[i],
+                  color: widget.color,
+                  onTap: () => _abrirDetalle(context, lista[i]),
+                ),
+              ),
+            ),
+        ]);
       },
     );
   }
 
+  Widget _buildHeader(int sinLeer, int nContacto, int nManus) {
+    return Container(
+      color: Colors.white,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Sub-tabs
+        Row(children: [
+          _SubTab('Contacto', 'contacto', nContacto),
+          _SubTab('Manuscritos', 'manuscritos', nManus),
+          const Spacer(),
+          if (sinLeer > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: TextButton.icon(
+                onPressed: () => _svc.marcarTodosComoLeidos(widget.empresaId),
+                icon: Icon(Icons.done_all_rounded, size: 15, color: widget.color),
+                label: Text('Marcar leídos', style: TextStyle(fontSize: 11, color: widget.color)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+        ]),
+        Container(height: 1, color: const Color(0xFFE2E8F0)),
+        if (sinLeer > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text('$sinLeer sin leer',
+                style: TextStyle(fontSize: 11, color: widget.color, fontWeight: FontWeight.w600)),
+          ),
+      ]),
+    );
+  }
+
+  Widget _SubTab(String label, String id, int count) {
+    final activo = _filtro == id;
+    return GestureDetector(
+      onTap: () => setState(() => _filtro = id),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(
+            color: activo ? widget.color : Colors.transparent,
+            width: 2,
+          )),
+        ),
+        child: Row(children: [
+          Text(label, style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w600,
+            color: activo ? widget.color : const Color(0xFF64748B),
+          )),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: activo ? widget.color : const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$count', style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700,
+                color: activo ? Colors.white : const Color(0xFF64748B),
+              )),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
   void _abrirDetalle(BuildContext context, MensajeContactoWeb msg) {
-    // Marcar como leído
-    if (!msg.leido) {
-      ContactoWebService().marcarComoLeido(empresaId, msg.id);
-    }
+    if (!msg.leido) _svc.marcarComoLeido(widget.empresaId, msg.id);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _SheetDetalleMensaje(
-        empresaId: empresaId,
+        empresaId: widget.empresaId,
         mensaje: msg,
-        color: color,
+        color: widget.color,
       ),
     );
   }
 
   Widget _buildVacio() {
+    final esManuscrito = _filtro == 'manuscritos';
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.mark_email_unread_outlined, size: 72, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            'Sin mensajes de contacto',
-            style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Los mensajes del formulario web aparecerán aquí',
-            style: TextStyle(color: Colors.grey[500], fontSize: 13),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(
+          esManuscrito ? Icons.description_outlined : Icons.mark_email_unread_outlined,
+          size: 72, color: Colors.grey[300],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          esManuscrito ? 'Sin manuscritos recibidos' : 'Sin mensajes de contacto',
+          style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          esManuscrito
+              ? 'Los envíos del formulario de manuscritos aparecerán aquí'
+              : 'Los mensajes del formulario web aparecerán aquí',
+          style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          textAlign: TextAlign.center,
+        ),
+      ]),
     );
   }
 }
@@ -115,110 +195,92 @@ class _TarjetaMensaje extends StatelessWidget {
     final noLeido = !mensaje.leido;
     final respondido = mensaje.respondido;
 
-    return Card(
-      elevation: noLeido ? 3 : 1,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        side: noLeido
-            ? BorderSide(color: color.withValues(alpha: 0.5), width: 1.5)
-            : BorderSide.none,
+        border: Border.all(
+          color: noLeido
+              ? color.withValues(alpha: 0.3)
+              : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: noLeido ? 0.05 : 0.02),
+            blurRadius: 6, offset: const Offset(0, 1))],
       ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Avatar
-              Container(
-                width: 44,
-                height: 44,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 10),
+              child: Container(
+                width: 8, height: 8,
                 decoration: BoxDecoration(
-                  color: noLeido
-                      ? color.withValues(alpha: 0.12)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
+                  color: noLeido ? color : const Color(0xFF10B981),
+                  shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Text(
-                    mensaje.nombre.isNotEmpty
-                        ? mensaje.nombre[0].toUpperCase()
-                        : 'C',
-                    style: TextStyle(
-                      color: noLeido ? color : Colors.grey[500],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+              ),
+            ),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(mensaje.nombre,
+                        style: TextStyle(
+                            fontWeight: noLeido ? FontWeight.w700 : FontWeight.w600,
+                            fontSize: 13.5,
+                            color: noLeido
+                                ? const Color(0xFF0F172A)
+                                : const Color(0xFF334155))),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            mensaje.nombre,
-                            style: TextStyle(
-                              fontWeight: noLeido
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _formatFecha(mensaje.fechaCreacion),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey[500]),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      mensaje.asunto,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: noLeido
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: noLeido ? Colors.black87 : Colors.grey[700],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      mensaje.mensaje,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[500]),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        if (noLeido)
-                          _Badge('NUEVO', color, color.withValues(alpha: 0.12)),
-                        if (respondido)
-                          _Badge('RESPONDIDO', Colors.green[700]!,
-                              Colors.green[50]!),
-                        if (!respondido && mensaje.leido)
-                          _Badge('PENDIENTE', Colors.orange[700]!,
-                              Colors.orange[50]!),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
-            ],
-          ),
+                  Text(_formatFecha(mensaje.fechaCreacion),
+                      style: const TextStyle(
+                          fontSize: 10.5, color: Color(0xFF94A3B8))),
+                ]),
+                const SizedBox(height: 2),
+                Text(mensaje.asunto,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: noLeido ? FontWeight.w600 : FontWeight.normal,
+                        color: noLeido
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFF64748B))),
+                const SizedBox(height: 2),
+                Text(mensaje.mensaje,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11.5, color: Color(0xFF94A3B8))),
+                const SizedBox(height: 5),
+                Row(children: [
+                  if (noLeido)
+                    _statusBadge('Nuevo', color, color.withValues(alpha: 0.1)),
+                  if (respondido)
+                    _statusBadge('Respondido',
+                        const Color(0xFF059669), const Color(0xFFD1FAE5)),
+                  if (!respondido && mensaje.leido)
+                    _statusBadge('Pendiente',
+                        const Color(0xFFD97706), const Color(0xFFFEF3C7)),
+                ]),
+              ]),
+            ),
+          ]),
         ),
       ),
+    );
+  }
+
+  Widget _statusBadge(String label, Color textColor, Color bgColor) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+          color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10, color: textColor, fontWeight: FontWeight.w700)),
     );
   }
 
@@ -229,22 +291,6 @@ class _TarjetaMensaje extends StatelessWidget {
     if (dif.inDays < 7) return '${dif.inDays}d';
     return DateFormat('dd/MM').format(fecha);
   }
-}
-
-Widget _Badge(String label, Color textColor, Color bgColor) {
-  return Container(
-    margin: const EdgeInsets.only(right: 6),
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: bgColor,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-          fontSize: 10, color: textColor, fontWeight: FontWeight.w700),
-    ),
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,7 +355,7 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '✅ Respuesta enviada a ${widget.mensaje.email}'),
+              'Respuesta enviada a ${widget.mensaje.email}'),
           backgroundColor: Colors.green,
         ),
       );
@@ -351,6 +397,7 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
     final msg = widget.mensaje;
+    final c = widget.color;
 
     return Padding(
       padding:
@@ -369,7 +416,6 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
             controller: scrollCtrl,
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
             children: [
-              // Handle
               Center(
                 child: Container(
                   width: 40,
@@ -382,7 +428,6 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               ),
               const SizedBox(height: 16),
 
-              // Cabecera
               Row(
                 children: [
                   Expanded(
@@ -407,7 +452,23 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               ),
               const SizedBox(height: 16),
 
-              // Datos del remitente
+              // Badge tipo
+              if (msg.esManuscrito)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6B1E2A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF6B1E2A).withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.description_outlined, size: 13, color: Color(0xFF6B1E2A)),
+                    SizedBox(width: 5),
+                    Text('Manuscrito', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B1E2A))),
+                  ]),
+                ),
+
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -419,18 +480,60 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
                     _FilaDato(Icons.person_outline, 'Nombre', msg.nombre),
                     const Divider(height: 16),
                     _FilaDato(Icons.email_outlined, 'Email', msg.email),
-                    if (msg.telefono != null &&
-                        msg.telefono!.isNotEmpty) ...[
+                    if (msg.telefono != null && msg.telefono!.isNotEmpty) ...[
                       const Divider(height: 16),
-                      _FilaDato(
-                          Icons.phone_outlined, 'Teléfono', msg.telefono!),
+                      _FilaDato(Icons.phone_outlined, 'Teléfono', msg.telefono!),
+                    ],
+                    if (msg.tituloObra != null && msg.tituloObra!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _FilaDato(Icons.book_outlined, 'Título de la obra', msg.tituloObra!),
+                    ],
+                    if (msg.genero != null && msg.genero!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _FilaDato(Icons.category_outlined, 'Género', msg.genero!),
+                    ],
+                    if (msg.enlace != null && msg.enlace!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      _FilaDato(Icons.link_rounded, 'Enlace manuscrito', msg.enlace!),
+                    ],
+                    if (msg.archivoUrl != null && msg.archivoUrl!.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(children: [
+                          const Icon(Icons.picture_as_pdf_rounded, size: 18, color: Color(0xFF6B1E2A)),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(
+                            msg.archivoNombre ?? 'Manuscrito adjunto',
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                            overflow: TextOverflow.ellipsis,
+                          )),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: () async {
+                              final uri = Uri.parse(msg.archivoUrl!);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            icon: const Icon(Icons.download_rounded, size: 14),
+                            label: const Text('Abrir', style: TextStyle(fontSize: 12)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF6B1E2A),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ]),
+                      ),
                     ],
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Mensaje original
               const Text('Mensaje',
                   style: TextStyle(
                       fontSize: 13,
@@ -451,17 +554,16 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               ),
               const SizedBox(height: 24),
 
-              // Sección respuesta
               Row(
                 children: [
-                  const Icon(Icons.reply, size: 16, color: Color(0xFF00796B)),
+                  Icon(Icons.reply, size: 16, color: c),
                   const SizedBox(width: 6),
                   Text(
                     _respondido ? 'Respuesta enviada' : 'Responder',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF00796B)),
+                        color: c),
                   ),
                   const Spacer(),
                   if (_respondido && msg.fechaRespuesta != null)
@@ -472,9 +574,40 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
-              // Campo de respuesta
+              if (!_respondido) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: c.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: c.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.email_outlined, size: 14, color: c),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          children: [
+                            const TextSpan(text: 'Se enviará un email a '),
+                            TextSpan(
+                              text: msg.email,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: c),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+              ],
+
               TextField(
                 controller: _respCtrl,
                 maxLines: 5,
@@ -482,7 +615,7 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
                 decoration: InputDecoration(
                   hintText: _respondido
                       ? 'Ya se respondió este mensaje'
-                      : 'Escribe tu respuesta... Se enviará por email a ${msg.email}',
+                      : 'Escribe tu respuesta...',
                   filled: true,
                   fillColor: _respondido
                       ? Colors.green[50]
@@ -506,7 +639,7 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               if (!_respondido)
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child: FilledButton.icon(
                     onPressed: _enviando ? null : _enviarRespuesta,
                     icon: _enviando
                         ? const SizedBox(
@@ -514,16 +647,18 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
                             width: 16,
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.send),
+                        : const Icon(Icons.email_rounded, size: 18),
                     label: Text(_enviando
                         ? 'Enviando...'
-                        : 'Enviar respuesta por email'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00796B),
+                        : 'Enviar email de respuesta'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: c,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
+                      textStyle: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ),
                 )
@@ -592,4 +727,3 @@ class _FilaDato extends StatelessWidget {
     );
   }
 }
-

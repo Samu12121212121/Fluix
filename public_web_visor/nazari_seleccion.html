@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  EDITORIAL NAZARÍ — Página completa "La Selección Nazarí"
+  ───────────────────────────────────────────────────────────────────────────────
+  Sube este fichero a Hostinger como /seleccion-nazari/index.html
+  SDK con ID de empresa ya integrado. No necesita configuración adicional.
+  ═══════════════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>La Selección Nazarí — Editorial Nazarí</title>
+  <meta name="description" content="Los libros que el equipo de Editorial Nazarí recomienda ahora mismo.">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Georgia', serif; background: #FAFAF8; color: #1a1a1a; }
+
+    /* ── Hero ── */
+    .naz-hero {
+      background: #6B1E2A;
+      color: #fff;
+      padding: 80px 24px 60px;
+      text-align: center;
+    }
+    .naz-hero-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 12px;
+    }
+    .naz-hero h1 {
+      font-size: clamp(32px,5vw,52px);
+      font-weight: 800;
+      margin: 0 0 16px;
+      line-height: 1.1;
+    }
+    .naz-hero-desc {
+      font-size: 16px;
+      max-width: 560px;
+      margin: 0 auto;
+      color: rgba(255,255,255,0.72);
+      line-height: 1.6;
+      font-style: italic;
+    }
+
+    /* ── Libro del mes ── */
+    .naz-librodemes-wrap {
+      max-width: 860px;
+      margin: -44px auto 0;
+      padding: 0 24px;
+    }
+    #naz-librodemes-section:empty { display: none; }
+    .naz-librodemes {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(107,30,42,0.13);
+      display: flex;
+      gap: 32px;
+      padding: 32px;
+      align-items: flex-start;
+    }
+    .naz-librodemes-cover {
+      flex: 0 0 130px;
+      aspect-ratio: 2/3;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      background: #f1e8e0;
+    }
+    .naz-librodemes-cover img { width:100%;height:100%;object-fit:cover;display:block; }
+    .naz-librodemes-body { flex: 1; min-width: 0; }
+    .naz-librodemes-label {
+      display: inline-block;
+      background: #6B1E2A;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+    .naz-librodemes-titulo {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1a1a1a;
+      margin: 0 0 6px;
+      line-height: 1.2;
+    }
+    .naz-librodemes-autor {
+      font-size: 14px;
+      color: #6B7280;
+      margin-bottom: 14px;
+    }
+    .naz-librodemes-nota {
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.65;
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* ── Cuadrícula ── */
+    .naz-grid-wrap {
+      max-width: 1100px;
+      margin: 64px auto 80px;
+      padding: 0 24px;
+    }
+    .naz-grid-titulo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 0 0 32px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #F3F4F6;
+    }
+    [data-fluix-seleccion-nazari] {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px,1fr));
+      gap: 36px 24px;
+    }
+    .fluix-naz-item {
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s;
+    }
+    .fluix-naz-item:hover { transform: translateY(-4px); }
+    .fluix-naz-cover {
+      position: relative;
+      aspect-ratio: 2/3;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+      background: #f1e8e0;
+      margin-bottom: 14px;
+    }
+    .fluix-naz-img { width:100%;height:100%;object-fit:cover;display:block; }
+    .fluix-naz-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: #6B1E2A;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+    .fluix-naz-titulo { font-size:15px;font-weight:700;color:#1a1a1a;margin:0 0 5px;line-height:1.3; }
+    .fluix-naz-autor  { font-size:12.5px;color:#6B7280;display:block;margin-bottom:8px; }
+    .fluix-naz-nota   { font-size:12px;color:#9CA3AF;font-style:italic;line-height:1.5;margin:0; }
+
+    /* ── Estado vacío ── */
+    .naz-vacio {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 80px 24px;
+      color: #9CA3AF;
+      font-style: italic;
+    }
+
+    /* ── Spinner ── */
+    .naz-spinner {
+      grid-column: 1/-1;
+      display: flex;
+      justify-content: center;
+      padding: 60px;
+    }
+    .naz-spinner::after {
+      content: '';
+      width: 36px; height: 36px;
+      border: 3px solid #E5E7EB;
+      border-top-color: #6B1E2A;
+      border-radius: 50%;
+      animation: naz-spin 0.8s linear infinite;
+    }
+    @keyframes naz-spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 600px) {
+      .naz-librodemes { flex-direction: column; }
+      .naz-librodemes-cover { flex: 0 0 auto; width: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Hero ══════════════════════════════════════════════════════════════════ -->
+<section class="naz-hero">
+  <p class="naz-hero-eyebrow">Recomendaciones editoriales</p>
+  <h1>La Selección Nazarí</h1>
+  <p class="naz-hero-desc">Los libros que el equipo de Nazarí está leyendo y quiere ponerte entre las manos.</p>
+</section>
+
+<!-- ══ Libro del mes ═══════════════════════════════════════════════════════ -->
+<div class="naz-librodemes-wrap">
+  <div id="naz-librodemes-section"></div>
+</div>
+
+<!-- ══ Cuadrícula completa ════════════════════════════════════════════════ -->
+<div class="naz-grid-wrap">
+  <h2 class="naz-grid-titulo">Toda la selección</h2>
+
+  <div data-fluix-seleccion-nazari data-fluix-limite="50">
+    <div class="naz-spinner"></div>
+
+    <template data-fluix-item>
+      <div class="fluix-naz-item">
+        <div class="fluix-naz-cover">
+          <img data-fluix-campo="imagen_url" alt="" class="fluix-naz-img">
+        </div>
+        <h3 data-fluix-campo="titulo" class="fluix-naz-titulo"></h3>
+        <span data-fluix-campo="autor" class="fluix-naz-autor"></span>
+        <p data-fluix-campo="nota_editorial" class="fluix-naz-nota"></p>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ══ Fluix Web SDK — Editorial Nazarí (ID: 0PoomHYDUJf5w8tDFRLhFi9iURF3) ══ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script>
+(function(){
+  var CFG={apiKey:"AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",authDomain:"planeaapp-4bea4.firebaseapp.com",projectId:"planeaapp-4bea4",storageBucket:"planeaapp-4bea4.firebasestorage.app",messagingSenderId:"1085482191658",appId:"1:1085482191658:web:c5461353b123ab92d62c53"};
+  var app=(firebase.apps||[]).find(function(a){return a&&a.name==="FluixApp";})||firebase.initializeApp(CFG,"FluixApp");
+  var db=firebase.firestore();
+  var auth=firebase.auth();
+  var EMPRESA="0PoomHYDUJf5w8tDFRLhFi9iURF3";
+
+  function fcfg(el,k,def){return el.getAttribute("data-fluix-"+k)||def||"";}
+  function wField(ce,campo,item){var v=item[campo],tag=ce.tagName.toLowerCase();if(v===undefined||v===null){if(tag==="img")ce.style.display="none";return;}if(tag==="img"){ce.src=v||"";ce.style.display=v?"":"none";return;}if(tag==="a"){ce.href=v||"#";return;}ce.textContent=v;}
+  function fillFields(root,item){root.querySelectorAll("[data-fluix-campo]").forEach(function(ce){wField(ce,ce.getAttribute("data-fluix-campo"),item);});}
+  function renderTpl(container,tpl,items){
+    container.querySelector(".naz-spinner")&&container.querySelector(".naz-spinner").remove();
+    var cur={};
+    container.querySelectorAll("[data-fluix-id]").forEach(function(el){cur[el.getAttribute("data-fluix-id")]=el;});
+    var del=Object.assign({},cur);
+    items.forEach(function(item){
+      var id=item.id||Math.random().toString(36).slice(2),el=cur[id];
+      if(!el){var cl=tpl.content.cloneNode(true);el=cl.firstElementChild;el.setAttribute("data-fluix-id",id);container.appendChild(el);}
+      delete del[id];
+      fillFields(el,item);
+    });
+    Object.values(del).forEach(function(el){el.remove();});
+    if(!items.length){container.innerHTML='<p class="naz-vacio">La selección está vacía por el momento. Vuelve pronto.</p>';}
+  }
+
+  function modSeleccionNazari(){
+    document.querySelectorAll("[data-fluix-seleccion-nazari]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","50"));
+      var tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("seleccion_nazari")
+        .where("activo","==",true).orderBy("orden")
+        .onSnapshot(function(snap){
+          var items=[];
+          snap.forEach(function(doc){var d=doc.data();d.id=doc.id;items.push(d);});
+          items=items.slice(0,limite);
+          if(tpl){
+            renderTpl(el,tpl,items.map(function(it){return{id:it.id,titulo:it.titulo,autor:it.autor,imagen_url:it.imagen,nota_editorial:it.nota_editorial,es_libro_del_mes:it.es_libro_del_mes,slug:it.slug};}));
+          } else {
+            el.querySelector(".naz-spinner")&&el.querySelector(".naz-spinner").remove();
+            if(!items.length){el.innerHTML='<p class="naz-vacio">La selección está vacía por el momento.</p>';return;}
+            el.innerHTML=items.map(function(it){
+              return'<div class="fluix-naz-item" data-fluix-id="'+it.id+'">'
+                +(it.imagen?'<div class="fluix-naz-cover">'+(it.es_libro_del_mes?'<span class="fluix-naz-badge">Libro del mes</span>':"")+'<img class="fluix-naz-img" src="'+it.imagen+'" alt="'+it.titulo+'" loading="lazy"></div>':"")
+                +'<h3 class="fluix-naz-titulo">'+it.titulo+'</h3>'
+                +(it.autor?'<span class="fluix-naz-autor">'+it.autor+'</span>':"")
+                +(it.nota_editorial?'<p class="fluix-naz-nota">'+it.nota_editorial+'</p>':"")
+                +'</div>';
+            }).join("");
+          }
+        });
+    });
+  }
+
+  function modLibroDelMes(){
+    db.collection("empresas").doc(EMPRESA).collection("seleccion_nazari")
+      .where("es_libro_del_mes","==",true).where("activo","==",true).limit(1)
+      .onSnapshot(function(snap){
+        var sec=document.getElementById("naz-librodemes-section");if(!sec)return;
+        if(snap.empty){sec.innerHTML="";return;}
+        var it=snap.docs[0].data();
+        sec.innerHTML=
+          '<div class="naz-librodemes">'
+          +(it.imagen?'<div class="naz-librodemes-cover"><img src="'+it.imagen+'" alt="'+it.titulo+'" loading="lazy"></div>':"")
+          +'<div class="naz-librodemes-body">'
+          +'<span class="naz-librodemes-label">Libro del mes</span>'
+          +'<h3 class="naz-librodemes-titulo">'+it.titulo+'</h3>'
+          +(it.autor?'<p class="naz-librodemes-autor">'+it.autor+'</p>':"")
+          +(it.nota_editorial?'<p class="naz-librodemes-nota">'+it.nota_editorial+'</p>':"")
+          +'</div></div>';
+      });
+  }
+
+  auth.signInAnonymously().then(function(){
+    modSeleccionNazari();
+    modLibroDelMes();
+    db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status")
+      .set({modulos:["seleccion-nazari"],url:window.location.href,ts:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(function(){});
+  }).catch(function(e){console.error("Fluix SDK: "+e.message);});
+})();
+</script>
+
+</body>
+</html>

@@ -6,8 +6,15 @@ class StripeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String stripeConnectClientId = 'ca_xxxxx'; // TODO: Reemplazar con tu Client ID
   static const String redirectUri = 'https://tudominio.com/stripe/callback';
+
+  /// Carga el client_id de Stripe Connect desde Firestore (config/stripe)
+  Future<String> _obtenerClientId() async {
+    final doc = await _firestore.collection('config').doc('stripe').get();
+    final id = doc.data()?['connect_client_id'] as String?;
+    if (id == null || id.isEmpty) throw Exception('Stripe client_id no configurado en config/stripe');
+    return id;
+  }
 
   /// Verificar si la empresa tiene Stripe conectado
   Future<bool> tieneStripeConectado(String empresaId) async {
@@ -47,13 +54,14 @@ class StripeService {
   }
 
   /// Construir URL de OAuth para conectar Stripe
-  String construirUrlOAuth(String empresaId) {
+  Future<String> construirUrlOAuth(String empresaId) async {
+    final clientId = await _obtenerClientId();
     final nonce = DateTime.now().millisecondsSinceEpoch.toString();
     final state = '${empresaId}__$nonce';
 
     final params = {
       'response_type': 'code',
-      'client_id': stripeConnectClientId,
+      'client_id': clientId,
       'scope': 'read_write',
       'redirect_uri': redirectUri,
       'state': state,

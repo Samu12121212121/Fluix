@@ -1,31 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../../domain/models/pdf_template.dart';
+import '../../domain/models/pdf_gallery_categories.dart';
 import '../../data/pdf_template_service.dart';
 import 'template_editor_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../services/pdf_service.dart';
+import '../../../../services/email_service.dart';
+import '../../../../core/utils/app_settings.dart';
+import '../../../../core/utils/permisos_service.dart';
 
-// ── Colores editorpdf.html ───────────────────────────────────────────────────
-const _kPurple     = Color(0xFF6D5EF8);
-const _kPurpleLight= Color(0xFFECE9FE);
-const _kBg         = Color(0xFFEEF1F6);
-const _kCanvas     = Color(0xFFE3E7EE);
-const _kText       = Color(0xFF12131A);
-const _kTextSec    = Color(0xFF6B7280);
-const _kTextTer    = Color(0xFF9CA3AF);
+// ── Colores fijos (acento morado, siempre igual en claro/oscuro) ─────────────
+const _kPurple      = Color(0xFF6D5EF8);
+const _kPurpleLight = Color(0xFFECE9FE);
 
 Color _hx(String h) { try { return Color(int.parse('FF${h.replaceAll('#','')}', radix:16)); } catch(_){ return _kPurple; } }
 
-enum _Cat { galeria, todas, facturacion, comercial, interno, misPlantillas }
+// Solo las 4 categorías reales (sin galería ni todas)
+enum _Cat { facturacion, comercial, interno, misPlantillas }
 
 const _catLabel = {
-  _Cat.galeria:       '✨ Galería',
-  _Cat.todas:         'Todas',
-  _Cat.facturacion:   'Facturación',
-  _Cat.comercial:     'Comercial',
-  _Cat.interno:       'Interno',
-  _Cat.misPlantillas: 'Mis plantillas',
+  _Cat.facturacion:   '🧾 Facturación',
+  _Cat.comercial:     '💼 Comercial',
+  _Cat.interno:       '⏱️ RRHH',
+  _Cat.misPlantillas: '⭐ Mis plantillas',
 };
 
 const _facTypes = {TipoDocumentoPdf.factura, TipoDocumentoPdf.facturaRectificativa, TipoDocumentoPdf.proforma};
@@ -40,12 +38,41 @@ class PdfTemplatesListScreen extends StatefulWidget {
 
 class _State extends State<PdfTemplatesListScreen> {
   final _svc = PdfTemplateService();
-  _Cat _cat = _Cat.galeria;
+  _Cat _cat = _Cat.facturacion;
+  // Sub-filtro por tipo dentro de la categoría (null = todos)
+  TipoDocumentoPdf? _subTipo;
   bool _init = false;
   bool _guardandoGaleria = false;
+  bool _isDark = false;
+  String? _enviandoEmailKey;
+  bool _enviandoBulk = false;
+
+  static const _kDestinatario = 'sacoor90@gmail.com';
+
+  // Colores adaptativos al modo oscuro
+  Color get _kBg      => _isDark ? const Color(0xFF0F172A) : const Color(0xFFEEF1F6);
+  Color get _kCanvas  => _isDark ? const Color(0xFF1E293B) : const Color(0xFFE3E7EE);
+  Color get _kSurf    => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _kText    => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF12131A);
+  Color get _kTextSec => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+  Color get _kTextTer => _isDark ? const Color(0xFF64748B) : const Color(0xFF9CA3AF);
+  Color get _kBorder  => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+  void _onDark() { if (mounted) setState(() => _isDark = AppSettings.darkMode.value); }
 
   @override
-  void initState() { super.initState(); _inicializar(); }
+  void initState() {
+    super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDark);
+    _inicializar();
+  }
+
+  @override
+  void dispose() {
+    AppSettings.darkMode.removeListener(_onDark);
+    super.dispose();
+  }
 
   Future<void> _inicializar() async {
     setState(() => _init = true);
@@ -54,13 +81,51 @@ class _State extends State<PdfTemplatesListScreen> {
   }
 
   bool _enCat(PdfTemplate p) => switch (_cat) {
-    _Cat.galeria       => false, // La galería tiene su propia vista
-    _Cat.todas         => true,
-    _Cat.misPlantillas => !p.esDefault,
+    _Cat.misPlantillas => true, // mostrar todas, incluida la activa (⭐)
     _Cat.facturacion   => _facTypes.contains(p.tipo),
     _Cat.comercial     => _comTypes.contains(p.tipo),
     _Cat.interno       => _intTypes.contains(p.tipo),
   };
+
+  // Tipo por defecto cuando no hay sub-filtro seleccionado
+  TipoDocumentoPdf _defaultSubTipo() => switch (_cat) {
+    _Cat.facturacion   => TipoDocumentoPdf.factura,
+    _Cat.comercial     => TipoDocumentoPdf.presupuesto,
+    _Cat.interno       => TipoDocumentoPdf.fichajes,
+    _Cat.misPlantillas => TipoDocumentoPdf.fichajes,
+  };
+
+  // Devuelve SOLO el tipo activo (nunca mezcla tipos distintos)
+  List<PdfTemplate> get _galeriaActual {
+    final todos = switch (_cat) {
+      _Cat.facturacion   => PdfGallery.facturacion(widget.empresaId),
+      _Cat.comercial     => PdfGallery.comercial(widget.empresaId),
+      _Cat.interno       => PdfGallery.interno(widget.empresaId),
+      _Cat.misPlantillas => <PdfTemplate>[],
+    };
+    final tipo = _subTipo ?? _defaultSubTipo();
+    return todos.where((p) => p.tipo == tipo).toList();
+  }
+
+  // Sub-tipos disponibles por categoría (para los chips de filtro)
+  List<({TipoDocumentoPdf tipo, String label, String icon})> get _subTipos =>
+    switch (_cat) {
+      _Cat.facturacion => [
+        (tipo: TipoDocumentoPdf.factura,               label: 'Facturas',        icon: '🧾'),
+        (tipo: TipoDocumentoPdf.proforma,              label: 'Proformas',       icon: '📋'),
+        (tipo: TipoDocumentoPdf.facturaRectificativa,  label: 'Rectificativas',  icon: '🔄'),
+      ],
+      _Cat.comercial => [
+        (tipo: TipoDocumentoPdf.presupuesto, label: 'Presupuestos', icon: '💼'),
+        (tipo: TipoDocumentoPdf.albaran,     label: 'Albaranes',    icon: '📦'),
+      ],
+      _Cat.interno => [
+        (tipo: TipoDocumentoPdf.fichajes,        label: 'Fichajes',  icon: '⏱️'),
+        (tipo: TipoDocumentoPdf.horasEmpleado,   label: 'Horas',     icon: '📊'),
+        (tipo: TipoDocumentoPdf.informeInterno,  label: 'Informes',  icon: '📄'),
+      ],
+      _Cat.misPlantillas => [],
+    };
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +135,8 @@ class _State extends State<PdfTemplatesListScreen> {
       backgroundColor: _kBg,
       body: _init
         ? const Center(child: CircularProgressIndicator())
-        : _cat == _Cat.galeria
-            ? _vistaGaleria()
-            : StreamBuilder<List<PdfTemplate>>(
+        : _cat == _Cat.misPlantillas
+            ? StreamBuilder<List<PdfTemplate>>(
                 stream: _svc.watchTodasPlantillas(widget.empresaId),
                 builder: (ctx, snap) {
                   if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
@@ -80,7 +144,8 @@ class _State extends State<PdfTemplatesListScreen> {
                   final filtradas = (snap.data ?? []).where(_enCat).toList();
                   return _gallery(filtradas);
                 },
-              ),
+              )
+            : _vistaCategoria(),
     );
   }
 
@@ -89,123 +154,176 @@ class _State extends State<PdfTemplatesListScreen> {
     body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       Container(width:72,height:72,decoration:BoxDecoration(color:_kPurpleLight,shape:BoxShape.circle),child:const Icon(Icons.desktop_windows_outlined,color:_kPurple,size:36)),
       const SizedBox(height:24),
-      const Text('Pantalla insuficiente',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:_kText)),
+      Text('Pantalla insuficiente',style:TextStyle(fontSize:22,fontWeight:FontWeight.w800,color:_kText)),
       const SizedBox(height:12),
-      const Text('El editor de plantillas requiere\nuna pantalla de mínimo 11 pulgadas.',textAlign:TextAlign.center,style:TextStyle(color:_kTextSec,fontSize:14,height:1.5)),
+      Text('El editor de plantillas requiere\nuna pantalla de mínimo 11 pulgadas.',textAlign:TextAlign.center,style:TextStyle(color:_kTextSec,fontSize:14,height:1.5)),
       const SizedBox(height:24),
       GestureDetector(onTap:()=>Navigator.pop(context),child:Container(padding:const EdgeInsets.symmetric(horizontal:24,vertical:12),decoration:BoxDecoration(color:_kPurple,borderRadius:BorderRadius.circular(12)),child:const Text('Volver',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w700)))),
     ])),
   );
 
   Widget _headerFiltros() => Container(
-    color: Colors.white,
-    padding: const EdgeInsets.fromLTRB(24,14,24,10),
+    color: _kSurf,
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Container(width:36, height:36, decoration: BoxDecoration(color:_kPurpleLight, borderRadius:BorderRadius.circular(10)), child: const Icon(Icons.picture_as_pdf, color:_kPurple, size:18)),
-        const SizedBox(width:10),
-        const Text('Plantillas de documentos', style: TextStyle(fontSize:17, fontWeight:FontWeight.w800, color:_kText)),
+        Container(width: 32, height: 32, decoration: BoxDecoration(color: _kPurpleLight, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.picture_as_pdf, color: _kPurple, size: 16)),
+        const SizedBox(width: 10),
+        Text('Plantillas de documentos', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kText)),
       ]),
-      const SizedBox(height:10),
+      const SizedBox(height: 10),
       SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: _Cat.values.map((c) {
         final sel = _cat == c;
-        final isGal = c == _Cat.galeria;
-        return Padding(padding: const EdgeInsets.only(right:8), child: GestureDetector(
-          onTap: () => setState(() => _cat = c),
+        return Padding(padding: const EdgeInsets.only(right: 8), child: GestureDetector(
+          onTap: () => setState(() { _cat = c; _subTipo = null; }),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal:14, vertical:7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: sel ? (isGal ? const Color(0xFFFFB300) : _kPurple) : Colors.white,
+              color: sel ? _kPurple : _kSurf,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: sel ? (isGal ? const Color(0xFFFFB300) : _kPurple) : (isGal ? const Color(0xFFFFB300) : Colors.grey.shade200)),
+              border: Border.all(color: sel ? _kPurple : _kBorder),
             ),
             child: Text(_catLabel[c]!, style: TextStyle(
-              color: sel ? Colors.white : (isGal ? const Color(0xFFE65100) : _kTextSec),
-              fontWeight: FontWeight.w600, fontSize: 12)),
+              color: sel ? Colors.white : _kTextSec,
+              fontWeight: FontWeight.w600, fontSize: 11.5)),
           ),
         ));
       }).toList())),
     ]),
   );
 
-  Widget _vistaGaleria() {
-    final galeria = PdfTemplate.galeria(widget.empresaId);
+  Widget _vistaCategoria() {
+    final items = _galeriaActual;
     final w = MediaQuery.of(context).size.width;
-    final cols = w > 1150 ? 3 : w > 750 ? 2 : 1;
+    final cols = w > 1400 ? 6 : w > 1100 ? 5 : w > 800 ? 4 : w > 550 ? 3 : 2;
+    final subs = _subTipos;
     return Column(children: [
       _headerFiltros(),
       Expanded(child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Banner descriptivo
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFFFF8E1), Color(0xFFFFF3E0)]),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.4)),
-            ),
-            child: Row(children: [
-              const Text('✨', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Plantillas profesionales listas para usar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
-                const SizedBox(height: 3),
-                Text('Elige un diseño, personaliza los colores y estará en tu empresa en segundos. Luego puedes editarla libremente desde el editor.', style: TextStyle(fontSize: 11.5, color: Colors.brown.shade600, height: 1.4)),
-              ])),
-            ]),
-          ),
-          // Grid de plantillas de galería
-          GridView.builder(
-            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols, childAspectRatio: 0.72,
-              crossAxisSpacing: 16, mainAxisSpacing: 16,
-            ),
-            itemCount: galeria.length,
-            itemBuilder: (_, i) => _cardGaleria(galeria[i]),
-          ),
+          // Sub-chips de tipo — siempre visible si hay más de 1 sub-tipo
+          if (subs.length > 1) ...[
+            SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+              ...subs.map((s) {
+                final sel = _subTipo == s.tipo ||
+                    (_subTipo == null && s.tipo == _defaultSubTipo());
+                return _subChip(s.tipo, '${s.icon} ${s.label}', sel);
+              }),
+            ])),
+            const SizedBox(height: 12),
+          ],
+          // Contador + botón de envío masivo (solo propietario)
+          Row(children: [
+            Text('${items.length} diseño${items.length != 1 ? "s" : ""}',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kTextSec)),
+            const Spacer(),
+            if (_esPropietario)
+              _enviandoBulk
+                ? Row(mainAxisSize: MainAxisSize.min, children: [
+                    SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: _kPurple)),
+                    const SizedBox(width: 6),
+                    Text('Enviando...', style: TextStyle(fontSize: 10, color: _kPurple, fontWeight: FontWeight.w600)),
+                  ])
+                : GestureDetector(
+                    onTap: _enviarTodosLosDisenos,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _kPurpleLight,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _kPurple.withValues(alpha: 0.35)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.email_outlined, size: 11, color: _kPurple),
+                        const SizedBox(width: 4),
+                        Text('Enviar todos', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _kPurple)),
+                      ]),
+                    ),
+                  )
+            else
+              Text('Elige uno y personaliza los colores', style: TextStyle(fontSize: 11, color: _kTextSec)),
+          ]),
+          const SizedBox(height: 10),
+          // Grid con ratio A4
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: Text('Sin diseños para este tipo.', style: TextStyle(color: _kTextSec))),
+            )
+          else
+            LayoutBuilder(builder: (ctx, c) {
+              const sp = 12.0;
+              final galW = (c.maxWidth - sp * (cols - 1)) / cols;
+              const galFooterH = 90.0;
+              final galH = galW * 1.41 + galFooterH;
+              return GridView.builder(
+                shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols, childAspectRatio: galW / galH,
+                  crossAxisSpacing: sp, mainAxisSpacing: sp,
+                ),
+                itemCount: items.length,
+                itemBuilder: (_, i) => _cardGaleria(items[i]),
+              );
+            }),
         ]),
       )),
     ]);
   }
 
+  Widget _subChip(TipoDocumentoPdf tipo, String label, bool sel) =>
+    Padding(padding: const EdgeInsets.only(right: 6), child: GestureDetector(
+      onTap: () => setState(() => _subTipo = tipo),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: sel ? _kPurple.withValues(alpha: 0.12) : _kSurf,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: sel ? _kPurple : _kBorder),
+        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+          color: sel ? _kPurple : _kTextSec)),
+      ),
+    ));
+
   Widget _cardGaleria(PdfTemplate p) {
     final accent = _hx(p.colorPrimario);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.07), blurRadius:14, offset:const Offset(0,4))],
+        color: _kSurf, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _isDark ? 0.25 : 0.06), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Column(children: [
         // Vista previa PDF real
         Expanded(flex: 5, child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           child: _PdfCardPreview(plantilla: p, empresaId: widget.empresaId),
         )),
         // Info + botones
-        Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Padding(padding: const EdgeInsets.fromLTRB(10, 6, 10, 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+            child: Text('${p.tipo.icon} ${p.tipo.label}', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: accent)),
+          ),
+          const SizedBox(height: 4),
+          Text(p.nombre, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: _kText)),
+          const SizedBox(height: 2),
+          Text(p.descripcion, style: TextStyle(fontSize: 9.5, color: _kTextSec, height: 1.35), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 8),
           Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal:7, vertical:3),
-              decoration: BoxDecoration(color: accent.withValues(alpha:0.12), borderRadius: BorderRadius.circular(10)),
-              child: Text('${p.tipo.icon} ${p.tipo.label}', style: TextStyle(fontSize:8.5, fontWeight:FontWeight.w800, color:accent)),
-            ),
-          ]),
-          const SizedBox(height: 5),
-          Text(p.nombre, style: const TextStyle(fontWeight:FontWeight.w800, fontSize:13, color:_kText)),
-          const SizedBox(height: 3),
-          Text(p.descripcion, style: const TextStyle(fontSize:10, color:_kTextSec, height:1.4), maxLines:2, overflow:TextOverflow.ellipsis),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _btn('Vista previa', Icons.visibility_outlined, false, () => PdfService.previewPlantilla(context, p, widget.empresaId))),
-            const SizedBox(width: 8),
+            Expanded(child: _btn('Preview', Icons.visibility_outlined, false, () => PdfService.previewPlantilla(context, p, widget.empresaId))),
+            if (_esPropietario) ...[
+              const SizedBox(width: 6),
+              _emailIconBtn(p),
+            ],
+            const SizedBox(width: 6),
             Expanded(child: _guardandoGaleria
-              ? Container(height: 34, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(9)), child: const Center(child: SizedBox(width:14, height:14, child: CircularProgressIndicator(strokeWidth:2, color:Colors.white))))
-              : _btn('Usar plantilla', Icons.add_circle_outline, true, () => _usarPlantillaGaleria(p))),
+              ? Container(height: 30, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(8)), child: const Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))))
+              : _btn('Usar', Icons.add_circle_outline, true, () => _usarPlantillaGaleria(p))),
           ]),
         ])),
       ]),
@@ -216,8 +334,9 @@ class _State extends State<PdfTemplatesListScreen> {
     if (_guardandoGaleria) return;
     setState(() => _guardandoGaleria = true);
     try {
+      final id = const Uuid().v4();
       final copia = p.copyWith(
-        id: const Uuid().v4(),
+        id: id,
         empresaId: widget.empresaId,
         nombre: p.nombre,
         esDefault: false,
@@ -226,11 +345,14 @@ class _State extends State<PdfTemplatesListScreen> {
         fechaModificacion: DateTime.now(),
       );
       await _svc.crearPlantilla(copia);
+      // Establecer como default para su tipo — el usuario pulsó "Usar", espera que
+      // esta plantilla sea la que se use en los PDFs generados.
+      await _svc.establecerComoDefault(widget.empresaId, id, p.tipo);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Plantilla añadida a tus plantillas'),
-          backgroundColor: Color(0xFF10B981),
-          duration: Duration(seconds: 2),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('★ "${p.nombre}" es ahora tu plantilla activa para ${p.tipo.label}'),
+          backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 3),
         ));
         setState(() { _cat = _Cat.misPlantillas; _guardandoGaleria = false; });
       }
@@ -242,33 +364,69 @@ class _State extends State<PdfTemplatesListScreen> {
     }
   }
 
+  Widget _sectionHeader(TipoDocumentoPdf tipo) => Padding(
+    padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+    child: Row(children: [
+      Text('${tipo.icon} ${tipo.label}',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText)),
+      const SizedBox(width: 8),
+      Expanded(child: Divider(color: _kBorder, height: 1, thickness: 1)),
+    ]),
+  );
+
   Widget _gallery(List<PdfTemplate> items) {
     final w = MediaQuery.of(context).size.width;
-    final cols = w > 1150 ? 4 : w > 850 ? 3 : 2;
+    final cols = w > 1400 ? 7 : w > 1100 ? 6 : w > 800 ? 5 : 4;
+
+    // Agrupar por tipo para mostrar secciones
+    final order = <TipoDocumentoPdf>[];
+    final groups = <TipoDocumentoPdf, List<PdfTemplate>>{};
+    for (final t in items) {
+      if (!groups.containsKey(t.tipo)) order.add(t.tipo);
+      (groups[t.tipo] ??= []).add(t);
+    }
+    final multiGroup = order.length > 1;
+
     return Column(children: [
       _headerFiltros(),
-      // Grid — cards con altura máxima 200px, auto-escalan si hay muchas
       Expanded(child: LayoutBuilder(builder: (ctx, constraints) {
-        const sp = 12.0;
-        const padH = 20.0;
-        final totalItems = items.length + 1;
-        final cardW = (constraints.maxWidth - padH*2 - sp*(cols-1)) / cols;
-        // Aspect ratio basado en A4 (297/210 = 1.414) + ~100px de footer
-        // → el PDF ocupa exactamente la zona de la tarjeta sin cortes ni espacio vacío
-        const footerH = 100.0;
-        final cardH = cardW * 1.414 + footerH;
+        const sp = 8.0;
+        const padH = 14.0;
+        final cardW = (constraints.maxWidth - padH * 2 - sp * (cols - 1)) / cols;
+        // Preview A4 real: alto = ancho × 1.41 (210×297mm)
+        const footerH = 58.0;
+        final cardH = cardW * 1.41 + footerH;
         final ratio = cardW / cardH;
+
+        final delegate = SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols, childAspectRatio: ratio,
+          crossAxisSpacing: sp, mainAxisSpacing: sp,
+        );
+
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(padH, 8, padH, 16),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols, childAspectRatio: ratio, crossAxisSpacing: sp, mainAxisSpacing: sp,
-            ),
-            itemCount: totalItems,
-            itemBuilder: (_, i) => i < items.length ? _card(items[i]) : _cardNueva(),
-          ),
+          padding: const EdgeInsets.fromLTRB(padH, 6, padH, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (multiGroup) ...[
+              for (final tipo in order) ...[
+                _sectionHeader(tipo),
+                GridView.builder(
+                  shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: delegate,
+                  itemCount: groups[tipo]!.length,
+                  itemBuilder: (_, i) => _card(groups[tipo]![i]),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ] else
+              GridView.builder(
+                shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: delegate,
+                itemCount: items.length,
+                itemBuilder: (_, i) => _card(items[i]),
+              ),
+            const SizedBox(height: 10),
+            SizedBox(width: cardW, height: cardH, child: _cardNueva()),
+          ]),
         );
       })),
     ]);
@@ -279,33 +437,42 @@ class _State extends State<PdfTemplatesListScreen> {
     return GestureDetector(
       onTap: () => _editar(p),
       child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade100), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.06), blurRadius:12, offset:const Offset(0,3))]),
+        decoration: BoxDecoration(
+          color: _kSurf, borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _kBorder),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _isDark ? 0.22 : 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
         child: Column(children: [
           // Vista previa PDF real (renderizada de forma asíncrona)
           Expanded(flex: 4, child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             child: _PdfCardPreview(plantilla: p, empresaId: widget.empresaId),
           )),
           // Footer compacto
-          Padding(padding: const EdgeInsets.fromLTRB(8,6,8,8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Padding(padding: const EdgeInsets.fromLTRB(7, 5, 7, 7), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal:6, vertical:2), decoration: BoxDecoration(color:accent.withValues(alpha:0.12), borderRadius:BorderRadius.circular(10)), child: Text('${p.tipo.icon} ${p.tipo.label}', style: TextStyle(fontSize:8, fontWeight:FontWeight.w800, color:accent))),
-              if (p.esDefault) ...[const SizedBox(width:3), Text('⭐', style: const TextStyle(fontSize:9))],
+              Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: BoxDecoration(color: accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)), child: Text('${p.tipo.icon} ${p.tipo.label}', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w800, color: accent))),
+              if (p.esDefault) ...[const SizedBox(width: 3), const Text('⭐', style: TextStyle(fontSize: 8))],
             ]),
-            const SizedBox(height:4),
-            Text(p.nombre, style: const TextStyle(fontWeight:FontWeight.w700, fontSize:11, color:_kText), maxLines:1, overflow:TextOverflow.ellipsis),
-            const SizedBox(height:5),
+            const SizedBox(height: 3),
+            Text(p.nombre, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 10, color: _kText), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
             Row(children: [
-              // Verde = activa (se usa), Rojo = inactiva (desactivada, no se usa)
+              // Botón predeterminar — la estrella indica cuál es la activa para PDFs
               Expanded(child: _btn(
-                p.activa ? 'Activa' : 'Inactiva',
-                p.activa ? Icons.check_circle_outline : Icons.cancel_outlined,
-                false, () => _toggleActiva(p),
-                bgColor: p.activa ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                p.esDefault ? '★ Activa' : '☆ Usar',
+                p.esDefault ? Icons.star_rounded : Icons.star_border_rounded,
+                p.esDefault,
+                p.esDefault ? () {} : () => _marcarDefault(p),
+                bgColor: p.esDefault ? const Color(0xFFF59E0B) : null,
               )),
-              const SizedBox(width:4),
+              const SizedBox(width: 3),
               _iconBtn(Icons.visibility_outlined, 'Preview', () => PdfService.previewPlantilla(context, p, widget.empresaId)),
-              const SizedBox(width:4),
+              if (_esPropietario) ...[
+                const SizedBox(width: 3),
+                _emailIconBtn(p),
+              ],
+              const SizedBox(width: 3),
               Expanded(child: _btn('Editar', Icons.edit_outlined, true, () => _editar(p))),
             ]),
           ])),
@@ -318,36 +485,38 @@ class _State extends State<PdfTemplatesListScreen> {
     onTap: _nueva,
     child: Container(
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300, width: 2),
+        color: _kSurf, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kBorder, width: 1.5),
       ),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(width:56, height:56, decoration: BoxDecoration(color:_kPurpleLight, shape:BoxShape.circle), child: const Icon(Icons.add, color:_kPurple, size:26)),
-        const SizedBox(height:12),
-        const Text('Nueva plantilla', style: TextStyle(color:_kTextSec, fontWeight:FontWeight.w700, fontSize:14)),
-        const SizedBox(height:4),
-        const Text('Crea desde cero', style: TextStyle(color:_kTextTer, fontSize:11)),
+        Container(width: 40, height: 40, decoration: BoxDecoration(color: _kPurpleLight, shape: BoxShape.circle), child: const Icon(Icons.add, color: _kPurple, size: 20)),
+        const SizedBox(height: 8),
+        Text('Nueva plantilla', style: TextStyle(color: _kTextSec, fontWeight: FontWeight.w700, fontSize: 11)),
+        const SizedBox(height: 2),
+        Text('Crea desde cero', style: TextStyle(color: _kTextTer, fontSize: 9.5)),
       ]),
     ),
   );
 
   Widget _btn(String lbl, IconData icon, bool primary, VoidCallback fn, {Color? bgColor}) {
-    final bg = bgColor ?? (primary ? _kPurple : _kBg);
+    final bg = bgColor ?? (primary ? _kPurple : _kCanvas);
     final fg = (bgColor != null || primary) ? Colors.white : _kText;
     return GestureDetector(
       onTap: fn,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical:7, horizontal:6),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9), border: (bgColor == null && !primary) ? Border.all(color: Colors.grey.shade200) : null),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 5),
+        decoration: BoxDecoration(
+          color: bg, borderRadius: BorderRadius.circular(7),
+          border: (bgColor == null && !primary) ? Border.all(color: _kBorder) : null,
+        ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size:12, color: fg),
-          const SizedBox(width:4),
-          Flexible(child: Text(lbl, style: TextStyle(fontSize:10, fontWeight:FontWeight.w700, color: fg), overflow: TextOverflow.ellipsis)),
+          Icon(icon, size: 10, color: fg),
+          const SizedBox(width: 3),
+          Flexible(child: Text(lbl, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: fg), overflow: TextOverflow.ellipsis)),
         ]),
       ),
     );
   }
-
 
   Widget _iconBtn(IconData icon, String tooltip, VoidCallback fn) =>
       Tooltip(
@@ -355,13 +524,13 @@ class _State extends State<PdfTemplatesListScreen> {
         child: GestureDetector(
           onTap: fn,
           child: Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: _kBg,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: Colors.grey.shade200),
+              color: _kCanvas,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: _kBorder),
             ),
-            child: Icon(icon, size: 12, color: _kTextSec),
+            child: Icon(icon, size: 10, color: _kTextSec),
           ),
         ),
       );
@@ -458,12 +627,146 @@ class _State extends State<PdfTemplatesListScreen> {
   Widget _stat(Color c) => Column(mainAxisSize:MainAxisSize.min,children:[Container(height:6,width:14,color:c.withValues(alpha:0.7),margin:const EdgeInsets.only(bottom:1)),Container(height:2,width:10,color:Colors.grey.shade300)]);
 
   // ── Acciones ────────────────────────────────────────────────────────────────
+
+  bool get _esPropietario => PermisosService().sesion?.esAdmin ?? false;
+
+  String _emailKey(PdfTemplate p) => '${p.tipo.name}_${p.nombre}_${p.id}';
+
+  Future<void> _enviarPreviewPorEmail(PdfTemplate p) async {
+    if (!_esPropietario) return;
+    final key = _emailKey(p);
+    if (_enviandoEmailKey != null) return;
+    setState(() => _enviandoEmailKey = key);
+    try {
+      final bytes = await PdfService.generarPreviewBytes(p, widget.empresaId);
+      await EmailService.enviarPdfPorEmail(
+        destinatario: _kDestinatario,
+        asunto: 'Preview: ${p.nombre} — ${p.tipo.label}',
+        pdfBytes: bytes,
+        nombreArchivo: 'preview_${_sanitizeFilename(p.nombre)}.pdf',
+        empresaId: widget.empresaId,
+        cuerpoHtml: _htmlPreview(p.nombre, p.tipo.label),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('📧 Preview enviado a $_kDestinatario'),
+          backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Error al enviar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _enviandoEmailKey = null);
+    }
+  }
+
+  Future<void> _enviarTodosLosDisenos() async {
+    if (!_esPropietario || _enviandoBulk) return;
+    final items = _galeriaActual;
+    if (items.isEmpty) return;
+    setState(() => _enviandoBulk = true);
+    int enviados = 0;
+    int errores = 0;
+    for (final p in items) {
+      try {
+        final bytes = await PdfService.generarPreviewBytes(p, widget.empresaId);
+        await EmailService.enviarPdfPorEmail(
+          destinatario: _kDestinatario,
+          asunto: 'Preview: ${p.nombre} — ${p.tipo.label}',
+          pdfBytes: bytes,
+          nombreArchivo: 'preview_${_sanitizeFilename(p.nombre)}.pdf',
+          empresaId: widget.empresaId,
+          cuerpoHtml: _htmlPreview(p.nombre, p.tipo.label),
+        );
+        enviados++;
+      } catch (_) {
+        errores++;
+      }
+    }
+    if (mounted) {
+      setState(() => _enviandoBulk = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('📧 $enviados email${enviados != 1 ? "s" : ""} enviado${enviados != 1 ? "s" : ""} a $_kDestinatario'
+          '${errores > 0 ? " — $errores con error" : ""}'),
+        backgroundColor: errores > 0 ? Colors.orange : const Color(0xFF10B981),
+        duration: const Duration(seconds: 4),
+      ));
+    }
+  }
+
+  // Convierte nombre con tildes/puntos en filename seguro para adjuntos de email
+  static String _sanitizeFilename(String name) {
+    const tildes = {
+      'á':'a','é':'e','í':'i','ó':'o','ú':'u','ü':'u','ñ':'n',
+      'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ü':'U','Ñ':'N',
+    };
+    var r = name;
+    tildes.forEach((k, v) => r = r.replaceAll(k, v));
+    return r
+        .replaceAll(RegExp(r'[^\w\s]'), '')  // quitar puntos, acentos residuales, etc.
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'[_]+$'), '');    // sin guión bajo al final
+  }
+
+  static String _htmlPreview(String nombre, String tipoLabel) => '''
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #6D5EF8;">Preview de plantilla PDF</h2>
+      <p>Plantilla <strong>$nombre</strong> — tipo <strong>$tipoLabel</strong>.</p>
+      <p>Datos de muestra para evaluar el diseño final.</p>
+      <hr style="border: 1px solid #E0E0E0; margin: 16px 0;">
+      <p style="color: #757575; font-size: 12px;">Fluix CRM — módulo de plantillas PDF.</p>
+    </div>
+  ''';
+
+  Widget _emailIconBtn(PdfTemplate p) {
+    final loading = _enviandoEmailKey == _emailKey(p);
+    return Tooltip(
+      message: 'Enviar preview por email',
+      child: GestureDetector(
+        onTap: loading ? null : () => _enviarPreviewPorEmail(p),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _kCanvas,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: _kBorder),
+          ),
+          child: loading
+            ? SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: _kPurple))
+            : Icon(Icons.email_outlined, size: 10, color: _kTextSec),
+        ),
+      ),
+    );
+  }
+
   void _nueva() => Navigator.push(context, MaterialPageRoute(builder:(_) => TemplateEditorScreen(empresaId:widget.empresaId)));
   void _editar(PdfTemplate p) => Navigator.push(context, MaterialPageRoute(builder:(_) => TemplateEditorScreen(empresaId:widget.empresaId, plantillaInicial:p)));
 
   Future<void> _toggleActiva(PdfTemplate p) async {
     try {
       await _svc.toggleActiva(p.id, !p.activa);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _marcarDefault(PdfTemplate p) async {
+    try {
+      await _svc.establecerComoDefault(widget.empresaId, p.id, p.tipo);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('★ "${p.nombre}" es ahora la plantilla activa para ${p.tipo.label}'),
+          backgroundColor: const Color(0xFFF59E0B),
+          duration: const Duration(seconds: 2),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
     }
@@ -503,7 +806,7 @@ class _PdfCardPreviewState extends State<_PdfCardPreview> {
   static final _cache = <String, Future<MemoryImage>>{};
 
   Future<MemoryImage> _getImage() {
-    final key = '${widget.plantilla.id}_${widget.plantilla.colorPrimario}_${widget.plantilla.colorSecundario}';
+    final key = '${widget.plantilla.tipo.name}_${widget.plantilla.estiloLayout}_${widget.plantilla.id}_${widget.plantilla.colorPrimario}_${widget.plantilla.colorSecundario}';
     return _cache.putIfAbsent(key, () async {
       final bytes = await PdfService.generarPreviewBytes(
           widget.plantilla, widget.empresaId);

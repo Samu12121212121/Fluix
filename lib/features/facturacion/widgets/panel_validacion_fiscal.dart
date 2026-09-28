@@ -154,9 +154,7 @@ class PanelResultadoValidacionFiscal extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Mostrar detalles de normativa
-                    },
+                    onPressed: () => _mostrarNormativa(context),
                     icon: const Icon(Icons.description_outlined),
                     label: const Text('Ver detalle de normativa'),
                     style: ElevatedButton.styleFrom(
@@ -202,6 +200,67 @@ class PanelResultadoValidacionFiscal extends StatelessWidget {
       ),
     );
   }
+
+  void _mostrarNormativa(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.gavel_rounded, color: Color(0xFF1565C0)),
+          SizedBox(width: 8),
+          Text('Normativa fiscal española'),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _seccionNormativa('Ley 37/1992 — IVA',
+                'Las facturas deben incluir número, fecha, NIF del emisor y receptor, '
+                'base imponible, tipo impositivo y cuota resultante.'),
+            _seccionNormativa('RD 1619/2012 — Reglamento de facturación',
+                'Obligatorio: razón social, domicilio fiscal, descripción de la operación '
+                'y desglose de IVA por tipo. Plazo de expedición: antes del día 16 del mes siguiente.'),
+            _seccionNormativa('Ley 58/2003 — General Tributaria',
+                'Las facturas deben conservarse durante 4 años. '
+                'Las rectificativas deben referenciar la factura original.'),
+            _seccionNormativa('VeriFactu / SII (2024)',
+                'Empresas con facturación > 6M€ deben enviar facturas al SII en 4 días. '
+                'VeriFactu aplica a PYMES desde 2025: firma digital y envío a AEAT.'),
+            const SizedBox(height: 8),
+            if (resultado.errores.isNotEmpty) ...[
+              const Divider(),
+              const Text('Errores detectados:',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              ...resultado.errores.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.error_outline, size: 14, color: Colors.red),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
+                ]),
+              )),
+            ],
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _seccionNormativa(String titulo, String texto) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(titulo,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12,
+              color: Color(0xFF1565C0))),
+      const SizedBox(height: 3),
+      Text(texto, style: const TextStyle(fontSize: 12, height: 1.4)),
+    ]),
+  );
 }
 
 /// Diálogo para mostrar resultado de validación fiscal

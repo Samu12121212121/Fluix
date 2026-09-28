@@ -41,6 +41,17 @@ class ITService {
     final anioMesAnterior = fechaInicio.month == 1 ? fechaInicio.year - 1 : fechaInicio.year;
     final diasMesAnterior = DateTime(anioMesAnterior, mesAnterior + 1, 0).day;
     final baseReguladoraDiaria = baseCotizacionMesAnterior / diasMesAnterior;
+
+    final ref = _bajasRef(empleadoId).doc();
+    final baja = BajaLaboral(
+      id: ref.id,
+      empleadoId: empleadoId,
+      tipo: tipo,
+      fechaInicio: fechaInicio,
+      numeroParteMedico: numeroParteMedico,
+      diagnostico: diagnostico,
+      observaciones: observaciones,
+      baseReguladoraDiaria: baseReguladoraDiaria,
       mejoraConvenioDias1a3: mejoraConvenioDias1a3,
       porcentajeMejoraDias1a3: porcentajeMejoraDias1a3,
       fechaCreacion: DateTime.now(),
@@ -63,7 +74,7 @@ class ITService {
         .orderBy('fecha_inicio', descending: true)
         .get();
     return snap.docs
-        .map((d) => BajaLaboral.fromMap({...d.data(), 'id': d.id}))
+        .map((d) => BajaLaboral.fromMap(d.data(), d.id))
         .toList();
   }
 
@@ -73,7 +84,7 @@ class ITService {
         .orderBy('fecha_inicio', descending: true)
         .snapshots()
         .map((s) => s.docs
-            .map((d) => BajaLaboral.fromMap({...d.data(), 'id': d.id}))
+            .map((d) => BajaLaboral.fromMap(d.data(), d.id))
             .toList());
   }
 

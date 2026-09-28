@@ -1,25 +1,33 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+import 'package:planeag_flutter/core/utils/app_settings.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/services/pdf_service.dart';
 import 'package:planeag_flutter/services/email_service.dart';
 import 'package:planeag_flutter/services/verifactu_service.dart';
+import 'package:planeag_flutter/services/verifactu/qr_service.dart';
+import 'package:planeag_flutter/services/verifactu/verifactu_flow_service.dart' hide EstadoVerifactu;
 import 'formulario_factura_screen.dart';
 import 'formulario_rectificativa_screen.dart';
 
 class DetalleFacturaScreen extends StatefulWidget {
   final Factura factura;
   final String empresaId;
+  final bool asSheet; // true = sin AppBar, con handle bar (para bottom sheet)
 
   const DetalleFacturaScreen({
     super.key,
     required this.factura,
     required this.empresaId,
+    this.asSheet = false,
   });
 
   @override
@@ -28,7 +36,31 @@ class DetalleFacturaScreen extends StatefulWidget {
 
 class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
   final _service = FacturacionService();
+  bool _isDark = false;
   String get empresaId => widget.empresaId;
+
+  Color get _bg   => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF5F7FA);
+  Color get _surf => _isDark ? const Color(0xFF1E293B) : Colors.white;
+  Color get _txt  => _isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+  Color get _sub  => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280);
+  Color get _bdr  => _isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB);
+
+  @override
+  void initState() {
+    super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDarkChange);
+  }
+
+  @override
+  void dispose() {
+    AppSettings.darkMode.removeListener(_onDarkChange);
+    super.dispose();
+  }
+
+  void _onDarkChange() {
+    if (mounted) setState(() => _isDark = AppSettings.darkMode.value);
+  }
 
   String get _userName =>
       FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
@@ -37,21 +69,65 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.asSheet) {
+      return ColoredBox(
+        color: _bg,
+        child: Column(children: [
+          // Handle bar
+          Center(child: Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: _bdr,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          )),
+          // Mini header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Row(children: [
+              Text(widget.factura.numeroFactura,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _txt)),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.picture_as_pdf, color: _sub, size: 20),
+                tooltip: 'PDF',
+                onPressed: () => PdfService.verFacturaPdf(context, widget.factura, empresaId),
+              ),
+              IconButton(
+                icon: Icon(Icons.close_rounded, color: _sub, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ]),
+          ),
+          Divider(height: 1, color: _bdr),
+          Expanded(child: StreamBuilder<List<Factura>>(
+            stream: _service.obtenerFacturas(empresaId),
+            builder: (context, snap) {
+              Factura facturaActual = widget.factura;
+              if (snap.hasData) {
+                try { facturaActual = snap.data!.firstWhere((f) => f.id == widget.factura.id); } catch (_) {}
+              }
+              return _buildContenido(context, facturaActual);
+            },
+          )),
+        ]),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(widget.factura.numeroFactura),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      backgroundColor: _bg,
+      appBar: FluixAppBar(
+        titulo: widget.factura.numeroFactura,
+        showLeading: true,
+        extraActions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            icon: Icon(Icons.picture_as_pdf, color: _sub),
             tooltip: 'Ver / Imprimir PDF',
             onPressed: () => PdfService.verFacturaPdf(context, widget.factura, empresaId),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
+            icon: Icon(Icons.more_vert, color: _sub),
             onSelected: (v) => _accion(context, v),
             itemBuilder: (_) => [
               if (widget.factura.esPendiente) ...[
@@ -92,7 +168,37 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Crear rectificativa'),
                       contentPadding: EdgeInsets.zero,
                     )),
-              if (widget.factura.esProforma)
+              if (widget.factura.esAlbaran) ...[
+                const PopupMenuItem(
+                    value: 'convertir_albaran',
+                    child: ListTile(
+                      leading: Icon(Icons.transform, color: Color(0xFF10B981)),
+                      title: Text('Generar factura'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+              ],
+              if (widget.factura.esProforma) ...[
+                const PopupMenuItem(
+                    value: 'presup_enviado',
+                    child: ListTile(
+                      leading: Icon(Icons.send_rounded, color: Color(0xFF3B82F6)),
+                      title: Text('Marcar como enviado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                const PopupMenuItem(
+                    value: 'presup_aceptado',
+                    child: ListTile(
+                      leading: Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E)),
+                      title: Text('Marcar como aceptado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                const PopupMenuItem(
+                    value: 'presup_rechazado',
+                    child: ListTile(
+                      leading: Icon(Icons.cancel_rounded, color: Color(0xFFEF4444)),
+                      title: Text('Marcar como rechazado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
                 const PopupMenuItem(
                     value: 'convertir_proforma',
                     child: ListTile(
@@ -100,6 +206,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Convertir a factura'),
                       contentPadding: EdgeInsets.zero,
                     )),
+              ],
               if (widget.factura.esPendiente || widget.factura.estado == EstadoFactura.vencida)
                 const PopupMenuItem(
                     value: 'anular',
@@ -134,108 +241,59 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         // Estado y número
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(_iconoEstado(f.estado), color: color, size: 36),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  f.numeroFactura,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        f.estado.etiqueta,
-                        style: TextStyle(color: color, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    if (f.estaVencida && f.estado != EstadoFactura.vencida) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text('VENCIDA',
-                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700, fontSize: 12)),
-                      ),
-                    ],
-                    if (f.esRectificativa) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text('RECTIFICATIVA',
-                            style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.w700, fontSize: 10)),
-                      ),
-                    ],
-                    if (f.estado == EstadoFactura.rectificada) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text('RECTIFICADA',
-                            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w700, fontSize: 10)),
-                      ),
-                    ],
-                    if (f.esProforma) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text('PROFORMA',
-                            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w700, fontSize: 10)),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildChipInfo(Icons.calendar_today, _formatFecha(f.fechaEmision)),
-                    const SizedBox(width: 16),
-                    _buildChipInfo(Icons.receipt, f.tipo.etiqueta),
-                    if (f.fechaVencimiento != null) ...[
-                      const SizedBox(width: 16),
-                      _buildChipInfo(Icons.timer, 'Vence: ${_formatFecha(f.fechaVencimiento!)}'),
-                    ],
-                  ],
-                ),
-              ],
+        _buildCard(Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: Icon(_iconoEstado(f.estado), color: color, size: 36),
             ),
-          ),
-        ),
+            const SizedBox(height: 12),
+            Text(f.numeroFactura, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _txt)),
+            const SizedBox(height: 6),
+            // Wrap evita overflow cuando hay varios badges
+            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                child: Text(f.estado.etiqueta, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+              ),
+              if (f.estaVencida && f.estado != EstadoFactura.vencida)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('VENCIDA', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700, fontSize: 12)),
+                ),
+              if (f.esRectificativa)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.deepPurple.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('RECTIFICATIVA', style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.w700, fontSize: 10)),
+                ),
+              if (f.estado == EstadoFactura.rectificada)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('RECTIFICADA', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w700, fontSize: 10)),
+                ),
+              if (f.esProforma)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('PROFORMA', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w700, fontSize: 10)),
+                ),
+            ]),
+            const SizedBox(height: 16),
+            // Wrap también para los chips de info
+            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
+              _buildChipInfo(Icons.calendar_today, _formatFecha(f.fechaEmision)),
+              _buildChipInfo(Icons.receipt, f.tipo.etiqueta),
+              if (f.fechaVencimiento != null)
+                _buildChipInfo(Icons.timer, 'Vence: ${_formatFecha(f.fechaVencimiento!)}'),
+            ]),
+          ]),
+        )),
         const SizedBox(height: 16),
 
         // Cliente
@@ -246,9 +304,9 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             _buildFila('Teléfono', f.clienteTelefono!),
           if (f.clienteCorreo != null) _buildFila('Correo', f.clienteCorreo!),
           if (f.datosFiscales?.tieneDatos == true) ...[
-            const Divider(height: 16),
-            const Text('Datos Fiscales',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            Divider(height: 16, color: _bdr),
+            Text('Datos Fiscales',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _txt)),
             const SizedBox(height: 4),
             if (f.datosFiscales!.nif != null) _buildFila('NIF/CIF', f.datosFiscales!.nif!),
             if (f.datosFiscales!.razonSocial != null) _buildFila('Razón Social', f.datosFiscales!.razonSocial!),
@@ -258,35 +316,28 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
         const SizedBox(height: 16),
 
         // Líneas
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('🛒 Detalle de la Factura',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 12),
-                ...f.lineas.map((l) => _buildLineaDetalle(l)),
-                const Divider(height: 24),
-                _buildFilaTotal('Base imponible', '${f.subtotal.toStringAsFixed(2)}€'),
-                if (f.descuentoGlobal > 0)
-                  _buildFilaTotal('Descuento global (${f.descuentoGlobal.toInt()}%)',
-                      '-${f.importeDescuentoGlobal.toStringAsFixed(2)}€'),
-                _buildFilaTotal('IVA', '${f.totalIva.toStringAsFixed(2)}€'),
-                if (f.totalRecargoEquivalencia > 0)
-                  _buildFilaTotal('Recargo equiv.', '${f.totalRecargoEquivalencia.toStringAsFixed(2)}€'),
-                if (f.porcentajeIrpf > 0)
-                  _buildFilaTotal('Retención IRPF (${f.porcentajeIrpf.toInt()}%)',
-                      '-${f.retencionIrpf.toStringAsFixed(2)}€'),
-                const Divider(height: 12),
-                _buildFilaTotal('TOTAL', '${f.total.toStringAsFixed(2)}€', bold: true),
-              ],
-            ),
-          ),
-        ),
+        _buildCard(Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('🛒 Detalle de la Factura',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _txt)),
+            const SizedBox(height: 12),
+            ...f.lineas.map((l) => _buildLineaDetalle(l)),
+            Divider(height: 24, color: _bdr),
+            _buildFilaTotal('Base imponible', '${f.subtotal.toStringAsFixed(2)}€'),
+            if (f.descuentoGlobal > 0)
+              _buildFilaTotal('Descuento global (${f.descuentoGlobal.toInt()}%)',
+                  '-${f.importeDescuentoGlobal.toStringAsFixed(2)}€'),
+            _buildFilaTotal('IVA', '${f.totalIva.toStringAsFixed(2)}€'),
+            if (f.totalRecargoEquivalencia > 0)
+              _buildFilaTotal('Recargo equiv.', '${f.totalRecargoEquivalencia.toStringAsFixed(2)}€'),
+            if (f.porcentajeIrpf > 0)
+              _buildFilaTotal('Retención IRPF (${f.porcentajeIrpf.toInt()}%)',
+                  '-${f.retencionIrpf.toStringAsFixed(2)}€'),
+            Divider(height: 12, color: _bdr),
+            _buildFilaTotal('TOTAL', '${f.total.toStringAsFixed(2)}€', bold: true),
+          ]),
+        )),
         const SizedBox(height: 16),
 
         // Datos de Rectificativa
@@ -318,13 +369,13 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
         if (f.notasInternas != null || f.notasCliente != null) ...[
           _buildSeccion('📝 Notas', [
             if (f.notasInternas != null) ...[
-              const Text('Internas:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(f.notasInternas!, style: const TextStyle(fontSize: 13)),
+              Text('Internas:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _txt)),
+              Text(f.notasInternas!, style: TextStyle(fontSize: 13, color: _sub)),
               const SizedBox(height: 8),
             ],
             if (f.notasCliente != null) ...[
-              const Text('Para el cliente:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(f.notasCliente!, style: const TextStyle(fontSize: 13)),
+              Text('Para el cliente:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _txt)),
+              Text(f.notasCliente!, style: TextStyle(fontSize: 13, color: _sub)),
             ],
           ]),
           const SizedBox(height: 16),
@@ -349,7 +400,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
+        color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF5F7FA),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -358,19 +409,19 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.descripcion, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(l.descripcion, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _txt)),
                 Text(
                   '${l.cantidad} × ${l.precioUnitario.toStringAsFixed(2)}€'
                   '  (IVA ${l.porcentajeIva.toInt()}%)'
                   '${l.descuento > 0 ? '  -${l.descuento.toInt()}% dto' : ''}'
                   '${l.recargoEquivalencia > 0 ? '  +${l.recargoEquivalencia}% RE' : ''}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(color: _sub, fontSize: 12),
                 ),
               ],
             ),
           ),
           Text('${l.subtotalConIva.toStringAsFixed(2)}€',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+              style: TextStyle(fontWeight: FontWeight.bold, color: _txt)),
         ],
       ),
     );
@@ -407,9 +458,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
           usuarioNombre: _userName,
         );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✅ Factura pagada'), backgroundColor: Color(0xFF4CAF50)),
-          );
+          FluxToast.exito(context, 'Factura pagada');
         }
         break;
 
@@ -426,18 +475,11 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             usuarioNombre: _userName,
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Factura duplicada: ${resultado.factura.numeroFactura}'),
-                backgroundColor: const Color(0xFF4CAF50),
-              ),
-            );
+            FluxToast.exito(context, 'Factura duplicada: ${resultado.factura.numeroFactura}');
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-            );
+            FluxToast.error(context, 'Error: $e');
           }
         }
         break;
@@ -457,6 +499,47 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
         }
         break;
 
+      case 'presup_enviado':
+      case 'presup_aceptado':
+      case 'presup_rechazado':
+        final nuevoEstado = accion == 'presup_enviado'
+            ? EstadoPresupuesto.enviado
+            : accion == 'presup_aceptado'
+                ? EstadoPresupuesto.aceptado
+                : EstadoPresupuesto.rechazado;
+        try {
+          await _service.actualizarEstadoPresupuesto(
+            empresaId: empresaId,
+            proformaId: widget.factura.id,
+            nuevoEstado: nuevoEstado,
+            usuarioId: _userId,
+            usuarioNombre: _userName,
+          );
+          if (mounted) {
+            FluxToast.exito(context, 'Presupuesto: ${nuevoEstado.etiqueta}');
+          }
+        } catch (e) {
+          if (mounted) FluxToast.error(context, 'Error: $e');
+        }
+        break;
+
+      case 'convertir_albaran':
+        try {
+          final resultado = await _service.convertirAlbaranAFactura(
+            empresaId: empresaId,
+            albaranId: widget.factura.id,
+            usuarioId: _userId,
+            usuarioNombre: _userName,
+          );
+          if (mounted) {
+            FluxToast.exito(context, 'Factura creada: ${resultado.factura.numeroFactura}');
+            Navigator.pop(context, true);
+          }
+        } catch (e) {
+          if (mounted) FluxToast.error(context, 'Error: $e');
+        }
+        break;
+
       case 'convertir_proforma':
         try {
           final resultado = await _service.convertirProformaAFactura(
@@ -466,19 +549,12 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             usuarioNombre: _userName,
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Factura creada: ${resultado.factura.numeroFactura}'),
-                backgroundColor: const Color(0xFF4CAF50),
-              ),
-            );
+            FluxToast.exito(context, 'Factura creada: ${resultado.factura.numeroFactura}');
             Navigator.pop(context, true);
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-            );
+            FluxToast.error(context, 'Error: $e');
           }
         }
         break;
@@ -517,18 +593,11 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             usuarioNombre: _userName,
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Factura anulada correctamente'),
-                backgroundColor: Colors.grey,
-              ),
-            );
+            FluxToast.info(context, 'Factura anulada correctamente');
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('❌ Error al anular: $e'), backgroundColor: Colors.red),
-            );
+            FluxToast.error(context, 'Error al anular: $e');
           }
         }
         break;
@@ -600,9 +669,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
               nombreCliente: widget.factura.clienteNombre,
             );
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('✅ $msg'), backgroundColor: const Color(0xFF4CAF50)),
-              );
+              FluxToast.exito(context, msg);
             }
           } catch (_) {
             // Fallback: compartir vía sistema
@@ -626,9 +693,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error al enviar: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error al enviar: $e');
       }
     }
   }
@@ -654,22 +719,28 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
 
   // ── HELPERS ──────────────────────────────────────────────────────────────
 
+  // Contenedor que reemplaza Card con colores dinámicos (dark mode correcto)
+  Widget _buildCard(Widget child) => Container(
+    decoration: BoxDecoration(
+      color: _surf,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: _isDark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
+    ),
+    child: child,
+  );
+
   Widget _buildSeccion(String titulo, List<Widget> children) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 12),
-            ...children,
-          ],
-        ),
+    return _buildCard(Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _txt)),
+          const SizedBox(height: 12),
+          ...children,
+        ],
       ),
-    );
+    ));
   }
 
   Widget _buildFila(String label, String valor) {
@@ -678,8 +749,8 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 100, child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13))),
-          Expanded(child: Text(valor, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+          SizedBox(width: 110, child: Text(label, style: TextStyle(color: _sub, fontSize: 13))),
+          Expanded(child: Text(valor, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: _txt))),
         ],
       ),
     );
@@ -691,16 +762,12 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(
-                  fontSize: bold ? 15 : 13,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                  color: bold ? Colors.black : Colors.grey[700])),
-          Text(valor,
-              style: TextStyle(
-                  fontSize: bold ? 15 : 13,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                  color: bold ? const Color(0xFF0D47A1) : Colors.black)),
+          Text(label, style: TextStyle(fontSize: bold ? 15 : 13,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              color: bold ? _txt : _sub)),
+          Text(valor, style: TextStyle(fontSize: bold ? 15 : 13,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              color: bold ? const Color(0xFF3B82F6) : _txt)),
         ],
       ),
     );
@@ -710,15 +777,16 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
+        color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _bdr),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icono, size: 13, color: Colors.grey[600]),
+          Icon(icono, size: 13, color: _sub),
           const SizedBox(width: 4),
-          Text(texto, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+          Text(texto, style: TextStyle(fontSize: 12, color: _sub)),
         ],
       ),
     );
@@ -733,15 +801,15 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
           Container(
             width: 8, height: 8,
             margin: const EdgeInsets.only(top: 5, right: 8),
-            decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(h.descripcion, style: const TextStyle(fontSize: 13)),
+                Text(h.descripcion, style: TextStyle(fontSize: 13, color: _txt)),
                 Text('${h.usuarioNombre} · ${_formatFecha(h.fecha)}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: _sub)),
               ],
             ),
           ),
@@ -806,7 +874,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
               Expanded(
                 child: Text(
                   'Verifactu: No registrada. Activa Verifactu en Configuración.',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(color: _sub, fontSize: 12),
                 ),
               ),
             ],
@@ -818,6 +886,15 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
     final vf = DatosVerifactu.fromMap(vfMap);
     final color = _colorVerifactu(vf.estado);
     final icono = _iconoVerifactu(vf.estado);
+    // Usar QrService para URL con formato dd-MM-yyyy (HAC/1177/2024)
+    final qrUrl = vf.urlVerificacion ??
+        QrService().generarUrl(
+          nifEmisor: vf.nifEmisor,
+          serie: '',
+          numero: vf.numeroFactura.isNotEmpty ? vf.numeroFactura : f.numeroFactura,
+          fecha: f.fechaEmision,
+          importeTotal: f.total,
+        );
 
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -831,27 +908,70 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(icono, size: 18, color: color),
-                const SizedBox(width: 10),
-                Text(
-                  'Verifactu — ${_etiquetaVerifactu(vf.estado)}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: color, fontSize: 13),
+            // ── Estado ─────────────────────────────────────────────────────
+            Row(children: [
+              Icon(icono, size: 18, color: color),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                'Verifactu — ${_etiquetaVerifactu(vf.estado)}',
+                style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13),
+              )),
+              // Botón enviar a AEAT (solo si está pendiente)
+              if (vf.estado == EstadoVerifactu.pendiente || vf.estado == EstadoVerifactu.error)
+                OutlinedButton.icon(
+                  onPressed: () => _enviarAeat(f, vf),
+                  icon: const Icon(Icons.send_outlined, size: 13),
+                  label: const Text('Enviar AEAT', style: TextStyle(fontSize: 11)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: color,
+                    side: BorderSide(color: color.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-              ],
-            ),
+            ]),
+            // ── Hash ───────────────────────────────────────────────────────
             if (vf.hashRegistro.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 'Hash: ${vf.hashRegistro.substring(0, 16)}...',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontFamily: 'monospace'),
+                style: TextStyle(fontSize: 11, color: _sub, fontFamily: 'monospace'),
               ),
             ],
+            // ── QR de verificación AEAT ────────────────────────────────────
+            if (vf.hashRegistro.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                // QR code
+                Container(
+                  decoration: BoxDecoration(
+                    color: _surf,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: QrImageView(data: qrUrl, size: 90, version: QrVersions.auto),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('QR Verificación AEAT',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                  const SizedBox(height: 4),
+                  Text('Escanea con la app de la AEAT o cámara del móvil para verificar la factura.',
+                      style: TextStyle(fontSize: 10, color: _sub, height: 1.4)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      final uri = Uri.parse(qrUrl);
+                      if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+                    },
+                    child: Text('Verificar en AEAT →',
+                        style: TextStyle(fontSize: 11, color: color, decoration: TextDecoration.underline)),
+                  ),
+                ])),
+              ]),
+            ],
+            // ── URL verificación si la AEAT ya la asignó ───────────────────
             if (vf.urlVerificacion != null) ...[
               const SizedBox(height: 6),
               GestureDetector(
@@ -859,19 +979,47 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                   final uri = Uri.parse(vf.urlVerificacion!);
                   if (await canLaunchUrl(uri)) launchUrl(uri);
                 },
-                child: Text(
-                  'Ver en AEAT →',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: color,
-                      decoration: TextDecoration.underline),
-                ),
+                child: Text('Ver respuesta AEAT →',
+                    style: TextStyle(fontSize: 12, color: color, decoration: TextDecoration.underline)),
               ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _enviarAeat(Factura f, DatosVerifactu vf) async {
+    // Obtener config y generar XML antes de enviar
+    final config = await VerifactuService.obtenerConfig(empresaId);
+    if (config == null || !config.habilitado) {
+      if (!mounted) return;
+      FluxToast.aviso(context, 'Verifactu no está configurado o habilitado');
+      return;
+    }
+
+    if (!mounted) return;
+    FluxToast.info(context, 'Enviando a AEAT (firma XAdES + remisión SOAP)...');
+
+    try {
+      final xml = VerifactuService.generarXml(factura: f, datos: vf, config: config);
+      final result = await VerifactuFlowService.enviarFactura(
+        xmlSinFirmar: xml,
+        empresaId: empresaId,
+        facturaId: f.id,
+      );
+
+      if (!mounted) return;
+      final ok = result.estado.name == 'enviado';
+      if (ok) {
+        FluxToast.exito(context, 'Enviado a AEAT${result.csv != null ? ' — CSV: ${result.csv}' : ''}');
+      } else {
+        FluxToast.error(context, 'Rechazado por AEAT: ${result.descripcionError ?? 'Error desconocido'}');
+      }
+    } on Exception catch (e) {
+      if (!mounted) return;
+      FluxToast.error(context, 'Error al enviar: $e');
+    }
   }
 
   Color _colorVerifactu(EstadoVerifactu estado) {

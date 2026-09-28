@@ -17,11 +17,13 @@ import 'package:planeag_flutter/services/exportadores_aeat/modelo111_aeat_export
 class Modelo111Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
+  final bool embebido;
 
   const Modelo111Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
+    this.embebido = false,
   });
 
   @override
@@ -127,6 +129,24 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _procesando
+        ? const Center(child: CircularProgressIndicator())
+        : StreamBuilder<List<Modelo111>>(
+            stream: _svc.obtenerTodos(widget.empresaId, _anio),
+            builder: (context, snap) {
+              final modelos = snap.data ?? [];
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildResumenAnual(modelos),
+                  const SizedBox(height: 16),
+                  ...['1T', '2T', '3T', '4T'].map((t) =>
+                      _buildTarjetaTrimestre(t, modelos)),
+                ],
+              );
+            },
+          );
+    if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -147,23 +167,7 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
           ),
         ],
       ),
-      body: _procesando
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<Modelo111>>(
-              stream: _svc.obtenerTodos(widget.empresaId, _anio),
-              builder: (context, snap) {
-                final modelos = snap.data ?? [];
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildResumenAnual(modelos),
-                    const SizedBox(height: 16),
-                    ...['1T', '2T', '3T', '4T'].map((t) =>
-                        _buildTarjetaTrimestre(t, modelos)),
-                  ],
-                );
-              },
-            ),
+      body: body,
     );
   }
 

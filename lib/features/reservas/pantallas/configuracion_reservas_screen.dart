@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO: Configuración de reservas
@@ -239,17 +240,11 @@ class _ConfiguracionReservasScreenState
       await _sincronizarConfigWeb();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('✅ Configuración guardada y sincronizada con web'),
-          backgroundColor: Color(0xFF2E7D32),
-        ));
+        FluxToast.exito(context, 'Configuración guardada y sincronizada con web');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ));
+        FluxToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
@@ -443,13 +438,7 @@ class _ConfiguracionReservasScreenState
             onPressed: () {
               final texto = motivoCtrl.text.trim();
               if (texto.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚠️ El motivo es obligatorio'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                FluxToast.aviso(context, 'El motivo es obligatorio');
                 return;
               }
               Navigator.pop(ctx, texto);
@@ -1632,10 +1621,7 @@ class _ConfiguracionReservasScreenState
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: onCopiar()));
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('$botonLabel copiado'),
-                    duration: const Duration(seconds: 2),
-                  ));
+                  FluxToast.info(context, '$botonLabel copiado');
                 },
                 child: const Row(
                   children: [

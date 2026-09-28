@@ -29,6 +29,9 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
   DateTime _focusedDay      = DateTime.now();
   DateTime _diaSeleccionado = DateTime.now();
   EstadoTarea? _filtroCalendario;
+  String? _filtroResponsable;   // uid del usuario seleccionado
+  String? _filtroEquipo;        // id del equipo seleccionado
+  bool _filtroConFechaLimite = false;  // mostrar solo las que tienen fecha límite
 
   // Cache de nombres de usuario
   final Map<String, String> _nombres = {};
@@ -121,6 +124,9 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
   List<Tarea> _filtrar(List<Tarea> todas) {
     var r = todas.where((t) => t.estado != EstadoTarea.cancelada).toList();
     if (_filtroPrioridad != null) r = r.where((t) => t.prioridad == _filtroPrioridad).toList();
+    if (_filtroResponsable != null) r = r.where((t) => t.usuarioAsignadoId == _filtroResponsable).toList();
+    if (_filtroEquipo != null) r = r.where((t) => t.equipoId == _filtroEquipo).toList();
+    if (_filtroConFechaLimite) r = r.where((t) => t.fechaLimite != null).toList();
     return r;
   }
 
@@ -172,14 +178,14 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
       ]),
       const Spacer(),
-      ElevatedButton.icon(
+      FilledButton.icon(
         onPressed: _nuevaTarea,
-        icon: const Icon(Icons.add, size: 16, color: Colors.white),
-        label: const Text('Nueva tarea', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0D47A1),
+        icon: const Icon(Icons.add_rounded, size: 16),
+        label: const Text('Nueva tarea', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF3B82F6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), elevation: 0,
         ),
       ),
     ]),
@@ -190,45 +196,79 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
   Widget _buildFilterBar() => Container(
     color: Colors.white,
     padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-    child: Row(children: [
-      _filtroChip('Responsable', 'Todos', null),
-      const SizedBox(width: 8),
-      _filtroChip('Proyecto', 'Todos', null),
-      const SizedBox(width: 8),
-      // Prioridad — funcional
-      PopupMenuButton<PrioridadTarea?>(
-        onSelected: (p) => setState(() => _filtroPrioridad = p),
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: null, child: Text('Todas')),
-          const PopupMenuItem(value: PrioridadTarea.urgente, child: Text('🔴 Urgente')),
-          const PopupMenuItem(value: PrioridadTarea.alta,    child: Text('🟠 Alta')),
-          const PopupMenuItem(value: PrioridadTarea.media,   child: Text('🟡 Media')),
-          const PopupMenuItem(value: PrioridadTarea.baja,    child: Text('⚪ Baja')),
-        ],
-        child: _filtroChip('Prioridad', _filtroPrioridad == null ? 'Todas' : _labelPrioridad(_filtroPrioridad!), null, active: _filtroPrioridad != null),
-      ),
-      const SizedBox(width: 8),
-      _filtroChip('Fecha límite', 'Cualquiera', null),
-      const SizedBox(width: 12),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          borderRadius: BorderRadius.circular(6),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        // Responsable
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('usuarios')
+              .where('empresa_id', isEqualTo: widget.empresaId).snapshots(),
+          builder: (_, snap) {
+            final usuarios = snap.data?.docs ?? [];
+            return PopupMenuButton<String?>(
+              onSelected: (uid) => setState(() => _filtroResponsable = uid),
+              itemBuilder: (_) => [
+                const PopupMenuItem<String?>(value: null, child: Text('Todos los responsables')),
+                ...usuarios.map((doc) {
+                  final d = doc.data() as Map;
+                  final nombre = d['nombre'] as String? ?? doc.id;
+                  return PopupMenuItem<String?>(value: doc.id, child: Text(nombre));
+                }),
+              ],
+              child: _filtroChip('Responsable',
+                  _filtroResponsable == null ? 'Todos' : (_nombres[_filtroResponsable!] ?? '…'),
+                  null, active: _filtroResponsable != null),
+            );
+          },
         ),
-        child: Row(children: [
-          const Icon(Icons.tune, size: 14, color: Color(0xFF64748B)),
-          const SizedBox(width: 5),
-          const Text('Más filtros', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-          if (_filtroPrioridad != null) ...[
-            const SizedBox(width: 5),
-            Container(width: 16, height: 16,
-                decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle),
-                child: const Center(child: Text('1', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)))),
+        const SizedBox(width: 8),
+        // Prioridad
+        PopupMenuButton<PrioridadTarea?>(
+          onSelected: (p) => setState(() => _filtroPrioridad = p),
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: null, child: Text('Todas las prioridades')),
+            const PopupMenuItem(value: PrioridadTarea.urgente, child: Text('🔴 Urgente')),
+            const PopupMenuItem(value: PrioridadTarea.alta,    child: Text('🟠 Alta')),
+            const PopupMenuItem(value: PrioridadTarea.media,   child: Text('🟡 Media')),
+            const PopupMenuItem(value: PrioridadTarea.baja,    child: Text('⚪ Baja')),
           ],
-        ]),
-      ),
-    ]),
+          child: _filtroChip('Prioridad',
+              _filtroPrioridad == null ? 'Todas' : _labelPrioridad(_filtroPrioridad!),
+              null, active: _filtroPrioridad != null),
+        ),
+        const SizedBox(width: 8),
+        // Fecha límite
+        GestureDetector(
+          onTap: () => setState(() => _filtroConFechaLimite = !_filtroConFechaLimite),
+          child: _filtroChip('Fecha límite',
+              _filtroConFechaLimite ? 'Con fecha' : 'Cualquiera',
+              null, active: _filtroConFechaLimite),
+        ),
+        const SizedBox(width: 8),
+        // Limpiar filtros (si alguno activo)
+        if (_filtroPrioridad != null || _filtroResponsable != null || _filtroConFechaLimite)
+          GestureDetector(
+            onTap: () => setState(() {
+              _filtroPrioridad = null;
+              _filtroResponsable = null;
+              _filtroConFechaLimite = false;
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.close_rounded, size: 12, color: Color(0xFFEF4444)),
+                SizedBox(width: 4),
+                Text('Limpiar', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+      ]),
+    ),
   );
 
   Widget _filtroChip(String label, String valor, VoidCallback? onTap, {bool active = false}) =>
@@ -694,9 +734,11 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
       final wide = c.maxWidth > 700;
       final left = _buildResumenEquipo(nTotal, nPend, nProg, nRev, nComp, cargaOrdenada, maxCarga);
       final right = _buildProximos(proximos.take(5).toList());
-      if (wide) return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(child: left), const SizedBox(width: 16), Expanded(child: right),
-      ]);
+      if (wide) {
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: left), const SizedBox(width: 16), Expanded(child: right),
+        ]);
+      }
       return Column(children: [left, const SizedBox(height: 16), right]);
     });
   }

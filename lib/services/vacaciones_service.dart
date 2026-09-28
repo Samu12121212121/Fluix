@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/vacacion_model.dart';
 import '../models/saldo_vacaciones_model.dart';
+import 'dart:developer' show log;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESULTADO DE SOLAPAMIENTO DE AUSENCIAS
@@ -91,8 +92,9 @@ class VacacionesService {
   }
 
   static int calcularDiasNaturales(DateTime inicio, DateTime fin) {
-    final a = DateTime(inicio.year, inicio.month, inicio.day);
-    final b = DateTime(fin.year, fin.month, fin.day);
+    // Usar UTC para evitar problemas con cambio horario DST (igual que _diffDias)
+    final a = DateTime.utc(inicio.year, inicio.month, inicio.day);
+    final b = DateTime.utc(fin.year, fin.month, fin.day);
     return b.difference(a).inDays + 1;
   }
 
@@ -340,11 +342,15 @@ class VacacionesService {
     double arrastre = 0;
     final saldoAnterior = await _obtenerSaldoAlmacenado(empresaId, empleadoId, anio - 1);
     if (saldoAnterior != null && saldoAnterior.diasPendientes > 0) {
-      // Solo se pueden disfrutar hasta el 31/01 del año siguiente
-      final limiteArrastre = DateTime(anio, 1, 31);
-      if (DateTime.now().isBefore(limiteArrastre) ||
-          DateTime.now().isAtSameMomentAs(limiteArrastre)) {
-        arrastre = saldoAnterior.diasPendientes;
+      // Leer la fecha límite de la configuración; por defecto 31 de marzo
+      ConfiguracionCarryover configCarry = const ConfiguracionCarryover();
+      try {
+        configCarry = await obtenerConfigCarryover(empresaId);
+      } catch (_) {}
+      final limiteArrastre = DateTime(anio, configCarry.mesExpiracion, configCarry.diaExpiracion);
+      if (!DateTime.now().isAfter(limiteArrastre)) {
+        final maxDias = configCarry.diasMaximosTraspasar.toDouble();
+        arrastre = saldoAnterior.diasPendientes.clamp(0, maxDias);
       }
     }
 
@@ -520,6 +526,30 @@ class VacacionesService {
   }
 
   // ── HELPERS ──────────────────────────────────────────────────────────────────
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONFIGURACIÓN CARRYOVER (arrastre de días entre años)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  DocumentReference<Map<String, dynamic>> _configRef(String empresaId) =>
+      _db.collection('empresas').doc(empresaId)
+         .collection('configuracion').doc('vacaciones_carryover');
+
+  Future<ConfiguracionCarryover> obtenerConfigCarryover(String empresaId) async {
+    try {
+      final doc = await _configRef(empresaId).get();
+      if (!doc.exists || doc.data() == null) return const ConfiguracionCarryover();
+      return ConfiguracionCarryover.fromMap(doc.data()!);
+    } catch (e) {
+      log('[VacacionesService] obtenerConfigCarryover: $e');
+      return const ConfiguracionCarryover();
+    }
+  }
+
+  Future<void> guardarConfigCarryover(
+      String empresaId, ConfiguracionCarryover config) async {
+    await _configRef(empresaId).set(config.toMap(), SetOptions(merge: true));
+  }
 
   static DateTime _parseDate(dynamic v) {
     if (v is Timestamp) return v.toDate();

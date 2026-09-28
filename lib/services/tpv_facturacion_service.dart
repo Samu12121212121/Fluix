@@ -28,7 +28,7 @@ class TpvFacturacionService {
 
   // ── MODO 1: FACTURA POR PEDIDO ─────────────────────────────────────────────
 
-  Future<Factura> generarFacturaPorPedido({
+  Future<ResultadoCrearFactura> generarFacturaPorPedido({
     required String empresaId,
     required Pedido pedido,
     required ConfiguracionFacturacionTpv config,
@@ -67,7 +67,7 @@ class TpvFacturacionService {
       terminalId: terminalId,
     );
     await _marcarFacturado(empresaId, pedido.id, resultado.factura.id);
-    return resultado.factura;
+    return resultado;
   }
 
   // ── MODO 2: RESUMEN DIARIO ─────────────────────────────────────────────────
@@ -89,7 +89,7 @@ class TpvFacturacionService {
     );
     if (pedidos.isEmpty) return null;
 
-    final lineas = pedidos.expand(_pedidoALineas).toList();
+    final lineas = _agruparLineas(pedidos.expand(_pedidoALineas).toList());
     final fechaStr = '${fecha.day.toString().padLeft(2,'0')}/${fecha.month.toString().padLeft(2,'0')}/${fecha.year}';
 
     // Desglose por método de pago
@@ -126,7 +126,7 @@ class TpvFacturacionService {
 
   // ── MODO 3: SELECCIÓN MANUAL ───────────────────────────────────────────────
 
-  Future<Factura> facturarSeleccion({
+  Future<ResultadoCrearFactura> facturarSeleccion({
     required String empresaId,
     required List<Pedido> pedidos,
     required ConfiguracionFacturacionTpv config,
@@ -134,7 +134,7 @@ class TpvFacturacionService {
     String usuarioNombre = 'TPV',
   }) async {
     if (pedidos.isEmpty) throw Exception('No hay pedidos seleccionados');
-    final lineas = pedidos.expand(_pedidoALineas).toList();
+    final lineas = _agruparLineas(pedidos.expand(_pedidoALineas).toList());
     final resultado = await _factSvc.crearFactura(
       empresaId: empresaId,
       clienteNombre: 'Ventas TPV — Selección manual',
@@ -154,7 +154,7 @@ class TpvFacturacionService {
       });
     }
     await batch.commit();
-    return resultado.factura;
+    return resultado;
   }
 
   // ── PEDIDOS PENDIENTES ────────────────────────────────────────────────────
@@ -210,6 +210,30 @@ class TpvFacturacionService {
         'factura_id': facturaId,
         'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
       });
+
+  List<LineaFactura> _agruparLineas(List<LineaFactura> lineas) {
+    final mapa = <String, LineaFactura>{};
+    for (final l in lineas) {
+      final clave = '${l.descripcion}|${l.precioUnitario}|${l.porcentajeIva}'
+          '|${l.descuento}|${l.recargoEquivalencia}|${l.unidad}';
+      final existente = mapa[clave];
+      if (existente != null) {
+        mapa[clave] = LineaFactura(
+          descripcion: l.descripcion,
+          precioUnitario: l.precioUnitario,
+          cantidad: existente.cantidad + l.cantidad,
+          porcentajeIva: l.porcentajeIva,
+          descuento: l.descuento,
+          recargoEquivalencia: l.recargoEquivalencia,
+          unidad: l.unidad,
+          referencia: l.referencia,
+        );
+      } else {
+        mapa[clave] = l;
+      }
+    }
+    return mapa.values.toList();
+  }
 
   List<LineaFactura> _pedidoALineas(Pedido pedido) =>
       pedido.lineas.map((l) => LineaFactura(

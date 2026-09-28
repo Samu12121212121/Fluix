@@ -104,9 +104,9 @@ class BlogPost {
       slug:               m['slug'] as String? ?? doc.id,
       resumen:            m['resumen'] as String? ?? '',
       contenido:          m['contenido'] as String? ?? '',
-      imagenUrl:          m['imagen_url'] as String?,
-      thumbnailUrl:       m['thumbnail_url'] as String?,
-      categoriaId:        m['categoria_id'] as String?,
+      imagenUrl:          _nonEmpty(m['imagen_url'] as String?),
+      thumbnailUrl:       _nonEmpty(m['thumbnail_url'] as String?),
+      categoriaId:        _nonEmpty(m['categoria_id'] as String?),
       etiquetas:          (m['etiquetas'] as List<dynamic>?)?.cast<String>() ?? [],
       autor:              m['autor'] as String? ?? '',
       fechaPublicacion:   _parseTs(m['fecha_publicacion']),
@@ -195,6 +195,8 @@ class BlogPost {
         .replaceAll(RegExp(r'^-|-$'), '');
     return s.isEmpty ? 'sin-titulo' : s;
   }
+
+  static String? _nonEmpty(String? s) => (s != null && s.isNotEmpty) ? s : null;
 
   static DateTime _parseTs(dynamic v) {
     if (v is Timestamp) return v.toDate();

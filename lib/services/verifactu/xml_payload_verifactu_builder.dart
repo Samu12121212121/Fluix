@@ -1,7 +1,10 @@
 import '../../domain/modelos/factura.dart';
 
 class XmlPayloadVerifactuBuilder {
-  /// Opcion B: solo payload fiscal, sin SOAP Envelope.
+  /// Genera el payload XML de SuministroLRFacturasEmitidas (RegistroAlta).
+  ///
+  /// Las fechas deben estar en formato dd-MM-yyyy (HAC/1177/2024).
+  /// El encadenamiento usa los datos de la factura ANTERIOR (no la actual).
   static String construirSuministroSingleAltaLegacy({
     required Factura factura,
     required String nifEmisor,
@@ -10,13 +13,15 @@ class XmlPayloadVerifactuBuilder {
     required String claveRegimen,
     required String hashRegistro,
     required String hashAnterior,
-    required String fechaExpedicion,
+    required String fechaExpedicion,           // fecha de la factura ACTUAL (dd-MM-yyyy)
     required String fechaHoraRegistro,
     required String nombreSoftware,
     required String idSoftware,
     required String versionSoftware,
     required String nifFabricante,
     required bool esSoloVerifactu,
+    String numeroFacturaAnterior = '',         // número de la factura ANTERIOR
+    String fechaExpedicionAnterior = '',       // fecha de la factura ANTERIOR (dd-MM-yyyy)
   }) {
     final lineasXml = factura.lineas.map((l) => '''
           <vf:DetalleDesglose>
@@ -29,6 +34,17 @@ class XmlPayloadVerifactuBuilder {
           </vf:DetalleDesglose>''').join('\n');
 
     final contrapartidaNif = (factura.datosFiscales?.nif ?? '').trim();
+    final esPrimer = hashAnterior.trim().isEmpty;
+
+    // Bloque de encadenamiento con la factura ANTERIOR (requerido si no es el primero)
+    final encadenamiento = esPrimer
+        ? ''
+        : '''      <vf:EncadenamientoFacturaAnterior>
+        <vf:IDEmisorFacturaAnterior>${_xmlEscape(nifEmisor)}</vf:IDEmisorFacturaAnterior>
+        <vf:NumSerieFacturaAnterior>${_xmlEscape(numeroFacturaAnterior.isNotEmpty ? numeroFacturaAnterior : factura.numeroFactura)}</vf:NumSerieFacturaAnterior>
+        <vf:FechaExpedicionFacturaAnterior>${_xmlEscape(fechaExpedicionAnterior.isNotEmpty ? fechaExpedicionAnterior : fechaExpedicion)}</vf:FechaExpedicionFacturaAnterior>
+        <vf:HuellaFacturaAnterior>${_xmlEscape(hashAnterior)}</vf:HuellaFacturaAnterior>
+      </vf:EncadenamientoFacturaAnterior>''';
 
     return '''<?xml version="1.0" encoding="UTF-8"?>
 <vf:SuministroLRFacturasEmitidas xmlns:vf="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
@@ -56,8 +72,8 @@ $lineasXml
       </vf:Desglose>
       <vf:CuotaTotal>${factura.totalIva.toStringAsFixed(2)}</vf:CuotaTotal>
       <vf:ImporteTotal>${factura.total.toStringAsFixed(2)}</vf:ImporteTotal>
-      <vf:PrimerRegistro>${hashAnterior.trim().isEmpty ? 'S' : 'N'}</vf:PrimerRegistro>
-      ${hashAnterior.trim().isEmpty ? '' : '<vf:EncadenamientoFacturaAnterior><vf:IDEmisorFacturaAnterior>${_xmlEscape(nifEmisor)}</vf:IDEmisorFacturaAnterior><vf:NumSerieFacturaAnterior>${_xmlEscape(factura.numeroFactura)}</vf:NumSerieFacturaAnterior><vf:FechaExpedicionFacturaAnterior>${_xmlEscape(fechaExpedicion)}</vf:FechaExpedicionFacturaAnterior><vf:HuellaFacturaAnterior>${_xmlEscape(hashAnterior)}</vf:HuellaFacturaAnterior></vf:EncadenamientoFacturaAnterior>'}
+      <vf:PrimerRegistro>${esPrimer ? 'S' : 'N'}</vf:PrimerRegistro>
+$encadenamiento
       <vf:SistemaInformatico>
         <vf:NombreSistemaInformatico>${_xmlEscape(nombreSoftware)}</vf:NombreSistemaInformatico>
         <vf:IdSistemaInformatico>${_xmlEscape(idSoftware)}</vf:IdSistemaInformatico>

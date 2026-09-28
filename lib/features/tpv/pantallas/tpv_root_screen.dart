@@ -4144,11 +4144,18 @@ class _ColumnaComandaActiva extends StatelessWidget {
     // WINDOWS: Intentar impresión REAL Bluetooth por Serial Port
     // ═══════════════════════════════════════════════════════════════════════
     if (esWindows) {
-      debugPrint('🪟 Plataforma Windows detectada - intentando impresión Bluetooth...');
-
-      try {
-        // Mostrar dialog de loading
+      final winSvc = ImpresoraWindowsService();
+      if (!winSvc.estaConectada) {
+        // Sin impresora configurada — mostrar ticket en pantalla sin aviso de error
+        debugPrint('ℹ️ [COBRO] Windows sin impresora configurada — mostrando ticket en pantalla');
         if (context.mounted) {
+          await _mostrarVistaTicket(context, ticketData,
+              aviso: 'Sin impresora configurada. El ticket se muestra aquí para que el cliente lo fotografíe.\n'
+                     'Configura la impresora desde Ajustes TPV → Impresora.');
+        }
+      } else {
+        debugPrint('🪟 [COBRO] Windows con impresora — intentando impresión...');
+        try {
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -4156,63 +4163,36 @@ class _ColumnaComandaActiva extends StatelessWidget {
               onWillPop: () async => false,
               child: const AlertDialog(
                 backgroundColor: Color(0xFF1E2139),
-                content: Row(
-                  children: [
-                    CircularProgressIndicator(color: Color(0xFF00FFC8)),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Imprimiendo ticket...',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
+                content: Row(children: [
+                  CircularProgressIndicator(color: Color(0xFF00FFC8)),
+                  SizedBox(width: 16),
+                  Expanded(child: Text('Imprimiendo ticket...',
+                      style: TextStyle(color: Colors.white))),
+                ]),
               ),
             ),
           );
-        }
 
-        try {
-          // Intentar impresión REAL en Windows (async, no bloqueante)
-          await ImpresoraWindowsService().imprimirTicket(ticketData);
-
-          // Cerrar loading
+          await winSvc.imprimirTicket(ticketData);
           if (context.mounted) Navigator.pop(context);
-
-          // Mostrar éxito
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Row(children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text('🖨️ Ticket impreso correctamente'),
-                ]),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 3),
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Row(children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('🖨️ Ticket impreso correctamente'),
+              ]),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ));
           }
-
-        } catch (e, stackTrace) {
-          debugPrint('❌ Error al imprimir en Windows: $e\n$stackTrace');
-
-          // Cerrar loading
+        } catch (e) {
+          debugPrint('❌ [COBRO] Error impresión Windows: $e');
           if (context.mounted) Navigator.pop(context);
-
-          // Fallback: Mostrar ticket en pantalla
           if (context.mounted) {
             await _mostrarVistaTicket(context, ticketData,
-                aviso: '⚠️ Error de impresión: ${e.toString()}\n\nMostrando ticket en pantalla como alternativa.');
+                aviso: '⚠️ Error de impresión: $e\n\nMostrando ticket en pantalla.');
           }
-        }
-      } catch (dialogError) {
-        debugPrint('❌ Error al mostrar diálogo de impresión: $dialogError');
-        // Si falla todo, al menos mostrar ticket en pantalla
-        if (context.mounted) {
-          await _mostrarVistaTicket(context, ticketData,
-              aviso: '⚠️ Error en sistema de impresión. Mostrando ticket en pantalla.');
         }
       }
     }
@@ -6531,31 +6511,31 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
             // ── Métodos principales ───────────────────────────────────────────
             Row(
               children: [
-                _PagoChip(
+                Expanded(child: _PagoChip(
                     label: 'Efectivo',
                     icon: Icons.payments_outlined,
                     selected: _metodo == 'efectivo',
-                    onTap: () => setState(() => _metodo = 'efectivo')),
+                    onTap: () => setState(() => _metodo = 'efectivo'))),
                 const SizedBox(width: 8),
-                _PagoChip(
+                Expanded(child: _PagoChip(
                     label: 'Tarjeta',
                     icon: Icons.credit_card,
                     selected: _metodo == 'tarjeta',
-                    onTap: () => setState(() => _metodo = 'tarjeta')),
+                    onTap: () => setState(() => _metodo = 'tarjeta'))),
                 const SizedBox(width: 8),
-                _PagoChip(
+                Expanded(child: _PagoChip(
                     label: 'Mixto',
                     icon: Icons.swap_horiz,
                     selected: _metodo == 'mixto',
-                    onTap: () => setState(() => _metodo = 'mixto')),
+                    onTap: () => setState(() => _metodo = 'mixto'))),
                 const SizedBox(width: 8),
-                _PagoChip(
+                Expanded(child: _PagoChip(
                     label: 'Split',
                     icon: Icons.group,
                     selected: _metodo == 'split',
-                    onTap: () => setState(() => _metodo = 'split')),
+                    onTap: () => setState(() => _metodo = 'split'))),
                 const SizedBox(width: 8),
-                _PagoChip(
+                Expanded(child: _PagoChip(
                     label: 'Terminal',
                     icon: Icons.credit_score,
                     selected: _metodo == 'terminal',
@@ -6563,7 +6543,7 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
                       _metodo = 'terminal';
                       _terminalEstado = '';
                       _terminalError = null;
-                    })),
+                    }))),
               ],
             ),
             // ── Métodos extra (Bizum, Transferencia…) ────────────────────────
@@ -6913,37 +6893,37 @@ class _PagoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? cs.primaryContainer : cs.surfaceVariant,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? cs.primary : Colors.transparent,
-              width: selected ? 1.5 : 0,
-            ),
+    // No retorna Expanded: el widget se usa tanto en Row como en Wrap.
+    // El Expanded lo añade el padre cuando sea necesario (call site en Row).
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? cs.primary : Colors.transparent,
+            width: selected ? 1.5 : 0,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  size: 20,
-                  color: selected ? cs.primary : cs.onSurfaceVariant),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: selected ? cs.primary : cs.onSurfaceVariant,
-                ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 20,
+                color: selected ? cs.primary : cs.onSurfaceVariant),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

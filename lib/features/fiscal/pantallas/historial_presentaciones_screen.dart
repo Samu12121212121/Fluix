@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // HISTORIAL DE PRESENTACIONES — Estado de modelos AEAT por períodos
@@ -332,9 +333,11 @@ class HistorialPresentacionesScreen extends StatelessWidget {
   }
 
   void _abrirUrl(String url) async {
-    // TODO: Implementar apertura de URL o descarga
-    // Por ahora solo mostramos el URL
-    debugPrint('Abrir URL: $url');
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }
 

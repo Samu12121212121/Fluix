@@ -209,6 +209,7 @@ class AdminInitializer {
 
   /// Actualiza la lista de módulos a la versión completa.
   static Future<void> actualizarModulos() async {
+    if (!kDebugMode || adminEmail.isEmpty || adminPassword.isEmpty) return;
     final empresaRef = FirebaseFirestore.instance
         .collection('empresas').doc(empresaId);
     await _actualizarModulosInterno(empresaRef);

@@ -30,6 +30,8 @@ class ProductoCsvFila {
   final int? stock;
   final double? coste;
   final double? precioWeb;
+  final double? precio2;
+  final String? etiquetaPrecio2;
   final int? duracionMinutos;
   final bool activo;
   final bool destacado;
@@ -53,6 +55,8 @@ class ProductoCsvFila {
     this.stock,
     this.coste,
     this.precioWeb,
+    this.precio2,
+    this.etiquetaPrecio2,
     this.duracionMinutos,
     this.activo = true,
     this.destacado = false,
@@ -153,6 +157,15 @@ class CatalogoCsvParser {
     'precio_web': [
       'precio_web', 'web_price', 'precio_online', 'online_price',
       'precio_ecommerce', 'precio_tienda',
+    ],
+    'precio2': [
+      'precio2', 'precio_2', 'precio_b', 'price2', 'price_b',
+      'precio_alternativo', 'precio_mayorista', 'precio_llevar',
+      'precio_tarifa2', 'tarifa2', 'tarifa_b',
+    ],
+    'etiqueta_precio2': [
+      'etiqueta_precio2', 'label_precio2', 'nombre_precio2',
+      'etiqueta2', 'label2', 'tipo_precio2',
     ],
     // ── SERVICIOS ─────────────────────────────────────────────────────────
     'duracion_minutos': [
@@ -354,6 +367,12 @@ class CatalogoCsvParser {
           get('precio_web').replaceAll(',', '.').replaceAll('€', '').trim();
       final precioWeb = precioWebStr.isEmpty ? null : double.tryParse(precioWebStr);
 
+      final precio2Str =
+          get('precio2').replaceAll(',', '.').replaceAll('€', '').trim();
+      final precio2 = precio2Str.isEmpty ? null : double.tryParse(precio2Str);
+      final etiquetaPrecio2Raw = get('etiqueta_precio2').trim();
+      final etiquetaPrecio2 = etiquetaPrecio2Raw.isEmpty ? null : etiquetaPrecio2Raw;
+
       final durStr = get('duracion_minutos').replaceAll(',', '').trim();
       final duracion = durStr.isEmpty ? null : int.tryParse(durStr);
 
@@ -394,6 +413,8 @@ class CatalogoCsvParser {
         stock: stock,
         coste: coste,
         precioWeb: precioWeb,
+        precio2: precio2,
+        etiquetaPrecio2: etiquetaPrecio2,
         duracionMinutos: duracion,
         activo: activo,
         destacado: destacado,

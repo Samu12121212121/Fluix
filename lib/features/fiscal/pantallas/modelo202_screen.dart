@@ -17,11 +17,13 @@ import 'package:planeag_flutter/widgets/presentar_aeat_widget.dart';
 class Modelo202Screen extends StatefulWidget {
   final String empresaId;
   final int? anioInicial;
+  final bool embebido;
 
   const Modelo202Screen({
     super.key,
     required this.empresaId,
     this.anioInicial,
+    this.embebido = false,
   });
 
   @override
@@ -122,6 +124,30 @@ class _Modelo202ScreenState extends State<Modelo202Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _procesando
+        ? const Center(child: CircularProgressIndicator())
+        : StreamBuilder<List<Modelo202>>(
+            stream: _svc.obtenerTodos(widget.empresaId, _anio),
+            builder: (context, snap) {
+              final modelos = snap.data ?? [];
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildResumenAnual(modelos),
+                  const SizedBox(height: 16),
+                  ...PeriodoModelo202.values
+                      .map((p) => _buildTarjetaPeriodo(p, modelos)),
+                  const SizedBox(height: 12),
+                  PresentarAeatWidget(
+                    modelo: '202',
+                    urlAeat: SedeAeatUrls.mod202,
+                    onJustificanteGuardado: (justificante) {},
+                  ),
+                ],
+              );
+            },
+          );
+    if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -144,31 +170,7 @@ class _Modelo202ScreenState extends State<Modelo202Screen> {
           ),
         ],
       ),
-      body: _procesando
-          ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List<Modelo202>>(
-              stream: _svc.obtenerTodos(widget.empresaId, _anio),
-              builder: (context, snap) {
-                final modelos = snap.data ?? [];
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildResumenAnual(modelos),
-                    const SizedBox(height: 16),
-                    ...PeriodoModelo202.values
-                        .map((p) => _buildTarjetaPeriodo(p, modelos)),
-                    const SizedBox(height: 12),
-                    PresentarAeatWidget(
-                      modelo: '202',
-                      urlAeat: SedeAeatUrls.mod202,
-                      onJustificanteGuardado: (justificante) {
-                        // Guardar justificante en el modelo correspondiente
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
+      body: body,
     );
   }
 

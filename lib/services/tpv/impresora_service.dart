@@ -34,18 +34,15 @@ class ImpresoraService {
       // En desktop/web: usar impresoras del sistema
       await _imprimirDesktop(pdfBytes, nombreArchivo: nombreArchivo);
     } else {
-      // En móvil: intentar Bluetooth, si falla usar sistema
+      // En móvil: Bluetooth si hay impresora conectada, si no sistema
       try {
         final conectada = await _btService.estaConectada();
         if (conectada) {
-          // TODO: Convertir PDF a comandos ESC/POS para Bluetooth
-          // Por ahora usar sistema
-          await _imprimirDesktop(pdfBytes, nombreArchivo: nombreArchivo);
+          await _btService.imprimirPdfComoTicket(pdfBytes);
         } else {
           await _imprimirDesktop(pdfBytes, nombreArchivo: nombreArchivo);
         }
-      } catch (e) {
-        // Si falla Bluetooth, usar sistema
+      } catch (_) {
         await _imprimirDesktop(pdfBytes, nombreArchivo: nombreArchivo);
       }
     }
@@ -154,6 +151,47 @@ class ImpresoraService {
       debugPrint('⚠️ No se pudo abrir el cajón: $e');
       // No propagar — el cajón es opcional, no debe bloquear el cobro
     }
+  }
+
+  /// Imprimir ticket ESC/POS por Bluetooth (móvil).
+  /// En desktop imprime como PDF por el sistema.
+  Future<void> imprimirTicket(TicketData ticket) async {
+    if (esMovil) {
+      try {
+        final conectada = await _btService.estaConectada();
+        if (conectada) {
+          await _btService.imprimirTicket(ticket);
+          return;
+        }
+      } catch (_) {}
+    }
+    // Fallback: imprimir como PDF
+    final pdfBytes = await _ticketComoPdf(ticket);
+    await imprimirPdf(pdfBytes, nombreArchivo: 'ticket_${ticket.numeroTicket}');
+  }
+
+  /// Genera un PDF minimalista de ticket para el fallback desktop.
+  Future<Uint8List> _ticketComoPdf(TicketData ticket) async {
+    // Reutiliza el layout del servicio de impresión desktop
+    return await Printing.convertHtml(
+      format: PdfPageFormat.roll80,
+      html: _ticketHtml(ticket),
+    );
+  }
+
+  String _ticketHtml(TicketData ticket) {
+    final lineas = ticket.lineas.map((l) =>
+        '<tr><td>${l.nombre}</td><td>${l.cantidad}x</td>'
+        '<td style="text-align:right">${l.subtotal.toStringAsFixed(2)}€</td></tr>'
+    ).join();
+    return '''<!DOCTYPE html><html><body style="font-family:monospace;font-size:11px;width:72mm">
+<h3 style="text-align:center">${ticket.nombreEmpresa}</h3>
+<p style="text-align:center">Ticket #${ticket.numeroTicket}<br>${ticket.fecha.toString().substring(0, 16)}</p>
+<hr><table width="100%">$lineas</table><hr>
+<p style="font-size:14px;font-weight:bold;text-align:right">TOTAL: ${ticket.total.toStringAsFixed(2)}€</p>
+<p>Pago: ${ticket.metodoPago}</p>
+<p style="text-align:center">¡Gracias por su compra!</p>
+</body></html>''';
   }
 
   /// Imprimir con configuración automática (usa impresora por defecto si está configurada)

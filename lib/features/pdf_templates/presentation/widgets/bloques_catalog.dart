@@ -1,8 +1,5 @@
-class BloqueDisponible {
-  final String tipo, nombre, icono, categoria;
-  final Map<String, dynamic> propsDefault;
-  const BloqueDisponible({required this.tipo, required this.nombre, required this.icono, required this.categoria, required this.propsDefault});
-}
+import '../../domain/models/bloque_disponible.dart';
+export '../../domain/models/bloque_disponible.dart';
 
 const List<BloqueDisponible> kBloquesDisponibles = [
   BloqueDisponible(tipo:'header',         nombre:'Cabecera Empresa',  icono:'🏢', categoria:'Empresa',     propsDefault:{'mostrar_logo':true,'color_fondo':'#1565C0','color_texto':'#FFFFFF','padding':18.0,'border_radius':12.0}),
@@ -16,6 +13,7 @@ const List<BloqueDisponible> kBloquesDisponibles = [
   BloqueDisponible(tipo:'info_empleado',  nombre:'Info Empleado',    icono:'👷', categoria:'Fichajes',    propsDefault:{'mostrar_nombre':true,'mostrar_puesto':true,'mostrar_periodo':true}),
   BloqueDisponible(tipo:'tabla_fichajes', nombre:'Tabla Fichajes',   icono:'⏱️', categoria:'Fichajes',    propsDefault:{'mostrar_fecha':true,'mostrar_entrada':true,'mostrar_salida':true,'color_cabecera':'#0D47A1'}),
   BloqueDisponible(tipo:'resumen_horas',  nombre:'Resumen Horas',    icono:'📈', categoria:'Fichajes',    propsDefault:{'mostrar_total_horas':true,'mostrar_horas_extra':true,'mostrar_dias_trabajados':true}),
+  BloqueDisponible(tipo:'indice',          nombre:'Índice / Sumario',  icono:'📋', categoria:'Genérico',    propsDefault:{'titulo':'ÍNDICE','mostrar_paginas':true,'tamano_fuente':9.0,'color_texto':'#000000','color_titulo':'#1565C0'}),
   BloqueDisponible(tipo:'notas',          nombre:'Notas',             icono:'📝', categoria:'Genérico',    propsDefault:{'placeholder':'Notas...','tamano_fuente':9.0,'color_texto':'#757575'}),
   BloqueDisponible(tipo:'texto_libre',    nombre:'Texto Libre',      icono:'✏️', categoria:'Genérico',    propsDefault:{'contenido':'Texto personalizado','tamano_fuente':10.0,'color_texto':'#000000','negrita':false,'cursiva':false}),
   BloqueDisponible(tipo:'separador',      nombre:'Separador',         icono:'➖', categoria:'Genérico',    propsDefault:{'color':'#E0E0E0','grosor':1.0,'margen_vertical':8.0}),

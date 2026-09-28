@@ -1,23 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// Sistema de notificaciones estilo WhatsApp — esquina inferior izquierda.
-/// Sin sonido, sin registro, solo visual.
+/// Toast global via root Overlay — visible en todas las pantallas.
 class FluxToast {
-  static final _queue = <_ToastData>[];
   static OverlayEntry? _current;
   static Timer? _timer;
   static final GlobalKey<_ToastOverlayState> _key = GlobalKey();
 
-  /// Muestra una notificación desde cualquier parte de la app.
   static void show(
     BuildContext context,
     String message, {
     String? title,
     IconData icon = Icons.info_outline_rounded,
     Color? color,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 4),
     ToastTipo tipo = ToastTipo.info,
+    bool persistente = false,
   }) {
     final data = _ToastData(
       message: message,
@@ -25,37 +23,52 @@ class FluxToast {
       icon: icon,
       color: color ?? tipo.color,
       duration: duration,
+      persistente: persistente,
     );
+
+    // Eliminar el toast anterior de inmediato (sin animación) para evitar
+    // conflicto de GlobalKey si la animación de salida aún no terminó.
+    _timer?.cancel();
+    _timer = null;
+    final toRemove = _current;
+    _current = null;
+    try { toRemove?.remove(); } catch (_) {}
 
     try {
       final overlay = Overlay.of(context, rootOverlay: true);
-      if (_current == null) {
-        _showEntry(overlay, data);
-      } else {
-        // Actualizar el existente o encolar
-        _key.currentState?.updateData(data);
-        _timer?.cancel();
-        _timer = Timer(data.duration, _dismiss);
+      _current = OverlayEntry(
+        builder: (_) => _ToastOverlay(key: _key, data: data, onDismiss: _forceClose),
+      );
+      overlay.insert(_current!);
+      if (!persistente) {
+        _timer = Timer(duration, _forceClose);
       }
     } catch (_) {}
   }
 
-  static void _showEntry(OverlayState overlay, _ToastData data) {
-    _current = OverlayEntry(
-      builder: (_) => _ToastOverlay(key: _key, data: data, onDismiss: _dismiss),
-    );
-    overlay.insert(_current!);
-    _timer = Timer(data.duration, _dismiss);
+  static void _forceClose() {
+    _timer?.cancel();
+    _timer = null;
+    // Capturar la referencia ANTES de setear null para que el callback
+    // asíncrono no elimine un toast posterior.
+    final toRemove = _current;
+    _current = null;
+    if (toRemove == null) return;
+    try {
+      _key.currentState?.dismiss().then((_) {
+        try { toRemove.remove(); } catch (_) {}
+      }).catchError((_) {
+        try { toRemove.remove(); } catch (_) {}
+      });
+      if (_key.currentState == null) {
+        try { toRemove.remove(); } catch (_) {}
+      }
+    } catch (_) {
+      try { toRemove.remove(); } catch (_) {}
+    }
   }
 
-  static void _dismiss() {
-    _key.currentState?.dismiss().then((_) {
-      _current?.remove();
-      _current = null;
-      _timer?.cancel();
-      _timer = null;
-    });
-  }
+  static void dismiss() => _forceClose();
 
   // Atajos de tipo
   static void exito(BuildContext ctx, String msg,
@@ -77,13 +90,10 @@ class FluxToast {
 }
 
 enum ToastTipo {
-  exito,
-  error,
-  aviso,
-  info;
+  exito, error, aviso, info;
 
   Color get color => switch (this) {
-    ToastTipo.exito => const Color(0xFF25D366), // verde WhatsApp
+    ToastTipo.exito => const Color(0xFF25D366),
     ToastTipo.error => const Color(0xFFE53935),
     ToastTipo.aviso => const Color(0xFFF59E0B),
     ToastTipo.info  => const Color(0xFF1A73E8),
@@ -96,6 +106,7 @@ class _ToastData {
   final IconData icon;
   final Color color;
   final Duration duration;
+  final bool persistente;
 
   const _ToastData({
     required this.message,
@@ -103,15 +114,13 @@ class _ToastData {
     required this.color,
     required this.duration,
     this.title,
+    this.persistente = false,
   });
 }
-
-// ── Widget overlay ──────────────────────────────────────────────────────────
 
 class _ToastOverlay extends StatefulWidget {
   final _ToastData data;
   final VoidCallback onDismiss;
-
   const _ToastOverlay({super.key, required this.data, required this.onDismiss});
 
   @override
@@ -121,7 +130,6 @@ class _ToastOverlay extends StatefulWidget {
 class _ToastOverlayState extends State<_ToastOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<Offset> _slide;
   late Animation<double> _fade;
   late _ToastData _data;
 
@@ -129,15 +137,8 @@ class _ToastOverlayState extends State<_ToastOverlay>
   void initState() {
     super.initState();
     _data = widget.data;
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(-1.2, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _ctrl.forward();
   }
 
@@ -149,7 +150,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
 
   Future<void> dismiss() async {
     if (!mounted) return;
-    await _ctrl.reverse();
+    try { await _ctrl.reverse(); } catch (_) {}
   }
 
   @override
@@ -160,78 +161,78 @@ class _ToastOverlayState extends State<_ToastOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final topOffset = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
     return Positioned(
+      top: topOffset,
       left: 16,
-      bottom: 24,
-      child: SlideTransition(
-        position: _slide,
-        child: FadeTransition(
-          opacity: _fade,
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              onTap: widget.onDismiss,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 220, maxWidth: 340),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1F2C34), // fondo oscuro estilo WhatsApp
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x55000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+      right: 16,
+      child: FadeTransition(
+        opacity: _fade,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _data.color.withValues(alpha: 0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: _data.color.withValues(alpha: 0.25),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icono de color
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _data.color.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(_data.icon, color: _data.color, size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    // Texto
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_data.title != null)
-                            Text(
-                              _data.title!,
-                              style: TextStyle(
-                                color: _data.color,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          if (_data.title != null) const SizedBox(height: 2),
-                          Text(
-                            _data.message,
-                            style: const TextStyle(
-                              color: Color(0xFFE9EDEF),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              ],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Barra superior de color
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _data.color,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                 ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Row(children: [
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: _data.color.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(_data.icon, color: _data.color, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (_data.title != null)
+                      Text(_data.title!,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: _data.color)),
+                    if (_data.title != null) const SizedBox(height: 2),
+                    Text(_data.message,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF374151), height: 1.4),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis),
+                  ])),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: widget.onDismiss,
+                    child: Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 15, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
           ),
         ),
       ),

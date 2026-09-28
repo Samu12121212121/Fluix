@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/modelos/pedido.dart';
+import '../../../services/facturacion_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
+import '../../facturacion/pantallas/detalle_factura_screen.dart';
 
 class FacturarPedidosScreen extends StatefulWidget {
   final String empresaId;
@@ -73,32 +75,58 @@ class _FacturarPedidosScreenState extends State<FacturarPedidosScreen> {
     if (confirmar != true || !mounted) return;
 
     setState(() => _facturando = true);
+    ResultadoCrearFactura? resultado;
     try {
       final config = await _svc.obtenerConfig(widget.empresaId);
-      final factura = await _svc.facturarSeleccion(
+      resultado = await _svc.facturarSeleccion(
         empresaId: widget.empresaId,
         pedidos: pedidos,
         config: config,
         usuarioNombre: 'TPV Manual',
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ Factura ${factura.numeroFactura} generada'),
-          backgroundColor: Colors.green,
-        ));
-        _seleccionados.clear();
-        _cargar();
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text('Error al generar factura: $e'),
           backgroundColor: Colors.red,
         ));
       }
     } finally {
       if (mounted) setState(() => _facturando = false);
     }
+
+    if (resultado == null || !mounted) return;
+    _seleccionados.clear();
+    _cargar();
+
+    // Mostrar banner si VeriFactu falló
+    if (resultado.verifactuError) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text(
+            '⚠️ Factura generada, pero no se pudo registrar en la AEAT. '
+            'Comprueba VeriFactu desde el detalle de la factura.'),
+        backgroundColor: Colors.orange.shade700,
+        duration: const Duration(seconds: 6),
+      ));
+    }
+
+    // Mostrar factura generada en bottom sheet
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.92,
+        minChildSize: 0.5,
+        maxChildSize: 0.97,
+        builder: (_, ctrl) => DetalleFacturaScreen(
+          factura: resultado!.factura,
+          empresaId: widget.empresaId,
+          asSheet: true,
+        ),
+      ),
+    );
   }
 
   // ── BUILD ──────────────────────────────────────────────────────────────────

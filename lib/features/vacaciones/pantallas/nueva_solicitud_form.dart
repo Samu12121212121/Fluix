@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import '../../../models/vacacion_model.dart';
 import '../../../models/saldo_vacaciones_model.dart';
 import '../../../services/vacaciones_service.dart';
+import '../../../services/bandeja_notificaciones_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORMULARIO NUEVA SOLICITUD DE VACACIONES / AUSENCIA
@@ -72,11 +75,20 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         DateTime.now().year,
       );
       if (mounted) setState(() => _saldoActual = saldo);
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) setState(() => _saldoActual = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
@@ -134,6 +146,7 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
                 setState(() {
                   _tipo = v;
                   if (v == TipoAusencia.permisoRetribuido) {
+                    _subtipo = SubtipoPermiso.matrimonio;
                     _actualizarFechasPorPermiso();
                   }
                 });
@@ -421,9 +434,7 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
   Future<void> _guardar() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_empleadoId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un empleado')),
-      );
+      FluxToast.aviso(context, 'Selecciona un empleado');
       return;
     }
 
@@ -474,24 +485,38 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         empleadoNombre: _empleadoNombre,
       );
 
-      await _svc.crearSolicitud(widget.empresaId, solicitud);
+      final creada = await _svc.crearSolicitud(widget.empresaId, solicitud);
+
+      // Notificación en bandeja para el propietario/admin
+      try {
+        final tipoLabel = _tipo == TipoAusencia.vacaciones
+            ? 'vacaciones'
+            : _tipo.name.replaceAllMapped(
+                RegExp(r'([A-Z])'), (m) => ' ${m[1]!.toLowerCase()}');
+        await BandejaNotificacionesService().crear(
+          empresaId:      widget.empresaId,
+          titulo:         '🏖️ Nueva solicitud de ${tipoLabel}',
+          cuerpo:         '${_empleadoNombre ?? 'Un empleado'} ha solicitado '
+                          '$_diasNaturales días (${_fechaInicio.day}/'
+                          '${_fechaInicio.month} → ${_fechaFin.day}/'
+                          '${_fechaFin.month})',
+          tipo:           TipoNotificacion.vacacionesSolicitadas,
+          entidadId:      creada.id,
+          remitenteNombre: _empleadoNombre,
+        );
+      } catch (eNotif) {
+        debugPrint('⚠️ Notificación vacaciones: $eNotif');
+      }
 
       if (mounted) {
+        // FluxToast ANTES del pop — el overlay raíz lo muestra igualmente
+        FluxToast.exito(context,
+            'Solicitud enviada correctamente. Pendiente de aprobación.');
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Solicitud creada correctamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error al crear la solicitud: $e');
       }
     } finally {
       if (mounted) setState(() => _guardando = false);

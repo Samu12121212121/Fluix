@@ -105,15 +105,30 @@ service cloud.firestore {
       && get(suscRef(empresaId)).data.get('estado', '') in ['ACTIVA', 'PRUEBA'];
   }
 
+  // Lee el campo modulos_override del doc suscripcion/actual.
+  // Si no existe el doc o el campo, devuelve lista vacía.
+  function modulosOverride(empresaId) {
+    return exists(suscRef(empresaId))
+      ? get(suscRef(empresaId)).data.get('modulos_override', [])
+      : [];
+  }
+
+  // Acceso a módulo premium: sistema antiguo (packs_activos) O nuevo (modulos_override).
+  // El nuevo sistema escribe módulos individuales, no pack IDs, de ahí el mapping.
   function accesoModuloPremium(empresaId, packId) {
     return esPlataformaAdmin()
       || esDemoSuscripcion(empresaId)
+      || (packId == 'gestion' && modulosOverride(empresaId).hasAny(['vacaciones', 'fichaje', 'facturacion', 'tpv']))
+      || (packId == 'fiscal'  && modulosOverride(empresaId).hasAny(['fiscal', 'contabilidad', 'verifactu']))
+      || (packId == 'tienda'  && modulosOverride(empresaId).hasAny(['pedidos']))
       || (suscripcionValida(empresaId) && tienePackActivo(empresaId, packId));
   }
 
+  // Acceso a addon: sistema antiguo (addons_activos) O nuevo (modulos_override con mismo ID).
   function accesoAddonPremium(empresaId, addonId) {
     return esPlataformaAdmin()
       || esDemoSuscripcion(empresaId)
+      || modulosOverride(empresaId).hasAny([addonId])
       || (suscripcionValida(empresaId) && tieneAddonActivo(empresaId, addonId));
   }
 
@@ -349,13 +364,10 @@ service cloud.firestore {
 
   match /notificaciones/{empresaId}/items/{itemId} {
     allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-    allow update: if perteneceAEmpresa(empresaId)
+    allow update: if (perteneceAEmpresa(empresaId) || esPlataformaAdmin())
       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
-    // Miembros de la empresa pueden crear notificaciones internas (vacaciones, tareas, etc.)
-    allow create: if perteneceAEmpresa(empresaId)
-      && request.resource.data.keys().hasAll(['titulo', 'cuerpo', 'tipo', 'leida', 'timestamp'])
-      && request.resource.data.leida == false
-      && request.resource.data.size() <= 20;
+    // Miembros de la empresa y Cloud Functions pueden crear notificaciones internas
+    allow create: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
     allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
   }
 
@@ -463,32 +475,33 @@ service cloud.firestore {
       allow create: if esUsuarioReal()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE', 'confirmada', 'CONFIRMADA'];
 
-      // 4. Formularios web externos (sin autenticación): requieren campos mínimos
-      //    pero permiten campos adicionales como fecha, hora, servicio, etc.
+      // 4. Formularios web externos (sin autenticación)
+      //    Acepta tanto la convención del SDK (nombre_cliente/telefono_cliente)
+      //    como la convención de la app (cliente_nombre/cliente_telefono)
       allow create: if !isAuth()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE']
-          && request.resource.data.keys().hasAll(['cliente_nombre', 'cliente_telefono'])
-          && request.resource.data.cliente_nombre is string
-          && request.resource.data.cliente_nombre.size() > 0
-          && request.resource.data.cliente_nombre.size() <= 100
-          && request.resource.data.cliente_telefono is string
-          && request.resource.data.cliente_telefono.size() > 0
-          && request.resource.data.cliente_telefono.size() <= 20
-          && request.resource.data.size() <= 50; // Límite razonable de campos
+          && (
+            // Convención SDK Fluix: nombre_cliente + telefono_cliente
+            (request.resource.data.get('nombre_cliente', '').size() > 0
+             && request.resource.data.keys().hasAny(['telefono_cliente', 'telefono']))
+            ||
+            // Convención app: cliente_nombre + cliente_telefono
+            (request.resource.data.get('cliente_nombre', '').size() > 0
+             && request.resource.data.get('cliente_telefono', '').size() > 0)
+          )
+          && request.resource.data.size() <= 50;
 
       // 5. Formularios web con autenticación anónima (Damajuana, etc.)
-      //    Permite usuarios anónimos crear reservas con campos específicos
+      //    El SDK escribe nombre_cliente + telefono_cliente (no telefono a secas)
       allow create: if esAnonimo()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE']
-          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono'])
+          && request.resource.data.keys().hasAll(['nombre_cliente'])
           && request.resource.data.nombre_cliente is string
           && request.resource.data.nombre_cliente.size() > 0
           && request.resource.data.nombre_cliente.size() <= 100
-          && request.resource.data.telefono is string
-          && request.resource.data.telefono.size() > 0
-          && request.resource.data.telefono.size() <= 30
+          && request.resource.data.keys().hasAny(['telefono_cliente', 'telefono'])
           && request.resource.data.origen == 'web'
-          && request.resource.data.size() <= 50; // Límite razonable de campos
+          && request.resource.data.size() <= 50;
     }
 
     // ── EMPLEADOS — lectura pública para formularios B2C ──────────────────
@@ -719,10 +732,32 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // Script SDK de Fluix: el ping de estado se escribe una vez por sesión (auth anónima).
+    // Lectura solo para admin/propietario (panel de integración).
+    match /config_web/{docId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if isAuth() && request.resource.data.size() <= 8;
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     // Blog público — lectura libre para la web del cliente
     match /blog/{postId} {
       allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Herramienta de importación masiva (usuario anónimo — solo empresa Nazarí)
+      allow create: if esAnonimo()
+          && empresaId == '0PoomHYDUJf5w8tDFRLhFi9iURF3'
+          && request.resource.data.keys().hasAll(['titulo', 'slug', 'tipo', 'estado'])
+          && request.resource.data.titulo is string
+          && request.resource.data.titulo.size() > 0
+          && request.resource.data.tipo in ['entrevista', 'noticia']
+          && request.resource.data.estado == 'publicado'
+          && request.resource.data.get('eliminado', false) == false;
+
+      // Historial de versiones del editor
+      match /versiones/{versionId} {
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      }
     }
 
     match /blog_categorias/{catId} {
@@ -755,6 +790,18 @@ service cloud.firestore {
         || staffTieneModulo(empresaId, 'catalogo');
     }
 
+    // Carta del bar/restaurante — lectura pública, escritura solo admin
+    match /carta_web/{itemId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Menú semanal — lectura pública, escritura solo admin
+    match /menu_semanal/{diaId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     match /contacto_web/{mensajeId} {
       allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
         && request.resource.data.nombre is string
@@ -765,9 +812,14 @@ service cloud.firestore {
         && request.resource.data.email.size() <= 150
         && request.resource.data.email.matches('.+@.+[.].+')
         && request.resource.data.mensaje is string
-        && request.resource.data.mensaje.size() > 0
         && request.resource.data.mensaje.size() <= 5000;
       allow read, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Campañas de email marketing
+    match /campanas_email/{campanaId} {
+      allow read, write: if perteneceAEmpresa(empresaId)
+        || esPlataformaAdmin();
     }
 
     match /dispositivos/{dispositivoId} {
@@ -992,14 +1044,13 @@ service cloud.firestore {
     }
 
     // ── EVENTOS (agenda editorial + tracking) ────────────────────────────
-    // Lectura pública para la web editorial; creación abierta para tracking JS.
+    // Lectura pública. Escritura solo para admin/staff de la empresa (no B2C).
     match /eventos/{eventoId} {
       allow read: if true;
-      allow create: if isAuth()
-        && request.resource.data.get('tipo', '') is string
-        && request.resource.data.get('tipo', '').size() <= 50
-        && request.resource.data.size() <= 10;
-      allow update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow create, update: if esAdminOPropietario(empresaId)
+          || esStaffOSuperior(empresaId)
+          || esPlataformaAdmin();
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     match /cache/{docId} {
@@ -1007,15 +1058,15 @@ service cloud.firestore {
     }
 
     // ── ESTADÍSTICAS WEB (tracking.js desde la web pública) ──────────────
+    // El script usa auth anónima (isAuth()), nunca escribe sin token.
     match /estadisticas/{docId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-      // El script de tracking escribe sin autenticación; validamos tamaño
-      allow create, update: if request.resource.data.size() <= 20;
+      allow create, update: if isAuth() && request.resource.data.size() <= 20;
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
     match /estadisticas/{docId}/historico_diario/{diaId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-      allow create, update: if request.resource.data.size() <= 10;
+      allow create, update: if isAuth() && request.resource.data.size() <= 10;
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
@@ -1027,6 +1078,7 @@ service cloud.firestore {
       allow read: if docId == 'popup_web';           // popup ofertas/avisos — lectura pública
       allow read: if docId == 'web_avanzada';
       allow read: if docId == 'vacaciones';          // Config de vacaciones/festivos
+      allow read: if docId == 'pack_seleccion';     // Pack La Selección Nazarí — lectura pública para la web
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
@@ -1045,6 +1097,16 @@ service cloud.firestore {
     match /pdf_config/{docId} {
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── SISTEMA LEGADO DE PLANTILLAS (subcol) — SOLO LECTURA PARA MIGRACIÓN ──
+    // La colección activa es la raíz /pdf_templates. Esta subcol queda
+    // bloqueada para escrituras nuevas y solo se permite leer al admin de
+    // plataforma para la futura migración de datos (Fase 2 - R3 cleanup).
+    // Una vez migrada, eliminar esta regla y borrar los documentos.
+    match /pdf_templates/{templateId} {
+      allow read: if esPlataformaAdmin();
+      allow write: if false;
     }
 
     match /cierres_caja/{cierreId} {
@@ -1444,11 +1506,15 @@ service cloud.firestore {
   }
 match /pdf_templates/{templateId} {
 
+  // resource.data está disponible en list: Firestore valida cada doc devuelto.
+  // Esto obliga a que toda query incluya where('empresa_id', isEqualTo: X),
+  // o Firestore rechaza la consulta. Previene lectura cross-empresa.
   allow list: if esPlataformaAdmin()
     || (
       esUsuarioReal()
       && existeUsuarioDoc()
       && (getRol() == 'admin' || getRol() == 'propietario')
+      && resource.data.empresa_id == getUserData().empresa_id
     );
 
   allow get: if esPlataformaAdmin()
@@ -1522,6 +1588,26 @@ match /pdf_templates/{templateId} {
   match /{path=**}/trofeos/{trofeoId} {
     allow read: if esUsuarioReal()
       && resource.data.get('uid', '') == uid();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // WEB_SECCIONES — secciones dinámicas data-fluix-Nombre-Tipo
+  // ════════════════════════════════════════════════════════════════════
+
+  match /empresas/{empresaId}/web_secciones/{seccionId} {
+    allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+    allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SISTEMA LEGADO GLOBAL (solo admin plataforma para migración)
+  // ════════════════════════════════════════════════════════════════════
+
+  // Plantillas de sistema del motor legado (lib/services/pdf/pdf_template_service.dart).
+  // Solo lectura para plataforma admin; escrituras bloqueadas. Eliminar tras Fase 2.
+  match /pdf_template_system/{templateId} {
+    allow read: if esPlataformaAdmin();
+    allow write: if false;
   }
 
   // ════════════════════════════════════════════════════════════════════

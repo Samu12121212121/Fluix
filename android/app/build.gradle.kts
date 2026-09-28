@@ -37,8 +37,8 @@ android {
         applicationId = "com.fluixcrm.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13          // sincronizado con pubspec.yaml 1.0.13+2
-        versionName = "1.0.13"    // sincronizado con pubspec.yaml
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     signingConfigs {

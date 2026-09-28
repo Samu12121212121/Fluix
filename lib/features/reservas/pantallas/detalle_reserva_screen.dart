@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/clientes_service.dart';
+import '../../../services/email_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE DETALLE EXPANDIDO DE RESERVA/CITA
@@ -110,6 +111,31 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _enviarCorreoConfirmacion() async {
+    if (_emailCliente.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Enviando confirmación a $_emailCliente…')),
+    );
+    try {
+      await EmailService.enviarConfirmacionReservaManual(
+        empresaId: widget.empresaId,
+        reservaId: widget.doc.id,
+      );
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('✅ Correo de confirmación enviado')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('❌ Error al enviar: $e')),
+        );
       }
     }
   }
@@ -393,6 +419,26 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
                   onPressed: _dialogoCancelacion,
                 ),
               ),
+
+            // Botón reenviar correo de confirmación (solo si hay email)
+            if (_emailCliente.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.mark_email_read_outlined),
+                  label: Text('Enviar confirmación a $_emailCliente'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1976D2),
+                    side: const BorderSide(color: Color(0xFF1976D2)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _enviarCorreoConfirmacion,
+                ),
+              ),
+            ],
 
             const SizedBox(height: 32),
           ],

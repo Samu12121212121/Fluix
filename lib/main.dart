@@ -7,12 +7,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import 'features/registro/pantallas/pantalla_registro_invitacion.dart';
+import 'features/reservas_publicas/pantalla_reserva_publica.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/layout/fluix_module_actions.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/providers/app_config_provider.dart';
+import 'core/utils/app_settings.dart';
 import 'features/tpv/providers/mesa_theme_provider.dart';
 import 'core/utils/admin_initializer.dart';
 import 'features/autenticacion/pantallas/pantalla_login.dart';
@@ -23,6 +26,7 @@ import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 import 'firebase_options.dart';
 import 'services/auth/sesion_service.dart';
 import 'services/auth/token_refresh_service.dart';
+import 'services/facturacion_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +71,7 @@ Future<void> main() async {
   }
 
   await _configurarFirestore();
+  await AppSettings.init();
 
   if (!kIsWeb &&
       !kDebugMode &&
@@ -84,6 +89,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AppConfigProvider()..inicializar()),
         ChangeNotifierProvider(create: (_) => MesaThemeProvider()..cargarTema()),
+        ChangeNotifierProvider(create: (_) => FluixModuleActionsNotifier()),
       ],
       child: const FluixCrmApp(),
     ),
@@ -234,6 +240,26 @@ class _FluixCrmAppState extends State<FluixCrmApp>
 
   @override
   Widget build(BuildContext context) {
+    // Ruta pública /reservar/{empresaId} — sin autenticación (solo web)
+    if (kIsWeb) {
+      final segments = Uri.base.pathSegments;
+      if (segments.length >= 2 && segments[0] == 'reservar') {
+        return MaterialApp(
+          title: 'Reservar',
+          debugShowCheckedModeBanner: false,
+          locale: const Locale('es', 'ES'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('es', 'ES'), Locale('en', 'US')],
+          theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+          home: PantallaReservaPublica(empresaId: segments[1]),
+        );
+      }
+    }
+
     return Consumer<AppConfigProvider>(
       builder: (context, config, _) => GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -395,6 +421,9 @@ class _PantallaRutaState extends State<_PantallaRuta> {
 
         if (_empresaId != empresaId || _futureEmpresa == null) {
           _empresaId = empresaId;
+          // Detectar expirados en background al arrancar (no bloquea la UI)
+          FacturacionService().detectarYMarcarPresupuestosExpirados(empresaId).ignore();
+          FacturacionService().detectarYMarcarVencidas(empresaId).ignore();
           _futureEmpresa = FirebaseFirestore.instance
               .collection('empresas')
               .doc(empresaId)

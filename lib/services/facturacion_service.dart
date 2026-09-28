@@ -46,36 +46,34 @@ class FacturacionService {
 
   // ── GENERAR NÚMERO DE FACTURA POR SERIE ────────────────────────────────────
 
+  /// Genera el siguiente número de factura de forma atómica con runTransaction.
+  /// Garantiza unicidad aunque dos usuarios facturen simultáneamente.
   Future<String> _generarNumeroFacturaSerie(
     String empresaId,
     SerieFactura serie,
   ) async {
     final ref = _contadorFacturas(empresaId).doc('facturacion');
     final campoContador = 'ultimo_numero_${serie.name}';
-    final campoAnio = 'anio_ultimo_${serie.name}';
-    final anioActual = DateTime.now().year;
+    final campoAnio     = 'anio_ultimo_${serie.name}';
+    final anioActual    = DateTime.now().year;
 
-    // Leer estado actual
-    final snap = await ref.get();
-    final data = snap.data() ?? {};
-    final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
+    final contador = await _firestore.runTransaction<int>((txn) async {
+      final snap = await txn.get(ref);
+      final data = snap.data() ?? {};
+      final anioGuardado = (data[campoAnio] as num?)?.toInt() ?? 0;
 
-    int contador;
-    if (!snap.exists || anioGuardado != anioActual) {
-      // Primera factura o nuevo año: resetear a 1
-      await ref.set({
-        campoContador: 1,
-        campoAnio: anioActual,
-      }, SetOptions(merge: true));
-      contador = 1;
-    } else {
-      // Incremento atómico (evita runTransaction que crashea en Windows)
-      await ref.update({
-        campoContador: FieldValue.increment(1),
-      });
-      final updated = await ref.get();
-      contador = (updated.data()?[campoContador] as num?)?.toInt() ?? 1;
-    }
+      if (!snap.exists || anioGuardado != anioActual) {
+        // Primera factura del año o documento no existe: iniciar en 1
+        txn.set(ref, {campoContador: 1, campoAnio: anioActual},
+            SetOptions(merge: true));
+        return 1;
+      } else {
+        final actual = (data[campoContador] as num?)?.toInt() ?? 0;
+        final nuevo  = actual + 1;
+        txn.update(ref, {campoContador: nuevo});
+        return nuevo;
+      }
+    });
 
     return '${serie.prefijo}-$anioActual-${contador.toString().padLeft(4, "0")}';
   }
@@ -104,6 +102,8 @@ class FacturacionService {
     String? terminalId,
     List<String>? ticketIds,
     Map<String, double>? desgloseMetodoPago,
+    EstadoPresupuesto? estadoPresupuesto,
+    DateTime? fechaValidezPresupuesto,
   }) async {
     final serie = tipo.serie;
     final numero = await _generarNumeroFacturaSerie(empresaId, serie);
@@ -157,6 +157,10 @@ class FacturacionService {
       notasInternas: notasInternas,
       notasCliente: notasCliente,
       fechaOperacion: fechaOperacion,
+      estadoPresupuesto: tipo == TipoFactura.proforma
+          ? (estadoPresupuesto ?? EstadoPresupuesto.borrador)
+          : null,
+      fechaValidezPresupuesto: tipo == TipoFactura.proforma ? fechaValidezPresupuesto : null,
       historial: [entrada],
       fechaEmision: fechaOperacion ?? DateTime.now(),
       fechaVencimiento: (fechaOperacion ?? DateTime.now()).add(Duration(days: diasVencimiento)),
@@ -199,11 +203,13 @@ class FacturacionService {
 
     await docRef.set(factura.toFirestore());
 
-    // Registrar en Verifactu automáticamente (si está habilitado)
-    // No interrumpe el flujo si falla — la factura se guarda siempre
+    // Registrar en Verifactu — solo documentos fiscales (no proformas ni albaranes)
     bool verifactuOk = false;
     bool verifactuError = false;
     String mensajeVerifactu = '';
+    if (!factura.esDocumentoFiscal) {
+      return ResultadoCrearFactura(factura: factura);
+    }
     try {
       await VerifactuService.registrarFactura(
         empresaId: empresaId,
@@ -430,13 +436,16 @@ class FacturacionService {
       'historial': FieldValue.arrayUnion([entradaOriginal.toMap()]),
     });
 
-    // Registrar en Verifactu
+    // Registrar en VeriFactu (rectificativa)
     try {
       await VerifactuService.registrarFactura(
         empresaId: empresaId,
         factura: factura,
       );
-    } catch (_) {}
+    } catch (e) {
+      _log.e('ERROR VeriFactu (rectificativa $numero): $e');
+      // No bloqueamos la operación, pero el error queda en el log
+    }
 
     return factura;
   }
@@ -552,6 +561,44 @@ class FacturacionService {
     );
   }
 
+  Future<ResultadoCrearFactura> convertirAlbaranAFactura({
+    required String empresaId,
+    required String albaranId,
+    String usuarioId = '',
+    String usuarioNombre = '',
+  }) async {
+    final doc = await _facturas(empresaId).doc(albaranId).get();
+    if (!doc.exists) throw Exception('Albarán no encontrado');
+    final albaran = Factura.fromFirestore(doc);
+
+    if (albaran.tipo != TipoFactura.albaran) {
+      throw Exception('Solo se pueden convertir albaranes');
+    }
+
+    // Marcar albarán como facturado (sin anularlo — el albarán sigue siendo válido)
+    await _facturas(empresaId).doc(albaranId).update({
+      'notas_internas': '${albaran.notasInternas ?? ''}[Facturado]'.trim(),
+    });
+
+    return crearFactura(
+      empresaId: empresaId,
+      clienteNombre: albaran.clienteNombre,
+      clienteTelefono: albaran.clienteTelefono,
+      clienteCorreo: albaran.clienteCorreo,
+      datosFiscales: albaran.datosFiscales,
+      lineas: albaran.lineas,
+      metodoPago: albaran.metodoPago,
+      tipo: TipoFactura.venta_directa,
+      notasInternas: 'Generada desde albarán ${albaran.numeroFactura}',
+      notasCliente: albaran.notasCliente,
+      diasVencimiento: albaran.diasVencimiento,
+      descuentoGlobal: albaran.descuentoGlobal,
+      porcentajeIrpf: albaran.porcentajeIrpf,
+      usuarioId: usuarioId,
+      usuarioNombre: usuarioNombre,
+    );
+  }
+
   // ── DETECTAR FACTURAS VENCIDAS ────────────────────────────────────────────
 
   Future<int> detectarYMarcarVencidas(String empresaId) async {
@@ -588,6 +635,40 @@ class FacturacionService {
     return marcadas;
   }
 
+  /// Marca como 'expirado' los presupuestos cuya fechaValidezPresupuesto ha pasado
+  /// y cuyo estado sea borrador, enviado o aceptado.
+  Future<int> detectarYMarcarPresupuestosExpirados(String empresaId) async {
+    final ahora = DateTime.now();
+    final snap = await _facturas(empresaId)
+        .where('tipo', isEqualTo: TipoFactura.proforma.name)
+        .get();
+
+    int marcados = 0;
+    final batch = _firestore.batch();
+    final estadosActivos = {
+      EstadoPresupuesto.borrador.name,
+      EstadoPresupuesto.enviado.name,
+      EstadoPresupuesto.aceptado.name,
+    };
+
+    for (final doc in snap.docs) {
+      final f = Factura.fromFirestore(doc);
+      final esActivo = estadosActivos.contains(f.estadoPresupuesto?.name);
+      final haVencido = f.fechaValidezPresupuesto != null &&
+          ahora.isAfter(f.fechaValidezPresupuesto!);
+      if (esActivo && haVencido) {
+        batch.update(doc.reference, {
+          'estado_presupuesto': EstadoPresupuesto.expirado.name,
+          'fecha_actualizacion': Timestamp.fromDate(ahora),
+        });
+        marcados++;
+      }
+    }
+
+    if (marcados > 0) await batch.commit();
+    return marcados;
+  }
+
   // ── ACTUALIZAR ESTADO ──────────────────────────────────────────────────────
 
   Future<void> actualizarEstado({
@@ -618,6 +699,29 @@ class FacturacionService {
     }
 
     await _facturas(empresaId).doc(facturaId).update(data);
+  }
+
+  // ── ACTUALIZAR ESTADO PRESUPUESTO ────────────────────────────────────────
+
+  Future<void> actualizarEstadoPresupuesto({
+    required String empresaId,
+    required String proformaId,
+    required EstadoPresupuesto nuevoEstado,
+    String usuarioId = '',
+    String usuarioNombre = '',
+  }) async {
+    final entrada = EntradaHistorialFactura(
+      usuarioId: usuarioId,
+      usuarioNombre: usuarioNombre,
+      accion: 'estado_presupuesto',
+      descripcion: 'Presupuesto: ${nuevoEstado.etiqueta}',
+      fecha: DateTime.now(),
+    );
+    await _facturas(empresaId).doc(proformaId).update({
+      'estado_presupuesto': nuevoEstado.name,
+      'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
+      'historial': FieldValue.arrayUnion([entrada.toMap()]),
+    });
   }
 
   // ── ANULAR FACTURA ─────────────────────────────────────────────────────────
@@ -657,6 +761,14 @@ class FacturacionService {
       'notas_cliente': notasCliente,
       'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
     });
+  }
+
+  // ── LECTURAS PUNTUALES ────────────────────────────────────────────────────
+
+  Future<Factura> obtenerFacturaDoc(String empresaId, String facturaId) async {
+    final doc = await _facturas(empresaId).doc(facturaId).get();
+    if (!doc.exists) throw Exception('Factura no encontrada');
+    return Factura.fromFirestore(doc);
   }
 
   // ── STREAMS ────────────────────────────────────────────────────────────────

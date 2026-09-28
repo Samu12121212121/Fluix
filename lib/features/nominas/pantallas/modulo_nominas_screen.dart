@@ -6,6 +6,7 @@ import '../../../domain/modelos/nomina.dart';
 import '../../../services/nominas_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import 'package:planeag_flutter/features/nominas/pantallas/detalle_nomina_screen.dart';
+import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 
 /// Pantalla principal del módulo de nóminas.
 /// Tabs: Este Mes | Historial | Costes | Resumen
@@ -824,27 +825,14 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
             widget.empresaId, _mesActual, _anioActual);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ $n nóminas generadas para ${Nomina.nombreMes(_mesActual)}'),
-            backgroundColor: const Color(0xFF2E7D32),
-          ),
-        );
+        FluxToast.exito(context, '$n nóminas generadas para ${Nomina.nombreMes(_mesActual)}');
       }
     } catch (e) {
       if (mounted) {
-        // En modo demo: si ya existen, mostrar mensaje informativo
         if (esDemo && e.toString().contains('Ya existen')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('ℹ️ $e'),
-              backgroundColor: Colors.blue[700],
-            ),
-          );
+          FluxToast.info(context, '$e');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('⚠️ $e'), backgroundColor: Colors.orange),
-          );
+          FluxToast.aviso(context, '$e');
         }
       }
     } finally {
@@ -889,18 +877,11 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🗑️ $eliminadas borrador(es) eliminado(s)'),
-            backgroundColor: const Color(0xFF0D47A1),
-          ),
-        );
+        FluxToast.info(context, '$eliminadas borrador(es) eliminado(s)');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
-        );
+        FluxToast.error(context, 'Error: $e');
       }
     }
   }

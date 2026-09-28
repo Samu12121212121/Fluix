@@ -49,7 +49,16 @@ export async function verificarAuthYEmpresa(
   }
 
   const userData = userDoc.data()!;
-  if (userData.empresa_id !== empresaId) {
+
+  // Los admins de plataforma tienen acceso a cualquier empresa
+  const esPlatAdmin = userData.es_plataforma_admin === true;
+  const empresasAcceso: string[] = userData.empresas_acceso ?? [];
+  const tieneAcceso =
+    esPlatAdmin ||
+    userData.empresa_id === empresaId ||
+    empresasAcceso.includes(empresaId);
+
+  if (!tieneAcceso) {
     throw new HttpsError(
       "permission-denied",
       "No tienes acceso a esta empresa."

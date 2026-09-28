@@ -5,9 +5,9 @@ export 'producto.dart';
 
 // ── ENUMS ─────────────────────────────────────────────────────────────────────
 
-enum EstadoPedido { pendiente, confirmado, enPreparacion, listo, entregado, cancelado }
+enum EstadoPedido { pendiente, confirmado, enPreparacion, enviado, listo, entregado, cancelado }
 
-enum OrigenPedido { web, app, whatsapp, presencial, tpvExterno }
+enum OrigenPedido { web, app, whatsapp, presencial, tpvExterno, webNazari }
 
 enum MetodoPago { tarjeta, paypal, bizum, efectivo, mixto }
 
@@ -43,7 +43,7 @@ class LineaPedido {
   double get subtotal => (precioUnitario - (descuentoLinea ?? 0)) * cantidad;
 
   factory LineaPedido.fromMap(Map<String, dynamic> d) => LineaPedido(
-    productoId: d['producto_id'] ?? '',
+    productoId: d['producto_id'] ?? d['libro_id'] ?? '',
     productoNombre: d['producto_nombre'] ?? '',
     precioUnitario: (d['precio_unitario'] as num?)?.toDouble() ?? 0,
     costeUnitario: (d['coste_unitario'] as num?)?.toDouble(),
@@ -185,6 +185,13 @@ class Pedido {
   // Split bill
   final int? numPagadores;
 
+  // Envío web (pedidos_nazari / tienda online) — nunca escritos por Flutter
+  final String? direccionEnvio;
+  final double? gastosEnvio;
+  final String? opcionEnvio;   // "ordinario" | "urgente" | "gratuito" | "europa" | "latam" | "mundo"
+  final String? zonaEnvio;     // "es" | "europa" | "latam" | "mundo"
+  final double? totalProductos;
+
   const Pedido({
     required this.numeroTicket,
     required this.id,
@@ -221,6 +228,11 @@ class Pedido {
     this.bonoId,
     this.bonoImporte,
     this.numPagadores,
+    this.direccionEnvio,
+    this.gastosEnvio,
+    this.opcionEnvio,
+    this.zonaEnvio,
+    this.totalProductos,
   });
 
   bool get estaAtrasado =>
@@ -260,8 +272,9 @@ class Pedido {
       total: (d['total'] as num?)?.toDouble() ?? 0,
       estado: EstadoPedido.values.firstWhere(
           (e) => e.name == d['estado'], orElse: () => EstadoPedido.pendiente),
-      origen: OrigenPedido.values.firstWhere(
-          (e) => e.name == d['origen'], orElse: () => OrigenPedido.app),
+      origen: d['origen'] == 'web_nazari' ? OrigenPedido.webNazari :
+          OrigenPedido.values.firstWhere(
+              (e) => e.name == d['origen'], orElse: () => OrigenPedido.app),
       metodoPago: MetodoPago.values.firstWhere(
           (e) => e.name == d['metodo_pago'], orElse: () => MetodoPago.efectivo),
       estadoPago: EstadoPago.values.firstWhere(
@@ -296,6 +309,11 @@ class Pedido {
       bonoId: d['bono_id'] as String?,
       bonoImporte: (d['bono_importe'] as num?)?.toDouble(),
       numPagadores: (d['num_pagadores'] as num?)?.toInt(),
+      direccionEnvio: d['direccion_envio'] as String?,
+      gastosEnvio: (d['gastos_envio'] as num?)?.toDouble(),
+      opcionEnvio: d['opcion_envio'] as String?,
+      zonaEnvio: d['zona_envio'] as String?,
+      totalProductos: (d['total_productos'] as num?)?.toDouble(),
     );
   }
 
@@ -335,6 +353,11 @@ class Pedido {
     'bono_id': bonoId,
     'bono_importe': bonoImporte,
     'num_pagadores': numPagadores,
+    if (direccionEnvio != null) 'direccion_envio': direccionEnvio,
+    if (gastosEnvio != null) 'gastos_envio': gastosEnvio,
+    if (opcionEnvio != null) 'opcion_envio': opcionEnvio,
+    if (zonaEnvio != null) 'zona_envio': zonaEnvio,
+    if (totalProductos != null) 'total_productos': totalProductos,
   };
 
   Pedido copyWith({
@@ -373,6 +396,11 @@ class Pedido {
     String? bonoId,
     double? bonoImporte,
     int? numPagadores,
+    String? direccionEnvio,
+    double? gastosEnvio,
+    String? opcionEnvio,
+    String? zonaEnvio,
+    double? totalProductos,
   }) => Pedido(
     id: id ?? this.id,
     empresaId: empresaId ?? this.empresaId,
@@ -409,5 +437,10 @@ class Pedido {
     bonoId: bonoId ?? this.bonoId,
     bonoImporte: bonoImporte ?? this.bonoImporte,
     numPagadores: numPagadores ?? this.numPagadores,
+    direccionEnvio: direccionEnvio ?? this.direccionEnvio,
+    gastosEnvio: gastosEnvio ?? this.gastosEnvio,
+    opcionEnvio: opcionEnvio ?? this.opcionEnvio,
+    zonaEnvio: zonaEnvio ?? this.zonaEnvio,
+    totalProductos: totalProductos ?? this.totalProductos,
   );
 }

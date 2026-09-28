@@ -741,10 +741,23 @@ class _ImporteComanda extends StatelessWidget {
     if (mesa.comandaId == null || mesa.comandaId!.isEmpty) {
       return const SizedBox.shrink();
     }
-    return StreamBuilder<Object>(
-      stream: null, // placeholder — el importe se muestra si viene en la mesa
-      builder: (context, _) {
-        return const SizedBox.shrink();
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(mesa.empresaId)
+          .collection('comandas')
+          .doc(mesa.comandaId)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || !snap.data!.exists) return const SizedBox.shrink();
+        final d = snap.data!.data() as Map<String, dynamic>?;
+        final total = (d?['importe_total'] as num?)?.toDouble() ?? 0.0;
+        if (total <= 0) return const SizedBox.shrink();
+        return Text(
+          NumberFormat.currency(symbol: '€', decimalDigits: 2).format(total),
+          style: const TextStyle(
+              fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700),
+        );
       },
     );
   }

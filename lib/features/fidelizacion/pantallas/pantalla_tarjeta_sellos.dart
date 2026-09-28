@@ -21,7 +21,7 @@ class PantallaTarjetaSellos extends StatefulWidget {
   });
 
   @override
-  State<PantallaTarjetaSellos> createState() => _PantallaTarjetaSello sState();
+  State<PantallaTarjetaSellos> createState() => _PantallaTarjetaSellostate();
 }
 
 class _PantallaTarjetaSellostate extends State<PantallaTarjetaSellos> {
@@ -324,7 +324,7 @@ class _PantallaTarjetaSellostate extends State<PantallaTarjetaSellos> {
           const SizedBox(height: 12),
         ],
         
-        if (recompens asCanjeadas.isNotEmpty) ...[
+        if (recompensasCanjeadas.isNotEmpty) ...[
           const Text(
             'Canjeadas',
             style: TextStyle(color: Color(0xFFB0B3C1), fontSize: 14, fontWeight: FontWeight.w600),

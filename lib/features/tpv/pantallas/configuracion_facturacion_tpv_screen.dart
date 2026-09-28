@@ -57,8 +57,12 @@ class _ConfiguracionFacturacionTpvScreenState
   
   int _navIdx = 0;
 
+  // PIN: se guarda hasheado. En pantalla solo se permite escribir uno nuevo.
+  String _pinNuevo = '';
+
   // Estado Bluetooth
   bool _btConectada = false;
+  bool _btVerificando = false;
   String? _nombreImpresora;
 
   // Estado Windows (COM + TCP)
@@ -146,13 +150,16 @@ class _ConfiguracionFacturacionTpvScreenState
   }
 
   Future<void> _verificarBluetooth() async {
-    final conectada = await ImpressoraBluetooth().estaConectada();
-    final ultima = await ImpressoraBluetooth().obtenerUltimaGuardada();
-    if (mounted) {
-      setState(() {
-        _btConectada = conectada;
+    if (mounted) setState(() => _btVerificando = true);
+    try {
+      final conectada = await ImpressoraBluetooth().estaConectada();
+      final ultima    = await ImpressoraBluetooth().obtenerUltimaGuardada();
+      if (mounted) setState(() {
+        _btConectada    = conectada;
         _nombreImpresora = ultima?['name'];
       });
+    } finally {
+      if (mounted) setState(() => _btVerificando = false);
     }
   }
 
@@ -187,12 +194,16 @@ class _ConfiguracionFacturacionTpvScreenState
 
   Future<void> _guardar() async {
     setState(() => _guardando = true);
-    // Sincronizar impresora de barra y terminal física desde controles de texto
+    // Sincronizar impresora de barra, terminal física y PIN
+    final pinFinal = _pinNuevo.isEmpty
+        ? _config.pinAcceso        // mantener hash existente (o vacío)
+        : ConfiguracionFacturacionTpv.hashPin(_pinNuevo);  // nuevo PIN → hash
     _config = _config.copyWith(
       impresoraBarraPuerto: !_barraUsaTcp ? _barraPuertoCtrl.text.trim().toUpperCase() : '',
       impresoraBarraIp: _barraUsaTcp ? _barraIpCtrl.text.trim() : '',
       terminalFisicaIp: _terminalIpCtrl.text.trim(),
       terminalFisicaPuerto: int.tryParse(_terminalPuertoCtrl.text.trim()) ?? 8080,
+      pinAcceso: pinFinal,
     );
     try {
       await _svc.guardarConfig(widget.empresaId, _config);
@@ -567,18 +578,25 @@ class _ConfiguracionFacturacionTpvScreenState
       _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _ch('Seguridad y acceso', icon: Icons.lock_outline_rounded),
         TextFormField(
-          initialValue: _config.pinAcceso,
+          initialValue: '',
           keyboardType: TextInputType.number,
           maxLength: 4,
           obscureText: true,
-          decoration: _deco('PIN de acceso al TPV',
-              hint: '4 dígitos — vacío para sin PIN'),
-          onChanged: (v) =>
-              setState(() => _config = _config.copyWith(pinAcceso: v)),
+          decoration: _deco(
+            _config.pinAcceso.isEmpty ? 'PIN de acceso (sin PIN)' : 'Cambiar PIN',
+            hint: _config.pinAcceso.isEmpty
+                ? '4 dígitos — vacío para desactivar'
+                : 'Escribe el nuevo PIN o deja vacío para mantener el actual',
+          ),
+          onChanged: (v) => setState(() => _pinNuevo = v),
         ),
         const SizedBox(height: 4),
-        Text('El operario deberá introducir el PIN al abrir el TPV.',
-            style: TextStyle(fontSize: 11, color: _sub)),
+        Text(
+          _config.pinAcceso.isEmpty
+              ? 'Sin PIN — el TPV abre sin restricción.'
+              : 'PIN configurado. Escribe uno nuevo para cambiarlo.',
+          style: TextStyle(fontSize: 11, color: _sub),
+        ),
       ])),
       _seccionOpciones(),
       _seccionGenerarFacturaDia(),
@@ -1891,18 +1909,31 @@ class _ConfiguracionFacturacionTpvScreenState
               subtitle: const Text('Conecta una impresora Bluetooth para imprimir tickets', style: TextStyle(fontSize: 12)),
             ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _configurarBluetooth,
-              icon: const Icon(Icons.bluetooth_searching),
-              label: const Text('Buscar y conectar impresora'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
+          Row(children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _configurarBluetooth,
+                icon: const Icon(Icons.bluetooth_searching),
+                label: const Text('Buscar y conectar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _btVerificando ? null : _verificarBluetooth,
+              icon: _btVerificando
+                  ? const SizedBox(width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Actualizar'),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: _bdr),
+              ),
+            ),
+          ]),
         ],
       )),
     ],

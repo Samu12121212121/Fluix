@@ -42,10 +42,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = void 0;
+exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = void 0;
 const admin = __importStar(require("firebase-admin"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_1 = require("firebase-functions/v2/firestore");
+const resend_service_1 = require("./resend_service");
 const REGION = "europe-west1";
 const TZ = "Europe/Madrid";
 const db = admin.firestore;
@@ -380,6 +381,58 @@ exports.onNuevaSugerencia = (0, firestore_1.onDocumentCreated)({ document: "empr
         });
     }
     console.log(`✅ Notificación sugerencia enviada al propietario (origen empresa: ${empresaId})`);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. TRIGGER CONTACTO SOPORTE → email + notificación in-app al propietario
+// ─────────────────────────────────────────────────────────────────────────────
+exports.onNuevoContactoSoporte = (0, firestore_1.onDocumentCreated)({ document: "contacto_soporte/{id}", region: REGION }, async (event) => {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!data)
+        return;
+    const empresaNombre = (_b = data.empresa_nombre) !== null && _b !== void 0 ? _b : "Sin nombre";
+    const empresaId = (_c = data.empresa_id) !== null && _c !== void 0 ? _c : "";
+    const nombreContacto = (_d = data.nombre_contacto) !== null && _d !== void 0 ? _d : "";
+    const emailContacto = (_e = data.email_contacto) !== null && _e !== void 0 ? _e : "";
+    const asunto = (_f = data.asunto) !== null && _f !== void 0 ? _f : "Sin asunto";
+    const mensaje = (_g = data.mensaje) !== null && _g !== void 0 ? _g : "";
+    // ── 1. Email a sacoor80@gmail.com ────────────────────────────────────────
+    try {
+        await (0, resend_service_1.enviarContactoSoporte)({ empresaNombre, empresaId, nombreContacto, emailContacto, asunto, mensaje });
+    }
+    catch (e) {
+        console.error("❌ Error enviando email contacto soporte:", e);
+    }
+    // ── 2. Notificación in-app para todos los admins de plataforma ───────────
+    const adminsSnap = await admin.firestore()
+        .collection("usuarios")
+        .where("es_plataforma_admin", "==", true)
+        .get();
+    for (const adminDoc of adminsSnap.docs) {
+        const adminEmpresaId = adminDoc.data().empresa_id;
+        if (!adminEmpresaId)
+            continue;
+        try {
+            await admin.firestore()
+                .collection("notificaciones")
+                .doc(adminEmpresaId)
+                .collection("items")
+                .add({
+                titulo: `📨 Soporte: ${asunto}`,
+                cuerpo: `${empresaNombre} — ${mensaje.substring(0, 100)}${mensaje.length > 100 ? "…" : ""}`,
+                tipo: "contacto_soporte",
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                leida: false,
+                modulo_destino: "soporte",
+                entidad_id: event.params.id,
+                remitente_nombre: empresaNombre,
+            });
+        }
+        catch (e) {
+            console.error("❌ Error creando notificación contacto soporte:", e);
+        }
+    }
+    console.log(`✅ Contacto soporte procesado: ${asunto} de ${empresaNombre}`);
 });
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER PRIVADO

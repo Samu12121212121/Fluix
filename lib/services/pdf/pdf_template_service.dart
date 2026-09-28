@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/modelos/pdf_template.dart';
 
-/// Servicio de gestión de plantillas PDF en Firestore
+/// @deprecated Sistema legado — lee de empresas/{id}/pdf_templates (subcol) y
+/// empresas/{id}/pdf_config (asignaciones). Estas rutas están bloqueadas por el
+/// catch-all de firestore.rules. Usar lib/features/pdf_templates/data/pdf_template_service.dart.
+/// Pendiente de eliminación en Fase 2 (tras migración de datos).
 class PdfTemplateService {
   final FirebaseFirestore _firestore;
   

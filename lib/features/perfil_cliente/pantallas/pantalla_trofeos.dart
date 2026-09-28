@@ -90,8 +90,8 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
                         },
                         childCount: lista.length,
                       ),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 10, childAspectRatio: 1.0,
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 80.0, childAspectRatio: 1.0,
                         crossAxisSpacing: 6, mainAxisSpacing: 6,
                       ),
                     ),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/modelos/pedido.dart';
@@ -136,10 +137,17 @@ class CatalogoCajaWidget extends StatelessWidget {
             if (p.thumbnailUrl != null || p.imagenUrl != null)
               Expanded(child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Image.network(p.thumbnailUrl ?? p.imagenUrl!,
-                  fit: BoxFit.cover, width: double.infinity,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.image_not_supported, size: 40, color: Colors.grey)),
+                child: CachedNetworkImage(
+                  imageUrl: p.thumbnailUrl ?? p.imagenUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  placeholder: (_, __) => const Center(
+                      child: Icon(Icons.inventory_2, size: 40, color: Color(0xFF1565C0))),
+                  errorWidget: (_, __, ___) =>
+                      const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+                  memCacheWidth: 400,
+                  memCacheHeight: 400,
+                ),
               ))
             else
               const Expanded(child: Center(
@@ -267,11 +275,11 @@ class TicketPanelWidget extends StatelessWidget {
                 fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.grey)),
             const SizedBox(height: 8),
             Row(children: [
-              _chipPago(MetodoPago.efectivo, '💵 Efectivo'),
+              Expanded(child: _chipPago(MetodoPago.efectivo, '💵 Efectivo')),
               const SizedBox(width: 6),
-              _chipPago(MetodoPago.tarjeta, '💳 Tarjeta'),
+              Expanded(child: _chipPago(MetodoPago.tarjeta, '💳 Tarjeta')),
               const SizedBox(width: 6),
-              _chipPago(MetodoPago.mixto, '🔀 Mixto'),
+              Expanded(child: _chipPago(MetodoPago.mixto, '🔀 Mixto')),
             ]),
             const SizedBox(height: 10),
             if (metodoPago == MetodoPago.efectivo) ...[
@@ -413,7 +421,8 @@ class TicketPanelWidget extends StatelessWidget {
 
   Widget _chipPago(MetodoPago metodo, String label) {
     final sel = metodoPago == metodo;
-    return Expanded(child: GestureDetector(
+    // Retorna GestureDetector sin Expanded — el Expanded está en los call sites
+    return GestureDetector(
       onTap: () => onMetodoPago(metodo),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -426,6 +435,6 @@ class TicketPanelWidget extends StatelessWidget {
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                 color: sel ? Colors.white : Colors.grey[700])),
       ),
-    ));
+    );
   }
 }

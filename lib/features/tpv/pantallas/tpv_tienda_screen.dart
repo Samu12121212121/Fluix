@@ -183,6 +183,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
 
   String _categoriaFiltro = 'Todos';
   String _busqueda = '';
+  List<String> _categoriasOcultas = [];
   bool _mostrandoCierre = false;
   bool _cajaAbiertaHoy  = false;
   bool _cajaCerradaHoy  = false;
@@ -223,6 +224,17 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
         .estaConectada()
         .then((v) => mounted ? setState(() => _btConectado = v) : null);
     _pedidosWebNotifier.iniciar(widget.empresaId);
+    // Cargar categorías ocultas (ej. 'General' en cuentas que lo configuren)
+    FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('configuracion').doc('tpv')
+        .get()
+        .then((doc) {
+      if (doc.exists && mounted) {
+        final lista = List<String>.from(doc.data()?['categorias_ocultas'] as List? ?? []);
+        if (lista.isNotEmpty) setState(() => _categoriasOcultas = lista);
+      }
+    }).catchError((_) {});
     // Inicializar terminal física si está configurada
     TpvFacturacionService().obtenerConfig(widget.empresaId).then((cfg) {
       if (cfg.terminalFisicaIp.isNotEmpty) {
@@ -481,6 +493,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
                     esAdmin: _esAdmin,
                     categoriaFiltro: _categoriaFiltro,
                     busqueda: _busqueda,
+                    categoriasOcultas: _categoriasOcultas,
                     onCategoriaChanged: (c) => setState(() => _categoriaFiltro = c),
                     onBusquedaChanged: (b) => setState(() => _busqueda = b),
                     onProductoSeleccionado: _agregarProducto,
@@ -1536,7 +1549,7 @@ class _MiniDashboardTurno extends StatelessWidget {
             border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
           ),
           child: Row(children: [
-            _StatCard(
+            Expanded(child: _StatCard(
               icon: Icons.trending_up_rounded,
               iconColor: const Color(0xFF22C55E),
               label: 'Ventas del día',
@@ -1545,16 +1558,16 @@ class _MiniDashboardTurno extends StatelessWidget {
               deltaLabel: totalAyer > 0
                   ? '${((totalHoy - totalAyer) / totalAyer * 100).abs().toStringAsFixed(1)}% vs ayer'
                   : null,
-            ),
-            _StatCard(
+            )),
+            Expanded(child: _StatCard(
               icon: Icons.receipt_long_outlined,
               iconColor: const Color(0xFF8B5CF6),
               label: 'Tickets',
               value: '$ticketsHoy',
               deltaNum: (ticketsHoy - ticketsAyer).toDouble(),
               deltaLabel: '${ticketsHoy - ticketsAyer >= 0 ? '+' : ''}${ticketsHoy - ticketsAyer} vs ayer',
-            ),
-            _StatCard(
+            )),
+            Expanded(child: _StatCard(
               icon: Icons.equalizer_rounded,
               iconColor: const Color(0xFFF59E0B),
               label: 'Ticket medio',
@@ -1563,15 +1576,15 @@ class _MiniDashboardTurno extends StatelessWidget {
               deltaLabel: medioAyer > 0
                   ? '${((medioHoy - medioAyer) / medioAyer * 100).abs().toStringAsFixed(1)}% vs ayer'
                   : null,
-            ),
-            _StatCard(
+            )),
+            Expanded(child: _StatCard(
               icon: Icons.inventory_2_outlined,
               iconColor: const Color(0xFF3B82F6),
               label: 'Productos vendidos',
               value: '$productosHoy',
               deltaNum: (productosHoy - productosAyer).toDouble(),
               deltaLabel: '${productosHoy - productosAyer >= 0 ? '+' : ''}${productosHoy - productosAyer} vs ayer',
-            ),
+            )),
           ]),
         );
       },
@@ -1602,8 +1615,8 @@ class _StatCard extends StatelessWidget {
     final isDown = deltaNum != null && deltaNum! < 0;
     final deltaColor = isUp ? const Color(0xFF22C55E) : isDown ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF);
 
-    return Expanded(
-      child: Padding(
+    // No retorna Expanded — el Expanded lo añade el Row en el call site
+    return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
@@ -1630,7 +1643,6 @@ class _StatCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis)),
             ]),
         ]),
-      ),
     );
   }
 }
@@ -1642,6 +1654,7 @@ class _TiendaCatalogoPanel extends StatefulWidget {
   final bool esAdmin;
   final String categoriaFiltro;
   final String busqueda;
+  final List<String> categoriasOcultas;
   final ValueChanged<String> onCategoriaChanged;
   final ValueChanged<String> onBusquedaChanged;
   final Function(Producto, VarianteProducto?) onProductoSeleccionado;
@@ -1652,6 +1665,7 @@ class _TiendaCatalogoPanel extends StatefulWidget {
     required this.esAdmin,
     required this.categoriaFiltro,
     required this.busqueda,
+    this.categoriasOcultas = const [],
     required this.onCategoriaChanged,
     required this.onBusquedaChanged,
     required this.onProductoSeleccionado,
@@ -1725,6 +1739,11 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
           codigoBarras: data['codigo_barras'] as String?,
           ) as _ProductoEntry;
         }).toList();
+
+        // Excluir productos cuya categoría está en la lista de ocultas
+        if (widget.categoriasOcultas.isNotEmpty) {
+          todos.removeWhere((p) => widget.categoriasOcultas.contains(p.producto.categoria));
+        }
 
         final categorias = {
           'Todos',
@@ -1923,10 +1942,12 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
             )
           else
             Expanded(
-              child: GridView.builder(
+              child: LayoutBuilder(builder: (_, c) {
+                final cols = (c.maxWidth / 100).floor().clamp(2, 5);
+                return GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
                   childAspectRatio: 0.72,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
@@ -1975,7 +1996,8 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                         : null,
                   );
                 },
-              ),
+              );
+            }),
             ),
           // ── Dashboard stats al fondo ─────────────────────────────────────
           _MiniDashboardTurno(empresaId: widget.empresaId),
@@ -2655,38 +2677,6 @@ class _TiendaComandaPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            // Accesos rápidos de pago
-            Row(children: [
-              _QuickPayBtn(
-                icon: Icons.account_balance_wallet_outlined,
-                label: 'Efectivo',
-                color: const Color(0xFF22C55E),
-                onTap: tieneLineas ? () => _cobrar(context, metodoInicial: 'efectivo') : null,
-              ),
-              const SizedBox(width: 8),
-              _QuickPayBtn(
-                icon: Icons.credit_card_outlined,
-                label: 'Tarjeta',
-                color: _kBlue,
-                onTap: tieneLineas ? () => _cobrar(context, metodoInicial: 'tarjeta') : null,
-              ),
-              const SizedBox(width: 8),
-              _QuickPayBtn(
-                icon: Icons.percent,
-                label: 'Bizum',
-                color: const Color(0xFFF97316),
-                onTap: tieneLineas ? () => _cobrar(context, metodoInicial: 'bizum') : null,
-              ),
-            ]),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: tieneLineas ? () => _cobrar(context) : null,
-              child: const Center(
-                child: Text('Más métodos de pago ∨',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-              ),
-            ),
           ]),
         ),
       ]),
@@ -2908,10 +2898,7 @@ class _TiendaComandaPanel extends StatelessWidget {
 
     // Validar que el descuento no supera el total
     if (totalConDescuento <= 0 && comandaActiva!.total > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('El descuento no puede igualar o superar el total del ticket'),
-        backgroundColor: Colors.orange.shade700,
-      ));
+      FluxToast.aviso(context, 'El descuento no puede igualar o superar el total del ticket');
       return;
     }
 
@@ -2919,15 +2906,7 @@ class _TiendaComandaPanel extends StatelessWidget {
     try {
       final cajaAbierta = await CierreCajaService().hayCajaAbiertaHoy(empresaId);
       if (!cajaAbierta && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Abre la caja antes de cobrar'),
-          backgroundColor: Colors.orange.shade700,
-          action: SnackBarAction(
-            label: 'Abrir',
-            textColor: Colors.white,
-            onPressed: () {},  // El botón de apertura está en el header
-          ),
-        ));
+        FluxToast.aviso(context, 'Abre la caja antes de cobrar', title: 'Caja cerrada');
         return;
       }
     } catch (_) {
@@ -2987,6 +2966,7 @@ class _TiendaComandaPanel extends StatelessWidget {
       final pedido = await PedidosService().crearPedido(
         empresaId: empresaId,
         clienteNombre: extra.clienteNombre ?? 'Caja rápida',
+        clienteId: extra.clienteId,
         lineas: lineasPedido,
         metodoPago: pago['metodo'] == 'efectivo'
             ? MetodoPago.efectivo
@@ -3091,11 +3071,11 @@ class _TiendaComandaPanel extends StatelessWidget {
         final puntosMsg = extra.clienteId != null
             ? ' · +${totalConDescuento.floor()} pts'
             : '';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Ticket #$numTicket cobrado — ${totalConDescuento.toStringAsFixed(2)} €$puntosMsg'),
-          backgroundColor: Colors.green.shade700,
-        ));
+        FluxToast.exito(
+          context,
+          'Ticket #$numTicket · ${totalConDescuento.toStringAsFixed(2)} €$puntosMsg',
+          title: 'Cobro completado',
+        );
         onCobrado();
       }
     } catch (e) {
@@ -3131,10 +3111,7 @@ class _TiendaComandaPanel extends StatelessWidget {
         }
       } catch (_) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error al cobrar: $e'),
-            backgroundColor: Colors.red,
-          ));
+          FluxToast.error(context, 'Error al cobrar: $e');
         }
       }
     }
@@ -4181,6 +4158,13 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               color: const Color(0xFF2196F3),
             ),
             _TChip(
+              label: 'Bizum',
+              icon: Icons.smartphone_outlined,
+              selected: _metodo == 'bizum',
+              onTap: () => setState(() => _metodo = 'bizum'),
+              color: const Color(0xFF7B1FA2),
+            ),
+            _TChip(
               label: 'Mixto',
               icon: Icons.swap_horiz,
               selected: _metodo == 'mixto',
@@ -4192,7 +4176,7 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               icon: Icons.credit_score,
               selected: _metodo == 'terminal',
               onTap: () => setState(() { _metodo = 'terminal'; _terminalEstado = ''; _terminalError = null; }),
-              color: const Color(0xFF7B1FA2),
+              color: const Color(0xFF546E7A),
             ),
           ]),
           // UI terminal física
@@ -4281,12 +4265,15 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
           onPressed: (_metodo == 'terminal' && _terminalEstado != 'exito' && _terminalEstado != 'manual')
               ? null
               : () {
-            double ef = 0, tj = 0;
+            double ef = 0, tj = 0, bz = 0;
             if (_metodo == 'efectivo') {
               ef = widget.total;
             } else if (_metodo == 'tarjeta' || _metodo == 'terminal') {
               tj = widget.total;
+            } else if (_metodo == 'bizum') {
+              bz = widget.total;
             } else {
+              // mixto
               ef = double.tryParse(_efectivoCtrl.text.replaceAll(',', '.')) ?? 0;
               tj = double.tryParse(_tarjetaCtrl.text.replaceAll(',', '.')) ?? 0;
               if ((ef + tj - widget.total).abs() > 0.01) {
@@ -4299,13 +4286,11 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
               'metodo': _metodo == 'terminal' ? 'tarjeta' : _metodo,
               'importe_efectivo': ef,
               'importe_tarjeta': tj,
+              'importe_bizum': bz,
               'importes': <String, double>{
-                if (_metodo == 'efectivo') 'efectivo': ef,
-                if (_metodo == 'tarjeta' || _metodo == 'terminal') 'tarjeta': tj,
-                if (_metodo == 'mixto') ...{
-                  if (ef > 0) 'efectivo': ef,
-                  if (tj > 0) 'tarjeta': tj,
-                },
+                if (ef > 0) 'efectivo': ef,
+                if (tj > 0) 'tarjeta': tj,
+                if (bz > 0) 'bizum': bz,
               },
             });
           },
@@ -4385,22 +4370,21 @@ class _QuickPayBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-          ]),
+    // No retorna Expanded: el Expanded lo pone el padre (Row) en el call site
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+        ]),
       ),
     );
   }
@@ -4423,17 +4407,17 @@ class _TChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected
-                ? color.withValues(alpha: 0.12)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+    // No retorna Expanded: este widget se usa dentro de Wrap (no es Flex)
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.12)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: selected ? color : Colors.grey.shade300,
               width: selected ? 2 : 1,
@@ -4457,7 +4441,6 @@ class _TChip extends StatelessWidget {
             ),
           ]),
         ),
-      ),
     );
   }
 }
@@ -5298,15 +5281,15 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
 
             // ── KPIs ──────────────────────────────────────────────────
             Row(children: [
-              _kpi('Total ventas', fmt.format(total), Icons.euro_rounded,
+              Expanded(child: _kpi('Total ventas', fmt.format(total), Icons.euro_rounded,
                   color: _kCian,
                   sub: pctVsAyer != null ? '${pctVsAyer >= 0 ? '+' : ''}${pctVsAyer.toStringAsFixed(1)}% vs ayer' : null,
-                  subColor: pctVsAyer == null ? null : (pctVsAyer >= 0 ? Colors.green : Colors.red)),
+                  subColor: pctVsAyer == null ? null : (pctVsAyer >= 0 ? Colors.green : Colors.red))),
               const SizedBox(width: 8),
-              _kpi('Tickets', '$numTickets', Icons.receipt_long_rounded,
-                  sub: anulados > 0 ? '$anulados anulados' : null, subColor: Colors.orange),
+              Expanded(child: _kpi('Tickets', '$numTickets', Icons.receipt_long_rounded,
+                  sub: anulados > 0 ? '$anulados anulados' : null, subColor: Colors.orange)),
               const SizedBox(width: 8),
-              _kpi('Ticket medio', fmt.format(n('ticket_medio')), Icons.show_chart, color: _kCian),
+              Expanded(child: _kpi('Ticket medio', fmt.format(n('ticket_medio')), Icons.show_chart, color: _kCian)),
             ]),
             const SizedBox(height: 10),
 
@@ -5655,9 +5638,10 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
           padding: const EdgeInsets.all(6), constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           visualDensity: VisualDensity.compact);
 
+  // Retorna Container, no Expanded — el Expanded lo añade el Row en el call site
   Widget _kpi(String label, String valor, IconData icon,
       {Color? color, String? sub, Color? subColor}) =>
-      Expanded(child: Container(
+      Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: (color ?? Colors.grey).withValues(alpha: 0.06),
@@ -5678,7 +5662,7 @@ class _TiendaCierreDeCajaState extends State<_TiendaCierreDeCaja> {
             Text(sub, style: TextStyle(fontSize: 10, color: subColor ?? Colors.grey.shade500)),
           ],
         ]),
-      ));
+      );
 
   static String _labelMetodo(String id) => switch (id) {
     'efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'bizum' => 'Bizum',
