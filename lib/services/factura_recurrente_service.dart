@@ -77,22 +77,20 @@ class FacturaRecurrenteService {
         descripcion: fr.descripcion,
         cantidad: 1,
         precioUnitario: fr.importe,
-        tipoIva: fr.iva,
-        subtotal: fr.importe,
+        porcentajeIva: fr.iva,
       ),
     ];
 
-    final factura = await svc.crearFactura(
+    final resultado = await svc.crearFactura(
       empresaId: empresaId,
       clienteNombre: fr.clienteNombre,
-      clienteId: fr.clienteId,
-      clienteNif: fr.clienteNif ?? '',
-      clienteEmail: fr.clienteEmail ?? '',
       lineas: lineas,
       tipo: TipoFactura.servicio,
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
     );
+
+    final factura = resultado.factura;
 
     // Avanzar próxima emisión
     final siguiente = _calcularSiguiente(fr.proximaEmision, fr.periodo);

@@ -14,7 +14,7 @@ import '../../../services/auth/dos_factores_service.dart';
 import '../../../services/auth/biometria_service.dart';
 import 'pantalla_auditoria.dart';
 import 'integraciones_apis_popup.dart';
-import '../../soporte/soporte_screen.dart';
+import '../../soporte/pantallas/modulo_soporte_screen.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'gestionar_cuentas_screen.dart';
 import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
