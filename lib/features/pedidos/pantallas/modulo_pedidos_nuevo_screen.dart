@@ -521,6 +521,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
       case EstadoPedido.pendiente:     estadoColor = _kAmbar;  estadoLabel = 'Pendiente'; break;
       case EstadoPedido.confirmado:    estadoColor = _kAzul;   estadoLabel = 'Confirmado'; break;
       case EstadoPedido.enPreparacion: estadoColor = const Color(0xFF8B5CF6); estadoLabel = 'En preparación'; break;
+      case EstadoPedido.enviado:       estadoColor = const Color(0xFF0EA5E9); estadoLabel = 'Enviado'; break;
       case EstadoPedido.listo:         estadoColor = _kVerde;  estadoLabel = 'Listo'; break;
       case EstadoPedido.entregado:     estadoColor = const Color(0xFF6B7280); estadoLabel = 'Entregado'; break;
       case EstadoPedido.cancelado:     estadoColor = _kRojo;   estadoLabel = 'Cancelado'; break;
@@ -536,9 +537,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
         border: Border.all(color: _border)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => DetallePedidoNuevoScreen(pedido: p, empresaId: widget.empresaId),
-        )),
+        onTap: () => DetallePedidoNuevoScreen.showPopup(context, p, widget.empresaId),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

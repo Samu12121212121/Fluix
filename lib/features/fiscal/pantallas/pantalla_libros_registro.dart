@@ -287,7 +287,7 @@ class _SelectorPeriodo extends StatelessWidget {
           const Icon(Icons.calendar_today, size: 18, color: Color(0xFF1565C0)),
           const SizedBox(width: 8),
           const Text('Periodo:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 12),
+          const Spacer(),
 
           // Mes
           DropdownButton<int>(
@@ -437,16 +437,19 @@ class _TabLibro extends StatelessWidget {
           ? const Color(0xFFE8F5E9)
           : const Color(0xFFFFF3E0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          _resumenChip('Registros', n.toString()),
-          const SizedBox(width: 12),
-          _resumenChip('Base', fmt.format(base)),
-          const SizedBox(width: 12),
-          _resumenChip('IVA', fmt.format(cuota)),
-          const SizedBox(width: 12),
-          _resumenChip('Total', fmt.format(total), bold: true),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _resumenChip('Registros', n.toString()),
+            const SizedBox(width: 12),
+            _resumenChip('Base', fmt.format(base)),
+            const SizedBox(width: 12),
+            _resumenChip('IVA', fmt.format(cuota)),
+            const SizedBox(width: 12),
+            _resumenChip('Total', fmt.format(total), bold: true),
+          ],
+        ),
       ),
     );
   }
@@ -477,10 +480,10 @@ class _TabLibro extends StatelessWidget {
 
     final String numFac   = (d['numero_factura'] as String?) ?? doc.id.substring(0, 8);
     final String nif      = tipo == _TipoLibro.emitidas
-        ? ((d['datos_fiscales'] as Map?)?.['nif'] as String?) ?? '—'
+        ? ((d['datos_fiscales'] as Map<String, dynamic>?)?['nif'] as String?) ?? '—'
         : (d['nif_proveedor'] as String?) ?? '—';
     final String razon    = tipo == _TipoLibro.emitidas
-        ? ((d['datos_fiscales'] as Map?)?.['razon_social'] as String?) ??
+        ? ((d['datos_fiscales'] as Map<String, dynamic>?)?['razon_social'] as String?) ??
           (d['nombre_cliente'] as String?) ?? '—'
         : (d['nombre_proveedor'] as String?) ?? '—';
     final double base     = (d['base_imponible']  as num?)?.toDouble() ?? 0;
@@ -504,8 +507,12 @@ class _TabLibro extends StatelessWidget {
       ),
       title: Row(
         children: [
-          Text(numFac,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Flexible(
+            child: Text(numFac,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1),
+          ),
           const SizedBox(width: 8),
           Text(fechaStr,
               style: const TextStyle(fontSize: 12, color: Colors.grey)),

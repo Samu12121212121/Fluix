@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../services/suscripcion_service.dart';
 import '../../../services/widget_manager_service.dart';
 
 /// Pantalla para que el admin/propietario configure qué módulos
@@ -75,10 +76,21 @@ class _ConfigurarModulosEmpleadoScreenState
       final modulosEmpresaSnap = await WidgetManagerService()
           .obtenerModulosActivos(widget.empresaId)
           .first;
+
+      // Módulos en el plan de suscripción actual (cap máximo del admin)
+      final modulosEnPlan = SuscripcionService().getModulosActivos();
+      final activosPorDefecto = const {
+        'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
+        'fichaje', 'empleados',
+      };
+
       final activos = modulosEmpresaSnap
           .where((m) => m.activo)
           .map((m) => m.id)
           .where((id) => !const {'propietario', 'explorar', 'citas_del_dia'}.contains(id))
+          // Solo módulos que el plan de suscripción incluye (o son gratuitos por defecto)
+          .where((id) => activosPorDefecto.contains(id) || modulosEnPlan.contains(id)
+              || (id == 'web' && modulosEnPlan.contains('contenido_web')))
           .toList();
 
       // Cargar configuración del empleado

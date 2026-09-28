@@ -14,6 +14,7 @@ import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/convenio_firestore_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../../services/auth/invitaciones_service.dart';
 import '../widgets/selector_foto_widget.dart';
 import '../widgets/seccion_embargos_widget.dart';
@@ -26,6 +27,7 @@ import 'formulario_datos_nomina_form.dart';
 import 'empleados_baja_screen.dart' show EmpleadosBajaPopup;
 import '../widgets/nominas_empleado_widget.dart';
 import 'portal_empleado_screen.dart';
+import '../../../services/widget_manager_service.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO EMPLEADOS — UI rediseñada
@@ -849,6 +851,8 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                       () => _abrirNominas(doc.id, nombre)),
                   _empBtn(Icons.gavel_outlined,         'Embargos', _kOrange,
                       () => _abrirEmbargos(doc.id, nombre)),
+                  _empBtn(Icons.tune_rounded,           'Módulos',  const Color(0xFF7C3AED),
+                      () => _abrirModulos(doc.id, nombre)),
                 ]),
               ),
           ]),
@@ -1148,6 +1152,9 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       if (tieneFichaje)
         (Icons.fingerprint_rounded, 'Fichajes y jornadas', _kSub,
             () => _mostrarResumenFichajes(id, d['nombre'] as String? ?? '')),
+      if (_esPropietario)
+        (Icons.tune_rounded, 'Configurar módulos', const Color(0xFF7C3AED),
+            () => _abrirModulos(id, d['nombre'] as String? ?? '')),
     ];
 
     return items.map((item) => InkWell(
@@ -1341,8 +1348,9 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   }
 
   Future<void> _invitarEmpleado() async {
-    final emailCtrl        = TextEditingController();
-    String rolSeleccionado = 'staff';
+    final emailCtrl  = TextEditingController();
+    final nombreCtrl = TextEditingController();
+    String rolSel    = 'staff';
 
     final resultado = await showDialog<Map<String, String>>(
       context: context,
@@ -1354,7 +1362,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              // Header
+              // ── Header ────────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
                 decoration: const BoxDecoration(
@@ -1368,16 +1376,16 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.mail_outline_rounded,
+                    child: const Icon(Icons.person_add_rounded,
                         color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Invitar empleado',
+                      Text('Crear acceso para empleado',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                               color: Colors.white)),
-                      Text('Envía un acceso por email',
+                      Text('Se enviará el acceso por email',
                           style: TextStyle(fontSize: 11, color: Colors.white70)),
                     ]),
                   ),
@@ -1387,8 +1395,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                   ),
                 ]),
               ),
-
-              // Body
+              // ── Body ──────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1399,26 +1406,48 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _kBlue.withValues(alpha: 0.2)),
                     ),
-                    child: Row(children: [
-                      const Icon(Icons.info_outline_rounded, size: 15, color: _kBlue),
-                      const SizedBox(width: 8),
-                      const Expanded(
+                    child: const Row(children: [
+                      Icon(Icons.info_outline_rounded, size: 15, color: _kBlue),
+                      SizedBox(width: 8),
+                      Expanded(
                         child: Text(
-                          'El empleado recibirá un código de acceso para unirse a tu empresa.',
+                          'Se creará la cuenta y se enviará el acceso por email. '
+                          'Verás la contraseña temporal al confirmar.',
                           style: TextStyle(fontSize: 12, color: _kBlue),
                         ),
                       ),
                     ]),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  const Text('Nombre del empleado',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: nombreCtrl,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 14, color: _kText),
+                    decoration: InputDecoration(
+                      hintText: 'Nombre Apellido',
+                      hintStyle: const TextStyle(color: _kSub, fontSize: 13),
+                      prefixIcon: const Icon(Icons.person_outline, size: 18, color: _kSub),
+                      filled: true, fillColor: _kBg,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: _kBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: _kBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: _kBlue, width: 2)),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   const Text('Email del empleado',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: _kText)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    autofocus: true,
                     style: const TextStyle(fontSize: 14, color: _kText),
                     decoration: InputDecoration(
                       hintText: 'nombre@empresa.com',
@@ -1435,25 +1464,22 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   const Text('Rol asignado',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: _kText)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
                   const SizedBox(height: 8),
-                  // Selector de rol como chips
                   Row(children: [
                     Expanded(child: _rolChip('staff', 'Staff / Empleado',
-                        Icons.person_outline, rolSeleccionado,
-                        (v) => setModal(() => rolSeleccionado = v))),
+                        Icons.person_outline, rolSel,
+                        (v) => setModal(() => rolSel = v))),
                     const SizedBox(width: 10),
                     Expanded(child: _rolChip('admin', 'Administrador',
-                        Icons.admin_panel_settings_outlined, rolSeleccionado,
-                        (v) => setModal(() => rolSeleccionado = v))),
+                        Icons.admin_panel_settings_outlined, rolSel,
+                        (v) => setModal(() => rolSel = v))),
                   ]),
                 ]),
               ),
-
-              // Footer
+              // ── Footer ─────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
                 child: Row(children: [
@@ -1464,8 +1490,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                         foregroundColor: _kSub,
                         side: const BorderSide(color: _kBorder),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Cancelar'),
                     ),
@@ -1475,20 +1500,24 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                     flex: 2,
                     child: FilledButton.icon(
                       onPressed: () {
-                        final email = emailCtrl.text.trim();
+                        final email  = emailCtrl.text.trim();
+                        final nombre = nombreCtrl.text.trim();
+                        if (nombre.isEmpty) {
+                          FluxToast.aviso(ctx, 'Introduce el nombre del empleado');
+                          return;
+                        }
                         if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
                           FluxToast.aviso(ctx, 'Introduce un email válido');
                           return;
                         }
-                        Navigator.pop(ctx, {'email': email, 'rol': rolSeleccionado});
+                        Navigator.pop(ctx, {'email': email, 'nombre': nombre, 'rol': rolSel});
                       },
-                      icon: const Icon(Icons.send_rounded, size: 15),
-                      label: const Text('Enviar invitación'),
+                      icon: const Icon(Icons.person_add_rounded, size: 15),
+                      label: const Text('Crear acceso'),
                       style: FilledButton.styleFrom(
                         backgroundColor: _kBlue,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1499,21 +1528,94 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         ),
       ),
     );
+
+    emailCtrl.dispose();
+    nombreCtrl.dispose();
     if (resultado == null || !mounted) return;
+
+    // Mostrar spinner mientras se crea
+    showDialog(context: context, barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()));
+
     try {
       final empresaDoc = await _firestore.collection('empresas').doc(widget.empresaId).get();
-      final empresaNombre = (empresaDoc.data()?['perfil'] as Map?)?['nombre']
-          ?? empresaDoc.data()?['nombre'] ?? 'Mi Empresa';
-      await InvitacionesService().enviarInvitacion(
-        email: resultado['email']!,
-        rol: resultado['rol']!,
-        empresaId: widget.empresaId,
-        empresaNombre: empresaNombre.toString(),
-        creadoPorUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+      final empresaNombre = ((empresaDoc.data()?['perfil'] as Map?)?['nombre']
+          ?? empresaDoc.data()?['nombre'] ?? 'Mi Empresa').toString();
+
+      final fn = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('crearEmpleadoConCredenciales',
+              options: HttpsCallableOptions(timeout: const Duration(seconds: 30)));
+
+      final res = await fn.call({
+        'email':         resultado['email'],
+        'nombre':        resultado['nombre'],
+        'rol':           resultado['rol'],
+        'empresaId':     widget.empresaId,
+        'empresaNombre': empresaNombre,
+      });
+
+      if (!mounted) return;
+      Navigator.pop(context); // cerrar spinner
+
+      final tempPass = res.data['tempPassword'] as String? ?? '';
+
+      // Mostrar contraseña temporal al admin
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 22),
+            SizedBox(width: 8),
+            Text('Acceso creado', style: TextStyle(fontSize: 17)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Se ha enviado el acceso por email. Guarda también esta contraseña temporal por si falla el email:',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF0EA5E9)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Email: ${resultado['email']}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+                const SizedBox(height: 6),
+                Text('Contraseña: $tempPass',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
+                        color: Color(0xFF0369A1), letterSpacing: 2)),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            const Text('El empleado deberá cambiarla en su primer inicio de sesión.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+          ]),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1976D2)),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
       );
-      if (mounted) FluxToast.exito(context, 'Invitación enviada a ${resultado['email']}');
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // cerrar spinner
+        final msg = e.code == 'already-exists'
+            ? 'Ya existe un usuario con ese email'
+            : 'Error: ${e.message ?? e.code}';
+        FluxToast.error(context, msg);
+      }
     } catch (e) {
-      if (mounted) FluxToast.error(context, 'Error al enviar la invitación: $e');
+      if (mounted) {
+        Navigator.pop(context); // cerrar spinner
+        FluxToast.error(context, 'Error inesperado: $e');
+      }
     }
   }
 
@@ -1615,6 +1717,20 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         ),
       ),
     ));
+  }
+
+  void _abrirModulos(String empleadoId, String nombre) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => _ModulosEmpleadoSheet(
+        empresaId: widget.empresaId,
+        empleadoUid: empleadoId,
+        empleadoNombre: nombre,
+      ),
+    );
   }
 
   void _abrirNominas(String empleadoId, String nombre) {
@@ -1724,6 +1840,408 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       try { await seed(); } catch (e) { debugPrint('⚠️ seed: $e'); }
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bottom sheet: configurar módulos del empleado
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ModulosEmpleadoSheet extends StatefulWidget {
+  final String empresaId;
+  final String empleadoUid;
+  final String empleadoNombre;
+
+  const _ModulosEmpleadoSheet({
+    required this.empresaId,
+    required this.empleadoUid,
+    required this.empleadoNombre,
+  });
+
+  @override
+  State<_ModulosEmpleadoSheet> createState() => _ModulosEmpleadoSheetState();
+}
+
+class _ModulosEmpleadoSheetState extends State<_ModulosEmpleadoSheet> {
+  final _db = FirebaseFirestore.instance;
+
+  bool _cargando  = true;
+  bool _guardando = false;
+  String _rol     = 'staff';
+  List<String> _modulosSeleccionados = [];
+  bool _usarPersonalizados = false;
+  List<String> _modulosEmpresa = [];
+
+  static const _kPurple = Color(0xFF7C3AED);
+
+  static const _modulosInfo = <String, ({IconData icono, String nombre})>{
+    'dashboard':    (icono: Icons.dashboard,            nombre: 'Dashboard'),
+    'reservas':     (icono: Icons.calendar_today,       nombre: 'Reservas'),
+    'citas':        (icono: Icons.event,                nombre: 'Citas'),
+    'clientes':     (icono: Icons.people,               nombre: 'Clientes'),
+    'valoraciones': (icono: Icons.star,                 nombre: 'Valoraciones'),
+    'estadisticas': (icono: Icons.bar_chart,            nombre: 'Estadísticas'),
+    'servicios':    (icono: Icons.spa,                  nombre: 'Servicios'),
+    'pedidos':      (icono: Icons.shopping_cart,        nombre: 'Pedidos'),
+    'whatsapp':     (icono: Icons.chat,                 nombre: 'WhatsApp Bot'),
+    'tareas':       (icono: Icons.task_alt,             nombre: 'Tareas'),
+    'empleados':    (icono: Icons.badge,                nombre: 'Empleados'),
+    'facturacion':  (icono: Icons.receipt_long,         nombre: 'Facturación'),
+    'nominas':      (icono: Icons.payments,             nombre: 'Nóminas'),
+    'web':          (icono: Icons.web,                  nombre: 'Contenido Web'),
+    'app':          (icono: Icons.phone_android,        nombre: 'Mi App'),
+    'tpv':          (icono: Icons.point_of_sale,        nombre: 'TPV / Cobros'),
+    'fichaje':      (icono: Icons.access_time,          nombre: 'Fichaje'),
+    'vacaciones':   (icono: Icons.beach_access,         nombre: 'Vacaciones'),
+    'fiscal':       (icono: Icons.account_balance,      nombre: 'Fiscal AI'),
+  };
+
+  static const _modulosAutoConFacturacion = [
+    'contabilidad', 'plantillas_pdf', 'verifactu',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    try {
+      final modulosEmpresaSnap = await WidgetManagerService()
+          .obtenerModulosActivos(widget.empresaId)
+          .first;
+      final modulosEnPlan = SuscripcionService().getModulosActivos();
+      const activosPorDefecto = {
+        'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
+        'fichaje', 'empleados',
+      };
+      final activos = modulosEmpresaSnap
+          .where((m) => m.activo)
+          .map((m) => m.id)
+          .where((id) => !const {'propietario', 'explorar', 'citas_del_dia'}.contains(id))
+          .where((id) => activosPorDefecto.contains(id) || modulosEnPlan.contains(id)
+              || (id == 'web' && modulosEnPlan.contains('contenido_web')))
+          .toList();
+
+      final doc = await _db.collection('usuarios').doc(widget.empleadoUid).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        _rol = data['rol'] as String? ?? 'staff';
+        final guardados = (data['modulos_permitidos'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .where((id) => activos.contains(id))
+            .toList();
+        if (guardados != null && guardados.isNotEmpty) {
+          _usarPersonalizados = true;
+          _modulosSeleccionados = guardados;
+        } else {
+          _usarPersonalizados = false;
+          _modulosSeleccionados = _defaultsRol(_rol)
+              .where((id) => activos.contains(id))
+              .toList();
+        }
+      }
+      setState(() => _modulosEmpresa = activos);
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error al cargar módulos: $e');
+    }
+    if (mounted) setState(() => _cargando = false);
+  }
+
+  List<String> _defaultsRol(String rol) => switch (rol) {
+    'propietario' => List.from(_modulosEmpresa),
+    'admin'       => [
+      'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
+      'estadisticas', 'servicios', 'pedidos', 'whatsapp', 'tareas', 'nominas',
+    ],
+    'staff'       => ['reservas', 'citas', 'clientes', 'valoraciones'],
+    _             => ['reservas', 'citas'],
+  };
+
+  Future<void> _guardar() async {
+    setState(() => _guardando = true);
+    try {
+      if (_usarPersonalizados) {
+        final modulos = List<String>.from(_modulosSeleccionados);
+        if (modulos.contains('facturacion')) {
+          for (final auto in _modulosAutoConFacturacion) {
+            if (!modulos.contains(auto)) modulos.add(auto);
+          }
+        }
+        await _db.collection('usuarios').doc(widget.empleadoUid).update({
+          'modulos_permitidos': modulos,
+        });
+      } else {
+        await _db.collection('usuarios').doc(widget.empleadoUid).update({
+          'modulos_permitidos': FieldValue.delete(),
+        });
+      }
+      if (mounted) {
+        FluxToast.exito(context, 'Módulos actualizados correctamente');
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error al guardar: $e');
+    }
+    if (mounted) setState(() => _guardando = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.45,
+      expand: false,
+      builder: (_, ctrl) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                  color: _kBorder, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _kPurple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.tune_rounded, size: 18, color: _kPurple),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Módulos — ${widget.empleadoNombre}',
+                    style: const TextStyle(fontSize: 14,
+                        fontWeight: FontWeight.bold, color: _kText),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text('Rol: $_rol',
+                      style: const TextStyle(fontSize: 11, color: _kSub)),
+                ],
+              )),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, size: 18, color: _kSub),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ]),
+          ),
+          const Divider(height: 1, color: _kBorder),
+
+          if (_cargando)
+            const Expanded(
+                child: Center(child: CircularProgressIndicator(color: _kBlue)))
+          else
+            Expanded(
+              child: ListView(
+                controller: ctrl,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  // ── Toggle personalizado ────────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _kBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _kBorder),
+                    ),
+                    child: SwitchListTile(
+                      title: const Text('Módulos personalizados',
+                          style: TextStyle(fontSize: 13,
+                              fontWeight: FontWeight.w600, color: _kText)),
+                      subtitle: Text(
+                        _usarPersonalizados
+                            ? 'Módulos configurados manualmente'
+                            : 'Por defecto del rol ($_rol)',
+                        style: const TextStyle(fontSize: 11, color: _kSub),
+                      ),
+                      value: _usarPersonalizados,
+                      activeTrackColor: _kPurple.withValues(alpha: 0.5),
+                      thumbColor: WidgetStatePropertyAll(
+                          _usarPersonalizados ? _kPurple : Colors.grey),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      onChanged: (v) => setState(() {
+                        _usarPersonalizados = v;
+                        if (!v) _modulosSeleccionados = _defaultsRol(_rol);
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Info si no es personalizado ─────────────────────────
+                  if (!_usarPersonalizados)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: _kBlue.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 15, color: _kBlue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'El empleado verá los módulos por defecto '
+                            'de su rol ($_rol). Activa "Módulos personalizados" '
+                            'para elegir manualmente.',
+                            style: const TextStyle(fontSize: 12, color: _kBlue),
+                          ),
+                        ),
+                      ]),
+                    ),
+
+                  // ── Botones rápidos + lista ─────────────────────────────
+                  if (_usarPersonalizados) ...[
+                    Row(children: [
+                      _quickBtn(Icons.select_all, 'Todos',
+                          () => setState(() => _modulosSeleccionados =
+                              List.from(_modulosEmpresa))),
+                      const SizedBox(width: 8),
+                      _quickBtn(Icons.deselect, 'Ninguno',
+                          () => setState(() => _modulosSeleccionados = [])),
+                      const SizedBox(width: 8),
+                      _quickBtn(Icons.restart_alt, 'Reset',
+                          () => setState(() =>
+                              _modulosSeleccionados = _defaultsRol(_rol))),
+                    ]),
+                    const SizedBox(height: 8),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: _kBorder),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: _modulosEmpresa.asMap().entries.map((entry) {
+                          final i    = entry.key;
+                          final id   = entry.value;
+                          final info = _modulosInfo[id];
+                          final sel  = _modulosSeleccionados.contains(id);
+                          return Container(
+                            decoration: BoxDecoration(
+                              border: i < _modulosEmpresa.length - 1
+                                  ? const Border(
+                                      bottom: BorderSide(color: _kBorder))
+                                  : null,
+                            ),
+                            child: CheckboxListTile(
+                              value: sel,
+                              activeColor: _kPurple,
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 2),
+                              title: Row(children: [
+                                Container(
+                                  width: 28, height: 28,
+                                  decoration: BoxDecoration(
+                                    color: sel
+                                        ? _kPurple.withValues(alpha: 0.1)
+                                        : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Icon(
+                                    info?.icono ?? Icons.extension,
+                                    size: 15,
+                                    color: sel ? _kPurple : _kSub,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  info?.nombre ?? id,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: sel ? _kText : _kSub,
+                                    fontWeight: sel
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ]),
+                              onChanged: (v) => setState(() {
+                                if (v == true) {
+                                  _modulosSeleccionados.add(id);
+                                } else {
+                                  _modulosSeleccionados.remove(id);
+                                }
+                              }),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  // ── Botón guardar ───────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      onPressed: _guardando ? null : _guardar,
+                      icon: _guardando
+                          ? const SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.save_rounded, size: 17),
+                      label: Text(
+                        _guardando ? 'Guardando…' : 'Guardar módulos',
+                        style: const TextStyle(fontSize: 14,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kPurple,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _quickBtn(IconData icon, String label, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _kBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _kBorder),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 13, color: _kSub),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(fontSize: 11, color: _kSub,
+                    fontWeight: FontWeight.w500)),
+          ]),
+        ),
+      );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -535,7 +535,8 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     EstadoPedido.pendiente     => [EstadoPedido.confirmado, EstadoPedido.cancelado],
     EstadoPedido.confirmado    => [EstadoPedido.enPreparacion, EstadoPedido.cancelado],
     EstadoPedido.enPreparacion => [EstadoPedido.listo],
-    EstadoPedido.listo         => [EstadoPedido.entregado],
+    EstadoPedido.listo         => [EstadoPedido.enviado, EstadoPedido.entregado],
+    EstadoPedido.enviado       => [EstadoPedido.entregado],
     EstadoPedido.entregado     => [],
     EstadoPedido.cancelado     => [],
   };
@@ -545,6 +546,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     EstadoPedido.confirmado    => Colors.blue,
     EstadoPedido.enPreparacion => Colors.purple,
     EstadoPedido.listo         => const Color(0xFF25D366),
+    EstadoPedido.enviado       => Colors.teal,
     EstadoPedido.entregado     => Colors.green[800]!,
     EstadoPedido.cancelado     => Colors.red,
   };
@@ -554,6 +556,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     EstadoPedido.confirmado    => 'Confirmado',
     EstadoPedido.enPreparacion => 'En preparación',
     EstadoPedido.listo         => 'Listo',
+    EstadoPedido.enviado       => 'Enviado',
     EstadoPedido.entregado     => 'Entregado',
     EstadoPedido.cancelado     => 'Cancelado',
   };
@@ -564,6 +567,7 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
     OrigenPedido.tpvExterno => 'TPV Externo',
+    OrigenPedido.webNazari  => 'Web Nazarí',
   };
 
   String _nombreMetodoPago(MetodoPago m) => switch (m) {
@@ -651,6 +655,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
     EstadoPedido.confirmado    => Colors.blue,
     EstadoPedido.enPreparacion => Colors.purple,
     EstadoPedido.listo         => const Color(0xFF25D366),
+    EstadoPedido.enviado       => Colors.teal,
     EstadoPedido.entregado     => Colors.green[800]!,
     EstadoPedido.cancelado     => Colors.red,
   };
@@ -660,6 +665,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
     EstadoPedido.confirmado    => 'Confirmado',
     EstadoPedido.enPreparacion => 'En preparación',
     EstadoPedido.listo         => 'Listo',
+    EstadoPedido.enviado       => 'Enviado',
     EstadoPedido.entregado     => 'Entregado',
     EstadoPedido.cancelado     => 'Cancelado',
   };
@@ -936,6 +942,7 @@ class _DetallePedidoNuevo extends StatelessWidget {
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
     OrigenPedido.tpvExterno => 'TPV Externo',
+    OrigenPedido.webNazari  => 'Web Nazarí',
   };
 
   Pedido _pedidoVacio() => Pedido(
@@ -947,5 +954,6 @@ class _DetallePedidoNuevo extends StatelessWidget {
     estadoPago: EstadoPago.pendiente,
     historial: [],
     fechaCreacion: DateTime.now(),
+    numeroTicket: 0,
   );
 }

@@ -679,6 +679,7 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
     OrigenPedido.whatsapp   => '💬 WhatsApp',
     OrigenPedido.presencial => '🏪 Presencial',
     OrigenPedido.tpvExterno => '🖥️ TPV Externo',
+    OrigenPedido.webNazari  => '📦 Web Nazarí',
   };
 
   String _nombrePago(MetodoPago m) => switch (m) {

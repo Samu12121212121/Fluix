@@ -186,6 +186,15 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                 style: TextStyle(fontSize: 11, color: sub)),
         ]),
         const Spacer(),
+        // ── Limpiar duplicados (solo cuando hay tipo fijo: noticias/entrevistas)
+        if (widget.filtroTipoFijo != null)
+          _BtnDedupBlog(
+            empresaId: widget.empresaId,
+            svc: widget.svc,
+            tipo: widget.filtroTipoFijo!,
+            total: articulos.length,
+          ),
+        if (widget.filtroTipoFijo != null) const SizedBox(width: 6),
         if (widget.filtroTipoFijo != null)
           ElevatedButton.icon(
             onPressed: () {
@@ -815,6 +824,95 @@ class _ArticleListItem extends StatelessWidget {
             await svc.eliminarEntradaBlog(empresaId, a.id);
         }
       },
+    );
+  }
+}
+
+// ── Botón limpiar duplicados de blog ─────────────────────────────────────────
+
+class _BtnDedupBlog extends StatefulWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+  final String tipo;
+  final int total;
+
+  const _BtnDedupBlog({
+    required this.empresaId,
+    required this.svc,
+    required this.tipo,
+    required this.total,
+  });
+
+  @override
+  State<_BtnDedupBlog> createState() => _BtnDedupBlogState();
+}
+
+class _BtnDedupBlogState extends State<_BtnDedupBlog> {
+  bool _corriendo = false;
+
+  Future<void> _dedup() async {
+    final tipoLabel = widget.tipo == 'noticia' ? 'noticias' : 'entrevistas';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Limpiar duplicados'),
+        content: Text(
+          'Hay ${widget.total} $tipoLabel.\n\n'
+          'Esta operación buscará entradas duplicadas (mismo slug o título) '
+          'y conservará la más completa de cada una.\n\n'
+          '¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Limpiar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _corriendo = true);
+    try {
+      final deleted = await widget.svc.dedupBlogPorTipo(widget.empresaId, widget.tipo);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(deleted == 0
+              ? '✅ Sin duplicados encontrados'
+              : '✅ $deleted entradas duplicadas eliminadas'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _corriendo = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _corriendo ? null : _dedup,
+      icon: _corriendo
+          ? const SizedBox(width: 11, height: 11,
+              child: CircularProgressIndicator(strokeWidth: 1.5))
+          : const Icon(Icons.auto_fix_high_rounded, size: 13,
+              color: Color(0xFFD97706)),
+      label: Text(_corriendo ? '…' : 'Limpiar dup.',
+          style: const TextStyle(fontSize: 11, color: Color(0xFFD97706))),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        minimumSize: Size.zero,
+      ),
     );
   }
 }

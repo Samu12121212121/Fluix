@@ -22,6 +22,9 @@ import '../../../services/contacto_web_service.dart';
 import 'tab_mensajes_contacto.dart';
 import 'tab_eventos_web.dart';
 import 'tab_catalogo_web.dart';
+import 'tab_carta_web.dart';
+import 'tab_menu_semanal_web.dart';
+import 'tab_reservas_web.dart';
 import 'tab_seleccion_nazari.dart';
 import 'tab_archivo_historico.dart';
 import 'pantalla_editor_blog.dart';
@@ -60,10 +63,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   final ContactoWebService _contactoSvc = ContactoWebService();
 
   String? _moduloActivo;
+  String? _moduloActivoNombre;
   int _lastVolverSignal = 0;
   bool _isDark = false;
+  final _hubPageCtrl = PageController();
   int _hubPage = 0;
-  final _pageCtrl = PageController();
 
   List<_WebSeccionDin> _webSecciones = [];
   StreamSubscription<QuerySnapshot>? _seccionesSub;
@@ -101,6 +105,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     _isDark = AppSettings.darkMode.value;
     AppSettings.darkMode.addListener(_onDark);
     widget.volverAlHub?.addListener(_onVolverAlHub);
+    _hubPageCtrl.addListener(() {
+      if (!mounted) return;
+      final p = _hubPageCtrl.page?.round() ?? 0;
+      if (p != _hubPage) setState(() => _hubPage = p);
+    });
     _seccionesSub = FirebaseFirestore.instance
         .collection('empresas').doc(widget.empresaId)
         .collection('web_secciones')
@@ -111,7 +120,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         _webSecciones = snap.docs.map(_WebSeccionDin.fromDoc).toList();
       });
     }, onError: (_) {});
-    _autoSeedNazariSecciones();
+    _autoSeedSecciones();
     _blogSub = _svc.obtenerBlog(widget.empresaId).listen(
       (entries) { if (mounted) setState(() => _blogCache = entries); },
       onError: (_) {},
@@ -126,23 +135,102 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 
-  Future<void> _autoSeedNazariSecciones() async {
-    if (widget.empresaId != _kNazariId) return;
+  Future<void> _autoSeedSecciones() async {
     try {
       final col = FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('web_secciones');
+
+      if (widget.empresaId == _kNazariId) {
+        // Nazarí: siempre corregir tipos y añadir secciones que falten
+        await _migrarSeccionesNazari(col);
+        return;
+      }
+
+      // Resto de empresas: solo sembrar si la colección está vacía
       final snap = await col.limit(1).get();
       if (snap.docs.isNotEmpty) return;
       final batch = FirebaseFirestore.instance.batch();
-      final seed = [
-        {'nombre': 'Catálogo', 'tipo': 'catalogo', 'orden': 0, 'activa': true},
-        {'nombre': 'Blog',     'tipo': 'blog',     'orden': 1, 'activa': true},
+      const seed = [
+        {'nombre': 'Catálogo',     'tipo': 'catalogo',    'orden': 0, 'activa': true},
+        {'nombre': 'Blog',         'tipo': 'blog',         'orden': 1, 'activa': true},
+        {'nombre': 'Carta',        'tipo': 'carta',        'orden': 2, 'activa': true},
+        {'nombre': 'Menú Semanal', 'tipo': 'menu_semanal', 'orden': 3, 'activa': true},
+        {'nombre': 'Reservas',     'tipo': 'reservas',     'orden': 4, 'activa': true},
+        {'nombre': 'Agenda',       'tipo': 'agenda',       'orden': 5, 'activa': true},
+        {'nombre': 'Noticias',     'tipo': 'noticias',     'orden': 6, 'activa': true},
+        {'nombre': 'Entrevistas',  'tipo': 'entrevistas',  'orden': 7, 'activa': true},
+        {'nombre': 'Autores',      'tipo': 'autores',      'orden': 8, 'activa': true},
       ];
       for (final s in seed) { batch.set(col.doc(), s); }
       await batch.commit();
     } catch (_) {}
   }
+
+  /// Para Nazarí: migración idempotente que corrige `tipo` en docs existentes
+  /// y añade secciones que falten. Corre en cada arranque de la pantalla.
+  Future<void> _migrarSeccionesNazari(
+      CollectionReference<Map<String, dynamic>> col) async {
+    const esperadas = [
+      {'nombre': 'Catálogo',    'tipo': 'catalogo',      'orden': 0},
+      {'nombre': 'Agenda',      'tipo': 'agenda',         'orden': 1},
+      {'nombre': 'Noticias',    'tipo': 'noticias',       'orden': 2},
+      {'nombre': 'Entrevistas', 'tipo': 'entrevistas',    'orden': 3},
+      {'nombre': 'Autores',     'tipo': 'autores',        'orden': 4},
+      {'nombre': 'Selección',   'tipo': 'seleccion',      'orden': 5},
+      {'nombre': 'PDF',         'tipo': 'plantillas_pdf', 'orden': 6},
+    ];
+
+    final snap    = await col.get();
+    final batch   = FirebaseFirestore.instance.batch();
+    bool  cambios = false;
+
+    // Nombres normalizados permitidos en Nazarí
+    final permitidos = esperadas
+        .map((e) => _normNombre(e['nombre'] as String))
+        .toSet();
+
+    // 1. Corregir tipos y añadir secciones faltantes
+    for (final exp in esperadas) {
+      final nombreEsp = _normNombre(exp['nombre'] as String);
+      final tipoEsp   = (exp['tipo'] as String).toLowerCase();
+
+      QueryDocumentSnapshot<Map<String, dynamic>>? existente;
+      for (final d in snap.docs) {
+        if (_normNombre(d.data()['nombre'] as String? ?? '') == nombreEsp) {
+          existente = d;
+          break;
+        }
+      }
+
+      if (existente == null) {
+        batch.set(col.doc(), {...exp, 'activa': true});
+        cambios = true;
+      } else {
+        final tipoActual = (existente.data()['tipo'] as String? ?? '').toLowerCase();
+        if (tipoActual != tipoEsp) {
+          batch.update(existente.reference, {'tipo': tipoEsp});
+          cambios = true;
+        }
+      }
+    }
+
+    // 2. Eliminar secciones no permitidas (ej: "Blog" que no existe en Nazarí)
+    for (final d in snap.docs) {
+      final nombre = _normNombre(d.data()['nombre'] as String? ?? '');
+      if (!permitidos.contains(nombre)) {
+        batch.delete(d.reference);
+        cambios = true;
+      }
+    }
+
+    if (cambios) await batch.commit();
+  }
+
+  static String _normNombre(String s) => s
+      .toLowerCase().trim()
+      .replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i')
+      .replaceAll('ó', 'o').replaceAll('ú', 'u').replaceAll('ü', 'u');
 
   @override
   void didUpdateWidget(PantallaContenidoWeb old) {
@@ -167,11 +255,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
 
   @override
   void dispose() {
+    _hubPageCtrl.dispose();
     _seccionesSub?.cancel();
     _blogSub?.cancel();
     _noticiasSub?.cancel();
     _entrevistasSub?.cancel();
-    _pageCtrl.dispose();
     AppSettings.darkMode.removeListener(_onDark);
     widget.volverAlHub?.removeListener(_onVolverAlHub);
     super.dispose();
@@ -218,7 +306,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
 
   void _cerrarSubVista() {
     setState(() => _subVista = null);
-    widget.onSubModuloChanged?.call(_moduloActivo);
+    widget.onSubModuloChanged?.call(_moduloActivoNombre ?? _moduloActivo);
   }
 
   static const _kNazariId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
@@ -231,53 +319,21 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     _WebMod('config',    'Configuración',  'Personaliza tu sitio web y\nsus ajustes',             Icons.settings_rounded,     Color(0xFF7C3AED)),
   ];
 
-  // Módulos dinámicos generados desde web_secciones (data-fluix-Nombre-Tipo)
-  List<_WebMod> get _mods {
-    // Para Nazarí, los módulos de contenido son fijos; excluir wsc_* que dupliquen.
-    final esNazari = widget.empresaId == _kNazariId;
-    final dinamicos = _webSecciones
-        .where((s) => !esNazari || (s.tipo != 'catalogo' && s.tipo != 'blog'))
-        .map((s) => s.toWebMod())
-        .toList();
-    final base = [...dinamicos, ..._modsFixed];
-    if (!esNazari) return base;
-    return [
-      const _WebMod('catalogo',    'Catálogo',        'Gestiona los libros\ny el catálogo editorial',        Icons.menu_book_rounded,         Color(0xFF6B1E2A)),
-      const _WebMod('agenda',      'Agenda',          'Presentaciones, firmas\ny eventos',                   Icons.event_rounded,             Color(0xFF1E4D6B)),
-      const _WebMod('noticias',    'Noticias',        'Crónicas, reseñas\ny actualidad editorial',           Icons.newspaper_rounded,         Color(0xFF059669)),
-      const _WebMod('entrevistas', 'Entrevistas',     'Entrevistas a autores\ny protagonistas',              Icons.record_voice_over_rounded, Color(0xFF7C3AED)),
-      const _WebMod('autores',     'Autores',         'Fichas de autores\ny colaboradores',                  Icons.person_rounded,            Color(0xFF0EA5E9)),
-      ...base,
-      const _WebMod('seleccion',   'Selección Nazarí','Gestiona la curaduría editorial\ny el libro del mes', Icons.stars_rounded,             Color(0xFF6B1E2A)),
-    ];
-  }
+  // Módulos leídos directamente de web_secciones + utilidades fijas al final
+  List<_WebMod> get _mods => [
+    ..._webSecciones.map((s) => s.toWebMod()),
+    ..._modsFixed,
+  ];
 
   @override
   Widget build(BuildContext context) {
     final email = FirebaseAuth.instance.currentUser?.email;
     if (DemoCuentaService().esDemo(email)) return _buildDemoScreen(context);
 
-    // Hub: 2 páginas paginables (5 fichas + 1 slot flecha en página 1)
-    final page1    = _mods.take(5).toList();
-    final page2    = _mods.skip(5).toList();
-    final hayPag2  = page2.isNotEmpty;
-
     final hub = ColoredBox(
       key: const ValueKey('hub'),
       color: _kBg,
-      child: Column(children: [
-        Expanded(
-          child: PageView(
-            controller: _pageCtrl,
-            onPageChanged: (p) => setState(() => _hubPage = p),
-            children: [
-              _buildHubPagina(page1, pageIndex: 0, conFlechaSiguiente: hayPag2),
-              _buildHubPagina(page2, pageIndex: 1, conFlechaSiguiente: false, rellenarA6: true),
-            ],
-          ),
-        ),
-        _buildHubIndicador(page1, page2),
-      ]),
+      child: _buildHubGrid(),
     );
 
     final modulo = _moduloActivo != null
@@ -302,158 +358,242 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 
-  // ── Hub helpers ──────────────────────────────────────────────────────────
+  // ── Hub paginado — N fichas por página con flechas y dots ─────────────────
 
-  Widget _buildHubPagina(List<_WebMod> mods, {
-    required int pageIndex,
-    required bool conFlechaSiguiente,
-    bool rellenarA6 = false,
-  }) {
-    // AnimatedBuilder lee directamente del PageController — no llama setState en el padre
-    return AnimatedBuilder(
-      animation: _pageCtrl,
-      builder: (_, child) {
-        final offset = _pageCtrl.hasClients
-            ? (_pageCtrl.page ?? pageIndex.toDouble())
-            : pageIndex.toDouble();
-        final dist  = (offset - pageIndex).abs().clamp(0.0, 1.0);
-        final scale = 1.0 - dist * 0.035;
-        return Transform.scale(scale: scale, child: child);
-      },
-      child: LayoutBuilder(builder: (ctx, constraints) {
-          final ancho = constraints.maxWidth;
-          final cols = ancho >= 700 ? 3 : 2;
-          const targetSlots = 6;
-          final realSlots = mods.length + (conFlechaSiguiente ? 1 : 0);
-          final totalSlots = rellenarA6 ? targetSlots : realSlots;
-          const pad = 12.0;
-          const gap = 10.0;
-          final rows = (totalSlots / cols).ceil();
-          final cardW = (ancho - pad * 2 - gap * (cols - 1)) / cols;
-          final cardH = (constraints.maxHeight - pad * 2 - gap * (rows - 1)) / rows;
-          final ratio = cardW / cardH.clamp(60, double.infinity);
-          return GridView.builder(
-            padding: const EdgeInsets.all(pad),
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-              childAspectRatio: ratio,
+  // ── Lista de módulos para móvil (<600px) — sin overflow, sin área negra ─────
+  Widget _buildHubListaMobile(List<_WebMod> mods) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      itemCount: mods.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        if (i < mods.length) return _buildModuloTileMobile(mods[i]);
+        // Tarjeta "añadir sección"
+        return GestureDetector(
+          onTap: () => _mostrarDialogoSeccion(context),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _kSurf,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _kBorder, style: BorderStyle.solid),
             ),
-            itemCount: totalSlots,
-            itemBuilder: (_, i) {
-              if (i < mods.length) return _buildModuloCard(mods[i]);
-              if (conFlechaSiguiente && i == mods.length) return _buildNextArrowCard();
-              return _buildGhostCard();
-            },
-          );
-        }),
+            child: Row(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF64748B).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.add_rounded,
+                    color: Color(0xFF64748B), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('Añadir sección',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                        color: _kText)),
+                const SizedBox(height: 2),
+                Text('Crea una nueva sección personalizada',
+                    style: TextStyle(fontSize: 11, color: _kTextSec)),
+              ])),
+              Icon(Icons.chevron_right_rounded, color: _kTextSec),
+            ]),
+          ),
+        );
+      },
     );
   }
 
-  // Flecha estática (la animación está en el swipe, no aquí)
-  Widget _buildNextArrowCard() {
+  Widget _buildModuloTileMobile(_WebMod mod) {
     return GestureDetector(
-      onTap: () => _pageCtrl.nextPage(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic),
+      onTap: () => _abrirModulo(mod),
+      onLongPress: mod.id.startsWith('wsc_')
+          ? () => _mostrarOpcionesSeccion(context, mod)
+          : null,
       child: Container(
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: _isDark
-                ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                : [const Color(0xFFF8FAFC), const Color(0xFFEDF0F4)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(color: _kBorder.withValues(alpha: 0.6)),
+          color: _kSurf,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kBorder),
           boxShadow: [BoxShadow(
-            color: const Color(0xFF334155).withValues(alpha: 0.07),
-            blurRadius: 10, offset: const Offset(0, 3))],
+              color: Colors.black.withValues(alpha: _isDark ? 0.2 : 0.04),
+              blurRadius: 6, offset: const Offset(0, 2))],
         ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        child: Row(children: [
           Container(
-            width: 50, height: 50,
+            width: 44, height: 44,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF334155).withValues(alpha: 0.10),
-              border: Border.all(
-                  color: const Color(0xFF334155).withValues(alpha: 0.20), width: 1.5),
+              color: mod.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.arrow_forward_rounded,
-                size: 26, color: Color(0xFF64748B)),
+            child: Icon(mod.icono, color: mod.color, size: 22),
           ),
-          const SizedBox(height: 10),
-          Text('Más módulos',
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600,
-                  color: _kTextSec, letterSpacing: .2)),
-          const SizedBox(height: 3),
-          Text('Analytics · Email · Config',
-              style: TextStyle(fontSize: 9.5,
-                  color: _kTextSec.withValues(alpha: 0.55))),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+            Text(mod.titulo,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                    color: _kText)),
+            if (mod.desc.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(mod.desc,
+                  style: TextStyle(fontSize: 11, color: _kTextSec, height: 1.3),
+                  maxLines: 2),
+            ],
+            const SizedBox(height: 6),
+            _buildStatRow(mod),
+          ])),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => _abrirModulo(mod),
+            style: FilledButton.styleFrom(
+              backgroundColor: mod.color,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: const TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w700),
+            ),
+            child: const Text('Abrir'),
+          ),
         ]),
       ),
     );
   }
 
-  // Slot fantasma — mantiene el grid completo a 6 fichas en página 2
-  Widget _buildGhostCard() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: _isDark
-            ? const Color(0xFF1E293B).withValues(alpha: 0.4)
-            : Colors.white.withValues(alpha: 0.5),
-        border: Border.all(
-            color: _kBorder.withValues(alpha: 0.3),
-            style: BorderStyle.solid),
-      ),
-    );
+  Widget _buildHubGrid() {
+    final mods = _mods;
+    final totalItems = mods.length + 1; // +1 tarjeta "añadir"
+
+    return LayoutBuilder(builder: (ctx, constraints) {
+      // MÓVIL (<600px): lista vertical scrollable — sin overflows, sin área negra
+      if (constraints.maxWidth < 600) {
+        return _buildHubListaMobile(mods);
+      }
+
+      // DESKTOP / TABLET ANCHA: grid paginado con previews
+      // 3 columnas × 2 filas = 6 fichas por página en pantalla ancha
+      final cols = constraints.maxWidth >= 700 ? 3 : 2;
+      const rows = 2;
+      final perPage = cols * rows;
+      final totalPages = (totalItems / perPage).ceil();
+      final page = _hubPage.clamp(0, totalPages - 1);
+
+      const gap = 10.0;
+      const arrowW = 40.0;
+      final cardW = (constraints.maxWidth - arrowW * 2 - gap * (cols - 1)) / cols;
+      final cardH = (cardW * 0.88).clamp(160.0, 300.0);
+      final gridH = cardH * rows + gap * (rows - 1);
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: SizedBox(
+              height: gridH,
+              child: Stack(alignment: Alignment.center, children: [
+                PageView.builder(
+                  controller: _hubPageCtrl,
+                  itemCount: totalPages,
+                  itemBuilder: (_, pageIdx) {
+                    final start = pageIdx * perPage;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: arrowW),
+                      child: Column(
+                        children: List.generate(rows, (r) {
+                          return Expanded(child: Padding(
+                            padding: EdgeInsets.only(bottom: r < rows - 1 ? gap : 0),
+                            child: Row(
+                              children: List.generate(cols, (c) {
+                                final idx = start + r * cols + c;
+                                if (idx >= totalItems) {
+                                  return Expanded(child: Padding(
+                                    padding: EdgeInsets.only(right: c < cols - 1 ? gap : 0),
+                                    child: const SizedBox.shrink(),
+                                  ));
+                                }
+                                return Expanded(child: Padding(
+                                  padding: EdgeInsets.only(right: c < cols - 1 ? gap : 0),
+                                  child: idx < mods.length
+                                      ? _buildModuloCard(mods[idx])
+                                      : _buildAddCard(),
+                                ));
+                              }),
+                            ),
+                          ));
+                        }),
+                      ),
+                    );
+                  },
+                ),
+                if (page > 0) Positioned(
+                  left: 0,
+                  child: _buildHubNavBtn(isNext: false),
+                ),
+                if (page < totalPages - 1) Positioned(
+                  right: 0,
+                  child: _buildHubNavBtn(isNext: true),
+                ),
+              ]),
+            ),
+          ),
+          if (totalPages > 1) Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalPages, (i) => GestureDetector(
+                onTap: () => _hubPageCtrl.animateToPage(i,
+                    duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == page ? 18 : 7, height: 7,
+                  decoration: BoxDecoration(
+                    color: i == page
+                        ? (_isDark ? Colors.white70 : const Color(0xFF475569))
+                        : (_isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              )),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
-  Widget _buildHubIndicador(List<_WebMod> p1, List<_WebMod> p2) {
-    final numPaginas = p2.isEmpty ? 1 : 2;
-    return Container(
-      color: _kBg,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        // Dots de página
-        Row(children: List.generate(numPaginas, (i) {
-          final sel = _hubPage == i;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            margin: const EdgeInsets.only(right: 5),
-            width: sel ? 22 : 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: sel
-                  ? (_isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155))
-                  : (_isDark ? const Color(0xFF334155) : Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          );
-        })),
-        // Botón volver solo visible en página 2
-        if (_hubPage > 0)
-          TextButton.icon(
-            onPressed: () => _pageCtrl.previousPage(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic),
-            icon: const Icon(Icons.arrow_back_rounded, size: 13),
-            label: const Text('Volver'),
-            style: TextButton.styleFrom(
-              foregroundColor: _kTextSec,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              minimumSize: Size.zero,
-              textStyle: const TextStyle(fontSize: 11.5),
-            ),
-          )
-        else
-          const SizedBox.shrink(),
-      ]),
+  Widget _buildHubNavBtn({required bool isNext}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () => isNext
+          ? _hubPageCtrl.nextPage(
+              duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+          : _hubPageCtrl.previousPage(
+              duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+      child: Container(
+        width: 34, height: 56,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: _kSurf,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _kBorder),
+          boxShadow: [BoxShadow(
+              color: Colors.black.withValues(alpha: _isDark ? 0.25 : 0.08),
+              blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Icon(
+          isNext ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+          color: _kTextSec, size: 20,
+        ),
+      ),
     );
   }
 
@@ -592,25 +732,67 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       case 'galeria':    return _TabGaleriaWeb(empresaId: widget.empresaId, svc: _svc, color: mod.color);
       case 'analytics':  return TabAnalyticsWeb(empresaId: widget.empresaId);
       case 'config':     return TabConfigWeb(empresaId: widget.empresaId, svc: _svc);
-      case 'seleccion':  return TabSeleccionNazari(empresaId: widget.empresaId);
+      case 'seleccion':       return TabSeleccionNazari(empresaId: widget.empresaId);
+      case 'plantillas_pdf':  return _TabPlantillasPdfNazari(empresaId: widget.empresaId, color: mod.color);
       default:
         if (mod.id.startsWith('wsc_')) {
           final seccionId = mod.id.substring(4);
           _WebSeccionDin? sec;
           for (final s in _webSecciones) { if (s.id == seccionId) { sec = s; break; } }
           if (sec == null) return const Center(child: Text('Sección no encontrada'));
-          if (sec.tipo == 'blog') {
-            return _BlogSplitView(
-              empresaId: widget.empresaId, svc: _svc, isDark: _isDark,
-              seccionId: seccionId,
-              onAbrirEditor: (entrada, cats) => _abrirSubVista(
-                tipo: 'editar_blog', entrada: entrada, categorias: cats),
-            );
-          } else {
-            return TabCatalogoWeb(
-              empresaId: widget.empresaId, svc: _svc, color: mod.color,
-              seccionId: seccionId,
-              onAbrirEditor: (item) => _abrirSubVista(tipo: 'editar_catalogo', itemCatalogo: item));
+          switch (sec.tipo) {
+            case 'blog':
+              return _BlogSplitView(
+                empresaId: widget.empresaId, svc: _svc, isDark: _isDark,
+                seccionId: seccionId,
+                onAbrirEditor: (entrada, cats) => _abrirSubVista(
+                  tipo: 'editar_blog', entrada: entrada, categorias: cats));
+            case 'noticias':
+              return _BlogSplitView(
+                empresaId: widget.empresaId, svc: _svc, isDark: _isDark,
+                filtroTipoFijo: 'noticia', titulo: sec.nombre,
+                onAbrirEditor: (entrada, cats) => _abrirSubVista(
+                  tipo: 'editar_blog', entrada: entrada, categorias: cats));
+            case 'entrevistas':
+              return _BlogSplitView(
+                empresaId: widget.empresaId, svc: _svc, isDark: _isDark,
+                filtroTipoFijo: 'entrevista', titulo: sec.nombre,
+                onAbrirEditor: (entrada, cats) => _abrirSubVista(
+                  tipo: 'editar_blog', entrada: entrada, categorias: cats));
+            case 'agenda':
+              return TabEventosWeb(
+                empresaId: widget.empresaId, svc: _svc,
+                onAbrirEditorWord: (entrada, cats) => _abrirSubVista(
+                  tipo: 'editar_blog', entrada: entrada,
+                  categorias: cats.cast<CategoriaBlog>()));
+            case 'autores':
+              return _AutoresNazariTab(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color);
+            case 'carta':
+              return TabCartaWeb(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color);
+            case 'menu_semanal':
+              return TabMenuSemanalWeb(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color);
+            case 'reservas':
+              return TabReservasWeb(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color);
+            case 'catalogo':
+              return TabCatalogoWeb(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color,
+                onAbrirEditor: (item) => _abrirSubVista(
+                  tipo: 'editar_catalogo', itemCatalogo: item));
+            case 'seleccion':
+              return TabSeleccionNazari(empresaId: widget.empresaId);
+            case 'plantillas_pdf':
+              return _TabPlantillasPdfNazari(
+                empresaId: widget.empresaId, color: mod.color);
+            default:
+              return TabCatalogoWeb(
+                empresaId: widget.empresaId, svc: _svc, color: mod.color,
+                seccionId: seccionId,
+                onAbrirEditor: (item) => _abrirSubVista(
+                  tipo: 'editar_catalogo', itemCatalogo: item));
           }
         }
         return const Center(child: Text('Módulo no disponible'));
@@ -718,16 +900,29 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       case 'mensajes':   return _previewMensajes(mod.color);
       case 'campanas':   return _previewCampanas(mod.color);
       case 'analytics':  return _previewAnalytics(mod.color);
-      case 'config':     return _previewConfig();
-      case '__add__':    return _previewAdd();
+      case 'config':         return _previewConfig();
+      case 'seleccion':      return _previewSeleccion(mod.color);
+      case 'plantillas_pdf': return _previewPlantillasPdf(mod.color);
+      case '__add__':        return _previewAdd();
       default:
         if (mod.id.startsWith('wsc_')) {
           final seccionId = mod.id.substring(4);
           _WebSeccionDin? sec;
           for (final s in _webSecciones) { if (s.id == seccionId) { sec = s; break; } }
-          return sec?.tipo == 'blog'
-              ? _previewBlog(mod.color)
-              : _previewCatalogoScoped(mod.color, seccionId);
+          switch (sec?.tipo) {
+            case 'blog':        return _previewBlog(mod.color);
+            case 'noticias':    return _previewBlogPorTipo(mod.color, 'noticia');
+            case 'entrevistas': return _previewBlogPorTipo(mod.color, 'entrevista');
+            case 'agenda':      return _previewAgenda(mod.color);
+            case 'autores':     return _previewAutores(mod.color);
+            case 'catalogo':    return _previewCatalogo(mod.color);
+            case 'carta':         return _previewCarta(mod.color);
+            case 'menu_semanal':  return _previewMenuSemanal(mod.color);
+            case 'reservas':      return _previewReservas(mod.color);
+            case 'seleccion':   return _previewSeleccion(mod.color);
+            case 'plantillas_pdf': return _previewPlantillasPdf(mod.color);
+            default:            return _previewCatalogoScoped(mod.color, seccionId);
+          }
         }
         return const SizedBox.shrink();
     }
@@ -770,17 +965,18 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
                 style: TextStyle(fontSize: 11, color: Colors.grey[400])),
           ]));
         }
-        return Padding(
+        return ClipRect(
+          child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             ...muestra.map((e) {
               final dia = e.fecha.day.toString().padLeft(2, '0');
               final mes = meses[e.fecha.month - 1];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Container(
-                    width: 38, height: 38,
+                    width: 34, height: 34,
                     decoration: BoxDecoration(
                       color: c,
                       borderRadius: BorderRadius.circular(8),
@@ -813,7 +1009,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
                         fontWeight: FontWeight.w600)),
               ),
           ]),
-        );
+        ));
       },
     );
   }
@@ -1225,6 +1421,124 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 
+  Widget _previewCarta(Color c) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _svc.obtenerCartaWeb(widget.empresaId),
+      builder: (_, snap) {
+        final items = snap.data ?? [];
+        final cats = items.map((i) => i['categoria'] as String? ?? '').toSet().length;
+        return _previewContador(
+          label:    'Platos en la carta',
+          valor:    '${items.length}',
+          sublabel: '$cats categoría${cats == 1 ? '' : 's'}',
+          icon:     Icons.restaurant_menu_rounded,
+          color:    c,
+        );
+      },
+    );
+  }
+
+  Widget _previewMenuSemanal(Color c) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _svc.obtenerMenuSemanal(widget.empresaId),
+      builder: (_, snap) {
+        final dias = snap.data ?? [];
+        final activos = dias.where((d) => d['activo'] as bool? ?? true).length;
+        return _previewContador(
+          label:    'Días con menú',
+          valor:    '${dias.length}',
+          sublabel: '$activos activos esta semana',
+          icon:     Icons.restaurant_rounded,
+          color:    c,
+        );
+      },
+    );
+  }
+
+  Widget _previewReservas(Color c) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('reservas')
+          .orderBy('fecha_hora', descending: false)
+          .limit(5)
+          .snapshots(),
+      builder: (_, snap) {
+        final docs  = snap.data?.docs ?? [];
+        final pend  = docs.where((d) {
+          final e = ((d.data() as Map<String, dynamic>)['estado'] as String? ?? '').toUpperCase();
+          return e == 'PENDIENTE';
+        }).length;
+        return _previewContador(
+          label:    'Reservas recientes',
+          valor:    '${docs.length}',
+          sublabel: '$pend pendiente${pend == 1 ? '' : 's'}',
+          icon:     Icons.event_seat_rounded,
+          color:    c,
+        );
+      },
+    );
+  }
+
+  Widget _previewSeleccion(Color c) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('seleccion_nazari').snapshots(),
+      builder: (_, snap) {
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.stars_rounded, size: 32, color: c.withValues(alpha: 0.3)),
+            const SizedBox(height: 8),
+            Text('Sin libros en la selección',
+                style: TextStyle(fontSize: 11, color: _kTextSec.withValues(alpha: 0.6))),
+          ]));
+        }
+        return ListView(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          children: [
+            _previewTitle('Selección editorial — ${docs.length} libro${docs.length == 1 ? '' : 's'}'),
+            ...docs.take(4).map((d) {
+              final data = d.data() as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  Container(width: 28, height: 40,
+                    decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
+                    child: Icon(Icons.menu_book_rounded, size: 14, color: c)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    data['titulo'] ?? data['nombre'] ?? '',
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF334155)),
+                    maxLines: 2, overflow: TextOverflow.ellipsis)),
+                ]),
+              );
+            }),
+          ]);
+      });
+  }
+
+  Widget _previewPlantillasPdf(Color c) {
+    const opciones = ['Pedidos web', 'Facturas', 'Albaranes', 'Catálogo PDF'];
+    return ListView(padding: EdgeInsets.zero, children: [
+      _previewTitle('Documentos disponibles'),
+      ...opciones.map((op) => Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFE8ECF0), width: 0.5))),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(children: [
+            Icon(Icons.picture_as_pdf_rounded, size: 14, color: c),
+            const SizedBox(width: 8),
+            Text(op, style: const TextStyle(fontSize: 11, color: Color(0xFF334155))),
+            const Spacer(),
+            Icon(Icons.download_rounded, size: 13, color: const Color(0xFFCBD5E1)),
+          ]),
+        ),
+      )),
+    ]);
+  }
+
   // ── Stats ─────────────────────────────────────────────────────────────────
 
   Widget _buildStatRow(_WebMod mod) {
@@ -1272,6 +1586,17 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
               const Color(0xFF0EA5E9)));
       case 'campanas':
         return _dot('Campañas de email marketing', const Color(0xFFE11D48));
+      case 'seleccion':
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('empresas').doc(widget.empresaId)
+              .collection('seleccion_nazari').snapshots(),
+          builder: (_, s) {
+            final n = s.data?.docs.length ?? 0;
+            return _dot('$n libro${n == 1 ? '' : 's'} en la selección', const Color(0xFF6B1E2A));
+          });
+      case 'plantillas_pdf':
+        return _dot('Genera facturas y documentos PDF', const Color(0xFFDC2626));
       case 'analytics':
         return _dot('Ver tráfico y métricas', const Color(0xFF0EA5E9));
       case 'config':
@@ -1284,18 +1609,77 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           _WebSeccionDin? sec;
           for (final s in _webSecciones) { if (s.id == seccionId) { sec = s; break; } }
           if (sec == null) return const SizedBox.shrink();
-          if (sec.tipo == 'blog') {
-            return StreamBuilder<List<EntradaBlog>>(
-              stream: _svc.obtenerBlogSeccion(widget.empresaId, seccionId),
-              builder: (_, s) => _dot(
-                '${s.data?.length ?? 0} entrada${(s.data?.length ?? 0) == 1 ? '' : 's'}',
-                const Color(0xFF2563EB)));
-          } else {
-            return StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _svc.obtenerCatalogoWebSeccion(widget.empresaId, seccionId),
-              builder: (_, s) => _dot(
-                '${s.data?.where((i) => i['activo'] == true).length ?? 0} elementos visibles',
-                const Color(0xFF6B1E2A)));
+          switch (sec.tipo) {
+            case 'blog':
+              return StreamBuilder<List<EntradaBlog>>(
+                stream: _svc.obtenerBlogSeccion(widget.empresaId, seccionId),
+                builder: (_, s) => _dot(
+                  '${s.data?.length ?? 0} entrada${(s.data?.length ?? 0) == 1 ? '' : 's'}',
+                  const Color(0xFF2563EB)));
+            case 'noticias': {
+              final cnt = _noticiasCache.length;
+              return _dot('$cnt noticia${cnt == 1 ? '' : 's'} publicada${cnt == 1 ? '' : 's'}',
+                  const Color(0xFF059669));
+            }
+            case 'entrevistas': {
+              final cnt = _entrevistasCache.length;
+              return _dot('$cnt entrevista${cnt == 1 ? '' : 's'}', const Color(0xFF7C3AED));
+            }
+            case 'agenda':
+              return _dot('Gestionar presentaciones y ferias', const Color(0xFF1E4D6B));
+            case 'autores':
+              return StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _svc.obtenerAutores(widget.empresaId),
+                builder: (_, s) => _dot('${s.data?.length ?? 0} autores registrados',
+                    const Color(0xFF0EA5E9)));
+            case 'carta':
+              return StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _svc.obtenerCartaWeb(widget.empresaId),
+                builder: (_, s) {
+                  final total = s.data?.length ?? 0;
+                  final disp  = s.data?.where((i) => i['disponible'] != false).length ?? 0;
+                  return _dot('$total platos · $disp disponibles',
+                      const Color(0xFFE65100));
+                });
+            case 'menu_semanal':
+              return StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _svc.obtenerMenuSemanal(widget.empresaId),
+                builder: (_, s) {
+                  final total   = s.data?.length ?? 0;
+                  final activos = s.data?.where((d) => d['activo'] as bool? ?? true).length ?? 0;
+                  return _dot('$total días · $activos activos esta semana',
+                      const Color(0xFF0F766E));
+                });
+            case 'reservas':
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('empresas').doc(widget.empresaId)
+                    .collection('reservas')
+                    .where('estado', isEqualTo: 'PENDIENTE')
+                    .snapshots(),
+                builder: (_, s) {
+                  final n = s.data?.docs.length ?? 0;
+                  return _dot('$n reserva${n == 1 ? '' : 's'} pendiente${n == 1 ? '' : 's'}',
+                      n > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981));
+                });
+            case 'seleccion':
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('empresas').doc(widget.empresaId)
+                    .collection('seleccion_nazari').snapshots(),
+                builder: (_, s) {
+                  final n = s.data?.docs.length ?? 0;
+                  return _dot('$n libro${n == 1 ? '' : 's'} en la selección',
+                      const Color(0xFF6B1E2A));
+                });
+            case 'plantillas_pdf':
+              return _dot('Genera facturas y documentos PDF', const Color(0xFFDC2626));
+            default:
+              return StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _svc.obtenerCatalogoWebSeccion(widget.empresaId, seccionId),
+                builder: (_, s) => _dot(
+                  '${s.data?.where((i) => i['activo'] == true).length ?? 0} elementos visibles',
+                  const Color(0xFF6B1E2A)));
           }
         }
         return const SizedBox.shrink();
@@ -1345,7 +1729,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       _mostrarDialogoSeccion(context);
       return;
     }
-    _setModuloActivo(mod.id);
+    // Para secciones dinámicas (wsc_*) pasar el nombre legible al breadcrumb
+    final nombre = mod.id.startsWith('wsc_') ? mod.titulo : mod.id;
+    setState(() { _moduloActivo = mod.id; _moduloActivoNombre = nombre; });
+    widget.onSubModuloChanged?.call(nombre);
   }
 
   // ── Card especial "+" ──────────────────────────────────────────────────────
@@ -1411,6 +1798,21 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
 
   // ── Diálogo crear/editar sección ───────────────────────────────────────────
 
+  static String _tipoAttrLabel(String tipo) {
+    switch (tipo) {
+      case 'blog':         return 'Blog';
+      case 'catalogo':     return 'Catalogo';
+      case 'agenda':       return 'Agenda';
+      case 'noticias':     return 'Noticias';
+      case 'entrevistas':  return 'Entrevistas';
+      case 'autores':      return 'Autores';
+      case 'carta':        return 'Carta';
+      case 'menu_semanal': return 'MenuSemanal';
+      case 'reservas':     return 'Reservas';
+      default:             return tipo;
+    }
+  }
+
   void _mostrarDialogoSeccion(BuildContext context, {_WebSeccionDin? existente}) {
     final nombreCtrl = TextEditingController(text: existente?.nombre ?? '');
     String tipo = existente?.tipo ?? 'blog';
@@ -1435,7 +1837,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
                 border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.2)),
               ),
               child: Text(
-                'En tu HTML: data-fluix-${nombreCtrl.text.isNotEmpty ? nombreCtrl.text : "Nombre"}-${tipo == 'blog' ? 'Blog' : 'Catalogo'}',
+                'En tu HTML: data-fluix-${nombreCtrl.text.isNotEmpty ? nombreCtrl.text : "Nombre"}-${_tipoAttrLabel(tipo)}',
                 style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace',
                     color: Color(0xFF3B82F6)),
               ),
@@ -1467,8 +1869,14 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
               dropdownColor: _kSurf,
               style: TextStyle(fontSize: 13, color: _kText),
               items: const [
-                DropdownMenuItem(value: 'blog',     child: Text('Blog — artículos y entradas')),
-                DropdownMenuItem(value: 'catalogo', child: Text('Catálogo — productos e ítems')),
+                DropdownMenuItem(value: 'blog',          child: Text('Blog — artículos y entradas')),
+                DropdownMenuItem(value: 'catalogo',      child: Text('Catálogo — productos e ítems')),
+                DropdownMenuItem(value: 'agenda',        child: Text('Agenda — eventos y citas')),
+                DropdownMenuItem(value: 'noticias',      child: Text('Noticias — actualidad')),
+                DropdownMenuItem(value: 'entrevistas',   child: Text('Entrevistas')),
+                DropdownMenuItem(value: 'autores',       child: Text('Autores — fichas de personas')),
+                DropdownMenuItem(value: 'carta',         child: Text('Carta — menú del restaurante')),
+                DropdownMenuItem(value: 'reservas',      child: Text('Reservas — gestión de mesas')),
               ],
               onChanged: (v) { if (v != null) setDlg(() => tipo = v); },
             ),
@@ -1763,15 +2171,56 @@ class _WebSeccionDin {
     );
   }
 
-  static const _colorBlog     = Color(0xFF2563EB);
-  static const _colorCatalogo = Color(0xFF6B1E2A);
+  Color get color {
+    switch (tipo) {
+      case 'blog':         return const Color(0xFF2563EB);
+      case 'catalogo':     return const Color(0xFF6B1E2A);
+      case 'agenda':       return const Color(0xFF1E4D6B);
+      case 'noticias':     return const Color(0xFF059669);
+      case 'entrevistas':  return const Color(0xFF7C3AED);
+      case 'autores':      return const Color(0xFF0EA5E9);
+      case 'carta':        return const Color(0xFFE65100);
+      case 'menu_semanal': return const Color(0xFF0F766E);
+      case 'reservas':     return const Color(0xFF0EA5E9);
+      case 'seleccion':    return const Color(0xFF6B1E2A);
+      case 'plantillas_pdf': return const Color(0xFFDC2626);
+      default:             return const Color(0xFF475569);
+    }
+  }
 
-  Color get color => tipo == 'blog' ? _colorBlog : _colorCatalogo;
-  IconData get icono => tipo == 'blog' ? Icons.article_rounded : Icons.menu_book_rounded;
+  IconData get icono {
+    switch (tipo) {
+      case 'blog':         return Icons.article_rounded;
+      case 'catalogo':     return Icons.menu_book_rounded;
+      case 'agenda':       return Icons.event_rounded;
+      case 'noticias':     return Icons.newspaper_rounded;
+      case 'entrevistas':  return Icons.record_voice_over_rounded;
+      case 'autores':      return Icons.person_rounded;
+      case 'carta':        return Icons.restaurant_menu_rounded;
+      case 'menu_semanal': return Icons.restaurant_rounded;
+      case 'reservas':     return Icons.event_seat_rounded;
+      case 'seleccion':    return Icons.stars_rounded;
+      case 'plantillas_pdf': return Icons.picture_as_pdf_rounded;
+      default:             return Icons.web_rounded;
+    }
+  }
 
-  String get _desc => tipo == 'blog'
-      ? 'Entradas y artículos\nde $nombre'
-      : 'Catálogo de\n$nombre';
+  String get _desc {
+    switch (tipo) {
+      case 'blog':         return 'Entradas y artículos\nde $nombre';
+      case 'catalogo':     return 'Catálogo de\n$nombre';
+      case 'agenda':       return 'Próximos eventos\ny presentaciones';
+      case 'noticias':     return 'Crónicas y actualidad\neditoriales';
+      case 'entrevistas':  return 'Entrevistas a autores\ny protagonistas';
+      case 'autores':      return 'Fichas de autores\ny colaboradores';
+      case 'carta':        return 'Platos y bebidas\nde la carta';
+      case 'menu_semanal': return 'Menú del día por\njornada de la semana';
+      case 'reservas':     return 'Gestiona las reservas\nrecibidas desde la web';
+      case 'seleccion':    return 'Curaduría editorial\ny libro del mes';
+      case 'plantillas_pdf': return 'Descarga facturas, pedidos\ny documentos en PDF';
+      default:             return nombre;
+    }
+  }
 
   _WebMod toWebMod() => _WebMod('wsc_$id', nombre, _desc, icono, color);
 }
@@ -1783,4 +2232,70 @@ class _WebMod {
   final IconData icono;
   final Color color;
   const _WebMod(this.id, this.titulo, this.desc, this.icono, this.color);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Módulo Plantillas PDF — Nazarí
+// Permite descargar PDFs de pedidos web, facturas y documentos editoriales.
+// ─────────────────────────────────────────────────────────────────────────────
+class _TabPlantillasPdfNazari extends StatelessWidget {
+  final String empresaId;
+  final Color  color;
+  const _TabPlantillasPdfNazari({required this.empresaId, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FB),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const SizedBox(height: 8),
+        Text('Plantillas PDF', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(height: 4),
+        const Text('Genera y descarga documentos en PDF para Editorial Nazarí.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+        const SizedBox(height: 20),
+        _seccion(context, 'Pedidos web',
+            'Genera un PDF de los pedidos recibidos desde la tienda.',
+            Icons.shopping_bag_rounded, color, () => _abrirPedidos(context)),
+        _seccion(context, 'Catálogo PDF',
+            'Exporta el catálogo completo de libros en formato PDF.',
+            Icons.menu_book_rounded, const Color(0xFF1E4D6B), null),
+        _seccion(context, 'Facturas',
+            'Genera facturas para clientes y distribuidores.',
+            Icons.receipt_long_rounded, const Color(0xFF059669), null),
+        _seccion(context, 'Documentos editoriales',
+            'Contratos, cesiones de derechos y otros documentos.',
+            Icons.description_rounded, const Color(0xFF7C3AED), null),
+      ]),
+    );
+  }
+
+  Widget _seccion(BuildContext ctx, String titulo, String desc, IconData icono, Color c, VoidCallback? onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8EDF2)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+          child: Icon(icono, color: c, size: 22),
+        ),
+        title: Text(titulo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+        subtitle: Text(desc, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        trailing: onTap != null
+            ? Icon(Icons.arrow_forward_ios_rounded, size: 14, color: c)
+            : Icon(Icons.lock_outline_rounded, size: 14, color: Colors.grey[300]),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _abrirPedidos(BuildContext context) {
+    Navigator.of(context).pushNamed('/pedidos', arguments: empresaId);
+  }
 }

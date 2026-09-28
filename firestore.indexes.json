@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "carta_web",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoria", "order": "ASCENDING" },
+        { "fieldPath": "orden",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "seleccion_nazari",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo",  "order": "ASCENDING" },
+        { "fieldPath": "en_pack", "order": "ASCENDING" },
+        { "fieldPath": "orden",   "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "pdf_templates",
       "queryScope": "COLLECTION",
       "fields": [

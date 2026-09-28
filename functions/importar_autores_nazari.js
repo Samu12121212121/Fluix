@@ -64,6 +64,34 @@ function loadAutoresData() {
   return ctx['AUTORES'] || [];
 }
 
+// ── 4 autores de página 3 de la web no incluidos en ninguna fuente ───────────
+const AUTORES_NUEVOS = [
+  {
+    nombre: 'José María García Linares',
+    bio: 'Nacido en Melilla en 1977, es filólogo y doctor por la Universidad de Granada, donde enseña en la Ciudad Autónoma de Melilla. Ha publicado numerosos poemarios —«Palabra iluminada» (2018), «Cántico» (2020)— junto con ediciones críticas y ensayos sobre literatura española. También ejerce la crítica literaria en publicaciones como Ideal y Quimera.',
+    descripcion: 'Filólogo, poeta y crítico literario. Doctor por la Universidad de Granada, nacido en Melilla (1977).',
+    genero: 'Poesía', lugar: 'Melilla',
+  },
+  {
+    nombre: 'Miha Mazzini',
+    bio: 'Nacido en 1961, es uno de los autores eslovenos más importantes y premiados, con gran éxito de ventas. Trabaja como guionista y director de cine, siendo miembro de la Academia Europea de Cine. Sus obras superan los 30 títulos traducidos a 11 idiomas. Entre sus galardones destacan el Premio Pájaro de Oro, la nominación al Premio Literario IMPAC Dublin y el Premio Kresnik por su novela autobiográfica Infancia (2016). Web: www.mihamazzini.com.',
+    descripcion: 'Uno de los autores eslovenos más premiados. Guionista y miembro de la Academia Europea de Cine.',
+    genero: 'Narrativa', lugar: 'Eslovenia',
+  },
+  {
+    nombre: 'Miguel Ángel Ulecia Martínez',
+    bio: 'Nacido en Tetuán en 1953, es doctor en Cardiología y Máster en Salud Pública por la Universidad de Granada. Pasó más de cuarenta años como cardiólogo en hospitales granadinos y como profesor universitario. Fue Presidente de la Sociedad Científica Andaluza de Cardiología (2006-2012) y fundó la Fundación Andaluza del Corazón en 2010. Su obra literaria, iniciada en 2012, incluye la trilogía de novela histórica sobre el Maristán Nazarí.',
+    descripcion: 'Doctor en Cardiología y novelista histórico. Nacido en Tetuán (1953), residente en Granada.',
+    genero: 'Narrativa', lugar: 'Granada',
+  },
+  {
+    nombre: 'Juan Naveros Sánchez',
+    bio: 'Nacido en Castillo de Tajarja (Granada), es doctor en Filología Hispánica por la Universidad de Granada. Trabajó como profesor de lengua y literatura en institutos de enseñanza secundaria de Andalucía. Es autor de libros de investigación histórico-literaria, recopilador de cuentos populares y colaborador en revistas especializadas. Su obra abarca la investigación sobre figuras literarias españolas y la novela histórica.',
+    descripcion: 'Doctor en Filología Hispánica por la UGR. Investigador literario e historiador nacido en Castillo de Tajarja (Granada).',
+    genero: 'Narrativa', lugar: 'Granada',
+  },
+];
+
 // ── 86 autores que faltan en autores-data.js (páginas 5-7 de la web) ─────────
 const EXTRA_AUTORES = [
   // Páginas 1-2 (nuevos en WordPress no incluidos en autores-data.js)
@@ -137,6 +165,27 @@ async function main() {
       orden:       a.id || 999,
     });
   }
+
+  // Nuevos autores (con bio completa, procedentes de scraping manual de la web)
+  let nuevosAdded = 0;
+  for (const a of AUTORES_NUEVOS) {
+    const key = a.nombre.toLowerCase().trim();
+    if (vistosNombre.has(key)) continue;
+    vistosNombre.add(key);
+    allAutores.push({
+      nombre:      a.nombre,
+      bio:         a.bio || '',
+      descripcion: a.descripcion || (a.bio ? a.bio.substring(0, 180) + '…' : ''),
+      genero:      a.genero || '',
+      lugar:       a.lugar || '',
+      foto:        '',
+      busqueda:    a.nombre,
+      activo:      true,
+      orden:       600 + nuevosAdded,
+    });
+    nuevosAdded++;
+  }
+  if (nuevosAdded > 0) console.log(`  🆕 ${nuevosAdded} autores nuevos (con bio) añadidos`);
 
   let extraAdded = 0;
   for (const nombre of EXTRA_AUTORES) {

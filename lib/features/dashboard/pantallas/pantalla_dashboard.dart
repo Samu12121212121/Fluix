@@ -146,6 +146,12 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   // ── Vista simulada (solo Propietario) ─────────────────────────────────────
   RolApp? _rolVistaActual;
 
+  // ID fijo de Editorial Nazarí — controla qué módulos se muestran
+  static const _kNazariId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+
+  // Módulos que Nazarí NO debe ver (ni en grid, ni en sidebar, ni en KPIs)
+  static const _kNazariModulosOcultos = {'tareas', 'reservas', 'valoraciones', 'fichaje', 'vacaciones'};
+
   // ── Tiles del launcher (3×3 + tecla "0") ─────────────────────────────────
   static const _kAllTiles = [
     _AppTile('dashboard',   Icons.grid_view_rounded,           'Dashboard',    Color(0xFF3B82F6)),
@@ -160,27 +166,39 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     _AppTile('carpeta',     Icons.folder_special_rounded,      'Más',          Color(0xFF6366F1)),
   ];
 
-  // Tiles filtrados por suscripción y rol — lo que el usuario actual puede ver
+  bool get _esNazari => _empresaId == _kNazariId;
+
+  // Tiles filtrados por suscripción, rol y empresa
   List<_AppTile> get _tilesPermitidos {
     final sesion = _sesionEfectiva;
-    // Propietario en su propia vista real → todo
+    List<_AppTile> base;
+
     if (sesion == null || (sesion.esPropietarioPlatforma && _rolVistaActual == null)) {
-      return _kAllTiles;
+      base = List.of(_kAllTiles);
+    } else {
+      final modulosEnPlan = _suscripcionService.getModulosActivos();
+      const aliases = <String, String>{'personal': 'empleados', 'web': 'contenido_web'};
+      base = _kAllTiles.where((t) {
+        if (t.id == 'perfil' || t.id == 'carpeta') return true;
+        final moduloId = aliases[t.id] ?? t.id;
+        final enRol = sesion.modulosVisibles.contains(t.id) ||
+                      sesion.modulosVisibles.contains(moduloId);
+        if (!enRol) return false;
+        return modulosEnPlan.contains(moduloId) || modulosEnPlan.contains(t.id);
+      }).toList();
     }
-    final modulosEnPlan = _suscripcionService.getModulosActivos();
-    // Aliases: tile ID → módulo ID en el plan
-    const aliases = <String, String>{'personal': 'empleados', 'web': 'contenido_web'};
-    return _kAllTiles.where((t) {
-      // Perfil y carpeta siempre visibles (no son módulos de plan)
-      if (t.id == 'perfil' || t.id == 'carpeta') return true;
-      final moduloId = aliases[t.id] ?? t.id;
-      // Comprobar rol
-      final enRol = sesion.modulosVisibles.contains(t.id) ||
-                    sesion.modulosVisibles.contains(moduloId);
-      if (!enRol) return false;
-      // Comprobar suscripción
-      return modulosEnPlan.contains(moduloId) || modulosEnPlan.contains(t.id);
-    }).toList();
+
+    if (_esNazari) {
+      // Para Nazarí: quitar módulos ocultos y sustituir "carpeta" por "Plantillas PDF"
+      base = base
+          .where((t) => !_kNazariModulosOcultos.contains(t.id))
+          .map((t) => t.id == 'carpeta'
+              ? const _AppTile('plantillas_pdf', Icons.picture_as_pdf_rounded, 'Plantillas', Color(0xFFEF4444))
+              : t)
+          .toList();
+    }
+
+    return base;
   }
 
   // Descripciones para list/card view responsive
@@ -1663,8 +1681,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.business_rounded, size: 12, color: Colors.white.withValues(alpha: 0.85)),
               const SizedBox(width: 6),
-              Text(empresaLabel, style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.95), fontSize: 12, fontWeight: FontWeight.w600)),
+              Flexible(child: Text(empresaLabel,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.95), fontSize: 12, fontWeight: FontWeight.w600))),
               const SizedBox(width: 4),
               Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: Colors.white.withValues(alpha: 0.7)),
             ]),
@@ -1676,14 +1696,15 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
   Widget _buildKpiScrollMovil(bool dark) {
     if (_empresaId == null) return const SizedBox.shrink();
-    final kpis = [
-      (Icons.receipt_long_rounded,  const Color(0xFF3B82F6), 'Facturas',   _streamFacturasPendientes(),   (int n) => n == 0 ? 'Al día' : 'pendientes'),
-      (Icons.people_alt_rounded,    const Color(0xFF10B981), 'Clientes',   _streamTotalClientes(),        (int n) => 'activos'),
-      (Icons.inventory_2_rounded,   const Color(0xFFF59E0B), 'Pedidos',    _streamPedidosActivos(),       (int n) => 'en proceso'),
-      (Icons.task_alt_rounded,      const Color(0xFF8B5CF6), 'Tareas',     _streamTareasPendientes(),     (int n) => n == 1 ? 'pendiente' : 'pendientes'),
-      (Icons.badge_rounded,         const Color(0xFF6366F1), 'Empleados',  _streamEmpleadosActivos(),     (int n) => 'en plantilla'),
-      (Icons.calendar_month_rounded,const Color(0xFF14B8A6), 'Reservas',   _streamReservasHoy(),          (int n) => n == 0 ? 'Sin reservas' : 'hoy'),
+    final kpisAll = [
+      (Icons.receipt_long_rounded,  const Color(0xFF3B82F6), 'Facturas',   _streamFacturasPendientes(),   (int n) => n == 0 ? 'Al día' : 'pendientes',   false),
+      (Icons.people_alt_rounded,    const Color(0xFF10B981), 'Clientes',   _streamTotalClientes(),        (int n) => 'activos',                           false),
+      (Icons.inventory_2_rounded,   const Color(0xFFF59E0B), 'Pedidos',    _streamPedidosActivos(),       (int n) => 'en proceso',                        false),
+      (Icons.task_alt_rounded,      const Color(0xFF8B5CF6), 'Tareas',     _streamTareasPendientes(),     (int n) => n == 1 ? 'pendiente' : 'pendientes', true),
+      (Icons.badge_rounded,         const Color(0xFF6366F1), 'Empleados',  _streamEmpleadosActivos(),     (int n) => 'en plantilla',                      true),
+      (Icons.calendar_month_rounded,const Color(0xFF14B8A6), 'Reservas',   _streamReservasHoy(),          (int n) => n == 0 ? 'Sin reservas' : 'hoy',     true),
     ];
+    final kpis = kpisAll.where((k) => !(_esNazari && k.$6)).toList();
     final cardBg = dark ? const Color(0xFF1E2139) : Colors.white;
     return SizedBox(
       height: 108,
@@ -1729,12 +1750,13 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   Widget _buildAccionesRapidasPills(bool dark) {
-    final acciones = [
-      (Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura',  'facturacion'),
-      (Icons.person_add_rounded,   const Color(0xFF10B981), 'Nuevo cliente',  'clientes'),
-      (Icons.task_alt_rounded,     const Color(0xFF8B5CF6), 'Nueva tarea',    'tareas'),
-      (Icons.inventory_2_rounded,  const Color(0xFFF59E0B), 'Nuevo pedido',   'pedidos'),
+    final accionesAll = [
+      (Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura',  'facturacion', false),
+      (Icons.person_add_rounded,   const Color(0xFF10B981), 'Nuevo cliente',  'clientes',    false),
+      (Icons.task_alt_rounded,     const Color(0xFF8B5CF6), 'Nueva tarea',    'tareas',      true),
+      (Icons.inventory_2_rounded,  const Color(0xFFF59E0B), 'Nuevo pedido',   'pedidos',     false),
     ];
+    final acciones = accionesAll.where((a) => !(_esNazari && a.$5)).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Acciones rápidas', style: TextStyle(
         fontSize: 13, fontWeight: FontWeight.w700,
@@ -2859,15 +2881,17 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
     final navItems = [
       _SidebarItem(Icons.home_rounded, 'Inicio', null),
-      if (_enPlan('dashboard'))   _SidebarItem(Icons.dashboard_rounded,    'Dashboard',    'dashboard'),
-      if (_enPlan('facturacion')) _SidebarItem(Icons.receipt_long_rounded,  'Facturación',  'facturacion'),
-      if (_enPlan('clientes'))    _SidebarItem(Icons.people_alt_rounded,    'Clientes',     'clientes'),
-      if (_enPlan('pedidos'))     _SidebarItem(Icons.inventory_2_rounded,   'Pedidos',      'pedidos'),
-      if (_enPlan('tpv'))         _SidebarItem(Icons.point_of_sale_rounded, 'TPV',          'tpv'),
-      if (_enPlan('tareas'))      _SidebarItem(Icons.task_alt_rounded,      'Tareas',       'tareas'),
-      if (_enPlan('personal'))    _SidebarItem(Icons.badge_rounded,         'Personal',     'personal'),
-      if (_enPlan('web'))         _SidebarItem(Icons.language_rounded,      'Web',          'web'),
-                                  _SidebarItem(Icons.apps_rounded,          'Más módulos',  'carpeta'),
+      if (_enPlan('dashboard'))                      _SidebarItem(Icons.dashboard_rounded,       'Dashboard',     'dashboard'),
+      if (_enPlan('facturacion'))                    _SidebarItem(Icons.receipt_long_rounded,    'Facturación',   'facturacion'),
+      if (_enPlan('clientes'))                       _SidebarItem(Icons.people_alt_rounded,      'Clientes',      'clientes'),
+      if (_enPlan('pedidos'))                        _SidebarItem(Icons.inventory_2_rounded,     'Pedidos',       'pedidos'),
+      if (_enPlan('tpv'))                            _SidebarItem(Icons.point_of_sale_rounded,   'TPV',           'tpv'),
+      if (_enPlan('tareas') && !_esNazari)           _SidebarItem(Icons.task_alt_rounded,        'Tareas',        'tareas'),
+      if (_enPlan('personal') && !_esNazari)         _SidebarItem(Icons.badge_rounded,           'Personal',      'personal'),
+      if (_enPlan('web'))                            _SidebarItem(Icons.language_rounded,        'Web',           'web'),
+      // Nazarí: acceso directo a Plantillas PDF en lugar del menú "Más módulos"
+      if (_esNazari)                                 _SidebarItem(Icons.picture_as_pdf_rounded,  'Plantillas PDF','plantillas_pdf'),
+      if (!_esNazari)                                _SidebarItem(Icons.apps_rounded,            'Más módulos',   'carpeta'),
     ];
     final bottomItems = [
       _SidebarItem(Icons.person_rounded, 'Mi perfil', 'perfil'),
@@ -3241,17 +3265,20 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         ),
 
         // ── Acciones genéricas del módulo activo (inyectadas por módulos) ──
-        // Flexible evita overflow cuando hay muchas acciones o ventana estrecha
-        if (context.watch<FluixModuleActionsNotifier>().actions.isNotEmpty)
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: context.watch<FluixModuleActionsNotifier>().actions,
-              ),
-            ),
-          ),
+        // Consumer evita que el watch quede registrado en el context del StreamBuilder
+        Consumer<FluixModuleActionsNotifier>(
+          builder: (_, notifier, __) => notifier.actions.isEmpty
+              ? const SizedBox.shrink()
+              : Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: notifier.actions,
+                    ),
+                  ),
+                ),
+        ),
 
         // ── Acciones TPV a la derecha del buscador (solo módulo 'tpv') ───
         if (moduloId == 'tpv' && _tpvActions != null) ...[
@@ -3546,19 +3573,27 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
   String _webSubModuloNombre(String id) {
     const nombres = {
-      'secciones':    'Secciones',
-      'catalogo':     'Catálogo',
-      'blog':         'Blog',
-      'mensajes':     'Mensajes',
-      'agenda':       'Agenda',
-      'galeria':      'Galería',
-      'analytics':    'Analytics',
-      'config':       'Configuración',
-      'seleccion':    'Selección Nazarí',
-      'campanas':     'Email',
-      'editor_blog':  'Editor Blog',
-      'editor_seccion': 'Editor Sección',
+      'secciones':      'Secciones',
+      'catalogo':       'Catálogo',
+      'blog':           'Blog',
+      'mensajes':       'Mensajes',
+      'agenda':         'Agenda',
+      'galeria':        'Galería',
+      'analytics':      'Analytics',
+      'config':         'Configuración',
+      'seleccion':      'Selección Nazarí',
+      'campanas':       'Email',
+      'noticias':       'Noticias',
+      'entrevistas':    'Entrevistas',
+      'autores':        'Autores',
+      'plantillas_pdf': 'PDF',
+      'archivo':        'Archivo',
+      'editor_blog':      'Editor Blog',
+      'editor_catalogo':  'Editor Catálogo',
+      'editor_seccion':   'Editor Sección',
     };
+    // Si el id no está en el mapa (ej: nombre de sección dinámica pasado directamente)
+    // lo devolvemos tal cual — ya es el nombre legible.
     return nombres[id] ?? id;
   }
 
@@ -3849,16 +3884,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             // ── Fila 3 (antes 2): Pedidos | Tareas | Reservas ────────────────
             _dashRow(290, [
               _buildPedidosRecientesCard(dark, cardBg, border, text, sub),
-              _buildTareasPendientesCard(dark, cardBg, border, text, sub),
-              _buildProximasReservasCard(dark, cardBg, border, text, sub),
+              if (!_esNazari) _buildTareasPendientesCard(dark, cardBg, border, text, sub),
+              if (!_esNazari) _buildProximasReservasCard(dark, cardBg, border, text, sub),
             ]),
             const SizedBox(height: 14),
 
             // ── Fila 3: Estado financiero | Rendimiento | Valoraciones ────────
             _dashRow(300, [
               _buildEstadoFinancieroCard(dark, cardBg, border, text, sub),
-              _buildRendimientoEmpleadosCard(dark, cardBg, border, text, sub),
-              _buildValoracionesRecientesCard(dark, cardBg, border, text, sub),
+              if (!_esNazari) _buildRendimientoEmpleadosCard(dark, cardBg, border, text, sub),
+              if (!_esNazari) _buildValoracionesRecientesCard(dark, cardBg, border, text, sub),
             ]),
             const SizedBox(height: 14),
 
@@ -4125,9 +4160,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                         borderRadius: BorderRadius.circular(6)),
                     child: const Icon(Icons.receipt_long_rounded, size: 13, color: kBlue)),
                 const SizedBox(width: 7),
-                Text('Facturación', style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700, color: text)),
-                const Spacer(),
+                Expanded(child: Text('Facturación', style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: text),
+                    overflow: TextOverflow.ellipsis, maxLines: 1)),
                 // Navegación ventana (±6 meses) — no mueve el mes seleccionado
                 GestureDetector(
                   onTap: () => setState(() => _facturacionVentana =
@@ -4135,9 +4170,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   child: Icon(Icons.chevron_left_rounded, size: 20, color: sub),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
-                    '${etiq[meses6.first.month]}–${etiq[meses6.last.month]} ${meses6.last.year}',
+                    '${etiq[meses6.first.month]}–${etiq[meses6.last.month]}',
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: sub),
                   ),
                 ),
@@ -4191,70 +4226,50 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             // ── Mini stats ────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-              child: Row(children: [
+              child: Wrap(spacing: 6, runSpacing: 4, children: [
                 _factBadge(Icons.check_circle_outline_rounded, '$pagadasMes cobradas', kGreen, dark),
-                const SizedBox(width: 6),
-                _factBadge(Icons.hourglass_empty_rounded, '$pendientesMes pend.', kOrange, dark),
+                _factBadge(Icons.hourglass_empty_rounded, '$pendientesMes pendientes', kOrange, dark),
               ]),
             ),
-            // ── Gráfico barras ────────────────────────────────────────────────
+            // ── Sparkline ─────────────────────────────────────────────────────
             Expanded(
-              child: LayoutBuilder(builder: (_, bc) {
-                // Altura disponible menos espacio para etiquetas
-                final barMaxH = (bc.maxHeight - 20).clamp(4.0, double.infinity);
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.end,
-                    children: List.generate(meses6.length, (i) {
-                      final mes   = meses6[i];
-                      final val   = valores[i];
-                      final pct   = maxVal > 0 ? val / maxVal : 0.0;
-                      final isSel = mes.month == _facturacionMes.month &&
-                          mes.year == _facturacionMes.year;
-                      final barH  = pct > 0 ? (barMaxH * pct).clamp(3.0, barMaxH) : 3.0;
-                      return Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() => _facturacionMes = mes),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                            if (isSel && val > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Text(fmt(val), style: const TextStyle(
-                                    fontSize: 7.5, fontWeight: FontWeight.w700, color: kBlue),
-                                    overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                              ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 2),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                height: barH,
-                                decoration: BoxDecoration(
-                                  gradient: isSel
-                                      ? const LinearGradient(
-                                          colors: [Color(0xFF60A5FA), kBlue],
-                                          begin: Alignment.topCenter, end: Alignment.bottomCenter)
-                                      : null,
-                                  color: isSel ? null
-                                      : val > 0
-                                          ? kBlue.withValues(alpha: dark ? 0.35 : 0.22)
-                                          : border,
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(etiq[mes.month],
-                                style: TextStyle(fontSize: 8.5,
-                                    color: isSel ? kBlue : sub,
-                                    fontWeight: isSel ? FontWeight.w700 : FontWeight.normal)),
-                          ]),
-                        ),
-                      );
-                    }),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                child: Column(children: [
+                  Expanded(
+                    child: CustomPaint(
+                      painter: _SparklinePainter(
+                        values: valores,
+                        selectedIndex: meses6.indexWhere((m) =>
+                            m.month == _facturacionMes.month && m.year == _facturacionMes.year),
+                        color: kBlue,
+                        dark: dark,
+                        sub: sub,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
                   ),
-                );
-              }),
+                  Row(children: List.generate(meses6.length, (i) {
+                    final mes = meses6[i];
+                    final isSel = mes.month == _facturacionMes.month &&
+                        mes.year == _facturacionMes.year;
+                    return Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => setState(() => _facturacionMes = mes),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(etiq[mes.month],
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 8.5,
+                                  color: isSel ? kBlue : sub,
+                                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w400)),
+                        ),
+                      ),
+                    );
+                  })),
+                ]),
+              ),
             ),
             // ── CTA ──────────────────────────────────────────────────────────
             Padding(
@@ -8935,6 +8950,92 @@ class _BuscadorGlobalState extends State<_BuscadorGlobal> {
       ),
     );
   }
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+  final int selectedIndex;
+  final Color color;
+  final bool dark;
+  final Color sub;
+
+  const _SparklinePainter({
+    required this.values,
+    required this.selectedIndex,
+    required this.color,
+    required this.dark,
+    required this.sub,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final maxV = values.fold(0.0, (a, b) => a > b ? a : b);
+    final pts = List.generate(values.length, (i) => Offset(
+      i * size.width / (values.length - 1),
+      maxV > 0
+          ? size.height * 0.9 - (values[i] / maxV) * size.height * 0.75
+          : size.height * 0.9,
+    ));
+
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (int i = 1; i < pts.length; i++) {
+      final p0 = pts[i - 1];
+      final p1 = pts[i];
+      final cx = p0.dx + (p1.dx - p0.dx) * 0.5;
+      path.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
+    }
+
+    final fill = Path.from(path)
+      ..lineTo(pts.last.dx, size.height)
+      ..lineTo(pts.first.dx, size.height)
+      ..close();
+    canvas.drawPath(fill, Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: dark ? 0.22 : 0.15),
+          color.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
+
+    canvas.drawPath(path, Paint()
+      ..color = color
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round);
+
+    for (int i = 0; i < pts.length; i++) {
+      if (maxV <= 0 || values[i] <= 0) continue;
+      final isSel = i == selectedIndex;
+      canvas.drawCircle(pts[i], isSel ? 4.5 : 2.5, Paint()..color = color);
+      if (isSel) {
+        canvas.drawCircle(pts[i], 4.5, Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
+        final tp = TextPainter(
+          text: TextSpan(
+            text: values[i] >= 1000
+                ? '${(values[i] / 1000).toStringAsFixed(1)}k€'
+                : '${values[i].toStringAsFixed(0)}€',
+            style: TextStyle(fontSize: 8.0, fontWeight: FontWeight.w700, color: color),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(
+          (pts[i].dx - tp.width / 2).clamp(0, size.width - tp.width),
+          (pts[i].dy - tp.height - 6).clamp(0, size.height - tp.height),
+        ));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklinePainter old) =>
+      old.values != values || old.selectedIndex != selectedIndex || old.dark != dark;
 }
 
 

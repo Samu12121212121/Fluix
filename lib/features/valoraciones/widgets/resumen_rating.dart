@@ -140,54 +140,5 @@ class BarraDistribucionEstrellas extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BARRA DISTRIBUCIÓN ESTRELLAS
-// ─────────────────────────────────────────────────────────────────────────────
-class BarraDistribucionEstrellas extends StatelessWidget {
-  final Map<int, int> distribucion;
-  const BarraDistribucionEstrellas({super.key, required this.distribucion});
-
-  @override
-  Widget build(BuildContext context) {
-    final total = distribucion.values.fold(0, (s, v) => s + v);
-    if (total == 0) return const SizedBox.shrink();
-
-    return Column(
-      children: [5, 4, 3, 2, 1].map((star) {
-        final count = distribucion[star] ?? 0;
-        final pct = total > 0 ? count / total : 0.0;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(children: [
-            Text('$star★', style: const TextStyle(fontSize: 11,
-                fontWeight: FontWeight.w600, color: Color(0xFFB0B3C1))),
-            const SizedBox(width: 8),
-            Expanded(child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2E45),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: pct,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFBB00),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            )),
-            const SizedBox(width: 8),
-            SizedBox(width: 32, child: Text('$count',
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF6B6E82)))),
-          ]),
-        );
-      }).toList(),
-    );
-  }
-}
 
 

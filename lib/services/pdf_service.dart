@@ -191,31 +191,28 @@ class PdfService {
       final perfil = data['perfil'] as Map<String, dynamic>? ?? {};
       final cfg = configFact.data() ?? {};
 
-      // Buscar nombre en orden estricto de prioridad:
-      // 1. Config de facturación (el usuario lo configura explícitamente)
-      // 2. Campos legales/fiscales del documento
-      // 3. Campos de nombre del documento o perfil
+      // Prioridad: perfil (doc raíz) primero, TPV config como fallback fiscal
       final nombreEmpresa = (
-        cfg['nombre_empresa'] ??           // configurado en ajustes de facturación
-        cfg['razon_social'] ??             // razón social en config
+        data['nombre_empresa'] ??          // guardado desde "Mi empresa" en perfil
         data['razon_social'] ??            // razón social en raíz
         data['nombre_fiscal'] ??           // nombre fiscal
-        data['nombre_empresa'] ??          // nombre empresa explícito
         data['nombre_negocio'] ??          // nombre negocio
-        perfil['nombre_empresa'] ??        // nombre empresa en perfil
-        _resolverNombreEmpresa(data)       // resolución inteligente
+        perfil['nombre_empresa'] ??        // nombre empresa en perfil anidado
+        cfg['nombre_empresa'] ??           // ajustes de facturación TPV
+        cfg['razon_social'] ??             // razón social en config TPV
+        _resolverNombreEmpresa(data)       // último recurso: data['nombre']
       )?.toString() ?? '';
 
       debugPrint('📄 [PDF] Empresa: $empresaId → nombre="$nombreEmpresa"');
 
       return {
         'nombre': nombreEmpresa.isEmpty ? 'Mi Empresa' : nombreEmpresa,
-        'cif': (cfg['nif'] ?? cfg['cif'] ?? data['nif'] ?? data['cif'] ?? '').toString(),
-        'direccion': (cfg['domicilio_fiscal'] ?? data['domicilio_fiscal'] ?? perfil['direccion'] ?? data['direccion'] ?? '').toString(),
-        'telefono': (cfg['telefono'] ?? perfil['telefono'] ?? data['telefono'] ?? '').toString(),
-        'correo': (cfg['correo'] ?? data['email_contacto'] ?? perfil['correo'] ?? data['correo'] ?? '').toString(),
-        'iban': (cfg['iban'] ?? data['iban_empresa'] ?? '').toString(),
-        'logo_url': (perfil['logo_url'] ?? data['logo_url'] ?? '').toString(),
+        'cif': (data['nif'] ?? data['cif'] ?? cfg['nif'] ?? cfg['cif'] ?? '').toString(),
+        'direccion': (data['direccion'] ?? data['domicilio_fiscal'] ?? perfil['direccion'] ?? cfg['domicilio_fiscal'] ?? '').toString(),
+        'telefono': (data['telefono'] ?? perfil['telefono'] ?? cfg['telefono'] ?? '').toString(),
+        'correo': (data['correo'] ?? data['email_contacto'] ?? perfil['correo'] ?? cfg['correo'] ?? '').toString(),
+        'iban': (data['iban_empresa'] ?? cfg['iban'] ?? '').toString(),
+        'logo_url': (data['logo_url'] ?? perfil['logo_url'] ?? '').toString(),
       };
     } catch (e) {
       debugPrint('❌ Error cargando datos empresa: $e');

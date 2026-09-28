@@ -26,7 +26,7 @@ class TabTareasCliente extends StatelessWidget {
     final svc = TareasService();
 
     return StreamBuilder<List<Tarea>>(
-      stream: svc.tareasPorClienteStream(empresaId, clienteId),
+      stream: svc.tareasStream(empresaId).map((tareas) => tareas.where((t) => t.clienteId == clienteId).toList()),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

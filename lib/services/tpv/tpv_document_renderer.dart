@@ -755,6 +755,8 @@ class TpvDocumentRenderer {
         return 'Presencial';
       case OrigenPedido.tpvExterno:
         return 'TPV Externo';
+      case OrigenPedido.webNazari:
+        return 'Web Nazarí';
     }
   }
 

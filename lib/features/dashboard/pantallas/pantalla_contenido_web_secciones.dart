@@ -1535,7 +1535,8 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
     final catCtrl     = TextEditingController(text: item?.categoria ?? 'General');
 
     // Estado local del modal (imagen + spinner)
-    String? imagenLocal = item?.imagenUrl;
+    final _rawImagen = item?.imagenUrl;
+    String? imagenLocal = (_rawImagen != null && _rawImagen.isNotEmpty) ? _rawImagen : null;
     bool   subiendoImg  = false;
 
     showModalBottomSheet(

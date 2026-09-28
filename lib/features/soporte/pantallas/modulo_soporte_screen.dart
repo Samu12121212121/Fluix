@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/utils/app_settings.dart';
@@ -313,10 +314,12 @@ class _SugerenciasWidgetState extends State<_SugerenciasWidget> {
           stream: _svc.obtenerSugerencias(widget.empresaId),
           builder: (ctx, snap) {
             final lista = snap.data ?? [];
-            if (lista.isEmpty) return Center(child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text('Aún no has enviado ninguna sugerencia.', style: TextStyle(fontSize: 12, color: widget.sub)),
-            ));
+            if (lista.isEmpty) {
+              return Center(child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text('Aún no has enviado ninguna sugerencia.', style: TextStyle(fontSize: 12, color: widget.sub)),
+              ));
+            }
             return Column(children: lista.take(5).map((s) => Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
@@ -362,8 +365,9 @@ class _ContactoWidgetState extends State<_ContactoWidget> {
   final _email   = TextEditingController();
   final _mensaje = TextEditingController();
   String _asunto = 'Consulta general';
-  bool _sending = false;
-  bool _enviado = false;
+  bool _sending      = false;
+  bool _enviado      = false;
+  bool _showHistory  = false;
   final _svc = ContactoSoporteService();
 
   static const _asuntos = [
@@ -420,11 +424,27 @@ class _ContactoWidgetState extends State<_ContactoWidget> {
         const Icon(Icons.mail_rounded, size: 16, color: _kRed),
         const SizedBox(width: 8),
         Text('Contáctanos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: widget.text)),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () => setState(() => _showHistory = !_showHistory),
+          icon: Icon(_showHistory ? Icons.expand_less : Icons.history_rounded,
+              size: 15, color: _kRed),
+          label: Text(_showHistory ? 'Ocultar' : 'Mis solicitudes',
+              style: const TextStyle(fontSize: 11, color: _kRed)),
+          style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+        ),
       ]),
       const SizedBox(height: 6),
       Text('Envíanos un mensaje y te respondemos en menos de 24 h.',
         style: TextStyle(fontSize: 11.5, color: widget.sub, height: 1.4)),
       const SizedBox(height: 14),
+
+      if (_showHistory) ...[
+        _historialSolicitudes(),
+        const SizedBox(height: 14),
+      ],
 
       if (_enviado)
         _successBanner()
@@ -474,6 +494,110 @@ class _ContactoWidgetState extends State<_ContactoWidget> {
         ),
       ],
     ]);
+  }
+
+  Widget _historialSolicitudes() {
+    final q = FirebaseFirestore.instance
+        .collection('contacto_soporte')
+        .where('empresa_id', isEqualTo: widget.empresaId)
+        .orderBy('fecha', descending: true)
+        .limit(8);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: q.snapshots(),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('Aún no has enviado ninguna solicitud.',
+                style: TextStyle(fontSize: 12, color: widget.sub)),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Solicitudes enviadas',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: widget.sub,
+                    letterSpacing: 0.6)),
+            const SizedBox(height: 8),
+            ...docs.map((d) {
+              final data = d.data() as Map<String, dynamic>;
+              final asunto = data['asunto'] as String? ?? 'Sin asunto';
+              final estado = data['estado'] as String? ?? 'nuevo';
+              final fecha =
+                  (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final Color estadoColor;
+              final String estadoLabel;
+              switch (estado) {
+                case 'resuelto':
+                  estadoColor = _kGreen;
+                  estadoLabel = 'Resuelto';
+                case 'en_proceso':
+                  estadoColor = _kGold;
+                  estadoLabel = 'En proceso';
+                default:
+                  estadoColor = const Color(0xFF6B7280);
+                  estadoLabel = 'Nuevo';
+              }
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: estadoColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border:
+                      Border.all(color: estadoColor.withValues(alpha: 0.22)),
+                ),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(asunto,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: widget.text),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${fecha.day.toString().padLeft(2, "0")}/${fecha.month.toString().padLeft(2, "0")}/${fecha.year}',
+                            style:
+                                TextStyle(fontSize: 10, color: widget.sub),
+                          ),
+                        ]),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: estadoColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Text(estadoLabel,
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: estadoColor)),
+                  ),
+                ]),
+              );
+            }),
+          ],
+        );
+      },
+    );
   }
 
   Widget _successBanner() => Container(

@@ -67,7 +67,7 @@ class ProductoTienda extends Equatable {
       'gestionar_stock': gestionarStock,
       'fecha_creacion': Timestamp.fromDate(fechaCreacion),
       'fecha_modificacion': fechaModificacion != null
-          ? Timestamp.fromDate(fechaModificacion)
+          ? Timestamp.fromDate(fechaModificacion!)
           : null,
     };
   }

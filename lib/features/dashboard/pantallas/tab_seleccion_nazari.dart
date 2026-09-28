@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'tab_seleccion_nazari_pack.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB SELECCIÓN NAZARÍ — elige libros del catálogo existente
@@ -37,11 +40,15 @@ class TabSeleccionNazari extends StatelessWidget {
           final docs = snap.data?.docs ?? [];
 
           return Column(children: [
-            _Header(col: _selCol, total: docs.length),
+            _Header(col: _selCol, empresaId: empresaId, total: docs.length),
             Expanded(
               child: docs.isEmpty
-                  ? _buildVacio(context)
+                  ? ListView(children: [
+                      PanelPackSeleccion(empresaId: empresaId),
+                      _buildVacio(context),
+                    ])
                   : ReorderableListView.builder(
+                      header: PanelPackSeleccion(empresaId: empresaId),
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                       itemCount: docs.length,
                       onReorder: (oldIdx, newIdx) =>
@@ -140,8 +147,94 @@ class TabSeleccionNazari extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final CollectionReference<Map<String, dynamic>> col;
+  final String empresaId;
   final int total;
-  const _Header({required this.col, required this.total});
+  const _Header({required this.col, required this.empresaId, required this.total});
+
+  Future<void> _exportarCache(BuildContext context) async {
+    try {
+      // Leer selección + pack en paralelo
+      final results = await Future.wait([
+        col.orderBy('orden').get(),
+        FirebaseFirestore.instance
+            .collection('empresas').doc(empresaId)
+            .collection('configuracion').doc('pack_seleccion').get(),
+      ]);
+      final selSnap = results[0] as QuerySnapshot<Map<String, dynamic>>;
+      final packDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+
+      final docs = selSnap.docs
+          .where((d) => d.data()['activo'] != false)
+          .map((d) {
+            final x = Map<String, dynamic>.from(d.data());
+            x['id'] = d.id;
+            x['slug'] = x['slug'] ?? d.id;
+            // Limpiar campos innecesarios para reducir tamaño
+            x.remove('fecha_creacion'); x.remove('_ref');
+            return x;
+          }).toList();
+
+      final pack = packDoc.exists ? packDoc.data() ?? {} : {};
+
+      // Serializar a JSON (eliminando Timestamps de Firestore)
+      String _toJson(dynamic v) {
+        if (v == null) return 'null';
+        if (v is bool) return v.toString();
+        if (v is num) return v.toString();
+        if (v is String) return '"${v.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n')}"';
+        if (v is List) return '[${v.map(_toJson).join(',')}]';
+        if (v is Map) {
+          final entries = v.entries
+              .where((e) => e.value is! Object || !(e.value.runtimeType.toString().contains('Timestamp')))
+              .map((e) => '"${e.key}":${_toJson(e.value)}');
+          return '{${entries.join(',')}}';
+        }
+        return '"${v.toString()}"';
+      }
+
+      final docsJson = '[${docs.map(_toJson).join(',')}]';
+      final packJson = _toJson(pack);
+      final ts = DateTime.now().millisecondsSinceEpoch;
+
+      final content = '// Selección Nazarí — generado desde Fluix el ${DateTime.now().toIso8601String().substring(0,10)}\n'
+          '// Sube este fichero a Hostinger como "seleccion-data.js"\n'
+          'window._NAZ_SEL_CACHE = {"t":$ts,"docs":$docsJson,"pack":$packJson};\n';
+
+      // Guardar en Descargas (Android) o Documentos (iOS)
+      Directory saveDir;
+      try {
+        final dl = await getDownloadsDirectory();
+        saveDir = dl ?? await getApplicationDocumentsDirectory();
+      } catch (_) {
+        saveDir = await getApplicationDocumentsDirectory();
+      }
+
+      final file = File('${saveDir.path}/seleccion-data.js');
+      await file.writeAsString(content);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Guardado en ${saveDir.path}/seleccion-data.js'),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al generar caché: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +257,11 @@ class _Header extends StatelessWidget {
             ),
           ]),
         ),
+        IconButton(
+          tooltip: 'Exportar caché para web\n(genera seleccion-data.js)',
+          icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF6B1E2A)),
+          onPressed: () => _exportarCache(context),
+        ),
       ]),
     );
   }
@@ -185,17 +283,63 @@ class _TarjetaLibroSeleccion extends StatelessWidget {
     required this.onEditar,
   });
 
+  Future<void> _confirmarEliminar(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Quitar de la Selección'),
+        content: Text('¿Quitar «${doc.data()['titulo'] ?? 'este libro'}» de La Selección Nazarí?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Quitar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await doc.reference.delete();
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = doc.data();
     final activo = d['activo'] as bool? ?? true;
     final esLibroDelMes = d['es_libro_del_mes'] as bool? ?? false;
+    final esMasVendido  = d['es_mas_vendido']   as bool? ?? false;
+    final enPack = d['en_pack'] as bool? ?? false;
     final imagen = d['imagen'] as String? ?? '';
     final titulo = d['titulo'] as String? ?? '';
     final autor = d['autor'] as String? ?? '';
     final nota = d['nota_editorial'] as String? ?? '';
 
-    return Container(
+    return Dismissible(
+      key: ValueKey('dismiss_${doc.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.red[400],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
+      ),
+      confirmDismiss: (_) => showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Quitar de la Selección'),
+          content: Text('¿Quitar «$titulo» de La Selección Nazarí?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            TextButton(onPressed: () => Navigator.pop(context, true),
+                child: const Text('Quitar', style: TextStyle(color: Colors.red))),
+          ],
+        ),
+      ),
+      onDismissed: (_) => doc.reference.delete(),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -240,6 +384,28 @@ class _TarjetaLibroSeleccion extends StatelessWidget {
                       child: const Text('Libro del mes',
                           style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700)),
                     ),
+                  if (esMasVendido)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('Más vendido',
+                          style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
+                  if (enPack)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD4A017),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('En el pack',
+                          style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700)),
+                    ),
                   if (!activo)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -275,6 +441,24 @@ class _TarjetaLibroSeleccion extends StatelessWidget {
               ),
               IconButton(
                 icon: Icon(
+                  esMasVendido ? Icons.trending_up_rounded : Icons.trending_up_outlined,
+                  color: esMasVendido ? const Color(0xFF10B981) : Colors.grey[400],
+                  size: 20,
+                ),
+                tooltip: esMasVendido ? 'Quitar "Más vendido"' : 'Marcar como "Más vendido"',
+                onPressed: () => doc.reference.update({'es_mas_vendido': !esMasVendido}),
+              ),
+              IconButton(
+                icon: Icon(
+                  enPack ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined,
+                  color: enPack ? const Color(0xFFD4A017) : Colors.grey[400],
+                  size: 20,
+                ),
+                tooltip: enPack ? 'Quitar del pack' : 'Incluir en el pack',
+                onPressed: () => doc.reference.update({'en_pack': !enPack}),
+              ),
+              IconButton(
+                icon: Icon(
                   activo ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                   color: activo ? const Color(0xFF10B981) : Colors.grey[400],
                   size: 20,
@@ -282,12 +466,17 @@ class _TarjetaLibroSeleccion extends StatelessWidget {
                 tooltip: activo ? 'Ocultar en la web' : 'Mostrar en la web',
                 onPressed: () => doc.reference.update({'activo': !activo}),
               ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFCBD5E1)),
+                tooltip: 'Quitar de la selección',
+                onPressed: () => _confirmarEliminar(context),
+              ),
               const Icon(Icons.drag_handle_rounded, color: Color(0xFFCBD5E1), size: 20),
             ]),
           ]),
         ),
       ),
-    );
+    )); // Dismissible
   }
 
   Future<void> _toggleLibroDelMes(bool actual) async {
@@ -311,7 +500,6 @@ class _TarjetaLibroSeleccion extends StatelessWidget {
     );
   }
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SELECTOR DESDE CATÁLOGO — bottom sheet para elegir libros del catálogo
 // ─────────────────────────────────────────────────────────────────────────────
@@ -581,6 +769,8 @@ class _SheetEditarNotaState extends State<_SheetEditarNota> {
   final _nota = TextEditingController();
   bool _activo        = true;
   bool _esLibroDelMes = false;
+  bool _esMasVendido  = false;
+  bool _enPack        = false;
   bool _guardando     = false;
 
   @override
@@ -589,7 +779,9 @@ class _SheetEditarNotaState extends State<_SheetEditarNota> {
     final d = widget.doc.data();
     _nota.text     = d['nota_editorial'] ?? '';
     _activo        = d['activo']          ?? true;
-    _esLibroDelMes = d['es_libro_del_mes'] ?? false;
+    _esLibroDelMes = d['es_libro_del_mes']  ?? false;
+    _esMasVendido  = d['es_mas_vendido']   ?? false;
+    _enPack        = d['en_pack']          ?? false;
   }
 
   @override
@@ -605,6 +797,8 @@ class _SheetEditarNotaState extends State<_SheetEditarNota> {
         'nota_editorial':  _nota.text.trim(),
         'activo':          _activo,
         'es_libro_del_mes': _esLibroDelMes,
+        'es_mas_vendido':   _esMasVendido,
+        'en_pack':          _enPack,
       });
       if (mounted) Navigator.pop(context);
     } finally {
@@ -741,7 +935,25 @@ class _SheetEditarNotaState extends State<_SheetEditarNota> {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 )),
+                Expanded(child: SwitchListTile(
+                  value: _esMasVendido,
+                  onChanged: (v) => setState(() => _esMasVendido = v),
+                  title: const Text('Más vendido 📈', style: TextStyle(fontSize: 13)),
+                  activeColor: const Color(0xFF10B981),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                )),
               ]),
+              SwitchListTile(
+                value: _enPack,
+                onChanged: (v) => setState(() => _enPack = v),
+                title: const Text('Incluir en el pack 🎁', style: TextStyle(fontSize: 13)),
+                subtitle: const Text('Se mostrará en el pack de la Selección Nazarí',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                activeColor: const Color(0xFFD4A017),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
               const SizedBox(height: 20),
 
               SizedBox(

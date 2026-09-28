@@ -504,12 +504,14 @@ class PedidosService {
     OrigenPedido.whatsapp   => 'WhatsApp',
     OrigenPedido.presencial => 'Presencial',
     OrigenPedido.tpvExterno => 'TPV Externo',
+    OrigenPedido.webNazari  => 'Web Nazarí',
   };
 
   String _nombreEstado(EstadoPedido e) => switch (e) {
     EstadoPedido.pendiente      => 'Pendiente',
     EstadoPedido.confirmado     => 'Confirmado',
     EstadoPedido.enPreparacion  => 'En Preparación',
+    EstadoPedido.enviado        => 'Enviado',
     EstadoPedido.listo          => 'Listo',
     EstadoPedido.entregado      => 'Entregado',
     EstadoPedido.cancelado      => 'Cancelado',

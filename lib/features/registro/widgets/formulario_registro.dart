@@ -5,7 +5,7 @@
 // Este archivo puede eliminarse con seguridad.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../autenticacion/providers/provider_autenticacion.dart';
+import '../../autenticacion/providers/provider_autenticacion.dart' show ProveedorAutenticacion;
 import '../../../core/tema/tema_app.dart';
 
 class FormularioRegistro extends StatefulWidget {
@@ -54,7 +54,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ProviderAutenticacion>(
+    return Consumer<ProveedorAutenticacion>(
       builder: (context, providerAuth, child) {
         return Form(
           key: _formKey,
@@ -69,10 +69,9 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
               if (providerAuth.mensajeError != null) ...[
                 Container(
                   padding: const EdgeInsets.all(Espaciado.m),
+                  decoration: BoxDecoration(
                     color: TemaApp.colorError.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(Espaciado.m),
-                    borderRadius: BorderRadius.circular(BorderRadius.m),
-                      color: TemaApp.colorError.withValues(alpha: 0.3),
                     border: Border.all(
                       color: TemaApp.colorError.withOpacity(0.3),
                     ),
@@ -441,7 +440,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
     );
   }
 
-  Widget _buildBotonesNavegacion(ProviderAutenticacion providerAuth) {
+  Widget _buildBotonesNavegacion(ProveedorAutenticacion providerAuth) {
     return Row(
       children: [
         if (_paginaActual > 0) ...[
@@ -512,7 +511,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
     return true;
   }
 
-  void _registrar(ProviderAutenticacion providerAuth) {
+  void _registrar(ProveedorAutenticacion providerAuth) {
     if (_formKey.currentState!.validate() && _aceptaTerminos) {
       providerAuth.registrarEmpresa(
         nombreEmpresa: _nombreEmpresaController.text.trim(),

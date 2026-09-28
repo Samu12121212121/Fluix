@@ -1,10 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
+
+// Normalización accent-insensitive para categorías (misma lógica que galería)
+String _normCatCatalogo(String s) => s.toLowerCase()
+    .replaceAll(RegExp(r'[àáâãäåā]'), 'a')
+    .replaceAll(RegExp(r'[èéêëē]'), 'e')
+    .replaceAll(RegExp(r'[ìíîïī]'), 'i')
+    .replaceAll(RegExp(r'[òóôõöō]'), 'o')
+    .replaceAll(RegExp(r'[ùúûüū]'), 'u')
+    .replaceAll('ñ', 'n')
+    .replaceAll('ç', 'c');
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB CATÁLOGO WEB — catálogo genérico, mismo estilo que Secciones
@@ -54,11 +65,19 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
     super.dispose();
   }
 
-  /// Cuando el catálogo está vacío, migra automáticamente desde libros si los hay.
+  /// Migra libros→catalogo_web solo si catalogo_web está REALMENTE vacío.
+  /// Verifica contra Firestore directamente para no confundir "cargando" con "vacío".
   Future<void> _checkAutoMigrar(List<Map<String, dynamic>> items) async {
-    if (_autoMigradoChecked || items.isNotEmpty) return;
+    if (_autoMigradoChecked) return;
     _autoMigradoChecked = true;
+    // Si el stream ya tiene datos, no hay nada que migrar
+    if (items.isNotEmpty) return;
     try {
+      // Verificar en Firestore directamente — el stream puede estar aún cargando
+      final catSnap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('catalogo_web').limit(1).get();
+      if (catSnap.docs.isNotEmpty) return; // ya tiene datos, no migrar
       final libros = await FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('libros').limit(1).get();
@@ -92,16 +111,29 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         final todos = snap.data ?? [];
         WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoMigrar(todos));
 
-        // Categorías únicas para el filtro
-        final categorias = todos
-            .map((i) => i['categoria'] as String? ?? '')
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()..sort();
+        // Categorías únicas para el filtro — dedup accent-insensitive
+        final _catSeen = <String>{};
+        final categorias = todos.expand<String>((i) {
+          final arr = i['categorias'];
+          if (arr is List && arr.isNotEmpty) {
+            return arr.map((e) => e.toString().trim()).where((s) => s.isNotEmpty);
+          }
+          return (i['categoria'] as String? ?? '').split('/')
+              .map((s) => s.trim()).where((s) => s.isNotEmpty);
+        }).where((c) => _catSeen.add(_normCatCatalogo(c))).toList()..sort();
 
-        // Filtrado
+        // Filtrado — comparación accent-insensitive
         final filtrados = todos.where((item) {
-          if (_filtroCategoria != null && item['categoria'] != _filtroCategoria) return false;
+          if (_filtroCategoria != null) {
+            final arr = item['categorias'];
+            final cats = (arr is List && arr.isNotEmpty)
+                ? arr.map((e) => e.toString().trim()).toList()
+                : (item['categoria'] as String? ?? '').split('/').map((s) => s.trim()).toList();
+            if (!cats.any((c) =>
+                _normCatCatalogo(c) == _normCatCatalogo(_filtroCategoria!))) {
+              return false;
+            }
+          }
           if (_busqueda.isNotEmpty) {
             final q = _busqueda.toLowerCase();
             return (item['nombre'] ?? '').toLowerCase().contains(q) ||
@@ -113,6 +145,8 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
 
         final activos    = todos.where((i) => i['activo'] as bool? ?? true).length;
         final conStripe  = todos.where((i) => (i['stripe_link'] as String? ?? '').isNotEmpty).length;
+        // Umbral: si hay más de 80 ítems, probablemente hay duplicados
+        final hayDuplicados = todos.length > 80;
 
         return Column(children: [
           // ── Header — KPIs ────────────────────────────────────────────────────
@@ -129,6 +163,16 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
                 const Spacer(),
+                if (hayDuplicados)
+                  TextButton.icon(
+                    onPressed: () => _limpiarDuplicados(context),
+                    icon: const Icon(Icons.cleaning_services_rounded,
+                        size: 14, color: Color(0xFFDC2626)),
+                    label: Text('Limpiar duplicados (${todos.length})',
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w600)),
+                  ),
               ]),
               const SizedBox(height: 12),
               // KPI cards
@@ -143,81 +187,70 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                     '$activos', 'Disponibles'),
               ]),
               const SizedBox(height: 12),
-              // Barra búsqueda + filtros + botón
-              Row(children: [
-                Expanded(
-                  child: Container(
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FB),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: TextField(
-                      controller: _buscadorCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar por título, autor…',
-                        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        prefixIcon: const Icon(Icons.search_rounded,
-                            size: 17, color: Color(0xFF94A3B8)),
-                        suffixIcon: _busqueda.isNotEmpty
-                            ? IconButton(icon: const Icon(Icons.clear, size: 15),
-                                onPressed: () { _buscadorCtrl.clear(); setState(() => _busqueda = ''); })
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 9),
-                        isDense: true,
-                      ),
-                      onChanged: (v) => setState(() => _busqueda = v),
-                    ),
+              // Barra búsqueda + filtros + botón — adaptada a móvil/desktop
+              LayoutBuilder(builder: (_, bc) {
+                final isNarrow = bc.maxWidth < 560;
+
+                // Widget reutilizable: barra de búsqueda
+                final searchBar = Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                ),
-                if (categorias.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FB),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                  child: TextField(
+                    controller: _buscadorCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por título, autor…',
+                      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          size: 17, color: Color(0xFF94A3B8)),
+                      suffixIcon: _busqueda.isNotEmpty
+                          ? IconButton(icon: const Icon(Icons.clear, size: 15),
+                              onPressed: () { _buscadorCtrl.clear(); setState(() => _busqueda = ''); })
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      isDense: true,
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: _filtroCategoria,
-                        hint: const Text('Todas las categorías',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A)),
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                            size: 16, color: Color(0xFF64748B)),
-                        items: [
-                          const DropdownMenuItem(value: null,
-                              child: Text('Todas las categorías',
-                                  style: TextStyle(fontSize: 12))),
-                          ...categorias.map((c) => DropdownMenuItem(
-                              value: c, child: Text(c, style: const TextStyle(fontSize: 12)))),
-                        ],
-                        onChanged: (v) => setState(() => _filtroCategoria = v),
-                      ),
-                    ),
+                    onChanged: (v) => setState(() => _busqueda = v),
                   ),
-                ],
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _abrirVincularStripe(todos),
-                  icon: const Icon(Icons.credit_card_rounded, size: 14),
-                  label: Text('Stripe${conStripe > 0 ? ' ($conStripe)' : ''}'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF635BFF),
-                    side: const BorderSide(color: Color(0xFF635BFF)),
-                    minimumSize: const Size(0, 38),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
+                );
+
+                // Widget reutilizable: filtro de categoría
+                final categoryFilter = categorias.isNotEmpty
+                    ? Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8F9FB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _filtroCategoria,
+                            hint: Text(isNarrow ? 'Categoría' : 'Todas las categorías',
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A)),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                size: 16, color: Color(0xFF64748B)),
+                            items: [
+                              DropdownMenuItem(value: null,
+                                  child: Text(isNarrow ? 'Todas' : 'Todas las categorías',
+                                      style: const TextStyle(fontSize: 12))),
+                              ...categorias.map((c) => DropdownMenuItem(
+                                  value: c, child: Text(c, style: const TextStyle(fontSize: 12)))),
+                            ],
+                            onChanged: (v) => setState(() => _filtroCategoria = v),
+                          ),
+                        ),
+                      )
+                    : null;
+
+                // Botón Añadir (siempre visible)
+                final addBtn = ElevatedButton.icon(
                   onPressed: () => _abrirEditor(null),
                   icon: const Icon(Icons.add_rounded, size: 15),
                   label: const Text('Añadir'),
@@ -228,8 +261,99 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
-                ),
-              ]),
+                );
+
+                // Acciones secundarias (Stripe y Sync) — en móvil van al popup
+                final stripeActions = <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'stripe',
+                    onTap: () => _abrirVincularStripe(todos),
+                    child: Row(children: [
+                      const Icon(Icons.credit_card_rounded, size: 16, color: Color(0xFF635BFF)),
+                      const SizedBox(width: 10),
+                      Text('Vincular Stripe${conStripe > 0 ? ' ($conStripe)' : ''}'),
+                    ]),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'sync',
+                    child: Row(children: [
+                      Icon(Icons.sync_rounded, size: 16, color: Color(0xFF635BFF)),
+                      SizedBox(width: 10),
+                      Text('Auditar / Sincronizar Stripe'),
+                    ]),
+                  ),
+                ];
+
+                if (isNarrow) {
+                  // ── MÓVIL: 2 filas ─────────────────────────────────────
+                  return Column(children: [
+                    Row(children: [
+                      Expanded(child: searchBar),
+                      const SizedBox(width: 8),
+                      addBtn,
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      if (categoryFilter != null) ...[
+                        Expanded(child: categoryFilter),
+                        const SizedBox(width: 8),
+                      ],
+                      PopupMenuButton<String>(
+                        tooltip: 'Más opciones',
+                        icon: const Icon(Icons.more_vert_rounded,
+                            color: Color(0xFF635BFF)),
+                        style: IconButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF635BFF)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(38, 38),
+                        ),
+                        onSelected: (v) {
+                          if (v == 'sync') _abrirAuditarStripe();
+                        },
+                        itemBuilder: (_) => stripeActions,
+                      ),
+                    ]),
+                  ]);
+                }
+
+                // ── DESKTOP: 1 fila ────────────────────────────────────
+                return Row(children: [
+                  Expanded(child: searchBar),
+                  if (categoryFilter != null) ...[
+                    const SizedBox(width: 8),
+                    categoryFilter,
+                  ],
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _abrirVincularStripe(todos),
+                    icon: const Icon(Icons.credit_card_rounded, size: 14),
+                    label: Text('Stripe${conStripe > 0 ? ' ($conStripe)' : ''}'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF635BFF),
+                      side: const BorderSide(color: Color(0xFF635BFF)),
+                      minimumSize: const Size(0, 38),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'Auditar / Sincronizar Stripe',
+                    icon: const Icon(Icons.sync_rounded, size: 18),
+                    color: const Color(0xFF635BFF),
+                    style: IconButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF635BFF)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(38, 38),
+                    ),
+                    onPressed: _abrirAuditarStripe,
+                  ),
+                  const SizedBox(width: 8),
+                  addBtn,
+                ]);
+              }),
             ]),
           ),
           const Divider(height: 1),
@@ -299,9 +423,28 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         onToggle: (v) => widget.svc.toggleActivoItemCatalogo(
             widget.empresaId, items[i]['id'] as String, v),
         onDelete: () => _confirmarEliminar(items[i]),
-        onLibroDelMes: () => widget.svc.toggleLibroDelMesCatalogo(
-            widget.empresaId, items[i]['id'] as String,
-            items[i]['es_libro_del_mes'] as bool? ?? false),
+        onLibroDelMes: () async {
+          try {
+            await widget.svc.toggleLibroDelMesCatalogo(
+                widget.empresaId, items[i]['id'] as String,
+                items[i]['es_libro_del_mes'] as bool? ?? false);
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating));
+          }
+        },
+        onMasVendido: () async {
+          try {
+            await widget.svc.toggleMasVendidoCatalogo(
+                widget.empresaId, items[i]['id'] as String,
+                items[i]['es_mas_vendido'] as bool? ?? false);
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating));
+          }
+        },
       ),
     );
   }
@@ -377,6 +520,42 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
     );
   }
 
+  Future<void> _limpiarDuplicados(BuildContext context) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Limpiar duplicados'),
+        content: const Text(
+            'Se eliminarán los documentos duplicados del catálogo, conservando '
+            'el más completo de cada libro (el que tenga imagen, Stripe, etc.).\n\n'
+            '¿Continuar?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Limpiar', style: TextStyle(color: Color(0xFFDC2626))),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    try {
+      final eliminados = await widget.svc.deduplicarCatalogoWeb(widget.empresaId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ $eliminados documentos duplicados eliminados'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   void _abrirVincularStripe(List<Map<String, dynamic>> items) {
     final ctrls = <String, TextEditingController>{};
     for (final item in items) {
@@ -400,6 +579,13 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
     ).then((_) {
       for (final c in ctrls.values) c.dispose();
     });
+  }
+
+  void _abrirAuditarStripe() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => _StripeAuditDialog(empresaId: widget.empresaId),
+    );
   }
 }
 
@@ -429,23 +615,23 @@ class _StripeLinksSheetState extends State<_StripeLinksSheet> {
     setState(() => _sincronizando = true);
     try {
       final actualizados = await widget.svc.sincronizarLinksStripe(widget.empresaId);
+      if (!mounted) return; // sheet cerrado durante la operación
       // Leer catalogo_web actualizado y refrescar controllers
       final snap = await FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('catalogo_web').get();
+      if (!mounted) return; // verificar de nuevo tras segundo await
       for (final doc in snap.docs) {
         final link = doc.data()['stripe_link'] as String? ?? '';
         if (link.isNotEmpty && widget.ctrls.containsKey(doc.id)) {
           widget.ctrls[doc.id]!.text = link;
         }
       }
-      if (mounted) {
-        setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ $actualizados libro${actualizados == 1 ? '' : 's'} sincronizado${actualizados == 1 ? '' : 's'} desde Stripe'),
-          backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
-        ));
-      }
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('✅ $actualizados libro${actualizados == 1 ? '' : 's'} sincronizado${actualizados == 1 ? '' : 's'} desde Stripe'),
+        backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
+      ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
@@ -466,7 +652,7 @@ class _StripeLinksSheetState extends State<_StripeLinksSheet> {
           FirebaseFirestore.instance
               .collection('empresas').doc(widget.empresaId)
               .collection('catalogo_web').doc(id),
-          {'stripe_link': link},
+          {'stripe_link': link, 'payment_link': link},
         );
       }
       await batch.commit();
@@ -613,6 +799,174 @@ class _StripeLinksSheetState extends State<_StripeLinksSheet> {
   }
 }
 
+// ── Dialog auditoría/sync Stripe ─────────────────────────────────────────────
+
+class _StripeAuditDialog extends StatefulWidget {
+  final String empresaId;
+  const _StripeAuditDialog({required this.empresaId});
+  @override
+  State<_StripeAuditDialog> createState() => _StripeAuditDialogState();
+}
+
+class _StripeAuditDialogState extends State<_StripeAuditDialog> {
+  bool _cargando = false;
+  Map<String, dynamic>? _resultado;
+  String? _error;
+  String _modoSeleccionado = 'diagnostico';
+
+  static const _modos = {
+    'diagnostico':      'Solo diagnóstico',
+    'limpiar':          'Archivar huérfanos',
+    'crear_faltantes':  'Crear productos faltantes',
+    'full':             'Limpiar + Crear faltantes',
+  };
+
+  Future<void> _ejecutar() async {
+    setState(() { _cargando = true; _resultado = null; _error = null; });
+    try {
+      final fn = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('auditarStripeCatalogo');
+      final res = await fn.call({'modo': _modoSeleccionado});
+      setState(() { _resultado = Map<String, dynamic>.from(res.data as Map); });
+    } catch (e) {
+      setState(() { _error = e.toString(); });
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const purple = Color(0xFF635BFF);
+    return AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.sync_rounded, color: purple, size: 20),
+        const SizedBox(width: 8),
+        const Text('Auditar Stripe', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      ]),
+      contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Selector de modo
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Modo', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B), letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              ..._modos.entries.map((e) => RadioListTile<String>(
+                title: Text(e.value, style: const TextStyle(fontSize: 13)),
+                value: e.key,
+                groupValue: _modoSeleccionado,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: purple,
+                onChanged: _cargando ? null : (v) => setState(() => _modoSeleccionado = v!),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 12),
+
+          // Resultado
+          if (_cargando)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(children: [
+                CircularProgressIndicator(color: purple),
+                SizedBox(height: 8),
+                Text('Consultando Stripe y Firestore…', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              ]),
+            )
+          else if (_error != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_error!, style: TextStyle(fontSize: 11, color: Colors.red.shade800))),
+              ]),
+            )
+          else if (_resultado != null)
+            _buildResultado(_resultado!, purple),
+        ])),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+        FilledButton.icon(
+          onPressed: _cargando ? null : _ejecutar,
+          icon: _cargando
+              ? const SizedBox(width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.play_arrow_rounded, size: 16),
+          label: Text(_cargando ? 'Ejecutando…' : 'Ejecutar'),
+          style: FilledButton.styleFrom(backgroundColor: purple),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultado(Map<String, dynamic> r, Color c) {
+    final rows = <_KvRow>[
+      _KvRow('Productos en Stripe',         '${r['stripe_total'] ?? 0}', null),
+      _KvRow('  → Activos',                 '${r['stripe_activos'] ?? 0}', null),
+      _KvRow('  → Sin metadata catálogo',   '${r['stripe_sin_meta'] ?? 0}',
+          (r['stripe_sin_meta'] as int? ?? 0) > 0 ? Colors.orange : null),
+      _KvRow('Huérfanos (no en catálogo)',  '${r['orphans'] ?? 0}',
+          (r['orphans'] as int? ?? 0) > 0 ? Colors.red : null),
+      _KvRow('Duplicados en Stripe',        '${r['duplicados'] ?? 0}',
+          (r['duplicados'] as int? ?? 0) > 0 ? Colors.orange : null),
+      _KvRow('Libros sin stripe_product',   '${r['catalogo_sin_stripe'] ?? 0}',
+          (r['catalogo_sin_stripe'] as int? ?? 0) > 0 ? Colors.orange : null),
+      _KvRow('Total en catálogo Fluix',     '${r['catalogo_total'] ?? 0}', null),
+    ];
+
+    if (r.containsKey('archivados'))
+      rows.add(_KvRow('✅ Archivados en Stripe', '${r['archivados']}', Colors.green));
+    if (r.containsKey('creados'))
+      rows.add(_KvRow('✅ Creados en Stripe', '${r['creados']}', Colors.green));
+    if (r.containsKey('errores') && (r['errores'] as int? ?? 0) > 0)
+      rows.add(_KvRow('❌ Errores', '${r['errores']}', Colors.red));
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rows.map((row) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(children: [
+            Expanded(child: Text(row.label, style: TextStyle(fontSize: 12,
+                color: row.color ?? const Color(0xFF475569)))),
+            Text(row.value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                color: row.color ?? const Color(0xFF0F172A))),
+          ]),
+        )).toList(),
+      ),
+    );
+  }
+}
+
+class _KvRow {
+  final String label, value;
+  final Color? color;
+  const _KvRow(this.label, this.value, this.color);
+}
+
 // ── Tarjeta — mismo estilo que _TarjetaSeccion ────────────────────────────────
 
 class _TarjetaItemCatalogo extends StatelessWidget {
@@ -622,30 +976,36 @@ class _TarjetaItemCatalogo extends StatelessWidget {
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
   final VoidCallback onLibroDelMes;
+  final VoidCallback onMasVendido;
 
   const _TarjetaItemCatalogo({
     super.key,
     required this.item, required this.color,
     required this.onEdit, required this.onToggle, required this.onDelete,
-    required this.onLibroDelMes,
+    required this.onLibroDelMes, required this.onMasVendido,
   });
 
   @override
   Widget build(BuildContext context) {
     final activo      = item['activo'] as bool? ?? true;
     final nombre      = item['nombre'] as String? ?? 'Sin nombre';
-    final precio      = item['precio'] as String? ?? '';
+    final precio      = item['precio']?.toString() ?? '';
     final cat         = item['categoria'] as String? ?? '';
     final autor       = item['campo_autor'] as String? ?? '';
     final stripeUrl   = item['stripe_link'] as String? ?? '';
     final stripe      = stripeUrl.isNotEmpty;
     final img         = item['imagen_url'] as String? ?? '';
     final esLibroMes  = item['es_libro_del_mes'] as bool? ?? false;
+    final esMasVendido = item['es_mas_vendido']  as bool? ?? false;
+    final pesoRaw     = item['campo_peso'] ?? item['peso'];
+    final pesoStr     = pesoRaw != null && pesoRaw.toString().isNotEmpty
+        ? '${pesoRaw}g' : '';
 
     final subtitle = [
       if (autor.isNotEmpty) autor,
       if (precio.isNotEmpty) precio,
       if (cat.isNotEmpty) cat,
+      if (pesoStr.isNotEmpty) pesoStr,
     ].join(' · ');
 
     return Container(
@@ -661,7 +1021,11 @@ class _TarjetaItemCatalogo extends StatelessWidget {
       child: InkWell(
         onTap: onEdit,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: LayoutBuilder(builder: (_, bc) {
+          // En pantallas estrechas los badges se ocultan: el botón ⭐ y el icono
+          // de Stripe ya comunican el estado; los badges causarían overflow.
+          final showBadges = bc.maxWidth > 420;
+          return Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
           child: Row(children: [
             // Icono / miniatura
@@ -683,7 +1047,7 @@ class _TarjetaItemCatalogo extends StatelessWidget {
                           color: activo ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
                       overflow: TextOverflow.ellipsis),
                 ),
-                if (esLibroMes) ...[
+                if (showBadges && esLibroMes) ...[
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -696,7 +1060,20 @@ class _TarjetaItemCatalogo extends StatelessWidget {
                             fontWeight: FontWeight.w700)),
                   ),
                 ],
-                if (stripe) ...[
+                if (showBadges && esMasVendido) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Más vendido',
+                        style: TextStyle(fontSize: 9, color: Color(0xFF10B981),
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
+                if (showBadges && stripe) ...[
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -720,35 +1097,20 @@ class _TarjetaItemCatalogo extends StatelessWidget {
             // Controles
             if (stripe)
               Tooltip(
-                message: 'Abrir Payment Link en Stripe',
-                child: InkWell(
-                  onTap: () async {
-                    final uri = Uri.tryParse(stripeUrl);
-                    if (uri != null && await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    } else {
-                      await Clipboard.setData(ClipboardData(text: stripeUrl));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Link copiado al portapapeles'),
-                          duration: Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                        ));
-                      }
+                message: 'Copiar link de pago',
+                child: IconButton(
+                  icon: const Icon(Icons.link_rounded, size: 16, color: Color(0xFF635BFF)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: stripeUrl));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Link copiado'),
+                        duration: Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                     }
                   },
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF635BFF).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF635BFF).withValues(alpha: 0.3)),
-                    ),
-                    child: const Text('Comprar',
-                        style: TextStyle(fontSize: 10, color: Color(0xFF635BFF),
-                            fontWeight: FontWeight.w700)),
-                  ),
                 ),
               ),
             IconButton(
@@ -759,6 +1121,16 @@ class _TarjetaItemCatalogo extends StatelessWidget {
               ),
               tooltip: esLibroMes ? 'Quitar "Libro del mes"' : 'Marcar como "Libro del mes"',
               onPressed: onLibroDelMes,
+              visualDensity: VisualDensity.compact,
+            ),
+            IconButton(
+              icon: Icon(
+                esMasVendido ? Icons.trending_up_rounded : Icons.trending_up_outlined,
+                color: esMasVendido ? const Color(0xFF10B981) : Colors.grey[400],
+                size: 20,
+              ),
+              tooltip: esMasVendido ? 'Quitar "Más vendido"' : 'Marcar como "Más vendido"',
+              onPressed: onMasVendido,
               visualDensity: VisualDensity.compact,
             ),
             Switch(
@@ -783,7 +1155,8 @@ class _TarjetaItemCatalogo extends StatelessWidget {
                   color: const Color(0xFFCBD5E1), size: 20),
             ),
           ]),
-        ),
+        );
+        }),
       ),
     );
   }
@@ -797,6 +1170,100 @@ class _TarjetaItemCatalogo extends StatelessWidget {
     child: Icon(Icons.grid_view_rounded,
         color: activo ? color : const Color(0xFFCBD5E1), size: 20),
   );
+}
+
+// ── Selector de autor ────────────────────────────────────────────────────────
+
+class _AutorPickerSheet extends StatefulWidget {
+  final List<Map<String, String>> docs;
+  final Color color;
+  const _AutorPickerSheet({required this.docs, required this.color});
+  @override
+  State<_AutorPickerSheet> createState() => _AutorPickerSheetState();
+}
+
+class _AutorPickerSheetState extends State<_AutorPickerSheet> {
+  String _q = '';
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtrados = _q.isEmpty
+        ? widget.docs
+        : widget.docs.where((a) =>
+            (a['nombre'] ?? '').toLowerCase().contains(_q.toLowerCase())).toList();
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          width: 36, height: 4,
+          decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(children: [
+            Icon(Icons.person_search_rounded, size: 18, color: widget.color),
+            const SizedBox(width: 8),
+            const Text('Seleccionar autor',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: TextField(
+            controller: _ctrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Buscar…',
+              prefixIcon: const Icon(Icons.search_rounded, size: 18),
+              filled: true, fillColor: const Color(0xFFF8F9FB),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            onChanged: (v) => setState(() => _q = v),
+          ),
+        ),
+        const Divider(height: 1),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5),
+          child: ListView.builder(
+            itemCount: filtrados.length,
+            itemBuilder: (_, i) {
+              final a = filtrados[i];
+              return ListTile(
+                dense: true,
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: widget.color.withValues(alpha: 0.12),
+                  child: Text(
+                    (a['nombre'] ?? '?').substring(0, 1).toUpperCase(),
+                    style: TextStyle(fontSize: 12, color: widget.color,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+                title: Text(a['nombre'] ?? '', style: const TextStyle(fontSize: 13)),
+                subtitle: Text(a['id'] ?? '',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                onTap: () => Navigator.pop(context, a),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
 }
 
 // (Editor de item integrado en pantalla_contenido_web.dart como _EditorCatalogoEmbebido)
@@ -829,13 +1296,24 @@ class _PantallaEditorItemCatalogoState
   final _stripeLinkCtrl  = TextEditingController();
   final _descCtrl        = TextEditingController();
   final _autorCtrl       = TextEditingController();
+  String _autorId = '';        // campo_autor_id
+  final _traductorCtrl   = TextEditingController();
+  String _traductorId    = ''; // campo_traductor_id
+  String _traductorGenero = '';
+  final _ilustradorCtrl  = TextEditingController();
+  String _ilustradorId   = ''; // campo_ilustrador_id
+  String _ilustradorGenero = '';
   final _isbnCtrl        = TextEditingController();
   final _paginasCtrl     = TextEditingController();
   final _formatoCtrl     = TextEditingController();
   final _dimensionesCtrl = TextEditingController();
   final _mesCtrl         = TextEditingController();
+  final _pesoCtrl              = TextEditingController();
+  final _coleccionCtrl         = TextEditingController();
+  final _preventaEnvioCtrl     = TextEditingController();
   int  _anio  = DateTime.now().year;
   bool _activo = true;
+  bool _preventa = false;
   bool _extraExpanded = false;
   bool _guardando = false;
 
@@ -849,18 +1327,29 @@ class _PantallaEditorItemCatalogoState
       _categoriaCtrl.text   = it['categoria'] ?? '';
       _tagCtrl.text         = it['tag'] ?? '';
       _imagenCtrl.text      = it['imagen_url'] ?? '';
-      _precioCtrl.text      = it['precio'] ?? '';
-      _precioDigCtrl.text   = it['precio_digital'] ?? '';
+      _precioCtrl.text      = it['precio']?.toString() ?? '';
+      _precioDigCtrl.text   = it['precio_digital']?.toString() ?? '';
       _stripeLinkCtrl.text  = it['stripe_link'] ?? '';
       _descCtrl.text        = it['descripcion'] ?? '';
       _autorCtrl.text       = it['campo_autor'] ?? '';
+      _autorId              = it['campo_autor_id'] as String? ?? '';
+      _traductorCtrl.text   = it['campo_traductor'] ?? '';
+      _traductorId          = it['campo_traductor_id'] as String? ?? '';
+      _traductorGenero      = it['campo_traductor_genero'] as String? ?? '';
+      _ilustradorCtrl.text  = it['campo_ilustrador'] ?? '';
+      _ilustradorId         = it['campo_ilustrador_id'] as String? ?? '';
+      _ilustradorGenero     = it['campo_ilustrador_genero'] as String? ?? '';
       _isbnCtrl.text        = it['campo_isbn'] ?? '';
       _paginasCtrl.text     = it['campo_paginas'] ?? '';
       _formatoCtrl.text     = it['campo_formato'] ?? '';
       _dimensionesCtrl.text = it['campo_dimensiones'] ?? '';
       _mesCtrl.text         = it['campo_mes'] ?? '';
-      _anio   = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
-      _activo = it['activo'] as bool? ?? true;
+      _pesoCtrl.text        = it['campo_peso']?.toString() ?? '';
+      _coleccionCtrl.text   = it['campo_coleccion'] ?? it['coleccion'] ?? '';
+      _anio      = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
+      _activo    = it['activo'] as bool? ?? true;
+      _preventa  = it['preventa'] as bool? ?? false;
+      _preventaEnvioCtrl.text = it['preventa_envio_lejano']?.toString() ?? '';
     }
   }
 
@@ -868,7 +1357,9 @@ class _PantallaEditorItemCatalogoState
   void dispose() {
     for (final c in [_nombreCtrl, _slugCtrl, _categoriaCtrl, _tagCtrl,
         _imagenCtrl, _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
-        _autorCtrl, _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _mesCtrl]) {
+        _autorCtrl, _traductorCtrl, _ilustradorCtrl,
+        _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl,
+        _mesCtrl, _pesoCtrl, _coleccionCtrl, _preventaEnvioCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -956,7 +1447,14 @@ class _PantallaEditorItemCatalogoState
           if (_extraExpanded) ...[
             const SizedBox(height: 4),
             _card(Column(children: [
-              _campo(_autorCtrl, 'Autor / Responsable'),
+              _campoAutorConSelector(color),
+              const Divider(height: 1),
+              _campoConGenero(_traductorCtrl, 'Traductor/a', '_traductorGenero'),
+              const Divider(height: 1),
+              _campoConGenero(_ilustradorCtrl, 'Ilustrador/a', '_ilustradorGenero'),
+              const Divider(height: 1),
+              _campo(_coleccionCtrl, 'Colección editorial',
+                  hint: 'Colección Arrayanes, Colección Daraxa…'),
               const Divider(height: 1),
               _campo(_isbnCtrl, 'ISBN / Referencia'),
               const Divider(height: 1),
@@ -965,6 +1463,10 @@ class _PantallaEditorItemCatalogoState
               _campo(_formatoCtrl, 'Formato'),
               const Divider(height: 1),
               _campo(_dimensionesCtrl, 'Dimensiones'),
+              const Divider(height: 1),
+              _campo(_pesoCtrl, 'Peso (g)',
+                  hint: 'ej. 320',
+                  keyboardType: TextInputType.number),
               const Divider(height: 1),
               _campo(_mesCtrl, 'Mes'),
               const Divider(height: 1),
@@ -1000,20 +1502,174 @@ class _PantallaEditorItemCatalogoState
             contentPadding: EdgeInsets.zero,
             activeColor: color,
           )),
+          const SizedBox(height: 8),
+          _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SwitchListTile(
+              value: _preventa,
+              onChanged: (v) => setState(() => _preventa = v),
+              title: Text(_preventa ? '🔖 En preventa' : '🔖 No es preventa',
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                _preventa
+                    ? 'Envío gratis a España y Europa hasta publicación'
+                    : 'El libro ya está disponible y se envía de inmediato',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              contentPadding: EdgeInsets.zero,
+              activeColor: const Color(0xFFF59E0B),
+            ),
+            if (_preventa) ...[
+              const Divider(height: 1),
+              _campo(
+                _preventaEnvioCtrl,
+                'Precio envío lejano en preventa (€)',
+                hint: 'ej. 20  (LATAM/Mundo — vacío = tarifa normal)',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ])),
           const SizedBox(height: 60),
         ],
       ),
     );
   }
 
-  Widget _campo(TextEditingController ctrl, String label, {String? hint}) =>
+  // ── Selector de autor con ID garantizado ────────────────────────────────────
+
+  Widget _campoAutorConSelector(Color color) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(
+        child: TextField(
+          controller: _autorCtrl,
+          decoration: InputDecoration(
+            hintText: 'Autor / Responsable',
+            labelText: _autorId.isNotEmpty
+                ? 'Autor (ID vinculado ✓)'
+                : 'Autor / Responsable',
+            labelStyle: TextStyle(
+              color: _autorId.isNotEmpty
+                  ? const Color(0xFF10B981)
+                  : Colors.grey,
+              fontSize: 13,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+          onChanged: (_) { if (_autorId.isNotEmpty) setState(() => _autorId = ''); },
+        ),
+      ),
+      IconButton(
+        tooltip: 'Seleccionar autor de la lista',
+        icon: Icon(Icons.person_search_rounded,
+            size: 20,
+            color: _autorId.isNotEmpty ? const Color(0xFF10B981) : color),
+        visualDensity: VisualDensity.compact,
+        onPressed: () => _abrirSelectorAutor(color),
+      ),
+    ]);
+  }
+
+  Future<void> _abrirSelectorAutor(Color color) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('autores')
+        .orderBy('nombre')
+        .limit(300)
+        .get();
+    if (!mounted) return;
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AutorPickerSheet(
+          docs: snap.docs.map((d) => {
+                'id': d.id,
+                'nombre': d.data()['nombre'] as String? ?? '',
+              }).toList(),
+          color: color),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _autorCtrl.text = result['nombre']!;
+        _autorId        = result['id']!;
+      });
+    }
+  }
+
+  Widget _campo(TextEditingController ctrl, String label,
+      {String? hint, TextInputType? keyboardType}) =>
       TextField(
         controller: ctrl,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint ?? label, labelText: label,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 10)),
       );
+
+  // Campo traductor/ilustrador con selector del catálogo de autores
+  Widget _campoConGenero(TextEditingController ctrl, String label, String generoKey) {
+    final esTraductor = generoKey == '_traductorGenero';
+    final currentId     = esTraductor ? _traductorId     : _ilustradorId;
+    final currentGenero = esTraductor ? _traductorGenero : _ilustradorGenero;
+    void setGenero(String v) => setState(() {
+      if (esTraductor) _traductorGenero = v; else _ilustradorGenero = v;
+    });
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(
+        child: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            hintText: label,
+            labelText: currentId.isNotEmpty ? '$label (vinculado ✓)' : label,
+            labelStyle: TextStyle(
+              color: currentId.isNotEmpty ? const Color(0xFF10B981) : Colors.grey,
+              fontSize: 13),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+          onChanged: (_) {
+            if (currentId.isNotEmpty) setState(() {
+              if (esTraductor) _traductorId = ''; else _ilustradorId = '';
+            });
+          },
+        ),
+      ),
+      _GeneroChip(label: 'F', selected: currentGenero == 'f',
+          onTap: () => setGenero(currentGenero == 'f' ? '' : 'f')),
+      const SizedBox(width: 4),
+      IconButton(
+        tooltip: 'Seleccionar de la lista de autores',
+        icon: Icon(Icons.person_search_rounded, size: 20,
+            color: currentId.isNotEmpty ? const Color(0xFF10B981) : Colors.grey),
+        visualDensity: VisualDensity.compact,
+        onPressed: () => _abrirSelectorCredito(label, esTraductor),
+      ),
+    ]);
+  }
+
+  Future<void> _abrirSelectorCredito(String label, bool esTraductor) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('autores').orderBy('nombre').limit(300).get();
+    if (!mounted) return;
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context, isScrollControlled: true, backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AutorPickerSheet(
+        docs: snap.docs.map((d) => {'id': d.id, 'nombre': d.data()['nombre'] as String? ?? ''}).toList(),
+        color: const Color(0xFF6366F1)),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        final nombre = result['nombre']!;
+        final id     = result['id']!;
+        if (esTraductor) { _traductorCtrl.text = nombre; _traductorId = id; }
+        else             { _ilustradorCtrl.text = nombre; _ilustradorId = id; }
+      });
+    }
+  }
 
   Widget _card(Widget child) => Container(
     padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
@@ -1030,25 +1686,55 @@ class _PantallaEditorItemCatalogoState
     setState(() => _guardando = true);
     final docId = widget.item?['id'] as String?;
     final data = <String, dynamic>{
-      'nombre':        _nombreCtrl.text.trim(),
-      'slug':          _slugCtrl.text.trim(),
-      'categoria':     _categoriaCtrl.text.trim(),
-      'tag':           _tagCtrl.text.trim(),
-      'imagen_url':    _imagenCtrl.text.trim(),
-      'precio':        _precioCtrl.text.trim(),
+      'nombre':         _nombreCtrl.text.trim(),
+      'titulo':         _nombreCtrl.text.trim(),      // alias canónico para web
+      'slug':           _slugCtrl.text.trim(),
+      'categoria':      _categoriaCtrl.text.trim(),
+      'genero':         _categoriaCtrl.text.trim(),   // alias canónico para web
+      'tag':            _tagCtrl.text.trim(),
+      'imagen_url':     _imagenCtrl.text.trim(),
+      'imagen':         _imagenCtrl.text.trim(),      // alias canónico para web
+      'precio':         _precioCtrl.text.trim(),
       'precio_digital': _precioDigCtrl.text.trim(),
-      'stripe_link':   _stripeLinkCtrl.text.trim(),
-      'descripcion':   _descCtrl.text.trim(),
-      'activo':        _activo,
+      'stripe_link':    _stripeLinkCtrl.text.trim(),
+      'payment_link':   _stripeLinkCtrl.text.trim(),  // alias canónico para checkout
+      'descripcion':    _descCtrl.text.trim(),
+      'activo':         _activo,
     };
     void opt(String k, String v) { if (v.isNotEmpty) data[k] = v; }
     opt('campo_autor',       _autorCtrl.text.trim());
+    opt('autor',             _autorCtrl.text.trim());   // alias canónico para web
+    if (_autorId.isNotEmpty) data['campo_autor_id'] = _autorId;
+    opt('campo_traductor',        _traductorCtrl.text.trim());
+    opt('traductor',              _traductorCtrl.text.trim());
+    if (_traductorId.isNotEmpty) data['campo_traductor_id'] = _traductorId;
+    if (_traductorGenero.isNotEmpty) data['campo_traductor_genero'] = _traductorGenero;
+    opt('campo_ilustrador',       _ilustradorCtrl.text.trim());
+    opt('ilustrador',             _ilustradorCtrl.text.trim());
+    if (_ilustradorId.isNotEmpty) data['campo_ilustrador_id'] = _ilustradorId;
+    if (_ilustradorGenero.isNotEmpty) data['campo_ilustrador_genero'] = _ilustradorGenero;
+    opt('campo_coleccion',   _coleccionCtrl.text.trim());
+    opt('coleccion',         _coleccionCtrl.text.trim()); // alias canónico para web
     opt('campo_isbn',        _isbnCtrl.text.trim());
     opt('campo_paginas',     _paginasCtrl.text.trim());
     opt('campo_formato',     _formatoCtrl.text.trim());
+    opt('campo_peso',        _pesoCtrl.text.trim());
+    opt('peso',              _pesoCtrl.text.trim());    // alias raíz para web y envío
     opt('campo_dimensiones', _dimensionesCtrl.text.trim());
     opt('campo_mes',         _mesCtrl.text.trim());
     data['campo_anio'] = _anio.toString();
+    data['preventa']   = _preventa;
+    if (_preventa) {
+      final envioLejano = _preventaEnvioCtrl.text.trim();
+      if (envioLejano.isNotEmpty) {
+        data['preventa_envio_lejano'] = envioLejano;
+      } else {
+        data['preventa_envio_lejano'] = FieldValue.delete();
+      }
+    } else {
+      data['preventa_envio_lejano'] = FieldValue.delete();
+    }
+    if (docId == null) data['guardado_en'] = FieldValue.serverTimestamp();
     try {
       await widget.svc.guardarItemCatalogo(widget.empresaId, docId, data);
       if (mounted) {
@@ -1063,5 +1749,32 @@ class _PantallaEditorItemCatalogoState
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+}
+
+class _GeneroChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _GeneroChip({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF6366F1) : Colors.transparent,
+          border: Border.all(color: selected ? const Color(0xFF6366F1) : Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : Colors.grey)),
+      ),
+    );
   }
 }

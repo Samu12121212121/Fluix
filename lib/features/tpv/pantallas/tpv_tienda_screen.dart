@@ -1942,10 +1942,12 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
             )
           else
             Expanded(
-              child: GridView.builder(
+              child: LayoutBuilder(builder: (_, c) {
+                final cols = (c.maxWidth / 100).floor().clamp(2, 5);
+                return GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
                   childAspectRatio: 0.72,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
@@ -1994,7 +1996,8 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                         : null,
                   );
                 },
-              ),
+              );
+            }),
             ),
           // ── Dashboard stats al fondo ─────────────────────────────────────
           _MiniDashboardTurno(empresaId: widget.empresaId),

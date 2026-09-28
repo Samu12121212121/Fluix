@@ -1120,6 +1120,111 @@ messaging.onBackgroundMessage(function(payload) {
     });
   }
 
+  /* ══ Módulo: data-fluix-carta ══════════════════════════════════════ */
+  function modCarta(){
+    document.querySelectorAll("[data-fluix-carta]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","200")),cat=fcfg(el,"categoria",""),tpl=el.querySelector("template[data-fluix-item]");
+      db.collection("empresas").doc(EMPRESA).collection("carta_web")
+        .orderBy("categoria").orderBy("orden")
+        .onSnapshot(function(snap){
+          var items=[];
+          snap.forEach(function(doc){
+            var d=doc.data();d.id=doc.id;
+            if(d.disponible===false)return;
+            if(cat&&d.categoria!==cat)return;
+            items.push(d);
+          });
+          items=items.slice(0,limite);
+          if(!items.length){el.innerHTML='<p class="fluix-vacio">Carta no disponible.</p>';return;}
+          if(tpl){renderTpl(el,tpl,items);return;}
+          var cats={};
+          items.forEach(function(it){var c=it.categoria||"General";if(!cats[c])cats[c]=[];cats[c].push(it);});
+          el.innerHTML=Object.keys(cats).sort().map(function(c){
+            return'<div class="fluix-carta-cat">'
+              +'<h3 class="fluix-carta-cat-nombre">'+c+'</h3>'
+              +cats[c].map(function(it){
+                return'<div class="fluix-carta-item" data-fluix-id="'+it.id+'">'
+                  +(it.imagen_url?'<img class="fluix-carta-img" src="'+it.imagen_url+'" alt="'+it.nombre+'" loading="lazy">':"")
+                  +'<div class="fluix-carta-body">'
+                  +'<span class="fluix-carta-nombre">'+it.nombre+'</span>'
+                  +(it.descripcion?'<p class="fluix-carta-desc">'+it.descripcion+'</p>':"")
+                  +'</div>'
+                  +'<span class="fluix-carta-precio">'+(it.precio>0?(it.precio+'€'):"Consultar")+'</span>'
+                  +'</div>';
+              }).join("")
+              +'</div>';
+          }).join("");
+        });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-menu-semanal ════════════════════════════════ */
+  function modMenuSemanal(){
+    document.querySelectorAll("[data-fluix-menu-semanal]").forEach(function(el){
+      db.collection("empresas").doc(EMPRESA).collection("menu_semanal")
+        .where("activo","==",true)
+        .orderBy("orden")
+        .onSnapshot(function(snap){
+          if(snap.empty){el.innerHTML='<p class="fluix-vacio">Sin menú disponible esta semana.</p>';return;}
+          el.innerHTML=snap.docs.map(function(doc){
+            var d=doc.data();
+            var prim=(d.primeros||[]).map(function(p){return'<li>'+p+'</li>';}).join("");
+            var seg=(d.segundos||[]).map(function(p){return'<li>'+p+'</li>';}).join("");
+            var post=(d.postres||[]).map(function(p){return'<li>'+p+'</li>';}).join("");
+            return'<div class="fluix-menu-dia">'
+              +'<div class="fluix-menu-dia-header">'
+              +'<strong class="fluix-menu-dia-nombre">'+d.dia.charAt(0).toUpperCase()+d.dia.slice(1)+'</strong>'
+              +(d.precio?'<span class="fluix-menu-precio">'+d.precio+'€</span>':"")
+              +'</div>'
+              +(prim?'<div class="fluix-menu-seccion"><strong>Primeros:</strong><ul>'+prim+'</ul></div>':"")
+              +(seg?'<div class="fluix-menu-seccion"><strong>Segundos:</strong><ul>'+seg+'</ul></div>':"")
+              +(post?'<div class="fluix-menu-seccion"><strong>Postre:</strong><ul>'+post+'</ul></div>':"")
+              +(d.bebida?'<div class="fluix-menu-bebida"><strong>Bebida:</strong> '+d.bebida+'</div>':"")
+              +(d.nota?'<p class="fluix-menu-nota">'+d.nota+'</p>':"")
+              +'</div>';
+          }).join("");
+        });
+    });
+  }
+
+  /* ══ Módulo: data-fluix-autores ════════════════════════════════════ */
+  function modAutores(){
+    document.querySelectorAll("[data-fluix-autores]").forEach(function(el){
+      var limite=parseInt(fcfg(el,"limite","200")),rolFiltro=fcfg(el,"rol",""),tpl=el.querySelector("template[data-fluix-item]");
+      function esc2(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+      function rolLabel(r){r=(r||"").toLowerCase();if(r.startsWith("ilustrador"))return"Ilustrador/a";if(r==="editor"||r==="editora")return"Editor/a";if(r==="autora")return"Autora";return"Autor/a";}
+      db.collection("empresas").doc(EMPRESA).collection("autores")
+        .orderBy("nombre").limit(limite)
+        .onSnapshot(function(snap){
+          var items=[];
+          snap.forEach(function(doc){
+            var d=doc.data();d.id=doc.id;
+            if(d.activo===false)return;
+            if(rolFiltro){var rk=(d.rol||"autor").toLowerCase();if(rk!==rolFiltro&&!(rolFiltro==="autor"&&rk==="autora"))return;}
+            if(d.foto_url&&d.foto_url.indexOf("https://")===0)d.foto=d.foto_url;
+            else if(!d.foto&&d.foto_url)d.foto=d.foto_url;
+            items.push(d);
+          });
+          if(!items.length){el.innerHTML="";return;}
+          if(tpl){renderTpl(el,tpl,items);return;}
+          var html="";
+          items.forEach(function(a){
+            var foto=a.foto||"";
+            var desc=((a.descripcion||a.bio||"")).substring(0,120);if(desc.length===120)desc+="…";
+            html+='<div class="fluix-autor-card" data-fluix-id="'+esc2(a.id)+'">'
+              +(foto?'<img class="fluix-autor-img" src="'+esc2(foto)+'" alt="'+esc2(a.nombre)+'" loading="lazy" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px">':"")
+              +'<div style="padding:.6rem 0">'
+              +(a.genero?'<span style="font-size:10px;letter-spacing:.25em;text-transform:uppercase;opacity:.6">'+esc2(a.genero)+'</span><br>':"")
+              +'<strong style="font-size:.95rem">'+esc2(a.nombre)+'</strong>'
+              +(a.lugar?'<br><small style="opacity:.6">'+esc2(a.lugar)+'</small>':"")
+              +(desc?'<p style="font-size:.82rem;margin:.35rem 0 0;opacity:.75;line-height:1.45">'+esc2(desc)+'</p>':"")
+              +'</div></div>';
+          });
+          el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1.5rem">'+html+'</div>';
+        });
+    });
+  }
+
   /* ══ Bootstrap: detectar módulos y arrancar ═════════════════════════ */
   auth.signInAnonymously().then(function(){
     var mods=[];
@@ -1135,6 +1240,9 @@ messaging.onBackgroundMessage(function(payload) {
     detect("[data-fluix-seccion]",              modSecciones,         "secciones");
     detect("[data-fluix-push]",                 modPush,              "push");
     detect("[data-fluix-seleccion-nazari]",     modSeleccionNazari,   "seleccion-nazari");
+    detect("[data-fluix-autores]",              modAutores,           "autores");
+    detect("[data-fluix-carta]",                modCarta,             "carta");
+    detect("[data-fluix-menu-semanal]",         modMenuSemanal,       "menu-semanal");
     // Reportar módulos detectados en Firestore
     if(mods.length){
       db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status").set({
@@ -2063,6 +2171,144 @@ messaging.onBackgroundMessage(function(payload) {
     return deleted;
   }
 
+  /// Elimina entradas de blog duplicadas por slug o título dentro de un tipo.
+  /// Conserva la entrada con más contenido (con imagen, mayor contenido, etc.).
+  /// Devuelve el número de documentos eliminados.
+  Future<int> dedupBlogPorTipo(String empresaId, String tipo) async {
+    final col  = _blogCol(empresaId);
+    final snap = await col.where('tipo', isEqualTo: tipo).get();
+
+    // Normalizar para comparar (sin acentos, minúsculas)
+    String normStr(String s) => s.toLowerCase().trim()
+        .replaceAll(RegExp(r'[àáâãäåā]'), 'a')
+        .replaceAll(RegExp(r'[èéêëē]'), 'e')
+        .replaceAll(RegExp(r'[ìíîïī]'), 'i')
+        .replaceAll(RegExp(r'[òóôõöō]'), 'o')
+        .replaceAll(RegExp(r'[ùúûüū]'), 'u')
+        .replaceAll(RegExp(r'[^\w\s]'), '');
+
+    // Agrupar por slug (primero) o por título normalizado (como fallback)
+    final grupos = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+    for (final doc in snap.docs) {
+      final d     = doc.data();
+      final slug  = (d['slug'] as String? ?? '').trim();
+      final titulo = normStr(d['titulo'] as String? ?? '');
+      final clave  = slug.isNotEmpty ? 'slug:$slug' : (titulo.isNotEmpty ? 'tit:$titulo' : 'id:${doc.id}');
+      groups(clave, doc, grupos);
+    }
+
+    int score(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+      final d = doc.data();
+      int s = 0;
+      if ((d['imagen_url'] as String? ?? '').isNotEmpty) s += 5;
+      if ((d['contenido'] as String? ?? '').length > 100) s += 4;
+      if ((d['resumen'] as String? ?? '').isNotEmpty) s += 3;
+      if (d['publicada'] == true) s += 2;
+      if ((d['slug'] as String? ?? '').isNotEmpty) s += 1;
+      return s;
+    }
+
+    var batch   = _firestore.batch();
+    var cnt     = 0;
+    var deleted = 0;
+
+    for (final grupo in grupos.values) {
+      if (grupo.length <= 1) continue;
+      final sorted = [...grupo]..sort((a, b) => score(b) - score(a));
+      for (final dup in sorted.skip(1)) {
+        batch.delete(dup.reference);
+        deleted++;
+        cnt++;
+        if (cnt >= 490) {
+          await batch.commit();
+          batch = _firestore.batch();
+          cnt   = 0;
+        }
+      }
+    }
+    if (cnt > 0) await batch.commit();
+    return deleted;
+  }
+
+  static void groups(String clave, QueryDocumentSnapshot<Map<String, dynamic>> doc,
+      Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grupos) {
+    (grupos[clave] ??= []).add(doc);
+  }
+
+  /// Lee `catalogo_web`, agrupa las categorías de cada libro por autor, y
+  /// actualiza el campo `genero` de cada autor con sus categorías únicas.
+  /// Vincula por `campo_autor_id` si existe, si no por `campo_autor` (nombre).
+  /// Devuelve el número de autores actualizados.
+  Future<int> sincronizarGenerosAutores(String empresaId) async {
+    final librosSnap = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('catalogo_web').get();
+
+    final porId     = <String, Set<String>>{};
+    final porNombre = <String, Set<String>>{};
+
+    for (final doc in librosSnap.docs) {
+      final d = doc.data();
+      // Extraer categorías del libro
+      final cats = <String>{};
+      final arr = d['categorias'];
+      if (arr is List && arr.isNotEmpty) {
+        for (final c in arr) {
+          final s = c.toString().trim();
+          if (s.isNotEmpty) cats.add(s);
+        }
+      } else {
+        for (final part in (d['categoria'] as String? ?? '').split('/')) {
+          final s = part.trim();
+          if (s.isNotEmpty) cats.add(s);
+        }
+      }
+      if (cats.isEmpty) continue;
+
+      final autorId     = (d['campo_autor_id'] as String? ?? '').trim();
+      final autorNombre = (d['campo_autor']    as String? ?? '').trim();
+      if (autorId.isNotEmpty) {
+        porId[autorId] = {...(porId[autorId] ?? {}), ...cats};
+      } else if (autorNombre.isNotEmpty) {
+        porNombre[autorNombre] = {...(porNombre[autorNombre] ?? {}), ...cats};
+      }
+    }
+
+    if (porId.isEmpty && porNombre.isEmpty) return 0;
+
+    final autoresSnap = await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('autores').get();
+
+    var batch   = _firestore.batch();
+    var cnt     = 0;
+    var updated = 0;
+
+    for (final doc in autoresSnap.docs) {
+      final nombre = ((doc.data())['nombre'] as String? ?? '').trim();
+      Set<String>? cats;
+      if (porId.containsKey(doc.id))             cats = porId[doc.id];
+      if (cats == null && porNombre.containsKey(nombre)) cats = porNombre[nombre];
+      if (cats == null || cats.isEmpty) continue;
+
+      final generoStr = (cats.toList()..sort()).join(' / ');
+      batch.update(doc.reference, {
+        'genero': generoStr,
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+      updated++;
+      cnt++;
+      if (cnt >= 490) {
+        await batch.commit();
+        batch = _firestore.batch();
+        cnt   = 0;
+      }
+    }
+
+    if (cnt > 0) await batch.commit();
+    return updated;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CATÁLOGO WEB GENÉRICO — catalogo_web (sync tiempo real a la web)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2130,7 +2376,7 @@ messaging.onBackgroundMessage(function(payload) {
       final titulo  = data['nombre']      as String? ?? data['titulo'] as String? ?? '';
       final autor   = data['campo_autor'] as String? ?? data['autor']  as String? ?? '';
       final imagen  = data['imagen_url']  as String? ?? data['imagen'] as String? ?? '';
-      final precio  = data['precio']      as String? ?? '';
+      final precio  = data['precio']?.toString() ?? '';
       final stripe  = data['stripe_link'] as String? ?? '';
       final slug    = (data['slug'] as String?)?.isNotEmpty == true
           ? data['slug'] as String : catalogoId;
@@ -2151,7 +2397,30 @@ messaging.onBackgroundMessage(function(payload) {
 
   Future<void> toggleActivoItemCatalogo(
       String empresaId, String docId, bool activo) async {
-    await _catalogoCol(empresaId).doc(docId).update({
+    final col = _catalogoCol(empresaId);
+
+    // Al ACTIVAR: desactivar todos los demás documentos con el mismo slug
+    // para garantizar que Fluix sea la única fuente y el libro aparezca una sola vez.
+    if (activo) {
+      final thisDoc = await col.doc(docId).get();
+      if (thisDoc.exists) {
+        final slug = thisDoc.data()?['slug'] as String? ?? '';
+        if (slug.isNotEmpty) {
+          final porSlug = await col.where('slug', isEqualTo: slug).get();
+          if (porSlug.docs.length > 1) {
+            final batch = _firestore.batch();
+            for (final d in porSlug.docs) {
+              if (d.id != docId) {
+                batch.update(d.reference, {'activo': false});
+              }
+            }
+            await batch.commit();
+          }
+        }
+      }
+    }
+
+    await col.doc(docId).update({
       'activo': activo,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
@@ -2176,6 +2445,12 @@ messaging.onBackgroundMessage(function(payload) {
     await batch.commit();
   }
 
+  Future<void> toggleMasVendidoCatalogo(
+      String empresaId, String docId, bool actual) async {
+    await _catalogoCol(empresaId).doc(docId)
+        .update({'es_mas_vendido': !actual});
+  }
+
   /// Migra libros existentes de la colección `libros` a `catalogo_web`.
   Future<int> migrarLibrosACatalogoWeb(String empresaId) async {
     final snap = await _firestore
@@ -2188,27 +2463,41 @@ messaging.onBackgroundMessage(function(payload) {
       final payLink = (l['payment_link'] as String? ?? '').isNotEmpty
           ? l['payment_link'] as String
           : (l['payment_link_test'] as String? ?? '');
+      final nombre = l['titulo'] ?? l['nombre'] ?? '';
+      final autor  = l['autor'] ?? '';
+      final genero = l['genero'] ?? '';
+      final imagen = l['imagen_url'] ?? l['imagen'] ?? '';
       await _catalogoCol(empresaId).doc(snap.docs[i].id).set({
-        'nombre':      l['titulo'] ?? l['nombre'] ?? '',
+        'nombre':      nombre,
+        'titulo':      nombre,           // alias canónico para web
         'descripcion': l['sinopsis'] ?? l['descripcion'] ?? '',
         'precio':      l['precio'] ?? '',
         'precio_digital': l['precioEbook'] ?? '',
-        'imagen_url':  l['imagen_url'] ?? '',
+        'imagen_url':  imagen,
+        'imagen':      imagen,           // alias canónico para web
         'activo':      l['activo'] ?? true,
         'orden':       i,
         'slug':        l['slug'] ?? snap.docs[i].id,
         'tag':         l['tag'] ?? '',
-        'categoria':   l['genero'] ?? '',
-        'campo_autor': l['autor'] ?? '',
+        'categoria':   genero,
+        'genero':      genero,           // alias canónico para web
+        'campo_autor': autor,
+        'autor':       autor,            // alias canónico para web
+        'campo_coleccion': l['coleccion'] ?? '',
+        'coleccion':   l['coleccion'] ?? '',  // alias canónico para web
         'campo_isbn':  l['isbn'] ?? '',
         'campo_paginas': l['paginas']?.toString() ?? '',
         'campo_formato': l['formato'] ?? '',
         'campo_dimensiones': l['dimensiones'] ?? '',
         'campo_anio':  l['anio']?.toString() ?? '',
         'campo_mes':   l['mes'] ?? '',
-        if (payLink.isNotEmpty) 'stripe_link': payLink,
+        if (payLink.isNotEmpty) ...{
+          'stripe_link':  payLink,
+          'payment_link': payLink,       // alias canónico para checkout
+        },
         'origen':      'libros',
         'migrado_en':  FieldValue.serverTimestamp(),
+        'guardado_en': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       migrados++;
     }
@@ -2253,13 +2542,65 @@ messaging.onBackgroundMessage(function(payload) {
       }
 
       for (final ref in candidatos) {
-        batch.set(ref, {'stripe_link': payLink}, SetOptions(merge: true));
+        batch.set(ref, {'stripe_link': payLink, 'payment_link': payLink}, SetOptions(merge: true));
       }
       actualizados++;
     }
 
     if (actualizados > 0) await batch.commit();
     return actualizados;
+  }
+
+  /// Elimina documentos duplicados de `catalogo_web` agrupando por título normalizado.
+  /// Conserva el documento más completo de cada grupo (con stripe_link, imagen, etc.)
+  /// y borra los demás. Devuelve el número de documentos eliminados.
+  Future<int> deduplicarCatalogoWeb(String empresaId) async {
+    final snap = await _catalogoCol(empresaId).get();
+    if (snap.docs.length < 2) return 0;
+
+    // Agrupar por título normalizado
+    final grupos = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+    for (final doc in snap.docs) {
+      final d = doc.data();
+      final tit = (d['titulo'] as String? ?? d['nombre'] as String? ?? '').toLowerCase().trim();
+      if (tit.isEmpty) continue;
+      grupos.putIfAbsent(tit, () => []).add(doc);
+    }
+
+    // Función de puntuación: mayor puntuación = documento más completo
+    int _score(Map<String, dynamic> d) {
+      int s = 0;
+      if ((d['stripe_link'] as String? ?? '').isNotEmpty) s += 4;
+      if ((d['imagen'] as String? ?? '').isNotEmpty) s += 3;
+      if ((d['imagen_url'] as String? ?? '').isNotEmpty) s += 2;
+      if ((d['autor'] as String? ?? d['campo_autor'] as String? ?? '').isNotEmpty) s += 2;
+      if ((d['slug'] as String? ?? '').isNotEmpty) s += 1;
+      if ((d['descripcion'] as String? ?? '').isNotEmpty) s += 1;
+      return s;
+    }
+
+    int eliminados = 0;
+    const lote = 500;
+    var batch = _firestore.batch();
+    int enBatch = 0;
+
+    for (final docs in grupos.values) {
+      if (docs.length < 2) continue;
+      // Ordenar por puntuación descendente; el primero es el que conservamos
+      docs.sort((a, b) => _score(b.data()).compareTo(_score(a.data())));
+      for (var i = 1; i < docs.length; i++) {
+        batch.delete(docs[i].reference);
+        enBatch++;
+        eliminados++;
+        if (enBatch >= lote) {
+          await batch.commit();
+          batch = _firestore.batch();
+          enBatch = 0;
+        }
+      }
+    }
+    if (enBatch > 0) await batch.commit();
+    return eliminados;
   }
 
   /// Importa un producto del catálogo de pedidos al catálogo web.
@@ -2397,4 +2738,92 @@ messaging.onBackgroundMessage(function(payload) {
     );
     await guardarEntradaBlog(empresaId, noticia);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CARTA WEB — empresas/{id}/carta_web
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  CollectionReference<Map<String, dynamic>> _cartaCol(String empresaId) =>
+      _firestore.collection('empresas').doc(empresaId).collection('carta_web');
+
+  Stream<List<Map<String, dynamic>>> obtenerCartaWeb(String empresaId) =>
+      _cartaCol(empresaId)
+          .orderBy('categoria')
+          .orderBy('orden')
+          .snapshots()
+          .map((s) => s.docs.map((d) => {...d.data(), 'id': d.id}).toList());
+
+  Future<void> guardarItemCartaWeb(String empresaId, Map<String, dynamic> item) async {
+    final col = _cartaCol(empresaId);
+    final id  = item['id'] as String?;
+    final data = Map<String, dynamic>.from(item)..remove('id');
+    if (id == null || id.isEmpty) {
+      data['orden'] = (await col.get()).docs.length;
+      await col.add(data);
+    } else {
+      await col.doc(id).set(data, SetOptions(merge: true));
+    }
+  }
+
+  Future<void> eliminarItemCartaWeb(String empresaId, String itemId) =>
+      _cartaCol(empresaId).doc(itemId).delete();
+
+  Future<void> toggleDisponibleCartaWeb(
+          String empresaId, String itemId, bool disponible) =>
+      _cartaCol(empresaId).doc(itemId).update({'disponible': disponible});
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MENÚ SEMANAL — empresas/{id}/menu_semanal
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  CollectionReference<Map<String, dynamic>> _menuCol(String empresaId) =>
+      _firestore.collection('empresas').doc(empresaId).collection('menu_semanal');
+
+  Stream<List<Map<String, dynamic>>> obtenerMenuSemanal(String empresaId) =>
+      _menuCol(empresaId)
+          .orderBy('orden')
+          .snapshots()
+          .map((s) => s.docs.map((d) => {...d.data(), 'id': d.id}).toList());
+
+  Future<void> guardarDiaMenu(String empresaId, Map<String, dynamic> dia) async {
+    final col = _menuCol(empresaId);
+    final id  = dia['id'] as String?;
+    final data = Map<String, dynamic>.from(dia)
+      ..remove('id')
+      ..['ultima_actualizacion'] = FieldValue.serverTimestamp();
+    if (id == null || id.isEmpty) {
+      data['orden'] = (await col.get()).docs.length;
+      await col.add(data);
+    } else {
+      await col.doc(id).set(data, SetOptions(merge: true));
+    }
+  }
+
+  Future<void> toggleDiaMenuActivo(String empresaId, String diaId, bool activo) =>
+      _menuCol(empresaId).doc(diaId).update({'activo': activo});
+
+  Future<void> eliminarDiaMenu(String empresaId, String diaId) =>
+      _menuCol(empresaId).doc(diaId).delete();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RESERVAS WEB — acciones sobre empresas/{id}/reservas
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> confirmarReservaWeb(String empresaId, String reservaId) =>
+      _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('reservas').doc(reservaId)
+          .update({
+            'estado': 'CONFIRMADA',
+            'fecha_modificacion': FieldValue.serverTimestamp(),
+          });
+
+  Future<void> cancelarReservaWeb(String empresaId, String reservaId) =>
+      _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('reservas').doc(reservaId)
+          .update({
+            'estado': 'CANCELADA',
+            'fecha_modificacion': FieldValue.serverTimestamp(),
+          });
 }

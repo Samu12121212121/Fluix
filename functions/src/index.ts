@@ -7,7 +7,7 @@ import {
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import Stripe from "stripe";
-import { enviarPdfGenerico, enviarConfirmacionReserva, enviarCancelacionReserva, enviarNotificacionContactoWeb, enviarRespuestaContactoWeb } from "./resend_service";
+import { enviarPdfGenerico, enviarConfirmacionReserva, enviarCancelacionReserva, enviarNotificacionContactoWeb, enviarRespuestaContactoWeb, enviarNotificacionPedidoEnviado } from "./resend_service";
 import { enviarRecordatoriosCitas } from "./recordatoriosCitas";
 import { onTareaAsignada } from "./notificacionesTareas";
 import {
@@ -45,6 +45,7 @@ export {
 } from "./trofeos";
 export { onInvitacionCreada } from "./invitaciones";
 export { sendResetPasswordEmail } from "./resetPassword";
+export { crearEmpleadoConCredenciales } from "./crearEmpleado";
 export { asignarAdminPlataforma } from "./adminClaims";
 export {
   onNuevaReservaEmail,
@@ -106,6 +107,14 @@ export {
   migrarDatosNazariDesdeWeb,
 } from "./nazariMigracion";
 
+export {
+  crearCheckoutNazari,
+  stripeWebhookNazari,
+  verificarDescargaEbook,
+  onPedidoNazariPagado,
+} from "./nazariEbooks";
+
+export { onJuanitaReservaEstadoCambiado } from "./juanitaReservasEmail";
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -863,7 +872,7 @@ async function _getDatosEmpresa(empresaId: string): Promise<{ nombre: string; em
  * 2a. RESERVA CONFIRMADA — envía push a la empresa + email de confirmación al cliente
  */
 export const onReservaConfirmada = onDocumentUpdated(
-  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const empresaId = event.params.empresaId;
     const antes = event.data?.before.data();
@@ -932,7 +941,7 @@ export const onReservaConfirmada = onDocumentUpdated(
  * 2b. RESERVA CANCELADA — notifica a la empresa + email de cancelación al cliente
  */
 export const onReservaCancelada = onDocumentUpdated(
-  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION },
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const empresaId = event.params.empresaId;
     const antes = event.data?.before.data();
@@ -993,6 +1002,51 @@ export const onReservaCancelada = onDocumentUpdated(
     } else {
       console.log(`ℹ️ Reserva ${event.params.reservaId} cancelada sin email de cliente`);
     }
+  }
+);
+
+/**
+ * 2c. REENVÍO MANUAL de confirmación de reserva (callable desde la app)
+ */
+export const reenviarConfirmacionReserva = onCall(
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Debes estar autenticado");
+    }
+    const { empresaId, reservaId } = request.data as { empresaId: string; reservaId: string };
+    if (!empresaId || !reservaId) {
+      throw new HttpsError("invalid-argument", "Faltan empresaId o reservaId");
+    }
+
+    const snap = await db
+      .collection("empresas").doc(empresaId)
+      .collection("reservas").doc(reservaId).get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Reserva no encontrada");
+    }
+    const d = snap.data()!;
+    const emailCliente = d.email_cliente || d.correo_cliente || d.email || null;
+    if (!emailCliente) {
+      throw new HttpsError("failed-precondition", "La reserva no tiene email de cliente");
+    }
+
+    const cliente = d.nombre_cliente || d.cliente || "Cliente";
+    const empresa = await _getDatosEmpresa(empresaId);
+
+    await enviarConfirmacionReserva({
+      to: emailCliente,
+      clienteNombre: cliente,
+      empresaNombre: empresa.nombre,
+      fechaHora: _formatearFechaReserva(d),
+      personas: (d.numero_personas || d.personas) ? String(d.numero_personas || d.personas) : undefined,
+      servicio: d.servicio || undefined,
+      zona: d.zona || undefined,
+      notas: d.notas || undefined,
+      fromEmail: empresa.email || undefined,
+    });
+
+    return { exito: true };
   }
 );
 
@@ -1114,6 +1168,54 @@ export const onNuevoPedido = onDocumentCreated(
       cuerpo,
       { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId }
     );
+  }
+);
+
+/**
+ * 4b. PEDIDO ENVIADO → email al cliente con resumen de envío
+ */
+export const onPedidoEstadoCambiado = onDocumentUpdated(
+  { document: "empresas/{empresaId}/pedidos/{pedidoId}", region: REGION },
+  async (event) => {
+    const antes  = event.data?.before.data();
+    const despues = event.data?.after.data();
+    if (!antes || !despues) return;
+
+    // Solo cuando cambia de otro estado a 'enviado'
+    if (antes.estado === despues.estado) return;
+    if (despues.estado !== "enviado") return;
+
+    const correo = despues.cliente_correo || despues.cliente_email || null;
+    if (!correo) {
+      console.log(`ℹ️ Pedido ${event.params.pedidoId} enviado, sin correo del cliente`);
+      return;
+    }
+
+    const empresaId = event.params.empresaId;
+    const empresa   = await _getDatosEmpresa(empresaId);
+
+    const lineas = ((despues.lineas || []) as Array<Record<string, unknown>>).map((l) => ({
+      nombre:   String(l.producto_nombre || l.nombre || "Producto"),
+      cantidad: Number(l.cantidad        || 1),
+      precio:   Number(l.precio_unitario || l.precio || 0),
+    }));
+
+    try {
+      await enviarNotificacionPedidoEnviado({
+        to:            correo,
+        clienteNombre: String(despues.cliente_nombre || "Cliente"),
+        empresaNombre: empresa.nombre,
+        fromEmail:     empresa.email || undefined,
+        numeroTicket:  Number(despues.numero_ticket || 0),
+        lineas,
+        total:         Number(despues.total || 0),
+        direccionEnvio: (despues.direccion_envio as string | null) || null,
+        notasEnvio:    String(despues.notas_envio || ""),
+      });
+      console.log(`📧 Email de envío enviado a ${correo} (pedido ${event.params.pedidoId})`);
+    } catch (e) {
+      console.warn("⚠️ Error enviando email de envío:", e);
+    }
   }
 );
 
@@ -2039,6 +2141,24 @@ async function _procesarPedidoNazari(
   const libroId     = session.metadata?.libro_id    || "";
   const totalEuros  = (session.amount_total ?? 0) / 100;
 
+  // Envío: shipping_cost viene incluido en amount_total
+  const gastosEnvioEuros    = (session.shipping_cost?.amount_total ?? 0) / 100;
+  const totalProductosEuros = parseFloat((totalEuros - gastosEnvioEuros).toFixed(2));
+
+  // Zona y opción de envío derivadas del país del destinatario y el importe
+  const paisDestinatario = session.shipping_details?.address?.country ?? "ES";
+  const zonaEnvio        = _zonaDesde(paisDestinatario);
+  let opcionEnvio: string;
+  if (zonaEnvio !== "es") {
+    opcionEnvio = zonaEnvio;                    // "europa" | "latam" | "mundo"
+  } else if (gastosEnvioEuros === 0) {
+    opcionEnvio = "gratuito";
+  } else if (gastosEnvioEuros >= 6) {
+    opcionEnvio = "urgente";
+  } else {
+    opcionEnvio = "ordinario";
+  }
+
   const clienteNombre   = session.customer_details?.name  || "Cliente web";
   const clienteEmail    = session.customer_details?.email || null;
   const clienteTelefono = session.customer_details?.phone || null;
@@ -2080,7 +2200,8 @@ async function _procesarPedidoNazari(
   }
 
   const baseImponible = parseFloat(lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0).toFixed(2));
-  const importeIva    = parseFloat((totalEuros - baseImponible).toFixed(2));
+  // importeIva solo sobre los libros (IVA 4% superreducido); no incluye el envío
+  const importeIva    = parseFloat((totalProductosEuros - baseImponible).toFixed(2));
 
   // ── Número de ticket correlativo ──────────────────────────────────────────
   const contadorRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("contadores").doc("tickets");
@@ -2104,6 +2225,12 @@ async function _procesarPedidoNazari(
     lineas,
     subtotal:              baseImponible,
     importe_iva:           importeIva,
+    total_productos:       totalProductosEuros,
+    gastos_envio:          gastosEnvioEuros,
+    opcion_envio:          opcionEnvio,
+    zona_envio:            zonaEnvio,
+    pais_destino:          paisDestinatario,
+    es_preventa:           session.metadata?.es_preventa === "true",
     total:                 totalEuros,
     stripe_session_id:     session.id,
     stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
@@ -2815,11 +2942,27 @@ export const stripeWebhookTienda = onRequest(
     const stripe = new Stripe(isTestEvent ? (testKey || liveKey) : liveKey, { apiVersion: "2024-06-20" });
     console.log(`📥 [stripeWebhookTienda] ${event.type} modo=${isTestEvent ? "TEST" : "LIVE"}`);
 
-    // Idempotencia: ignorar eventos ya procesados
+    // ── IDEMPOTENCIA ATÓMICA ───────────────────────────────────────────────────
+    // Usamos create() (no set/get) para "reclamar" el evento. Firestore garantiza
+    // que solo UNA petición concurrente puede crear el documento; las demás reciben
+    // ALREADY_EXISTS (código gRPC 6) y terminan sin crear pedido duplicado.
     const eventDocRef = db.collection("stripe_processed_events").doc(`tienda_${event.id}`);
-    if ((await eventDocRef.get()).exists) {
-      console.log(`⏭️ Evento tienda ${event.id} ya procesado`);
-      res.status(200).json({ received: true, duplicado: true });
+    try {
+      await eventDocRef.create({
+        event_id:      event.id,
+        event_type:    event.type,
+        claimed_at:    new Date().toISOString(),
+      });
+    } catch (claimErr: any) {
+      if (claimErr?.code === 6) {
+        // ALREADY_EXISTS — otro proceso ya reclamó este evento
+        console.log(`⏭️ Evento tienda ${event.id} ya reclamado/procesado`);
+        res.status(200).json({ received: true, duplicado: true });
+        return;
+      }
+      // Error inesperado al reclamar — dejar que Stripe reintente
+      console.error("❌ Error reclamando evento tienda:", claimErr);
+      res.status(500).json({ error: "Error interno" });
       return;
     }
 
@@ -2841,7 +2984,8 @@ export const stripeWebhookTienda = onRequest(
         }
       }
 
-      await eventDocRef.set({ procesado: true, ts: admin.firestore.FieldValue.serverTimestamp() });
+      // Marcar como completado (el claim ya existe; update para añadir ts de fin)
+      await eventDocRef.update({ procesado: true, ts: admin.firestore.FieldValue.serverTimestamp() });
       res.status(200).json({ received: true, tipo: event.type });
     } catch (error) {
       console.error("❌ Error en stripeWebhookTienda:", error);
@@ -4235,13 +4379,205 @@ export const enviarEmailsContactoInteres = onCall(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Zonas de envío internacional — listas de países por zona
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AllowedCountry = Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry;
+
+const _PAISES_EUROPA: AllowedCountry[] = [
+  "AT","BE","BG","CY","CZ","DE","DK","EE","FI","FR","GR","HR","HU",
+  "IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK",
+  "GB","CH","NO","IS","AL","BA","ME","MK","RS","UA","MD","LI","MC",
+  "AD","SM","VA","XK",
+];
+const _PAISES_LATAM: AllowedCountry[] = [
+  "MX","AR","CL","CO","PE","EC","UY","VE","BO","PY","CR","PA","DO",
+  "GT","HN","SV","NI","PR","HT","JM","TT","BB","BS","BZ","GY","SR",
+];
+const _PAISES_RESTO: AllowedCountry[] = [
+  "US","CA","AU","NZ","JP","KR","CN","IN","SG","HK","TW","ZA","AE",
+  "SA","IL","TR","MA","TN","EG","NG","BR","JO","KW","QA","BH","OM",
+  "PH","TH","ID","MY","VN","PK","BD","LK","MM","KZ","UZ","BY","GE",
+  "AM","AZ","KH","NP","RW","TZ","KE","GH","CI","SN","CM","ET",
+];
+
+const _SET_EUROPA = new Set<string>(_PAISES_EUROPA);
+const _SET_LATAM  = new Set<string>(_PAISES_LATAM);
+
+/** Devuelve la zona a partir del código de país ISO 3166-1 alpha-2. */
+function _zonaDesde(pais: string): "es" | "europa" | "latam" | "mundo" {
+  if (pais === "ES") return "es";
+  if (_SET_EUROPA.has(pais)) return "europa";
+  if (_SET_LATAM.has(pais))  return "latam";
+  return "mundo";
+}
+
+function _opcionesEnvioEuropa(pesoGramos: number): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const cents = pesoGramos < 500 ? 1500 : 2000;
+  return [{
+    shipping_rate_data: {
+      type: "fixed_amount",
+      fixed_amount: { amount: cents, currency: "eur" },
+      display_name: `Envío Europa (7-14 días laborables) — ${(cents/100).toFixed(0)}€`,
+      delivery_estimate: {
+        minimum: { unit: "business_day", value: 7 },
+        maximum: { unit: "business_day", value: 14 },
+      },
+    },
+  }];
+}
+
+function _opcionesEnvioLatam(pesoGramos: number): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const cents = pesoGramos < 500 ? 2000 : 2500;
+  return [{
+    shipping_rate_data: {
+      type: "fixed_amount",
+      fixed_amount: { amount: cents, currency: "eur" },
+      display_name: `Envío Latinoamérica (10-21 días laborables) — ${(cents/100).toFixed(0)}€`,
+      delivery_estimate: {
+        minimum: { unit: "business_day", value: 10 },
+        maximum: { unit: "business_day", value: 21 },
+      },
+    },
+  }];
+}
+
+function _opcionesEnvioMundo(pesoGramos: number): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const cents = pesoGramos < 500 ? 3000 : 3500;
+  return [{
+    shipping_rate_data: {
+      type: "fixed_amount",
+      fixed_amount: { amount: cents, currency: "eur" },
+      display_name: `Envío internacional (14-30 días laborables) — ${(cents/100).toFixed(0)}€`,
+      delivery_estimate: {
+        minimum: { unit: "business_day", value: 14 },
+        maximum: { unit: "business_day", value: 30 },
+      },
+    },
+  }];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // crearCheckoutNazari — Crea una sesión de Stripe Checkout para la tienda web
 //   de Editorial Nazarí y devuelve la URL de pago.
 //
-// POST body: { items: [{ titulo, precio, cantidad, imagen?, catalogo_id? }] }
+// POST body: { items: [{ catalogo_id, cantidad }], zona?: "ES"|"EU"|"LATAM"|"WORLD" }
+// zona por defecto: "ES". El precio y peso se leen SIEMPRE desde Firestore.
+// El cliente NO puede influir en el importe a cobrar.
 // Respuesta: { url: "https://checkout.stripe.com/..." }
 // ─────────────────────────────────────────────────────────────────────────────
 const NAZARI_EMPRESA_ID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+
+// Secret para sincronizarLibroStripeTest — mover a STRIPE_SYNC_SECRET en .env
+const STRIPE_SYNC_SECRET = process.env.STRIPE_SYNC_SECRET ?? "fluix-stripe-test-2026";
+
+/** Lee un item de catalogo_web y valida que está disponible para venta. */
+async function _resolverItemCatalogoNazari(catalogoId: string): Promise<{
+  nombre: string; imagenUrl: string; precioNum: number; precioStr: string;
+  pesoGramos: number; preventa: boolean; preventaEnvioLejanoCents: number | null;
+}> {
+  const col = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("catalogo_web");
+  let snap = await col.doc(catalogoId).get();
+
+  // Fallback: buscar por campo 'slug' si el ID de doc no coincide
+  if (!snap.exists) {
+    const bySlug = await col.where("slug", "==", catalogoId).limit(1).get();
+    if (!bySlug.empty) snap = bySlug.docs[0] as any;
+  }
+
+  if (!snap.exists) throw new Error(`Producto no encontrado: ${catalogoId}`);
+  const d = snap.data()!;
+  if (d.activo === false) throw new Error(`Producto no disponible: ${catalogoId}`);
+
+  const precioRaw: string = (d.precio ?? "").toString().replace(",", ".").replace(/[^0-9.]/g, "");
+  const precioNum = Math.round(parseFloat(precioRaw || "0") * 100);
+  if (isNaN(precioNum) || precioNum <= 0) throw new Error(`Precio inválido en ${catalogoId}: "${d.precio}"`);
+
+  const pesoRaw = d.peso_gramos ?? d.campo_peso ?? d.peso ?? "300";
+  const pesoGramos = Math.max(1, parseInt(String(pesoRaw).replace(/[^0-9]/g, ""), 10) || 300);
+
+  // Preventa: precio de envío lejano en céntimos (null si no configurado)
+  const preventa: boolean = d.preventa === true || d.es_preventa === true;
+  let preventaEnvioLejanoCents: number | null = null;
+  if (preventa && d.preventa_envio_lejano != null) {
+    const raw = String(d.preventa_envio_lejano).replace(",", ".").replace(/[^0-9.]/g, "");
+    const euros = parseFloat(raw);
+    if (!isNaN(euros) && euros > 0) preventaEnvioLejanoCents = Math.round(euros * 100);
+  }
+
+  return {
+    nombre:                    (d.nombre ?? d.titulo ?? "Libro") as string,
+    imagenUrl:                 (d.imagen_url ?? "") as string,
+    precioNum,
+    precioStr:                 d.precio as string,
+    pesoGramos,
+    preventa,
+    preventaEnvioLejanoCents,
+  };
+}
+
+/**
+ * Opciones de envío nacional (España) para Nazarí.
+ * Reglas:
+ *   - Total ≥ 30 €: Gratuito (ordinario) + Urgente. El peso no aplica.
+ *   - Total < 30 €: Ordinario por peso (≤100g→1,50€ | ≤500g→2,50€ | ≤1000g→3,00€) + Urgente.
+ *   - Urgente siempre 6 €, independiente del peso y el total.
+ */
+function _calcularOpcionesEnvioNazariES(
+  totalProductosEuros: number,
+  pesoGramos: number
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const urgente: Stripe.Checkout.SessionCreateParams.ShippingOption = {
+    shipping_rate_data: {
+      type: "fixed_amount",
+      fixed_amount: { amount: 600, currency: "eur" },
+      display_name: "Envío urgente (24-48h) — 6,00€",
+      delivery_estimate: {
+        minimum: { unit: "business_day", value: 1 },
+        maximum: { unit: "business_day", value: 2 },
+      },
+    },
+  };
+
+  if (totalProductosEuros >= 30) {
+    return [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: { amount: 0, currency: "eur" },
+          display_name: "Envío gratuito — Ordinario (3-5 días laborables)",
+          delivery_estimate: {
+            minimum: { unit: "business_day", value: 3 },
+            maximum: { unit: "business_day", value: 5 },
+          },
+        },
+      },
+      urgente,
+    ];
+  }
+
+  // <30€: precio ordinario según peso total del pedido
+  let ordinarioCents: number;
+  if (pesoGramos <= 100)      ordinarioCents = 150;
+  else if (pesoGramos <= 500) ordinarioCents = 250;
+  else                        ordinarioCents = 300; // hasta 1 kg
+
+  const precioStr = (ordinarioCents / 100).toFixed(2).replace(".", ",");
+  return [
+    {
+      shipping_rate_data: {
+        type: "fixed_amount",
+        fixed_amount: { amount: ordinarioCents, currency: "eur" },
+        display_name: `Envío ordinario (3-5 días laborables) — ${precioStr}€`,
+        delivery_estimate: {
+          minimum: { unit: "business_day", value: 3 },
+          maximum: { unit: "business_day", value: 5 },
+        },
+      },
+    },
+    urgente,
+  ];
+}
 
 // ── Helper: cliente Stripe configurado para Nazarí (TEST o LIVE) ──────────────
 // Devuelve el cliente Stripe con la clave correcta para el modo indicado.
@@ -4271,8 +4607,140 @@ async function getNazariStripeConfig(isTest: boolean) {
   return { stripe, connOpts, mode, stripeAccountId };
 }
 
-export const crearCheckoutNazari = onRequest(
-  { region: REGION, cors: true },
+// ── CORS compartido para funciones públicas de Editorial Nazarí ───────────────
+const _NAZARI_CORS = [
+  "https://www.editorialnazari.com",
+  "https://editorialnazari.com",
+  "https://seashell-boar-580681.hostingersite.com",
+  /^https?:\/\/.*\.hostingersite\.com$/,
+  /^http:\/\/localhost(:\d+)?$/,  // localhost con cualquier puerto (Live Server, etc.)
+  "null",                          // origen file:// para pruebas locales
+] as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// recomendacionesNazari — Ventas cruzadas por autor
+//
+// GET/POST ?catalogo_ids=id1,id2   (IDs del carrito actual, separados por coma)
+// Devuelve hasta 6 libros activos del mismo autor que NO estén ya en el carrito.
+// ─────────────────────────────────────────────────────────────────────────────
+export const recomendacionesNazari = onRequest(
+  { region: REGION, cors: _NAZARI_CORS as unknown as string[] },
+  async (req, res) => {
+    const rawParam =
+      (req.query.catalogo_ids as string) ??
+      (req.query.catalogo_id  as string) ??
+      (req.body?.catalogo_ids as string) ??
+      (req.body?.catalogo_id  as string) ??
+      "";
+
+    const catalogoIds: string[] = rawParam
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    // Autores enviados directamente desde el carrito (más fiable que el lookup por ID)
+    const autoresParam: string[] = (
+      Array.isArray(req.query.autor)
+        ? (req.query.autor as string[])
+        : req.query.autor ? [(req.query.autor as string)] : []
+    ).map((s: string) => s.trim()).filter(Boolean);
+
+    if (!catalogoIds.length && !autoresParam.length) {
+      res.status(400).json({ error: "Se requiere catalogo_ids o autor" });
+      return;
+    }
+
+    const col = db
+      .collection("empresas").doc(NAZARI_EMPRESA_ID)
+      .collection("catalogo_web");
+
+    const autores = new Set<string>();
+    const excluidos = new Set<string>(catalogoIds);
+
+    // 1. Usar autores del parámetro si vienen (camino rápido, sin lookup en Firestore)
+    autoresParam.forEach(a => autores.add(a));
+
+    // 2. Si no vinieron autores en el parámetro, buscar en Firestore por doc ID o slug
+    if (!autores.size && catalogoIds.length) {
+      const carritoDocs = await Promise.all(catalogoIds.map(id => col.doc(id).get()));
+      const idsNoEncontrados: string[] = [];
+
+      for (let i = 0; i < carritoDocs.length; i++) {
+        const snap = carritoDocs[i];
+        if (!snap.exists) {
+          idsNoEncontrados.push(catalogoIds[i]);
+          continue;
+        }
+        const d = snap.data()!;
+        const a = ((d.campo_autor ?? d.autor ?? d.nombre_autor ?? "") as string).trim();
+        if (a) autores.add(a);
+      }
+
+      // Fallback por campo slug
+      if (idsNoEncontrados.length > 0) {
+        const slugSnap = await col
+          .where("slug", "in", idsNoEncontrados.slice(0, 30))
+          .get();
+        for (const doc of slugSnap.docs) {
+          const d = doc.data();
+          const a = ((d.campo_autor ?? d.autor ?? d.nombre_autor ?? "") as string).trim();
+          if (a) autores.add(a);
+          excluidos.add(doc.id);
+        }
+      }
+    }
+
+    if (!autores.size) {
+      res.status(200).json({ libros: [], autores: [] });
+      return;
+    }
+
+    // Normalizar autor para comparación case-insensitive y sin tildes
+    const norm = (s: string) =>
+      s.toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const autoresNorm = new Set([...autores].map(norm));
+
+    // Leer todos los libros y filtrar en memoria
+    // (no where("activo","==",true) porque docs sin el campo deben incluirse)
+    const todosSnap = await col.get();
+
+    type RecomItem = {
+      catalogo_id: string; nombre: string; autor: string;
+      precio: string; imagen_url: string; slug: string;
+    };
+    const recomendaciones: RecomItem[] = [];
+
+    for (const doc of todosSnap.docs) {
+      if (recomendaciones.length >= 6) break;
+      if (excluidos.has(doc.id)) continue;
+      const d = doc.data();
+      if (d.activo === false) continue;
+      const autorDoc = ((d.campo_autor ?? d.autor ?? d.nombre_autor ?? "") as string).trim();
+      if (!autoresNorm.has(norm(autorDoc))) continue;
+      recomendaciones.push({
+        catalogo_id: doc.id,
+        nombre:      (d.nombre ?? d.titulo ?? "Libro") as string,
+        autor:       autorDoc,
+        precio:      (d.precio ?? "") as string,
+        imagen_url:  (d.imagen_url ?? "") as string,
+        slug:        (d.slug ?? doc.id) as string,
+      });
+    }
+
+    res.status(200).json({ libros: recomendaciones, autores: Array.from(autores) });
+  }
+);
+
+// crearCheckoutNazari — movido a nazariEbooks.ts (re-exportado en línea 111)
+// @ts-ignore -- duplicate eliminado; función activa en nazariEbooks.ts
+const _crearCheckoutNazari_REMOVED = onRequest(
+  { region: REGION, cors: _NAZARI_CORS as unknown as string[] },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).json({ error: "Method Not Allowed" });
@@ -4295,47 +4763,173 @@ export const crearCheckoutNazari = onRequest(
       return;
     }
 
-    const items: Array<{ titulo: string; precio: string; cantidad: number; imagen?: string; catalogo_id?: string }> =
+    const rawItems: Array<{ catalogo_id?: string; cantidad?: number; titulo?: string }> =
       req.body?.items ?? [];
 
-    if (!items.length) {
+    if (!rawItems.length) {
       res.status(400).json({ error: "El carrito está vacío" });
       return;
     }
 
-    console.log(`🛒 [${modeLabel}] Creando checkout Nazarí — ${items.length} ítem(s)`);
+    // Zona de envío: "ES" | "EU" | "LATAM" | "WORLD" (default "ES")
+    const zona = ((req.body?.zona as string) ?? "ES").toUpperCase().trim();
+    if (!["ES","EU","LATAM","WORLD"].includes(zona)) {
+      res.status(400).json({ error: `zona inválida: ${zona}. Valores: ES, EU, LATAM, WORLD` });
+      return;
+    }
+
+    // Modo pack: aplica descuento leído de Firestore (el cliente no decide el %)
+    const packMode: boolean = req.body?.pack_mode === true;
+
+    // Validar que todos los items tienen catalogo_id
+    for (const it of rawItems) {
+      if (!it.catalogo_id) {
+        res.status(400).json({ error: "Cada ítem debe incluir catalogo_id" });
+        return;
+      }
+      const cantidad = it.cantidad ?? 1;
+      if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 99) {
+        res.status(400).json({ error: `cantidad inválida para ${it.catalogo_id}` });
+        return;
+      }
+    }
+
+    console.log(`🛒 [${modeLabel}] Creando checkout Nazarí — ${rawItems.length} ítem(s) | zona: ${zona}`);
 
     try {
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((it) => {
-        const precioNum = Math.round(
-          parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100
-        );
-        const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
-          name: it.titulo || "Libro",
-        };
-        // Stripe solo acepta URLs HTTPS absolutas para imágenes
-        if (it.imagen && /^https:\/\/.+/.test(it.imagen)) pd.images = [it.imagen];
-        if (it.catalogo_id) pd.metadata = { catalogo_id: it.catalogo_id };
+      // Resolver precio + peso de CADA item desde Firestore (fuente de verdad)
+      const resolved = await Promise.all(
+        rawItems.map(async (it) => ({
+          catalogoId: it.catalogo_id!,
+          cantidad:   it.cantidad ?? 1,
+          item:       await _resolverItemCatalogoNazari(it.catalogo_id!),
+        }))
+      );
 
-        return {
-          price_data: {
-            currency: "eur",
-            product_data: pd,
-            unit_amount: precioNum > 0 ? precioNum : 100,
+      // Pack: leer descuento desde Firestore (fuente de verdad, no del cliente)
+      let packDescuentoPct = 0;
+      if (packMode) {
+        const packSnap = await db
+          .collection("empresas").doc(NAZARI_EMPRESA_ID)
+          .collection("configuracion").doc("pack_seleccion").get();
+        const packData = packSnap.data() ?? {};
+        if (packData.activo !== true) {
+          res.status(400).json({ error: "El pack no está activo" });
+          return;
+        }
+        packDescuentoPct = typeof packData.descuento_porcentaje === "number" ? packData.descuento_porcentaje : 0;
+        console.log(`🎁 [${modeLabel}] Pack mode — descuento: ${packDescuentoPct}%`);
+      }
+
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolved.map(
+        ({ catalogoId, cantidad, item }) => {
+          const precioFinal = packDescuentoPct > 0
+            ? Math.round(item.precioNum * (1 - packDescuentoPct / 100))
+            : item.precioNum;
+          const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
+            name: item.nombre,
+            metadata: { catalogo_id: catalogoId },
+          };
+          if (item.imagenUrl && /^https:\/\/.+/.test(item.imagenUrl)) pd.images = [item.imagenUrl];
+          return {
+            price_data: { currency: "eur", product_data: pd, unit_amount: precioFinal },
+            quantity: cantidad,
+          };
+        }
+      );
+
+      const totalProductosEuros = resolved.reduce((s, { cantidad, item }) => {
+        const pf = packDescuentoPct > 0 ? Math.round(item.precioNum * (1 - packDescuentoPct / 100)) : item.precioNum;
+        return s + pf * cantidad;
+      }, 0) / 100;
+      const pesoTotalGramos     = resolved.reduce((s, { cantidad, item }) => s + item.pesoGramos * cantidad, 0);
+
+      // ── Preventa: todos los libros del carrito deben estar en preventa ────────
+      const esPreventa = resolved.length > 0 && resolved.every(({ item }) => item.preventa);
+
+      // Opciones de envío y países permitidos según zona (y si es preventa)
+      let shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[];
+      let allowedCountries: AllowedCountry[];
+
+      if (esPreventa && (zona === "ES" || zona === "EU")) {
+        // Preventa + nacional/Europa → envío siempre gratuito
+        shippingOptions = [{
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: 0, currency: "eur" },
+            display_name: "Envío gratuito — Preventa (envío al publicarse)",
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: 3 },
+              maximum: { unit: "business_day", value: 10 },
+            },
           },
-          quantity: it.cantidad || 1,
-        };
-      });
+        }];
+        allowedCountries = zona === "EU" ? _PAISES_EUROPA : ["ES"];
+
+      } else if (esPreventa && (zona === "LATAM" || zona === "WORLD")) {
+        // Preventa + zona lejana → precio configurado en el libro (o tarifa estándar si no hay)
+        const maxCents = resolved.reduce<number | null>((max, { item }) => {
+          if (item.preventaEnvioLejanoCents == null) return max;
+          return max == null ? item.preventaEnvioLejanoCents : Math.max(max, item.preventaEnvioLejanoCents);
+        }, null);
+
+        if (maxCents != null) {
+          const precioStr = (maxCents / 100).toFixed(0);
+          shippingOptions = [{
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: maxCents, currency: "eur" },
+              display_name: `Envío preventa (envío al publicarse) — ${precioStr}€`,
+              delivery_estimate: {
+                minimum: { unit: "business_day", value: 14 },
+                maximum: { unit: "business_day", value: 30 },
+              },
+            },
+          }];
+        } else {
+          // Sin precio configurado → usar tarifa estándar de la zona
+          shippingOptions = zona === "LATAM"
+            ? _opcionesEnvioLatam(pesoTotalGramos)
+            : _opcionesEnvioMundo(pesoTotalGramos);
+        }
+        allowedCountries = zona === "LATAM" ? _PAISES_LATAM : _PAISES_RESTO;
+
+      } else {
+        // Flujo normal (no preventa, o carrito mixto)
+        switch (zona) {
+          case "EU":
+            shippingOptions  = _opcionesEnvioEuropa(pesoTotalGramos);
+            allowedCountries = _PAISES_EUROPA;
+            break;
+          case "LATAM":
+            shippingOptions  = _opcionesEnvioLatam(pesoTotalGramos);
+            allowedCountries = _PAISES_LATAM;
+            break;
+          case "WORLD":
+            shippingOptions  = _opcionesEnvioMundo(pesoTotalGramos);
+            allowedCountries = _PAISES_RESTO;
+            break;
+          default: // "ES"
+            shippingOptions  = _calcularOpcionesEnvioNazariES(totalProductosEuros, pesoTotalGramos);
+            allowedCountries = ["ES"];
+        }
+      }
+
+      console.log(`📦 [${modeLabel}] Total: ${totalProductosEuros.toFixed(2)}€ | Peso: ${pesoTotalGramos}g | Zona: ${zona} | Preventa: ${esPreventa} | Opciones: ${shippingOptions.length}`);
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
         line_items: lineItems,
         metadata: {
-          empresa_id: NAZARI_EMPRESA_ID,
-          tipo: "pedido_nazari",
+          empresa_id:  NAZARI_EMPRESA_ID,
+          tipo:        "pedido_nazari",
+          zona_envio:  zona,
+          es_preventa: esPreventa ? "true" : "false",
+          es_pack:     packMode ? "true" : "false",
         },
-        shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
+        shipping_address_collection: { allowed_countries: allowedCountries },
+        shipping_options: shippingOptions,
         success_url: "https://www.editorialnazari.com/gracias.html?session={CHECKOUT_SESSION_ID}",
         cancel_url:  "https://www.editorialnazari.com/catalogo.html",
       }, connOpts);
@@ -4343,8 +4937,9 @@ export const crearCheckoutNazari = onRequest(
       console.log(`✅ [${modeLabel}] Checkout creado: ${session.url}`);
       res.status(200).json({ url: session.url, mode: modeLabel });
     } catch (error: any) {
-      console.error(`❌ [${modeLabel}] Error creando checkout Nazarí:`, error);
-      res.status(500).json({ error: "Error creando sesión de pago" });
+      console.error(`❌ [${modeLabel}] Error creando checkout Nazarí:`, error.message);
+      res.status(error.message?.includes("no encontrado") || error.message?.includes("no disponible") ? 404 : 500)
+        .json({ error: error.message || "Error creando sesión de pago" });
     }
   }
 );
@@ -4369,72 +4964,77 @@ export const crearCheckoutTienda = onRequest(
       return;
     }
 
-    const empresaId: string = req.body?.empresa_id || "";
+    const empresaId: string  = req.body?.empresa_id  || "";
     const successUrl: string = req.body?.success_url || "";
     const cancelUrl: string  = req.body?.cancel_url  || "";
-    const items: Array<{ titulo: string; precio: string; cantidad: number; imagen?: string; catalogo_id?: string }> =
+    const rawItems: Array<{ catalogo_id?: string; cantidad?: number; titulo?: string }> =
       req.body?.items ?? [];
 
-    if (!empresaId) {
-      res.status(400).json({ error: "empresa_id requerido" });
-      return;
-    }
-    if (!items.length) {
-      res.status(400).json({ error: "El carrito está vacío" });
-      return;
-    }
-    if (!successUrl || !cancelUrl) {
-      res.status(400).json({ error: "success_url y cancel_url requeridos" });
-      return;
+    if (!empresaId) { res.status(400).json({ error: "empresa_id requerido" }); return; }
+    if (!rawItems.length) { res.status(400).json({ error: "El carrito está vacío" }); return; }
+    if (!successUrl || !cancelUrl) { res.status(400).json({ error: "success_url y cancel_url requeridos" }); return; }
+
+    // Validar que todos los items tienen catalogo_id y cantidad válida
+    for (const it of rawItems) {
+      if (!it.catalogo_id) { res.status(400).json({ error: "Cada ítem debe incluir catalogo_id" }); return; }
+      const cantidad = it.cantidad ?? 1;
+      if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 99) {
+        res.status(400).json({ error: `cantidad inválida para ${it.catalogo_id}` }); return;
+      }
     }
 
-    // Usar la clave Stripe de la empresa si está configurada; si no, la global
+    // Validar que la empresa tiene integración Stripe activa y obtener clave
     let secretKey = stripeSecretKey.value() || "";
     try {
       const integDoc = await db.collection("empresas").doc(empresaId)
         .collection("integraciones").doc("stripe").get();
-      if (integDoc.exists) {
-        const empresaKey: string = integDoc.data()?.secret_key || "";
-        if (empresaKey) secretKey = empresaKey;
+      if (!integDoc.exists) {
+        res.status(403).json({ error: "Empresa no habilitada para pagos" }); return;
       }
+      const empresaKey: string = integDoc.data()?.secret_key || "";
+      if (empresaKey) secretKey = empresaKey;
     } catch (_) { /* usa la global como fallback */ }
 
-    if (!secretKey) {
-      res.status(500).json({ error: "Pagos no configurados" });
-      return;
-    }
+    if (!secretKey) { res.status(500).json({ error: "Pagos no configurados" }); return; }
 
     const stripe = new Stripe(secretKey, { apiVersion: "2024-06-20" });
 
     try {
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((it) => {
-        const precioNum = Math.round(
-          parseFloat((it.precio || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100
-        );
-        const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
-          name: it.titulo || "Producto",
-        };
-        if (it.imagen)      pd.images   = [encodeURI(it.imagen)];
-        if (it.catalogo_id) pd.metadata = { catalogo_id: it.catalogo_id };
+      // Leer precio y datos de cada item desde catalogo_web de esa empresa (fuente de verdad)
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = await Promise.all(
+        rawItems.map(async (it) => {
+          const snap = await db
+            .collection("empresas").doc(empresaId)
+            .collection("catalogo_web").doc(it.catalogo_id!).get();
 
-        return {
-          price_data: {
-            currency: "eur",
-            product_data: pd,
-            unit_amount: precioNum > 0 ? precioNum : 100,
-          },
-          quantity: it.cantidad || 1,
-        };
-      });
+          if (!snap.exists) throw new Error(`Producto no encontrado: ${it.catalogo_id} en empresa ${empresaId}`);
+          const d = snap.data()!;
+          if (d.activo === false) throw new Error(`Producto no disponible: ${it.catalogo_id}`);
+
+          const precioRaw = (d.precio ?? "").toString().replace(",", ".").replace(/[^0-9.]/g, "");
+          const precioNum = Math.round(parseFloat(precioRaw || "0") * 100);
+          if (isNaN(precioNum) || precioNum <= 0) throw new Error(`Precio inválido: ${it.catalogo_id}`);
+
+          const nombre   = (d.nombre ?? d.titulo ?? "Producto") as string;
+          const imagenUrl = (d.imagen_url ?? "") as string;
+          const pd: Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData = {
+            name: nombre,
+            metadata: { catalogo_id: it.catalogo_id! },
+          };
+          if (imagenUrl && /^https:\/\//.test(imagenUrl)) pd.images = [encodeURI(imagenUrl)];
+
+          return {
+            price_data: { currency: "eur", product_data: pd, unit_amount: precioNum },
+            quantity: it.cantidad ?? 1,
+          };
+        })
+      );
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
         line_items: lineItems,
-        metadata: {
-          empresa_id: empresaId,
-          tipo: "pedido_tienda",
-        },
+        metadata: { empresa_id: empresaId, tipo: "pedido_tienda" },
         shipping_address_collection: { allowed_countries: ["ES", "FR", "DE", "PT", "IT", "GB"] },
         success_url: successUrl,
         cancel_url:  cancelUrl,
@@ -4442,21 +5042,30 @@ export const crearCheckoutTienda = onRequest(
 
       res.status(200).json({ url: session.url });
     } catch (error: any) {
-      console.error("❌ Error creando checkout tienda:", error);
-      res.status(500).json({ error: "Error creando sesión de pago" });
+      console.error("❌ Error creando checkout tienda:", error.message);
+      res.status(error.message?.includes("no encontrado") || error.message?.includes("no disponible") ? 404 : 500)
+        .json({ error: error.message || "Error creando sesión de pago" });
     }
   }
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
 // sincronizarLibroStripe — Sincroniza automáticamente libros de Nazarí con
-//   el catálogo de productos de Stripe cuando se crean o modifican en Firestore.
+//   Stripe cuando se crean o modifican en catalogo_web (fuente de verdad).
 //
-// Trigger: escritura en empresas/{empresaId}/libros/{libroId}
+// Trigger: escritura en empresas/{empresaId}/catalogo_web/{itemId}
 // Solo actúa si empresaId === NAZARI_EMPRESA_ID y STRIPE_SECRET_KEY está configurada.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Campos que escribe esta propia función en catalogo_web.
+// Si solo cambian estos, ignoramos para evitar un bucle de triggers.
+const _STRIPE_SYNC_FIELDS = new Set([
+  "stripe_product_id", "stripe_price_id", "payment_link", "stripe_link",
+  "stripe_sync_ts", "stripe_product_id_test", "stripe_price_id_test", "payment_link_test",
+]);
+
 export const sincronizarLibroStripe = onDocumentWritten(
-  "empresas/{empresaId}/libros/{libroId}",
+  "empresas/{empresaId}/catalogo_web/{itemId}",
   async (event) => {
     if (event.params.empresaId !== NAZARI_EMPRESA_ID) return;
     if (!stripeSecretKey.value()) return;
@@ -4465,6 +5074,54 @@ export const sincronizarLibroStripe = onDocumentWritten(
     const before = event.data?.before?.data();
     const docRef = event.data?.after?.ref ?? event.data?.before?.ref;
     if (!docRef) return;
+
+    // Guard 1: solo cambiaron campos que nosotros mismos escribimos → bucle, salir
+    if (after && before) {
+      const changed = Object.keys({ ...after, ...before }).filter(k => {
+        const av = after[k]; const bv = before[k];
+        // Timestamps del servidor siempre difieren — tratarlos como sin cambio real
+        if (av && bv && typeof av === "object" && "_seconds" in av && typeof bv === "object" && "_seconds" in bv) return false;
+        return JSON.stringify(av) !== JSON.stringify(bv);
+      });
+      if (changed.length === 0) {
+        console.log(`⏭️ [sincronizarLibroStripe] Solo timestamps cambiaron — skip`);
+        return;
+      }
+      if (changed.length > 0 && changed.every(k => _STRIPE_SYNC_FIELDS.has(k))) {
+        console.log(`⏭️ [sincronizarLibroStripe] Solo campos Stripe cambiaron — ignorando para evitar bucle`);
+        return;
+      }
+    }
+
+    // Guard 2: migración masiva — si solo cambiaron campos de migración y el item ya tiene
+    // stripe_product_id, no hay nada que hacer en Stripe
+    const _MIGRATION_FIELDS = new Set(["nombre","titulo","descripcion","precio","precio_digital",
+      "imagen_url","imagen","activo","orden","slug","tag","categoria","genero","campo_autor","autor",
+      "campo_isbn","campo_paginas","campo_formato","campo_dimensiones","campo_anio","campo_mes",
+      "origen","guardado_en","migrado_en","fecha_actualizacion","fecha_creacion",
+      // Campos de envío y preventa — no afectan al producto/precio de Stripe
+      "campo_peso","peso","peso_gramos","preventa","es_preventa","preventa_envio_lejano",
+      // Campos de sección/web
+      "seccion_id","es_libro_del_mes","novedades","en_seleccion"]);
+    if (after && before && after.stripe_product_id) {
+      const realChanged = Object.keys({ ...after, ...before }).filter(k => {
+        const av = after[k]; const bv = before[k];
+        if (av && bv && typeof av === "object" && "_seconds" in av && typeof bv === "object" && "_seconds" in bv) return false;
+        return JSON.stringify(av) !== JSON.stringify(bv);
+      });
+      if (realChanged.every(k => _MIGRATION_FIELDS.has(k) || _STRIPE_SYNC_FIELDS.has(k))) {
+        // Solo campos de migración cambiaron y ya tiene stripe_product_id → nada que hacer
+        // (el nombre/precio se actualizará si realmente cambiaron en la próxima edición real)
+        const precioActualStr = (after.precio ?? "").toString().replace(",", ".").replace(/[^0-9.]/g, "");
+        const precioAnteriorStr = (before.precio ?? "").toString().replace(",", ".").replace(/[^0-9.]/g, "");
+        const nombreCambio = after.nombre !== before.nombre;
+        const precioCambio = Math.abs(parseFloat(precioActualStr || "0") - parseFloat(precioAnteriorStr || "0")) > 0.01;
+        if (!nombreCambio && !precioCambio && !(after.activo === false && before.activo === true)) {
+          console.log(`⏭️ [sincronizarLibroStripe] Migración masiva sin cambios relevantes — skip (${docRef.id})`);
+          return;
+        }
+      }
+    }
 
     let stripe: Stripe;
     let connOpts: Stripe.RequestOptions | undefined;
@@ -4477,18 +5134,25 @@ export const sincronizarLibroStripe = onDocumentWritten(
       return;
     }
 
-    // Libro eliminado o desactivado → archivar en Stripe
+    // Item desactivado o eliminado → archivar producto en Stripe
     if (!after || after.activo === false) {
       if (before?.stripe_product_id) {
         try {
           await stripe.products.update(before.stripe_product_id, { active: false }, connOpts);
-          console.log(`📦 [LIVE] Libro ${docRef.id} archivado`);
+          console.log(`📦 [LIVE] Item ${docRef.id} archivado en Stripe`);
         } catch (e) {
-          console.warn("⚠️ [LIVE] No se pudo archivar:", e);
+          console.warn("⚠️ [LIVE] No se pudo archivar en Stripe:", e);
         }
       }
       return;
     }
+
+    // Normalizar campos: catalogo_web usa nombre/campo_autor/descripcion/campo_isbn
+    const titulo  = (after.nombre ?? after.titulo ?? "Libro") as string;
+    const autor   = (after.campo_autor ?? after.autor ?? "") as string;
+    const desc    = (after.descripcion ?? after.sinopsis ?? "") as string;
+    const isbn    = (after.campo_isbn ?? after.isbn ?? "") as string;
+    const imagen  = (after.imagen_url ?? "") as string;
 
     const parsePrecio = (p: string) =>
       Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
@@ -4498,22 +5162,22 @@ export const sincronizarLibroStripe = onDocumentWritten(
     // ── Producto ──────────────────────────────────────────────────────────────
     let stripeProductId: string = after.stripe_product_id || "";
     const productBase = {
-      name: after.titulo || "Libro",
-      metadata: { catalogo_id: docRef.id, empresa_id: NAZARI_EMPRESA_ID, autor: after.autor || "", isbn: after.isbn || "" },
-      ...(after.sinopsis   ? { description: (after.sinopsis as string).slice(0, 500) }              : {}),
-      ...(after.imagen_url ? { images: [encodeURI(after.imagen_url as string)] }                    : {}),
+      name:     titulo,
+      metadata: { catalogo_id: docRef.id, empresa_id: NAZARI_EMPRESA_ID, autor, isbn },
+      ...(desc   ? { description: desc.slice(0, 500) }               : {}),
+      ...(imagen && /^https:\/\//.test(imagen) ? { images: [encodeURI(imagen)] } : {}),
     };
     try {
       if (!stripeProductId) {
         const prod = await stripe.products.create(productBase as Stripe.ProductCreateParams, connOpts);
         stripeProductId = prod.id;
-        console.log(`✅ [LIVE] Producto creado: ${stripeProductId} ("${after.titulo}")`);
+        console.log(`✅ [LIVE] Producto creado: ${stripeProductId} ("${titulo}")`);
       } else {
         await stripe.products.update(stripeProductId, productBase as unknown as Stripe.ProductUpdateParams, connOpts);
         console.log(`🔄 [LIVE] Producto actualizado: ${stripeProductId}`);
       }
     } catch (e) {
-      console.error("❌ [LIVE] Error en producto:", e);
+      console.error("❌ [LIVE] Error en producto Stripe:", e);
       return;
     }
 
@@ -4522,6 +5186,7 @@ export const sincronizarLibroStripe = onDocumentWritten(
     const precioChanged = precioActual > 0 && (precioActual !== precioAnterior || !stripePriceId);
     if (precioChanged) {
       try {
+        // Stripe Prices son inmutables en importe → archivar el anterior y crear nuevo
         if (stripePriceId) await stripe.prices.update(stripePriceId, { active: false }, connOpts);
         const price = await stripe.prices.create(
           { product: stripeProductId, unit_amount: precioActual, currency: "eur" },
@@ -4530,7 +5195,7 @@ export const sincronizarLibroStripe = onDocumentWritten(
         stripePriceId = price.id;
         console.log(`💶 [LIVE] Precio: ${stripePriceId} (${precioActual / 100} €)`);
       } catch (e) {
-        console.error("❌ [LIVE] Error en precio:", e);
+        console.error("❌ [LIVE] Error en precio Stripe:", e);
       }
     }
 
@@ -4541,11 +5206,11 @@ export const sincronizarLibroStripe = onDocumentWritten(
         const pl = await stripe.paymentLinks.create({
           line_items: [{ price: stripePriceId, quantity: 1 }],
           metadata: {
-            empresa_id:    NAZARI_EMPRESA_ID,
-            tipo:          "pedido_nazari",
-            libro_id:      docRef.id,
-            libro_titulo:  (after.titulo as string) || "Libro",
-            precio_str:    (after.precio as string) || "",
+            empresa_id:   NAZARI_EMPRESA_ID,
+            tipo:         "pedido_nazari",
+            libro_id:     docRef.id,
+            libro_titulo: titulo,
+            precio_str:   (after.precio as string) || "",
           },
         }, connOpts);
         paymentLink = pl.url;
@@ -4555,11 +5220,12 @@ export const sincronizarLibroStripe = onDocumentWritten(
       }
     }
 
-    // ── Firestore ─────────────────────────────────────────────────────────────
+    // ── Escribir IDs de Stripe de vuelta en catalogo_web ──────────────────────
+    // Estos campos están en _STRIPE_SYNC_FIELDS → el guard anti-loop los ignorará
     await docRef.update({
       stripe_product_id: stripeProductId,
       stripe_price_id:   stripePriceId,
-      ...(paymentLink ? { payment_link: paymentLink } : {}),
+      ...(paymentLink ? { payment_link: paymentLink, stripe_link: paymentLink } : {}),
       stripe_sync_ts:    admin.firestore.FieldValue.serverTimestamp(),
     });
     console.log(`📝 [LIVE] OK → product: ${stripeProductId} | price: ${stripePriceId} | link: ${paymentLink || "n/a"}`);
@@ -4584,7 +5250,7 @@ export const sincronizarLibroStripeTest = onRequest(
   { region: REGION, cors: true },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).json({ error: "POST requerido" }); return; }
-    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+    if (!STRIPE_SYNC_SECRET || req.headers["x-sync-secret"] !== STRIPE_SYNC_SECRET) {
       res.status(401).json({ error: "No autorizado" }); return;
     }
 
@@ -4703,7 +5369,7 @@ export const sincronizarLibroStripeTest = onRequest(
 export const crearPedidoPruebaTest = onRequest(
   { region: REGION },
   async (req, res) => {
-    if (req.headers["x-sync-secret"] !== "fluix-stripe-test-2026") {
+    if (!STRIPE_SYNC_SECRET || req.headers["x-sync-secret"] !== STRIPE_SYNC_SECRET) {
       res.status(401).json({ error: "No autorizado" }); return;
     }
     const libroId = (req.body?.libroId || "33-suenos") as string;
@@ -4828,5 +5494,300 @@ export const migrarLibrosStripe = onRequest(
 
     console.log(`✅ Migración completada: ${creados} creados, ${yaSync} ya sincronizados, ${errores} errores`);
     res.status(200).json({ resumen: { creados, ya_sincronizados: yaSync, errores }, detalle: resultados });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// auditarStripeCatalogo — Audita y sincroniza Stripe vs catalogo_web.
+//
+// Callable desde Fluix (Firebase callable function).
+// Requiere que el usuario sea admin de la empresa Nazarí.
+//
+// Modos (parámetro `modo`):
+//   "diagnostico"    → solo lee, no escribe (default)
+//   "limpiar"        → archiva en Stripe productos sin catálogo activo
+//   "crear_faltantes"→ crea productos Stripe para libros sin stripe_product_id
+//   "full"           → limpiar + crear_faltantes
+// ─────────────────────────────────────────────────────────────────────────────
+export const auditarStripeCatalogo = onCall(
+  { region: REGION },
+  async (request) => {
+    // Solo permite usuarios autenticados de la empresa Nazarí
+    if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida");
+
+    const modo: string = (request.data?.modo as string) || "diagnostico";
+    const limpiar         = modo === "limpiar"   || modo === "full";
+    const crearFaltantes  = modo === "crear_faltantes" || modo === "full";
+
+    const key = stripeSecretKey.value();
+    if (!key) throw new HttpsError("failed-precondition", "STRIPE_SECRET_KEY no configurada");
+
+    const stripe = new Stripe(key, { apiVersion: "2024-06-20" });
+
+    // Stripe Connect optional
+    let connOpts: Stripe.RequestOptions | undefined;
+    try {
+      const integSnap = await db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+        .collection("integraciones").doc("stripe").get();
+      const acct = integSnap.data()?.stripe_account_id ?? "";
+      if (acct) connOpts = { stripeAccount: acct };
+    } catch (_) {}
+
+    // ── Leer todos los productos de Stripe ──────────────────────────────────
+    const stripeProds: Stripe.Product[] = [];
+    let startingAfter: string | undefined;
+    while (true) {
+      const params: Stripe.ProductListParams = { limit: 100 };
+      if (startingAfter) params.starting_after = startingAfter;
+      const page = await stripe.products.list(params, connOpts);
+      stripeProds.push(...page.data);
+      if (!page.has_more) break;
+      startingAfter = page.data[page.data.length - 1].id;
+    }
+
+    // ── Leer catalogo_web ───────────────────────────────────────────────────
+    const catSnap = await db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+      .collection("catalogo_web").get();
+    type CatDoc = { id: string; activo?: boolean; stripe_product_id?: string; [k: string]: any };
+    const catDocs: CatDoc[] = catSnap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, any>) }));
+    const catIds  = new Set(catDocs.map(d => d.id));
+
+    // ── Análisis ────────────────────────────────────────────────────────────
+    const byMeta = new Map<string, Stripe.Product[]>();
+    for (const p of stripeProds) {
+      const cid = p.metadata?.catalogo_id ?? "";
+      if (cid) {
+        if (!byMeta.has(cid)) byMeta.set(cid, []);
+        byMeta.get(cid)!.push(p);
+      }
+    }
+
+    const orphans:    string[] = [];
+    const duplicates: string[] = [];
+    const sinStripe:  string[] = [];
+
+    for (const [cid, prods] of byMeta.entries()) {
+      const doc = catDocs.find(d => d.id === cid);
+      const enFirestore = catIds.has(cid);
+      if (!enFirestore || doc?.activo === false) {
+        orphans.push(...prods.filter(p => p.active).map(p => p.id));
+      } else {
+        const activos = prods.filter(p => p.active);
+        if (activos.length > 1) {
+          const canonical = doc?.stripe_product_id;
+          duplicates.push(...activos.filter(p => p.id !== canonical).map(p => p.id));
+        }
+      }
+    }
+    for (const doc of catDocs) {
+      if (doc.activo === false) continue;
+      if (!doc.stripe_product_id) sinStripe.push(doc.id);
+    }
+
+    const sinMeta = stripeProds.filter(p => p.active && !p.metadata?.catalogo_id).length;
+
+    let archivados = 0, creados = 0, errores = 0;
+
+    // ── Archivar orphans + duplicados ───────────────────────────────────────
+    if (limpiar) {
+      const toArchive = [...new Set([...orphans, ...duplicates])];
+      for (const pid of toArchive) {
+        try {
+          await stripe.products.update(pid, { active: false }, connOpts);
+          archivados++;
+          await new Promise(r => setTimeout(r, 80));
+        } catch (e: any) {
+          console.warn(`⚠️ No se pudo archivar ${pid}: ${e.message}`);
+          errores++;
+        }
+      }
+    }
+
+    // ── Crear productos faltantes ───────────────────────────────────────────
+    if (crearFaltantes) {
+      const col = db.collection("empresas").doc(NAZARI_EMPRESA_ID).collection("catalogo_web");
+      for (const itemId of sinStripe) {
+        const docSnap = await col.doc(itemId).get();
+        if (!docSnap.exists) continue;
+        const d = docSnap.data()!;
+        const titulo  = (d.nombre ?? d.titulo ?? "Libro") as string;
+        const autor   = (d.campo_autor ?? d.autor ?? "") as string;
+        const desc    = (d.descripcion ?? "") as string;
+        const isbn    = (d.campo_isbn ?? d.isbn ?? "") as string;
+        const imagen  = (d.imagen_url ?? "") as string;
+        const parsePrecio = (p: string) =>
+          Math.round(parseFloat((p || "0").replace(",", ".").replace(/[^0-9.]/g, "")) * 100);
+        const precio = parsePrecio(d.precio as string);
+        try {
+          const prod = await stripe.products.create({
+            name:        titulo,
+            ...(desc  ? { description: desc.slice(0, 500) }                    : {}),
+            ...(imagen && /^https:\/\//.test(imagen) ? { images: [encodeURI(imagen)] } : {}),
+            metadata:    { catalogo_id: itemId, empresa_id: NAZARI_EMPRESA_ID, autor, isbn },
+          }, connOpts);
+          let priceId = "";
+          if (precio > 0) {
+            const price = await stripe.prices.create(
+              { product: prod.id, unit_amount: precio, currency: "eur" }, connOpts);
+            priceId = price.id;
+          }
+          await col.doc(itemId).update({
+            stripe_product_id: prod.id,
+            ...(priceId ? { stripe_price_id: priceId } : {}),
+            stripe_sync_ts: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          creados++;
+          await new Promise(r => setTimeout(r, 150));
+        } catch (e: any) {
+          console.warn(`⚠️ No se pudo crear producto para ${itemId}: ${e.message}`);
+          errores++;
+        }
+      }
+    }
+
+    return {
+      stripe_total:       stripeProds.length,
+      stripe_activos:     stripeProds.filter(p => p.active).length,
+      stripe_sin_meta:    sinMeta,
+      orphans:            orphans.length,
+      duplicados:         duplicates.length,
+      catalogo_sin_stripe: sinStripe.length,
+      catalogo_total:     catDocs.length,
+      // Resultados de operaciones (solo si se ejecutaron)
+      ...(limpiar          ? { archivados } : {}),
+      ...(crearFaltantes   ? { creados    } : {}),
+      ...(limpiar || crearFaltantes ? { errores } : {}),
+    };
+  }
+);
+
+// =============================================================================
+// crearLinkPackNazari — HTTP function (autenticada con Firebase ID token)
+// Crea un Stripe Payment Link para el pack de La Selección Nazarí y guarda la
+// URL en empresas/{EID}/configuracion/pack_seleccion.stripe_link
+// POST (sin body necesario) — Authorization: Bearer <firebase-id-token>
+// =============================================================================
+
+export const crearLinkPackNazari = onRequest(
+  { region: REGION, timeoutSeconds: 120, memory: "256MiB", cors: false, invoker: "public" },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).json({ error: "Method Not Allowed" }); return; }
+
+    // Verificar Firebase ID token
+    const authHeader = req.headers.authorization ?? "";
+    if (!authHeader.startsWith("Bearer ")) {
+      res.status(401).json({ error: "Token requerido" }); return;
+    }
+    try {
+      await admin.auth().verifyIdToken(authHeader.slice(7));
+    } catch {
+      res.status(401).json({ error: "Token inválido" }); return;
+    }
+
+    try {
+      const { stripe, connOpts, mode } = await getNazariStripeConfig(false);
+
+      // 1. Leer configuración del pack
+      const packRef = db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+        .collection("configuracion").doc("pack_seleccion");
+      const packSnap = await packRef.get();
+      if (!packSnap.exists) { res.status(404).json({ error: "No hay configuración de pack" }); return; }
+      const packData = packSnap.data()!;
+      const descuentoPct: number = typeof packData.descuento_porcentaje === "number" ? packData.descuento_porcentaje : 0;
+      const descripcion: string  = (packData.descripcion as string) || "Pack La Selección Nazarí";
+
+      // 2. Leer libros del pack
+      const selSnap = await db.collection("empresas").doc(NAZARI_EMPRESA_ID)
+        .collection("seleccion_nazari")
+        .where("en_pack", "==", true)
+        .where("activo", "==", true)
+        .orderBy("orden").limit(8).get();
+      if (selSnap.empty) { res.status(400).json({ error: "No hay libros marcados en el pack" }); return; }
+
+      // 3. Resolver precios y pesos
+      const libros = await Promise.all(
+        selSnap.docs.map(async (d) => {
+          const catalogoId = (d.data().catalogo_id as string) || d.id;
+          try {
+            const item = await _resolverItemCatalogoNazari(catalogoId);
+            return { catalogoId, precioNum: item.precioNum, pesoGramos: item.pesoGramos, nombre: item.nombre, imagenUrl: item.imagenUrl };
+          } catch {
+            const raw = ((d.data().precio as string) ?? "").replace(",", ".").replace(/[^0-9.]/g, "");
+            return { catalogoId, precioNum: Math.round(parseFloat(raw || "0") * 100) || 0,
+                     pesoGramos: 300, nombre: (d.data().titulo ?? "") as string, imagenUrl: (d.data().imagen ?? "") as string };
+          }
+        })
+      );
+
+      const totalOriginalCents = libros.reduce((s, l) => s + l.precioNum, 0);
+      const packPriceCents      = Math.max(100, Math.round(totalOriginalCents * (1 - descuentoPct / 100)));
+      const pesoTotal           = libros.reduce((s, l) => s + l.pesoGramos, 0);
+      console.log(`🎁 [${mode}] Pack: ${libros.length} libros | original: ${(totalOriginalCents/100).toFixed(2)}€ | pack: ${(packPriceCents/100).toFixed(2)}€ | peso: ${pesoTotal}g`);
+
+      // 4. Crear ShippingRates
+      const mesAno = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+      const tagMeta: Record<string,string> = { tipo: "pack_nazari", mes: mesAno };
+      const esGratuito = (packPriceCents / 100) >= 30;
+      const esOrdCents = esGratuito ? 0 : (pesoTotal <= 100 ? 150 : pesoTotal <= 500 ? 250 : 300);
+
+      const [rateESOrd, rateESUrg, rateEU, rateIntl] = await Promise.all([
+        stripe.shippingRates.create({
+          display_name: esGratuito ? "Envío gratuito España (3-5 días laborables)" : `Envío ordinario España — ${(esOrdCents/100).toFixed(2).replace(".",",")}€`,
+          type: "fixed_amount", fixed_amount: { amount: esOrdCents, currency: "eur" },
+          delivery_estimate: { minimum: { unit: "business_day" as const, value: 3 }, maximum: { unit: "business_day" as const, value: 5 } }, metadata: tagMeta,
+        }, connOpts),
+        stripe.shippingRates.create({
+          display_name: "Envío urgente España (24-48 h) — 6,00€",
+          type: "fixed_amount", fixed_amount: { amount: 600, currency: "eur" },
+          delivery_estimate: { minimum: { unit: "business_day" as const, value: 1 }, maximum: { unit: "business_day" as const, value: 2 } }, metadata: tagMeta,
+        }, connOpts),
+        stripe.shippingRates.create({
+          display_name: `Envío Europa (7-14 días laborables) — ${pesoTotal < 500 ? "15" : "20"}€`,
+          type: "fixed_amount", fixed_amount: { amount: pesoTotal < 500 ? 1500 : 2000, currency: "eur" },
+          delivery_estimate: { minimum: { unit: "business_day" as const, value: 7 }, maximum: { unit: "business_day" as const, value: 14 } }, metadata: tagMeta,
+        }, connOpts),
+        stripe.shippingRates.create({
+          display_name: `Envío internacional (14-30 días laborables) — ${pesoTotal < 500 ? "25" : "35"}€`,
+          type: "fixed_amount", fixed_amount: { amount: pesoTotal < 500 ? 2500 : 3500, currency: "eur" },
+          delivery_estimate: { minimum: { unit: "business_day" as const, value: 14 }, maximum: { unit: "business_day" as const, value: 30 } }, metadata: tagMeta,
+        }, connOpts),
+      ]);
+
+      // 5. Crear Product + Price
+      const imagenPack = (libros[0]?.imagenUrl && /^https:\/\/.+/.test(libros[0].imagenUrl)) ? libros[0].imagenUrl : undefined;
+      const product = await stripe.products.create({
+        name: `Pack La Seleccion Nazari — ${mesAno}`, description: descripcion,
+        ...(imagenPack ? { images: [imagenPack] } : {}),
+        metadata: { tipo: "pack_nazari", empresa_id: NAZARI_EMPRESA_ID },
+      }, connOpts);
+      const price = await stripe.prices.create({ currency: "eur", unit_amount: packPriceCents, product: product.id }, connOpts);
+
+      // 6. Crear Payment Link
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [{ price: price.id, quantity: 1 }],
+        shipping_address_collection: {
+          allowed_countries: ["ES","PT","FR","DE","IT","BE","NL","AT","PL","SE","DK","NO","FI","IE","GB","CH",
+            "MX","AR","CO","PE","CL","UY","VE","EC","BO","PY","CR","GT","PA","US","CA"] as Stripe.PaymentLink.ShippingAddressCollection.AllowedCountry[],
+        },
+        shipping_options: [{ shipping_rate: rateESOrd.id },{ shipping_rate: rateESUrg.id },{ shipping_rate: rateEU.id },{ shipping_rate: rateIntl.id }],
+        after_completion: { type: "redirect", redirect: { url: "https://www.editorialnazari.com/gracias.html" } },
+        metadata: { tipo: "pack_nazari", empresa_id: NAZARI_EMPRESA_ID, descuento: String(descuentoPct), mes: mesAno },
+      }, connOpts);
+
+      // 7. Guardar en Firestore
+      const precioPackStr     = (packPriceCents / 100).toFixed(2).replace(".", ",") + " €";
+      const precioOriginalStr = (totalOriginalCents / 100).toFixed(2).replace(".", ",") + " €";
+      await packRef.set({
+        stripe_link: paymentLink.url, stripe_link_id: paymentLink.id, stripe_price_id: price.id,
+        precio_pack: precioPackStr, precio_original: precioOriginalStr, peso_total_gramos: pesoTotal,
+        link_generado_at: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      console.log(`✅ [${mode}] Pack Payment Link: ${paymentLink.url}`);
+      res.status(200).json({ url: paymentLink.url, precio_pack: precioPackStr, precio_original: precioOriginalStr, libros_count: libros.length });
+    } catch (e: any) {
+      console.error("❌ crearLinkPackNazari:", e.message);
+      res.status(500).json({ error: e.message || "Error interno" });
+    }
   }
 );

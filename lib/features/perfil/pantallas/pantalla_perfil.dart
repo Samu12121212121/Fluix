@@ -2122,8 +2122,10 @@ class _TabEmpresaState extends State<_TabEmpresa> {
       for (int i = 0; i < _diasClave.length; i++) {
         horarios[_diasClave[i]] = _diasActivos[i];
       }
+      final nombreTrim = _nombreCtrl.text.trim();
       await _firestore.collection('empresas').doc(empresaId).update({
-        'nombre': _nombreCtrl.text.trim(),
+        'nombre': nombreTrim,
+        'nombre_empresa': nombreTrim,
         'telefono': _telefonoCtrl.text.trim(),
         'direccion': _direccionCtrl.text.trim(),
         'descripcion': _descripcionCtrl.text.trim(),

@@ -133,8 +133,8 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
         const SizedBox(height: 14),
         const Align(alignment: Alignment.centerLeft, child: Text('Emoji (opcional)', style: TextStyle(color: _kMuted, fontSize: 12))),
         const SizedBox(height: 8),
-        SizedBox(height: 96, child: GridView.count(
-          crossAxisCount: 8, crossAxisSpacing: 6, mainAxisSpacing: 6,
+        SizedBox(height: 96, child: LayoutBuilder(builder: (_, c) => GridView.count(
+          crossAxisCount: (c.maxWidth / 44).floor().clamp(5, 8), crossAxisSpacing: 6, mainAxisSpacing: 6,
           children: [
             GestureDetector(
               onTap: () => setState(() => _emoji = null),
@@ -149,7 +149,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                 child: Center(child: Text(e, style: const TextStyle(fontSize: 20)))),
             )),
           ],
-        )),
+        ))),
         const SizedBox(height: 20),
         SizedBox(width: double.infinity, child: FilledButton(
           onPressed: () => widget.onGuardar(_grad, _emoji, _fotoUrl),

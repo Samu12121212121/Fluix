@@ -133,6 +133,25 @@ class EmailService {
     );
   }
 
+  static Future<void> enviarConfirmacionReservaManual({
+    required String empresaId,
+    required String reservaId,
+  }) async {
+    final payload = {'empresaId': empresaId, 'reservaId': reservaId};
+
+    if (_esWindows) {
+      await _llamarHttpWindows(
+        functionName: 'reenviarConfirmacionReserva',
+        data: payload,
+      );
+      return;
+    }
+
+    await _idToken();
+    final callable = _functions.httpsCallable('reenviarConfirmacionReserva');
+    await callable.call<Map<String, dynamic>>(payload);
+  }
+
   static Future<String> enviarNomina({
     required String destinatario,
     required Uint8List pdfBytes,

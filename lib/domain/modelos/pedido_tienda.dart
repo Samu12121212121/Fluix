@@ -85,7 +85,7 @@ class PedidoTienda extends Equatable {
       'direccion_envio': direccionEnvio,
       'items': items.map((item) => item.toMap()).toList(),
       'fecha_creacion': Timestamp.fromDate(fechaCreacion),
-      'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago) : null,
+      'fecha_pago': fechaPago != null ? Timestamp.fromDate(fechaPago!) : null,
       'origen': origen,
       'factura_id': facturaId,
       'notas_cliente': notasCliente,
@@ -164,7 +164,7 @@ class ItemPedido extends Equatable {
     return ItemPedido(
       productoId: data['producto_id'] ?? '',
       nombre: data['nombre'] ?? '',
-      cantidad: data['cantidad'] ?? 1,
+      cantidad: (data['cantidad'] as num?)?.toInt() ?? 1,
       precioUnitario: (data['precio_unitario'] ?? 0.0).toDouble(),
       descuento: data['descuento'] != null ? (data['descuento'] as num).toDouble() : null,
       imagenUrl: data['imagen_url'],

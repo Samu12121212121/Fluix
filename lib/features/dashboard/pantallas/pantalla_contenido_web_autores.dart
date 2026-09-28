@@ -94,25 +94,35 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
       builder: (context, snap) {
         final todos = snap.data ?? [];
 
-        // Ordenar por prioridad ASC, luego nombre ASC
+        // Ordenar por prioridad ASC (fallback: orden editorial), luego nombre ASC
+        int _prio(Map<String, dynamic> a) {
+          final p = (a['prioridad'] as num? ?? 0).toInt();
+          if (p != 0) return p;
+          return (a['orden'] as num? ?? 9999).toInt();
+        }
         final todosOrdenados = List<Map<String, dynamic>>.from(todos)
           ..sort((a, b) {
-            final pa = (a['prioridad'] as num? ?? 0).toInt();
-            final pb = (b['prioridad'] as num? ?? 0).toInt();
+            final pa = _prio(a), pb = _prio(b);
             if (pa != pb) return pa.compareTo(pb);
             return (a['nombre'] as String? ?? '')
                 .compareTo(b['nombre'] as String? ?? '');
           });
 
-        final generos = todos
-            .map((a) => a['genero'] as String? ?? '')
-            .where((g) => g.isNotEmpty)
-            .toSet()
-            .toList()..sort();
+        // Dividir genero por "/" — dedup accent-insensitive
+        final _genSeen = <String>{};
+        final generos = todos.expand<String>((a) {
+          final g = a['genero'] as String? ?? '';
+          if (g.isEmpty) return <String>[];
+          return g.split('/').map((s) => s.trim()).where((s) => s.isNotEmpty);
+        }).where((g) => _genSeen.add(_normCat(g))).toList()..sort();
 
         final filtrados = todosOrdenados.where((a) {
           if (_filtroRol != null && (a['rol'] as String? ?? 'autor') != _filtroRol) return false;
-          if (_filtroGenero != null && a['genero'] != _filtroGenero) return false;
+          if (_filtroGenero != null) {
+            final cats =
+                (a['genero'] as String? ?? '').split('/').map((s) => s.trim()).toList();
+            if (!cats.any((c) => _normCat(c) == _normCat(_filtroGenero!))) return false;
+          }
           if (_busqueda.isNotEmpty) {
             final q = _busqueda.toLowerCase();
             return (a['nombre'] ?? '').toLowerCase().contains(q) ||
@@ -138,61 +148,80 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Row(children: [
-                  Expanded(child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Autores', style: TextStyle(fontSize: 20,
-                        fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-                    Text(snap.connectionState == ConnectionState.waiting
-                        ? 'Cargando…'
-                        : '${todos.length} autores · ${filtrados.length} visibles',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                  ])),
-                  _BtnDedupAutores(
-                      empresaId: widget.empresaId, svc: widget.svc,
-                      total: todos.length),
-                  _BtnImportarAutoresNazari(
-                      empresaId: widget.empresaId, svc: widget.svc),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _ctrl,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar autor…',
-                        hintStyle: const TextStyle(
-                            color: Color(0xFF94A3B8), fontSize: 13),
-                        prefixIcon: const Icon(Icons.search_rounded,
-                            size: 17, color: Color(0xFF94A3B8)),
-                        suffixIcon: _busqueda.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 15),
-                                onPressed: () {
-                                  _ctrl.clear();
-                                  setState(() => _busqueda = '');
-                                })
-                            : null,
-                        filled: true,
-                        fillColor: const Color(0xFFF8F9FB),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE2E8F0))),
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 9),
-                        isDense: true,
-                      ),
-                      onChanged: (v) => setState(() => _busqueda = v),
+                LayoutBuilder(builder: (_, bc) {
+                  final isNarrow = bc.maxWidth < 560;
+
+                  // ── Fila título + acciones ────────────────────────────
+                  final titleRow = Row(children: [
+                    Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Autores', style: TextStyle(fontSize: 20,
+                          fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                      Text(snap.connectionState == ConnectionState.waiting
+                          ? 'Cargando…'
+                          : '${todos.length} autores · ${filtrados.length} visibles',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    ])),
+                    if (isNarrow)
+                      // Móvil: acciones secundarias en popup
+                      PopupMenuButton<String>(
+                        tooltip: 'Más opciones',
+                        icon: Icon(Icons.more_vert_rounded,
+                            color: c.withValues(alpha: 0.7)),
+                        onSelected: (v) async {
+                          if (v == 'sync') {
+                            await widget.svc.sincronizarGenerosAutores(widget.empresaId);
+                          } else if (v == 'dedup') {
+                            await widget.svc.dedupAutores(widget.empresaId);
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'sync', child: Row(children: [
+                            Icon(Icons.sync_rounded, size: 16, color: Color(0xFF10B981)),
+                            SizedBox(width: 10),
+                            Text('Sync géneros'),
+                          ])),
+                          PopupMenuItem(value: 'dedup', child: Row(children: [
+                            Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFFD97706)),
+                            SizedBox(width: 10),
+                            Text('Limpiar duplicados'),
+                          ])),
+                        ],
+                      )
+                    else ...[
+                      _BtnSyncGeneros(empresaId: widget.empresaId, svc: widget.svc),
+                      _BtnDedupAutores(empresaId: widget.empresaId, svc: widget.svc,
+                          total: todos.length),
+                      _BtnImportarAutoresNazari(empresaId: widget.empresaId, svc: widget.svc),
+                    ],
+                  ]);
+
+                  // ── Campo búsqueda ────────────────────────────────────
+                  final searchField = TextField(
+                    controller: _ctrl,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar autor…',
+                      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          size: 17, color: Color(0xFF94A3B8)),
+                      suffixIcon: _busqueda.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 15),
+                              onPressed: () { _ctrl.clear(); setState(() => _busqueda = ''); })
+                          : null,
+                      filled: true, fillColor: const Color(0xFFF8F9FB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      isDense: true,
                     ),
-                  ),
-                  // Filtro por rol
-                  const SizedBox(width: 8),
-                  Container(
+                    onChanged: (v) => setState(() => _busqueda = v),
+                  );
+
+                  // ── Dropdown rol ──────────────────────────────────────
+                  final rolDropdown = Container(
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
@@ -203,61 +232,83 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
                       child: DropdownButton<String?>(
                         value: _filtroRol,
                         hint: const Text('Rol',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF64748B))),
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF0F172A)),
+                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A)),
                         icon: const Icon(Icons.keyboard_arrow_down_rounded,
                             size: 16, color: Color(0xFF64748B)),
                         items: const [
-                          DropdownMenuItem(
-                              value: null, child: Text('Todos', style: TextStyle(fontSize: 12))),
-                          DropdownMenuItem(
-                              value: 'autor', child: Text('Autores/as', style: TextStyle(fontSize: 12))),
-                          DropdownMenuItem(
-                              value: 'ilustrador', child: Text('Ilustradores/as', style: TextStyle(fontSize: 12))),
-                          DropdownMenuItem(
-                              value: 'editor', child: Text('Editores/as', style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: null,       child: Text('Todos',         style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'autor',    child: Text('Autores',        style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'autora',   child: Text('Autoras',        style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'ilustrador',   child: Text('Ilustradores',   style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'ilustradora',  child: Text('Ilustradoras',   style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'traductor',    child: Text('Traductores',    style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: 'traductora',   child: Text('Traductoras',    style: TextStyle(fontSize: 12))),
                         ],
                         onChanged: (v) => setState(() => _filtroRol = v),
                       ),
                     ),
-                  ),
-                  if (generos.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 42,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFF8F9FB),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: _filtroGenero,
-                          hint: const Text('Género',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF64748B))),
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF0F172A)),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                              size: 16, color: Color(0xFF64748B)),
-                          items: [
-                            const DropdownMenuItem(
-                                value: null,
-                                child: Text('Todos',
-                                    style: TextStyle(fontSize: 12))),
-                            ...generos.map((g) => DropdownMenuItem(
-                                value: g,
-                                child: Text(g,
-                                    style: const TextStyle(fontSize: 12)))),
-                          ],
-                          onChanged: (v) => setState(() => _filtroGenero = v),
-                        ),
-                      ),
-                    ),
-                  ],
-                ]),
+                  );
+
+                  // ── Dropdown género ───────────────────────────────────
+                  final generoDropdown = generos.isNotEmpty
+                      ? Container(
+                          height: 42,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FB),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0))),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String?>(
+                              value: _filtroGenero,
+                              hint: const Text('Género',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A)),
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                  size: 16, color: Color(0xFF64748B)),
+                              items: [
+                                const DropdownMenuItem(value: null,
+                                    child: Text('Todos', style: TextStyle(fontSize: 12))),
+                                ...generos.map((g) => DropdownMenuItem(
+                                    value: g, child: Text(g, style: const TextStyle(fontSize: 12)))),
+                              ],
+                              onChanged: (v) => setState(() => _filtroGenero = v),
+                            ),
+                          ),
+                        )
+                      : null;
+
+                  if (isNarrow) {
+                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      titleRow,
+                      const SizedBox(height: 12),
+                      searchField,
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(child: rolDropdown),
+                        if (generoDropdown != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(child: generoDropdown),
+                        ],
+                      ]),
+                    ]);
+                  }
+
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    titleRow,
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(child: searchField),
+                      const SizedBox(width: 8),
+                      rolDropdown,
+                      if (generoDropdown != null) ...[
+                        const SizedBox(width: 8),
+                        generoDropdown,
+                      ],
+                    ]),
+                  ]);
+                }),
               ]),
             ),
             const Divider(height: 1),
@@ -292,6 +343,7 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
                           itemBuilder: (_, i) => _AutorCard(
                             autor: filtrados[i],
                             color: c,
+                            empresaId: widget.empresaId,
                             onEditar: () => _abrirDialog(filtrados[i]),
                             onEliminar: () => _eliminar(filtrados[i]),
                             onToggleActivo: () => _toggleActivo(filtrados[i]),
@@ -313,6 +365,7 @@ class _AutorCard extends StatelessWidget {
   final VoidCallback onEditar;
   final VoidCallback onEliminar;
   final VoidCallback onToggleActivo;
+  final String empresaId;
 
   const _AutorCard({
     required this.autor,
@@ -320,7 +373,42 @@ class _AutorCard extends StatelessWidget {
     required this.onEditar,
     required this.onEliminar,
     required this.onToggleActivo,
+    required this.empresaId,
   });
+
+  Future<void> _cambiarRol(BuildContext context, String rolActual) async {
+    const roles = {
+      'autor': 'Autor', 'autora': 'Autora',
+      'ilustrador': 'Ilustrador', 'ilustradora': 'Ilustradora',
+      'traductor': 'Traductor', 'traductora': 'Traductora',
+    };
+    final id = autor['id'] as String?;
+    if (id == null) return;
+    final nuevoRol = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(0, 0, 0, 0),
+      items: roles.entries.map((e) => PopupMenuItem(
+        value: e.key,
+        child: Row(children: [
+          if (e.key == rolActual)
+            const Icon(Icons.check_rounded, size: 14, color: Color(0xFF6B1E2A))
+          else
+            const SizedBox(width: 14),
+          const SizedBox(width: 8),
+          Text(e.value, style: TextStyle(
+            fontSize: 13,
+            fontWeight: e.key == rolActual ? FontWeight.w700 : FontWeight.normal,
+          )),
+        ]),
+      )).toList(),
+    );
+    if (nuevoRol != null && nuevoRol != rolActual) {
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId)
+          .collection('autores').doc(id)
+          .update({'rol': nuevoRol});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -334,8 +422,13 @@ class _AutorCard extends StatelessWidget {
         ?? autor['foto'] as String? ?? '';
     final activo = autor['activo'] as bool? ?? true;
     final rol    = autor['rol'] as String? ?? 'autor';
-    final rolLabel = rol == 'ilustrador' ? 'Ilustrador/a'
-        : rol == 'editor' ? 'Editor/a' : 'Autor/a';
+    const _rolLabels = {
+      'autor': 'Autor', 'autora': 'Autora',
+      'ilustrador': 'Ilustrador', 'ilustradora': 'Ilustradora',
+      'traductor': 'Traductor', 'traductora': 'Traductora',
+      'editor': 'Editor', 'editora': 'Editora',
+    };
+    final rolLabel = _rolLabels[rol] ?? rol;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -395,25 +488,51 @@ class _AutorCard extends StatelessWidget {
                               fontWeight: FontWeight.w600)),
                     ),
                   const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: rol == 'ilustrador'
-                            ? Colors.purple.withValues(alpha: 0.08)
-                            : rol == 'editor'
-                                ? Colors.teal.withValues(alpha: 0.08)
-                                : color.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6)),
-                    child: Text(rolLabel,
-                        style: TextStyle(
-                            fontSize: 9.5,
-                            color: rol == 'ilustrador'
+                  GestureDetector(
+                    onTap: () => _cambiarRol(context, rol),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: (rol.startsWith('ilustrad')
+                              ? Colors.purple
+                              : rol.startsWith('traduc')
+                                  ? Colors.orange
+                                  : rol.startsWith('editor')
+                                      ? Colors.teal
+                                      : color)
+                              .withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: (rol.startsWith('ilustrad')
                                 ? Colors.purple
-                                : rol == 'editor'
-                                    ? Colors.teal
-                                    : color,
-                            fontWeight: FontWeight.w600)),
+                                : rol.startsWith('traduc')
+                                    ? Colors.orange
+                                    : rol.startsWith('editor')
+                                        ? Colors.teal
+                                        : color)
+                                .withValues(alpha: 0.25),
+                          )),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(rolLabel,
+                            style: TextStyle(
+                                fontSize: 9.5,
+                                color: rol.startsWith('ilustrad')
+                                    ? Colors.purple
+                                    : rol.startsWith('traduc')
+                                        ? Colors.orange
+                                        : rol.startsWith('editor')
+                                            ? Colors.teal
+                                            : color,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 3),
+                        Icon(Icons.arrow_drop_down_rounded, size: 12,
+                            color: rol.startsWith('ilustrad')
+                                ? Colors.purple.withValues(alpha: 0.6)
+                                : rol.startsWith('traduc')
+                                    ? Colors.orange.withValues(alpha: 0.6)
+                                    : color.withValues(alpha: 0.6)),
+                      ]),
+                    ),
                   ),
                   if (genero.isNotEmpty) ...[
                     const SizedBox(width: 6),
@@ -437,9 +556,14 @@ class _AutorCard extends StatelessWidget {
                 ],
                 if (desc.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(desc, style: const TextStyle(
-                      fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                  // Usar primera línea no vacía para el preview de la tarjeta
+                  Text(
+                    desc.split('\n').where((l) => l.trim().isNotEmpty).take(2).join(' '),
+                    style: const TextStyle(
+                        fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ]),
             ),
@@ -505,7 +629,7 @@ class _AutorDialog extends StatefulWidget {
 
 class _AutorDialogState extends State<_AutorDialog> {
   final _nombreCtrl    = TextEditingController();
-  final _generoCtrl    = TextEditingController();
+  Set<String> _generosAutor = {};
   final _lugarCtrl     = TextEditingController();
   final _descCtrl      = TextEditingController();
   final _fotoCtrl      = TextEditingController();
@@ -524,7 +648,8 @@ class _AutorDialogState extends State<_AutorDialog> {
     final a = widget.autor;
     if (a != null) {
       _nombreCtrl.text    = a['nombre'] as String? ?? '';
-      _generoCtrl.text    = a['genero'] as String? ?? '';
+      _generosAutor = (a['genero'] as String? ?? '').split('/')
+          .map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
       _lugarCtrl.text     = a['lugar']  as String? ?? '';
       _descCtrl.text      = (a['descripcion'] as String? ?? '').isNotEmpty
           ? a['descripcion'] as String
@@ -539,7 +664,7 @@ class _AutorDialogState extends State<_AutorDialog> {
 
   @override
   void dispose() {
-    _nombreCtrl.dispose(); _generoCtrl.dispose();
+    _nombreCtrl.dispose();
     _lugarCtrl.dispose();  _descCtrl.dispose(); _fotoCtrl.dispose();
     _prioridadCtrl.dispose();
     super.dispose();
@@ -660,36 +785,52 @@ class _AutorDialogState extends State<_AutorDialog> {
             // ── Datos ─────────────────────────────────────────────────
             _field(_nombreCtrl, 'Nombre *', Icons.person_rounded),
             const SizedBox(height: 10),
-            // Rol
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                    value: 'autor',
-                    label: Text('Autor', style: TextStyle(fontSize: 11))),
-                ButtonSegment(
-                    value: 'autora',
-                    label: Text('Autora', style: TextStyle(fontSize: 11))),
-                ButtonSegment(
-                    value: 'ilustrador',
-                    label: Text('Ilustrador/a', style: TextStyle(fontSize: 11))),
-                ButtonSegment(
-                    value: 'editor',
-                    label: Text('Editor/a', style: TextStyle(fontSize: 11))),
-              ],
-              selected: {_rol},
-              onSelectionChanged: (s) => setState(() => _rol = s.first),
-              style: SegmentedButton.styleFrom(
-                selectedBackgroundColor: widget.color.withValues(alpha: 0.12),
-                selectedForegroundColor: widget.color,
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(fontSize: 11),
+            // Rol — mismos 6 valores que los filtros de la web
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 6, runSpacing: 4,
+                children: [
+                  for (final entry in const {
+                    'autor':       'Autor',
+                    'autora':      'Autora',
+                    'ilustrador':  'Ilustrador',
+                    'ilustradora': 'Ilustradora',
+                    'traductor':   'Traductor',
+                    'traductora':  'Traductora',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(entry.value, style: const TextStyle(fontSize: 11)),
+                      selected: _rol == entry.key,
+                      onSelected: (_) => setState(() => _rol = entry.key),
+                      selectedColor: widget.color.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: _rol == entry.key ? widget.color : const Color(0xFF475569),
+                        fontWeight: _rol == entry.key ? FontWeight.w700 : FontWeight.normal,
+                      ),
+                      side: BorderSide(
+                        color: _rol == entry.key
+                            ? widget.color.withValues(alpha: 0.5)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
+            _CategoriasSelector(
+              seleccionadas: _generosAutor,
+              onToggle: (cat) => setState(() {
+                _generosAutor.contains(cat)
+                    ? _generosAutor.remove(cat)
+                    : _generosAutor.add(cat);
+              }),
+              color: widget.color,
+            ),
+            const SizedBox(height: 10),
             Row(children: [
-              Expanded(child: _field(
-                  _generoCtrl, 'Género', Icons.category_rounded)),
-              const SizedBox(width: 10),
               Expanded(child: _field(
                   _lugarCtrl, 'Lugar', Icons.place_rounded)),
               const SizedBox(width: 10),
@@ -700,7 +841,8 @@ class _AutorDialogState extends State<_AutorDialog> {
             ]),
             const SizedBox(height: 10),
             _field(_descCtrl, 'Biografía / descripción',
-                Icons.article_rounded, maxLines: 5),
+                Icons.article_rounded, maxLines: 6, multiline: true),
+            const SizedBox(height: 10),
             const SizedBox(height: 4),
           ]),
         ),
@@ -715,14 +857,19 @@ class _AutorDialogState extends State<_AutorDialog> {
               ? null
               : () {
                   if (_nombreCtrl.text.trim().isEmpty) return;
+                  // Preservar saltos de línea internos — solo quitar espacios extremos
+                  final bio = _descCtrl.text.trimRight();
+                  final fotoUrl = _fotoCtrl.text.trim();
                   Navigator.pop(context, {
                     'nombre':      _nombreCtrl.text.trim(),
                     'rol':         _rol,
-                    'genero':      _generoCtrl.text.trim(),
+                    'genero':      _generosAutor.isEmpty ? ''
+                                   : (_generosAutor.toList()..sort()).join(' / '),
                     'lugar':       _lugarCtrl.text.trim(),
-                    'descripcion': _descCtrl.text.trim(),
-                    'bio':         _descCtrl.text.trim(),
-                    'foto_url':    _fotoCtrl.text.trim(),
+                    'descripcion': bio,
+                    'bio':         bio,
+                    'foto_url':    fotoUrl,
+                    'foto':        fotoUrl,  // campo que lee la web
                     'prioridad':   int.tryParse(_prioridadCtrl.text.trim()) ?? 0,
                     'activo':      widget.autor?['activo'] ?? true,
                     'eliminado':   false,
@@ -739,10 +886,14 @@ class _AutorDialogState extends State<_AutorDialog> {
       size: 32, color: widget.color.withValues(alpha: 0.4));
 
   Widget _field(TextEditingController c, String label, IconData icon,
-      {int maxLines = 1}) {
+      {int maxLines = 1, bool multiline = false}) {
     return TextField(
       controller: c,
       maxLines: maxLines,
+      minLines: 1,
+      // En campo multilinea: Enter inserta salto de línea en lugar de enviar el formulario
+      keyboardType: multiline ? TextInputType.multiline : TextInputType.text,
+      textInputAction: multiline ? TextInputAction.newline : TextInputAction.next,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 17),
@@ -837,6 +988,82 @@ class _BtnDedupAutoresState extends State<_BtnDedupAutores> {
               size: 13, color: Color(0xFFD97706)),
       label: Text(_corriendo ? '…' : 'Limpiar duplicados',
           style: const TextStyle(fontSize: 11, color: Color(0xFFD97706))),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        minimumSize: Size.zero,
+      ),
+    );
+  }
+}
+
+// ── Botón sincronizar géneros desde catálogo ──────────────────────────────────
+
+class _BtnSyncGeneros extends StatefulWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+  const _BtnSyncGeneros({required this.empresaId, required this.svc});
+  @override
+  State<_BtnSyncGeneros> createState() => _BtnSyncGenerosState();
+}
+
+class _BtnSyncGenerosState extends State<_BtnSyncGeneros> {
+  bool _corriendo = false;
+
+  Future<void> _sincronizar() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sincronizar géneros'),
+        content: const Text(
+          'Lee las categorías de los libros del catálogo y rellena '
+          'el campo Género de cada autor con todas las categorías que tienen sus libros.\n\n'
+          '¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sincronizar')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _corriendo = true);
+    try {
+      final n = await widget.svc.sincronizarGenerosAutores(widget.empresaId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(n == 0
+              ? 'Sin libros vinculados a autores — no hay géneros que sincronizar'
+              : '✅ Géneros actualizados en $n autores'),
+          backgroundColor: n == 0 ? null : Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _corriendo = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _corriendo ? null : _sincronizar,
+      icon: _corriendo
+          ? const SizedBox(
+              width: 11, height: 11,
+              child: CircularProgressIndicator(strokeWidth: 1.5))
+          : const Icon(Icons.sync_rounded,
+              size: 13, color: Color(0xFF10B981)),
+      label: Text(_corriendo ? '…' : 'Sync géneros',
+          style: const TextStyle(fontSize: 11, color: Color(0xFF10B981))),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         minimumSize: Size.zero,

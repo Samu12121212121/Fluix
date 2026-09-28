@@ -1,8 +1,5 @@
-class BloqueDisponible {
-  final String tipo, nombre, icono, categoria;
-  final Map<String, dynamic> propsDefault;
-  const BloqueDisponible({required this.tipo, required this.nombre, required this.icono, required this.categoria, required this.propsDefault});
-}
+import '../../domain/models/bloque_disponible.dart';
+export '../../domain/models/bloque_disponible.dart';
 
 const List<BloqueDisponible> kBloquesDisponibles = [
   BloqueDisponible(tipo:'header',         nombre:'Cabecera Empresa',  icono:'🏢', categoria:'Empresa',     propsDefault:{'mostrar_logo':true,'color_fondo':'#1565C0','color_texto':'#FFFFFF','padding':18.0,'border_radius':12.0}),

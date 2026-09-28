@@ -105,15 +105,30 @@ service cloud.firestore {
       && get(suscRef(empresaId)).data.get('estado', '') in ['ACTIVA', 'PRUEBA'];
   }
 
+  // Lee el campo modulos_override del doc suscripcion/actual.
+  // Si no existe el doc o el campo, devuelve lista vacía.
+  function modulosOverride(empresaId) {
+    return exists(suscRef(empresaId))
+      ? get(suscRef(empresaId)).data.get('modulos_override', [])
+      : [];
+  }
+
+  // Acceso a módulo premium: sistema antiguo (packs_activos) O nuevo (modulos_override).
+  // El nuevo sistema escribe módulos individuales, no pack IDs, de ahí el mapping.
   function accesoModuloPremium(empresaId, packId) {
     return esPlataformaAdmin()
       || esDemoSuscripcion(empresaId)
+      || (packId == 'gestion' && modulosOverride(empresaId).hasAny(['vacaciones', 'fichaje', 'facturacion', 'tpv']))
+      || (packId == 'fiscal'  && modulosOverride(empresaId).hasAny(['fiscal', 'contabilidad', 'verifactu']))
+      || (packId == 'tienda'  && modulosOverride(empresaId).hasAny(['pedidos']))
       || (suscripcionValida(empresaId) && tienePackActivo(empresaId, packId));
   }
 
+  // Acceso a addon: sistema antiguo (addons_activos) O nuevo (modulos_override con mismo ID).
   function accesoAddonPremium(empresaId, addonId) {
     return esPlataformaAdmin()
       || esDemoSuscripcion(empresaId)
+      || modulosOverride(empresaId).hasAny([addonId])
       || (suscripcionValida(empresaId) && tieneAddonActivo(empresaId, addonId));
   }
 
@@ -460,32 +475,33 @@ service cloud.firestore {
       allow create: if esUsuarioReal()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE', 'confirmada', 'CONFIRMADA'];
 
-      // 4. Formularios web externos (sin autenticación): requieren campos mínimos
-      //    pero permiten campos adicionales como fecha, hora, servicio, etc.
+      // 4. Formularios web externos (sin autenticación)
+      //    Acepta tanto la convención del SDK (nombre_cliente/telefono_cliente)
+      //    como la convención de la app (cliente_nombre/cliente_telefono)
       allow create: if !isAuth()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE']
-          && request.resource.data.keys().hasAll(['cliente_nombre', 'cliente_telefono'])
-          && request.resource.data.cliente_nombre is string
-          && request.resource.data.cliente_nombre.size() > 0
-          && request.resource.data.cliente_nombre.size() <= 100
-          && request.resource.data.cliente_telefono is string
-          && request.resource.data.cliente_telefono.size() > 0
-          && request.resource.data.cliente_telefono.size() <= 20
-          && request.resource.data.size() <= 50; // Límite razonable de campos
+          && (
+            // Convención SDK Fluix: nombre_cliente + telefono_cliente
+            (request.resource.data.get('nombre_cliente', '').size() > 0
+             && request.resource.data.keys().hasAny(['telefono_cliente', 'telefono']))
+            ||
+            // Convención app: cliente_nombre + cliente_telefono
+            (request.resource.data.get('cliente_nombre', '').size() > 0
+             && request.resource.data.get('cliente_telefono', '').size() > 0)
+          )
+          && request.resource.data.size() <= 50;
 
       // 5. Formularios web con autenticación anónima (Damajuana, etc.)
-      //    Permite usuarios anónimos crear reservas con campos específicos
+      //    El SDK escribe nombre_cliente + telefono_cliente (no telefono a secas)
       allow create: if esAnonimo()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE']
-          && request.resource.data.keys().hasAll(['nombre_cliente', 'telefono'])
+          && request.resource.data.keys().hasAll(['nombre_cliente'])
           && request.resource.data.nombre_cliente is string
           && request.resource.data.nombre_cliente.size() > 0
           && request.resource.data.nombre_cliente.size() <= 100
-          && request.resource.data.telefono is string
-          && request.resource.data.telefono.size() > 0
-          && request.resource.data.telefono.size() <= 30
+          && request.resource.data.keys().hasAny(['telefono_cliente', 'telefono'])
           && request.resource.data.origen == 'web'
-          && request.resource.data.size() <= 50; // Límite razonable de campos
+          && request.resource.data.size() <= 50;
     }
 
     // ── EMPLEADOS — lectura pública para formularios B2C ──────────────────
@@ -774,6 +790,18 @@ service cloud.firestore {
         || staffTieneModulo(empresaId, 'catalogo');
     }
 
+    // Carta del bar/restaurante — lectura pública, escritura solo admin
+    match /carta_web/{itemId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Menú semanal — lectura pública, escritura solo admin
+    match /menu_semanal/{diaId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     match /contacto_web/{mensajeId} {
       allow create: if request.resource.data.keys().hasAll(['nombre', 'email', 'mensaje'])
         && request.resource.data.nombre is string
@@ -1050,6 +1078,7 @@ service cloud.firestore {
       allow read: if docId == 'popup_web';           // popup ofertas/avisos — lectura pública
       allow read: if docId == 'web_avanzada';
       allow read: if docId == 'vacaciones';          // Config de vacaciones/festivos
+      allow read: if docId == 'pack_seleccion';     // Pack La Selección Nazarí — lectura pública para la web
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }

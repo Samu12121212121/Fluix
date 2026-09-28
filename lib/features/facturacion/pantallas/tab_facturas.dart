@@ -458,7 +458,7 @@ class _TabFacturasState extends State<TabFacturas> {
   Widget _tableHeader() {
     final s = TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _textSoft, letterSpacing: 0.4);
     return LayoutBuilder(builder: (_, cons) {
-      final narrow = cons.maxWidth < 360;
+      final narrow = cons.maxWidth < 460;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(children: [
@@ -537,7 +537,7 @@ class _TabFacturasState extends State<TabFacturas> {
       },
       hoverColor: _panelBorder.withValues(alpha: 0.5),
       child: LayoutBuilder(builder: (_, cons) {
-        final narrow = cons.maxWidth < 360;
+        final narrow = cons.maxWidth < 460;
         return Container(
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _panelBorder.withValues(alpha: 0.5)))),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),

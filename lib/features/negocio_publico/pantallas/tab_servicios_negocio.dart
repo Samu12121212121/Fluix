@@ -447,7 +447,8 @@ class _TabServiciosNegocioState extends State<TabServiciosNegocio> {
                     final precioD  = data['precio_desde'] as num?;
                     final duracion = data['duracion'] as int?;
                     final activo   = data['activo'] as bool? ?? true;
-                    final imgUrl   = data['imagen_url'] as String?;
+                    final _imgRaw  = data['imagen_url'] as String?;
+                    final imgUrl   = (_imgRaw != null && _imgRaw.isNotEmpty) ? _imgRaw : null;
                     final publico  = (data['publico'] as String? ?? '').toLowerCase();
 
                     final pColor = publico == 'femenino' ? _kRosa

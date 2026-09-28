@@ -186,7 +186,8 @@ class _EditorCatalogoEmbebido extends StatefulWidget {
 class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   final _nombreCtrl      = TextEditingController();
   final _slugCtrl        = TextEditingController();
-  final _categoriaCtrl   = TextEditingController();
+  Set<String> _categorias = {};
+  final _coleccionCtrl   = TextEditingController();
   final _tagCtrl         = TextEditingController();
   final _precioCtrl      = TextEditingController();
   final _precioDigCtrl   = TextEditingController();
@@ -196,6 +197,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   final _paginasCtrl     = TextEditingController();
   final _formatoCtrl     = TextEditingController();
   final _dimensionesCtrl = TextEditingController();
+  final _pesoCtrl        = TextEditingController();
   final _mesCtrl         = TextEditingController();
   int    _anio  = DateTime.now().year;
   bool   _activo = true;
@@ -205,6 +207,12 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   String? _imagenUrl;
   String? _autorId;
   String? _autorNombre;
+  final _traductorCtrl  = TextEditingController();
+  String  _traductorId  = '';
+  String  _traductorGen = ''; // 'f' = femenino
+  final _ilustradorCtrl = TextEditingController();
+  String  _ilustradorId  = '';
+  String  _ilustradorGen = '';
 
   @override
   void initState() {
@@ -213,7 +221,14 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     if (it != null) {
       _nombreCtrl.text      = it['nombre'] ?? '';
       _slugCtrl.text        = it['slug'] ?? '';
-      _categoriaCtrl.text   = it['categoria'] ?? '';
+      final catArr = it['categorias'];
+      if (catArr is List && catArr.isNotEmpty) {
+        _categorias = catArr.map((e) => e.toString()).where((s) => s.isNotEmpty).toSet();
+      } else {
+        _categorias = (it['categoria'] as String? ?? '').split('/')
+            .map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+      }
+      _coleccionCtrl.text   = it['coleccion'] ?? it['campo_coleccion'] ?? '';
       _tagCtrl.text         = it['tag'] ?? '';
       _imagenUrl            = it['imagen_url'] as String?;
       _precioCtrl.text      = it['precio'] ?? '';
@@ -223,10 +238,17 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       _autorNombre          = (it['campo_autor'] as String?)?.isNotEmpty == true
                                 ? it['campo_autor'] as String : null;
       _autorId              = it['campo_autor_id'] as String?;
+      _traductorCtrl.text   = it['campo_traductor'] as String? ?? '';
+      _traductorId          = it['campo_traductor_id'] as String? ?? '';
+      _traductorGen         = it['campo_traductor_genero'] as String? ?? '';
+      _ilustradorCtrl.text  = it['campo_ilustrador'] as String? ?? '';
+      _ilustradorId         = it['campo_ilustrador_id'] as String? ?? '';
+      _ilustradorGen        = it['campo_ilustrador_genero'] as String? ?? '';
       _isbnCtrl.text        = it['campo_isbn'] ?? '';
       _paginasCtrl.text     = it['campo_paginas'] ?? '';
       _formatoCtrl.text     = it['campo_formato'] ?? '';
       _dimensionesCtrl.text = it['campo_dimensiones'] ?? '';
+      _pesoCtrl.text        = it['campo_peso']?.toString() ?? '';
       _mesCtrl.text         = it['campo_mes'] ?? '';
       _anio   = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
       _activo = it['activo'] as bool? ?? true;
@@ -235,9 +257,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
 
   @override
   void dispose() {
-    for (final c in [_nombreCtrl, _slugCtrl, _categoriaCtrl, _tagCtrl,
+    for (final c in [_nombreCtrl, _slugCtrl, _coleccionCtrl, _tagCtrl,
         _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
-        _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _mesCtrl]) {
+        _traductorCtrl, _ilustradorCtrl,
+        _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _pesoCtrl, _mesCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -317,7 +340,15 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
               const Divider(height: 1),
               _campo(_slugCtrl, 'Slug URL', hint: 'titulo-sin-espacios'),
               const Divider(height: 1),
-              _campo(_categoriaCtrl, 'Categoría / Tipo'),
+              _CategoriasSelector(
+                seleccionadas: _categorias,
+                onToggle: (cat) => setState(() {
+                  _categorias.contains(cat) ? _categorias.remove(cat) : _categorias.add(cat);
+                }),
+                color: color,
+              ),
+              const Divider(height: 1),
+              _ColeccionSelector(ctrl: _coleccionCtrl, color: color),
               const Divider(height: 1),
               _campo(_tagCtrl, 'Badge (ej: Novedad, Recomendado)'),
               const Divider(height: 1),
@@ -470,6 +501,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                   },
                 ),
                 const Divider(height: 1),
+                _campoCredito(_traductorCtrl, 'Traductor/a', true),
+                const Divider(height: 1),
+                _campoCredito(_ilustradorCtrl, 'Ilustrador/a', false),
+                const Divider(height: 1),
                 _campo(_isbnCtrl, 'ISBN / Referencia'),
                 const Divider(height: 1),
                 _campo(_paginasCtrl, 'Páginas / Unidades'),
@@ -477,6 +512,8 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                 _campo(_formatoCtrl, 'Formato'),
                 const Divider(height: 1),
                 _campo(_dimensionesCtrl, 'Dimensiones'),
+                const Divider(height: 1),
+                _campo(_pesoCtrl, 'Peso (g)', hint: 'ej. 320'),
                 const Divider(height: 1),
                 _campo(_mesCtrl, 'Mes'),
                 const Divider(height: 1),
@@ -518,6 +555,186 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     ]);
   }
 
+  // Campo traductor/ilustrador con mismo picker que el autor
+  Widget _campoCredito(TextEditingController ctrl, String label, bool esTraductor) {
+    final gen    = esTraductor ? _traductorGen    : _ilustradorGen;
+    final id     = esTraductor ? _traductorId     : _ilustradorId;
+    final nombre = ctrl.text.isNotEmpty ? ctrl.text : null;
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: widget.svc.obtenerAutores(widget.empresaId),
+      builder: (_, snap) {
+        final autores = snap.data ?? [];
+        final ids = <String>{};
+        final uniq = autores.where((a) {
+          final aid = a['id']?.toString() ?? '';
+          return aid.isNotEmpty && ids.add(aid);
+        }).toList();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(children: [
+            Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _abrirSelectorCredito(context, uniq, esTraductor),
+                child: Row(children: [
+                  Expanded(child: Text(
+                    nombre ?? 'Sin $label vinculado/a',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: nombre != null
+                          ? (id.isNotEmpty ? const Color(0xFF10B981) : const Color(0xFF0F172A))
+                          : Colors.grey[400]),
+                    overflow: TextOverflow.ellipsis,
+                  )),
+                  Icon(Icons.search_rounded, size: 16,
+                      color: widget.color.withValues(alpha: 0.5)),
+                ]),
+              ),
+            ),
+            // Chip F para género femenino
+            GestureDetector(
+              onTap: () => setState(() {
+                if (esTraductor) _traductorGen = gen == 'f' ? '' : 'f';
+                else _ilustradorGen = gen == 'f' ? '' : 'f';
+              }),
+              child: Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: gen == 'f' ? const Color(0xFF6366F1) : Colors.transparent,
+                  border: Border.all(color: gen == 'f' ? const Color(0xFF6366F1) : Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4)),
+                child: Text('F', style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700,
+                  color: gen == 'f' ? Colors.white : Colors.grey)),
+              ),
+            ),
+            if (nombre != null)
+              GestureDetector(
+                onTap: () => setState(() {
+                  ctrl.clear();
+                  if (esTraductor) { _traductorId = ''; _traductorGen = ''; }
+                  else             { _ilustradorId = ''; _ilustradorGen = ''; }
+                }),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Icon(Icons.clear_rounded, size: 15, color: Colors.grey[400]),
+                ),
+              ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Future<void> _abrirSelectorCredito(
+      BuildContext context,
+      List<Map<String, dynamic>> autores,
+      bool esTraductor) async {
+    final ctrl = TextEditingController();
+    final result = await showModalBottomSheet<Map<String, String?>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final q = ctrl.text.toLowerCase();
+          final filtrados = q.isEmpty
+              ? autores
+              : autores.where((a) =>
+                  (a['nombre']?.toString() ?? '').toLowerCase().contains(q)).toList();
+          return SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            child: Column(children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(esTraductor ? 'Seleccionar traductor/a' : 'Seleccionar ilustrador/a',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      suffixIcon: ctrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () { ctrl.clear(); setModal(() {}); })
+                          : null,
+                      filled: true, fillColor: const Color(0xFFF8F9FB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: widget.color)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setModal(() {}),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
+                    title: Text('— Sin ${esTraductor ? "traductor/a" : "ilustrador/a"} —',
+                        style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    onTap: () => Navigator.pop(ctx, <String, String?>{'id': null, 'nombre': null}),
+                  ),
+                  ...filtrados.map((a) {
+                    final aid    = a['id']?.toString() ?? '';
+                    final nombre = a['nombre']?.toString() ?? '';
+                    final sel    = esTraductor ? _traductorId == aid : _ilustradorId == aid;
+                    return ListTile(
+                      leading: Icon(Icons.check_circle_outline_rounded, size: 18,
+                          color: sel ? widget.color : Colors.grey[300]),
+                      title: Text(nombre, style: TextStyle(fontSize: 13,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
+                      selected: sel,
+                      selectedTileColor: widget.color.withValues(alpha: 0.06),
+                      onTap: () => Navigator.pop(ctx, <String, String?>{'id': aid, 'nombre': nombre}),
+                    );
+                  }),
+                  if (filtrados.isEmpty)
+                    Padding(padding: const EdgeInsets.all(24),
+                      child: Center(child: Text('Sin resultados para "${ctrl.text}"',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13)))),
+                ],
+              )),
+            ]),
+          );
+        },
+      ),
+    );
+    ctrl.dispose();
+    if (result != null && mounted) {
+      setState(() {
+        final nombre = result['nombre'];
+        final aid    = result['id'];
+        if (esTraductor) {
+          _traductorCtrl.text = nombre ?? '';
+          _traductorId        = aid ?? '';
+        } else {
+          _ilustradorCtrl.text = nombre ?? '';
+          _ilustradorId        = aid ?? '';
+        }
+      });
+    }
+  }
+
   Widget _imgFallback(Color color) => Container(
     width: 56, height: 72,
     decoration: BoxDecoration(
@@ -545,7 +762,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   Future<void> _abrirSelectorAutor(
       BuildContext context, List<Map<String, dynamic>> autores) async {
     final ctrl = TextEditingController();
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<Map<String, String?>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -611,10 +828,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                         style: TextStyle(fontSize: 13, color: Colors.grey)),
                     selected: _autorId == null,
                     selectedTileColor: widget.color.withValues(alpha: 0.06),
-                    onTap: () {
-                      setState(() { _autorId = null; _autorNombre = null; });
-                      Navigator.pop(ctx);
-                    },
+                    onTap: () => Navigator.pop(ctx, <String, String?>{'id': null, 'nombre': null}),
                   ),
                   ...filtrados.map((a) {
                     final id = a['id']?.toString() ?? '';
@@ -631,10 +845,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                           )),
                       selected: _autorId == id,
                       selectedTileColor: widget.color.withValues(alpha: 0.06),
-                      onTap: () {
-                        setState(() { _autorId = id; _autorNombre = nombre; });
-                        Navigator.pop(ctx);
-                      },
+                      onTap: () => Navigator.pop(ctx, <String, String?>{'id': id, 'nombre': nombre}),
                     );
                   }),
                   if (filtrados.isEmpty)
@@ -652,6 +863,13 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       ),
     );
     ctrl.dispose();
+    // Aplicar resultado después de que el modal haya cerrado completamente
+    if (result != null && mounted) {
+      setState(() {
+        _autorId     = result['id'];
+        _autorNombre = result['nombre'];
+      });
+    }
   }
 
   Future<void> _guardar(BuildContext context) async {
@@ -661,7 +879,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     final data = <String, dynamic>{
       'nombre':         _nombreCtrl.text.trim(),
       'slug':           _slugCtrl.text.trim(),
-      'categoria':      _categoriaCtrl.text.trim(),
+      'categorias':     (_categorias.toList()..sort()),
+      'categoria':      _categorias.isEmpty ? '' : (_categorias.toList()..sort()).join(' / '),
+      'coleccion':      _coleccionCtrl.text.trim(),
+      'campo_coleccion': _coleccionCtrl.text.trim(),
       'tag':            _tagCtrl.text.trim(),
       'imagen_url':     _imagenUrl ?? '',
       'precio':         _precioCtrl.text.trim(),
@@ -674,10 +895,20 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     void opt(String k, String v) { if (v.isNotEmpty) data[k] = v; }
     if (_autorNombre != null && _autorNombre!.isNotEmpty) data['campo_autor'] = _autorNombre!;
     if (_autorId != null) data['campo_autor_id'] = _autorId!;
+    opt('campo_traductor',  _traductorCtrl.text.trim());
+    opt('traductor',        _traductorCtrl.text.trim());
+    if (_traductorId.isNotEmpty) data['campo_traductor_id'] = _traductorId;
+    if (_traductorGen.isNotEmpty) data['campo_traductor_genero'] = _traductorGen;
+    opt('campo_ilustrador', _ilustradorCtrl.text.trim());
+    opt('ilustrador',       _ilustradorCtrl.text.trim());
+    if (_ilustradorId.isNotEmpty) data['campo_ilustrador_id'] = _ilustradorId;
+    if (_ilustradorGen.isNotEmpty) data['campo_ilustrador_genero'] = _ilustradorGen;
     opt('campo_isbn',        _isbnCtrl.text.trim());
     opt('campo_paginas',     _paginasCtrl.text.trim());
     opt('campo_formato',     _formatoCtrl.text.trim());
     opt('campo_dimensiones', _dimensionesCtrl.text.trim());
+    opt('campo_peso',        _pesoCtrl.text.trim());
+    opt('peso',              _pesoCtrl.text.trim());
     opt('campo_mes',         _mesCtrl.text.trim());
     try {
       await widget.svc.guardarItemCatalogo(widget.empresaId, docId, data);
@@ -693,6 +924,287 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+}
+
+// ── Selector de Colección editorial ──────────────────────────────────────────
+
+const _kColecciones = [
+  'Colección Arrayanes',
+  'Colección Daraxa',
+  'Colección Mexuar',
+  'Colección Partal',
+  'Colección Cadí',
+  'Colección Thule',
+  'Colección Nenúfar',
+  'Colección Medina',
+  'Colección Cuarto Dorado',
+  'Clásicos Ilustrados',
+];
+
+class _ColeccionSelector extends StatefulWidget {
+  final TextEditingController ctrl;
+  final Color color;
+  const _ColeccionSelector({required this.ctrl, required this.color});
+  @override
+  State<_ColeccionSelector> createState() => _ColeccionSelectorState();
+}
+
+class _ColeccionSelectorState extends State<_ColeccionSelector> {
+  @override
+  void initState() {
+    super.initState();
+    widget.ctrl.addListener(() { if (mounted) setState(() {}); });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final seleccionada = widget.ctrl.text.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Colección', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        const SizedBox(height: 6),
+        TextField(
+          controller: widget.ctrl,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'ej. Colección Arrayanes',
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: widget.color.withValues(alpha: 0.3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: widget.color),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            isDense: true,
+            suffixIcon: seleccionada.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 15),
+                    onPressed: () { widget.ctrl.clear(); setState(() {}); })
+                : null,
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _kColecciones.map((col) {
+              final sel = seleccionada == col;
+              return GestureDetector(
+                onTap: () { widget.ctrl.text = col; setState(() {}); },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel ? widget.color.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: sel ? widget.color : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    col.replaceFirst('Colección ', ''),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: sel ? widget.color : const Color(0xFF64748B),
+                      fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Normalización de acentos para comparación de categorías ──────────────────
+// Permite que "Poesia" y "Poesía" cuenten como la misma categoría.
+String _normCat(String s) => s.toLowerCase()
+    .replaceAll(RegExp(r'[àáâãäåā]'), 'a')
+    .replaceAll(RegExp(r'[èéêëē]'), 'e')
+    .replaceAll(RegExp(r'[ìíîïī]'), 'i')
+    .replaceAll(RegExp(r'[òóôõöō]'), 'o')
+    .replaceAll(RegExp(r'[ùúûüū]'), 'u')
+    .replaceAll('ñ', 'n')
+    .replaceAll('ç', 'c');
+
+// ── Categorías predefinidas Nazarí ────────────────────────────────────────────
+
+const _kCategorias = [
+  'Relato',
+  'Microrrelato',
+  'Infantil',
+  'Juvenil',
+  'Novela histórica',
+  'Novela negra',
+  'Ciencia ficción',
+  'Fantasía',
+  'Romántica',
+  'Poesía',
+  'Divulgación',
+  'Opinión y crítica social',
+  'Teatro',
+];
+
+class _CategoriasSelector extends StatefulWidget {
+  final Set<String> seleccionadas;
+  final ValueChanged<String> onToggle;
+  final Color color;
+
+  const _CategoriasSelector({
+    required this.seleccionadas,
+    required this.onToggle,
+    required this.color,
+  });
+
+  @override
+  State<_CategoriasSelector> createState() => _CategoriasSelectorState();
+}
+
+class _CategoriasSelectorState extends State<_CategoriasSelector> {
+  bool _modoAdd = false;
+  final _addCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _addCtrl.dispose();
+    super.dispose();
+  }
+
+  // Devuelve el valor EXACTO almacenado en seleccionadas que coincide
+  // accent-insensitivamente con [cat], o null si no existe.
+  String? _matchExistente(String cat) => widget.seleccionadas
+      .where((s) => _normCat(s) == _normCat(cat))
+      .firstOrNull;
+
+  void _toggle(String cat) {
+    final existente = _matchExistente(cat);
+    // Si ya existe (con o sin tilde), pasamos el valor exacto para que el padre
+    // lo encuentre con contains() y lo elimine correctamente.
+    widget.onToggle(existente ?? cat);
+  }
+
+  void _confirmarNueva() {
+    final nueva = _addCtrl.text.trim();
+    if (nueva.isNotEmpty && _matchExistente(nueva) == null) {
+      widget.onToggle(nueva);
+    }
+    _addCtrl.clear();
+    setState(() => _modoAdd = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Categorías extras en seleccionadas que no están en _kCategorias
+    final extras = widget.seleccionadas
+        .where((s) => !_kCategorias.any((k) => _normCat(k) == _normCat(s)))
+        .toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Categorías', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            ...[..._kCategorias, ...extras].map((cat) {
+              final sel = _matchExistente(cat) != null;
+              return GestureDetector(
+                onTap: () => _toggle(cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: sel
+                        ? widget.color.withValues(alpha: 0.12)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: sel ? widget.color : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(cat, style: TextStyle(
+                    fontSize: 12,
+                    color: sel ? widget.color : const Color(0xFF64748B),
+                    fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                  )),
+                ),
+              );
+            }),
+            // Chip "+" para añadir categoría personalizada
+            if (!_modoAdd)
+              GestureDetector(
+                onTap: () => setState(() => _modoAdd = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: widget.color.withValues(alpha: 0.45)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.add_rounded, size: 13, color: widget.color),
+                    const SizedBox(width: 3),
+                    Text('Nueva',
+                        style: TextStyle(fontSize: 12, color: widget.color)),
+                  ]),
+                ),
+              )
+            else
+              SizedBox(
+                width: 160,
+                height: 32,
+                child: TextField(
+                  controller: _addCtrl,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Nombre de categoría…',
+                    hintStyle: const TextStyle(
+                        fontSize: 11, color: Color(0xFFCBD5E1)),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 7),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide(color: widget.color)),
+                    suffixIcon: GestureDetector(
+                      onTap: _confirmarNueva,
+                      child: Icon(Icons.check_rounded,
+                          size: 15, color: widget.color),
+                    ),
+                  ),
+                  onSubmitted: (_) => _confirmarNueva(),
+                ),
+              ),
+          ],
+        ),
+        if (widget.seleccionadas.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('Selecciona al menos una categoría',
+                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          ),
+      ]),
+    );
   }
 }
 
