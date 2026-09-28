@@ -102,6 +102,8 @@ class FacturacionService {
     String? terminalId,
     List<String>? ticketIds,
     Map<String, double>? desgloseMetodoPago,
+    EstadoPresupuesto? estadoPresupuesto,
+    DateTime? fechaValidezPresupuesto,
   }) async {
     final serie = tipo.serie;
     final numero = await _generarNumeroFacturaSerie(empresaId, serie);
@@ -155,6 +157,10 @@ class FacturacionService {
       notasInternas: notasInternas,
       notasCliente: notasCliente,
       fechaOperacion: fechaOperacion,
+      estadoPresupuesto: tipo == TipoFactura.proforma
+          ? (estadoPresupuesto ?? EstadoPresupuesto.borrador)
+          : null,
+      fechaValidezPresupuesto: tipo == TipoFactura.proforma ? fechaValidezPresupuesto : null,
       historial: [entrada],
       fechaEmision: fechaOperacion ?? DateTime.now(),
       fechaVencimiento: (fechaOperacion ?? DateTime.now()).add(Duration(days: diasVencimiento)),
@@ -197,11 +203,13 @@ class FacturacionService {
 
     await docRef.set(factura.toFirestore());
 
-    // Registrar en Verifactu automáticamente (si está habilitado)
-    // No interrumpe el flujo si falla — la factura se guarda siempre
+    // Registrar en Verifactu — solo documentos fiscales (no proformas ni albaranes)
     bool verifactuOk = false;
     bool verifactuError = false;
     String mensajeVerifactu = '';
+    if (!factura.esDocumentoFiscal) {
+      return ResultadoCrearFactura(factura: factura);
+    }
     try {
       await VerifactuService.registrarFactura(
         empresaId: empresaId,
@@ -619,6 +627,29 @@ class FacturacionService {
     }
 
     await _facturas(empresaId).doc(facturaId).update(data);
+  }
+
+  // ── ACTUALIZAR ESTADO PRESUPUESTO ────────────────────────────────────────
+
+  Future<void> actualizarEstadoPresupuesto({
+    required String empresaId,
+    required String proformaId,
+    required EstadoPresupuesto nuevoEstado,
+    String usuarioId = '',
+    String usuarioNombre = '',
+  }) async {
+    final entrada = EntradaHistorialFactura(
+      usuarioId: usuarioId,
+      usuarioNombre: usuarioNombre,
+      accion: 'estado_presupuesto',
+      descripcion: 'Presupuesto: ${nuevoEstado.etiqueta}',
+      fecha: DateTime.now(),
+    );
+    await _facturas(empresaId).doc(proformaId).update({
+      'estado_presupuesto': nuevoEstado.name,
+      'fecha_actualizacion': Timestamp.fromDate(DateTime.now()),
+      'historial': FieldValue.arrayUnion([entrada.toMap()]),
+    });
   }
 
   // ── ANULAR FACTURA ─────────────────────────────────────────────────────────

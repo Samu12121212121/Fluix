@@ -168,7 +168,28 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Crear rectificativa'),
                       contentPadding: EdgeInsets.zero,
                     )),
-              if (widget.factura.esProforma)
+              if (widget.factura.esProforma) ...[
+                const PopupMenuItem(
+                    value: 'presup_enviado',
+                    child: ListTile(
+                      leading: Icon(Icons.send_rounded, color: Color(0xFF3B82F6)),
+                      title: Text('Marcar como enviado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                const PopupMenuItem(
+                    value: 'presup_aceptado',
+                    child: ListTile(
+                      leading: Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E)),
+                      title: Text('Marcar como aceptado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                const PopupMenuItem(
+                    value: 'presup_rechazado',
+                    child: ListTile(
+                      leading: Icon(Icons.cancel_rounded, color: Color(0xFFEF4444)),
+                      title: Text('Marcar como rechazado'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
                 const PopupMenuItem(
                     value: 'convertir_proforma',
                     child: ListTile(
@@ -176,6 +197,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Convertir a factura'),
                       contentPadding: EdgeInsets.zero,
                     )),
+              ],
               if (widget.factura.esPendiente || widget.factura.estado == EstadoFactura.vencida)
                 const PopupMenuItem(
                     value: 'anular',
@@ -465,6 +487,30 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
         );
         if (result == true && mounted) {
           Navigator.pop(context, true);
+        }
+        break;
+
+      case 'presup_enviado':
+      case 'presup_aceptado':
+      case 'presup_rechazado':
+        final nuevoEstado = accion == 'presup_enviado'
+            ? EstadoPresupuesto.enviado
+            : accion == 'presup_aceptado'
+                ? EstadoPresupuesto.aceptado
+                : EstadoPresupuesto.rechazado;
+        try {
+          await _service.actualizarEstadoPresupuesto(
+            empresaId: empresaId,
+            proformaId: widget.factura.id,
+            nuevoEstado: nuevoEstado,
+            usuarioId: _userId,
+            usuarioNombre: _userName,
+          );
+          if (mounted) {
+            FluxToast.exito(context, 'Presupuesto: ${nuevoEstado.etiqueta}');
+          }
+        } catch (e) {
+          if (mounted) FluxToast.error(context, 'Error: $e');
         }
         break;
 

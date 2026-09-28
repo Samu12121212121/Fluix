@@ -6,11 +6,15 @@ import 'package:planeag_flutter/core/utils/validador_nif_cif.dart';
 class FormularioFacturaRecibidaScreen extends StatefulWidget {
   final String empresaId;
   final FacturaRecibida? facturaExistente;
+  final String? nombreProveedorInicial;
+  final String? nifProveedorInicial;
 
   const FormularioFacturaRecibidaScreen({
     super.key,
     required this.empresaId,
     this.facturaExistente,
+    this.nombreProveedorInicial,
+    this.nifProveedorInicial,
   });
 
   @override
@@ -61,6 +65,8 @@ class _FormularioFacturaRecibidaScreenState
     } else {
       _fechaEmision = DateTime.now();
       _fechaRecepcion = DateTime.now();
+      if (widget.nombreProveedorInicial != null) _ctrlNombreProveedor.text = widget.nombreProveedorInicial!;
+      if (widget.nifProveedorInicial != null) _ctrlNifProveedor.text = widget.nifProveedorInicial!;
     }
   }
 

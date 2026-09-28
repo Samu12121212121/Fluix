@@ -41,11 +41,14 @@ class TabFacturas extends StatefulWidget {
   State<TabFacturas> createState() => _TabFacturasState();
 }
 
+enum _VistaDocumentos { facturas, presupuestos, albaranes }
+
 class _TabFacturasState extends State<TabFacturas> {
   final _service = FacturacionService();
   int _anio = DateTime.now().year;
 
-  _Filtro _filtro      = _Filtro.todas;
+  _Filtro _filtro            = _Filtro.todas;
+  _VistaDocumentos _vistaDoc = _VistaDocumentos.facturas;
   String  _busqueda    = '';
   String  _filtroFlujo = 'todas';
   bool    _darkMode    = false;
@@ -84,6 +87,15 @@ class _TabFacturasState extends State<TabFacturas> {
   Color get _textSoft    => _darkMode ? const Color(0xFF94A3B8) : const Color(0xFF475569);
 
   List<Factura> _aplicarFiltros(List<Factura> lista) {
+    // Primero filtrar por tipo de documento (vista activa)
+    switch (_vistaDoc) {
+      case _VistaDocumentos.facturas:
+        lista = lista.where((f) => f.esDocumentoFiscal).toList();
+      case _VistaDocumentos.presupuestos:
+        lista = lista.where((f) => f.esProforma).toList();
+      case _VistaDocumentos.albaranes:
+        lista = lista.where((f) => f.esAlbaran).toList();
+    }
     switch (_filtro) {
       case _Filtro.pendientes:
         lista = lista.where((f) => f.estado == EstadoFactura.pendiente).toList();
@@ -199,8 +211,9 @@ class _TabFacturasState extends State<TabFacturas> {
 
   Widget _buildHeader(List<Factura> listaFiltrada) => Container(
     color: _panelBg,
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-    child: Row(children: [
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
       if (widget.showTitle)
         Text('Facturación', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _textMain)),
       const Spacer(),
@@ -227,29 +240,102 @@ class _TabFacturasState extends State<TabFacturas> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         ),
       ),
-      const SizedBox(width: 10),
-      ElevatedButton.icon(
-        onPressed: _mostrarNuevaFactura,
-        icon: const Icon(Icons.add, size: 15, color: Colors.white),
-        label: const Text('Nueva factura', style: TextStyle(fontSize: 13, color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0D47A1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), elevation: 0,
+      const SizedBox(width: 8),
+      PopupMenuButton<TipoFactura>(
+        onSelected: (tipo) => _mostrarNuevaFactura(tipoInicial: tipo),
+        tooltip: 'Nuevo documento',
+        offset: const Offset(0, 40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: TipoFactura.venta_directa,
+            child: Row(children: [
+              const Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF0D47A1)),
+              const SizedBox(width: 10),
+              const Text('Factura'),
+            ]),
+          ),
+          PopupMenuItem(
+            value: TipoFactura.proforma,
+            child: Row(children: [
+              const Icon(Icons.description_outlined, size: 18, color: Color(0xFF8B5CF6)),
+              const SizedBox(width: 10),
+              const Text('Presupuesto'),
+            ]),
+          ),
+          PopupMenuItem(
+            value: TipoFactura.albaran,
+            child: Row(children: [
+              const Icon(Icons.local_shipping_outlined, size: 18, color: Color(0xFF10B981)),
+              const SizedBox(width: 10),
+              const Text('Albarán'),
+            ]),
+          ),
+        ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D47A1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.add, size: 15, color: Colors.white),
+            SizedBox(width: 6),
+            Text('Nuevo', style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
+            SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.white70),
+          ]),
         ),
       ),
     ]),
-  );
+    // ── Toggle Facturas / Presupuestos / Albaranes ──────────────────────
+    const SizedBox(height: 10),
+    SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _vistaChip(_VistaDocumentos.facturas,     'Facturas',      Icons.receipt_long_rounded,     const Color(0xFF0D47A1)),
+        const SizedBox(width: 8),
+        _vistaChip(_VistaDocumentos.presupuestos, 'Presupuestos',  Icons.description_outlined,     const Color(0xFF8B5CF6)),
+        const SizedBox(width: 8),
+        _vistaChip(_VistaDocumentos.albaranes,    'Albaranes',     Icons.local_shipping_outlined,  const Color(0xFF10B981)),
+      ]),
+    ),
+    const SizedBox(height: 10),
+  ]));
+
+  Widget _vistaChip(_VistaDocumentos v, String label, IconData icon, Color color) {
+    final sel = _vistaDoc == v;
+    return GestureDetector(
+      onTap: () => setState(() { _vistaDoc = v; _paginaActual = 0; }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: sel ? color.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: sel ? color : _panelBorder, width: sel ? 1.5 : 1),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: sel ? color : _textSoft),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+              color: sel ? color : _textSoft)),
+        ]),
+      ),
+    );
+  }
 
   // ── KPI cards ──────────────────────────────────────────────────────────────
 
   Widget _buildKpis(List<Factura> todas) {
-    final ingTotal   = todas.where((f) => f.flujo != 'gasto').fold(0.0, (s, f) => s + f.total);
-    final pendiente  = todas.where((f) => f.estado == EstadoFactura.pendiente).fold(0.0, (s, f) => s + f.total);
-    final nPend      = todas.where((f) => f.estado == EstadoFactura.pendiente).length;
-    final nPag       = todas.where((f) => f.estado == EstadoFactura.pagada).length;
-    final nVen       = todas.where((f) => f.estaVencida || f.estado == EstadoFactura.vencida).length;
-    final pctPag     = todas.isEmpty ? 0 : (nPag / todas.length * 100).round();
+    // KPIs solo sobre facturas reales (excluir presupuestos y albaranes)
+    final soloFacturas = todas.where((f) => f.esDocumentoFiscal).toList();
+    final ingTotal   = soloFacturas.where((f) => f.flujo != 'gasto').fold(0.0, (s, f) => s + f.total);
+    final pendiente  = soloFacturas.where((f) => f.estado == EstadoFactura.pendiente).fold(0.0, (s, f) => s + f.total);
+    final nPend      = soloFacturas.where((f) => f.estado == EstadoFactura.pendiente).length;
+    final nPag       = soloFacturas.where((f) => f.estado == EstadoFactura.pagada).length;
+    final nVen       = soloFacturas.where((f) => f.estaVencida || f.estado == EstadoFactura.vencida).length;
+    final pctPag     = soloFacturas.isEmpty ? 0 : (nPag / soloFacturas.length * 100).round();
     final bg = _bg;
     return LayoutBuilder(builder: (_, c) {
       final narrow = c.maxWidth < 600;
@@ -1390,7 +1476,7 @@ class _TabFacturasState extends State<TabFacturas> {
 
   // ── Popups ─────────────────────────────────────────────────────────────────
 
-  void _mostrarNuevaFactura() {
+  void _mostrarNuevaFactura({TipoFactura? tipoInicial}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1403,7 +1489,10 @@ class _TabFacturasState extends State<TabFacturas> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         clipBehavior: Clip.antiAlias,
-        child: FormularioFacturaScreen(empresaId: widget.empresaId),
+        child: FormularioFacturaScreen(
+          empresaId: widget.empresaId,
+          tipoInicial: tipoInicial,
+        ),
       ),
     );
   }

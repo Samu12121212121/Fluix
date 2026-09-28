@@ -6,9 +6,12 @@ enum EstadoFactura { pendiente, pagada, anulada, vencida, rectificada }
 
 enum MetodoPagoFactura { tarjeta, paypal, bizum, efectivo, transferencia }
 
-enum TipoFactura { pedido, venta_directa, servicio, rectificativa, proforma }
+enum TipoFactura { pedido, venta_directa, servicio, rectificativa, proforma, albaran }
 
-enum SerieFactura { fac, rect, pro, tpv }
+enum SerieFactura { fac, rect, pro, tpv, alb }
+
+/// Ciclo de vida exclusivo de presupuestos (proformas).
+enum EstadoPresupuesto { borrador, enviado, aceptado, rechazado, expirado }
 
 /// Art. 15 RD 1619/2012 — Motivos de rectificación normalizados
 enum MotivoRectificacion {
@@ -41,6 +44,28 @@ extension EstadoFacturaExt on EstadoFactura {
   }
 }
 
+extension EstadoPresupuestoExt on EstadoPresupuesto {
+  String get etiqueta {
+    switch (this) {
+      case EstadoPresupuesto.borrador:  return 'Borrador';
+      case EstadoPresupuesto.enviado:   return 'Enviado';
+      case EstadoPresupuesto.aceptado:  return 'Aceptado';
+      case EstadoPresupuesto.rechazado: return 'Rechazado';
+      case EstadoPresupuesto.expirado:  return 'Expirado';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case EstadoPresupuesto.borrador:  return const Color(0xFF6B7280);
+      case EstadoPresupuesto.enviado:   return const Color(0xFF3B82F6);
+      case EstadoPresupuesto.aceptado:  return const Color(0xFF22C55E);
+      case EstadoPresupuesto.rechazado: return const Color(0xFFEF4444);
+      case EstadoPresupuesto.expirado:  return const Color(0xFFF59E0B);
+    }
+  }
+}
+
 extension MetodoPagoFacturaExt on MetodoPagoFactura {
   String get etiqueta {
     switch (this) {
@@ -56,19 +81,21 @@ extension MetodoPagoFacturaExt on MetodoPagoFactura {
 extension TipoFacturaExt on TipoFactura {
   String get etiqueta {
     switch (this) {
-      case TipoFactura.pedido: return 'Pedido';
+      case TipoFactura.pedido:        return 'Pedido';
       case TipoFactura.venta_directa: return 'Venta directa';
-      case TipoFactura.servicio: return 'Servicio';
+      case TipoFactura.servicio:      return 'Servicio';
       case TipoFactura.rectificativa: return 'Rectificativa';
-      case TipoFactura.proforma: return 'Proforma';
+      case TipoFactura.proforma:      return 'Presupuesto';
+      case TipoFactura.albaran:       return 'Albarán';
     }
   }
 
   SerieFactura get serie {
     switch (this) {
       case TipoFactura.rectificativa: return SerieFactura.rect;
-      case TipoFactura.proforma: return SerieFactura.pro;
-      default: return SerieFactura.fac;
+      case TipoFactura.proforma:      return SerieFactura.pro;
+      case TipoFactura.albaran:       return SerieFactura.alb;
+      default:                        return SerieFactura.fac;
     }
   }
 }
@@ -80,6 +107,7 @@ extension SerieFacturaExt on SerieFactura {
       case SerieFactura.rect: return 'R';
       case SerieFactura.pro:  return 'P';
       case SerieFactura.tpv:  return 'TPV';
+      case SerieFactura.alb:  return 'A';
     }
   }
 }
@@ -420,6 +448,9 @@ class Factura {
   final String? notasInternas;
   final String? notasCliente;
   final DateTime? fechaOperacion;
+  // Presupuesto (solo aplica cuando tipo == proforma)
+  final EstadoPresupuesto? estadoPresupuesto;
+  final DateTime? fechaValidezPresupuesto;
   // Verifactu (registro fiscal electrónico RD 1007/2023)
   final Map<String, dynamic>? verifactu;
   // Auditoría
@@ -466,6 +497,8 @@ class Factura {
     this.notasInternas,
     this.notasCliente,
     this.fechaOperacion,
+    this.estadoPresupuesto,
+    this.fechaValidezPresupuesto,
     this.verifactu,
     required this.historial,
     required this.fechaEmision,
@@ -480,6 +513,8 @@ class Factura {
   bool get esAnulada => estado == EstadoFactura.anulada;
   bool get esRectificativa => tipo == TipoFactura.rectificativa;
   bool get esProforma => tipo == TipoFactura.proforma;
+  bool get esAlbaran => tipo == TipoFactura.albaran;
+  bool get esDocumentoFiscal => tipo != TipoFactura.proforma && tipo != TipoFactura.albaran;
   bool get estaVencida {
     if (estado == EstadoFactura.pagada || estado == EstadoFactura.anulada) {
       return false;
@@ -523,6 +558,8 @@ class Factura {
     String? notasInternas,
     String? notasCliente,
     DateTime? fechaOperacion,
+    EstadoPresupuesto? estadoPresupuesto,
+    DateTime? fechaValidezPresupuesto,
     List<EntradaHistorialFactura>? historial,
     DateTime? fechaEmision,
     DateTime? fechaVencimiento,
@@ -563,6 +600,8 @@ class Factura {
     notasInternas: notasInternas ?? this.notasInternas,
     notasCliente: notasCliente ?? this.notasCliente,
     fechaOperacion: fechaOperacion ?? this.fechaOperacion,
+    estadoPresupuesto: estadoPresupuesto ?? this.estadoPresupuesto,
+    fechaValidezPresupuesto: fechaValidezPresupuesto ?? this.fechaValidezPresupuesto,
     historial: historial ?? this.historial,
     fechaEmision: fechaEmision ?? this.fechaEmision,
     fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
@@ -663,6 +702,14 @@ class Factura {
       fechaOperacion: d['fecha_operacion'] != null
           ? _parseTs(d['fecha_operacion'])
           : null,
+      estadoPresupuesto: d['estado_presupuesto'] != null
+          ? EstadoPresupuesto.values.firstWhere(
+              (e) => e.name == d['estado_presupuesto'],
+              orElse: () => EstadoPresupuesto.borrador)
+          : null,
+      fechaValidezPresupuesto: d['fecha_validez_presupuesto'] != null
+          ? _parseTs(d['fecha_validez_presupuesto'])
+          : null,
       verifactu: d['verifactu'],
       historial: (d['historial'] as List<dynamic>? ?? [])
           .map((h) => EntradaHistorialFactura.fromMap(h as Map<String, dynamic>))
@@ -717,6 +764,10 @@ class Factura {
     'notas_cliente': notasCliente,
     'fecha_operacion': fechaOperacion != null
         ? Timestamp.fromDate(fechaOperacion!)
+        : null,
+    'estado_presupuesto': estadoPresupuesto?.name,
+    'fecha_validez_presupuesto': fechaValidezPresupuesto != null
+        ? Timestamp.fromDate(fechaValidezPresupuesto!)
         : null,
     'verifactu': verifactu,
     'historial': historial.map((h) => h.toMap()).toList(),

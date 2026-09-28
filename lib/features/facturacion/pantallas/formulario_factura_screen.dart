@@ -27,6 +27,7 @@ class FormularioFacturaScreen extends StatefulWidget {
   final String? clienteNombreInicial;
   final List<Map<String, dynamic>>? lineasIniciales;
   final Factura? facturaExistente;
+  final TipoFactura? tipoInicial;
 
   const FormularioFacturaScreen({
     super.key,
@@ -35,6 +36,7 @@ class FormularioFacturaScreen extends StatefulWidget {
     this.clienteNombreInicial,
     this.lineasIniciales,
     this.facturaExistente,
+    this.tipoInicial,
   });
 
   @override
@@ -74,6 +76,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   double _porcentajeIva = 21.0;
   final _ctrlDiasVenc = TextEditingController(text: '30');
   DateTime? _fechaOperacion;
+  DateTime? _fechaValidezPresupuesto;
 
   // Fiscal avanzado
   double _descuentoGlobal = 0;
@@ -99,6 +102,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
     } else {
       if (widget.clienteNombreInicial != null) _ctrlNombre.text = widget.clienteNombreInicial!;
       if (widget.pedidoId != null) _tipoFactura = TipoFactura.pedido;
+      if (widget.tipoInicial != null) _tipoFactura = widget.tipoInicial!;
       if (widget.lineasIniciales != null) {
         for (final l in widget.lineasIniciales!) {
           _lineas.add(LineaFactura(
@@ -300,6 +304,36 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
         ]),
       ),
     ),
+    if (_tipoFactura == TipoFactura.proforma) ...[
+      const SizedBox(height: 12),
+      InkWell(
+        onTap: () async {
+          final d = await showDatePicker(
+            context: context,
+            initialDate: _fechaValidezPresupuesto ?? DateTime.now().add(const Duration(days: 30)),
+            firstDate: DateTime.now(),
+            lastDate: DateTime(2100),
+            helpText: 'Fecha hasta la que es válido el presupuesto',
+          );
+          if (d != null) setState(() => _fechaValidezPresupuesto = d);
+        },
+        child: InputDecorator(
+          decoration: _deco('Válido hasta', hint: 'Fecha de vencimiento del presupuesto'),
+          child: Row(children: [
+            Expanded(child: Text(
+              _fechaValidezPresupuesto != null
+                  ? '${_fechaValidezPresupuesto!.day.toString().padLeft(2, '0')}/${_fechaValidezPresupuesto!.month.toString().padLeft(2, '0')}/${_fechaValidezPresupuesto!.year}'
+                  : 'Sin fecha límite',
+              style: TextStyle(color: _fechaValidezPresupuesto != null ? Colors.black87 : Colors.grey[500]),
+            )),
+            if (_fechaValidezPresupuesto != null)
+              GestureDetector(onTap: () => setState(() => _fechaValidezPresupuesto = null), child: const Icon(Icons.close, size: 16, color: Colors.grey))
+            else
+              const Icon(Icons.event_available, size: 16, color: Colors.grey),
+          ]),
+        ),
+      ),
+    ],
     const SizedBox(height: 12),
     DropdownButtonFormField<MetodoPagoFactura?>(
       value: _metodoPago,
@@ -606,6 +640,10 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
           fechaOperacion: _fechaOperacion, diasVencimiento: dias,
           descuentoGlobal: _descuentoGlobal, porcentajeIrpf: _porcentajeIrpf,
           usuarioId: uid, usuarioNombre: nombre,
+          estadoPresupuesto: _tipoFactura == TipoFactura.proforma
+              ? EstadoPresupuesto.borrador
+              : null,
+          fechaValidezPresupuesto: _fechaValidezPresupuesto,
         );
         if (mounted && (res.verifactuOk || res.verifactuError)) {
           if (res.verifactuOk) {

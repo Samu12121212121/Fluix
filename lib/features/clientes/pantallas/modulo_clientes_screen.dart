@@ -12,6 +12,8 @@ import '../../../core/utils/permisos_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../core/widgets/flux_toast.dart';
+import '../../facturacion/pantallas/formulario_factura_screen.dart';
+import '../../../domain/modelos/factura.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO CLIENTES — misma UI que empleados
@@ -626,16 +628,14 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                 _cliBtn(Icons.edit_outlined, 'Editar', _kBlue,
                     () => _mostrarDetalleCliente(doc.id, d)),
+                _cliBtn(Icons.description_outlined, 'Presup.', const Color(0xFF8B5CF6),
+                    () => _nuevoPresupuestoCliente(context, nombre, correo, doc.id)),
                 if (telefono.isNotEmpty)
                   _cliBtn(Icons.phone_outlined, 'Llamar', _kGreen,
                       () => launchUrl(Uri.parse('tel:$telefono'))),
                 if (correo.isNotEmpty)
                   _cliBtn(Icons.email_outlined, 'Email', _kOrange,
                       () => launchUrl(Uri.parse('mailto:$correo'))),
-                // ── Nuevo: historial de pedidos del cliente ──────────────
-                _cliBtn(Icons.shopping_bag_outlined, 'Pedidos',
-                    const Color(0xFF8B5CF6),
-                    () => _mostrarPedidosCliente(context, nombre, correo, doc.id, d)),
                 _cliBtn(
                   isVip ? Icons.star_rounded : Icons.star_outline_rounded,
                   'VIP', _kOrange,
@@ -676,6 +676,28 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
         border:     _border,
         card:       _card,
         bg:         _bg,
+      ),
+    );
+  }
+
+  void _nuevoPresupuestoCliente(BuildContext context, String nombre, String correo, String clienteId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.95,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF5F7FA),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: FormularioFacturaScreen(
+          empresaId: widget.empresaId,
+          tipoInicial: TipoFactura.proforma,
+          clienteNombreInicial: nombre,
+        ),
       ),
     );
   }
