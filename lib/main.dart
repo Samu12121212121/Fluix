@@ -26,6 +26,7 @@ import 'features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 import 'firebase_options.dart';
 import 'services/auth/sesion_service.dart';
 import 'services/auth/token_refresh_service.dart';
+import 'services/facturacion_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -420,6 +421,9 @@ class _PantallaRutaState extends State<_PantallaRuta> {
 
         if (_empresaId != empresaId || _futureEmpresa == null) {
           _empresaId = empresaId;
+          // Detectar expirados en background al arrancar (no bloquea la UI)
+          FacturacionService().detectarYMarcarPresupuestosExpirados(empresaId).ignore();
+          FacturacionService().detectarYMarcarVencidas(empresaId).ignore();
           _futureEmpresa = FirebaseFirestore.instance
               .collection('empresas')
               .doc(empresaId)

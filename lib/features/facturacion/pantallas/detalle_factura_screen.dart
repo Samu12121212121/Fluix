@@ -168,6 +168,15 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Crear rectificativa'),
                       contentPadding: EdgeInsets.zero,
                     )),
+              if (widget.factura.esAlbaran) ...[
+                const PopupMenuItem(
+                    value: 'convertir_albaran',
+                    child: ListTile(
+                      leading: Icon(Icons.transform, color: Color(0xFF10B981)),
+                      title: Text('Generar factura'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
+              ],
               if (widget.factura.esProforma) ...[
                 const PopupMenuItem(
                     value: 'presup_enviado',
@@ -508,6 +517,23 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
           );
           if (mounted) {
             FluxToast.exito(context, 'Presupuesto: ${nuevoEstado.etiqueta}');
+          }
+        } catch (e) {
+          if (mounted) FluxToast.error(context, 'Error: $e');
+        }
+        break;
+
+      case 'convertir_albaran':
+        try {
+          final resultado = await _service.convertirAlbaranAFactura(
+            empresaId: empresaId,
+            albaranId: widget.factura.id,
+            usuarioId: _userId,
+            usuarioNombre: _userName,
+          );
+          if (mounted) {
+            FluxToast.exito(context, 'Factura creada: ${resultado.factura.numeroFactura}');
+            Navigator.pop(context, true);
           }
         } catch (e) {
           if (mounted) FluxToast.error(context, 'Error: $e');

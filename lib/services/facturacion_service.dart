@@ -561,6 +561,44 @@ class FacturacionService {
     );
   }
 
+  Future<ResultadoCrearFactura> convertirAlbaranAFactura({
+    required String empresaId,
+    required String albaranId,
+    String usuarioId = '',
+    String usuarioNombre = '',
+  }) async {
+    final doc = await _facturas(empresaId).doc(albaranId).get();
+    if (!doc.exists) throw Exception('Albarán no encontrado');
+    final albaran = Factura.fromFirestore(doc);
+
+    if (albaran.tipo != TipoFactura.albaran) {
+      throw Exception('Solo se pueden convertir albaranes');
+    }
+
+    // Marcar albarán como facturado (sin anularlo — el albarán sigue siendo válido)
+    await _facturas(empresaId).doc(albaranId).update({
+      'notas_internas': '${albaran.notasInternas ?? ''}[Facturado]'.trim(),
+    });
+
+    return crearFactura(
+      empresaId: empresaId,
+      clienteNombre: albaran.clienteNombre,
+      clienteTelefono: albaran.clienteTelefono,
+      clienteCorreo: albaran.clienteCorreo,
+      datosFiscales: albaran.datosFiscales,
+      lineas: albaran.lineas,
+      metodoPago: albaran.metodoPago,
+      tipo: TipoFactura.venta_directa,
+      notasInternas: 'Generada desde albarán ${albaran.numeroFactura}',
+      notasCliente: albaran.notasCliente,
+      diasVencimiento: albaran.diasVencimiento,
+      descuentoGlobal: albaran.descuentoGlobal,
+      porcentajeIrpf: albaran.porcentajeIrpf,
+      usuarioId: usuarioId,
+      usuarioNombre: usuarioNombre,
+    );
+  }
+
   // ── DETECTAR FACTURAS VENCIDAS ────────────────────────────────────────────
 
   Future<int> detectarYMarcarVencidas(String empresaId) async {
@@ -595,6 +633,40 @@ class FacturacionService {
 
     if (marcadas > 0) await batch.commit();
     return marcadas;
+  }
+
+  /// Marca como 'expirado' los presupuestos cuya fechaValidezPresupuesto ha pasado
+  /// y cuyo estado sea borrador, enviado o aceptado.
+  Future<int> detectarYMarcarPresupuestosExpirados(String empresaId) async {
+    final ahora = DateTime.now();
+    final snap = await _facturas(empresaId)
+        .where('tipo', isEqualTo: TipoFactura.proforma.name)
+        .get();
+
+    int marcados = 0;
+    final batch = _firestore.batch();
+    final estadosActivos = {
+      EstadoPresupuesto.borrador.name,
+      EstadoPresupuesto.enviado.name,
+      EstadoPresupuesto.aceptado.name,
+    };
+
+    for (final doc in snap.docs) {
+      final f = Factura.fromFirestore(doc);
+      final esActivo = estadosActivos.contains(f.estadoPresupuesto?.name);
+      final haVencido = f.fechaValidezPresupuesto != null &&
+          ahora.isAfter(f.fechaValidezPresupuesto!);
+      if (esActivo && haVencido) {
+        batch.update(doc.reference, {
+          'estado_presupuesto': EstadoPresupuesto.expirado.name,
+          'fecha_actualizacion': Timestamp.fromDate(ahora),
+        });
+        marcados++;
+      }
+    }
+
+    if (marcados > 0) await batch.commit();
+    return marcados;
   }
 
   // ── ACTUALIZAR ESTADO ──────────────────────────────────────────────────────

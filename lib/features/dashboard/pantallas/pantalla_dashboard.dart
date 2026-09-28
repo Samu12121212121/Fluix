@@ -8227,15 +8227,48 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  // TODO: Navegar al catálogo filtrado por stock bajo
-                  FluxToast.aviso(context,
-                    productos
-                        .map((p) =>
-                            '${p['nombre']}: ${p['stock']} uds (mín: ${p['stock_minimo']})')
-                        .join('\n'),
-                  );
-                },
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Row(children: [
+                      Icon(Icons.inventory_2_outlined, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Stock bajo'),
+                    ]),
+                    content: SizedBox(
+                      width: 320,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: productos.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final p = productos[i];
+                          final stock = p['stock'] ?? 0;
+                          final min = p['stock_minimo'] ?? 0;
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.warning_amber_rounded,
+                                color: Colors.orange, size: 20),
+                            title: Text(p['nombre'] ?? '',
+                                style: const TextStyle(fontSize: 13)),
+                            trailing: Text('$stock / $min',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.red,
+                                    fontWeight: FontWeight.w600)),
+                            subtitle: Text('Stock actual / Mínimo',
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.grey[500])),
+                          );
+                        },
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar')),
+                    ],
+                  ),
+                ),
                 child: const Text('Ver detalles'),
               ),
               IconButton(

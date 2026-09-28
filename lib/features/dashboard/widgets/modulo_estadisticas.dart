@@ -117,6 +117,20 @@ class _ModuloEstadisticasState extends State<ModuloEstadisticas> {
     return StreamBuilder<Map<String, dynamic>>(
       stream: _obtenerEstadisticasDesdeCache(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.error_outline, color: Colors.orange, size: 40),
+              const SizedBox(height: 8),
+              const Text('Error al cargar estadísticas',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              TextButton(
+                onPressed: () => _cacheService.recalcularEstadisticas(widget.empresaId),
+                child: const Text('Reintentar'),
+              ),
+            ]),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting ||
             (snapshot.hasData && snapshot.data!.isEmpty)) {
           return const Center(

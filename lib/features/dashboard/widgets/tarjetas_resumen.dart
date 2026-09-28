@@ -24,6 +24,12 @@ class TarjetasResumen extends StatelessWidget {
           .doc('resumen')
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const SizedBox(
+            height: 80,
+            child: Center(child: Text('Error al cargar resumen', style: TextStyle(color: Colors.red, fontSize: 12))),
+          );
+        }
         final data = (snapshot.data?.data() as Map<String, dynamic>?) ?? {};
 
         final totalClientes = (data['total_clientes'] as num?)?.toInt() ?? 0;

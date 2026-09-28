@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../domain/modelos/adjunto_tarea.dart';
 import '../../../services/adjuntos_tarea_service.dart';
 
@@ -477,8 +478,11 @@ class _VisorPdfScreen extends StatelessWidget {
             // Nota: flutter_pdfview requiere el archivo descargado localmente.
             // Para una implementación completa, descargar el PDF primero.
             OutlinedButton.icon(
-              onPressed: () {
-                // TODO: descargar y abrir con flutter_pdfview
+              onPressed: () async {
+                final uri = Uri.tryParse(adjunto.url);
+                if (uri != null && await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
               },
               icon: const Icon(Icons.open_in_new),
               label: const Text('Abrir PDF'),

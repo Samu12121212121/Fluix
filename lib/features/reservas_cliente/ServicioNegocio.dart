@@ -50,6 +50,7 @@ class _ReservasTabState extends State<ReservasTab> {
   DateTime? _diaSeleccionado;
   String? _horaSeleccionada;
   String? _empleadoSeleccionado;
+  bool _guardando = false;
 
   bool get pasoServicio => _servicioSeleccionado == null;
   bool get pasoFecha => _servicioSeleccionado != null && _diaSeleccionado == null;
@@ -92,6 +93,41 @@ class _ReservasTabState extends State<ReservasTab> {
     setState(() => _empleadoSeleccionado = e);
   }
 
+  Future<void> _confirmarReserva() async {
+    setState(() => _guardando = true);
+    try {
+      final dia = _diaSeleccionado!;
+      await FirebaseFirestore.instance
+          .collection('negocios_publicos')
+          .doc(widget.negocioId)
+          .collection('reservas')
+          .add({
+        'servicio_id':     _servicioSeleccionado!.id,
+        'servicio_nombre': _servicioSeleccionado!.nombre,
+        'servicio_precio': _servicioSeleccionado!.precio ?? _servicioSeleccionado!.precioDesde,
+        'fecha':           Timestamp.fromDate(DateTime(dia.year, dia.month, dia.day)),
+        'hora':            _horaSeleccionada,
+        'empleado':        _empleadoSeleccionado,
+        'estado':          'pendiente',
+        'creado_en':       FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reserva confirmada'), backgroundColor: Colors.teal),
+        );
+        _reset();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al confirmar: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final step = pasoServicio
@@ -132,12 +168,16 @@ class _ReservasTabState extends State<ReservasTab> {
                 child: ElevatedButton(
                   onPressed: (_empleadoSeleccionado != null &&
                       _horaSeleccionada != null &&
-                      _diaSeleccionado != null)
-                      ? () {
-                    // aquí confirmas reserva
-                  }
+                      _diaSeleccionado != null &&
+                      !_guardando)
+                      ? _confirmarReserva
                       : null,
-                  child: const Text("Confirmar reserva"),
+                  child: _guardando
+                      ? const SizedBox(
+                          height: 18, width: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text("Confirmar reserva"),
                 ),
               ),
             ),

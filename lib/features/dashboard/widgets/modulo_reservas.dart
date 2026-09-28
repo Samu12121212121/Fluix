@@ -67,6 +67,10 @@ class _ModuloReservasState extends State<ModuloReservas> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error al cargar reservas: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red)));
+        }
 
         final docs = snapshot.data?.docs ?? [];
         final pendientes  = docs.where((d) => (d['estado'] as String? ?? '').toUpperCase() == 'PENDIENTE').toList();
