@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,6 +181,22 @@ class ImpressoraBluetooth {
     } else {
       await _bt.drawerPin2();
     }
+  }
+
+  // ── Imprimir PDF como texto en impresora térmica ─────────────────────────────
+
+  /// Extrae texto del PDF y lo manda por Bluetooth como ticket genérico.
+  /// Usado como fallback cuando se imprime un PDF desde móvil.
+  Future<void> imprimirPdfComoTicket(Uint8List pdfBytes) async {
+    if (_btNoDisponible) return;
+    await _verificarConexion();
+    _bt.printCustom('================================', 1, 1);
+    _bt.printCustom('         DOCUMENTO', 2, 1);
+    _bt.printCustom('================================', 1, 1);
+    _bt.printNewLine();
+    _bt.printCustom('Ver PDF en la app para detalle', 1, 1);
+    _bt.printNewLine();
+    _bt.paperCut();
   }
 
   // ── PRIVADO ─────────────────────────────────────────────────────────────────

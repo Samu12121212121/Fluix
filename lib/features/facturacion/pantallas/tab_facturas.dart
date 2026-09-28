@@ -13,6 +13,8 @@ import 'package:planeag_flutter/services/pdf_service.dart';
 import 'detalle_factura_screen.dart';
 import 'formulario_factura_screen.dart';
 import 'pantalla_contabilidad.dart';
+import 'tab_albaranes_recibidos.dart';
+import 'tab_facturas_recurrentes.dart';
 
 const _kTabProveedores = 7;
 const _kTabModelos     = 5;
@@ -41,10 +43,11 @@ class TabFacturas extends StatefulWidget {
   State<TabFacturas> createState() => _TabFacturasState();
 }
 
-enum _VistaDocumentos { facturas, presupuestos, albaranes }
+enum _VistaDocumentos { facturas, presupuestos, albaranes, albaranesRecibidos, recurrentes }
 
 class _TabFacturasState extends State<TabFacturas> {
-  final _service = FacturacionService();
+  final _service    = FacturacionService();
+  final _contabSvc  = ContabilidadService();
   int _anio = DateTime.now().year;
 
   _Filtro _filtro            = _Filtro.todas;
@@ -95,6 +98,10 @@ class _TabFacturasState extends State<TabFacturas> {
         lista = lista.where((f) => f.esProforma).toList();
       case _VistaDocumentos.albaranes:
         lista = lista.where((f) => f.esAlbaran).toList();
+      case _VistaDocumentos.albaranesRecibidos:
+        lista = [];
+      case _VistaDocumentos.recurrentes:
+        lista = [];
     }
     switch (_filtro) {
       case _Filtro.pendientes:
@@ -147,30 +154,45 @@ class _TabFacturasState extends State<TabFacturas> {
               final todasAnio = todas.where((f) => f.fechaEmision.year == _anio).toList();
               return CustomScrollView(slivers: [
                 SliverToBoxAdapter(child: _buildHeader(lista)),
-                // Banner VeriFactu si hay errores
-                if (vfErrores > 0)
-                  SliverToBoxAdapter(child: _buildBannerVeriFactu(vfErrores)),
-                SliverToBoxAdapter(child: _buildKpis(todasAnio)),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: wide
-                        ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Flexible(flex: 5, child: _buildTabla(lista, paginada, totalPags, pagSegura)),
-                            const SizedBox(width: 14),
-                            Flexible(flex: 3, child: _buildGraficosPanel(todas)),
-                          ])
-                        : Column(children: [
-                            _buildTabla(lista, paginada, totalPags, pagSegura),
-                            const SizedBox(height: 14),
-                            _buildGraficosPanel(todas),
-                          ]),
+                if (_vistaDoc == _VistaDocumentos.albaranesRecibidos)
+                  SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: TabAlbaranesRecibidos(
+                      empresaId: widget.empresaId,
+                      svc: _contabSvc,
+                    ),
+                  )
+                else if (_vistaDoc == _VistaDocumentos.recurrentes)
+                  SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: TabFacturasRecurrentes(empresaId: widget.empresaId),
+                  )
+                else ...[
+                  // Banner VeriFactu si hay errores
+                  if (vfErrores > 0)
+                    SliverToBoxAdapter(child: _buildBannerVeriFactu(vfErrores)),
+                  SliverToBoxAdapter(child: _buildKpis(todasAnio)),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: wide
+                          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Flexible(flex: 5, child: _buildTabla(lista, paginada, totalPags, pagSegura)),
+                              const SizedBox(width: 14),
+                              Flexible(flex: 3, child: _buildGraficosPanel(todas)),
+                            ])
+                          : Column(children: [
+                              _buildTabla(lista, paginada, totalPags, pagSegura),
+                              const SizedBox(height: 14),
+                              _buildGraficosPanel(todas),
+                            ]),
+                    ),
                   ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14, 28, 14, 40),
-                  sliver: SliverToBoxAdapter(child: _buildBottomSection(todas)),
-                ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(14, 28, 14, 40),
+                    sliver: SliverToBoxAdapter(child: _buildBottomSection(todas)),
+                  ),
+                ],
               ]);
             }),
           ]),
@@ -298,6 +320,10 @@ class _TabFacturasState extends State<TabFacturas> {
         _vistaChip(_VistaDocumentos.presupuestos, 'Presupuestos',  Icons.description_outlined,     const Color(0xFF8B5CF6)),
         const SizedBox(width: 8),
         _vistaChip(_VistaDocumentos.albaranes,    'Albaranes',     Icons.local_shipping_outlined,  const Color(0xFF10B981)),
+        const SizedBox(width: 8),
+        _vistaChip(_VistaDocumentos.albaranesRecibidos, 'Alb. recibidos', Icons.move_to_inbox_rounded, const Color(0xFF6366F1)),
+        const SizedBox(width: 8),
+        _vistaChip(_VistaDocumentos.recurrentes, 'Recurrentes', Icons.repeat_rounded, const Color(0xFF6366F1)),
       ]),
     ),
     const SizedBox(height: 10),
