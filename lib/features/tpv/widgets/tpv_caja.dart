@@ -5,7 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
-import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+import 'package:planeag_flutter/features/tpv/pantallas/pantalla_cierre_caja.dart';
 import 'dialogo_factura_tpv.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -17,143 +17,8 @@ Future<void> mostrarPantallaCierreCaja(
   await Navigator.push(
     context,
     MaterialPageRoute(
-        builder: (_) => _PantallaCierreCaja(empresaId: empresaId)),
+        builder: (_) => PantallaCierreCaja(empresaId: empresaId)),
   );
-}
-
-class _PantallaCierreCaja extends StatelessWidget {
-  final String empresaId;
-  const _PantallaCierreCaja({required this.empresaId});
-
-  @override
-  Widget build(BuildContext context) {
-    final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0F23),
-      appBar: const FluixAppBar(titulo: 'Cierre de caja', showLeading: true),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('empresas')
-            .doc(empresaId)
-            .collection('caja_diaria')
-            .doc(hoy)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(
-                child: Text('No hay movimientos de caja hoy',
-                    style: TextStyle(color: Color(0xFFB0B3C1))));
-          }
-          final d = snapshot.data!.data() as Map<String, dynamic>;
-          final ef = (d['total_efectivo'] as num?)?.toDouble() ?? 0.0;
-          final ta = (d['total_tarjeta'] as num?)?.toDouble() ?? 0.0;
-          final bi = (d['total_bizum'] as num?)?.toDouble() ?? 0.0;
-          final pr = (d['total_propinas'] as num?)?.toDouble() ?? 0.0;
-          final nt = d['num_tickets'] ?? 0;
-          final fi = (d['fondo_inicial'] as num?)?.toDouble() ?? 0.0;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [Color(0xFF00FFC8), Color(0xFF00D9FF)]),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(children: [
-                    const Text('TOTAL DEL DÍA',
-                        style: TextStyle(
-                            color: Color(0xFF0A0F23),
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(fmt.format(ef + ta + bi),
-                        style: const TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0A0F23))),
-                    Text('$nt tickets',
-                        style:
-                            const TextStyle(color: Color(0xFF0A0F23))),
-                  ]),
-                ),
-                const SizedBox(height: 24),
-                LineaResumen(label: 'Efectivo', valor: ef,
-                    icono: Icons.payments, color: const Color(0xFF00FFC8)),
-                LineaResumen(label: 'Tarjeta', valor: ta,
-                    icono: Icons.credit_card, color: const Color(0xFFFF3296)),
-                LineaResumen(label: 'Bizum/QR', valor: bi,
-                    icono: Icons.qr_code, color: const Color(0xFFFF4678)),
-                const Divider(color: Color(0xFF2A2E45), height: 32),
-                LineaResumen(label: 'Propinas', valor: pr,
-                    icono: Icons.volunteer_activism,
-                    color: const Color(0xFFFF4678)),
-                LineaResumen(label: 'Fondo inicial', valor: fi,
-                    icono: Icons.account_balance_wallet,
-                    color: const Color(0xFFB0B3C1)),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: () => _confirmarCierre(context, empresaId, hoy),
-                  icon: const Icon(Icons.lock_clock),
-                  label: const Text('Cerrar caja'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF2850),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _confirmarCierre(
-      BuildContext context, String empresaId, String fecha) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar cierre'),
-        content: const Text(
-            '¿Cerrar la caja del día? Esta acción no se puede deshacer.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF2850)),
-              child: const Text('Cerrar caja')),
-        ],
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    try {
-      await FirebaseFirestore.instance
-          .collection('empresas').doc(empresaId)
-          .collection('caja_diaria').doc(fecha)
-          .update({
-        'abierta': false,
-        'cerrada_en': FieldValue.serverTimestamp(),
-      });
-      if (!context.mounted) return;
-      final m = ScaffoldMessenger.of(context);
-      Navigator.pop(context);
-      m.showSnackBar(
-          const SnackBar(content: Text('Caja cerrada correctamente')));
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-    }
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -246,7 +111,9 @@ class _DialogoAperturaCajaState extends State<_DialogoAperturaCaja> {
     setState(() => _guardando = true);
     try {
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      await FirebaseFirestore.instance
+      final db = FirebaseFirestore.instance;
+      // caja_diaria: acumulador en tiempo real (para el bar)
+      await db
           .collection('empresas').doc(widget.empresaId)
           .collection('caja_diaria').doc(hoy)
           .set({
@@ -256,6 +123,15 @@ class _DialogoAperturaCajaState extends State<_DialogoAperturaCaja> {
         'num_tickets': 0, 'abierta': true,
         'abierta_en': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      // aperturas_caja: colección que lee CierreCajaService para el fondo inicial
+      await db
+          .collection('empresas').doc(widget.empresaId)
+          .collection('aperturas_caja')
+          .add({
+        'fondo_inicial': fondo,
+        'fecha': FieldValue.serverTimestamp(),
+        'origen': 'tpv_bar',
+      });
       if (!mounted) return;
       final m = ScaffoldMessenger.of(context);
       Navigator.pop(context);

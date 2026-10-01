@@ -89,10 +89,11 @@ class CierreCajaService {
         case 'paypal':
           totalTarjeta += total;
         case 'mixto':
-          final efectivoMixto =
-              (data['importe_efectivo'] as num?)?.toDouble() ?? 0.0;
-          final tarjetaMixto =
-              (data['importe_tarjeta'] as num?)?.toDouble() ?? 0.0;
+          // importe_efectivo es el campo canónico; efectivo_importe es el nombre legacy del TPV bar
+          final efectivoMixto = (data['importe_efectivo'] as num?)?.toDouble()
+              ?? (data['efectivo_importe'] as num?)?.toDouble() ?? 0.0;
+          final tarjetaMixto = (data['importe_tarjeta'] as num?)?.toDouble()
+              ?? (data['tarjeta_importe'] as num?)?.toDouble() ?? 0.0;
           if (efectivoMixto == 0 && tarjetaMixto == 0) {
             totalEfectivo += total / 2;
             totalTarjeta += total / 2;

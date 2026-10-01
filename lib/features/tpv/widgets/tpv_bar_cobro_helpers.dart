@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/verifactu/qr_service.dart';
-import 'tpv_caja.dart';
 
 export 'tpv_caja.dart' show
     mostrarPantallaCierreCaja, mostrarDialogoAperturaCaja, LineaResumen,
@@ -119,8 +118,8 @@ Future<CobroResult> guardarCobro(CobroParams p) async {
       'cambio': p.cambio,
     },
     if (p.metodoPago == 'mixto') ...{
-      'efectivo_importe': p.efectivoMixto,
-      'tarjeta_importe': p.tarjetaMixto,
+      'importe_efectivo': p.efectivoMixto,
+      'importe_tarjeta': p.tarjetaMixto,
     },
     if (p.esFiado) ...{
       'es_fiado': true,
