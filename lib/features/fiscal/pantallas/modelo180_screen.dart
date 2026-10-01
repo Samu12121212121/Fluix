@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/fiscal/mod180_calculator.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 180 — Resumen anual retenciones arrendamientos
@@ -101,9 +102,10 @@ class _Modelo180ScreenState extends State<Modelo180Screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modelo 180 — Resumen anual arrendamientos'),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 180 — Resumen anual arrendamientos',
+        showLeading: true,
+        extraActions: [
           if (_resultado != null)
             IconButton(
               icon: const Icon(Icons.share),

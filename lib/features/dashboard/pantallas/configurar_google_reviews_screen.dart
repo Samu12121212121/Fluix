@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/google_reviews_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para configurar la integración con Google Reviews.
 /// Solo requiere API Key de Google Places y Place ID del negocio.
@@ -129,12 +130,7 @@ class _ConfigurarGoogleReviewsScreenState
     }
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configurar Google Reviews'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Configurar Google Reviews', showLeading: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -335,12 +331,7 @@ class _ConfigurarGoogleReviewsScreenState
   Widget _buildDemoScreen(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Reseñas de Google'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Reseñas de Google', showLeading: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

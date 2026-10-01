@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -153,18 +154,30 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   static const _kNazariModulosOcultos = {'tareas', 'reservas', 'valoraciones', 'fichaje', 'vacaciones'};
 
   // ── Tiles del launcher (3×3 + tecla "0") ─────────────────────────────────
-  static const _kAllTiles = [
-    _AppTile('dashboard',   Icons.grid_view_rounded,           'Dashboard',    Color(0xFF3B82F6)),
-    _AppTile('facturacion', Icons.receipt_long_rounded,        'Facturación',  Color(0xFF10B981)),
-    _AppTile('clientes',    Icons.people_alt_rounded,          'Clientes',     Color(0xFF3B82F6)),
-    _AppTile('web',         Icons.language_rounded,            'Web',          Color(0xFF22D3EE)),
-    _AppTile('tpv',         Icons.point_of_sale_rounded,       'TPV',          Color(0xFFF59E0B)),
-    _AppTile('personal',    Icons.badge_rounded,               'Personal',     Color(0xFF8B5CF6)),
-    _AppTile('pedidos',     Icons.inventory_2_rounded,         'Pedidos',      Color(0xFFEC4899)),
-    _AppTile('tareas',      Icons.task_alt_rounded,            'Tareas',       Color(0xFF14B8A6)),
-    _AppTile('perfil',      Icons.account_circle_rounded,      'Mi Perfil',    Color(0xFF6366F1)),
-    _AppTile('carpeta',     Icons.folder_special_rounded,      'Más',          Color(0xFF6366F1)),
+  static const _kDefaultTiles = [
+    _AppTile('dashboard',     Icons.grid_view_rounded,           'Dashboard',    Color(0xFF3B82F6)),
+    _AppTile('facturacion',   Icons.receipt_long_rounded,        'Facturación',  Color(0xFF10B981)),
+    _AppTile('clientes',      Icons.people_alt_rounded,          'Clientes',     Color(0xFF3B82F6)),
+    _AppTile('web',           Icons.language_rounded,            'Web',          Color(0xFF22D3EE)),
+    _AppTile('tpv',           Icons.point_of_sale_rounded,       'TPV',          Color(0xFFF59E0B)),
+    _AppTile('personal',      Icons.badge_rounded,               'Personal',     Color(0xFF8B5CF6)),
+    _AppTile('pedidos',       Icons.inventory_2_rounded,         'Pedidos',      Color(0xFFEC4899)),
+    _AppTile('tareas',        Icons.task_alt_rounded,            'Tareas',       Color(0xFF14B8A6)),
+    _AppTile('app',           Icons.storefront_rounded,           'Mi App',       Color(0xFF00ACC1)),
+    _AppTile('fichaje',       Icons.schedule_rounded,            'Fichaje',      Color(0xFF14B8A6)),
+    _AppTile('vacaciones',    Icons.beach_access_rounded,        'Vacaciones',   Color(0xFF0EA5E9)),
+    _AppTile('plantillas_pdf',Icons.picture_as_pdf_rounded,      'Plantillas',   Color(0xFFEF4444)),
+    _AppTile('propietario',   Icons.admin_panel_settings_rounded,'Admin',        Color(0xFFDC2626)),
+    _AppTile('perfil',        Icons.account_circle_rounded,      'Mi Perfil',    Color(0xFF6366F1)),
+    _AppTile('carpeta',       Icons.folder_special_rounded,      'Más',          Color(0xFF6366F1)),
   ];
+
+  // Lista mutable que permite reordenar y persistir el orden
+  List<_AppTile> _kAllTiles = List.from(_kDefaultTiles);
+  static const _kPrefsOrderKey = 'fluix_modulos_order_v1';
+
+  // Lista visible en la pantalla de módulos (sin dashboard), manejada como estado propio
+  List<_AppTile>? _modulosListaOrdenada;
 
   bool get _esNazari => _empresaId == _kNazariId;
 
@@ -213,6 +226,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     'pedidos':       'Controla tus pedidos y su estado',
     'tareas':        'Organiza tareas y mejora la productividad',
     'perfil':        'Tu perfil y configuración personal',
+    'app':           'Perfil público del negocio en la app de clientes',
     'carpeta':       'Descubre más herramientas para tu negocio',
     'reservas':      'Gestiona citas y reservas de clientes',
     'valoraciones':  'Opiniones y valoraciones de clientes',
@@ -235,6 +249,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     'pedidos':       'Ver Pedidos activos',
     'tareas':        'Ver pendientes',
     'perfil':        'Ver Perfil',
+    'app':           'Editar perfil público',
     'carpeta':       'Explorar módulos',
     'reservas':      'Ver Reservas',
     'valoraciones':  'Ver Valoraciones',
@@ -247,7 +262,6 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
   static const _kFolderTiles = [
     _AppTile('reservas',       Icons.calendar_month_rounded,      'Reservas',     Color(0xFF8B5CF6)),
-    _AppTile('valoraciones',   Icons.star_rounded,                'Valoraciones', Color(0xFFEAB308)),
     _AppTile('fichaje',        Icons.schedule_rounded,            'Fichaje',      Color(0xFF14B8A6)),
     _AppTile('vacaciones',     Icons.beach_access_rounded,        'Vacaciones',   Color(0xFF0EA5E9)),
     _AppTile('servicios',      Icons.build_rounded,               'Servicios',    Color(0xFFF97316)),
@@ -270,6 +284,35 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   @override
+  Future<void> _cargarOrdenModulos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_kPrefsOrderKey);
+      if (saved == null || saved.isEmpty) return;
+      final mapa = { for (final t in _kDefaultTiles) t.id: t };
+      final ordenado = saved.map((id) => mapa[id]).whereType<_AppTile>().toList();
+      // Añadir tiles nuevos no guardados
+      for (final t in _kDefaultTiles) {
+        if (!ordenado.any((x) => x.id == t.id)) ordenado.add(t);
+      }
+      if (mounted) {
+        setState(() {
+          _kAllTiles = ordenado;
+          // Pre-inicializar la lista visible (sin dashboard) con el orden guardado
+          _modulosListaOrdenada = ordenado.where((t) => t.id != 'dashboard').toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _guardarOrdenModulos(List<_AppTile> tiles) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kPrefsOrderKey, tiles.map((t) => t.id).toList());
+    } catch (_) {}
+  }
+
+  @override
   void initState() {
     super.initState();
     _vistaActual = widget.vistaInicial;
@@ -278,6 +321,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     // Sincronizar dark mode con AppSettings
     _darkMode = AppSettings.darkMode.value;
     AppSettings.darkMode.addListener(_syncDarkMode);
+    _cargarOrdenModulos();
     // Listener para cambiar tab del dashboard cuando vuelve de un módulo
     AppSettings.targetTab.addListener(_syncTargetTab);
     _cargarDatosUsuario();
@@ -1190,7 +1234,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               setState(() => _notifToast = null);
               if (_empresaId != null) {
                 Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!),
+                  builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!, esPropietario: _sesion?.esPropietario ?? false),
                 ));
               }
             },
@@ -1364,7 +1408,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 iconSize: 22,
               ),
               onPressed: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!),
+                builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!, esPropietario: _sesion?.esPropietario ?? false),
               )),
             ),
           )
@@ -1394,78 +1438,129 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final bg   = dark ? const Color(0xFF0B0E18) : Colors.white;
     final text = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final sub  = dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
-    final div  = dark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100;
+
+    final cardBg  = dark ? const Color(0xFF1E2139) : Colors.white;
+    final border  = dark ? Colors.white.withValues(alpha: 0.07) : Colors.grey.shade200;
+
+    // Ocultar carpeta en móvil (el folder dialog lo reemplaza; plantillas_pdf se muestra para que el usuario sepa que existe)
+    const _kOcultarEnMovil = {'carpeta'};
+    final sinDashboard = tiles
+        .where((t) => t.id != 'dashboard' && !_kOcultarEnMovil.contains(t.id))
+        .toList();
+
+    // Si la cantidad de módulos disponibles cambia (suscripción cargó tarde), reinicializar
+    if (_modulosListaOrdenada == null ||
+        sinDashboard.length != _modulosListaOrdenada!.length ||
+        sinDashboard.any((t) => !_modulosListaOrdenada!.any((x) => x.id == t.id))) {
+      // Reconstruir preservando el orden guardado para los tiles que ya estaban
+      if (_modulosListaOrdenada == null) {
+        _modulosListaOrdenada = sinDashboard;
+      } else {
+        final nuevoOrden = <_AppTile>[];
+        // Primero los que ya están en el orden guardado (si siguen disponibles)
+        for (final t in _modulosListaOrdenada!) {
+          if (sinDashboard.any((x) => x.id == t.id)) nuevoOrden.add(t);
+        }
+        // Luego los nuevos que han aparecido
+        for (final t in sinDashboard) {
+          if (!nuevoOrden.any((x) => x.id == t.id)) nuevoOrden.add(t);
+        }
+        _modulosListaOrdenada = nuevoOrden;
+      }
+    }
+    final visibles = _modulosListaOrdenada!;
+
+    Widget buildCard(int i, _AppTile t) {
+      final action = _kAction[t.id] ?? '';
+      return Padding(
+        key: ValueKey(t.id),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        child: Material(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
+            splashColor: t.accent.withValues(alpha: 0.06),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: border),
+                boxShadow: dark ? [] : [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(children: [
+                Container(
+                  width: 46, height: 46,
+                  decoration: BoxDecoration(
+                    color: t.accent.withValues(alpha: dark ? 0.18 : 0.10),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(t.icon, color: t.accent, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(t.label, style: TextStyle(fontWeight: FontWeight.w600,
+                        fontSize: 15, color: text, letterSpacing: -0.1)),
+                    if ((_kDesc[t.id] ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(_kDesc[t.id]!, style: TextStyle(fontSize: 12, color: sub, height: 1.3),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                    if (action.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(action, style: TextStyle(fontSize: 11,
+                          fontWeight: FontWeight.w600, color: t.accent)),
+                    ],
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                ReorderableDragStartListener(
+                  index: i,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.drag_handle_rounded,
+                        color: sub.withValues(alpha: 0.45), size: 20),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    color: t.accent.withValues(alpha: 0.6), size: 18),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       color: bg,
-      child: ListView.separated(
-        padding: const EdgeInsets.only(top: 4, bottom: 16),
-        itemCount: tiles.length,
-        separatorBuilder: (_, __) => Divider(height: 1, color: div, indent: 74, endIndent: 16),
-        itemBuilder: (_, i) {
-          final t = tiles[i];
-          final action = _kAction[t.id] ?? '';
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
-              splashColor: t.accent.withValues(alpha: 0.06),
-              highlightColor: t.accent.withValues(alpha: 0.04),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: t.accent.withValues(alpha: dark ? 0.14 : 0.10),
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(t.icon, color: t.accent, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            t.label,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                              color: text,
-                              letterSpacing: -0.1,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _kDesc[t.id] ?? '',
-                            style: TextStyle(fontSize: 12, color: sub, height: 1.3),
-                            maxLines: 2,
-                          ),
-                          if (action.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Text(
-                              action,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: t.accent,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.chevron_right_rounded, color: t.accent.withValues(alpha: 0.7), size: 20),
-                  ],
-                ),
-              ),
-            ),
-          );
+      child: ReorderableListView.builder(
+        padding: const EdgeInsets.only(top: 10, bottom: 24),
+        itemCount: visibles.length,
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, index, animation) => Material(
+          color: Colors.transparent,
+          elevation: 8,
+          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(14),
+          child: child,
+        ),
+        onReorder: (oldIndex, newIndex) {
+          if (newIndex > oldIndex) newIndex--;
+          setState(() {
+            final item = _modulosListaOrdenada!.removeAt(oldIndex);
+            _modulosListaOrdenada!.insert(newIndex, item);
+            final dashboard = _kAllTiles.firstWhere((t) => t.id == 'dashboard',
+                orElse: () => _kDefaultTiles.first);
+            _kAllTiles = [dashboard, ..._modulosListaOrdenada!];
+          });
+          _guardarOrdenModulos(_kAllTiles);
         },
+        itemBuilder: (_, i) => buildCard(i, visibles[i]),
       ),
     );
   }
@@ -1834,59 +1929,71 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     );
   }
 
-  // ── Módulos móvil: grid de 4 columnas, ancho completo ─────────────────────
+  // ── Módulos móvil: lista completa de todos los módulos ────────────────────
   Widget _buildModulosMovil(bool dark) {
     final text = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final sub  = dark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
-    final mainTiles = _tilesPermitidos.take(8).toList();
+    final div  = dark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100;
+    final bg   = dark ? const Color(0xFF1E2139) : Colors.white;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Text('Módulos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: text)),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => setState(() => _paginaHome = 1),
-          child: const Text('Ver todos',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
-        ),
-      ]),
+      Text('Módulos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: text)),
       const SizedBox(height: 10),
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.9,
+      Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: dark ? const Color(0xFF2A2E45) : const Color(0xFFE8EAEE)),
+          boxShadow: dark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
         ),
-        itemCount: mainTiles.length,
-        itemBuilder: (_, i) {
-          final t = mainTiles[i];
-          return GestureDetector(
-            onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
-            child: Container(
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xFF1E2139) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: dark ? const Color(0xFF2A2E45) : const Color(0xFFE8EAEE)),
-                boxShadow: dark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1))],
-              ),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: t.accent.withValues(alpha: dark ? 0.14 : 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(t.icon, color: t.accent, size: 18),
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _tilesPermitidos.length,
+          separatorBuilder: (_, __) => Divider(height: 1, color: div, indent: 62, endIndent: 0),
+          itemBuilder: (_, i) {
+            final t = _tilesPermitidos[i];
+            final action = _kAction[t.id] ?? '';
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(i == 0
+                    ? 14 : i == _tilesPermitidos.length - 1 ? 14 : 0),
+                onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
+                splashColor: t.accent.withValues(alpha: 0.06),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(children: [
+                    Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        color: t.accent.withValues(alpha: dark ? 0.14 : 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(t.icon, color: t.accent, size: 19),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t.label, style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14, color: text)),
+                      if ((_kDesc[t.id] ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(_kDesc[t.id]!, style: TextStyle(fontSize: 11, color: sub),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                      if (action.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(action, style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600, color: t.accent)),
+                      ],
+                    ])),
+                    Icon(Icons.chevron_right_rounded,
+                        color: t.accent.withValues(alpha: 0.6), size: 18),
+                  ]),
                 ),
-                const SizedBox(height: 5),
-                Text(t.label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: sub),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     ]);
   }
@@ -2234,51 +2341,67 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   Widget _buildModuleShortcutSection(bool dark) {
-    final text    = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
-    final subText = dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
-    final mainTiles = _tilesPermitidos.take(8).toList();
+    final text = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final sub  = dark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
+    final div  = dark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100;
+    final bg   = dark ? const Color(0xFF1E2139) : Colors.white;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Text('Módulos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: text)),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => setState(() => _paginaHome = 1),
-          child: const Text('Ver todos',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
+      Text('Módulos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: text)),
+      const SizedBox(height: 10),
+      Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: dark ? const Color(0xFF2A2E45) : const Color(0xFFE8EAEE)),
+          boxShadow: dark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
         ),
-      ]),
-      const SizedBox(height: 12),
-      // Cuadrícula 2×4 de módulos (sin scroll horizontal) para ocupar el ancho del flex
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 1.1,
-        ),
-        itemCount: mainTiles.length,
-        itemBuilder: (ctx, i) {
-          final t = mainTiles[i];
-          return GestureDetector(
-            onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
-            child: Container(
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xFF1E2139) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: dark ? const Color(0xFF2A2E45) : const Color(0xFFE8EAEE)),
-                boxShadow: dark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _tilesPermitidos.length,
+          separatorBuilder: (_, __) => Divider(height: 1, color: div, indent: 62, endIndent: 0),
+          itemBuilder: (_, i) {
+            final t = _tilesPermitidos[i];
+            final action = _kAction[t.id] ?? '';
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
+                splashColor: t.accent.withValues(alpha: 0.06),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(children: [
+                    Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        color: t.accent.withValues(alpha: dark ? 0.14 : 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(t.icon, color: t.accent, size: 19),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t.label, style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14, color: text)),
+                      if ((_kDesc[t.id] ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(_kDesc[t.id]!, style: TextStyle(fontSize: 11, color: sub),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                      if (action.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(action, style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600, color: t.accent)),
+                      ],
+                    ])),
+                    Icon(Icons.chevron_right_rounded,
+                        color: t.accent.withValues(alpha: 0.6), size: 18),
+                  ]),
+                ),
               ),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(t.icon, color: t.accent, size: 22),
-                const SizedBox(height: 5),
-                Text(t.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: subText),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ]);
   }
@@ -2468,7 +2591,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!))),
+          builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!, esPropietario: _sesion?.esPropietario ?? false))),
       child: SizedBox(width: 56, child: Column(mainAxisSize: MainAxisSize.min, children: [
         StreamBuilder<int>(
           stream: BandejaNotificacionesService().noLeidasCount(_empresaId!),
@@ -3219,9 +3342,13 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             ),
             Icon(Icons.chevron_right_rounded, size: 14, color: sub),
             const SizedBox(width: 4),
-            Text(_webSubModuloNombre(_webSubModulo!).toUpperCase(),
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
-                    color: text, letterSpacing: 0.3)),
+            Flexible(
+              child: Text(_webSubModuloNombre(_webSubModulo!).toUpperCase(),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700,
+                      color: text, letterSpacing: 0.3),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1),
+            ),
           ] else
             Flexible(
               child: Text(_nombreModulo(moduloId).toUpperCase(),
@@ -3677,7 +3804,6 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       _AppTile('nominas',        Icons.payments_rounded,         'Nóminas',       Color(0xFF10B981)),
       _AppTile('plantillas_pdf', Icons.picture_as_pdf_rounded,   'Plantillas PDF',Color(0xFFEF4444)),
       _AppTile('servicios',      Icons.design_services_rounded,  'Servicios',     Color(0xFF3B82F6)),
-      _AppTile('valoraciones',   Icons.star_rate_rounded,        'Valoraciones',  Color(0xFFF59E0B)),
       _AppTile('propietario',    Icons.admin_panel_settings_rounded,'Propietario', Color(0xFF8B5CF6)),
     ];
     return ColoredBox(
@@ -3854,7 +3980,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             // ── Fila 1: Briefing | Agenda 7 días | Facturación | Alertas + Obligaciones ──────
             if (isMobile) ...[
               ClipRRect(borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(height: 300, child: _buildBriefingIACard(dark, cardBg, border, text, sub))),
+                  child: SizedBox(height: 320, child: _buildBriefingIACard(dark, cardBg, border, text, sub))),
               const SizedBox(height: 10),
               ClipRRect(borderRadius: BorderRadius.circular(12),
                   child: SizedBox(height: 300, child: _buildAgenda7DiasCard(dark, cardBg, border, text, sub))),
@@ -4673,7 +4799,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
     return LayoutBuilder(builder: (_, cons) {
       final cardH    = cons.maxHeight.isFinite ? cons.maxHeight : 220.0;
-      final contentH = (cardH - headerH - 1).clamp(0.0, double.infinity);
+      final contentH = (cardH - headerH - 1 - 2).clamp(0.0, double.infinity); // -2 = borders top+bottom
       final maxItems = (contentH / itemH).floor().clamp(1, 4);
 
       return Container(
@@ -5110,7 +5236,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         ),
         const Divider(height: 1),
         // Datos de hoy en tiempo real
-        FutureBuilder<Map<String, int>>(
+        Expanded(child: FutureBuilder<Map<String, int>>(
           future: _cargarResumenHoy(hoy),
           builder: (_, snap) {
             final data = snap.data ?? {};
@@ -5139,21 +5265,22 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   const SizedBox(width: 10),
                   Expanded(child: _briefingItem(items[3].$1, items[3].$2, items[3].$3, items[3].$4, text, sub)),
                 ]),
-                const SizedBox(height: 14),
-                // Mensaje del día — IA si está configurada, regla-based si no
-                _BriefingMensajeIA(
-                  reservasHoy: reservasHoy,
-                  pedidosHoy: pedidosHoy,
-                  facturasHoy: facturasHoy,
-                  tareasAbiertas: tareasAbier,
-                  facturasPendientes: 0,
-                  nombreEmpresa: _nombreEmpresa,
-                  fallback: _mensajeBriefing(reservasHoy, pedidosHoy, facturasHoy, tareasAbier),
+                const SizedBox(height: 10),
+                Flexible(
+                  child: _BriefingMensajeIA(
+                    reservasHoy: reservasHoy,
+                    pedidosHoy: pedidosHoy,
+                    facturasHoy: facturasHoy,
+                    tareasAbiertas: tareasAbier,
+                    facturasPendientes: 0,
+                    nombreEmpresa: _nombreEmpresa,
+                    fallback: _mensajeBriefing(reservasHoy, pedidosHoy, facturasHoy, tareasAbier),
+                  ),
                 ),
               ]),
             );
           },
-        ),
+        )),
       ]),
     );
   }
@@ -6897,7 +7024,18 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         break;
       case 'servicios':      screen = ModuloServiciosScreen(empresaId: eid, sesion: ses); break;
       case 'plantillas_pdf': screen = PdfTemplatesListScreen(empresaId: eid); break;
-      case 'propietario':    screen = _sesion?.esPropietario == true ? const ModuloPropietario() : null; break;
+      case 'app':            screen = Scaffold(
+                               backgroundColor: Colors.transparent,
+                               appBar: const FluixAppBar(titulo: 'Mi App', showLeading: true),
+                               body: ModuloAppScreen(empresaId: eid),
+                             ); break;
+      case 'propietario':    screen = _sesion?.esPropietario == true
+                               ? Scaffold(
+                                   backgroundColor: _darkMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                                   appBar: const FluixAppBar(titulo: 'Admin', showLeading: true),
+                                   body: const ModuloPropietario(),
+                                 )
+                               : null; break;
       case 'grafo_app':      screen = _sesion?.esPropietarioPlatforma == true ? const PantallaGrafoApp() : null; break;
       default: return;
     }
@@ -6936,7 +7074,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                                 onEmbedReady: (a) => setState(() => _tpvActions = a),
                                 onDispose: () { if (mounted) setState(() => _tpvActions = null); },
                               );
-      case 'whatsapp':        return ModuloWhatsAppScreen(empresaId: id);
+      case 'whatsapp':        return ModuloWhatsAppScreen(empresaId: id, esPropietario: sesionActiva?.esPropietario ?? false);
       case 'contabilidad':    return PantallaContabilidad(empresaId: id, initialTab: 0);
       case 'facturacion':     return ModuloFacturacionScreen(
                                 empresaId: id,
@@ -7706,7 +7844,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 final count = snap.data ?? 0;
                 return IconButton(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!),
+                    builder: (_) => BandejaNotificacionesScreen(empresaId: _empresaId!, esPropietario: _sesion?.esPropietario ?? false),
                   )),
                   icon: BadgeIcon(
                     icon: Icons.notifications_outlined,
@@ -8174,6 +8312,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       empresaId: _empresaId!,
       onSubModuloChanged: (sub) => setState(() => _webSubModulo = sub),
       volverAlHub: _webVolverAlHub,
+      noScaffold: true,
     );
   }
 
@@ -8323,10 +8462,15 @@ class _LanzadorTpvState extends State<_LanzadorTpv> {
   String? _tipoActivo;
   bool _haLanzadoLegacy = false;
 
+  // Solo sacoor80 puede ver el panel selector de todos los TPV
+  bool get _esSuperAdminTpv =>
+      widget.esPropietarioPlatforma &&
+      (FirebaseAuth.instance.currentUser?.email ?? '').startsWith('sacoor80');
+
   @override
   void initState() {
     super.initState();
-    if (widget.esPropietario || widget.esPropietarioPlatforma) {
+    if (_esSuperAdminTpv) {
       _tipoTpvFuture = Future.value('selector');
     } else {
       _tipoTpvFuture = _leerTipoTpv();
@@ -8425,8 +8569,8 @@ class _LanzadorTpvState extends State<_LanzadorTpv> {
       return _buildTpvEmbebido(_empresaActivaId!, _tipoActivo!);
     }
 
-    // Propietarios: mostrar selector embebido
-    if (widget.esPropietario || widget.esPropietarioPlatforma) {
+    // Solo sacoor80 ve el selector de todos los TPV
+    if (_esSuperAdminTpv) {
       return TpvSelectorNegocioScreen(
         propietarioUid: widget.propietarioUid.isNotEmpty
             ? widget.propietarioUid
@@ -8438,7 +8582,7 @@ class _LanzadorTpvState extends State<_LanzadorTpv> {
       );
     }
 
-    // Admin/staff: leer tipo y mostrar TPV directamente
+    // Todos los demás (propietarios, admin, staff): ir directamente a su TPV
     return FutureBuilder<String>(
       future: _tipoTpvFuture,
       builder: (context, snap) {
@@ -8545,6 +8689,8 @@ class _BriefingMensajeIAState extends State<_BriefingMensajeIA> {
                       style: TextStyle(fontSize: 11, color: const Color(0xFF7C3AED).withValues(alpha: 0.7))),
                 ])
               : Text(mensaje,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED), height: 1.4)),
         ),
       ]),

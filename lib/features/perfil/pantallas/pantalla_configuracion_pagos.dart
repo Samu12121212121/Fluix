@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/configuracion_pagos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaConfiguracionPagos extends StatefulWidget {
   final String empresaId;
@@ -71,10 +72,7 @@ class _State extends State<PantallaConfiguracionPagos> {
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configuración de pagos', style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: _kP, foregroundColor: Colors.white, elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Configuración de pagos', showLeading: true),
       body: _cargando ? const Center(child: CircularProgressIndicator())
           : _config == null ? const Center(child: Text('Error cargando datos'))
           : _body(),

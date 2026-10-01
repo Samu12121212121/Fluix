@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA ITEMS GENÉRICOS — Lo que ve el cliente
@@ -548,35 +549,10 @@ class _PantallaItemsSeccionState extends State<PantallaItemsSeccion> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F3EE),
-      appBar: AppBar(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: _categoriaActiva != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                onPressed: () => setState(() { _categoriaActiva = null; _searchCtrl.clear(); }),
-              )
-            : null,
-        title: _editandoNombre
-            ? TextField(
-                controller: _nombreCtrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Nombre de la sección',
-                  hintStyle: TextStyle(color: Colors.white54),
-                ),
-                onSubmitted: (_) => _guardarNombre(),
-              )
-            : GestureDetector(
-                onTap: _categoriaActiva == null
-                    ? () => setState(() => _editandoNombre = true)
-                    : null,
-                child: Text(appBarTitle(), overflow: TextOverflow.ellipsis),
-              ),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: _editandoNombre ? '' : appBarTitle(),
+        showLeading: true,
+        extraActions: [
           if (_editandoNombre)
             IconButton(icon: const Icon(Icons.check), onPressed: _guardarNombre)
           else if (_categoriaActiva == null) ...[

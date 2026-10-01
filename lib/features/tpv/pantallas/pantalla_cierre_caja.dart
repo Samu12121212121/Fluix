@@ -7,6 +7,7 @@ import '../../../domain/modelos/cierre_caja.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../widgets/tpv/boton_imprimir_widget.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaCierreCaja extends StatefulWidget {
   final String empresaId;
@@ -133,18 +134,7 @@ class _PantallaCierreCajaState extends State<PantallaCierreCaja> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _fondo,
-      appBar: AppBar(
-        backgroundColor: _azul,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        toolbarHeight: 48,
-        title: const Row(children: [
-          Icon(Icons.summarize_outlined, size: 18),
-          SizedBox(width: 6),
-          Text('Cierre de Caja',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-        ]),
-      ),
+      appBar: const FluixAppBar(titulo: 'Cierre de Caja', showLeading: true),
       body: _calculando
           ? const Center(child: CircularProgressIndicator())
           : ListView(

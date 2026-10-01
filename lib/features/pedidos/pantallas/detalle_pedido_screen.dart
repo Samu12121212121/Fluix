@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/domain/modelos/pedido_whatsapp.dart';
 import 'package:planeag_flutter/services/pedidos_whatsapp_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class DetallePedidoScreen extends StatefulWidget {
   final PedidoWhatsApp pedido;
@@ -35,11 +36,10 @@ class _DetallePedidoScreenState extends State<DetallePedidoScreen> {
     final colorEstado = _colorEstado(_pedido.estado);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text('Pedido de ${_pedido.clienteNombre}'),
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Pedido de ${_pedido.clienteNombre}',
+        showLeading: true,
+        extraActions: [
           PopupMenuButton<EstadoPedidoWA>(
             icon: const Icon(Icons.more_vert),
             onSelected: (estado) async {

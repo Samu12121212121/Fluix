@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CALENDARIO FISCAL — Alertas de vencimientos AEAT
@@ -16,18 +17,9 @@ class CalendarioFiscalScreen extends StatelessWidget {
     final vencimientos = _generarVencimientos(now.year);
     
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Calendario Fiscal'),
-            Text(
-              'Vencimientos AEAT ${now.year}',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-            ),
-          ],
-        ),
+      appBar: FluixAppBar(
+        titulo: 'Calendario Fiscal',
+        showLeading: true,
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),

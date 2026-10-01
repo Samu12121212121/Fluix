@@ -5,6 +5,7 @@ import '../../../models/negocio_publico_model.dart';
 import '../../negocio_publico/pantallas/tab_reservas_screen.dart';
 import '../../../core/widgets/flux_toast.dart';
 import '../../../services/canjeo_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class _C {
   static const negro      = Color(0xFF0A0F23);
@@ -1387,11 +1388,7 @@ class _VisorFotosState extends State<_VisorFotos> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black87, foregroundColor: Colors.white,
-        title: Text('${_idx + 1} / ${widget.fotos.length}', style: const TextStyle(fontSize: 14)),
-        elevation: 0,
-      ),
+      appBar: FluixAppBar(titulo: '${_idx + 1} / ${widget.fotos.length}', showLeading: true),
       body: PageView.builder(
         controller: _pc,
         itemCount: widget.fotos.length,

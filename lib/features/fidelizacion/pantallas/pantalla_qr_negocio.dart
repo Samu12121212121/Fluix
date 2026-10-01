@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../services/fidelizacion_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaQRNegocio extends StatefulWidget {
   final String negocioId;
@@ -26,11 +27,7 @@ class _PantallaQRNegocioState extends State<PantallaQRNegocio> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        title: const Text('QR del Negocio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: const FluixAppBar(titulo: 'QR del Negocio', showLeading: true),
       body: FutureBuilder<String?>(
         future: FidelizacionService.obtenerPrograma(widget.negocioId).then((p) => p?.id),
         builder: (context, snapshot) {

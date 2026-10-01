@@ -1191,6 +1191,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
               controller: ctrl,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: 'Fondo inicial (€)',
                 prefixIcon: Icon(Icons.euro),
@@ -2858,6 +2859,7 @@ class _TiendaComandaPanel extends StatelessWidget {
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(
             labelText: 'Cantidad',
@@ -3728,6 +3730,7 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
                 child: TextField(
                   controller: _stockCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly
                   ],
@@ -3742,6 +3745,7 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
                 child: TextField(
                   controller: _stockMinCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly
                   ],
@@ -3956,6 +3960,7 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
                 child: TextField(
                   controller: _stockCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly
                   ],
@@ -3967,6 +3972,7 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
                 child: TextField(
                   controller: _stockMinCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly
                   ],

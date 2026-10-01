@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/auth/auditoria_service.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA — Auditoría de accesos (solo Propietario)
@@ -36,29 +37,15 @@ class _PantallaAuditoriaState extends State<PantallaAuditoria> {
     if (widget.embedded) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Row(children: [
-          const Text('Auditoría de accesos',
-              style: TextStyle(fontWeight: FontWeight.w700)),
-          if (_hayFallidosRecientes) ...[
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text('⚠️ Fallos 24h',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11, fontWeight: FontWeight.bold)),
+      appBar: FluixAppBar(
+        titulo: 'Auditoría de accesos',
+        showLeading: true,
+        extraActions: [
+          if (_hayFallidosRecientes)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(Icons.warning_rounded, color: Colors.red, size: 20),
             ),
-          ],
-        ]),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _mostrarFiltros,

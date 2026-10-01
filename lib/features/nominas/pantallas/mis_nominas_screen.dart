@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MIS NÓMINAS — Vista del empleado (rol staff)
@@ -57,60 +58,24 @@ class _MisNominasScreenState extends State<MisNominasScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
-      body: Column(children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: _kBorder)),
+      appBar: FluixAppBar(
+        titulo: 'Mis Nóminas',
+        extraActions: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _anioFiltro,
+              style: const TextStyle(fontSize: 13, color: _kText),
+              icon: const Icon(Icons.arrow_drop_down, size: 16, color: _kSub),
+              items: List.generate(5, (i) => DateTime.now().year - i)
+                  .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                  .toList(),
+              onChanged: (v) => setState(() => _anioFiltro = v!),
+            ),
           ),
-          child: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _kGreen.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.receipt_long_rounded,
-                  color: _kGreen, size: 22),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('Mis Nóminas',
-                    style: TextStyle(fontSize: 20,
-                        fontWeight: FontWeight.bold, color: _kText)),
-                Text('Descarga y consulta tus nóminas',
-                    style: TextStyle(fontSize: 12, color: _kSub)),
-              ]),
-            ),
-            // Selector año
-            Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                border: Border.all(color: _kBorder),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
-                  value: _anioFiltro,
-                  style: const TextStyle(fontSize: 13, color: _kText),
-                  icon: const Icon(Icons.arrow_drop_down,
-                      size: 16, color: _kSub),
-                  items: List.generate(5, (i) => DateTime.now().year - i)
-                      .map((y) => DropdownMenuItem(
-                            value: y, child: Text('$y')))
-                      .toList(),
-                  onChanged: (v) => setState(() => _anioFiltro = v!),
-                ),
-              ),
-            ),
-          ]),
-        ),
-
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(children: [
         // Lista
         Expanded(
           child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(

@@ -9,6 +9,7 @@ import 'package:planeag_flutter/domain/modelos/nomina.dart';
 import 'package:planeag_flutter/services/modelo111_service.dart';
 import 'package:planeag_flutter/services/modelo111_pdf_service.dart';
 import 'package:planeag_flutter/services/exportadores_aeat/modelo111_aeat_exporter.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 111 — Retenciones IRPF trimestrales
@@ -149,18 +150,15 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
     if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Modelo 111 — Retenciones IRPF'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 111 — Retenciones IRPF',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(child: Text('$_anio',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),

@@ -31,6 +31,7 @@ import 'pantalla_editor_blog.dart';
 import 'pantalla_editor_word.dart';
 import 'tab_analytics_web.dart';
 import 'pantalla_items_seccion.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 part 'pantalla_contenido_web_blog.dart';
 part 'pantalla_contenido_web_secciones.dart';
@@ -45,12 +46,14 @@ class PantallaContenidoWeb extends StatefulWidget {
   final String empresaId;
   final ValueChanged<String?>? onSubModuloChanged;
   final ValueNotifier<int>? volverAlHub;
+  final bool noScaffold;
 
   const PantallaContenidoWeb({
     super.key,
     required this.empresaId,
     this.onSubModuloChanged,
     this.volverAlHub,
+    this.noScaffold = false,
   });
 
   @override
@@ -80,6 +83,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   StreamSubscription<List<EntradaBlog>>? _noticiasSub;
   StreamSubscription<List<EntradaBlog>>? _entrevistasSub;
 
+  Set<String> _modulosWeb = {};
+
   // Sub-vista activa (editor sin Scaffold)
   // tipo: 'editar_seccion' | 'editar_blog' | 'editar_catalogo'
   ({
@@ -104,6 +109,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     super.initState();
     _isDark = AppSettings.darkMode.value;
     AppSettings.darkMode.addListener(_onDark);
+    _svc.detectarModulosWeb(widget.empresaId).then((m) {
+      if (mounted) setState(() => _modulosWeb = m);
+      if (m.isNotEmpty) _autoSeedModulosDetectados(m);
+    });
     widget.volverAlHub?.addListener(_onVolverAlHub);
     _hubPageCtrl.addListener(() {
       if (!mounted) return;
@@ -135,6 +144,94 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     );
   }
 
+  /// Añade galería y menú semanal si no existen (idempotente para cuentas antiguas).
+  Future<void> _asegurarSeccionesBase(
+      CollectionReference<Map<String, dynamic>> col) async {
+    const necesarias = [
+      {'tipo': 'galeria',      'nombre': 'Galería',       'orden': 20},
+      {'tipo': 'menu_semanal', 'nombre': 'Menú Semanal',  'orden': 21},
+    ];
+    final snap = await col.get();
+    final tiposExistentes = snap.docs
+        .map((d) => (d.data()['tipo'] as String? ?? '').toLowerCase())
+        .toSet();
+    final batch = FirebaseFirestore.instance.batch();
+    bool cambios = false;
+    for (final s in necesarias) {
+      if (!tiposExistentes.contains(s['tipo'])) {
+        batch.set(col.doc(), {...s, 'activa': true});
+        cambios = true;
+      }
+    }
+    if (cambios) await batch.commit();
+  }
+
+  // Mapeo módulo detectado → tipo de sección + nombre para mostrar
+  static const _moduloASeed = <String, Map<String, String>>{
+    'galeria':      {'tipo': 'galeria',      'nombre': 'Galería'},
+    'menu-semanal': {'tipo': 'menu_semanal', 'nombre': 'Menú Semanal'},
+    'carta':        {'tipo': 'carta',        'nombre': 'Carta'},
+    'reservas':     {'tipo': 'reservas',     'nombre': 'Reservas'},
+    'contacto':     {'tipo': 'contacto',     'nombre': 'Contacto'},
+  };
+
+  /// Cuando la detección de la web devuelve módulos:
+  /// 1. Añade secciones que falten
+  /// 2. Marca como activa:false secciones cuyo tipo no aparece en la web
+  /// 3. Reactiva secciones que sí aparecen (por si las habían desactivado a mano)
+  Future<void> _autoSeedModulosDetectados(Set<String> modulos) async {
+    if (widget.empresaId == _kNazariId) return;
+    if (modulos.isEmpty) return;
+    try {
+      final col = FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('web_secciones');
+      final snap = await col.get();
+
+      // Tipos detectados normalizados (menu-semanal → menu_semanal)
+      final tiposDetectados = modulos
+          .map((m) => m.replaceAll('-', '_'))
+          .toSet();
+
+      final batch = FirebaseFirestore.instance.batch();
+      bool cambios = false;
+
+      // 1. Marcar activa/inactiva según detección
+      for (final doc in snap.docs) {
+        final tipo = (doc.data()['tipo'] as String? ?? '').toLowerCase();
+        final activaActual = doc.data()['activa'] as bool? ?? true;
+        // Tipos fijos que siempre están activos (Nazarí, PDFs, etc.)
+        const siempre = {'seleccion', 'plantillas_pdf', 'analytics', 'config'};
+        if (siempre.contains(tipo)) continue;
+        final debeActiva = tiposDetectados.contains(tipo);
+        if (activaActual != debeActiva) {
+          batch.update(doc.reference, {'activa': debeActiva});
+          cambios = true;
+        }
+      }
+
+      // 2. Añadir secciones que falten
+      final tiposExistentes = snap.docs
+          .map((d) => (d.data()['tipo'] as String? ?? '').toLowerCase())
+          .toSet();
+      for (final modulo in modulos) {
+        final seed = _moduloASeed[modulo];
+        if (seed == null) continue;
+        final tipo = seed['tipo']!;
+        if (tiposExistentes.contains(tipo)) continue;
+        batch.set(col.doc(), {
+          'nombre': seed['nombre'],
+          'tipo':   tipo,
+          'orden':  snap.docs.length,
+          'activa': true,
+        });
+        cambios = true;
+      }
+
+      if (cambios) await batch.commit();
+    } catch (_) {}
+  }
+
   Future<void> _autoSeedSecciones() async {
     try {
       final col = FirebaseFirestore.instance
@@ -147,7 +244,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         return;
       }
 
-      // Resto de empresas: solo sembrar si la colección está vacía
+      // Asegurar que galería y menú semanal existen para cualquier empresa
+      await _asegurarSeccionesBase(col);
+
+      // Resto de empresas: solo sembrar el set completo si la colección está vacía
       final snap = await col.limit(1).get();
       if (snap.docs.isNotEmpty) return;
       final batch = FirebaseFirestore.instance.batch();
@@ -304,6 +404,20 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     widget.onSubModuloChanged?.call(subMod);
   }
 
+  String _subVistaTitulo(({
+    String tipo, SeccionWeb? seccion, EntradaBlog? entrada,
+    List<CategoriaBlog> categorias, String paginaInicial,
+    Map<String, dynamic>? itemCatalogo,
+  }) sv) => switch (sv.tipo) {
+    'editar_seccion'    => sv.seccion != null ? 'Editar sección' : 'Nueva sección',
+    'items_seccion'     => sv.seccion?.nombre ?? 'Items',
+    'eventos_seccion'   => sv.seccion?.nombre ?? 'Eventos',
+    'editar_blog'       => sv.entrada != null ? 'Editar entrada' : 'Nueva entrada',
+    'editar_blog_clasico' => 'Editor clásico',
+    'editar_catalogo'   => sv.itemCatalogo != null ? 'Editar producto' : 'Nuevo producto',
+    _                   => 'Editar',
+  };
+
   void _cerrarSubVista() {
     setState(() => _subVista = null);
     widget.onSubModuloChanged?.call(_moduloActivoNombre ?? _moduloActivo);
@@ -319,11 +433,21 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     _WebMod('config',    'Configuración',  'Personaliza tu sitio web y\nsus ajustes',             Icons.settings_rounded,     Color(0xFF7C3AED)),
   ];
 
+  // Filtra secciones: solo muestra las marcadas como activa: true en Firestore
+  List<_WebSeccionDin> get _seccionesFiltradas =>
+      _webSecciones.where((s) => s.activa).toList();
+
   // Módulos leídos directamente de web_secciones + utilidades fijas al final
   List<_WebMod> get _mods => [
-    ..._webSecciones.map((s) => s.toWebMod()),
+    ..._seccionesFiltradas.map((s) => s.toWebMod()),
     ..._modsFixed,
   ];
+
+  String get _appBarTitulo {
+    if (_subVista != null) return _subVistaTitulo(_subVista!);
+    if (_moduloActivo != null) return _moduloActivoNombre ?? 'Contenido Web';
+    return 'Contenido Web';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +464,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         ? KeyedSubtree(key: ValueKey(_moduloActivo), child: _buildVistaModulo())
         : null;
 
-    return AnimatedSwitcher(
+    final child = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       switchInCurve:  Curves.easeOut,
       switchOutCurve: Curves.easeIn,
@@ -355,6 +479,25 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         ),
       ),
       child: modulo ?? hub,
+    );
+
+    if (widget.noScaffold) return child;
+
+    return Scaffold(
+      appBar: FluixAppBar(
+        titulo: _appBarTitulo,
+        showLeading: true,
+        onLeadingPressed: () {
+          if (_subVista != null) {
+            _cerrarSubVista();
+          } else if (_moduloActivo != null) {
+            _setModuloActivo(null);
+          } else {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+      body: child,
     );
   }
 
@@ -617,6 +760,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           noScaffold: true,
           onGuardado: _cerrarSubVista,
           onCancelar: _cerrarSubVista,
+          modulosWeb: _modulosWeb,
         );
       } else if (sv.tipo == 'items_seccion') {
         content = PantallaItemsSeccion(
@@ -671,9 +815,12 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       content = _buildWebModuloContent(mod);
     }
 
-    // El sidebar y AppBar del dashboard ya envuelven este widget desde el layout padre.
-    // Solo renderizamos el contenido en el área disponible.
-    return ColoredBox(color: _kBg, child: content);
+    return ColoredBox(
+      color: _kBg,
+      child: Column(children: [
+        Expanded(child: content),
+      ]),
+    );
   }
 
 
@@ -770,7 +917,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
                 empresaId: widget.empresaId, svc: _svc, color: mod.color);
             case 'carta':
               return TabCartaWeb(
-                empresaId: widget.empresaId, svc: _svc, color: mod.color);
+                empresaId: widget.empresaId, svc: _svc, color: mod.color,
+                seccionId: seccionId);
             case 'menu_semanal':
               return TabMenuSemanalWeb(
                 empresaId: widget.empresaId, svc: _svc, color: mod.color);
@@ -1947,6 +2095,21 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
             },
           ),
           ListTile(
+            leading: Icon(seccion.activa ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                color: const Color(0xFF64748B)),
+            title: Text(seccion.activa ? 'Ocultar del hub' : 'Mostrar en hub',
+                style: TextStyle(color: _kText)),
+            subtitle: Text(seccion.activa ? 'La sección queda guardada pero no visible' : 'Vuelve a aparecer en el hub',
+                style: TextStyle(fontSize: 12, color: _kTextSec)),
+            onTap: () async {
+              Navigator.pop(context);
+              await FirebaseFirestore.instance
+                  .collection('empresas').doc(widget.empresaId)
+                  .collection('web_secciones').doc(seccionId)
+                  .update({'activa': !seccion.activa});
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
             title: const Text('Eliminar sección', style: TextStyle(color: Colors.red)),
             onTap: () async {
@@ -1983,12 +2146,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   Widget _buildDemoScreen(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Contenido Web'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Contenido Web', showLeading: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -2153,12 +2311,14 @@ class _WebSeccionDin {
   final String nombre;
   final String tipo; // 'blog' | 'catalogo'
   final int orden;
+  final bool activa;
 
   const _WebSeccionDin({
     required this.id,
     required this.nombre,
     required this.tipo,
     required this.orden,
+    this.activa = true,
   });
 
   factory _WebSeccionDin.fromDoc(DocumentSnapshot doc) {
@@ -2168,6 +2328,7 @@ class _WebSeccionDin {
       nombre: d['nombre'] as String? ?? 'Sección',
       tipo:   (d['tipo'] as String? ?? 'blog').toLowerCase(),
       orden:  (d['orden'] as num?)?.toInt() ?? 0,
+      activa: d['activa'] as bool? ?? true,
     );
   }
 

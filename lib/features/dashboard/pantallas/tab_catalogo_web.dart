@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
+import 'tab_categorias_nazari.dart';
 
 // Normalización accent-insensitive para categorías (misma lógica que galería)
 String _normCatCatalogo(String s) => s.toLowerCase()
@@ -163,7 +165,24 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
                 const Spacer(),
-                if (hayDuplicados)
+                OutlinedButton.icon(
+                  onPressed: () => mostrarGestionCategorias(
+                      context, widget.empresaId, color),
+                  icon: const Icon(Icons.label_outline_rounded, size: 14),
+                  label: const Text('Categorías'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF7C3AED),
+                    side: const BorderSide(color: Color(0xFF7C3AED)),
+                    minimumSize: const Size(0, 32),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (hayDuplicados) ...[
+                  const SizedBox(width: 6),
                   TextButton.icon(
                     onPressed: () => _limpiarDuplicados(context),
                     icon: const Icon(Icons.cleaning_services_rounded,
@@ -173,6 +192,7 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
                             fontSize: 12, color: Color(0xFFDC2626),
                             fontWeight: FontWeight.w600)),
                   ),
+                ],
               ]),
               const SizedBox(height: 12),
               // KPI cards
@@ -357,16 +377,72 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
             ]),
           ),
           const Divider(height: 1),
+          // ── Barra de acciones por categoría ──────────────────────────────────
+          if (_filtroCategoria != null) ...[
+            Container(
+              color: color.withValues(alpha: 0.04),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              child: Row(children: [
+                Icon(Icons.category_outlined, size: 13, color: color),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  '${filtrados.length} ítem${filtrados.length != 1 ? 's' : ''} en "$_filtroCategoria"',
+                  style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600),
+                )),
+                _catAccionBtn('Ocultar todos', const Color(0xFFEF4444), () =>
+                    _toggleCategoria(filtrados, false)),
+                const SizedBox(width: 6),
+                _catAccionBtn('Mostrar todos', const Color(0xFF10B981), () =>
+                    _toggleCategoria(filtrados, true)),
+              ]),
+            ),
+            const Divider(height: 1),
+          ],
           // ── Lista/Grid ────────────────────────────────────────────────────────
           Expanded(
             child: filtrados.isEmpty
                 ? _buildVacio(context, todos.isEmpty, color)
                 : _buildLista(filtrados, color),
-
           ),
         ]);
       },
     );
+  }
+
+  Widget _catAccionBtn(String label, Color c, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: c.withValues(alpha: 0.25)),
+          ),
+          child: Text(label, style: TextStyle(
+              fontSize: 11, color: c, fontWeight: FontWeight.w700)),
+        ),
+      );
+
+  Future<void> _toggleCategoria(List<Map<String, dynamic>> items, bool visible) async {
+    if (items.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final item in items) {
+      final id = item['id'] as String?;
+      if (id == null || id.isEmpty) continue;
+      batch.update(
+        FirebaseFirestore.instance
+            .collection('empresas').doc(widget.empresaId)
+            .collection('catalogo_web').doc(id),
+        {'activo': visible},
+      );
+    }
+    await batch.commit();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${items.length} ítems ${visible ? 'activados' : 'ocultados'}'),
+      backgroundColor: visible ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   Widget _kpiCard(IconData icon, Color iconColor, String valor, String label) {
@@ -386,12 +462,20 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
               borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 16, color: iconColor),
           ),
-          const SizedBox(width: 10),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(valor, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A))),
-            Text(label, style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
-          ]),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(valor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A))),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+            ]),
+          ),
         ]),
       ),
     );
@@ -1308,6 +1392,7 @@ class _PantallaEditorItemCatalogoState
   final _formatoCtrl     = TextEditingController();
   final _dimensionesCtrl = TextEditingController();
   final _mesCtrl         = TextEditingController();
+  final _diaCtrl         = TextEditingController();
   final _pesoCtrl              = TextEditingController();
   final _coleccionCtrl         = TextEditingController();
   final _preventaEnvioCtrl     = TextEditingController();
@@ -1344,6 +1429,7 @@ class _PantallaEditorItemCatalogoState
       _formatoCtrl.text     = it['campo_formato'] ?? '';
       _dimensionesCtrl.text = it['campo_dimensiones'] ?? '';
       _mesCtrl.text         = it['campo_mes'] ?? '';
+      _diaCtrl.text         = it['campo_dia']?.toString() ?? '';
       _pesoCtrl.text        = it['campo_peso']?.toString() ?? '';
       _coleccionCtrl.text   = it['campo_coleccion'] ?? it['coleccion'] ?? '';
       _anio      = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
@@ -1359,7 +1445,7 @@ class _PantallaEditorItemCatalogoState
         _imagenCtrl, _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
         _autorCtrl, _traductorCtrl, _ilustradorCtrl,
         _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl,
-        _mesCtrl, _pesoCtrl, _coleccionCtrl, _preventaEnvioCtrl]) {
+        _mesCtrl, _diaCtrl, _pesoCtrl, _coleccionCtrl, _preventaEnvioCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -1370,17 +1456,7 @@ class _PantallaEditorItemCatalogoState
     final color = widget.color;
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
-      appBar: AppBar(
-        title: Text(widget.item == null ? 'Nuevo elemento' : 'Editar elemento'),
-        backgroundColor: color, foregroundColor: Colors.white, elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: _guardando ? null : () => _guardar(context),
-            child: Text(_guardando ? '…' : 'Guardar',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+            appBar: FluixAppBar(titulo: widget.item == null ? 'Nuevo elemento' : 'Editar elemento', showLeading: true),
       body: ListView(
         padding: const EdgeInsets.all(14),
         children: [
@@ -1468,7 +1544,11 @@ class _PantallaEditorItemCatalogoState
                   hint: 'ej. 320',
                   keyboardType: TextInputType.number),
               const Divider(height: 1),
-              _campo(_mesCtrl, 'Mes'),
+              _campo(_mesCtrl, 'Mes de venta', hint: 'ej. Octubre'),
+              const Divider(height: 1),
+              _campo(_diaCtrl, 'Día de venta (opcional)',
+                  hint: 'ej. 15',
+                  keyboardType: TextInputType.number),
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1722,6 +1802,7 @@ class _PantallaEditorItemCatalogoState
     opt('peso',              _pesoCtrl.text.trim());    // alias raíz para web y envío
     opt('campo_dimensiones', _dimensionesCtrl.text.trim());
     opt('campo_mes',         _mesCtrl.text.trim());
+    opt('campo_dia',         _diaCtrl.text.trim());
     data['campo_anio'] = _anio.toString();
     data['preventa']   = _preventa;
     if (_preventa) {

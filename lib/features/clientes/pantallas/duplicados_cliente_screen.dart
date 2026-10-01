@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/fusion_clientes_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para detectar y fusionar clientes duplicados.
 class DuplicadosClienteScreen extends StatefulWidget {
@@ -77,12 +78,10 @@ class _DuplicadosClienteScreenState extends State<DuplicadosClienteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Detección de duplicados'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Detección de duplicados',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Re-escanear',

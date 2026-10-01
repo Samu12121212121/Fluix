@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -81,6 +82,12 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     super.dispose();
   }
 
+  String _generarPassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    final rng = Random.secure();
+    return List.generate(10, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
   // ── Guardar ──────────────────────────────────────────────────────────────
 
   Future<void> _guardar() async {
@@ -127,25 +134,29 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
         }
       } else {
         final correo   = _correoCtrl.text.trim();
-        final password = _passwordCtrl.text.trim();
+        final password = _generarPassword();
         String? nuevoUid;
         FirebaseApp? tempApp;
         try {
           tempApp = await Firebase.initializeApp(
-              name: 'tempCrear_${DateTime.now().millisecondsSinceEpoch}',
+              name: 'emp_${DateTime.now().millisecondsSinceEpoch}',
               options: Firebase.app().options);
-          try {
-            final tempAuth = FirebaseAuth.instanceFor(app: tempApp);
-            final cred = await tempAuth.createUserWithEmailAndPassword(
-                email: correo, password: password);
-            nuevoUid = cred.user!.uid;
-            await tempAuth.signOut();
-          } catch (_) {}
+          final tempAuth = FirebaseAuth.instanceFor(app: tempApp);
+          final cred = await tempAuth.createUserWithEmailAndPassword(
+              email: correo, password: password);
+          nuevoUid = cred.user!.uid;
+          await tempAuth.signOut();
+        } on FirebaseAuthException catch (e) {
+          String msg = 'Error al crear la cuenta';
+          if (e.code == 'email-already-in-use') msg = 'Este correo ya tiene cuenta registrada.';
+          else if (e.code == 'invalid-email')   msg = 'Formato de correo no válido.';
+          else msg = e.message ?? msg;
+          if (mounted) FluxToast.error(context, msg);
+          return;
         } finally {
           try { await tempApp?.delete(); } catch (_) {}
         }
         if (nuevoUid == null) throw Exception('No se pudo crear la cuenta');
-
         await _firestore.collection('usuarios').doc(nuevoUid).set({
           'nombre':        _nombreCtrl.text.trim(),
           'correo':        correo,
@@ -158,17 +169,13 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
           'primera_vez':   true,
           ...camposExtra,
         });
+        // Email con link para que el empleado establezca su contraseña
+        try { await FirebaseAuth.instance.sendPasswordResetEmail(email: correo); } catch (_) {}
         if (mounted) {
           Navigator.pop(context);
           _mostrarCredenciales(correo, password);
         }
       }
-    } on FirebaseAuthException catch (e) {
-      String msg = 'Error: ${e.message}';
-      if (e.code == 'email-already-in-use') msg = 'Este correo ya tiene cuenta registrada.';
-      else if (e.code == 'weak-password')   msg = 'La contraseña necesita mínimo 6 caracteres.';
-      else if (e.code == 'invalid-email')   msg = 'Formato de correo no válido.';
-      if (mounted) FluxToast.error(context, msg);
     } catch (e) {
       if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
@@ -212,7 +219,10 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
         ]),
         actions: [
           FilledButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              Navigator.pop(ctx);      // cierra el diálogo
+              Navigator.pop(context);  // cierra el bottom sheet
+            },
             style: FilledButton.styleFrom(backgroundColor: _kBlue,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             child: const Text('Entendido'),
@@ -297,7 +307,7 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
                       onTap: () => setState(() => _soloFicha = false),
                       icon: Icons.smartphone_rounded,
                       label: 'Con acceso a app',
-                      sub: 'Crea usuario + contraseña',
+                      sub: 'Crea cuenta + email bienvenida',
                     )),
                     const SizedBox(width: 10),
                     Expanded(child: _modoBtn(
@@ -407,16 +417,9 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
                         if (!v.contains('@')) return 'Correo no válido';
                         return null;
                       }),
-                  _campo(_passwordCtrl, 'Contraseña temporal *', Icons.lock_outlined,
-                      oculto: true,
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Obligatorio';
-                        if (v.length < 6) return 'Mínimo 6 caracteres';
-                        return null;
-                      }),
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 12),
-                    child: Text('El empleado podrá cambiarla al iniciar sesión',
+                    child: Text('Se generará una contraseña temporal y se enviará por email',
                         style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ),
                 ],

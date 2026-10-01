@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/formulario_registro_simple.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaRegistro extends StatelessWidget {
   const PantallaRegistro({super.key});
@@ -7,11 +8,7 @@ class PantallaRegistro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrar Empresa'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Registrar Empresa', showLeading: true),
       body: const SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24.0),

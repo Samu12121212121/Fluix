@@ -4,6 +4,7 @@ import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:planeag_flutter/widgets/cliente_selector_rapido.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class FormularioNuevoPedidoScreen extends StatefulWidget {
   final String empresaId;
@@ -48,16 +49,15 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Nuevo pedido'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Nuevo pedido',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : _guardar,
             child: _guardando
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Crear', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Crear', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

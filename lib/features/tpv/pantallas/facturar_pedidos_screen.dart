@@ -4,6 +4,7 @@ import '../../../domain/modelos/pedido.dart';
 import '../../../services/facturacion_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
 import '../../facturacion/pantallas/detalle_factura_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class FacturarPedidosScreen extends StatefulWidget {
   final String empresaId;
@@ -139,12 +140,7 @@ class _FacturarPedidosScreenState extends State<FacturarPedidosScreen> {
     final fmt = DateFormat('dd/MM/yyyy');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Facturar Pedidos TPV', style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Facturar Pedidos TPV', showLeading: true),
       body: Column(
         children: [
           // Filtro de fechas

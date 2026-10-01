@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../services/gmb_auth_service.dart';
 
 /// Pantalla de conexión a Google Business Profile.
@@ -33,23 +34,15 @@ class _ConectarGoogleBusinessScreenState
       backgroundColor: Colors.white,
       appBar: _paso == _Paso.bienvenida
           ? null
-          : AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                onPressed: () => setState(() {
-                  _paso = _Paso.bienvenida;
-                  _error = null;
-                }),
-              ),
-              title: Text(
-                _paso == _Paso.seleccionarFicha
-                    ? 'Elige tu negocio'
-                    : 'Conectar Google',
-                style: const TextStyle(
-                    color: Colors.black87, fontWeight: FontWeight.w600),
-              ),
+          : FluixAppBar(
+              titulo: _paso == _Paso.seleccionarFicha
+                  ? 'Elige tu negocio'
+                  : 'Conectar Google',
+              showLeading: true,
+              onLeadingPressed: () => setState(() {
+                _paso = _Paso.bienvenida;
+                _error = null;
+              }),
             ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),

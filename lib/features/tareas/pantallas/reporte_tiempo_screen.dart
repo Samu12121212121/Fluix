@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/tiempo_tarea_service.dart';
 import '../../../domain/modelos/tarea.dart';
 import '../../../services/tareas_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de reporte de tiempo para el propietario.
 class ReporteTiempoScreen extends StatefulWidget {
@@ -69,11 +70,10 @@ class _ReporteTiempoScreenState extends State<ReporteTiempoScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Reporte de tiempo'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Reporte de tiempo',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.date_range),
             onPressed: _seleccionarPeriodo,
@@ -84,21 +84,19 @@ class _ReporteTiempoScreenState extends State<ReporteTiempoScreen>
             onPressed: _cargar,
           ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.people, size: 18), text: 'Por empleado'),
-            Tab(icon: Icon(Icons.task, size: 18), text: 'Por tarea'),
-          ],
-        ),
       ),
-      body: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
+      body: Column(
+        children: [
+          TabBar(
+            controller: _tabs,
+            tabs: const [
+              Tab(icon: Icon(Icons.people, size: 18), text: 'Por empleado'),
+              Tab(icon: Icon(Icons.task, size: 18), text: 'Por tarea'),
+            ],
+          ),
+          Expanded(child: _cargando
+            ? const Center(child: CircularProgressIndicator())
+            : Column(children: [
                 _buildPeriodoBar(),
                 Expanded(
                   child: TabBarView(
@@ -110,7 +108,9 @@ class _ReporteTiempoScreenState extends State<ReporteTiempoScreen>
                   ),
                 ),
               ],
-            ),
+            )),
+        ],
+      ),
     );
   }
 

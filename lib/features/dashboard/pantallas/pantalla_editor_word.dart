@@ -344,10 +344,8 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         autorId:          _autorId,
         libroId:          _libroId,
       );
-      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
-      // Guardar también el HTML pre-renderizado para la web
-      await widget.svc.actualizarCamposExtra(widget.empresaId, entrada.id.isEmpty
-          ? '' : entrada.id, {'contenido_html': html});
+      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada,
+          htmlContent: html);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(_estado == EstadoBlog.publicado
@@ -1019,8 +1017,6 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   // ── Preview ───────────────────────────────────────────────────────────────
 
   Widget _buildPreview() {
-    final deltaOps = _quillCtrl.document.toDelta().toJson();
-    final html     = _deltaToHtml(deltaOps);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       child: Center(

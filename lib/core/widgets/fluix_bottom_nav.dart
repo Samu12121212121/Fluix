@@ -22,8 +22,9 @@ import '../../features/perfil/pantallas/pantalla_perfil.dart';
 
 class FluixBottomNav extends StatelessWidget {
   final String? empresaId;
+  final bool esPropietario;
 
-  const FluixBottomNav({super.key, this.empresaId});
+  const FluixBottomNav({super.key, this.empresaId, this.esPropietario = false});
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +114,7 @@ class FluixBottomNav extends StatelessWidget {
                   color: unselected,
                   badge: snap.data ?? 0,
                   onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => BandejaNotificacionesScreen(empresaId: empresaId!),
+                    builder: (_) => BandejaNotificacionesScreen(empresaId: empresaId!, esPropietario: esPropietario),
                   )),
                 ),
               )

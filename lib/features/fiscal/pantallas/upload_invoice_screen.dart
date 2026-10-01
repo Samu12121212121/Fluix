@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/fiscal/fiscal_capture_service.dart';
 import '../../../services/fiscal/fiscal_upload_service.dart';
 import 'invoice_result_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class UploadInvoiceScreen extends StatefulWidget {
   final String empresaId;
@@ -91,7 +92,7 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nueva factura')),
+      appBar: const FluixAppBar(titulo: 'Nueva factura', showLeading: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

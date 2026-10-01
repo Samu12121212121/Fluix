@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../../../domain/modelos/bot_chat.dart';
 import '../../../services/chatbot_service.dart';
 import 'configurar_bot_whatsapp_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL — lista de chats
@@ -12,7 +13,8 @@ import 'configurar_bot_whatsapp_screen.dart';
 
 class PantallaChatsBot extends StatefulWidget {
   final String empresaId;
-  const PantallaChatsBot({super.key, required this.empresaId});
+  final bool esPropietario;
+  const PantallaChatsBot({super.key, required this.empresaId, this.esPropietario = false});
 
   @override
   State<PantallaChatsBot> createState() => _PantallaChatsBotState();
@@ -40,13 +42,9 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Bot WhatsApp',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Bot WhatsApp',
+        extraActions: [
           // Inicializar bot con datos de prueba
           _inicializando
               ? const Padding(
@@ -93,15 +91,16 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'init',
-                      child: ListTile(
-                        leading: Icon(Icons.science_outlined, color: Colors.green),
-                        title: Text('Inicializar bot con datos de prueba'),
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
+                    if (widget.esPropietario)
+                      const PopupMenuItem(
+                        value: 'init',
+                        child: ListTile(
+                          leading: Icon(Icons.science_outlined, color: Colors.green),
+                          title: Text('Inicializar bot con datos de prueba'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
                       ),
-                    ),
                     const PopupMenuItem(
                       value: 'config',
                       child: ListTile(
@@ -123,7 +122,9 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
                   ],
                 ),
         ],
-        bottom: TabBar(
+      ),
+      body: Column(children: [
+        TabBar(
           controller: _tabs,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
@@ -134,15 +135,15 @@ class _PantallaChatsBotState extends State<PantallaChatsBot>
             Tab(text: '✅ Resueltos'),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [
-          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'activo'),
-          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'derivado'),
-          _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'resuelto'),
-        ],
-      ),
+        Expanded(child: TabBarView(
+          controller: _tabs,
+          children: [
+            _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'activo'),
+            _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'derivado'),
+            _TabConversaciones(empresaId: widget.empresaId, svc: _svc, filtroEstado: 'resuelto'),
+          ],
+        )),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_nuevo_chat',
         onPressed: () => _nuevoChat(),
@@ -587,38 +588,10 @@ class _PantallaDetalleChatState extends State<PantallaDetalleChat> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFECE5DD), // fondo tipo WhatsApp
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF075E54),
-        foregroundColor: Colors.white,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white24,
-              child: Text(
-                widget.chat.clienteNombre.isNotEmpty
-                    ? widget.chat.clienteNombre[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.chat.clienteNombre,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-                if (widget.chat.telefono != null)
-                  Text(widget.chat.telefono!,
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.white70)),
-              ],
-            ),
-          ],
-        ),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: widget.chat.clienteNombre,
+        showLeading: true,
+        extraActions: [
           // Botón cambiar estado (Resolver / Reactivar)
           if (_estadoActual != 'resuelto')
             _cambiandoEstado
@@ -1018,11 +991,7 @@ class _PantallaConfigBotState extends State<PantallaConfigBot> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configuración del Bot'),
-        backgroundColor: const Color(0xFF075E54),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Configuración del Bot', showLeading: true),
       body: StreamBuilder<ConfigBot>(
         stream: _svc.configBotStream(widget.empresaId),
         builder: (context, snap) {

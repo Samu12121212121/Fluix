@@ -7,6 +7,7 @@ import '../../../services/nominas_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import 'package:planeag_flutter/features/nominas/pantallas/detalle_nomina_screen.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 /// Pantalla principal del módulo de nóminas.
 /// Tabs: Este Mes | Historial | Costes | Resumen
@@ -58,6 +59,7 @@ class _ModuloNominasScreenState extends State<ModuloNominasScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
+      appBar: const FluixAppBar(titulo: 'Nóminas'),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           // ── Cabecera desplazable ─────────────────────────────────────────

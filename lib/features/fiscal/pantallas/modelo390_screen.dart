@@ -10,6 +10,7 @@ import 'package:planeag_flutter/services/fiscal/mod390_exporter.dart';
 import 'package:planeag_flutter/services/fiscal/mod390_posicional_service.dart';
 import 'package:planeag_flutter/services/fiscal/sede_aeat_urls.dart';
 import 'package:planeag_flutter/widgets/presentar_aeat_widget.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 import 'package:planeag_flutter/widgets/estado_certificado_widget.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -153,18 +154,15 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
     if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Modelo 390 — Resumen Anual IVA'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 390 — Resumen Anual IVA',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(child: Text('$_anio',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),

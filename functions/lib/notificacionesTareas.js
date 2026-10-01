@@ -38,7 +38,7 @@ const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const REGION = "europe-west1";
 exports.onTareaAsignada = (0, firestore_1.onDocumentWritten)({ document: "empresas/{empresaId}/tareas/{tareaId}", region: REGION }, async (event) => {
-    var _a;
+    var _a, _b;
     const change = event.data;
     if (!change)
         return; // Deleted or invalid
@@ -130,7 +130,23 @@ exports.onTareaAsignada = (0, firestore_1.onDocumentWritten)({ document: "empres
             },
         };
         await admin.messaging().send(mensaje);
-        console.log(`✅ Notificación enviada a ${asignadoDespues}`);
+        console.log(`✅ Notificación push enviada a ${asignadoDespues}`);
+        // Guardar en bandeja in-app (path correcto)
+        const vence = ((_b = after.fecha_limite) === null || _b === void 0 ? void 0 : _b.toDate)
+            ? after.fecha_limite.toDate().toLocaleDateString("es-ES")
+            : null;
+        const cuerpoCompleto = `${cuerpo}${vence ? ` · Vence el ${vence}` : ""}`;
+        await db.collection("notificaciones").doc(empresaId).collection("items").add({
+            titulo: "📌 Tarea asignada",
+            cuerpo: cuerpoCompleto,
+            tipo: "tareaAsignada",
+            modulo_destino: "tareas",
+            entidad_id: tareaId,
+            empleado_id: asignadoDespues,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            leida: false,
+        });
+        console.log(`✅ Notificación bandeja guardada para tarea ${tareaId}`);
     }
     catch (error) {
         console.error("❌ Error enviando notificación de tarea:", error);

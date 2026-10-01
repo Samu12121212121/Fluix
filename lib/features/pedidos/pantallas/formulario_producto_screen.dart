@@ -6,6 +6,7 @@ import 'package:planeag_flutter/widgets/producto_imagen_widgets.dart';
 import 'package:planeag_flutter/features/pedidos/widgets/variantes_editor_widget.dart';
 import 'package:planeag_flutter/features/pedidos/widgets/historial_precios_widget.dart';
 import 'package:uuid/uuid.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class FormularioProductoScreen extends StatefulWidget {
   final String empresaId;
@@ -206,21 +207,16 @@ class _FormularioProductoScreenState extends State<FormularioProductoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar producto' : 'Nuevo producto'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: _esEdicion ? 'Editar producto' : 'Nuevo producto',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : _guardar,
             child: _guardando
-                ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Text('Guardar',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -375,6 +371,7 @@ class _FormularioProductoScreenState extends State<FormularioProductoScreen> {
                   controller: _duracionCustomCtrl,
                   decoration: _deco('Duración en minutos', Icons.timer),
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   onChanged: (v) =>
                       setState(() => _duracionMinutos = int.tryParse(v)),
                   validator: (v) {
@@ -396,6 +393,7 @@ class _FormularioProductoScreenState extends State<FormularioProductoScreen> {
                 controller: _stockCtrl,
                 decoration: _deco('Stock disponible (opcional)', Icons.inventory),
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -409,6 +407,7 @@ class _FormularioProductoScreenState extends State<FormularioProductoScreen> {
                 decoration:
                     _deco('Código de barras (opcional)', Icons.barcode_reader),
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 12),
               SwitchListTile(

@@ -33,7 +33,7 @@ export const crearEmpleadoConCredenciales = onCall(
       throw new HttpsError("unauthenticated", "Debes estar autenticado.");
     }
 
-    const { email, nombre, rol, empresaId, empresaNombre } = request.data as {
+    const { email, nombre, rol, empresaId, empresaNombre: empresaNombreParam } = request.data as {
       email?: string;
       nombre?: string;
       rol?: string;
@@ -41,8 +41,19 @@ export const crearEmpleadoConCredenciales = onCall(
       empresaNombre?: string;
     };
 
-    if (!email || !nombre || !empresaId || !empresaNombre) {
-      throw new HttpsError("invalid-argument", "Faltan datos obligatorios (email, nombre, empresaId, empresaNombre).");
+    if (!email || !nombre || !empresaId) {
+      throw new HttpsError("invalid-argument", "Faltan datos obligatorios (email, nombre, empresaId).");
+    }
+
+    // Obtener nombre de empresa en servidor para evitar roundtrips del cliente
+    let empresaNombre = empresaNombreParam || "";
+    if (!empresaNombre) {
+      try {
+        const empDoc = await admin.firestore().collection("empresas").doc(empresaId).get();
+        empresaNombre = (empDoc.data()?.nombre as string) || "Tu empresa";
+      } catch (_) {
+        empresaNombre = "Tu empresa";
+      }
     }
 
     const emailNorm  = email.trim().toLowerCase();

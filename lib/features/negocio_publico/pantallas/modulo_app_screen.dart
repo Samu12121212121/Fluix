@@ -13,16 +13,20 @@ import '../../../services/flash_slot_service.dart';
 import '../../flash_slots/pantallas/pantalla_crear_flash_slot.dart';
 import 'terminos_condiciones_screen.dart';
 import 'resenas_fluix_screen.dart';
+import '../../../core/utils/app_settings.dart';
 
-const _kBg     = Color(0xFF0A0F23);
-const _kCard   = Color(0xFF1E2139);
-const _kCard2  = Color(0xFF252A45);
+// Accent fijos — iguales en claro y oscuro
 const _kAccent = Color(0xFF00FFC8);
 const _kRosa   = Color(0xFFFF3296);
 const _kOro    = Color(0xFFFFB830);
-const _kTexto  = Colors.white;
-const _kMuted  = Color(0xFFB0B3C1);
-const _kBorde  = Color(0xFF2A2E45);
+
+// Colores reactivos al modo oscuro — accesibles desde cualquier widget del archivo
+Color get _kBg    => AppSettings.darkMode.value ? const Color(0xFF0A0F23) : const Color(0xFFF8F9FA);
+Color get _kCard  => AppSettings.darkMode.value ? const Color(0xFF1E2139) : Colors.white;
+Color get _kCard2 => AppSettings.darkMode.value ? const Color(0xFF252A45) : const Color(0xFFF1F5F9);
+Color get _kTexto => AppSettings.darkMode.value ? Colors.white             : const Color(0xFF0F172A);
+Color get _kMuted => AppSettings.darkMode.value ? const Color(0xFFB0B3C1) : const Color(0xFF6B7280);
+Color get _kBorde => AppSettings.darkMode.value ? const Color(0xFF2A2E45) : const Color(0xFFE5E7EB);
 
 class ModuloAppScreen extends StatefulWidget {
   final String empresaId;
@@ -57,6 +61,14 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   String _nivelPrecio = '€€';
   int _duracion       = 60;
   bool _activo        = true;
+  bool _isDark        = false;
+
+  Color get _kBg    => _isDark ? const Color(0xFF0A0F23) : const Color(0xFFF8F9FA);
+  Color get _kCard  => _isDark ? const Color(0xFF1E2139) : Colors.white;
+  Color get _kCard2 => _isDark ? const Color(0xFF252A45) : const Color(0xFFF1F5F9);
+  Color get _kTexto => _isDark ? Colors.white             : const Color(0xFF0F172A);
+  Color get _kMuted => _isDark ? const Color(0xFFB0B3C1) : const Color(0xFF6B7280);
+  Color get _kBorde => _isDark ? const Color(0xFF2A2E45) : const Color(0xFFE5E7EB);
 
   static const _categorias = [
     ('general','🏢','General'), ('restaurantes','🍽️','Restaurante / Bar'),
@@ -80,12 +92,17 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   @override
   void initState() {
     super.initState();
+    _isDark = AppSettings.darkMode.value;
+    AppSettings.darkMode.addListener(_onDark);
     _initHorarios();
     _cargar();
   }
 
+  void _onDark() { if (mounted) setState(() => _isDark = AppSettings.darkMode.value); }
+
   @override
   void dispose() {
+    AppSettings.darkMode.removeListener(_onDark);
     for (final c in [_nombreCtrl, _descCtrl, _emailCtrl, _igCtrl, _fbCtrl, _waCtrl, _webCtrl]) c.dispose();
     super.dispose();
   }
@@ -233,8 +250,8 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_cargando) return const Center(child: CircularProgressIndicator(color: _kAccent));
-    return Container(
+    if (_cargando) return Center(child: CircularProgressIndicator(color: _kAccent));
+    return ColoredBox(
       color: _kBg,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -312,14 +329,20 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   // ── Tab content groups ─────────────────────────────────────────────────────
 
   Widget _buildTabPerfil() {
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(child: _buildFotos()),
-          const SizedBox(width: 16),
-          Expanded(child: _buildInfoBasica()),
-        ]),
-      ),
+      if (isMobile) ...[
+        _buildFotos(),
+        const SizedBox(height: 16),
+        _buildInfoBasica(),
+      ] else
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: _buildFotos()),
+            const SizedBox(width: 16),
+            Expanded(child: _buildInfoBasica()),
+          ]),
+        ),
       const SizedBox(height: 16),
       _buildContacto(),
     ]);
@@ -389,7 +412,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                 ),
                 child: Row(children: [
                   Text(media.toStringAsFixed(1),
-                      style: const TextStyle(color: _kOro, fontSize: 36, fontWeight: FontWeight.bold, height: 1)),
+                      style: TextStyle(color: _kOro, fontSize: 36, fontWeight: FontWeight.bold, height: 1)),
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: List.generate(5, (i) => Icon(
@@ -398,19 +421,19 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                     ))),
                     const SizedBox(height: 4),
                     Text('$total reseña${total == 1 ? '' : 's'}',
-                        style: const TextStyle(color: _kMuted, fontSize: 12)),
+                        style: TextStyle(color: _kMuted, fontSize: 12)),
                   ]),
                 ]),
               ),
             ] else
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.star_border_rounded, color: _kOro, size: 40),
-                  SizedBox(height: 10),
+                  const Icon(Icons.star_border_rounded, color: _kOro, size: 40),
+                  const SizedBox(height: 10),
                   Text('Aún no tienes reseñas',
                       style: TextStyle(color: _kTexto, fontSize: 14, fontWeight: FontWeight.w600)),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text('Pulsa "Ver y añadir reseñas" para empezar',
                       style: TextStyle(color: _kMuted, fontSize: 12), textAlign: TextAlign.center),
                 ]),
@@ -422,7 +445,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                 icon: Icon(total > 0 ? Icons.reply_rounded : Icons.add_rounded, color: _kOro, size: 18),
                 label: Text(
                   total > 0 ? 'Ver y responder reseñas ($total)' : 'Añadir primera reseña',
-                  style: const TextStyle(color: _kOro, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: _kOro, fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: _kOro.withValues(alpha: 0.4), width: 1),
@@ -454,16 +477,16 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.phone_android, color: _kAccent, size: 22),
+            child: Icon(Icons.phone_android, color: _kAccent, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Mi App Pública', style: TextStyle(color: _kTexto, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Mi App Pública', style: TextStyle(color: _kTexto, fontSize: 18, fontWeight: FontWeight.bold)),
             Text(
               _negocioId == null
                   ? 'Rellena los datos y pulsa Activar para publicar'
                   : '✅ Publicado · cambios en tiempo real',
-              style: const TextStyle(color: _kMuted, fontSize: 12),
+              style: TextStyle(color: _kMuted, fontSize: 12),
             ),
           ])),
           const SizedBox(width: 12),
@@ -480,12 +503,12 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           FilledButton.icon(
             onPressed: _guardando ? null : _guardar,
             icon: _guardando
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
-                : const Icon(Icons.save_rounded, size: 17),
+                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
+                : Icon(Icons.save_rounded, size: 17),
             label: Text(_guardando ? 'Guardando...' : (_negocioId == null ? 'Activar' : 'Guardar')),
             style: FilledButton.styleFrom(
               backgroundColor: _kAccent, foregroundColor: _kBg,
-              textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              textStyle: TextStyle(fontWeight: FontWeight.bold),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             ),
@@ -507,7 +530,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
         const SizedBox(height: 14),
         const _Label('Descripción para tus clientes'),
         TextField(controller: _descCtrl, maxLines: 4, maxLength: 3000,
-            style: const TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Cuéntales qué ofreces...')),
+            style: TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Cuéntales qué ofreces...')),
         const SizedBox(height: 14),
         const _Label('Categoría'),
         Wrap(spacing: 8, runSpacing: 8, children: _categorias.map((cat) {
@@ -524,7 +547,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const _Label('Nivel de Precio'),
             SegmentedButton<String>(
-              segments: const [
+              segments: [
                 ButtonSegment(value: '€',   label: Text('€',   style: TextStyle(color: _kTexto))),
                 ButtonSegment(value: '€€',  label: Text('€€',  style: TextStyle(color: _kTexto))),
                 ButtonSegment(value: '€€€', label: Text('€€€', style: TextStyle(color: _kTexto))),
@@ -543,7 +566,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                   value: _duracion.toDouble(), min: 15, max: 180, divisions: 11,
                   activeColor: _kAccent, inactiveColor: _kBorde,
                   onChanged: (v) => setState(() => _duracion = v.toInt()))),
-              Text('$_duracion min', style: const TextStyle(color: _kAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+              Text('$_duracion min', style: TextStyle(color: _kAccent, fontWeight: FontWeight.bold, fontSize: 12)),
             ]),
           ])),
         ]),
@@ -556,7 +579,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       child: Column(children: List.generate(7, (i) {
         final h = _horarios[i] ?? HorarioDia(abierto: false);
         return Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(children: [
-          SizedBox(width: 86, child: Text(_dias[i], style: const TextStyle(color: _kTexto, fontSize: 13))),
+          SizedBox(width: 86, child: Text(_dias[i], style: TextStyle(color: _kTexto, fontSize: 13))),
           Switch(value: h.abierto, activeColor: _kAccent, activeTrackColor: _kAccent.withValues(alpha: 0.25),
               inactiveTrackColor: _kBg,
               onChanged: (v) => setState(() => _horarios[i] = HorarioDia(
@@ -566,12 +589,12 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               final t = await _pickTime(context, h.horaApertura ?? '09:00');
               if (t != null) setState(() => _horarios[i] = HorarioDia(abierto: h.abierto, horaApertura: t, horaCierre: h.horaCierre));
             })),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('—', style: TextStyle(color: _kMuted))),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: Text('—', style: TextStyle(color: _kMuted))),
             Expanded(child: _BotonHora(hora: h.horaCierre ?? '20:00', onTap: () async {
               final t = await _pickTime(context, h.horaCierre ?? '20:00');
               if (t != null) setState(() => _horarios[i] = HorarioDia(abierto: h.abierto, horaApertura: h.horaApertura, horaCierre: t));
             })),
-          ] else const Padding(padding: EdgeInsets.only(left: 4), child: Text('Cerrado', style: TextStyle(color: _kMuted, fontSize: 12))),
+          ] else Padding(padding: const EdgeInsets.only(left: 4), child: Text('Cerrado', style: TextStyle(color: _kMuted, fontSize: 12))),
         ]));
       })),
     );
@@ -603,15 +626,15 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.photo_library_outlined, color: _kAccent, size: 16),
+            child: Icon(Icons.photo_library_outlined, color: _kAccent, size: 16),
           ),
           const SizedBox(width: 10),
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Galería de Fotos', style: TextStyle(color: _kTexto, fontWeight: FontWeight.bold, fontSize: 14)),
             Text('La primera foto aparece como portada en Explorar', style: TextStyle(color: _kMuted, fontSize: 11)),
           ])),
         ]),
-        const Divider(color: _kBorde, height: 22),
+        Divider(color: _kBorde, height: 22),
         if (_subiendo) const Padding(
           padding: EdgeInsets.only(bottom: 10),
           child: LinearProgressIndicator(color: _kAccent),
@@ -630,7 +653,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(e.key == 0 ? 11 : 12),
                     child: Image.network(e.value, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(color: _kCard2, child: const Icon(Icons.broken_image, color: _kMuted))),
+                        errorBuilder: (_, __, ___) => Container(color: _kCard2, child: Icon(Icons.broken_image, color: _kMuted))),
                   ),
                 ),
                 if (e.key == 0) Positioned(
@@ -638,7 +661,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(color: _kAccent, borderRadius: BorderRadius.circular(4)),
-                    child: const Text('portada', style: TextStyle(color: _kBg, fontSize: 8, fontWeight: FontWeight.w800)),
+                    child: Text('portada', style: TextStyle(color: _kBg, fontSize: 8, fontWeight: FontWeight.w800)),
                   ),
                 ),
                 Positioned(top: 4, right: 4, child: GestureDetector(
@@ -646,7 +669,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+                    child: Icon(Icons.close, color: Colors.white, size: 14),
                   ),
                 )),
               ])),
@@ -672,7 +695,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
         if (_fotos.isNotEmpty) Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text('${_fotos.length} foto${_fotos.length == 1 ? '' : 's'} · La primera es la portada en Explorar',
-              style: const TextStyle(color: _kMuted, fontSize: 11)),
+              style: TextStyle(color: _kMuted, fontSize: 11)),
         ),
       ]),
     );
@@ -701,7 +724,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       return _Seccion(
         icono: Icons.content_cut_rounded, titulo: 'Catálogo de Servicios',
         subtitulo: 'Guarda el perfil primero para gestionar servicios',
-        child: const Padding(padding: EdgeInsets.symmetric(vertical: 16),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 16),
             child: Center(child: Text('Activa tu perfil público primero',
                 style: TextStyle(color: _kMuted, fontSize: 13)))),
       );
@@ -723,11 +746,11 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
             if (docs.isEmpty)
               Container(padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.spa_outlined, color: _kMuted, size: 32),
+                  Icon(Icons.spa_outlined, color: _kMuted, size: 32),
                   const SizedBox(height: 8),
-                  const Text('Sin servicios todavía', style: TextStyle(color: _kMuted, fontSize: 13)),
+                  Text('Sin servicios todavía', style: TextStyle(color: _kMuted, fontSize: 13)),
                   const SizedBox(height: 4),
-                  const Text('Añade servicios para que los clientes puedan reservar',
+                  Text('Añade servicios para que los clientes puedan reservar',
                       style: TextStyle(color: _kBorde, fontSize: 11), textAlign: TextAlign.center),
                 ])))
             else
@@ -736,7 +759,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
             Row(children: [
               Expanded(child: FilledButton.icon(
                 onPressed: () => _mostrarDialogoServicio(orden: docs.length),
-                icon: const Icon(Icons.add_rounded, size: 18),
+                icon: Icon(Icons.add_rounded, size: 18),
                 label: const Text('Añadir servicio', style: TextStyle(fontWeight: FontWeight.w700)),
                 style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -745,7 +768,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: _importarServiciosCsv,
-                icon: const Icon(Icons.upload_file_rounded, size: 16),
+                icon: Icon(Icons.upload_file_rounded, size: 16),
                 label: const Text('CSV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 style: OutlinedButton.styleFrom(foregroundColor: _kAccent,
                     side: const BorderSide(color: _kAccent, width: 1),
@@ -755,7 +778,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
             ]),
             if (docs.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8),
                 child: Text('${docs.length} servicio${docs.length == 1 ? '' : 's'} · Los cambios se publican al instante',
-                    style: const TextStyle(color: _kMuted, fontSize: 11))),
+                    style: TextStyle(color: _kMuted, fontSize: 11))),
           ]);
         },
       ),
@@ -792,7 +815,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
         Expanded(child: Opacity(opacity: activo ? 1.0 : 0.5,
           child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(nombre, style: const TextStyle(color: _kTexto, fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(nombre, style: TextStyle(color: _kTexto, fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
               if (categoria.isNotEmpty)
                 Container(margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -810,21 +833,21 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               Text(precioTxt, style: TextStyle(color: colorP, fontSize: 13, fontWeight: FontWeight.w800)),
               if (duracion != null) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.access_time_rounded, size: 11, color: _kMuted),
+                Icon(Icons.access_time_rounded, size: 11, color: _kMuted),
                 const SizedBox(width: 2),
                 Text(duracion >= 60
                     ? '${duracion ~/ 60}h${duracion % 60 > 0 ? ' ${duracion % 60}m' : ''}'
                     : '${duracion}min',
-                    style: const TextStyle(color: _kMuted, fontSize: 11)),
+                    style: TextStyle(color: _kMuted, fontSize: 11)),
               ],
             ]),
           ])))),
         Column(mainAxisSize: MainAxisSize.min, children: [
           IconButton(onPressed: () => _mostrarDialogoServicio(doc: doc, orden: idx),
-              icon: const Icon(Icons.edit_outlined, size: 17, color: _kAccent),
+              icon: Icon(Icons.edit_outlined, size: 17, color: _kAccent),
               padding: const EdgeInsets.all(6), constraints: const BoxConstraints()),
           IconButton(onPressed: () => _eliminarServicio(doc.id, nombre),
-              icon: const Icon(Icons.delete_outline, size: 17, color: Color(0xFFFF2850)),
+              icon: Icon(Icons.delete_outline, size: 17, color: Color(0xFFFF2850)),
               padding: const EdgeInsets.all(6), constraints: const BoxConstraints()),
         ]),
         const SizedBox(width: 4),
@@ -841,7 +864,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
         if (_negocioId == null)
           Padding(padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text('Guarda el perfil primero para crear ofertas flash',
-                  style: const TextStyle(color: _kMuted, fontSize: 13)))
+                  style: TextStyle(color: _kMuted, fontSize: 13)))
         else ...[
           const SizedBox(height: 8),
           StreamBuilder<List<FlashSlotModel>>(
@@ -854,7 +877,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               }
               if (slots.isEmpty) {
                 return Container(padding: const EdgeInsets.symmetric(vertical: 16), alignment: Alignment.center,
-                    child: const Text('Sin ofertas flash activas', style: TextStyle(color: _kMuted, fontSize: 13)));
+                    child: Text('Sin ofertas flash activas', style: TextStyle(color: _kMuted, fontSize: 13)));
               }
               return Column(children: slots.map((s) => _FlashSlotCard(slot: s, negocioId: _negocioId!)).toList());
             },
@@ -867,7 +890,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                     negocioId: _negocioId!, negocioNombre: _nombreNegocio,
                     empresaId: widget.empresaId, negocioFotoUrl: _fotos.isNotEmpty ? _fotos.first : null,
                   ))),
-              icon: const Icon(Icons.add_rounded, color: Color(0xFFFFBB00)),
+              icon: Icon(Icons.add_rounded, color: Color(0xFFFFBB00)),
               label: const Text('+ Nueva oferta flash', style: TextStyle(color: Color(0xFFFFBB00), fontWeight: FontWeight.w700)),
               style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFFBB00)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -885,14 +908,14 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       subtitulo: 'Etiquetas visibles en tu perfil: WiFi, Parking, Terraza…',
       child: Wrap(spacing: 8, runSpacing: 8, children: [
         ..._caracteristicas.map((c) => Chip(
-          label: Text(c, style: const TextStyle(color: _kTexto, fontSize: 12)),
+          label: Text(c, style: TextStyle(color: _kTexto, fontSize: 12)),
           backgroundColor: _kCard2, side: const BorderSide(color: _kAccent, width: 0.5),
           deleteIconColor: _kRosa, onDeleted: () => setState(() => _caracteristicas.remove(c)),
         )),
         ActionChip(
-          avatar: const Icon(Icons.add, color: _kAccent, size: 16),
+          avatar: Icon(Icons.add, color: _kAccent, size: 16),
           label: const Text('Añadir', style: TextStyle(color: _kAccent, fontSize: 12)),
-          backgroundColor: _kCard2, side: const BorderSide(color: _kBorde),
+          backgroundColor: _kCard2, side: BorderSide(color: _kBorde),
           onPressed: () async {
             final r = await showDialog<String>(context: context,
                 builder: (_) => _DialogoCaracteristicas(grupos: _caracteristicasGrupos, yaSeleccionadas: _caracteristicas));
@@ -916,14 +939,14 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
             child: Row(children: [
               Icon(_iconTipoCampo(c.tipo), color: _kAccent, size: 18), const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(c.label, style: const TextStyle(color: _kTexto, fontSize: 13, fontWeight: FontWeight.w600)),
-                Text('${c.tipo} · ${c.obligatorio ? "obligatorio" : "opcional"}', style: const TextStyle(color: _kMuted, fontSize: 11)),
+                Text(c.label, style: TextStyle(color: _kTexto, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('${c.tipo} · ${c.obligatorio ? "obligatorio" : "opcional"}', style: TextStyle(color: _kMuted, fontSize: 11)),
               ])),
-              IconButton(icon: const Icon(Icons.edit_outlined, color: _kAccent, size: 18), onPressed: () async {
+              IconButton(icon: Icon(Icons.edit_outlined, color: _kAccent, size: 18), onPressed: () async {
                 final r = await showDialog<CampoPersonalizado>(context: context, builder: (_) => _DialogoCampo(campo: c));
                 if (r != null) setState(() => _campos[e.key] = r);
               }),
-              IconButton(icon: const Icon(Icons.delete_outline, color: _kRosa, size: 18),
+              IconButton(icon: Icon(Icons.delete_outline, color: _kRosa, size: 18),
                   onPressed: () => setState(() => _campos.removeAt(e.key))),
             ]),
           );
@@ -934,7 +957,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
             final r = await showDialog<CampoPersonalizado>(context: context, builder: (_) => const _DialogoCampo());
             if (r != null) setState(() => _campos.add(r));
           },
-          icon: const Icon(Icons.add, size: 18),
+          icon: Icon(Icons.add, size: 18),
           label: const Text('Añadir Campo Personalizado'),
           style: FilledButton.styleFrom(backgroundColor: _kRosa, foregroundColor: _kTexto,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
@@ -959,23 +982,23 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(color: _kBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _kBorde, width: 0.5)),
-            child: const Row(children: [
-              Icon(Icons.info_outline, color: _kMuted, size: 16), SizedBox(width: 10),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: _kMuted, size: 16), const SizedBox(width: 10),
               Expanded(child: Text('Los T&C se editan en su propia pantalla con editor completo y vista previa.',
                   style: TextStyle(color: _kMuted, fontSize: 12, height: 1.4))),
             ])),
         SizedBox(width: double.infinity, child: FilledButton.icon(
           onPressed: _abrirTerminos,
-          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+          icon: Icon(Icons.open_in_new_rounded, size: 18),
           label: const Text('Editar Términos y Condiciones', style: TextStyle(fontWeight: FontWeight.w600)),
           style: FilledButton.styleFrom(backgroundColor: _kCard2, foregroundColor: _kAccent,
-              side: const BorderSide(color: _kBorde, width: 0.5),
+              side: BorderSide(color: _kBorde, width: 0.5),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(vertical: 14)),
         )),
         if (_negocioId == null) ...[
           const SizedBox(height: 8),
-          const Center(child: Text('Guarda el perfil primero para acceder al editor', style: TextStyle(color: _kMuted, fontSize: 11))),
+          Center(child: Text('Guarda el perfil primero para acceder al editor', style: TextStyle(color: _kMuted, fontSize: 11))),
         ],
       ]));
   }
@@ -985,11 +1008,11 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       child: FilledButton.icon(
         onPressed: _guardando ? null : _guardar,
         icon: _guardando
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
-            : const Icon(Icons.cloud_upload_rounded),
+            ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
+            : Icon(Icons.cloud_upload_rounded),
         label: Text(_guardando ? 'Guardando...' : '💾  Guardar y publicar cambios'),
         style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg,
-            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            textStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
       ),
     );
@@ -1052,10 +1075,10 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               child: Row(children: [
                 Container(padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.content_cut_rounded, color: _kAccent, size: 18)),
+                    child: Icon(Icons.content_cut_rounded, color: _kAccent, size: 18)),
                 const SizedBox(width: 12),
                 Expanded(child: Text(doc == null ? 'Nuevo servicio' : 'Editar servicio',
-                    style: const TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold))),
+                    style: TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold))),
                 Row(children: [
                   Text(activo ? 'Visible' : 'Oculto', style: TextStyle(color: activo ? _kAccent : _kMuted, fontSize: 11)),
                   Switch(value: activo, onChanged: (v) => setSt(() => activo = v),
@@ -1069,15 +1092,15 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const _Label('Nombre del servicio *'),
                 TextField(controller: nombreCtrl, autofocus: true,
-                    style: const TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Ej: Corte de cabello mujer')),
+                    style: TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Ej: Corte de cabello mujer')),
                 const SizedBox(height: 12),
                 const _Label('Descripción (opcional)'),
                 TextField(controller: descCtrl, maxLines: 2,
-                    style: const TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Breve descripción para el cliente')),
+                    style: TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Breve descripción para el cliente')),
                 const SizedBox(height: 12),
                 const _Label('Categoría'),
                 TextField(controller: catCtrl, onChanged: (_) => setSt(() {}),
-                    style: const TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Ej: Corte, Color, Masaje…')),
+                    style: TextStyle(color: _kTexto, fontSize: 13), decoration: _dec('Ej: Corte, Color, Masaje…')),
                 const SizedBox(height: 12),
                 const _Label('Foto del servicio (opcional)'),
                 GestureDetector(
@@ -1091,12 +1114,12 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                         ? Stack(children: [
                       ClipRRect(borderRadius: BorderRadius.circular(9),
                           child: Image.network(fotoUrl!, fit: BoxFit.cover, width: double.infinity, height: 90,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: _kMuted))),
+                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, color: _kMuted))),
                       Positioned(top: 4, right: 4, child: GestureDetector(
                         onTap: () => setSt(() => fotoUrl = null),
                         child: Container(padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, color: Colors.white, size: 14)),
+                            child: Icon(Icons.close, color: Colors.white, size: 14)),
                       )),
                     ])
                         : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -1127,7 +1150,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                     ]),
                     TextField(controller: usaPrecioDesde ? precioDesdeCtrl : precioCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: const TextStyle(color: _kTexto, fontSize: 13),
+                        style: TextStyle(color: _kTexto, fontSize: 13),
                         decoration: _dec(usaPrecioDesde ? 'Precio mínimo €' : 'Precio fijo €')),
                   ])),
                   const SizedBox(width: 14),
@@ -1140,7 +1163,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                       Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                           decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                           child: Text(duracion >= 60 ? '${duracion ~/ 60}h${duracion % 60 > 0 ? '${duracion % 60}m' : ''}' : '${duracion}m',
-                              style: const TextStyle(color: _kAccent, fontSize: 11, fontWeight: FontWeight.w700))),
+                              style: TextStyle(color: _kAccent, fontSize: 11, fontWeight: FontWeight.w700))),
                     ]),
                   ])),
                 ]),
@@ -1176,7 +1199,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
               child: Row(children: [
                 Expanded(child: OutlinedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: _kBorde), foregroundColor: _kMuted,
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: _kBorde), foregroundColor: _kMuted,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 13)),
                   child: const Text('Cancelar'),
@@ -1210,7 +1233,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 13)),
                   child: Text(doc == null ? 'Añadir servicio' : 'Guardar cambios',
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                      style: TextStyle(fontWeight: FontWeight.w800)),
                 )),
               ]),
             ),
@@ -1255,27 +1278,27 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
     final ok = await showDialog<bool>(context: context, builder: (dlgCtx) => AlertDialog(
       backgroundColor: _kCard, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text('Importar ${servicios.length} servicio${servicios.length == 1 ? '' : 's'}',
-          style: const TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold)),
+          style: TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold)),
       content: SizedBox(width: double.maxFinite, height: 280, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Formato: nombre · categoría · precio', style: TextStyle(color: _kMuted, fontSize: 11)),
+        Text('Formato: nombre · categoría · precio', style: TextStyle(color: _kMuted, fontSize: 11)),
         const SizedBox(height: 10),
         Expanded(child: ListView.separated(
           itemCount: servicios.length,
-          separatorBuilder: (_, __) => const Divider(color: _kBorde, height: 1),
+          separatorBuilder: (_, __) => Divider(color: _kBorde, height: 1),
           itemBuilder: (_, i) {
             final s = servicios[i];
             final precio = s['precio'] != null ? '€${s['precio']}' : s['precio_desde'] != null ? 'Desde €${s['precio_desde']}' : '';
             return Padding(padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(children: [
-                Expanded(child: Text(s['nombre'] as String, style: const TextStyle(color: _kTexto, fontSize: 13))),
-                if ((s['categoria'] as String?) != null) Text(s['categoria'] as String, style: const TextStyle(color: _kMuted, fontSize: 11)),
-                if (precio.isNotEmpty) ...[const SizedBox(width: 8), Text(precio, style: const TextStyle(color: _kAccent, fontSize: 12, fontWeight: FontWeight.w700))],
+                Expanded(child: Text(s['nombre'] as String, style: TextStyle(color: _kTexto, fontSize: 13))),
+                if ((s['categoria'] as String?) != null) Text(s['categoria'] as String, style: TextStyle(color: _kMuted, fontSize: 11)),
+                if (precio.isNotEmpty) ...[const SizedBox(width: 8), Text(precio, style: TextStyle(color: _kAccent, fontSize: 12, fontWeight: FontWeight.w700))],
               ]));
           },
         )),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('Cancelar', style: TextStyle(color: _kMuted))),
+        TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: Text('Cancelar', style: TextStyle(color: _kMuted))),
         FilledButton(onPressed: () => Navigator.pop(dlgCtx, true),
             style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -1292,10 +1315,10 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   Future<void> _eliminarServicio(String docId, String nombre) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
       backgroundColor: _kCard, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Eliminar servicio', style: TextStyle(color: _kTexto, fontSize: 16)),
-      content: Text('¿Eliminar "$nombre"? No se puede deshacer.', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      title: Text('Eliminar servicio', style: TextStyle(color: _kTexto, fontSize: 16)),
+      content: Text('¿Eliminar "$nombre"? No se puede deshacer.', style: TextStyle(color: _kMuted, fontSize: 13)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar', style: TextStyle(color: _kMuted))),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancelar', style: TextStyle(color: _kMuted))),
         FilledButton(onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF2850), foregroundColor: Colors.white),
             child: const Text('Eliminar')),
@@ -1341,11 +1364,11 @@ class _Seccion extends StatelessWidget {
               child: Icon(icono, color: color, size: 16)),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(titulo, style: const TextStyle(color: _kTexto, fontWeight: FontWeight.bold, fontSize: 14)),
-            if (subtitulo != null) Text(subtitulo!, style: const TextStyle(color: _kMuted, fontSize: 11)),
+            Text(titulo, style: TextStyle(color: _kTexto, fontWeight: FontWeight.bold, fontSize: 14)),
+            if (subtitulo != null) Text(subtitulo!, style: TextStyle(color: _kMuted, fontSize: 11)),
           ])),
         ]),
-        const Divider(color: _kBorde, height: 22),
+        Divider(color: _kBorde, height: 22),
         child,
       ]),
     );
@@ -1355,20 +1378,20 @@ class _Seccion extends StatelessWidget {
 class _Label extends StatelessWidget {
   final String text; const _Label(this.text);
   @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: const TextStyle(color: _kAccent, fontSize: 12, fontWeight: FontWeight.w600)));
+      child: Text(text, style: TextStyle(color: _kAccent, fontSize: 12, fontWeight: FontWeight.w600)));
 }
 
 class _Input extends StatelessWidget {
   final TextEditingController ctrl; final String hint;
   const _Input({required this.ctrl, required this.hint});
-  @override Widget build(BuildContext context) => TextField(controller: ctrl, style: const TextStyle(color: _kTexto), decoration: _dec(hint));
+  @override Widget build(BuildContext context) => TextField(controller: ctrl, style: TextStyle(color: _kTexto), decoration: _dec(hint));
 }
 
 class _InputIcon extends StatelessWidget {
   final TextEditingController ctrl; final IconData icon; final String label; final String hint;
   const _InputIcon({required this.ctrl, required this.icon, required this.label, required this.hint});
-  @override Widget build(BuildContext context) => TextField(controller: ctrl, style: const TextStyle(color: _kTexto, fontSize: 13),
-      decoration: _dec(hint).copyWith(labelText: label, labelStyle: const TextStyle(color: _kMuted, fontSize: 13),
+  @override Widget build(BuildContext context) => TextField(controller: ctrl, style: TextStyle(color: _kTexto, fontSize: 13),
+      decoration: _dec(hint).copyWith(labelText: label, labelStyle: TextStyle(color: _kMuted, fontSize: 13),
           prefixIcon: Icon(icon, color: _kRosa, size: 18)));
 }
 
@@ -1378,11 +1401,11 @@ class _BotonHora extends StatelessWidget {
   @override Widget build(BuildContext context) => GestureDetector(onTap: onTap,
       child: Container(padding: const EdgeInsets.symmetric(vertical: 7),
           decoration: BoxDecoration(color: _kCard2, borderRadius: BorderRadius.circular(8), border: Border.all(color: _kBorde)),
-          child: Text(hora, textAlign: TextAlign.center, style: const TextStyle(color: _kTexto, fontSize: 12, fontWeight: FontWeight.w500))));
+          child: Text(hora, textAlign: TextAlign.center, style: TextStyle(color: _kTexto, fontSize: 12, fontWeight: FontWeight.w500))));
 }
 
 InputDecoration _dec(String hint) => InputDecoration(
-  hintText: hint, hintStyle: const TextStyle(color: Color(0xFF5A5D72), fontSize: 13),
+  hintText: hint, hintStyle: TextStyle(color: Color(0xFF5A5D72), fontSize: 13),
   filled: true, fillColor: _kBg, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
   enabledBorder: OutlineInputBorder(borderRadius: const BorderRadius.all(Radius.circular(10)), borderSide: BorderSide(color: _kBorde, width: 0.5)),
   focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10)), borderSide: BorderSide(color: _kAccent, width: 1)),
@@ -1405,10 +1428,10 @@ class _DialogoTexto extends StatelessWidget {
   const _DialogoTexto({required this.titulo, required this.ctrl, required this.hint});
   @override Widget build(BuildContext context) => AlertDialog(backgroundColor: _kCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(titulo, style: const TextStyle(color: _kTexto)),
-      content: TextField(controller: ctrl, autofocus: true, style: const TextStyle(color: _kTexto), decoration: _dec(hint)),
+      title: Text(titulo, style: TextStyle(color: _kTexto)),
+      content: TextField(controller: ctrl, autofocus: true, style: TextStyle(color: _kTexto), decoration: _dec(hint)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: _kMuted))),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar', style: TextStyle(color: _kMuted))),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text),
             style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg), child: const Text('Añadir')),
       ]);
@@ -1426,12 +1449,12 @@ class _DialogoCampoState extends State<_DialogoCampo> {
   @override void dispose() { _labelCtrl.dispose(); _placeCtrl.dispose(); super.dispose(); }
   @override Widget build(BuildContext context) => AlertDialog(backgroundColor: _kCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(widget.campo == null ? 'Nuevo Campo' : 'Editar Campo', style: const TextStyle(color: _kTexto)),
+      title: Text(widget.campo == null ? 'Nuevo Campo' : 'Editar Campo', style: TextStyle(color: _kTexto)),
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        TextField(controller: _labelCtrl, style: const TextStyle(color: _kTexto), decoration: _dec('Ej: Número de personas').copyWith(labelText: 'Etiqueta *', labelStyle: const TextStyle(color: _kMuted))),
+        TextField(controller: _labelCtrl, style: TextStyle(color: _kTexto), decoration: _dec('Ej: Número de personas').copyWith(labelText: 'Etiqueta *', labelStyle: TextStyle(color: _kMuted))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: _tipo, dropdownColor: _kCard, style: const TextStyle(color: _kTexto),
-            decoration: InputDecoration(labelText: 'Tipo', labelStyle: const TextStyle(color: _kMuted), filled: true, fillColor: _kBg,
+        DropdownButtonFormField<String>(value: _tipo, dropdownColor: _kCard, style: TextStyle(color: _kTexto),
+            decoration: InputDecoration(labelText: 'Tipo', labelStyle: TextStyle(color: _kMuted), filled: true, fillColor: _kBg,
                 enabledBorder: OutlineInputBorder(borderRadius: const BorderRadius.all(Radius.circular(8)), borderSide: BorderSide(color: _kBorde, width: 0.5)),
                 focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide(color: _kAccent, width: 1)),
                 border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8)), borderSide: BorderSide.none)),
@@ -1442,25 +1465,25 @@ class _DialogoCampoState extends State<_DialogoCampo> {
             ],
             onChanged: (v) => setState(() => _tipo = v!)),
         const SizedBox(height: 12),
-        TextField(controller: _placeCtrl, style: const TextStyle(color: _kTexto), decoration: _dec('Texto de ayuda (opcional)').copyWith(labelText: 'Placeholder', labelStyle: const TextStyle(color: _kMuted))),
+        TextField(controller: _placeCtrl, style: TextStyle(color: _kTexto), decoration: _dec('Texto de ayuda (opcional)').copyWith(labelText: 'Placeholder', labelStyle: TextStyle(color: _kMuted))),
         Container(margin: const EdgeInsets.only(top: 8), decoration: BoxDecoration(color: _kBg, borderRadius: BorderRadius.circular(10)),
             child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _obligatorio, activeColor: _kAccent,
-                title: const Text('Campo obligatorio', style: TextStyle(color: _kTexto, fontSize: 13)),
+                title: Text('Campo obligatorio', style: TextStyle(color: _kTexto, fontSize: 13)),
                 onChanged: (v) => setState(() => _obligatorio = v!))),
         if (_tipo == 'selector') ...[
-          const Divider(color: _kBorde, height: 24),
-          const Text('Opciones:', style: TextStyle(color: _kMuted, fontWeight: FontWeight.bold)),
-          ..._opciones.map((o) => ListTile(dense: true, title: Text(o, style: const TextStyle(color: _kTexto, fontSize: 13)),
-              trailing: IconButton(icon: const Icon(Icons.remove_circle_outline, color: _kRosa, size: 18), onPressed: () => setState(() => _opciones.remove(o))))),
+          Divider(color: _kBorde, height: 24),
+          Text('Opciones:', style: TextStyle(color: _kMuted, fontWeight: FontWeight.bold)),
+          ..._opciones.map((o) => ListTile(dense: true, title: Text(o, style: TextStyle(color: _kTexto, fontSize: 13)),
+              trailing: IconButton(icon: Icon(Icons.remove_circle_outline, color: _kRosa, size: 18), onPressed: () => setState(() => _opciones.remove(o))))),
           TextButton.icon(onPressed: () async {
             final c = TextEditingController();
             final r = await showDialog<String>(context: context, builder: (_) => _DialogoTexto(titulo: 'Nueva opción', ctrl: c, hint: 'Ej: Mañana'));
             if (r != null && r.isNotEmpty) setState(() => _opciones.add(r));
-          }, icon: const Icon(Icons.add_circle_outline, color: _kAccent, size: 16), label: const Text('Añadir opción', style: TextStyle(color: _kAccent, fontSize: 13))),
+          }, icon: Icon(Icons.add_circle_outline, color: _kAccent, size: 16), label: const Text('Añadir opción', style: TextStyle(color: _kAccent, fontSize: 13))),
         ],
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: _kMuted))),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar', style: TextStyle(color: _kMuted))),
         FilledButton(onPressed: () {
           if (_labelCtrl.text.trim().isEmpty) return;
           Navigator.pop(context, CampoPersonalizado(
@@ -1488,12 +1511,12 @@ class _DialogoCaracteristicasState extends State<_DialogoCaracteristicas> {
             Container(padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
                 decoration: const BoxDecoration(color: Color(0xFF151932), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Añadir característica', style: TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text('Añadir característica', style: TextStyle(color: _kTexto, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   TextField(controller: _busqCtrl, onChanged: (v) => setState(() => _busqueda = v.toLowerCase()),
-                      style: const TextStyle(color: _kTexto, fontSize: 13),
-                      decoration: InputDecoration(hintText: 'Buscar...', hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                          prefixIcon: const Icon(Icons.search_rounded, color: _kAccent, size: 18), filled: true, fillColor: _kBg,
+                      style: TextStyle(color: _kTexto, fontSize: 13),
+                      decoration: InputDecoration(hintText: 'Buscar...', hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                          prefixIcon: Icon(Icons.search_rounded, color: _kAccent, size: 18), filled: true, fillColor: _kBg,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none))),
                 ])),
@@ -1503,21 +1526,21 @@ class _DialogoCaracteristicasState extends State<_DialogoCaracteristicas> {
                   if (opciones.isEmpty) return const SizedBox.shrink();
                   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                        child: Text(grupo.key, style: const TextStyle(color: _kAccent, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5))),
+                        child: Text(grupo.key, style: TextStyle(color: _kAccent, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5))),
                     ...opciones.map((opcion) {
                       final yaEsta = widget.yaSeleccionadas.contains(opcion);
                       return ListTile(dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                           title: Text(opcion, style: TextStyle(color: yaEsta ? _kMuted : _kTexto, fontSize: 13, decoration: yaEsta ? TextDecoration.lineThrough : null)),
-                          trailing: yaEsta ? const Icon(Icons.check_circle_rounded, color: _kAccent, size: 18) : null,
+                          trailing: yaEsta ? Icon(Icons.check_circle_rounded, color: _kAccent, size: 18) : null,
                           onTap: yaEsta ? null : () => Navigator.pop(context, opcion));
                     }),
-                    const Divider(color: _kBorde, height: 1, indent: 16, endIndent: 16),
+                    Divider(color: _kBorde, height: 1, indent: 16, endIndent: 16),
                   ]);
                 }).toList())),
             Container(padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 decoration: const BoxDecoration(color: Color(0xFF151932), borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
                 child: SizedBox(width: double.infinity,
-                    child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: _kMuted))))),
+                    child: TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar', style: TextStyle(color: _kMuted))))),
           ])));
 }
 
@@ -1564,17 +1587,17 @@ class _FlashSlotCardState extends State<_FlashSlotCard> {
           border: Border.all(color: urgente ? _rojo.withValues(alpha: 0.5) : _flash.withValues(alpha: 0.3))),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(slot.servicioNombre, style: const TextStyle(color: _kTexto, fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(slot.servicioNombre, style: TextStyle(color: _kTexto, fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
           Row(children: [
-            Text('€${slot.precioFinal.toStringAsFixed(2)}', style: const TextStyle(color: _flash, fontWeight: FontWeight.w800, fontSize: 16)),
+            Text('€${slot.precioFinal.toStringAsFixed(2)}', style: TextStyle(color: _flash, fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(width: 6),
-            Text('€${slot.precioOriginal.toStringAsFixed(2)}', style: const TextStyle(color: _kMuted, fontSize: 11,
+            Text('€${slot.precioOriginal.toStringAsFixed(2)}', style: TextStyle(color: _kMuted, fontSize: 11,
                 decoration: TextDecoration.lineThrough, decorationColor: _kMuted)),
             const SizedBox(width: 6),
             Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(color: _rosa.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                child: Text(slot.descuentoTexto, style: const TextStyle(color: _rosa, fontSize: 10, fontWeight: FontWeight.w700))),
+                child: Text(slot.descuentoTexto, style: TextStyle(color: _rosa, fontSize: 10, fontWeight: FontWeight.w700))),
           ]),
           const SizedBox(height: 4),
           Row(children: [
@@ -1582,15 +1605,15 @@ class _FlashSlotCardState extends State<_FlashSlotCard> {
             const SizedBox(width: 4),
             Text(_fmt(_restante), style: TextStyle(fontSize: 11, color: urgente ? _rojo : _kMuted, fontWeight: urgente ? FontWeight.w700 : FontWeight.normal)),
             const SizedBox(width: 10),
-            Text('${slot.huecosReservados}/${slot.huecosTotal} reservados', style: const TextStyle(fontSize: 11, color: _kMuted)),
+            Text('${slot.huecosReservados}/${slot.huecosTotal} reservados', style: TextStyle(fontSize: 11, color: _kMuted)),
           ]),
         ])),
         TextButton(
           onPressed: () async {
             final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
               backgroundColor: _kCard,
-              title: const Text('Cancelar oferta', style: TextStyle(color: _kTexto)),
-              content: const Text('¿Seguro que quieres cancelar esta oferta flash?', style: TextStyle(color: _kMuted)),
+              title: Text('Cancelar oferta', style: TextStyle(color: _kTexto)),
+              content: Text('¿Seguro que quieres cancelar esta oferta flash?', style: TextStyle(color: _kMuted)),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
                 TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cancelar', style: TextStyle(color: _rojo))),

@@ -41,6 +41,12 @@
 	<string>Fluix CRM usa Face ID para proteger el acceso a datos sensibles de tu empresa.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Fluix CRM puede necesitar el micrófono para notas de voz en tareas.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Fluix CRM usa Bluetooth para conectar con impresoras térmicas y cajones de cobro.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Fluix CRM usa Bluetooth para conectar con impresoras térmicas y cajones de cobro.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- ═══ Background Modes: remote-notification obligatorio para FCM ═══ -->
 	<key>UIBackgroundModes</key>
 	<array>

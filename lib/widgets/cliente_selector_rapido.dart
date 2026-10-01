@@ -72,7 +72,6 @@ class _ClienteSelectorRapidoState extends State<ClienteSelectorRapido> {
 
   Future<void> _cargarTodosClientes() async {
     if (_todosClientes.isNotEmpty) {
-      // Ya están cargados, solo mostrar
       setState(() {
         _resultados = _todosClientes;
         _mostrarLista = true;
@@ -81,29 +80,41 @@ class _ClienteSelectorRapidoState extends State<ClienteSelectorRapido> {
     }
 
     setState(() => _cargandoClientes = true);
-    
+
     try {
+      // Sin orderBy para evitar índice compuesto — ordenamos en memoria
       final snap = await FirebaseFirestore.instance
           .collection('empresas')
           .doc(widget.empresaId)
           .collection('clientes')
-          .where('estado_fusionado', isEqualTo: false)
           .where('activo', isEqualTo: true)
-          .orderBy('nombre')
-          .limit(100)
+          .limit(200)
           .get();
+
+      final docs = snap.docs
+        ..sort((a, b) {
+          final an = ((a.data())['nombre'] ?? '').toString().toLowerCase();
+          final bn = ((b.data())['nombre'] ?? '').toString().toLowerCase();
+          return an.compareTo(bn);
+        });
 
       if (mounted) {
         setState(() {
-          _todosClientes = snap.docs;
-          _resultados = snap.docs;
+          _todosClientes = docs;
+          _resultados = docs;
           _mostrarLista = true;
           _cargandoClientes = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _cargandoClientes = false);
+        // Mostrar igual el panel vacío para que aparezca la opción "Crear"
+        setState(() {
+          _todosClientes = [];
+          _resultados = [];
+          _mostrarLista = true;
+          _cargandoClientes = false;
+        });
       }
     }
   }

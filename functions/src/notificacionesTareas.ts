@@ -112,7 +112,24 @@ export const onTareaAsignada = onDocumentWritten(
       };
 
       await admin.messaging().send(mensaje);
-      console.log(`✅ Notificación enviada a ${asignadoDespues}`);
+      console.log(`✅ Notificación push enviada a ${asignadoDespues}`);
+
+      // Guardar en bandeja in-app (path correcto)
+      const vence = after.fecha_limite?.toDate
+        ? (after.fecha_limite.toDate() as Date).toLocaleDateString("es-ES")
+        : null;
+      const cuerpoCompleto = `${cuerpo}${vence ? ` · Vence el ${vence}` : ""}`;
+      await db.collection("notificaciones").doc(empresaId).collection("items").add({
+        titulo: "📌 Tarea asignada",
+        cuerpo: cuerpoCompleto,
+        tipo: "tareaAsignada",
+        modulo_destino: "tareas",
+        entidad_id: tareaId,
+        empleado_id: asignadoDespues,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        leida: false,
+      });
+      console.log(`✅ Notificación bandeja guardada para tarea ${tareaId}`);
 
     } catch (error) {
       console.error("❌ Error enviando notificación de tarea:", error);

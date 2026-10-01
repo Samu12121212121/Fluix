@@ -5,6 +5,7 @@ import 'package:csv/csv.dart';
 import 'dart:io';
 import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class ModuloServiciosScreen extends StatefulWidget {
   final String empresaId;
@@ -24,6 +25,7 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
+      appBar: const FluixAppBar(titulo: 'Servicios'),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('empresas')

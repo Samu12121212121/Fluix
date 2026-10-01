@@ -454,6 +454,9 @@ class Factura {
   final DateTime? fechaValidezPresupuesto;
   // Verifactu (registro fiscal electrónico RD 1007/2023)
   final Map<String, dynamic>? verifactu;
+  // Albarán: marcador de facturación (evita doble conversión)
+  final bool facturado;
+  final String? facturadoId; // ID de la factura generada
   // Auditoría
   final List<EntradaHistorialFactura> historial;
   final DateTime fechaEmision;
@@ -501,6 +504,8 @@ class Factura {
     this.estadoPresupuesto,
     this.fechaValidezPresupuesto,
     this.verifactu,
+    this.facturado = false,
+    this.facturadoId,
     required this.historial,
     required this.fechaEmision,
     this.fechaVencimiento,
@@ -603,6 +608,8 @@ class Factura {
     fechaOperacion: fechaOperacion ?? this.fechaOperacion,
     estadoPresupuesto: estadoPresupuesto ?? this.estadoPresupuesto,
     fechaValidezPresupuesto: fechaValidezPresupuesto ?? this.fechaValidezPresupuesto,
+    facturado: this.facturado,
+    facturadoId: this.facturadoId,
     historial: historial ?? this.historial,
     fechaEmision: fechaEmision ?? this.fechaEmision,
     fechaVencimiento: fechaVencimiento ?? this.fechaVencimiento,
@@ -712,6 +719,8 @@ class Factura {
           ? _parseTs(d['fecha_validez_presupuesto'])
           : null,
       verifactu: d['verifactu'],
+      facturado: d['facturado'] as bool? ?? false,
+      facturadoId: d['facturado_id'] as String?,
       historial: (d['historial'] as List<dynamic>? ?? [])
           .map((h) => EntradaHistorialFactura.fromMap(h as Map<String, dynamic>))
           .toList(),
@@ -771,6 +780,8 @@ class Factura {
         ? Timestamp.fromDate(fechaValidezPresupuesto!)
         : null,
     'verifactu': verifactu,
+    if (facturado) 'facturado': true,
+    if (facturadoId != null) 'facturado_id': facturadoId,
     'historial': historial.map((h) => h.toMap()).toList(),
     'fecha_emision': Timestamp.fromDate(fechaEmision),
     'fecha_vencimiento':

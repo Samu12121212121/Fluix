@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../services/mod_303_service.dart';
 import '../../../services/fiscal/sede_aeat_urls.dart';
 import '../../../widgets/presentar_aeat_widget.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 303 — Autoliquidación IVA trimestral
@@ -172,18 +173,15 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Modelo 303 — Autoliquidación IVA'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 303 — Autoliquidación IVA',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(child: Text('$_anio',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),

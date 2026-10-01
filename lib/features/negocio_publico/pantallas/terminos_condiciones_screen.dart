@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kBg     = Color(0xFF0A0F23);
 const _kCard   = Color(0xFF1E2139);
@@ -156,19 +157,10 @@ Para cancelar o modificar tu reserva, contacta con nosotros a través de los can
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: _kTexto,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Términos y Condiciones',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(widget.nombreNegocio,
-                style: const TextStyle(color: _kMuted, fontSize: 12)),
-          ],
-        ),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Términos y Condiciones',
+        showLeading: true,
+        extraActions: [
           if (_modificado)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -192,7 +184,9 @@ Para cancelar o modificar tu reserva, contacta con nosotros a través de los can
               ),
             ),
         ],
-        bottom: TabBar(
+      ),
+      body: Column(children: [
+        TabBar(
           controller: _tab,
           indicatorColor: _kAccent,
           labelColor: _kAccent,
@@ -204,8 +198,7 @@ Para cancelar o modificar tu reserva, contacta con nosotros a través de los can
                 text: 'Vista previa'),
           ],
         ),
-      ),
-      body: _cargando
+        Expanded(child: _cargando
           ? const Center(
           child: CircularProgressIndicator(color: _kAccent))
           : TabBarView(
@@ -214,7 +207,8 @@ Para cancelar o modificar tu reserva, contacta con nosotros a través de los can
           _buildEditor(),
           _buildPreview(),
         ],
-      ),
+      ),),
+      ]),
     );
   }
 

@@ -32,6 +32,12 @@ const BASE_URL = "https://www.editorialnazari.com";
 const stripeKey = () => process.env.STRIPE_SECRET_KEY ?? "";
 const webhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
+// Datos de cuenta bancaria para transferencias — reemplazar por los datos reales
+const IBAN_TRANSFERENCIA = (process.env.IBAN_TRANSFERENCIA ?? "ES00 0000 0000 0000 0000 0000") as string;
+void IBAN_TRANSFERENCIA;
+const TITULAR_CUENTA = "Editorial Nazarí" as string;
+void TITULAR_CUENTA;
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 function genToken(): string {
@@ -166,12 +172,11 @@ export const crearCheckoutNazari = onRequest(
     if (req.method !== "POST") { res.status(405).send("POST only"); return; }
 
     // El cliente envía catalogo_id y cantidad. El precio se lee SIEMPRE desde Firestore.
-    const { items, email, nombre, zona } = req.body as {
+    const { items, email, nombre, zona, metodo_pago } = req.body as {
       items: Array<{
         catalogo_id?: string;
         slug?: string;
         cantidad?: number;
-        // titulo/precio/imagen del cliente se ignoran para el cobro
         titulo?: string;
         precio?: number;
         imagen?: string;
@@ -179,6 +184,7 @@ export const crearCheckoutNazari = onRequest(
       email: string;
       nombre?: string;
       zona?: string;
+      metodo_pago?: string;
     };
 
     if (!email || !items?.length) {
@@ -209,6 +215,57 @@ export const crearCheckoutNazari = onRequest(
       const ordenRef = db.collection("empresas").doc(EID)
         .collection("pedidos_web_nazari").doc();
 
+      await ordenRef.set({
+        email,
+        nombre: nombre || "",
+        zona: zona || "ES",
+        metodo_pago: "stripe",
+        estado: "pendiente_pago",
+        estado_pago: "pendiente",
+        items: resolvedItems.map((i) => ({
+          catalogo_id: i.catalogo_id,
+          titulo: i.titulo,
+          precio: i.precioEuros,
+          cantidad: i.cantidad,
+        })),
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        origen: "web_nazari",
+      });
+
+      const total = resolvedItems.reduce((sum, i) => sum + i.precioEuros * i.cantidad, 0);
+
+      // ── Rama: transferencia bancaria ─────────────────────────────────────
+      if (metodo_pago === "transferencia") {
+        await ordenRef.set({
+          email,
+          nombre: nombre || "",
+          zona: zona || "ES",
+          metodo_pago: "transferencia",
+          estado: "pendiente_pago",
+          estado_pago: "pendiente",
+          items: resolvedItems.map((i) => ({
+            catalogo_id: i.catalogo_id,
+            titulo: i.titulo,
+            precio: i.precioEuros,
+            cantidad: i.cantidad,
+          })),
+          total: Math.round(total * 100) / 100,
+          fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+          origen: "web_nazari",
+        });
+
+        const totalStr = total.toFixed(2).replace(".", ",") + " €";
+        const conceptoCorto = ordenRef.id.slice(0, 8).toUpperCase();
+        res.json({
+          tipo: "transferencia",
+          pedido_id: ordenRef.id,
+          total: totalStr,
+          redirect_url: `${BASE_URL}/gracias.html?tipo=transferencia&pedido=${ordenRef.id}&total=${encodeURIComponent(totalStr)}&concepto=${conceptoCorto}`,
+        });
+        return;
+      }
+
+      // ── Rama: Stripe (tarjeta + Bizum) ───────────────────────────────────
       await ordenRef.set({
         email,
         nombre: nombre || "",

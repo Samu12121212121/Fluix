@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/modelos/remesa_sepa.dart';
 import '../../../services/remesa_sepa_service.dart';
 import 'package:planeag_flutter/features/nominas/pantallas/nueva_remesa_form.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de listado de remesas SEPA generadas.
 class RemesaSepaScreen extends StatelessWidget {
@@ -14,11 +15,7 @@ class RemesaSepaScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Remesas SEPA'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Remesas SEPA'),
       body: StreamBuilder<List<RemesaSepa>>(
         stream: svc.obtenerRemesas(empresaId),
         builder: (context, snap) {

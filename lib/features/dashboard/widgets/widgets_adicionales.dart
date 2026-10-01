@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../../services/google_reviews_service.dart';
+import '../pantallas/configurar_google_reviews_screen.dart';
 
 // ── Widget de KPIs Rápidos ────────────────────────────────────────────────────
 
@@ -386,221 +388,341 @@ class WidgetReservasHoy extends StatelessWidget {
 
 // ── Widget de Valoraciones Recientes ─────────────────────────────────────────
 
-class WidgetValoracionesRecientes extends StatelessWidget {
-  final String empresaId;
+// ── Widget Google Reviews ─────────────────────────────────────────────────────
 
+class WidgetValoracionesRecientes extends StatefulWidget {
+  final String empresaId;
   const WidgetValoracionesRecientes({super.key, required this.empresaId});
 
   @override
+  State<WidgetValoracionesRecientes> createState() =>
+      _WidgetValoracionesRecientesState();
+}
+
+class _WidgetValoracionesRecientesState
+    extends State<WidgetValoracionesRecientes> {
+  static const _kAmber  = Color(0xFFF59E0B);
+  static const _kGoogle = Color(0xFF4285F4);
+  static const _kBg     = Color(0xFFF8FAFC);
+  static const _kBdr    = Color(0xFFE2E8F0);
+  static const _kText   = Color(0xFF0F172A);
+  static const _kMuted  = Color(0xFF64748B);
+
+  bool _loading    = true;
+  bool _configurado = false;
+  double _rating   = 0;
+  int    _total    = 0;
+  List<Map<String, dynamic>> _resenas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    try {
+      final cfg = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('configuracion').doc('google_reviews')
+          .get();
+
+      if (!cfg.exists || (cfg.data()?['api_key'] as String? ?? '').isEmpty) {
+        if (mounted) setState(() { _loading = false; _configurado = false; });
+        return;
+      }
+
+      // Leer rating cacheado
+      final resumen = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('estadisticas').doc('resumen')
+          .get();
+      final data = resumen.data() ?? {};
+      final rating = (data['rating_google'] as num?)?.toDouble() ?? 0.0;
+      final total  = (data['total_valoraciones_google'] as num?)?.toInt() ?? 0;
+
+      // Últimas 3 reseñas de Google
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('valoraciones')
+          .where('origen', isEqualTo: 'google')
+          .orderBy('fecha', descending: true)
+          .limit(3)
+          .get();
+
+      final resenas = snap.docs.map((d) => d.data()).toList();
+
+      if (mounted) {
+        setState(() {
+          _loading     = false;
+          _configurado = true;
+          _rating      = rating;
+          _total       = total;
+          _resenas     = resenas;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _abrirConfig(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfigurarGoogleReviewsScreen(
+          empresaId: widget.empresaId,
+        ),
+      ),
+    ).then((_) {
+      setState(() => _loading = true);
+      _cargar();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.star, color: Color(0xFF4CAF50), size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Valoraciones Recientes',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBdr),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: _loading
+          ? const SizedBox(height: 160,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+          : _configurado ? _buildConectado(context) : _buildDesconectado(context),
+    );
+  }
+
+  Widget _buildDesconectado(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            _GoogleIcon(),
+            const SizedBox(width: 10),
+            const Text('Reseñas de Google',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                    color: _kText)),
+          ]),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _kBdr),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _obtenerValoracionesRecientes(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final valoraciones =
-                      snapshot.data ?? _getValoracionesDemo();
-
-                  if (valoraciones.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.star_border,
-                              color: Colors.grey[400], size: 40),
-                          const SizedBox(height: 12),
-                          Text('Sin valoraciones',
-                              style: TextStyle(
-                                  color: Colors.grey[600], fontSize: 16)),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: valoraciones.length,
-                    itemBuilder: (context, index) {
-                      final valoracion = valoraciones[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    valoracion['cliente'] ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Row(
-                                  children: List.generate(
-                                      5,
-                                      (i) => Icon(
-                                            Icons.star,
-                                            size: 16,
-                                            color: i <
-                                                    _obtenerCalificacion(
-                                                        valoracion)
-                                                ? const Color(0xFFF57C00)
-                                                : Colors.grey[300],
-                                          )),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              valoracion['comentario'] ?? '',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[700],
-                                height: 1.4,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatearFechaValoracion(valoracion),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[500],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _kGoogle.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.star_rounded, color: _kGoogle, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Conecta tu Google Business',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: _kText)),
+                  SizedBox(height: 2),
+                  Text('Ve tu rating y reseñas directamente aquí',
+                      style: TextStyle(fontSize: 11, color: _kMuted)),
+                ],
+              )),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _abrirConfig(context),
+              icon: const Icon(Icons.add_link_rounded, size: 16),
+              label: const Text('Conectar Google Reviews',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: FilledButton.styleFrom(
+                backgroundColor: _kGoogle,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Future<List<Map<String, dynamic>>> _obtenerValoracionesRecientes() async {
-    try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('valoraciones')
-          .orderBy('fecha', descending: true)
-          .limit(5)
-          .get();
+  Widget _buildConectado(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabecera
+          Row(children: [
+            _GoogleIcon(),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Reseñas de Google',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                    color: _kText))),
+            GestureDetector(
+              onTap: () => _abrirConfig(context),
+              child: const Icon(Icons.settings_outlined, size: 18, color: _kMuted),
+            ),
+          ]),
+          const SizedBox(height: 12),
 
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'cliente': data['cliente'] as String? ?? 'Cliente',
-          'calificacion':
-              (data['calificacion'] ?? data['estrellas'] ?? 5) as int,
-          'comentario': data['comentario'] as String? ?? 'Sin comentario',
-          'fecha': data['fecha'],
-        };
-      }).toList();
-    } catch (e) {
-      return _getValoracionesDemo();
-    }
+          // Rating global
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _kAmber.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _kAmber.withValues(alpha: 0.25)),
+            ),
+            child: Row(children: [
+              Text(
+                _rating > 0 ? _rating.toStringAsFixed(1) : '—',
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800,
+                    color: _kText, height: 1),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: List.generate(5, (i) => Icon(
+                  i < _rating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 14, color: _kAmber,
+                ))),
+                const SizedBox(height: 2),
+                Text('$_total reseña${_total == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 11, color: _kMuted)),
+              ]),
+              const Spacer(),
+              // Botón sincronizar
+              GestureDetector(
+                onTap: () async {
+                  setState(() => _loading = true);
+                  await GoogleReviewsService()
+                      .sincronizarDesdeGoogle(widget.empresaId);
+                  _cargar();
+                },
+                child: const Icon(Icons.sync_rounded, size: 18, color: _kMuted),
+              ),
+            ]),
+          ),
+
+          if (_resenas.isEmpty) ...[
+            const SizedBox(height: 16),
+            Center(child: Text('Aún no hay reseñas sincronizadas',
+                style: TextStyle(fontSize: 12, color: Colors.grey[500]))),
+          ] else ...[
+            const SizedBox(height: 10),
+            ..._resenas.map((r) => _ResenaCompacta(resena: r)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GoogleIcon extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28, height: 28,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 4, offset: const Offset(0, 1))],
+      ),
+      child: const Center(
+        child: Text('G',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+                color: Color(0xFF4285F4), height: 1)),
+      ),
+    );
+  }
+}
+
+class _ResenaCompacta extends StatelessWidget {
+  final Map<String, dynamic> resena;
+  const _ResenaCompacta({required this.resena});
+
+  static const _kAmber = Color(0xFFF59E0B);
+  static const _kMuted = Color(0xFF64748B);
+
+  @override
+  Widget build(BuildContext context) {
+    final nombre   = resena['cliente'] as String? ?? 'Usuario';
+    final estrellas = (resena['calificacion'] as num?)?.toInt() ?? 5;
+    final comentario = resena['comentario'] as String? ?? '';
+    final fecha    = _tiempoAtras(resena['fecha']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: const Color(0xFF4285F4).withValues(alpha: 0.1),
+            child: Text(nombre.isNotEmpty ? nombre[0].toUpperCase() : 'G',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: Color(0xFF4285F4))),
+          ),
+          const SizedBox(width: 7),
+          Expanded(child: Text(nombre,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F172A)),
+              overflow: TextOverflow.ellipsis)),
+          Row(mainAxisSize: MainAxisSize.min, children: List.generate(5, (i) =>
+              Icon(i < estrellas ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 11, color: _kAmber))),
+        ]),
+        if (comentario.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(comentario,
+              style: const TextStyle(fontSize: 11, color: _kMuted, height: 1.4),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+        ],
+        const SizedBox(height: 3),
+        Text(fecha,
+            style: const TextStyle(fontSize: 10,
+                color: Color(0xFF94A3B8), fontStyle: FontStyle.italic)),
+      ]),
+    );
   }
 
-  List<Map<String, dynamic>> _getValoracionesDemo() => [
-        {
-          'cliente': 'Ana P.',
-          'estrellas': 5,
-          'comentario':
-              'Increíble transformación, súper contenta con el resultado. Lo recomiendo totalmente.'
-        },
-        {
-          'cliente': 'Miguel R.',
-          'estrellas': 4,
-          'comentario': 'Buen servicio y precio justo. El personal es muy amable.'
-        },
-        {
-          'cliente': 'Laura M.',
-          'estrellas': 5,
-          'comentario':
-              'Excelente servicio, muy profesional. El trato fue excepcional y el resultado superó mis expectativas.'
-        },
-        {
-          'cliente': 'Carlos G.',
-          'estrellas': 4,
-          'comentario': 'Muy buena experiencia, volveré sin duda.'
-        },
-      ];
-
-  // Helper method to get rating from different field names
-  int _obtenerCalificacion(Map<String, dynamic> valoracion) {
-    return (valoracion['estrellas'] ??
-            valoracion['calificacion'] ??
-            valoracion['rating'] ??
-            valoracion['stars'] ??
-            0) as int;
-  }
-
-  // Helper method to format date for valoraciones
-  String _formatearFechaValoracion(Map<String, dynamic> valoracion) {
+  String _tiempoAtras(dynamic fecha) {
+    if (fecha == null) return '';
     try {
-      if (valoracion['fecha'] != null) {
-        final fecha = valoracion['fecha'];
-        if (fecha is Timestamp) {
-          final dateTime = fecha.toDate();
-          final ahora = DateTime.now();
-          final diferencia = ahora.difference(dateTime);
-          if (diferencia.inDays < 1) {
-            return 'Hoy';
-          } else if (diferencia.inDays < 7) {
-            return 'Hace ${diferencia.inDays} día${diferencia.inDays > 1 ? 's' : ''}';
-          } else if (diferencia.inDays < 30) {
-            final semanas = (diferencia.inDays / 7).floor();
-            return 'Hace $semanas semana${semanas > 1 ? 's' : ''}';
-          } else {
-            final meses = (diferencia.inDays / 30).floor();
-            return 'Hace $meses mes${meses > 1 ? 'es' : ''}';
-          }
-        }
-      }
-      return 'Reciente';
-    } catch (e) {
-      return 'Reciente';
-    }
+      final dt = (fecha is Timestamp) ? fecha.toDate() : DateTime.now();
+      final d  = DateTime.now().difference(dt);
+      if (d.inDays < 1)  return 'Hoy';
+      if (d.inDays < 7)  return 'Hace ${d.inDays} día${d.inDays > 1 ? 's' : ''}';
+      if (d.inDays < 30) { final s = (d.inDays / 7).floor(); return 'Hace $s semana${s > 1 ? 's' : ''}'; }
+      final m = (d.inDays / 30).floor();
+      return 'Hace $m mes${m > 1 ? 'es' : ''}';
+    } catch (_) { return ''; }
   }
 }
 

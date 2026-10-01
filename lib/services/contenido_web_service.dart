@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../domain/modelos/seccion_web.dart';
@@ -328,6 +329,86 @@ class ContenidoWebService {
         .doc('contenido_web')
         .get();
     return doc.exists ? (doc.data()!['activo'] ?? false) : false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DETECCIÓN DE MÓDULOS EN LA WEB
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static const _helpersInternos = {
+    'campo', 'id', 'item', 'lista', 'plantilla', 'limite', 'ratio',
+    'min-width', 'titulo', 'texto', 'post-id', 'libro-del-mes',
+    'pagina', 'gdpr', 'item-id', 'card', 'blog-card',
+  };
+
+  /// Devuelve los nombres de módulos data-fluix-* detectados en la web
+  /// de la empresa. Usa caché de 24 h en Firestore.
+  Future<Set<String>> detectarModulosWeb(String empresaId) async {
+    final cacheRef = _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('modulos_detectados');
+
+    // Leer caché
+    try {
+      final cache = await cacheRef.get();
+      if (cache.exists) {
+        final ts = cache.data()!['ts'] as Timestamp?;
+        if (false) { // sin caché — detectar siempre al abrir el módulo web
+          return Set<String>.from(
+              List<String>.from(cache.data()!['modulos'] ?? []));
+        }
+      }
+    } catch (_) {}
+
+    // Leer sitio_web de la empresa
+    final empresaDoc = await _firestore
+        .collection('empresas').doc(empresaId).get();
+    final sitioWeb =
+        empresaDoc.data()?['sitio_web'] as String? ?? '';
+    if (sitioWeb.isEmpty) return {};
+
+    final uri = Uri.tryParse(
+        sitioWeb.startsWith('http') ? sitioWeb : 'https://$sitioWeb');
+    if (uri == null) return {};
+
+    try {
+      final response = await http
+          .get(uri, headers: {'User-Agent': 'FluixCRM/1.0'})
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return {};
+
+      // Eliminar bloques <script>…</script> para no detectar falsos positivos
+      // que vienen de los propios strings internos del SDK (ej: detect("[data-fluix-agenda]",…))
+      final bodyOnly = response.body.replaceAll(
+          RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false), '');
+
+      final modulos = <String>{};
+      final regex = RegExp(r'data-fluix-([a-zA-Z0-9_-]+)');
+      for (final m in regex.allMatches(bodyOnly)) {
+        final name = m.group(1)!.toLowerCase();
+        if (!_helpersInternos.contains(name)) modulos.add(name);
+      }
+
+      // Guardar caché
+      await cacheRef.set({
+        'modulos': modulos.toList(),
+        'ts': FieldValue.serverTimestamp(),
+        'url': uri.toString(),
+      });
+
+      return modulos;
+    } catch (e) {
+      print('⚠️ detectarModulosWeb: $e');
+      return {};
+    }
+  }
+
+  /// Invalida la caché para forzar una nueva detección.
+  Future<void> invalidarCacheModulos(String empresaId) async {
+    await _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('config_web').doc('modulos_detectados')
+        .delete();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -937,7 +1018,7 @@ messaging.onBackgroundMessage(function(payload) {
           } else {
             ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";
           }
-        } else if(c==="contenido"){if(window.marked)ce.innerHTML=marked.parse(b.contenido||"");else ce.textContent=b.contenido||"";}
+        } else if(c==="contenido"){var _bh=b.contenido_html||"";var _bc=b.contenido||"";if(_bh){ce.innerHTML=_bh;}else if(window.marked&&_bc&&!_bc.trim().startsWith("[")){ce.innerHTML=marked.parse(_bc);}else if(_bh||_bc){ce.innerHTML=_bh||"";/* Delta JSON sin html pre-renderizado */}}
         else if(c==="fecha"){var ts=b.fecha_publicacion,d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}
         else ce.textContent=b[c]||"";
       });
@@ -1225,8 +1306,104 @@ messaging.onBackgroundMessage(function(payload) {
     });
   }
 
+  /* ══ Módulo: data-fluix-galeria ════════════════════════════════════ */
+  function modGaleria(){
+    document.querySelectorAll("[data-fluix-galeria]").forEach(function(el){
+      var limite=parseInt(el.getAttribute("data-fluix-limite")||"200");
+      var cols=el.getAttribute("data-fluix-cols")||"auto";
+      var minW=el.getAttribute("data-fluix-min-width")||"200px";
+      var ratio=el.getAttribute("data-fluix-ratio")||"1 / 1";
+      el.style.cssText=(el.style.cssText||"")+"display:grid;grid-template-columns:repeat("+cols+",minmax("+minW+",1fr));gap:12px;";
+      db.collection("empresas").doc(EMPRESA).collection("galeria_web")
+        .orderBy("subida","desc").limit(limite)
+        .onSnapshot(function(snap){
+          var cur={};
+          el.querySelectorAll("[data-fluix-galeria-id]").forEach(function(e){cur[e.getAttribute("data-fluix-galeria-id")]=e;});
+          var del=Object.assign({},cur);
+          snap.forEach(function(doc){
+            var d=doc.data();
+            if(!d.url)return;
+            var id=doc.id,img=cur[id];
+            if(!img){
+              img=document.createElement("img");
+              img.setAttribute("data-fluix-galeria-id",id);
+              img.loading="lazy";
+              img.style.cssText="width:100%;aspect-ratio:"+ratio+";object-fit:cover;border-radius:8px;transition:opacity .3s";
+              el.appendChild(img);
+            }
+            delete del[id];
+            img.src=d.url;
+            img.alt=d.nombre||"";
+          });
+          Object.values(del).forEach(function(e){e.remove();});
+        });
+    });
+  }
+
+  /* ══ Popup dinámico (lee web_avanzada en Firestore) ════════════════ */
+  function modPopup(){
+    db.collection("empresas").doc(EMPRESA).collection("configuracion").doc("web_avanzada")
+      .get().then(function(doc){
+        if(!doc.exists)return;
+        var cfg=doc.data();
+        if(!cfg.popup_activo)return;
+        var sk="fluix_popup_"+EMPRESA;
+        var frec=parseInt(cfg.popup_frecuencia_dias||"0");
+        if(frec===0){if(sessionStorage.getItem(sk))return;}
+        else{var ls=localStorage.getItem(sk);if(ls&&(Date.now()-parseInt(ls))/86400000<frec)return;}
+        var retraso=(parseInt(cfg.popup_retraso_seg||"5"))*1000;
+        var disp=cfg.popup_dispositivo||"todos";
+        var mob=window.innerWidth<768;
+        if(disp==="mobile"&&!mob)return;
+        if(disp==="desktop"&&mob)return;
+        function marcarVisto(){frec===0?sessionStorage.setItem(sk,"1"):localStorage.setItem(sk,Date.now().toString());}
+        function renderPopup(titulo,contenidoHtml,btnTxt,btnUrl){
+          if(document.querySelector("[data-fluix-popup]"))return;
+          var ov=document.createElement("div");
+          ov.setAttribute("data-fluix-popup","1");
+          ov.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box";
+          var box=document.createElement("div");
+          box.style.cssText="background:#fff;border-radius:16px;padding:28px;max-width:480px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2);position:relative;max-height:80vh;overflow-y:auto";
+          var btn=btnTxt?'<a href="'+(btnUrl||"#")+'" style="display:inline-block;margin-top:16px;background:#E11D48;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold">'+btnTxt+'</a>':"";
+          box.innerHTML='<button onclick="this.closest(\'[data-fluix-popup]\').remove()" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#666">&times;</button>'
+            +(titulo?'<h3 style="margin:0 0 12px;font-size:1.15rem;color:#1a1a1a">'+titulo+'</h3>':"")
+            +contenidoHtml+btn;
+          box.querySelector("button").addEventListener("click",marcarVisto);
+          ov.appendChild(box);
+          document.body.appendChild(ov);
+          marcarVisto();
+        }
+        setTimeout(function(){
+          if(cfg.popup_tipo==="menu_semanal"){
+            db.collection("empresas").doc(EMPRESA).collection("menu_semanal")
+              .where("activo","==",true).orderBy("orden")
+              .get().then(function(snap){
+                if(snap.empty)return;
+                var html=snap.docs.map(function(d){
+                  var r=d.data();
+                  var p=(r.primeros||[]).map(function(x){return"<li>"+x+"</li>";}).join("");
+                  var s=(r.segundos||[]).map(function(x){return"<li>"+x+"</li>";}).join("");
+                  var po=(r.postres||[]).map(function(x){return"<li>"+x+"</li>";}).join("");
+                  return'<div style="text-align:left;border-bottom:1px solid #f0f0f0;padding:8px 0">'
+                    +'<strong style="font-size:.9rem;color:#374151">'+r.dia.charAt(0).toUpperCase()+r.dia.slice(1)+'</strong>'
+                    +(r.precio?' <span style="font-size:.8rem;color:#059669;font-weight:600">'+r.precio+"€</span>":"")
+                    +(p?'<div style="font-size:.8rem;color:#6b7280;margin-top:4px"><b>Primeros:</b><ul style="margin:2px 0 2px 14px;padding:0">'+p+'</ul></div>':"")
+                    +(s?'<div style="font-size:.8rem;color:#6b7280"><b>Segundos:</b><ul style="margin:2px 0 2px 14px;padding:0">'+s+'</ul></div>':"")
+                    +(po?'<div style="font-size:.8rem;color:#6b7280"><b>Postre:</b><ul style="margin:2px 0 2px 14px;padding:0">'+po+'</ul></div>':"")
+                    +'</div>';
+                }).join("");
+                renderPopup("🍽️ Menú de la semana",html,cfg.popup_boton_texto,cfg.popup_boton_url);
+              }).catch(function(){});
+          } else if(cfg.popup_titulo){
+            renderPopup(cfg.popup_titulo,cfg.popup_texto?'<p style="color:#555;line-height:1.5;margin:0">'+cfg.popup_texto+'</p>':"",cfg.popup_boton_texto,cfg.popup_boton_url);
+          }
+        },retraso);
+      }).catch(function(){});
+  }
+
   /* ══ Bootstrap: detectar módulos y arrancar ═════════════════════════ */
   auth.signInAnonymously().then(function(){
+    modPopup();
     var mods=[];
     function detect(sel,fn,id){if(document.querySelector(sel)){fn();mods.push(id);}}
     detect("[data-fluix-agenda]",               modAgenda,            "agenda");
@@ -1243,6 +1420,7 @@ messaging.onBackgroundMessage(function(payload) {
     detect("[data-fluix-autores]",              modAutores,           "autores");
     detect("[data-fluix-carta]",                modCarta,             "carta");
     detect("[data-fluix-menu-semanal]",         modMenuSemanal,       "menu-semanal");
+    detect("[data-fluix-galeria]",              modGaleria,           "galeria");
     // Reportar módulos detectados en Firestore
     if(mods.length){
       db.collection("empresas").doc(EMPRESA).collection("config_web").doc("sdk_status").set({
@@ -1361,9 +1539,13 @@ messaging.onBackgroundMessage(function(payload) {
             .toList());
   }
 
-  Future<void> guardarEntradaBlog(String empresaId, EntradaBlog entrada) async {
+  Future<void> guardarEntradaBlog(String empresaId, EntradaBlog entrada,
+      {String? htmlContent}) async {
     final data = entrada.toMap();
     data.remove('id');
+    if (htmlContent != null && htmlContent.isNotEmpty) {
+      data['contenido_html'] = htmlContent;
+    }
     if (entrada.id.isEmpty) {
       data['fecha_creacion'] = FieldValue.serverTimestamp();
     } else {
@@ -1615,6 +1797,16 @@ messaging.onBackgroundMessage(function(payload) {
     await _eventosCol(empresaId)
         .doc(evento.id.isEmpty ? null : evento.id)
         .set(data, SetOptions(merge: true));
+  }
+
+  Future<void> duplicarEvento(String empresaId, EventoWeb evento) async {
+    final data = evento.toMap()
+      ..remove('id')
+      ..['titulo'] = '${evento.titulo} (copia)'
+      ..['activo'] = false
+      ..['fecha_creacion'] = FieldValue.serverTimestamp()
+      ..['fecha_actualizacion'] = FieldValue.serverTimestamp();
+    await _eventosCol(empresaId).add(data);
   }
 
   Future<void> eliminarEvento(String empresaId, String eventoId) async {
@@ -2771,6 +2963,29 @@ messaging.onBackgroundMessage(function(payload) {
   Future<void> toggleDisponibleCartaWeb(
           String empresaId, String itemId, bool disponible) =>
       _cartaCol(empresaId).doc(itemId).update({'disponible': disponible});
+
+  /// Sincroniza todos los items de carta_web → contenido_web/{seccionId}.contenido.items_carta
+  /// para que la web de Hostinger que usa [data-fluix-seccion] refleje los cambios.
+  Future<void> sincronizarCartaASeccion(
+      String empresaId, String seccionId) async {
+    if (seccionId.isEmpty) return;
+    try {
+      final snap = await _cartaCol(empresaId)
+          .orderBy('categoria')
+          .orderBy('orden')
+          .get();
+      final items = snap.docs.map((d) {
+        final data = Map<String, dynamic>.from(d.data())..remove('id');
+        return data;
+      }).toList();
+      await _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('contenido_web').doc(seccionId)
+          .set({'contenido': {'items_carta': items}}, SetOptions(merge: true));
+    } catch (_) {
+      // No bloquear la UI si falla la sincronización
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MENÚ SEMANAL — empresas/{id}/menu_semanal

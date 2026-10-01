@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/contenido_web_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ignore_for_file: use_build_context_synchronously
 
@@ -18,12 +19,7 @@ class PantallaIntegracionScript extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Integración Web'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Integración Web', showLeading: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

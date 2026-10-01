@@ -529,7 +529,10 @@ class FacturacionService {
     final proforma = Factura.fromFirestore(doc);
 
     if (proforma.tipo != TipoFactura.proforma) {
-      throw Exception('Solo se pueden convertir proformas');
+      throw Exception('Solo se pueden convertir presupuestos');
+    }
+    if (proforma.estado == EstadoFactura.anulada) {
+      throw Exception('Este presupuesto ya fue convertido o anulado');
     }
 
     // Anular la proforma
@@ -574,13 +577,11 @@ class FacturacionService {
     if (albaran.tipo != TipoFactura.albaran) {
       throw Exception('Solo se pueden convertir albaranes');
     }
+    if (albaran.facturadoId != null) {
+      throw Exception('Este albarán ya fue facturado (${albaran.facturadoId})');
+    }
 
-    // Marcar albarán como facturado (sin anularlo — el albarán sigue siendo válido)
-    await _facturas(empresaId).doc(albaranId).update({
-      'notas_internas': '${albaran.notasInternas ?? ''}[Facturado]'.trim(),
-    });
-
-    return crearFactura(
+    final resultado = await crearFactura(
       empresaId: empresaId,
       clienteNombre: albaran.clienteNombre,
       clienteTelefono: albaran.clienteTelefono,
@@ -597,6 +598,15 @@ class FacturacionService {
       usuarioId: usuarioId,
       usuarioNombre: usuarioNombre,
     );
+
+    // Marcar albarán como facturado con referencia a la factura creada
+    await _facturas(empresaId).doc(albaranId).update({
+      'facturado': true,
+      'facturado_id': resultado.factura.id,
+      'fecha_facturado': Timestamp.fromDate(DateTime.now()),
+    });
+
+    return resultado;
   }
 
   // ── DETECTAR FACTURAS VENCIDAS ────────────────────────────────────────────

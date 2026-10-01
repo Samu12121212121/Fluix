@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../services/fiscal/fiscal_upload_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // INVOICE RESULT SCREEN
@@ -60,9 +61,10 @@ class _InvoiceResultScreenState extends State<InvoiceResultScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Resultado del procesamiento'),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Resultado del procesamiento',
+        showLeading: true,
+        extraActions: [
           if (_txData != null)
             IconButton(
               icon: const Icon(Icons.refresh),

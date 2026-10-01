@@ -949,3 +949,120 @@ export const webhookPagoWeb = onRequest(
   }
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN 6: vincularPropietarioAEmpresaExistente
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Callable. Crea (o reutiliza) un usuario en Firebase Auth y lo vincula como
+ * propietario de una empresa que ya existe en Firestore.
+ *
+ * Útil cuando la empresa fue creada manualmente o por otro flujo y necesitamos
+ * darle credenciales de acceso a su dueño.
+ *
+ * data: {
+ *   email: string       — email del propietario del negocio
+ *   empresaId: string   — ID del documento en /empresas/{empresaId}
+ *   nombrePropietario?: string
+ * }
+ */
+export const vincularPropietarioAEmpresaExistente = onCall(
+  { region: REGION },
+  async (request) => {
+    // 1. Autenticación
+    const callerUid = request.auth?.uid;
+    if (!callerUid)
+      throw new HttpsError("unauthenticated", "Debes estar autenticado.");
+
+    // 2. Solo el propietario de la plataforma
+    await verificarPropietarioPlatforma(callerUid);
+
+    // 3. Validar parámetros
+    const { email, empresaId, nombrePropietario = "" } = request.data as {
+      email: string;
+      empresaId: string;
+      nombrePropietario?: string;
+    };
+    if (!email || !empresaId)
+      throw new HttpsError("invalid-argument", "email y empresaId son obligatorios.");
+
+    // 4. Verificar que la empresa existe
+    const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+    if (!empresaDoc.exists)
+      throw new HttpsError("not-found", `No existe ninguna empresa con ID ${empresaId}.`);
+    const empresaData = empresaDoc.data()!;
+
+    // 5. Crear usuario en Auth (o reutilizar si ya existe)
+    const tempPassword = generarPasswordTemporal();
+    let uid: string;
+    let cuentaNueva = true;
+
+    try {
+      const newUser = await admin.auth().createUser({
+        email: email.toLowerCase().trim(),
+        password: tempPassword,
+        displayName: nombrePropietario || empresaData.nombre || email,
+        emailVerified: false,
+      });
+      uid = newUser.uid;
+    } catch (err) {
+      const authErr = err as { code?: string; message: string };
+      if (authErr.code === "auth/email-already-exists") {
+        // El usuario ya existe en Auth — solo actualizamos Firestore
+        const existing = await admin.auth().getUserByEmail(email.toLowerCase().trim());
+        uid = existing.uid;
+        cuentaNueva = false;
+      } else {
+        throw new HttpsError("internal", `Error en Firebase Auth: ${authErr.message}`);
+      }
+    }
+
+    // 6. Crear / sobreescribir el documento de usuario en Firestore
+    await db.collection("usuarios").doc(uid).set(
+      {
+        uid,
+        nombre: nombrePropietario || empresaData.nombre || email,
+        correo: email.toLowerCase().trim(),
+        empresa_id: empresaId,
+        rol: "propietario",
+        es_plataforma_admin: false,
+        fecha_vinculacion: admin.firestore.FieldValue.serverTimestamp(),
+        ...(cuentaNueva && {
+          fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+          modulos_personalizados: null,
+        }),
+      },
+      { merge: true }
+    );
+
+    console.log(
+      `✅ Vinculado: uid=${uid} → empresa=${empresaId} | cuenta_nueva=${cuentaNueva}`
+    );
+
+    // 7. Enviar email de bienvenida solo si la cuenta es nueva
+    if (cuentaNueva) {
+      const planId = empresaData.plan_id ?? "profesional";
+      const planNombre = PLANES_CONFIG[planId]?.nombre ?? "Plan Profesional";
+      try {
+        await enviarEmailBienvenida(
+          email.toLowerCase().trim(),
+          empresaData.nombre || "Tu negocio",
+          tempPassword,
+          planNombre
+        );
+        console.log(`📧 Email de bienvenida enviado a ${email}`);
+      } catch (emailErr) {
+        console.warn("⚠️ Email de bienvenida no enviado:", emailErr);
+      }
+    }
+
+    return {
+      ok: true,
+      uid,
+      empresaId,
+      email: email.toLowerCase().trim(),
+      cuentaNueva,
+      ...(cuentaNueva && { tempPassword }),
+    };
+  }
+);
+

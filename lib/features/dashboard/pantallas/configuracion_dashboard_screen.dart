@@ -5,6 +5,7 @@ import '../../../services/suscripcion_service.dart';
 import '../../../domain/modelos/widget_config.dart';
 import 'configuracion_widgets_screen.dart' show ConfiguracionWidgetsScreen;
 import 'pantallas_configuracion_extras.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class ConfiguracionDashboardScreen extends StatefulWidget {
   final String empresaId;
@@ -307,12 +308,7 @@ class _ConfiguracionDashboardScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configuración'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Configuración', showLeading: true),
       body: StreamBuilder<List<ModuloConfig>>(
         stream: _widgetService.obtenerTodosModulos(widget.empresaId),
         builder: (context, snapshot) {

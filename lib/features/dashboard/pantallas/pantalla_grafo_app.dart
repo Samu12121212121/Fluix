@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:graphify/graphify.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PantallaGrafoApp — Mapa interactivo de la arquitectura de Fluix
@@ -43,20 +44,15 @@ class _PantallaGrafoAppState extends State<PantallaGrafoApp> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0A0F1E) : const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
-        title: const Row(children: [
-          Icon(Icons.account_tree_rounded, size: 18, color: Color(0xFF7C3AED)),
-          SizedBox(width: 10),
-          Text('Arquitectura de Fluix', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        ]),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Tooltip(
-              message: 'Usa gestos de pellizco para hacer zoom y arrastra para mover el grafo',
-              child: Icon(Icons.help_outline_rounded, size: 18, color: Colors.white54),
+      appBar: FluixAppBar(
+        titulo: 'Arquitectura de Fluix',
+        showLeading: true,
+        extraActions: [
+          Tooltip(
+            message: 'Usa gestos de pellizco para hacer zoom y arrastra para mover el grafo',
+            child: const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: Icon(Icons.help_outline_rounded, size: 18),
             ),
           ),
         ],

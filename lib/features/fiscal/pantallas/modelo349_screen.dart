@@ -5,6 +5,7 @@ import '../../../core/providers/empresa_config_provider.dart';
 import '../../../domain/modelos/factura.dart';
 import '../../../domain/modelos/factura_recibida.dart';
 import '../../facturacion/pantallas/tab_mod_349.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 349 — Operaciones intracomunitarias
@@ -78,25 +79,25 @@ class _Modelo349ScreenState extends State<Modelo349Screen> {
     final empresaConfig = context.watch<EmpresaConfigProvider>().config;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modelo 349 — Intracomunitarias'),
-        actions: [
-          // Selector de año
-          DropdownButton<int>(
-            value: _anio,
-            dropdownColor: Colors.white,
-            underline: const SizedBox(),
-            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-            items: List.generate(5, (i) => DateTime.now().year - i)
-                .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                .toList(),
-            onChanged: (v) {
-              if (v == null) return;
-              setState(() => _anio = v);
-              _cargar();
-            },
+      appBar: FluixAppBar(
+        titulo: 'Modelo 349 — Intracomunitarias',
+        showLeading: true,
+        extraActions: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _anio,
+              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+              items: List.generate(5, (i) => DateTime.now().year - i)
+                  .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _anio = v);
+                _cargar();
+              },
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
       body: _cargando

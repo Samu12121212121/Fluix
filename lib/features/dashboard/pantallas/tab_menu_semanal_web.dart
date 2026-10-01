@@ -1,10 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/contenido_web_service.dart';
 
+// ignore_for_file: use_build_context_synchronously
+
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB MENÚ SEMANAL WEB — gestión del menú del día por días de la semana
 // Colección: empresas/{id}/menu_semanal
+// Mejoras: plantillas, renovar semana, vista previa, precio por plato
 // ═════════════════════════════════════════════════════════════════════════════
 
 const _kDias = [
@@ -29,13 +33,245 @@ class TabMenuSemanalWeb extends StatefulWidget {
 
 class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
   late final Stream<List<Map<String, dynamic>>> _stream;
+  bool _renovando = false;
+  bool _popupActivo = false;
+  bool _guardandoPopup = false;
 
   Color get _color => widget.color ?? const Color(0xFF0F766E);
+
+  DocumentReference<Map<String, dynamic>> get _webAvanzadaDoc =>
+      FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('configuracion').doc('web_avanzada');
+
+  CollectionReference<Map<String, dynamic>> get _plantillasCol =>
+      FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('menu_plantillas');
 
   @override
   void initState() {
     super.initState();
     _stream = widget.svc.obtenerMenuSemanal(widget.empresaId);
+    _cargarEstadoPopup();
+  }
+
+  Future<void> _cargarEstadoPopup() async {
+    try {
+      final doc = await _webAvanzadaDoc.get();
+      if (!mounted) return;
+      final data = doc.data() ?? {};
+      setState(() {
+        _popupActivo = data['popup_activo'] == true &&
+            data['popup_tipo'] == 'menu_semanal';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _togglePopupMenu(bool activo) async {
+    setState(() => _guardandoPopup = true);
+    try {
+      if (activo) {
+        await _webAvanzadaDoc.set({
+          'popup_activo': true,
+          'popup_tipo': 'menu_semanal',
+          'actualizado': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+        await _webAvanzadaDoc.set({
+          'popup_activo': false,
+          'popup_tipo': null,
+          'actualizado': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+      if (mounted) setState(() => _popupActivo = activo);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _guardandoPopup = false);
+    }
+  }
+
+  // ── Renovar semana: marca todos los días como inactivos para empezar de nuevo
+  Future<void> _renovarSemana(List<Map<String, dynamic>> dias) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Renovar menú de la semana',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        content: const Text(
+            'Los platos se mantienen pero todos los días quedarán inactivos. '
+            'Activa solo los días que apliquen esta semana.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: _color),
+            child: const Text('Renovar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _renovando = true);
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final dia in dias) {
+        final id = dia['id'] as String?;
+        if (id == null) continue;
+        batch.update(
+          FirebaseFirestore.instance
+              .collection('empresas').doc(widget.empresaId)
+              .collection('menu_semanal').doc(id),
+          {'activo': false},
+        );
+      }
+      await batch.commit();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Semana renovada — activa los días que apliquen'),
+        backgroundColor: Color(0xFF10B981),
+        duration: Duration(seconds: 3),
+      ));
+    } finally {
+      if (mounted) setState(() => _renovando = false);
+    }
+  }
+
+  // ── Guardar plantilla ─────────────────────────────────────────────────────
+  Future<void> _guardarPlantilla(List<Map<String, dynamic>> dias) async {
+    final ctrl = TextEditingController(
+        text: 'Semana tipo ${DateTime.now().day}/${DateTime.now().month}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Guardar como plantilla',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre de la plantilla'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: _color),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (ok != true) return;
+
+    final diasData = dias.map((d) {
+      final copia = Map<String, dynamic>.from(d)..remove('id');
+      return copia;
+    }).toList();
+
+    await _plantillasCol.add({
+      'nombre': ctrl.text.trim(),
+      'dias': diasData,
+      'creada': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Plantilla guardada'),
+      backgroundColor: Color(0xFF10B981),
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  // ── Aplicar plantilla ─────────────────────────────────────────────────────
+  Future<void> _mostrarPlantillas(BuildContext ctx) async {
+    final snap = await _plantillasCol.orderBy('creada', descending: true).limit(20).get();
+    if (snap.docs.isEmpty) {
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+        content: Text('No hay plantillas guardadas todavía'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+
+    final seleccionada = await showModalBottomSheet<Map<String, dynamic>>(
+      context: ctx,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 12),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2))),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Aplicar plantilla',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const Divider(height: 1),
+        ...snap.docs.map((doc) {
+          final data = doc.data();
+          final nombre = data['nombre'] as String? ?? 'Plantilla';
+          final dias = (data['dias'] as List?)?.length ?? 0;
+          return ListTile(
+            leading: Container(width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: _color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+                child: Icon(Icons.restaurant_menu_rounded, size: 18, color: _color)),
+            title: Text(nombre,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            subtitle: Text('$dias días', style: const TextStyle(fontSize: 11)),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    size: 18, color: Color(0xFFCBD5E1)),
+                onPressed: () async {
+                  await doc.reference.delete();
+                  Navigator.pop(ctx);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1)),
+            ]),
+            onTap: () => Navigator.pop(ctx, data),
+          );
+        }),
+        const SizedBox(height: 24),
+      ]),
+    );
+
+    if (seleccionada == null) return;
+    await _aplicarPlantilla(seleccionada);
+  }
+
+  Future<void> _aplicarPlantilla(Map<String, dynamic> plantilla) async {
+    final dias = (plantilla['dias'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final col = FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('menu_semanal');
+
+    // Borrar los docs actuales y añadir los de la plantilla
+    final snap = await col.get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snap.docs) batch.delete(doc.reference);
+    for (int i = 0; i < dias.length; i++) {
+      batch.set(col.doc(), {...dias[i], 'orden': i, 'activo': true});
+    }
+    await batch.commit();
+
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Plantilla "${plantilla['nombre']}" aplicada'),
+      backgroundColor: const Color(0xFF10B981),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   @override
@@ -47,7 +283,7 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
           return Center(child: Text('Error: ${snap.error}',
               style: const TextStyle(color: Colors.red)));
         }
-        if (snap.connectionState == ConnectionState.waiting) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -55,13 +291,13 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
         final activos = dias.where((d) => d['activo'] as bool? ?? true).length;
 
         return Column(children: [
-          _buildHeader(dias.length, activos),
+          _buildHeader(context, dias, activos),
           const Divider(height: 1),
           Expanded(
             child: dias.isEmpty
                 ? _buildVacio()
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 80),
                     itemCount: dias.length,
                     itemBuilder: (_, i) => _buildDiaCard(dias[i]),
                   ),
@@ -71,45 +307,109 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
     );
   }
 
-  Widget _buildHeader(int total, int activos) {
+  Widget _buildHeader(BuildContext ctx, List<Map<String, dynamic>> dias, int activos) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      child: Row(children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Menú Semanal', style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w800, color: _color)),
-          const Text('Gestiona el menú del día de cada jornada',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-        ]),
-        const Spacer(),
-        if (total > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Menú Semanal', style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w800, color: _color)),
+            Text('$activos día${activos != 1 ? 's' : ''} activo${activos != 1 ? 's' : ''} esta semana',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          ])),
+          if (dias.isNotEmpty) ...[
+            // Renovar semana
+            _accionBtn(
+              icon: _renovando
+                  ? const SizedBox(width: 13, height: 13,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded, size: 13),
+              label: 'Renovar',
+              onTap: _renovando ? null : () => _renovarSemana(dias),
             ),
-            child: Text('$activos activos',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                    color: Color(0xFF10B981))),
+            const SizedBox(width: 6),
+            // Guardar plantilla
+            _accionBtn(
+              icon: const Icon(Icons.bookmark_add_outlined, size: 13),
+              label: 'Guardar',
+              onTap: () => _guardarPlantilla(dias),
+            ),
+            const SizedBox(width: 6),
+          ],
+          // Aplicar plantilla
+          _accionBtn(
+            icon: const Icon(Icons.bookmarks_outlined, size: 13),
+            label: 'Plantillas',
+            onTap: () => _mostrarPlantillas(ctx),
           ),
-        const SizedBox(width: 8),
-        ElevatedButton.icon(
-          onPressed: () => _abrirEditor(null),
-          icon: const Icon(Icons.add_rounded, size: 15),
-          label: const Text('Añadir día'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _color, foregroundColor: Colors.white,
-            elevation: 0, minimumSize: const Size(0, 38),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          const SizedBox(width: 6),
+          // Toggle popup web
+          GestureDetector(
+            onTap: _guardandoPopup ? null : () => _togglePopupMenu(!_popupActivo),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: _popupActivo
+                    ? _color.withValues(alpha: 0.12)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _popupActivo ? _color.withValues(alpha: 0.4) : Colors.transparent,
+                ),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _guardandoPopup
+                    ? SizedBox(width: 13, height: 13,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: _color))
+                    : Icon(_popupActivo ? Icons.campaign_rounded : Icons.campaign_outlined,
+                        size: 13, color: _popupActivo ? _color : const Color(0xFF475569)),
+                const SizedBox(width: 4),
+                Text(_popupActivo ? 'Popup ON' : 'Popup',
+                    style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600,
+                      color: _popupActivo ? _color : const Color(0xFF475569),
+                    )),
+              ]),
+            ),
           ),
-        ),
+          const SizedBox(width: 6),
+          FilledButton.icon(
+            onPressed: () => _abrirEditor(null),
+            icon: const Icon(Icons.add_rounded, size: 14),
+            label: const Text('Añadir día'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _color,
+              minimumSize: const Size(0, 34),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ]),
       ]),
     );
   }
+
+  Widget _accionBtn({required Widget icon, required String label, VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            icon,
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 11,
+                color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      );
 
   Widget _buildDiaCard(Map<String, dynamic> dia) {
     final id       = dia['id'] as String? ?? '';
@@ -118,16 +418,19 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
     final precio   = dia['precio'];
     final primeros = (dia['primeros'] as List?)?.cast<String>() ?? [];
     final segundos = (dia['segundos'] as List?)?.cast<String>() ?? [];
-    final postres  = (dia['postres'] as List?)?.cast<String>() ?? [];
+    final postres  = (dia['postres']  as List?)?.cast<String>() ?? [];
     final bebida   = dia['bebida'] as String? ?? '';
+    final nota     = dia['nota'] as String? ?? '';
+    final tieneContenido = (primeros + segundos + postres).isNotEmpty;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: activo ? const Color(0xFFE8EDF2) : const Color(0xFFF1F5F9)),
+          color: activo ? const Color(0xFFE8EDF2) : const Color(0xFFF1F5F9),
+        ),
         boxShadow: [BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 4, offset: const Offset(0, 1))],
@@ -136,32 +439,36 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
         // Cabecera del día
         InkWell(
           onTap: () => _abrirEditor(dia),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          borderRadius: BorderRadius.vertical(
+            top: const Radius.circular(12),
+            bottom: tieneContenido ? Radius.zero : const Radius.circular(12),
+          ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
             child: Row(children: [
+              // Indicador de color del día
               Container(
-                width: 40, height: 40,
+                width: 4, height: 40,
                 decoration: BoxDecoration(
-                  color: activo
-                      ? _color.withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
+                  color: activo ? _color : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(Icons.restaurant_rounded, size: 20,
-                    color: activo ? _color : const Color(0xFFCBD5E1)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(_capitalize(nombre), style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700,
+                      fontSize: 14, fontWeight: FontWeight.w800,
                       color: activo ? const Color(0xFF0F172A) : const Color(0xFF94A3B8))),
                   if (precio != null)
-                    Text('${precio}€ · menú completo',
-                        style: TextStyle(fontSize: 12,
-                            color: activo ? _color : const Color(0xFFCBD5E1),
-                            fontWeight: FontWeight.w600)),
+                    Text('${precio}€ · menú completo', style: TextStyle(
+                        fontSize: 11,
+                        color: activo ? _color : const Color(0xFFCBD5E1),
+                        fontWeight: FontWeight.w600)),
+                  if (!tieneContenido)
+                    Text('Sin platos — toca para editar',
+                        style: const TextStyle(fontSize: 11,
+                            color: Color(0xFFCBD5E1), fontStyle: FontStyle.italic)),
                 ]),
               ),
               Switch(
@@ -173,7 +480,7 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded,
-                    size: 18, color: Color(0xFFCBD5E1)),
+                    size: 16, color: Color(0xFFCBD5E1)),
                 onPressed: id.isEmpty ? null : () => _confirmarBorrar(id, nombre),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 constraints: const BoxConstraints(),
@@ -181,35 +488,48 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
             ]),
           ),
         ),
-        // Detalle de platos si hay contenido
-        if ((primeros + segundos + postres).isNotEmpty) ...[
-          const Divider(height: 1, indent: 14, endIndent: 14),
+        // Detalle de platos
+        if (tieneContenido) ...[
+          const Divider(height: 1, indent: 12, endIndent: 12),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (primeros.isNotEmpty)
                 Expanded(child: _seccionPlatos('Primeros', primeros, activo)),
               if (primeros.isNotEmpty && (segundos.isNotEmpty || postres.isNotEmpty))
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
               if (segundos.isNotEmpty)
                 Expanded(child: _seccionPlatos('Segundos', segundos, activo)),
               if (segundos.isNotEmpty && postres.isNotEmpty)
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
               if (postres.isNotEmpty)
                 Expanded(child: _seccionPlatos('Postre', postres, activo)),
             ]),
           ),
-          if (bebida.isNotEmpty)
+          if (bebida.isNotEmpty || nota.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-              child: Row(children: [
-                Icon(Icons.local_bar_rounded, size: 13,
-                    color: activo ? _color : const Color(0xFFCBD5E1)),
-                const SizedBox(width: 6),
-                Expanded(child: Text(bebida, style: TextStyle(
-                    fontSize: 12, color: activo
-                        ? const Color(0xFF475569)
-                        : const Color(0xFFCBD5E1)))),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Column(children: [
+                if (bebida.isNotEmpty)
+                  Row(children: [
+                    Icon(Icons.local_bar_rounded, size: 12,
+                        color: activo ? _color : const Color(0xFFCBD5E1)),
+                    const SizedBox(width: 5),
+                    Expanded(child: Text(bebida, style: TextStyle(
+                        fontSize: 11,
+                        color: activo ? const Color(0xFF475569) : const Color(0xFFCBD5E1)))),
+                  ]),
+                if (nota.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(children: [
+                    const Icon(Icons.info_outline_rounded, size: 12,
+                        color: Color(0xFF94A3B8)),
+                    const SizedBox(width: 5),
+                    Expanded(child: Text(nota, style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF94A3B8),
+                        fontStyle: FontStyle.italic))),
+                  ]),
+                ],
               ]),
             ),
         ],
@@ -219,14 +539,13 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
 
   Widget _seccionPlatos(String titulo, List<String> platos, bool activo) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(titulo, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+      Text(titulo, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
           color: activo ? const Color(0xFF94A3B8) : const Color(0xFFCBD5E1),
-          letterSpacing: .5)),
-      const SizedBox(height: 4),
+          letterSpacing: .5, textBaseline: TextBaseline.alphabetic)),
+      const SizedBox(height: 3),
       ...platos.map((p) => Padding(
         padding: const EdgeInsets.only(bottom: 2),
-        child: Text('• $p', style: TextStyle(
-            fontSize: 12,
+        child: Text('• $p', style: TextStyle(fontSize: 11,
             color: activo ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
             maxLines: 2, overflow: TextOverflow.ellipsis),
       )),
@@ -235,15 +554,15 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
 
   Widget _buildVacio() {
     return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(Icons.restaurant_rounded, size: 56, color: _color.withValues(alpha: 0.2)),
-      const SizedBox(height: 16),
+      Icon(Icons.restaurant_rounded, size: 52, color: _color.withValues(alpha: 0.2)),
+      const SizedBox(height: 14),
       const Text('Sin menú semanal todavía',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
               color: Color(0xFF334155))),
-      const SizedBox(height: 6),
-      const Text('Añade los días de la semana con sus platos',
-          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
-      const SizedBox(height: 20),
+      const SizedBox(height: 5),
+      const Text('Añade los días o aplica una plantilla guardada',
+          style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+      const SizedBox(height: 18),
       ElevatedButton.icon(
         onPressed: () => _abrirEditor(null),
         icon: const Icon(Icons.add_rounded),
@@ -273,9 +592,7 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
         ],
       ),
     );
-    if (ok == true) {
-      await widget.svc.eliminarDiaMenu(widget.empresaId, id);
-    }
+    if (ok == true) await widget.svc.eliminarDiaMenu(widget.empresaId, id);
   }
 
   void _abrirEditor(Map<String, dynamic>? dia) {
@@ -301,7 +618,7 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Editor de un día del menú
+// Editor de un día del menú (mejorado con precio por plato)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EditorDiaMenu extends StatefulWidget {
@@ -316,14 +633,13 @@ class _EditorDiaMenu extends StatefulWidget {
 }
 
 class _EditorDiaMenuState extends State<_EditorDiaMenu> {
-  String  _dia       = _kDias.first;
-  final _precioCtrl  = TextEditingController();
-  final _bebidaCtrl  = TextEditingController();
-  final _notaCtrl    = TextEditingController();
-  // Listas de platos como texto libre — un TextField por sección
-  final _primerosCtrl  = TextEditingController();
-  final _segundosCtrl  = TextEditingController();
-  final _postresCtrl   = TextEditingController();
+  String  _dia          = _kDias.first;
+  final _precioCtrl     = TextEditingController();
+  final _bebidaCtrl     = TextEditingController();
+  final _notaCtrl       = TextEditingController();
+  final _primerosCtrl   = TextEditingController();
+  final _segundosCtrl   = TextEditingController();
+  final _postresCtrl    = TextEditingController();
   bool _activo   = true;
   bool _guardando = false;
 
@@ -334,8 +650,7 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
     if (d != null) {
       _dia         = d['dia'] as String? ?? _kDias.first;
       _activo      = d['activo'] as bool? ?? true;
-      final precio = d['precio'];
-      _precioCtrl.text  = precio != null ? precio.toString() : '';
+      _precioCtrl.text  = (d['precio'] != null) ? d['precio'].toString() : '';
       _bebidaCtrl.text  = d['bebida'] as String? ?? '';
       _notaCtrl.text    = d['nota'] as String? ?? '';
       final primeros = (d['primeros'] as List?)?.cast<String>() ?? [];
@@ -349,12 +664,10 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
 
   @override
   void dispose() {
-    _precioCtrl.dispose();
-    _bebidaCtrl.dispose();
-    _notaCtrl.dispose();
-    _primerosCtrl.dispose();
-    _segundosCtrl.dispose();
-    _postresCtrl.dispose();
+    for (final c in [_precioCtrl, _bebidaCtrl, _notaCtrl,
+                     _primerosCtrl, _segundosCtrl, _postresCtrl]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -370,10 +683,10 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
         Container(width: 36, height: 4,
             decoration: BoxDecoration(color: const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Row(children: [
           Text(widget.dia == null ? 'Nuevo día de menú' : 'Editar menú',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
                   color: Color(0xFF0F172A))),
           const Spacer(),
           IconButton(
@@ -382,19 +695,19 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
             padding: EdgeInsets.zero, constraints: const BoxConstraints(),
           ),
         ]),
-        const SizedBox(height: 18),
-        // Selector de día
+        const SizedBox(height: 16),
+        // ── Día + Precio ────────────────────────────────────────────────
         Row(children: [
-          const Text('Día', style: TextStyle(fontSize: 13,
-              color: Color(0xFF475569), fontWeight: FontWeight.w500)),
-          const SizedBox(width: 12),
           Expanded(
             child: DropdownButtonFormField<String>(
               value: _dia,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: InputDecoration(
+                labelText: 'Día de la semana',
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 isDense: true,
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: widget.color)),
               ),
               items: _kDias.map((d) => DropdownMenuItem(
                   value: d,
@@ -402,47 +715,68 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
               onChanged: (v) { if (v != null) setState(() => _dia = v); },
             ),
           ),
-          const SizedBox(width: 12),
-          _field(_precioCtrl, 'Precio €',
-              tipo: const TextInputType.numberWithOptions(decimal: true),
-              formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-              width: 90),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 100,
+            child: TextFormField(
+              controller: _precioCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
+              ],
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Precio (€)',
+                hintText: '14,90',
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                isDense: true,
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: widget.color)),
+              ),
+            ),
+          ),
         ]),
-        const SizedBox(height: 16),
-        // Platos por sección
+        const SizedBox(height: 14),
+        // ── Platos ──────────────────────────────────────────────────────
         _seccionPlatos('Primeros', _primerosCtrl,
             'Ej:\nEnsalada mixta\nGazpacho andaluz'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _seccionPlatos('Segundos', _segundosCtrl,
             'Ej:\nPollo asado con patatas\nMerluza a la plancha'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _seccionPlatos('Postre', _postresCtrl,
             'Ej:\nFlan casero\nFruta del tiempo'),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+        // ── Bebida y nota ───────────────────────────────────────────────
         TextFormField(
           controller: _bebidaCtrl,
           style: const TextStyle(fontSize: 13),
-          decoration: const InputDecoration(
-            labelText: 'Bebida incluida (opcional)',
+          decoration: InputDecoration(
+            labelText: 'Bebida incluida',
             hintText: 'Ej: Agua, vino o cerveza incluida',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
+            focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: widget.color)),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         TextFormField(
           controller: _notaCtrl,
           style: const TextStyle(fontSize: 13),
-          decoration: const InputDecoration(
-            labelText: 'Nota adicional (opcional)',
-            hintText: 'Ej: Menú disponible de lunes a viernes 13:00–16:00 h',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: InputDecoration(
+            labelText: 'Nota adicional',
+            hintText: 'Ej: Disponible de 13:00 a 16:00 h',
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             isDense: true,
+            focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: widget.color)),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Row(children: [
           const Text('Activo esta semana',
               style: TextStyle(fontSize: 14, color: Color(0xFF334155))),
@@ -453,7 +787,7 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
             onChanged: (v) => setState(() => _activo = v),
           ),
         ]),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: FilledButton(
@@ -466,7 +800,7 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
             child: _guardando
                 ? const SizedBox(width: 18, height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(widget.dia == null ? 'Añadir menú' : 'Guardar cambios',
+                : Text(widget.dia == null ? 'Añadir al menú' : 'Guardar cambios',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           ),
         ),
@@ -476,7 +810,7 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
 
   Widget _seccionPlatos(String titulo, TextEditingController ctrl, String hint) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(titulo, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+      Text(titulo, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
           color: widget.color)),
       const SizedBox(height: 4),
       TextFormField(
@@ -491,29 +825,11 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           isDense: true,
+          focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: widget.color)),
         ),
       ),
     ]);
-  }
-
-  Widget _field(TextEditingController ctrl, String label, {
-    TextInputType? tipo,
-    List<TextInputFormatter>? formatters,
-    double? width,
-  }) {
-    final field = TextFormField(
-      controller: ctrl,
-      keyboardType: tipo,
-      inputFormatters: formatters,
-      style: const TextStyle(fontSize: 13),
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        isDense: true,
-      ),
-    );
-    return width != null ? SizedBox(width: width, child: field) : field;
   }
 
   Future<void> _guardar() async {

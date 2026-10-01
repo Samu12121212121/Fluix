@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/services/tpv/cierre_caja_service.dart';
 import 'package:planeag_flutter/services/tpv_facturacion_service.dart';
@@ -253,6 +253,7 @@ class _PantallaCobroState extends State<_PantallaCobro> {
       TextField(
         controller: _propinaCtrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.done,
         onChanged: (v) => setState(() => _propina = double.tryParse(v) ?? 0.0),
         style: const TextStyle(color: Colors.white),
         decoration: _deco('Propina (opcional)', '0.00',
@@ -322,6 +323,7 @@ class _PantallaCobroState extends State<_PantallaCobro> {
     TextField(
       controller: _entregadoCtrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
       autofocus: true,
       onChanged: (_) => setState(() {}),
       style: const TextStyle(color: Colors.white),
@@ -344,6 +346,7 @@ class _PantallaCobroState extends State<_PantallaCobro> {
     TextField(
       controller: _efectivoMixtoCtrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
       onChanged: (_) => setState(() {}),
       style: const TextStyle(color: Colors.white),
       decoration: _deco('Importe en efectivo', '0.00',
@@ -353,6 +356,7 @@ class _PantallaCobroState extends State<_PantallaCobro> {
     TextField(
       controller: _tarjetaMixtoCtrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
       onChanged: (_) => setState(() {}),
       style: const TextStyle(color: Colors.white),
       decoration: _deco('Importe en tarjeta', '0.00',

@@ -602,6 +602,11 @@ class ContabilidadService {
     bool esArrendamiento = false,
     String? nifArrendador,
     String? conceptoArrendamiento,
+    // IRPF y estado de pago
+    double? porcentajeRetencion,
+    EstadoFacturaRecibida estado = EstadoFacturaRecibida.pendiente,
+    DateTime? fechaPago,
+    String? metodoPago,
   }) async {
     // Validar NIF
     final validNif = ValidadorNifCif.validar(nifProveedor);
@@ -615,7 +620,11 @@ class ContabilidadService {
 
     // Calcular totales
     final importeIva = baseImponible * (porcentajeIva / 100);
-    final totalConImpuestos = baseImponible + importeIva;
+    final importeRetencion = porcentajeRetencion != null
+        ? baseImponible * porcentajeRetencion / 100
+        : null;
+    final totalConImpuestos =
+        baseImponible + importeIva - (importeRetencion ?? 0);
 
     final doc = FacturaRecibida(
       id: facturaRecibidaIdEditar ?? '',
@@ -638,6 +647,11 @@ class ContabilidadService {
       conceptoArrendamiento: conceptoArrendamiento,
       notas: notas,
       fechaCreacion: ahora,
+      porcentajeRetencion: porcentajeRetencion,
+      importeRetencion: importeRetencion,
+      estado: estado,
+      fechaPago: fechaPago,
+      metodoPago: metodoPago,
     );
 
     final ref = facturaRecibidaIdEditar != null && facturaRecibidaIdEditar.isNotEmpty

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../../onboarding/pantallas/pantalla_onboarding.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla que aparece cuando un usuario nuevo se autentica con Google o Apple
 /// y aún no tiene empresa vinculada (empresa_id == '').
@@ -125,12 +126,7 @@ class _PantallaRegistrarEmpresaSocialState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Completa tu empresa'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const FluixAppBar(titulo: 'Completa tu empresa', showLeading: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

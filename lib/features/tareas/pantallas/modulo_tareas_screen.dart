@@ -8,6 +8,7 @@ import 'package:planeag_flutter/services/tareas_service.dart';
 import 'package:planeag_flutter/features/tareas/pantallas/detalle_tarea_screen.dart';
 import 'package:planeag_flutter/features/tareas/pantallas/formulario_tarea_screen.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO TAREAS — diseño Kanban estilo Notion/Linear
@@ -151,8 +152,17 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
+          appBar: FluixAppBar(
+            titulo: 'Tareas',
+            extraActions: [
+              IconButton(
+                onPressed: _nuevaTarea,
+                icon: const Icon(Icons.add_rounded),
+                tooltip: 'Nueva tarea',
+              ),
+            ],
+          ),
           body: Column(children: [
-            _buildHeader(),
             _buildFilterBar(),
             _buildViewBar(todas),
             Expanded(child: _vista == 0

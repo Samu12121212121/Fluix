@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/factura_recibida.dart';
 import 'package:planeag_flutter/services/contabilidad_service.dart';
 import 'package:planeag_flutter/core/utils/validador_nif_cif.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+
+const _kPrimaryFR = Color(0xFF0D47A1);
 
 class FormularioFacturaRecibidaScreen extends StatefulWidget {
   final String empresaId;
@@ -54,6 +57,12 @@ class _FormularioFacturaRecibidaScreenState
   final _ctrlNifArrendador = TextEditingController();
   final _ctrlConceptoArrendamiento = TextEditingController();
 
+  // IRPF y estado de pago
+  double _porcentajeRetencion = 0;
+  EstadoFacturaRecibida _estadoPago = EstadoFacturaRecibida.pendiente;
+  DateTime? _fechaPago;
+  String? _metodoPago;
+
   // Validación
   String? _errorNif;
 
@@ -86,6 +95,10 @@ class _FormularioFacturaRecibidaScreenState
     _ctrlNifArrendador.text = f.nifArrendador ?? '';
     _ctrlConceptoArrendamiento.text = f.conceptoArrendamiento ?? '';
     _ctrlNotas.text = f.notas ?? '';
+    _porcentajeRetencion = f.porcentajeRetencion ?? 0;
+    _estadoPago = f.estado;
+    _fechaPago = f.fechaPago;
+    _metodoPago = f.metodoPago;
   }
 
   @override
@@ -107,11 +120,9 @@ class _FormularioFacturaRecibidaScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar factura recibida' : 'Nueva factura recibida'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
+      appBar: FluixAppBar(
+        titulo: _esEdicion ? 'Editar factura recibida' : 'Nueva factura recibida',
+        showLeading: true,
       ),
       body: Form(
         key: _formKey,
@@ -292,6 +303,9 @@ class _FormularioFacturaRecibidaScreenState
               ),
             ]),
             const SizedBox(height: 16),
+            // IRPF + Estado de pago
+            _buildSeccionPago(),
+            const SizedBox(height: 16),
             // Arrendamiento (Mod.115)
             _buildSeccion('🏢 Arrendamiento de Local', [
               SwitchListTile(
@@ -346,6 +360,203 @@ class _FormularioFacturaRecibidaScreenState
       ),
       bottomNavigationBar: _buildBotonGuardar(),
     );
+  }
+
+  Widget _buildSeccionPago() {
+    final base = double.tryParse(_ctrlBaseImponible.text.replaceAll(',', '.')) ?? 0;
+    final retencion = base * _porcentajeRetencion / 100;
+    final iva = base * _porcentajeIva / 100;
+    final total = base + iva - retencion;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('💳 Retención IRPF y Estado de Pago',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 14),
+
+          // IRPF
+          Text('Retención IRPF',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: [
+              _chipIrpf(0, 'Sin retención'),
+              _chipIrpf(7, '7% — Nuevo autónomo'),
+              _chipIrpf(15, '15% — Estándar'),
+              _chipIrpf(19, '19% — Profesional'),
+            ],
+          ),
+          if (_porcentajeRetencion > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.info_outline, size: 14, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: _ctrlBaseImponible,
+                    builder: (_, __) => Text(
+                      'Retención: ${retencion.toStringAsFixed(2)} €  ·  Total a pagar: ${total.toStringAsFixed(2)} €',
+                      style: const TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+
+          // Estado de pago
+          Text('Estado de pago',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: EstadoFacturaRecibida.values.map((e) {
+              final sel = _estadoPago == e;
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _estadoPago = e;
+                  if (e != EstadoFacturaRecibida.pagada) {
+                    _fechaPago = null;
+                    _metodoPago = null;
+                  }
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? _colorEstado(e) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: sel ? _colorEstado(e) : Colors.grey[300]!),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_iconoEstado(e), size: 14,
+                        color: sel ? Colors.white : Colors.grey[700]),
+                    const SizedBox(width: 6),
+                    Text(e.etiqueta,
+                        style: TextStyle(
+                            color: sel ? Colors.white : Colors.grey[700],
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              );
+            }).toList(),
+          ),
+
+          // Campos extra si pagada
+          if (_estadoPago == EstadoFacturaRecibida.pagada) ...[
+            const SizedBox(height: 14),
+            // Método de pago
+            DropdownButtonFormField<String>(
+              value: _metodoPago,
+              decoration: _inputDeco('Método de pago'),
+              items: const [
+                DropdownMenuItem(value: 'transferencia', child: Text('Transferencia')),
+                DropdownMenuItem(value: 'tarjeta', child: Text('Tarjeta')),
+                DropdownMenuItem(value: 'efectivo', child: Text('Efectivo')),
+                DropdownMenuItem(value: 'domiciliacion', child: Text('Domiciliación')),
+                DropdownMenuItem(value: 'bizum', child: Text('Bizum')),
+              ],
+              onChanged: (v) => setState(() => _metodoPago = v),
+            ),
+            const SizedBox(height: 12),
+            // Fecha de pago
+            GestureDetector(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _fechaPago ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (d != null) setState(() => _fechaPago = d);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F7FA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.calendar_today_outlined, size: 16, color: _kPrimaryFR),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(
+                    _fechaPago != null
+                        ? 'Pagada el ${_fechaPago!.day.toString().padLeft(2, '0')}/${_fechaPago!.month.toString().padLeft(2, '0')}/${_fechaPago!.year}'
+                        : 'Fecha de pago (opcional)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _fechaPago != null ? Colors.black87 : Colors.grey[500],
+                    ),
+                  )),
+                  if (_fechaPago != null)
+                    GestureDetector(
+                      onTap: () => setState(() => _fechaPago = null),
+                      child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                    ),
+                ]),
+              ),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _chipIrpf(double pct, String label) {
+    final sel = _porcentajeRetencion == pct;
+    return GestureDetector(
+      onTap: () => setState(() => _porcentajeRetencion = pct),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: sel ? Colors.orange : Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: sel ? Colors.orange : Colors.grey[300]!),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: sel ? Colors.white : Colors.grey[700],
+                fontSize: 12,
+                fontWeight: sel ? FontWeight.bold : FontWeight.normal)),
+      ),
+    );
+  }
+
+  Color _colorEstado(EstadoFacturaRecibida e) {
+    switch (e) {
+      case EstadoFacturaRecibida.pendiente:  return Colors.orange;
+      case EstadoFacturaRecibida.recibida:   return Colors.blue;
+      case EstadoFacturaRecibida.pagada:     return Colors.green;
+      case EstadoFacturaRecibida.rechazada:  return Colors.red;
+    }
+  }
+
+  IconData _iconoEstado(EstadoFacturaRecibida e) {
+    switch (e) {
+      case EstadoFacturaRecibida.pendiente:  return Icons.schedule;
+      case EstadoFacturaRecibida.recibida:   return Icons.mark_email_read_outlined;
+      case EstadoFacturaRecibida.pagada:     return Icons.check_circle_outline;
+      case EstadoFacturaRecibida.rechazada:  return Icons.cancel_outlined;
+    }
   }
 
   Widget _buildSeccion(String titulo, List<Widget> children) {
@@ -488,6 +699,10 @@ class _FormularioFacturaRecibidaScreenState
         conceptoArrendamiento: _esArrendamiento && _ctrlConceptoArrendamiento.text.isNotEmpty
             ? _ctrlConceptoArrendamiento.text
             : null,
+        porcentajeRetencion: _porcentajeRetencion > 0 ? _porcentajeRetencion : null,
+        estado: _estadoPago,
+        fechaPago: _fechaPago,
+        metodoPago: _metodoPago,
       );
 
       if (mounted) {

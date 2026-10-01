@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO: Configuración de reservas
@@ -584,32 +585,27 @@ class _ConfiguracionReservasScreenState
     }
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configuración de Reservas',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Configuración de Reservas',
+        showLeading: true,
+        extraActions: [
           if (_guardando)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(child: SizedBox(width: 20, height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))),
+              child: SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else
             TextButton.icon(
               onPressed: _guardar,
-              icon: const Icon(Icons.save_outlined, color: Colors.white, size: 18),
-              label: const Text('Guardar',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
         ],
-        bottom: TabBar(
+      ),
+      body: Column(children: [
+        TabBar(
           controller: _tabCtrl,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           tabs: const [
             Tab(icon: Icon(Icons.calendar_today, size: 18), text: 'Horarios'),
@@ -618,16 +614,16 @@ class _ConfiguracionReservasScreenState
             Tab(icon: Icon(Icons.language, size: 18), text: 'Web'),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _tabHorarios(),
-          _tabSlots(),
-          _tabVacaciones(),
-          _tabFormularioWeb(),
-        ],
-      ),
+        Expanded(child: TabBarView(
+          controller: _tabCtrl,
+          children: [
+            _tabHorarios(),
+            _tabSlots(),
+            _tabVacaciones(),
+            _tabFormularioWeb(),
+          ],
+        )),
+      ]),
     );
   }
 

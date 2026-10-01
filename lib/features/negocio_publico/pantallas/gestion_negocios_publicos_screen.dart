@@ -6,6 +6,7 @@ import 'dart:io';
 import '../../../models/negocio_publico_model.dart';
 import 'resenas_fluix_screen.dart';
 import 'terminos_condiciones_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kAzul = Color(0xFF0D47A1);
 const _kOro  = Color(0xFFFFB830);
@@ -35,12 +36,7 @@ class _GestionNegociosPublicosScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Gestión de Negocios Públicos'),
-        backgroundColor: _kAzul,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Gestión de Negocios Públicos'),
       body: Column(
         children: [
           _buildFiltros(),

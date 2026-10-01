@@ -170,12 +170,10 @@ class CierreCajaService {
   /// Usado para bloquear ventas cuando la caja no ha sido abierta.
   Future<bool> hayCajaAbiertaHoy(String empresaId, {DateTime? fecha}) async {
     final ref = fecha ?? DateTime.now();
-    final inicio = DateTime(ref.year, ref.month, ref.day);
-    final fin = inicio.add(const Duration(days: 1));
+    final fechaStr = DateFormat('yyyy-MM-dd').format(ref);
     try {
       final snap = await _aperturasRef(empresaId)
-          .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
-          .where('fecha', isLessThan: Timestamp.fromDate(fin))
+          .where('fecha', isEqualTo: fechaStr)
           .limit(1)
           .get();
       return snap.docs.isNotEmpty;

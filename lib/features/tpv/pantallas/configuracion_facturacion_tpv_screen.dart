@@ -530,6 +530,7 @@ class _ConfiguracionFacturacionTpvScreenState
             child: TextFormField(
               initialValue: _config.descuentoMaximoPct.toString(),
               keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
               textAlign: TextAlign.center,
               decoration: _deco('').copyWith(
                 suffixText: '%',
@@ -580,6 +581,7 @@ class _ConfiguracionFacturacionTpvScreenState
         TextFormField(
           initialValue: '',
           keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
           maxLength: 4,
           obscureText: true,
           decoration: _deco(
@@ -1236,6 +1238,7 @@ class _ConfiguracionFacturacionTpvScreenState
               border: OutlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
             onChanged: (v) {
               final dias = int.tryParse(v) ?? 0;
               setState(() => _config = _config.copyWith(diasVencimiento: dias));
@@ -1381,6 +1384,7 @@ class _ConfiguracionFacturacionTpvScreenState
                   child: TextField(
                     controller: _terminalPuertoCtrl,
                     keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
                     onChanged: (_) => setState(() => _terminalTestResultado = null),
                     decoration: const InputDecoration(
                       labelText: 'Puerto',
@@ -1552,6 +1556,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 child: TextField(
                   controller: _barraPortCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(labelText: 'Puerto'),
                 ),
               ),
@@ -1742,6 +1747,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 Expanded(flex: 3, child: TextField(
                   controller: _winIpCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'IP impresora',
                     hintText: 'Ej: 192.168.1.50',
@@ -1755,6 +1761,7 @@ class _ConfiguracionFacturacionTpvScreenState
                 Expanded(flex: 1, child: TextField(
                   controller: _winPortCtrl,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Puerto',
                     hintText: '9100',

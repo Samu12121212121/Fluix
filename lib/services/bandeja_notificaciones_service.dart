@@ -18,6 +18,8 @@ enum TipoNotificacion {
   tareaAsignada,
   facturaVencida,
   reservaNueva,
+  reservaConfirmada,
+  reservaCancelada,
   alertaFiscal,
   nominaPendiente,
   pedidoNuevo,
@@ -26,6 +28,16 @@ enum TipoNotificacion {
   sugerencia,
   generica,
   vacacionesSolicitadas,
+  vacacionEstado,
+  suscripcionVencida,
+  suscripcionPorVencer,
+  stockBajo,
+  whatsappMensaje,
+  whatsappPedido,
+  vencimientoFiscal,
+  alertaCobertura,
+  trofeo,
+  fidelizacion,
 }
 
 extension TipoNotificacionX on TipoNotificacion {
@@ -36,7 +48,10 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.tareaAsignada:         return 'tareas';
       case TipoNotificacion.facturaVencida:        return 'facturacion';
       case TipoNotificacion.reservaNueva:          return 'reservas';
+      case TipoNotificacion.reservaConfirmada:     return 'reservas';
+      case TipoNotificacion.reservaCancelada:      return 'reservas';
       case TipoNotificacion.alertaFiscal:          return 'fiscal';
+      case TipoNotificacion.vencimientoFiscal:     return 'fiscal';
       case TipoNotificacion.nominaPendiente:       return 'nominas';
       case TipoNotificacion.pedidoNuevo:           return 'pedidos';
       case TipoNotificacion.clienteNuevo:          return 'clientes';
@@ -44,6 +59,15 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.sugerencia:            return '';
       case TipoNotificacion.generica:              return '';
       case TipoNotificacion.vacacionesSolicitadas: return 'vacaciones';
+      case TipoNotificacion.vacacionEstado:        return 'vacaciones';
+      case TipoNotificacion.suscripcionVencida:    return '';
+      case TipoNotificacion.suscripcionPorVencer:  return '';
+      case TipoNotificacion.stockBajo:             return 'pedidos';
+      case TipoNotificacion.whatsappMensaje:       return 'web';
+      case TipoNotificacion.whatsappPedido:        return 'pedidos';
+      case TipoNotificacion.alertaCobertura:       return 'empleados';
+      case TipoNotificacion.trofeo:                return '';
+      case TipoNotificacion.fidelizacion:          return '';
     }
   }
 
@@ -52,7 +76,10 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.tareaAsignada:         return '📌';
       case TipoNotificacion.facturaVencida:        return '💰';
       case TipoNotificacion.reservaNueva:          return '📅';
+      case TipoNotificacion.reservaConfirmada:     return '✅';
+      case TipoNotificacion.reservaCancelada:      return '❌';
       case TipoNotificacion.alertaFiscal:          return '📋';
+      case TipoNotificacion.vencimientoFiscal:     return '🗓️';
       case TipoNotificacion.nominaPendiente:       return '💼';
       case TipoNotificacion.pedidoNuevo:           return '📦';
       case TipoNotificacion.clienteNuevo:          return '👤';
@@ -60,6 +87,15 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.sugerencia:            return '💡';
       case TipoNotificacion.generica:              return '🔔';
       case TipoNotificacion.vacacionesSolicitadas: return '🏖️';
+      case TipoNotificacion.vacacionEstado:        return '🏖️';
+      case TipoNotificacion.suscripcionVencida:    return '🔒';
+      case TipoNotificacion.suscripcionPorVencer:  return '⚠️';
+      case TipoNotificacion.stockBajo:             return '📉';
+      case TipoNotificacion.whatsappMensaje:       return '💬';
+      case TipoNotificacion.whatsappPedido:        return '🛒';
+      case TipoNotificacion.alertaCobertura:       return '👥';
+      case TipoNotificacion.trofeo:                return '🏆';
+      case TipoNotificacion.fidelizacion:          return '🎟️';
     }
   }
 }
@@ -124,46 +160,52 @@ class NotificacionInApp {
 
   static TipoNotificacion _parseTipo(String raw) {
     switch (raw) {
-      case 'reservaNueva':
-      case 'reserva_nueva':
-      case 'nueva_reserva':
-      case 'cita_nueva':
-      case 'citaNueva':
+      case 'reservaNueva': case 'reserva_nueva': case 'nueva_reserva':
+      case 'cita_nueva': case 'citaNueva': case 'nueva_reserva_b2c':
         return TipoNotificacion.reservaNueva;
-      case 'tareaAsignada':
-      case 'tarea_asignada':
-      case 'tarea_nueva':
-      case 'tareaNueva':
+      case 'reservaConfirmada': case 'reserva_confirmada':
+        return TipoNotificacion.reservaConfirmada;
+      case 'reservaCancelada': case 'reserva_cancelada':
+        return TipoNotificacion.reservaCancelada;
+      case 'tareaAsignada': case 'tarea_asignada': case 'tarea_nueva': case 'tareaNueva':
         return TipoNotificacion.tareaAsignada;
-      case 'facturaVencida':
-      case 'factura_vencida':
-      case 'factura_nueva':
-      case 'facturaNueva':
+      case 'facturaVencida': case 'factura_vencida': case 'factura_nueva': case 'facturaNueva':
         return TipoNotificacion.facturaVencida;
-      case 'alertaFiscal':
-      case 'alerta_fiscal':
+      case 'alertaFiscal': case 'alerta_fiscal':
         return TipoNotificacion.alertaFiscal;
-      case 'nominaPendiente':
-      case 'nomina_pendiente':
+      case 'vencimientoFiscal': case 'vencimiento_fiscal':
+        return TipoNotificacion.vencimientoFiscal;
+      case 'nominaPendiente': case 'nomina_pendiente':
         return TipoNotificacion.nominaPendiente;
-      case 'pedidoNuevo':
-      case 'pedido_nuevo':
-      case 'nuevo_pedido':
+      case 'pedidoNuevo': case 'pedido_nuevo': case 'nuevo_pedido':
         return TipoNotificacion.pedidoNuevo;
-      case 'clienteNuevo':
-      case 'cliente_nuevo':
+      case 'clienteNuevo': case 'cliente_nuevo': case 'nuevo_cliente':
         return TipoNotificacion.clienteNuevo;
-      case 'contactoWeb':
-      case 'contacto_web':
-      case 'contacto_nuevo':
-      case 'mensaje_contacto':
-      case 'mensaje_web':
+      case 'contactoWeb': case 'contacto_web': case 'contacto_nuevo':
+      case 'mensaje_contacto': case 'mensaje_web':
         return TipoNotificacion.contactoWeb;
       case 'sugerencia':
         return TipoNotificacion.sugerencia;
-      case 'vacacionesSolicitadas':
-      case 'vacaciones_solicitadas':
+      case 'vacacionesSolicitadas': case 'vacaciones_solicitadas':
         return TipoNotificacion.vacacionesSolicitadas;
+      case 'vacacionEstado': case 'vacacion_estado':
+        return TipoNotificacion.vacacionEstado;
+      case 'suscripcionVencida': case 'suscripcion_vencida':
+        return TipoNotificacion.suscripcionVencida;
+      case 'suscripcionPorVencer': case 'suscripcion_por_vencer': case 'suscripcion_gracia':
+        return TipoNotificacion.suscripcionPorVencer;
+      case 'stockBajo': case 'stock_bajo': case 'alerta_stock_bajo':
+        return TipoNotificacion.stockBajo;
+      case 'whatsappMensaje': case 'whatsapp_mensaje':
+        return TipoNotificacion.whatsappMensaje;
+      case 'whatsappPedido': case 'whatsapp_pedido': case 'pedido_whatsapp':
+        return TipoNotificacion.whatsappPedido;
+      case 'alertaCobertura': case 'alerta_cobertura':
+        return TipoNotificacion.alertaCobertura;
+      case 'trofeo':
+        return TipoNotificacion.trofeo;
+      case 'fidelizacion':
+        return TipoNotificacion.fidelizacion;
       default:
         return TipoNotificacion.generica;
     }
@@ -184,10 +226,17 @@ class BandejaNotificacionesService {
 
   Stream<List<NotificacionInApp>> notificacionesStream(String empresaId) =>
       _col(empresaId)
-          .orderBy('timestamp', descending: true)
-          .limit(100)
+          .limit(200)
           .snapshots()
-          .map((s) => s.docs.map(NotificacionInApp.fromFirestore).toList());
+          .map((s) {
+            final result = <NotificacionInApp>[];
+            for (final doc in s.docs) {
+              try { result.add(NotificacionInApp.fromFirestore(doc)); } catch (_) {}
+            }
+            // Ordenar por timestamp desc en cliente — tolerante a docs sin campo
+            result.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+            return result.take(100).toList();
+          });
 
   Stream<int> noLeidasCount(String empresaId) =>
       _col(empresaId)
@@ -250,6 +299,52 @@ class BandejaNotificacionesService {
       if (remitenteEmail != null) 'remitente_email': remitenteEmail,
     });
   }
+
+  // ── TEST COMPLETO: un item por cada tipo conocido ───────────────────────
+  Future<void> sembrarTodosLosTipos(String empresaId) async {
+    final now = DateTime.now();
+    final todos = <Map<String, dynamic>>[
+      _item(TipoNotificacion.tareaAsignada,       '📌 Tarea asignada',           'Revisar contratos Q3 — vence el viernes', now, 0),
+      _item(TipoNotificacion.facturaVencida,       '💰 Factura vencida',          'F-2026-0142 · Restaurante El Olivo · 1.450 €', now, 1),
+      _item(TipoNotificacion.reservaNueva,         '📅 Nueva reserva',            'Carlos Martínez · Sábado 22/08 21:00 · 4 personas', now, 2),
+      _item(TipoNotificacion.reservaConfirmada,    '✅ Reserva confirmada',       'Ana P. · Viernes 25/08 19:30', now, 3),
+      _item(TipoNotificacion.reservaCancelada,     '❌ Reserva cancelada',        'Luis G. · Domingo 27/08 13:00', now, 4),
+      _item(TipoNotificacion.alertaFiscal,         '📋 Alerta fiscal',            'Modelo 303 (3T) vence el 20/10', now, 5),
+      _item(TipoNotificacion.vencimientoFiscal,    '🗓️ Vencimiento fiscal HOY',   'Modelo 303 vence hoy (20/10/2026)', now, 6),
+      _item(TipoNotificacion.nominaPendiente,      '💼 Nóminas pendientes',       '5 nóminas de agosto sin generar ni firmar', now, 7),
+      _item(TipoNotificacion.pedidoNuevo,          '📦 Nuevo pedido #PED-0089',   'Clínica Dental Sonríe · 3 artículos · 320 €', now, 8),
+      _item(TipoNotificacion.clienteNuevo,         '👤 Nuevo cliente registrado', 'Ana Gómez se registró desde el portal web', now, 9),
+      _item(TipoNotificacion.contactoWeb,          '💬 Mensaje de contacto web',  'Luis Fernández: «¿Podéis llamarme esta tarde?»', now, 10),
+      _item(TipoNotificacion.vacacionesSolicitadas,'🏖️ Solicitud de vacaciones',  'María López · 25/08 → 08/09 · pendiente aprobar', now, 11),
+      _item(TipoNotificacion.vacacionEstado,       '✅ Vacaciones aprobadas',     'Tus vacaciones del 25/08 al 08/09 han sido aprobadas', now, 12),
+      _item(TipoNotificacion.suscripcionPorVencer, '⚠️ Suscripción por vencer',  'Tu suscripción vence en 3 días. ¡Renueva ya!', now, 13),
+      _item(TipoNotificacion.suscripcionVencida,   '🔒 Suscripción vencida',     'Tu suscripción ha expirado. Renueva en fluixtech.com', now, 14),
+      _item(TipoNotificacion.stockBajo,            '📉 Stock bajo: Aceite AOVE',  'Stock actual: 2 uds (mínimo: 5) · Categoría: Alimentación', now, 15),
+      _item(TipoNotificacion.whatsappMensaje,      '💬 Mensaje de Carlos (WhatsApp)', 'Hola, ¿tenéis mesa libre para esta noche?', now, 16),
+      _item(TipoNotificacion.whatsappPedido,       '🛒 Pedido por WhatsApp',     '2x Menú del día, 1x Postre — ~28 €', now, 17),
+      _item(TipoNotificacion.alertaCobertura,      '👥 Cobertura crítica el lunes', 'Solo 1/4 empleados disponibles (mínimo: 50%)', now, 18),
+      _item(TipoNotificacion.trofeo,               '🏆 Nuevo trofeo desbloqueado', '¡Has completado 10 reservas! Trofeo "Habitual"', now, 19),
+      _item(TipoNotificacion.fidelizacion,         '🎟️ ¡Tarjeta de sellos llena!', 'Tienes un café gratis en Cafetería Central', now, 20),
+      _item(TipoNotificacion.sugerencia,           '💡 Sugerencia del sistema',  'Activa el recordatorio 24h para reducir ausencias', now, 21),
+      _item(TipoNotificacion.generica,             '🔔 Copia de seguridad lista', 'Backup nocturno del 29/09/2026 completado OK', now, 22),
+    ];
+
+    final batch = _db.batch();
+    for (final e in todos) {
+      batch.set(_col(empresaId).doc(), e);
+    }
+    await batch.commit();
+  }
+
+  Map<String, dynamic> _item(TipoNotificacion tipo, String titulo, String cuerpo,
+      DateTime now, int minutosAtras) => {
+    'titulo':         titulo,
+    'cuerpo':         cuerpo,
+    'tipo':           tipo.id,
+    'modulo_destino': tipo.modulo,
+    'leida':          false,
+    'timestamp':      Timestamp.fromDate(now.subtract(Duration(minutes: minutosAtras))),
+  };
 
   // ── SEMBRAR EJEMPLOS (uno por cada tipo) ────────────────────────────────
 

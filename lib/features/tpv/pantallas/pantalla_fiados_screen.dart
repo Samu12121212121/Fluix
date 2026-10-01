@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE FIADOS — Deudas pendientes de cobro
@@ -99,29 +100,17 @@ class _PantallaFiadosScreenState extends State<PantallaFiadosScreen> {
 
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        foregroundColor: _texto,
-        elevation: 0,
-        title: const Row(children: [
-          Icon(Icons.schedule_rounded, color: _oro, size: 20),
-          SizedBox(width: 8),
-          Text('Fiados pendientes',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        ]),
-        actions: [
-          // Filtro
+      appBar: FluixAppBar(
+        titulo: 'Fiados pendientes',
+        showLeading: true,
+        extraActions: [
           PopupMenuButton<String>(
-            color: _card,
-            icon: const Icon(Icons.filter_list, color: _muted),
+            icon: const Icon(Icons.filter_list),
             onSelected: (v) => setState(() => _filtro = v),
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'pendiente',
-                  child: Text('Solo pendientes', style: TextStyle(color: _texto))),
-              PopupMenuItem(value: 'cobrado',
-                  child: Text('Solo cobrados', style: TextStyle(color: _texto))),
-              PopupMenuItem(value: 'todos',
-                  child: Text('Todos', style: TextStyle(color: _texto))),
+              PopupMenuItem(value: 'pendiente', child: Text('Solo pendientes')),
+              PopupMenuItem(value: 'cobrado', child: Text('Solo cobrados')),
+              PopupMenuItem(value: 'todos', child: Text('Todos')),
             ],
           ),
         ],

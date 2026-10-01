@@ -345,12 +345,15 @@ class _EditorCampana extends StatefulWidget {
 }
 
 class _EditorCampanaState extends State<_EditorCampana> {
-  final _nombreCtrl   = TextEditingController();
-  final _asuntoCtrl   = TextEditingController();
+  final _nombreCtrl    = TextEditingController();
+  final _asuntoCtrl    = TextEditingController();
   final _contenidoCtrl = TextEditingController();
-  final _manualCtrl   = TextEditingController();
-  SegmentoCampana _segmento = SegmentoCampana.todos;
-  bool _guardando = false;
+  final _manualCtrl    = TextEditingController();
+  SegmentoCampana _segmento  = SegmentoCampana.todos;
+  bool _guardando    = false;
+  bool _programando  = false;
+  DateTime? _fechaProgram;
+  TimeOfDay? _horaProgram;
 
   @override
   void initState() {
@@ -499,21 +502,126 @@ class _EditorCampanaState extends State<_EditorCampana> {
               const SizedBox(height: 8),
               _campoMultilinea('Escribe el contenido aquí...', _contenidoCtrl,
                   Icons.code_rounded, 12),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              // ── Programar envío ──────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFED7AA)),
+                  color: const Color(0xFFF0F7FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(
-                    'El envío real requiere configurar la Cloud Function de Resend en el panel de Firebase.',
-                    style: TextStyle(fontSize: 11.5, color: Colors.orange[800]),
-                  )),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    const Text('Programar envío para más tarde',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E40AF))),
+                    const Spacer(),
+                    if (_fechaProgram != null)
+                      GestureDetector(
+                        onTap: () => setState(() { _fechaProgram = null; _horaProgram = null; }),
+                        child: const Icon(Icons.close_rounded, size: 15, color: Color(0xFF94A3B8)),
+                      ),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _fechaProgram ?? DateTime.now().add(const Duration(hours: 1)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (d != null) setState(() => _fechaProgram = d);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.calendar_today_rounded, size: 14,
+                                color: Color(0xFF2563EB)),
+                            const SizedBox(width: 8),
+                            Text(
+                              _fechaProgram != null
+                                  ? '${_fechaProgram!.day.toString().padLeft(2,'0')}/'
+                                    '${_fechaProgram!.month.toString().padLeft(2,'0')}/'
+                                    '${_fechaProgram!.year}'
+                                  : 'Fecha',
+                              style: TextStyle(fontSize: 12,
+                                  color: _fechaProgram != null
+                                      ? const Color(0xFF0F172A)
+                                      : Colors.grey[400]),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final t = await showTimePicker(
+                            context: context,
+                            initialTime: _horaProgram ??
+                                TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1))),
+                          );
+                          if (t != null) setState(() => _horaProgram = t);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.access_time_rounded, size: 14,
+                                color: Color(0xFF2563EB)),
+                            const SizedBox(width: 8),
+                            Text(
+                              _horaProgram != null
+                                  ? '${_horaProgram!.hour.toString().padLeft(2,'0')}:'
+                                    '${_horaProgram!.minute.toString().padLeft(2,'0')}'
+                                  : 'Hora',
+                              style: TextStyle(fontSize: 12,
+                                  color: _horaProgram != null
+                                      ? const Color(0xFF0F172A)
+                                      : Colors.grey[400]),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ]),
+                  if (_fechaProgram != null && _horaProgram != null) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _programando ? null : _programarEnvio,
+                        icon: _programando
+                            ? const SizedBox(width: 14, height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.schedule_send_rounded, size: 16),
+                        label: const Text('Confirmar programación'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
                 ]),
               ),
             ],
@@ -521,6 +629,59 @@ class _EditorCampanaState extends State<_EditorCampana> {
         ),
       ),
     );
+  }
+
+  Future<void> _programarEnvio() async {
+    if (_fechaProgram == null || _horaProgram == null) return;
+    if (_nombreCtrl.text.trim().isEmpty || _asuntoCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Guarda la campaña primero')));
+      return;
+    }
+    setState(() => _programando = true);
+    try {
+      // Primero guardar borrador si es nueva
+      final manual = _segmento == SegmentoCampana.manual
+          ? _manualCtrl.text.split('\n')
+              .map((e) => e.trim()).where((e) => e.contains('@')).toList()
+          : <String>[];
+      final campana = CampanaEmail(
+        id:                  widget.campana?.id ?? '',
+        nombre:              _nombreCtrl.text.trim(),
+        asunto:              _asuntoCtrl.text.trim(),
+        contenidoHtml:       _contenidoCtrl.text.trim(),
+        estado:              EstadoCampana.borrador,
+        segmento:            _segmento,
+        destinatariosManual: manual,
+        fechaCreacion:       widget.campana?.fechaCreacion ?? DateTime.now(),
+      );
+      final savedId = await widget.svc.guardarCampana(widget.empresaId, campana);
+      final id = savedId.isNotEmpty ? savedId : (widget.campana?.id ?? '');
+      if (id.isEmpty) throw Exception('No se pudo obtener el ID de la campaña');
+
+      final fecha = DateTime(
+        _fechaProgram!.year, _fechaProgram!.month, _fechaProgram!.day,
+        _horaProgram!.hour, _horaProgram!.minute,
+      );
+      await widget.svc.programar(widget.empresaId, id, fecha);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Envío programado para el '
+              '${_fechaProgram!.day}/${_fechaProgram!.month} '
+              'a las ${_horaProgram!.hour.toString().padLeft(2,'0')}:'
+              '${_horaProgram!.minute.toString().padLeft(2,'0')}'),
+          backgroundColor: const Color(0xFF2563EB),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        setState(() => _programando = false);
+      }
+    }
   }
 
   void _mostrarPreview() {

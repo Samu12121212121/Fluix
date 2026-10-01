@@ -138,6 +138,7 @@ class PlanesConfig {
       'valoraciones',
       'estadisticas',
       'contenido_web', // alias 'web'
+      'plantillas_pdf',
     ],
     descripcion: 'Reservas, clientes, servicios y estadísticas.',
     color: Color(0xFF1976D2),

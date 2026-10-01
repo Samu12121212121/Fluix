@@ -1584,12 +1584,10 @@ class _PantallaFormGastoState extends State<PantallaFormGasto> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(widget.gasto == null ? 'Nuevo gasto' : 'Editar gasto'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: widget.gasto == null ? 'Nuevo gasto' : 'Editar gasto',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : () => _guardar(context),
             child: Text(_guardando ? 'Guardando...' : 'Guardar',
@@ -2139,12 +2137,10 @@ class _PantallaFormProveedorState extends State<PantallaFormProveedor> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(widget.proveedor == null ? 'Nuevo proveedor' : 'Editar proveedor'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: widget.proveedor == null ? 'Nuevo proveedor' : 'Editar proveedor',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : () => _guardar(context),
             child: Text(_guardando ? 'Guardando...' : 'Guardar',

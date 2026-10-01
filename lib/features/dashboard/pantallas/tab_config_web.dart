@@ -1219,8 +1219,74 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         const SizedBox(height: 10),
         _fld(Icons.chat_bubble_outline_rounded, 'Texto de la auto-respuesta', _contactoAutoRespCtrl,
             'Gracias por tu mensaje, te responderemos pronto.', lines: 3),
+        const SizedBox(height: 10),
+        // ── Botón "Enviarme el email de prueba" ──────────────────────────
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _testAutoRespuesta,
+            icon: const Icon(Icons.send_outlined, size: 14),
+            label: const Text('Enviarme el email de prueba'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color.withValues(alpha: 0.4)),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Se enviará a tu email de contacto configurado arriba.',
+          style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+        ),
       ],
     ]);
+  }
+
+  Future<void> _testAutoRespuesta() async {
+    final email = _contactoEmailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Configura primero un email de contacto'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    final texto = _contactoAutoRespCtrl.text.trim();
+    if (texto.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Escribe primero el texto de auto-respuesta'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+
+    // Añadir un mensaje de prueba en contacto_web con flag test
+    try {
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('contacto_web')
+          .add({
+            'nombre': 'Test auto-respuesta',
+            'email': email,
+            'mensaje': 'Este es un mensaje de prueba generado desde la app Fluix para verificar la auto-respuesta.',
+            'fecha_creacion': FieldValue.serverTimestamp(),
+            'leido': false,
+            'es_test': true,
+          });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Email de prueba enviado a $email'),
+        backgroundColor: const Color(0xFF10B981),
+        duration: const Duration(seconds: 3),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ));
+    }
   }
 
   Widget _buildEditorGdpr(Color color) {

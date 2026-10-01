@@ -19,6 +19,7 @@ import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'gestionar_cuentas_screen.dart';
 import '../../explorar_negocios/pantallas/pantalla_explorar.dart';
 import '../../pdf_templates/presentation/screens/pdf_templates_list_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA PRINCIPAL
@@ -40,22 +41,7 @@ class PantallaPerfil extends StatelessWidget {
     if (embedded) return _TabPerfil(sesion: sesion, dark: dark, onAbrirCuentas: onAbrirCuentas);
     return Scaffold(
       backgroundColor: bg,
-      appBar: AppBar( // standalone
-        backgroundColor: barBg,
-        foregroundColor: textCol,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: border),
-        ),
-        title: Row(children: [
-          Icon(Icons.person_outline_rounded, size: 18, color: const Color(0xFF10B981)),
-          const SizedBox(width: 8),
-          Text('Mi perfil', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: textCol)),
-        ]),
-      ),
+      appBar: const FluixAppBar(titulo: 'Mi perfil'),
       body: _TabPerfil(sesion: sesion, dark: dark, onAbrirCuentas: onAbrirCuentas),
     );
   }

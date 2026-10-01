@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../domain/modelos/importacion_tpv.dart';
 import '../../../services/pedidos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class HistorialImportacionesScreen extends StatelessWidget {
   final String empresaId;
@@ -11,12 +12,7 @@ class HistorialImportacionesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial de importaciones', style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Historial de importaciones', showLeading: true),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('empresas').doc(empresaId)

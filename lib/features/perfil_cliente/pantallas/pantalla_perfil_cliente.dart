@@ -10,6 +10,7 @@ import '../../../services/trofeos_service.dart';
 import '../../tienda_monedas/pantalla_tienda_monedas.dart';
 import '../../tienda_monedas/widgets/avatar_con_marco.dart';
 import '../widgets/avatar_picker_sheet.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kBg      = Color(0xFF0A0F23);
 const _kSurface = Color(0xFF151932);
@@ -32,12 +33,7 @@ class PantallaPerfilCliente extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: _kSurface,
-        foregroundColor: _kTexto,
-        title: const Text('Mi Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Mi Perfil', showLeading: true),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('usuarios').doc(fbUser.uid).snapshots(),
         builder: (context, snap) {

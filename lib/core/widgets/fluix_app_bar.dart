@@ -41,6 +41,8 @@ class FluixAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? notifWidget;       // widget de campana (con badge)
   final bool showLeading;          // mostrar < antes del logo
   final bool titleNavigatesBack;   // el logo/título navega atrás sin mostrar <
+  final VoidCallback? onLeadingPressed; // override del Navigator.pop por defecto
+  final PreferredSizeWidget? bottom; // TabBar u otro widget bajo la AppBar
 
   const FluixAppBar({
     super.key,
@@ -55,10 +57,13 @@ class FluixAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.notifWidget,
     this.showLeading = false,
     this.titleNavigatesBack = false,
+    this.onLeadingPressed,
+    this.bottom,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+      kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +87,7 @@ class FluixAppBar extends StatelessWidget implements PreferredSizeWidget {
         onCambiarEmpresa != null;
 
     final VoidCallback? backFn = (showLeading || titleNavigatesBack)
-        ? () => Navigator.of(context).pop()
+        ? (onLeadingPressed ?? () => Navigator.of(context).pop())
         : null;
 
     return AppBar(
@@ -155,6 +160,7 @@ class FluixAppBar extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
       ],
+      bottom: bottom,
     );
   }
 }

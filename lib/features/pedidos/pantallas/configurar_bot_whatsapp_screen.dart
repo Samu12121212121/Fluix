@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para configurar el bot de WhatsApp de la empresa.
 /// Guarda la config en empresas/{empresaId}/configuracion/whatsapp_bot
@@ -108,19 +109,15 @@ class _ConfigurarBotWhatsAppScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configurar Bot WhatsApp'),
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Configurar Bot WhatsApp',
+        showLeading: true,
+        extraActions: [
           if (_guardando)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              ),
+              child: SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else
             IconButton(

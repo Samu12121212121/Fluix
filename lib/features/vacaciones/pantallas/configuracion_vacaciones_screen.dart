@@ -4,6 +4,7 @@ import '../../../models/festivo_model.dart';
 import '../../../services/vacaciones_service.dart';
 import '../../../services/festivos_service.dart';
 import '../../../services/cobertura_equipo_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA DE CONFIGURACIÓN DE VACACIONES
@@ -120,21 +121,16 @@ class _ConfiguracionVacacionesScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configuración Vacaciones'),
-        backgroundColor: const Color(0xFF00796B),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Configuración Vacaciones',
+        showLeading: true,
+        extraActions: [
           if (_guardando)
-            const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white)),
-                ))
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            )
           else
             IconButton(
               icon: const Icon(Icons.save),

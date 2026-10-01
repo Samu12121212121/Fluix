@@ -9,6 +9,7 @@ import 'package:planeag_flutter/services/fiscal/mod202_calculator.dart';
 import 'package:planeag_flutter/services/fiscal/mod202_exporter.dart';
 import 'package:planeag_flutter/services/fiscal/sede_aeat_urls.dart';
 import 'package:planeag_flutter/widgets/presentar_aeat_widget.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 202 — Pago fraccionado IS (solo sociedades)
@@ -150,20 +151,15 @@ class _Modelo202ScreenState extends State<Modelo202Screen> {
     if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Modelo 202 — IS Sociedades'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 202 — IS Sociedades',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(
-              child: Text('$_anio',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16))),
+          Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),

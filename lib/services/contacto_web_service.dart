@@ -156,6 +156,18 @@ class ContactoWebService {
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
+
+  Future<void> actualizarCampo(String empresaId, String mensajeId,
+      String campo, dynamic valor) async {
+    final ref = _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('contacto_web').doc(mensajeId);
+    if (valor == null) {
+      await ref.update({campo: FieldValue.delete()});
+    } else {
+      await ref.update({campo: valor});
+    }
+  }
 }
 
 

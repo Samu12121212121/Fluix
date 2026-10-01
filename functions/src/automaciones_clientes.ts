@@ -129,7 +129,7 @@ async function notifNuevoCliente(opts: {
       tipo:             "nuevo_cliente",
       titulo,
       cuerpo,
-      creado_en:        admin.firestore.FieldValue.serverTimestamp(),
+      timestamp:        admin.firestore.FieldValue.serverTimestamp(),
       leida:            false,
       remitente_nombre: nombre,
       cliente_id:       clienteId,

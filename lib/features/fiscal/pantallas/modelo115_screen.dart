@@ -7,6 +7,7 @@ import 'package:planeag_flutter/domain/modelos/modelo115.dart';
 import 'package:planeag_flutter/domain/modelos/empresa_config.dart';
 import 'package:planeag_flutter/services/fiscal/mod115_calculator.dart';
 import 'package:planeag_flutter/services/fiscal/mod115_exporter.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 115 — Retenciones arrendamientos locales de negocio
@@ -157,18 +158,15 @@ class _Modelo115ScreenState extends State<Modelo115Screen> {
     if (widget.embebido) return body;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Modelo 115 — Retenciones Arrendamiento'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 115 — Retenciones Arrendamiento',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => _anio--),
           ),
-          Center(child: Text('$_anio',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => _anio++),

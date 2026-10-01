@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/certificado_digital_service.dart';
 import '../../../services/verifactu/firma_xades_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA GESTIÓN CERTIFICADO DIGITAL
@@ -145,12 +146,7 @@ class _GestionCertificadoScreenState extends State<GestionCertificadoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Certificado digital'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-      ),
+      appBar: const FluixAppBar(titulo: 'Certificado digital', showLeading: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

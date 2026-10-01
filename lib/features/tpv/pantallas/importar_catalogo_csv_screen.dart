@@ -7,6 +7,7 @@ import '../../../services/catalogo_csv_parser.dart';
 import '../../../services/biblioteca_imagenes_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPORTADOR DEL CATÁLOGO — wizard multi-paso
@@ -192,21 +193,7 @@ class _ImportarCatalogoCsvScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Importar Catálogo CSV',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: (_paso + 1) / 5,
-            backgroundColor: Colors.white24,
-            valueColor: const AlwaysStoppedAnimation(Colors.white),
-          ),
-        ),
-      ),
+      appBar: const FluixAppBar(titulo: 'Importar Catálogo CSV', showLeading: true),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
         child: _buildPaso(),

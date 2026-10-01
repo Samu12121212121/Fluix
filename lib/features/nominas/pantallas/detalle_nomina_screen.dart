@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/modelos/nomina.dart';
 import '../../../services/nominas_service.dart';
 import '../../../services/nomina_pdf_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de detalle de una nómina individual.
 /// Muestra desglose completo y permite aprobar/pagar/exportar PDF.
@@ -54,11 +55,10 @@ class _DetalleNominaScreenState extends State<DetalleNominaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text('Nómina — ${_nomina.empleadoNombre}'),
-        backgroundColor: _colorEstado,
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Nómina — ${_nomina.empleadoNombre}',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'Exportar PDF',

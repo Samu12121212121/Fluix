@@ -61,6 +61,19 @@ extension TipoSeccionExt on TipoSeccion {
     }
   }
 
+  // Atributo data-fluix-* que debe existir en el HTML de la web
+  String get fluixAtributo {
+    switch (this) {
+      case TipoSeccion.texto:    return 'seccion';
+      case TipoSeccion.carta:    return 'carta';
+      case TipoSeccion.galeria:  return 'galeria';
+      case TipoSeccion.ofertas:  return 'ofertas';
+      case TipoSeccion.horarios: return 'horarios';
+      case TipoSeccion.generico: return 'seccion';
+      case TipoSeccion.eventos:  return 'agenda';
+    }
+  }
+
   static TipoSeccion fromId(String id) {
     switch (id) {
       case 'carta':    return TipoSeccion.carta;

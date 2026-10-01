@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 import 'dialogo_factura_tpv.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31,11 +32,7 @@ class _PantallaCierreCaja extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        title: const Text('Cierre de caja'),
-        backgroundColor: const Color(0xFF1E2139),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Cierre de caja', showLeading: true),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('empresas')

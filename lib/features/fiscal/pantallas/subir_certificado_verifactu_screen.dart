@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA CONFIGURACIÓN VERIFACTU
@@ -315,13 +316,9 @@ class _SubirCertificadoVerifactuScreenState
 
     return Scaffold(
       backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: surface,
-        foregroundColor: text,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Verifactu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-        bottom: TabBar(
+      appBar: const FluixAppBar(titulo: 'Verifactu', showLeading: true),
+      body: Column(children: [
+        TabBar(
           controller: _tab,
           labelColor: _kBlue,
           unselectedLabelColor: sub,
@@ -333,15 +330,15 @@ class _SubirCertificadoVerifactuScreenState
             Tab(icon: Icon(Icons.swap_horiz_rounded, size: 18), text: 'Entorno'),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tab,
-        children: [
-          _tabCertificado(surface, border, text, sub, dark),
-          _tabConfiguracion(surface, border, text, sub, dark),
-          _tabEntorno(surface, border, text, sub, dark),
-        ],
-      ),
+        Expanded(child: TabBarView(
+          controller: _tab,
+          children: [
+            _tabCertificado(surface, border, text, sub, dark),
+            _tabConfiguracion(surface, border, text, sub, dark),
+            _tabEntorno(surface, border, text, sub, dark),
+          ],
+        )),
+      ]),
     );
   }
 

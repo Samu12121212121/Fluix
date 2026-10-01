@@ -7,6 +7,7 @@ import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
 import 'pantalla_editor_blog.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB BLOG — listado principal con búsqueda, filtros y acciones
@@ -968,12 +969,7 @@ class _PantallaCategoriasScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Categorías del blog'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Categorías del blog', showLeading: true),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_nueva_cat',
         onPressed: () => _abrirFormulario(context, null),

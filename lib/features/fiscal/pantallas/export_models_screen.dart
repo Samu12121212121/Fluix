@@ -17,6 +17,7 @@ import 'modelo347_screen.dart';
 import 'subir_certificado_verifactu_screen.dart';
 import 'calendario_fiscal_screen.dart';
 import 'historial_presentaciones_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EXPORT MODELS SCREEN — Wizard unificado para los 8 modelos AEAT
@@ -106,40 +107,26 @@ class _ExportModelsScreenState extends State<ExportModelsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modelos AEAT'),
-        centerTitle: false,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelos AEAT',
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.history_outlined),
             tooltip: 'Historial de Presentaciones',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => HistorialPresentacionesScreen(empresaId: widget.empresaId),
-              ),
-            ),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => HistorialPresentacionesScreen(empresaId: widget.empresaId))),
           ),
           IconButton(
             icon: const Icon(Icons.event_note_outlined),
             tooltip: 'Calendario Fiscal',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CalendarioFiscalScreen(empresaId: widget.empresaId),
-              ),
-            ),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => CalendarioFiscalScreen(empresaId: widget.empresaId))),
           ),
           IconButton(
             icon: const Icon(Icons.verified_user_outlined),
             tooltip: 'Certificado VeriFactu',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SubirCertificadoVerifactuScreen(
-                    empresaId: widget.empresaId),
-              ),
-            ),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => SubirCertificadoVerifactuScreen(empresaId: widget.empresaId))),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),

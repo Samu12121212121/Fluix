@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaNotificacionesCliente extends StatelessWidget {
   const PantallaNotificacionesCliente({super.key});
@@ -11,13 +12,10 @@ class PantallaNotificacionesCliente extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: Colors.white,
-        title: const Text('Notificaciones',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Notificaciones',
+        showLeading: true,
+        extraActions: [
           if (uid != null)
             TextButton(
               onPressed: () => _marcarTodasLeidas(uid),

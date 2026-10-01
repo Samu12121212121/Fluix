@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import 'tpv_root_screen.dart';
 import 'tpv_peluqueria_screen.dart';
 import 'tpv_tienda_screen.dart';
@@ -512,43 +513,7 @@ class _TpvSelectorNegocioScreenState extends State<TpvSelectorNegocioScreen> {
     // Standalone: envolver con Scaffold + AppBar propio
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Row(children: [
-          const Icon(Icons.point_of_sale, size: 20),
-          const SizedBox(width: 8),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('TPV — Vista Propietario',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            Text(
-              widget.esPropietarioPlatforma
-                  ? 'Todos los negocios de la plataforma'
-                  : 'Tus negocios',
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
-            ),
-          ]),
-        ]),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade300, width: 1),
-            ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.visibility, size: 13, color: Colors.amber),
-              SizedBox(width: 4),
-              Text('Modo Propietario',
-                  style: TextStyle(fontSize: 11, color: Colors.amber,
-                      fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ],
-      ),
+      appBar: FluixAppBar(titulo: 'TPV — Vista Propietario'),
       body: body,
     );
   }

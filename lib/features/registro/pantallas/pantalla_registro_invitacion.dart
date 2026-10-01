@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../dashboard/pantallas/pantalla_dashboard.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para que un empleado invitado complete su registro
 /// usando el token recibido por deep link (fluixcrm://invite?token=XXX).
@@ -152,11 +153,7 @@ class _PantallaRegistroInvitacionState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Unirte al equipo'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Unirte al equipo', showLeading: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _error != null

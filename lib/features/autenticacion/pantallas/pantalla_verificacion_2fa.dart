@@ -337,6 +337,7 @@ class _CajaDigito extends StatelessWidget {
         focusNode: focusNode,
         enabled: enabled,
         keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
         textAlign: TextAlign.center,
         maxLength: 1,
         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

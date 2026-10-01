@@ -9,6 +9,7 @@ import '../widgets/cronometro_tarea_widget.dart';
 import '../widgets/adjuntos_grid_widget.dart';
 import '../widgets/cliente_vinculado_widget.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class DetalleTareaScreen extends StatefulWidget {
   final Tarea tarea;
@@ -85,104 +86,46 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: bg,
+        appBar: FluixAppBar(
+          titulo: _tarea.titulo,
+          showLeading: true,
+          extraActions: [
+            if (_tarea.configuracionRecurrencia != null)
+              const Icon(Icons.repeat_rounded, size: 18, color: Color(0xFF6B7280)),
+            IconButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => FormularioTareaScreen(
+                    empresaId: widget.empresaId,
+                    usuarioId: widget.usuarioId,
+                    tareaEditar: _tarea,
+                  ))),
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Editar tarea',
+            ),
+          ],
+        ),
         body: Column(children: [
-          // ── Header ───────────────────────────────────────────────────────────
+          // ── Tabs ─────────────────────────────────────────────────────────────
           Container(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16, right: 16, bottom: 0,
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabs,
+              labelColor: accent,
+              unselectedLabelColor: subC,
+              indicatorColor: accent,
+              indicatorWeight: 2,
+              isScrollable: true,
+              padding: EdgeInsets.zero,
+              tabAlignment: TabAlignment.start,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: const TextStyle(fontSize: 12),
+              tabs: const [
+                Tab(icon: Icon(Icons.info_outline_rounded, size: 16), text: 'Detalle'),
+                Tab(icon: Icon(Icons.attach_file_rounded, size: 16), text: 'Adjuntos'),
+                Tab(icon: Icon(Icons.chat_bubble_outline_rounded, size: 16), text: 'Chat'),
+                Tab(icon: Icon(Icons.history_rounded, size: 16), text: 'Historial'),
+              ],
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: borderC)),
-            ),
-            child: Column(children: [
-              Row(children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: borderC),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.close_rounded, size: 17, color: Color(0xFF6B7280)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_tarea.titulo, style: const TextStyle(fontSize: 15,
-                      fontWeight: FontWeight.w700, color: textC),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Row(children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: estadoColor(_tarea.estado).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(_nombreEstado(_tarea.estado),
-                          style: TextStyle(fontSize: 10,
-                              fontWeight: FontWeight.w700, color: estadoColor(_tarea.estado))),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      margin: const EdgeInsets.only(top: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _colorPrioridad(_tarea.prioridad).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(_labelPrioridad(_tarea.prioridad),
-                          style: TextStyle(fontSize: 10,
-                              fontWeight: FontWeight.w700, color: _colorPrioridad(_tarea.prioridad))),
-                    ),
-                  ]),
-                ])),
-                const SizedBox(width: 8),
-                if (_tarea.configuracionRecurrencia != null)
-                  const Icon(Icons.repeat_rounded, size: 18, color: Color(0xFF6B7280)),
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => FormularioTareaScreen(
-                        empresaId: widget.empresaId,
-                        usuarioId: widget.usuarioId,
-                        tareaEditar: _tarea,
-                      ))),
-                  child: Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: accent.withValues(alpha: 0.2)),
-                    ),
-                    child: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF3B82F6)),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 10),
-              // Tabs
-              TabBar(
-                controller: _tabs,
-                labelColor: accent,
-                unselectedLabelColor: subC,
-                indicatorColor: accent,
-                indicatorWeight: 2,
-                isScrollable: true,
-                padding: EdgeInsets.zero,
-                tabAlignment: TabAlignment.start,
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                unselectedLabelStyle: const TextStyle(fontSize: 12),
-                tabs: const [
-                  Tab(icon: Icon(Icons.info_outline_rounded, size: 16), text: 'Detalle'),
-                  Tab(icon: Icon(Icons.attach_file_rounded, size: 16), text: 'Adjuntos'),
-                  Tab(icon: Icon(Icons.chat_bubble_outline_rounded, size: 16), text: 'Chat'),
-                  Tab(icon: Icon(Icons.history_rounded, size: 16), text: 'Historial'),
-                ],
-              ),
-            ]),
           ),
           // ── Tabs body ─────────────────────────────────────────────────────────
           Expanded(child: TabBarView(

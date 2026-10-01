@@ -24,6 +24,18 @@ class _TabSecciones extends StatefulWidget {
 
 class _TabSeccionesState extends State<_TabSecciones> {
   String _paginaFiltro = 'todas';
+  Set<String> _modulosWeb = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarModulos();
+  }
+
+  Future<void> _cargarModulos() async {
+    final modulos = await widget.svc.detectarModulosWeb(widget.empresaId);
+    if (mounted) setState(() => _modulosWeb = modulos);
+  }
 
   static const _paginasBase = [
     ('todas', 'Todas'),
@@ -202,6 +214,7 @@ class _TabSeccionesState extends State<_TabSecciones> {
         seccion: seccion,
         svc: widget.svc,
         paginaInicial: seccion?.pagina ?? (_paginaFiltro == 'todas' ? 'inicio' : _paginaFiltro),
+        modulosWeb: _modulosWeb,
       ),
     ));
   }
@@ -455,8 +468,7 @@ class _TarjetaSeccionState extends State<_TarjetaSeccion> {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => Scaffold(
           backgroundColor: const Color(0xFFF5F7FA),
-          appBar: AppBar(title: Text(s.nombre),
-              backgroundColor: col, foregroundColor: Colors.white, elevation: 0),
+          appBar: FluixAppBar(titulo: s.nombre, showLeading: true),
           body: TabEventosWeb(empresaId: eid, svc: sv),
         ),
       ));
@@ -666,6 +678,7 @@ class PantallaEditorSeccion extends StatefulWidget {
   final bool noScaffold;
   final VoidCallback? onGuardado;
   final VoidCallback? onCancelar;
+  final Set<String> modulosWeb;
 
   const PantallaEditorSeccion({
     super.key,
@@ -676,6 +689,7 @@ class PantallaEditorSeccion extends StatefulWidget {
     this.noScaffold = false,
     this.onGuardado,
     this.onCancelar,
+    this.modulosWeb = const {},
   });
 
   @override
@@ -775,7 +789,10 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
                   ),
                   Wrap(
                     spacing: 8, runSpacing: 8,
-                    children: TipoSeccion.values.map((t) {
+                    children: TipoSeccion.values.where((t) =>
+                      widget.modulosWeb.isEmpty ||
+                      widget.modulosWeb.contains(t.fluixAtributo),
+                    ).map((t) {
                       final sel = t == _tipo;
                       return GestureDetector(
                         onTap: () => setState(() {
@@ -935,12 +952,10 @@ class _PantallaEditorSeccionState extends State<PantallaEditorSeccion> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(_esNueva ? 'Nueva sección' : 'Editar sección'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: _esNueva ? 'Nueva sección' : 'Editar sección',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : () => _guardar(context),
             child: Text(

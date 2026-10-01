@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaUpgradeModulo extends StatelessWidget {
   /// ID del módulo al que se intentó acceder (ej: 'facturacion')
@@ -57,12 +58,7 @@ class PantallaUpgradeModulo extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Módulo no disponible'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-      ),
+      appBar: const FluixAppBar(titulo: 'Módulo no disponible', showLeading: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

@@ -6,10 +6,12 @@ import 'package:planeag_flutter/services/pedidos_whatsapp_service.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/detalle_pedido_screen.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/formulario_pedido_screen.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/pantalla_chats_bot.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class ModuloWhatsAppScreen extends StatefulWidget {
   final String empresaId;
-  const ModuloWhatsAppScreen({super.key, required this.empresaId});
+  final bool esPropietario;
+  const ModuloWhatsAppScreen({super.key, required this.empresaId, this.esPropietario = false});
 
   @override
   State<ModuloWhatsAppScreen> createState() => _ModuloWhatsAppScreenState();
@@ -40,32 +42,26 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w700)),
-          backgroundColor: const Color(0xFF25D366),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: _creandoPrueba
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Icon(Icons.science_outlined),
-              tooltip: 'Crear datos de prueba',
-              onPressed: _creandoPrueba ? null : _crearDatosPrueba,
-            ),
+        appBar: FluixAppBar(
+          titulo: 'WhatsApp',
+          extraActions: [
+            if (widget.esPropietario)
+              IconButton(
+                icon: _creandoPrueba
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.science_outlined),
+                tooltip: 'Crear datos de prueba',
+                onPressed: _creandoPrueba ? null : _crearDatosPrueba,
+              ),
           ],
-          bottom: TabBar(
+        ),
+        body: Column(children: [
+          TabBar(
             controller: _tabs,
             isScrollable: true,
             padding: EdgeInsets.zero,
             tabAlignment: TabAlignment.start,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
-            indicatorColor: Colors.white,
             tabs: const [
               Tab(text: 'Todos'),
               Tab(text: 'Nuevos'),
@@ -75,18 +71,18 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
               Tab(text: 'Bot'),
             ],
           ),
-        ),
-        body: TabBarView(
-          controller: _tabs,
-          children: [
-            _buildPedidosTab(),
-            _buildPedidosTabFiltro(EstadoPedidoWA.nuevo),
-            _buildPedidosTabFiltro(EstadoPedidoWA.enProceso),
-            _buildPedidosTabFiltro(EstadoPedidoWA.listo),
-            _buildPedidosTabFiltro(EstadoPedidoWA.entregado),
-            _buildBotTab(),
-          ],
-        ),
+          Expanded(child: TabBarView(
+            controller: _tabs,
+            children: [
+              _buildPedidosTab(),
+              _buildPedidosTabFiltro(EstadoPedidoWA.nuevo),
+              _buildPedidosTabFiltro(EstadoPedidoWA.enProceso),
+              _buildPedidosTabFiltro(EstadoPedidoWA.listo),
+              _buildPedidosTabFiltro(EstadoPedidoWA.entregado),
+              _buildBotTab(),
+            ],
+          )),
+        ]),
         floatingActionButton: FloatingActionButton.extended(
           heroTag: 'fab_whatsapp_pedido',
           onPressed: () => Navigator.push(
@@ -397,7 +393,7 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => PantallaChatsBot(empresaId: widget.empresaId))),
+                  MaterialPageRoute(builder: (_) => PantallaChatsBot(empresaId: widget.empresaId, esPropietario: widget.esPropietario))),
               icon: const Icon(Icons.chat_outlined),
               label: const Text('Ver conversaciones del bot'),
               style: ElevatedButton.styleFrom(
@@ -413,7 +409,7 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => PantallaChatsBot(empresaId: widget.empresaId))),
+                  MaterialPageRoute(builder: (_) => PantallaChatsBot(empresaId: widget.empresaId, esPropietario: widget.esPropietario))),
               icon: const Icon(Icons.tune_outlined),
               label: const Text('Configurar respuestas automaticas'),
               style: OutlinedButton.styleFrom(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/contacto_web_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaMensajesContacto extends StatefulWidget {
   final String empresaId;
@@ -16,10 +17,7 @@ class _PantallaMensajesContactoState extends State<PantallaMensajesContacto> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mensajes de Contacto Web'),
-        backgroundColor: const Color(0xFF1976D2),
-      ),
+      appBar: const FluixAppBar(titulo: 'Mensajes de Contacto Web'),
       body: StreamBuilder<List<MensajeContactoWeb>>(
         stream: _service.obtenerMensajes(widget.empresaId),
         builder: (context, snapshot) {

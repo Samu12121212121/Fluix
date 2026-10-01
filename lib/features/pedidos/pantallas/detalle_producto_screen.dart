@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:planeag_flutter/features/pedidos/pantallas/formulario_producto_screen.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class DetalleProductoScreen extends StatelessWidget {
   final Producto producto;
@@ -13,11 +14,10 @@ class DetalleProductoScreen extends StatelessWidget {
     final svc = PedidosService();
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text(producto.nombre),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: producto.nombre,
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () => Navigator.push(context, MaterialPageRoute(

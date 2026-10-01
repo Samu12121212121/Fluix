@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../dashboard/pantallas/pantalla_dashboard.dart';
 import '../../../core/enums/enums.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Registro para clientes B2C (usuarios sin empresa).
 class PantallaRegistroUsuario extends StatefulWidget {
@@ -81,12 +82,7 @@ class _PantallaRegistroUsuarioState extends State<PantallaRegistroUsuario> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Crear cuenta'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Crear cuenta', showLeading: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

@@ -4,6 +4,7 @@ import '../../../models/valoracion_model.dart';
 import '../../../services/valoracion_service.dart';
 import '../widgets/resumen_rating.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class _C {
   static const fondo      = Color(0xFF0A0F23);
@@ -97,13 +98,7 @@ class _PantallaValoracionesNegocioState extends State<PantallaValoracionesNegoci
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.fondo,
-      appBar: AppBar(
-        backgroundColor: _C.superficie,
-        foregroundColor: _C.texto,
-        elevation: 0,
-        title: Text('Reseñas · ${widget.negocioNombre}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-      ),
+      appBar: FluixAppBar(titulo: 'Reseñas · ${widget.negocioNombre}', showLeading: true),
       body: _items.isEmpty && _cargando
           ? _shimmer()
           : _items.isEmpty

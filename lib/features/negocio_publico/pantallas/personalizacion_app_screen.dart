@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/negocio_publico_model.dart';
 import 'tab_servicios_negocio.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kPrimario = Color(0xFF0A0F23);
 const _kCard = Color(0xFF1E2139);
@@ -158,15 +159,14 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kPrimario,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: _kTexto,
-        title: const Text('Personalización App', style: TextStyle(fontWeight: FontWeight.w700)),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Personalización App',
+        showLeading: true,
+        extraActions: [
           if (_guardando)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _kAccent)),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else
             FilledButton.icon(
@@ -174,20 +174,17 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
               icon: const Icon(Icons.save, size: 18),
               label: const Text('Guardar'),
               style: FilledButton.styleFrom(
-                backgroundColor: _kAccent,
-                foregroundColor: _kPrimario,
                 visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           const SizedBox(width: 8),
         ],
-        bottom: TabBar(
+      ),
+      body: Column(children: [
+        TabBar(
           controller: _tabs,
           isScrollable: true,
-          indicatorColor: _kAccent,
-          labelColor: _kAccent,
-          unselectedLabelColor: _kMuted,
           tabs: const [
             Tab(icon: Icon(Icons.info_outline, size: 18), text: 'Info'),
             Tab(icon: Icon(Icons.schedule, size: 18), text: 'Horarios'),
@@ -197,8 +194,7 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
             Tab(icon: Icon(Icons.content_cut_rounded, size: 18), text: 'Servicios'),
           ],
         ),
-      ),
-      body: TabBarView(
+        Expanded(child: TabBarView(
         controller: _tabs,
         children: [
           _TabInfo(
@@ -238,7 +234,8 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
           ),
           TabServiciosNegocio(empresaId: widget.empresaId),
         ],
-      ),
+        )),
+      ]),
     );
   }
 

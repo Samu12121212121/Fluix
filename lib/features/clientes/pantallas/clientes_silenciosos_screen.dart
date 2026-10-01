@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../services/cliente_estado_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla que muestra la lista de clientes sin actividad reciente.
 /// Ordenados por días de inactividad (el más antiguo primero).
@@ -43,12 +44,10 @@ class _ClientesSilenciososScreenState extends State<ClientesSilenciososScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Clientes silenciosos'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Clientes silenciosos',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Configurar umbral',

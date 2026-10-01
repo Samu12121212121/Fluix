@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -120,29 +121,87 @@ class _TabAnalyticsWebState extends State<TabAnalyticsWeb> {
   }
 
   Widget _buildSelectorPeriodo(Color color) {
-    const opciones = [(7, '7 días'), (30, '30 días'), (90, '90 días')];
-    return Row(children: opciones.map((op) {
-      final sel = _periodoDias == op.$1;
-      return Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: GestureDetector(
-          onTap: () => setState(() => _periodoDias = op.$1),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: sel ? color : color.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: sel ? color : color.withValues(alpha: 0.2)),
+    const opciones = [(7, '7d'), (30, '30d'), (90, '90d'), (180, '6m')];
+    return Row(children: [
+      ...opciones.map((op) {
+        final sel = _periodoDias == op.$1;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: GestureDetector(
+            onTap: () => setState(() => _periodoDias = op.$1),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: sel ? color : color.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: sel ? color : color.withValues(alpha: 0.2)),
+              ),
+              child: Text(op.$2, style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600,
+                color: sel ? Colors.white : color,
+              )),
             ),
-            child: Text(op.$2, style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600,
-              color: sel ? Colors.white : color,
-            )),
           ),
+        );
+      }),
+      const Spacer(),
+      // Exportar CSV
+      GestureDetector(
+        onTap: _exportarCsv,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.download_rounded, size: 13, color: Color(0xFF475569)),
+            SizedBox(width: 4),
+            Text('CSV', style: TextStyle(fontSize: 11,
+                color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+          ]),
         ),
-      );
-    }).toList());
+      ),
+    ]);
+  }
+
+  Future<void> _exportarCsv() async {
+    // Obtener datos del stream actual
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('analytics_visitas')
+        .orderBy('ts', descending: true)
+        .limit(500)
+        .get();
+
+    if (snap.docs.isEmpty) return;
+
+    final buf = StringBuffer();
+    buf.writeln('fecha,pagina,dispositivo,pais,fuente');
+    for (final doc in snap.docs) {
+      final d = doc.data();
+      final ts = d['ts'];
+      String fecha = '';
+      if (ts is Timestamp) {
+        final dt = ts.toDate();
+        fecha = '${dt.year}-${dt.month.toString().padLeft(2,'0')}-${dt.day.toString().padLeft(2,'0')}';
+      }
+      buf.writeln([
+        fecha,
+        (d['pagina'] ?? '').toString().replaceAll(',', ';'),
+        d['dispositivo'] ?? '',
+        d['pais'] ?? '',
+        d['fuente'] ?? '',
+      ].join(','));
+    }
+
+    await Clipboard.setData(ClipboardData(text: buf.toString()));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Datos CSV copiados al portapapeles — pégalos en Excel'),
+      backgroundColor: Color(0xFF10B981),
+      duration: Duration(seconds: 3),
+    ));
   }
 
   Widget _buildSinDatos(Color color) {

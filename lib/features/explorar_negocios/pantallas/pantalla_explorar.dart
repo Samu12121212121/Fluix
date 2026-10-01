@@ -13,6 +13,7 @@ import '../../perfil_cliente/pantallas/pantalla_perfil_cliente.dart';
 import '../../reservas_cliente/pantallas/detalle_negocio_screen.dart';
 import 'pantalla_notificaciones_cliente.dart';
 import '../widgets/carrusel_flash_slots.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // PALETA GLOBAL - Cian/Magenta
@@ -1824,28 +1825,7 @@ class _PantallaListadoCompletoState extends State<PantallaListadoCompleto> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.negro,
-      appBar: AppBar(
-        backgroundColor: _C.grisOscuro,
-        foregroundColor: _C.texto,
-        title: Text(widget.titulo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              children: [
-                _Chip(label: 'Todo', sel: _cat == null, onTap: () => setState(() => _cat = null)),
-                ...CategoriaNegocio.values.map((c) => _Chip(
-                  label: c.label, sel: _cat == c,
-                  onTap: () => setState(() => _cat = c),
-                )),
-              ],
-            ),
-          ),
-        ),
-      ),
+      appBar: FluixAppBar(titulo: widget.titulo, showLeading: true),
       body: _buildListado(),
     );
   }

@@ -129,8 +129,6 @@ class _State extends State<PdfTemplatesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    if (mq.size.shortestSide < 600) return _pantallaInsuficiente();
     return Scaffold(
       backgroundColor: _kBg,
       body: _init

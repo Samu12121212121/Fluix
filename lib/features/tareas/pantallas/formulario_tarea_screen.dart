@@ -7,6 +7,7 @@ import 'package:planeag_flutter/services/tareas_service.dart';
 import '../widgets/recurrencia_config_widget.dart';
 import '../widgets/cliente_vinculado_widget.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class FormularioTareaScreen extends StatefulWidget {
   final String empresaId;
@@ -99,51 +100,26 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
 
     return Scaffold(
       backgroundColor: bg,
+      appBar: FluixAppBar(
+        titulo: _esEdicion ? 'Editar tarea' : 'Nueva tarea',
+        showLeading: true,
+        extraActions: [
+          FilledButton(
+            onPressed: _guardando ? null : _guardar,
+            style: FilledButton.styleFrom(
+              backgroundColor: accent,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: _guardando
+                ? const SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Guardar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Column(children: [
-        // ── Header estilo dashboard ─────────────────────────────────────────
-        Container(
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 16, right: 16, bottom: 14,
-          ),
-          decoration: const BoxDecoration(
-            color: cardBg,
-            border: Border(bottom: BorderSide(color: border)),
-          ),
-          child: Row(children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(
-                  border: Border.all(color: border),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.close_rounded, size: 17, color: subC),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_esEdicion ? 'Editar tarea' : 'Nueva tarea',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: textC)),
-              Text(_esEdicion ? 'Modifica los datos de la tarea' : 'Crea una nueva tarea para tu equipo',
-                  style: const TextStyle(fontSize: 11, color: subC)),
-            ])),
-            const SizedBox(width: 12),
-            FilledButton(
-              onPressed: _guardando ? null : _guardar,
-              style: FilledButton.styleFrom(
-                backgroundColor: accent,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: _guardando
-                  ? const SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Guardar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-          ]),
-        ),
         // ── Contenido ───────────────────────────────────────────────────────
         Expanded(child: Form(
           key: _formKey,

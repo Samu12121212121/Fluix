@@ -856,19 +856,24 @@ class _BookingSheetState extends State<_BookingSheet>
         'modificado_en': FieldValue.serverTimestamp(),
       });
 
-      // Crear notificación para el owner
-      final notifCol = empresaId.isNotEmpty
-          ? FirebaseFirestore.instance.collection('empresas').doc(empresaId).collection('notificaciones_reservas')
-          : FirebaseFirestore.instance.collection('negocios_publicos').doc(widget.negocio.id).collection('notificaciones_reservas');
-      await notifCol.add({
-        'reserva_id': citaRef.id,
-        'tipo': 'nueva_reserva_b2c',
-        'cliente_nombre': clienteNombre,
-        'servicio_nombre': widget.servicio.nombre,
-        'fecha_hora': Timestamp.fromDate(fechaHora),
-        'leida': false,
-        'fecha_creacion': FieldValue.serverTimestamp(),
-      });
+      // Notificación in-app al dueño del negocio (path correcto para la bandeja)
+      if (empresaId.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('notificaciones').doc(empresaId).collection('items')
+              .add({
+            'titulo': '📅 Nueva reserva (app cliente)',
+            'cuerpo': '$clienteNombre · ${widget.servicio.nombre} · '
+                '${fechaHora.day}/${fechaHora.month} ${fechaHora.hour}:${fechaHora.minute.toString().padLeft(2,'0')}',
+            'tipo': 'reservaNueva',
+            'modulo_destino': 'reservas',
+            'entidad_id': citaRef.id,
+            'remitente_nombre': clienteNombre,
+            'timestamp': FieldValue.serverTimestamp(),
+            'leida': false,
+          });
+        } catch (_) {}
+      }
 
       if (mounted) {
         await _cerrar();

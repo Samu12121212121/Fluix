@@ -8,6 +8,7 @@ import '../../../domain/modelos/producto.dart';
 import '../../../domain/modelos/pedido.dart';
 import '../../../services/pedidos_service.dart';
 import '../../../services/catalogo_web_sync_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import 'detalle_pedido_nuevo_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -110,34 +111,21 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      appBar: FluixAppBar(
+        titulo: 'Pedidos y Almacén',
+        extraActions: [
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.science_outlined),
+              tooltip: 'Pedido de prueba (web)',
+              onPressed: _enviarPedidoPrueba,
+            ),
+        ],
+      ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: Column(children: [
-          // ── Header estilo empleados (sin back button) ─────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-            ),
-            child: Row(children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-                Text('Pedidos y Almacén', style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
-                SizedBox(height: 2),
-                Text('Catálogo · Inventario · Pedidos',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-              ]),
-              const Spacer(),
-              if (kDebugMode)
-                IconButton(
-                  icon: const Icon(Icons.science_outlined, color: Color(0xFF6B7280)),
-                  tooltip: 'Pedido de prueba (web)',
-                  onPressed: _enviarPedidoPrueba,
-                ),
-            ]),
-          ),
           _buildTabBar(),
           Expanded(child: TabBarView(
             controller: _tabs,

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../services/mod_347_service.dart';
 import '../../../services/exportadores_aeat/mod_347_exporter.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA MODELO 347 — Operaciones con terceros > 3.005,06 €
@@ -146,18 +147,10 @@ class _Modelo347ScreenState extends State<Modelo347Screen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modelo 347 — Operaciones con terceros'),
-        bottom: _resumen != null
-            ? TabBar(
-                controller: _tabController,
-                tabs: [
-                  Tab(text: 'Ventas (${_resumen!.operacionesVenta.length})'),
-                  Tab(text: 'Compras (${_resumen!.operacionesCompra.length})'),
-                ],
-              )
-            : null,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Modelo 347 — Operaciones con terceros',
+        showLeading: true,
+        extraActions: [
           if (_resumen != null && _resumen!.numDeclaraciones > 0)
             IconButton(
               icon: const Icon(Icons.download),
@@ -167,13 +160,22 @@ class _Modelo347ScreenState extends State<Modelo347Screen>
         ],
       ),
       body: _resumen != null
-          ? TabBarView(
-              controller: _tabController,
-              children: [
-                _buildLista(_resumen!.operacionesVenta, 'cliente'),
-                _buildLista(_resumen!.operacionesCompra, 'proveedor'),
-              ],
-            )
+          ? Column(children: [
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: 'Ventas (${_resumen!.operacionesVenta.length})'),
+                  Tab(text: 'Compras (${_resumen!.operacionesCompra.length})'),
+                ],
+              ),
+              Expanded(child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildLista(_resumen!.operacionesVenta, 'cliente'),
+                  _buildLista(_resumen!.operacionesCompra, 'proveedor'),
+                ],
+              )),
+            ])
           : _buildContenidoInicial(),
     );
   }

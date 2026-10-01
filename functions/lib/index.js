@@ -39,7 +39,7 @@ var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onPedidoCRM = exports.onReservaCRM = exports.onReservaCreatedCRM = exports.onNuevoClienteCRM = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.crearEmpleadoConCredenciales = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.generarThumbnailCatalogo = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
 exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onJuanitaReservaEstadoCambiado = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = void 0;
-exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.getBlogLista = exports.getBlogEntry = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = void 0;
+exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.getBlogLista = exports.getBlogEntry = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -561,15 +561,19 @@ exports.onNuevoMensajeContacto = (0, firestore_1.onDocumentCreated)({ document: 
     catch (e) {
         console.error("onNuevoMensajeContacto push error:", e);
     }
-    // ── 2. Notificación en colección (para Windows polling) ──────────────────
+    // ── 2. Notificación en bandeja in-app ────────────────────────────────────
     try {
-        await db.collection(`empresas/${empresaId}/notificaciones`).add({
+        await db.collection("notificaciones").doc(empresaId).collection("items").add({
             titulo: "💬 Nuevo mensaje de contacto",
             cuerpo,
-            tipo: "contacto_web",
+            tipo: "contactoWeb",
+            modulo_destino: "web",
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             leida: false,
-            datos: { mensajeId: event.params.mensajeId, tipo: "contacto_web", empresaId },
+            entidad_id: event.params.mensajeId,
+            remitente_nombre: nombre,
+            remitente_email: msg.email || null,
+            remitente_telefono: msg.telefono || null,
         });
     }
     catch (e) {
@@ -822,7 +826,7 @@ async function _getDatosEmpresa(empresaId) {
  * 2a. RESERVA CONFIRMADA — envía push a la empresa + email de confirmación al cliente
  */
 exports.onReservaConfirmada = (0, firestore_1.onDocumentUpdated)({ document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY"] }, async (event) => {
-    var _a, _b;
+    var _a, _b, _c;
     const empresaId = event.params.empresaId;
     const antes = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const despues = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
@@ -850,7 +854,38 @@ exports.onReservaConfirmada = (0, firestore_1.onDocumentUpdated)({ document: "em
         remitente_email: emailCliente,
     });
     await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "✅ Reserva Confirmada", cuerpo, { tipo: "reserva_confirmada", reserva_id: event.params.reservaId });
-    // 2. Email al cliente si tiene correo
+    // 2. Push in-app al cliente (si hizo la reserva desde la app con uid)
+    const clienteUid = despues.cliente_uid || despues.usuario_uid || null;
+    if (clienteUid) {
+        try {
+            const clienteDoc = await db.collection("usuarios").doc(clienteUid).get();
+            const tokenCliente = (_c = clienteDoc.data()) === null || _c === void 0 ? void 0 : _c.token_dispositivo;
+            const msgCliente = `Tu reserva en [negocio] está confirmada para el ${fechaHora}${servicio ? " · " + servicio : ""}`;
+            // Bandeja del cliente (usa su uid como empresaId en su colección personal)
+            await db.collection("notificaciones_cliente").doc(clienteUid).collection("items").add({
+                titulo: "✅ Reserva confirmada",
+                cuerpo: msgCliente,
+                tipo: "reservaConfirmada",
+                modulo_destino: "reservas",
+                entidad_id: event.params.reservaId,
+                empresa_id: empresaId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                leida: false,
+            });
+            if (tokenCliente) {
+                await messaging.send({
+                    token: tokenCliente,
+                    notification: { title: "✅ Reserva confirmada", body: msgCliente },
+                    data: { tipo: "reserva_confirmada", empresa_id: empresaId, reserva_id: event.params.reservaId },
+                    apns: { payload: { aps: { sound: "default", badge: 1 } } },
+                });
+            }
+        }
+        catch (e) {
+            console.warn("⚠️ Push cliente reserva confirmada:", e);
+        }
+    }
+    // 3. Email al cliente si tiene correo
     if (emailCliente) {
         try {
             const empresa = await _getDatosEmpresa(empresaId);
@@ -1253,32 +1288,42 @@ exports.verificarSuscripciones = (0, scheduler_1.onSchedule)({
             const empresaId = empresaDoc.id;
             // ── AUTO-VENCIMIENTO: marcar como VENCIDA si pasó la fecha ──
             if (diasRestantes < -7 && suscripcion.estado === "ACTIVA") {
-                // Pasaron más de 7 días de gracia → bloquear
                 await suscripcionDoc.ref.update({
                     estado: "VENCIDA",
                     fecha_vencimiento_real: admin.firestore.FieldValue.serverTimestamp(),
                 });
-                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "🔒 Suscripción Vencida", "Tu suscripción ha expirado. Renueva en fluixtech.com para seguir usando la app.", { tipo: "suscripcion_vencida" });
+                const msgVencida = "Tu suscripción ha expirado. Renueva en fluixtech.com para seguir usando la app.";
+                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "🔒 Suscripción Vencida", msgVencida, { tipo: "suscripcion_vencida" });
+                await db.collection("notificaciones").doc(empresaId).collection("items").add({
+                    titulo: "🔒 Suscripción Vencida", cuerpo: msgVencida,
+                    tipo: "suscripcionVencida", modulo_destino: "",
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(), leida: false,
+                });
                 console.log(`🔒 Suscripción VENCIDA para empresa ${empresaId}`);
                 continue;
             }
             if (diasRestantes < 0 && diasRestantes >= -7 && suscripcion.estado === "ACTIVA") {
-                // Periodo de gracia (0-7 días tras vencimiento): avisar pero no bloquear
                 if (!suscripcion.aviso_gracia_enviado) {
-                    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción expirada — periodo de gracia", `Tu suscripción venció hace ${Math.abs(diasRestantes)} día(s). Renueva antes de ${7 + diasRestantes} días para no perder acceso.`, { tipo: "suscripcion_gracia", dias_restantes: String(diasRestantes) });
-                    await suscripcionDoc.ref.update({
-                        aviso_gracia_enviado: true,
-                        ultimo_aviso: admin.firestore.FieldValue.serverTimestamp(),
+                    const msgGracia = `Tu suscripción venció hace ${Math.abs(diasRestantes)} día(s). Renueva antes de ${7 + diasRestantes} días para no perder acceso.`;
+                    await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción expirada — periodo de gracia", msgGracia, { tipo: "suscripcion_gracia", dias_restantes: String(diasRestantes) });
+                    await db.collection("notificaciones").doc(empresaId).collection("items").add({
+                        titulo: "⚠️ Suscripción expirada — periodo de gracia", cuerpo: msgGracia,
+                        tipo: "suscripcionPorVencer", modulo_destino: "",
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(), leida: false,
                     });
-                    console.log(`⚠️ Periodo de gracia para empresa ${empresaId} (día ${Math.abs(diasRestantes)} de 7)`);
+                    await suscripcionDoc.ref.update({ aviso_gracia_enviado: true, ultimo_aviso: admin.firestore.FieldValue.serverTimestamp() });
+                    console.log(`⚠️ Periodo de gracia para empresa ${empresaId}`);
                 }
                 continue;
             }
             // ── AVISOS PRE-VENCIMIENTO: 7, 3 y 1 día antes ──
             if ([7, 3, 1].includes(diasRestantes)) {
-                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción por Vencer", `Tu suscripción vence en ${diasRestantes} día${diasRestantes !== 1 ? "s" : ""}. ¡Renueva para continuar!`, {
-                    tipo: "suscripcion_por_vencer",
-                    dias_restantes: String(diasRestantes),
+                const msgPorVencer = `Tu suscripción vence en ${diasRestantes} día${diasRestantes !== 1 ? "s" : ""}. ¡Renueva para continuar!`;
+                await (0, notificaciones_1.enviarNotificacionEmpresa)(empresaId, "⚠️ Suscripción por Vencer", msgPorVencer, { tipo: "suscripcion_por_vencer", dias_restantes: String(diasRestantes) });
+                await db.collection("notificaciones").doc(empresaId).collection("items").add({
+                    titulo: "⚠️ Suscripción por Vencer", cuerpo: msgPorVencer,
+                    tipo: "suscripcionPorVencer", modulo_destino: "",
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(), leida: false,
                 });
                 await suscripcionDoc.ref.update({
                     aviso_enviado: true,
@@ -2437,6 +2482,7 @@ Object.defineProperty(exports, "crearCuentaConPlan", { enumerable: true, get: fu
 Object.defineProperty(exports, "actualizarPlanEmpresa", { enumerable: true, get: function () { return gestionCuentas_1.actualizarPlanEmpresa; } });
 Object.defineProperty(exports, "listarCuentasClientes", { enumerable: true, get: function () { return gestionCuentas_1.listarCuentasClientes; } });
 Object.defineProperty(exports, "webhookPagoWeb", { enumerable: true, get: function () { return gestionCuentas_1.webhookPagoWeb; } });
+Object.defineProperty(exports, "vincularPropietarioAEmpresaExistente", { enumerable: true, get: function () { return gestionCuentas_1.vincularPropietarioAEmpresaExistente; } });
 // ── CATÁLOGO PÚBLICO — endpoint para webs de clientes ────────────────────────
 //
 // La web del cliente (ej: Nazari) puede llamar a:
@@ -3500,18 +3546,20 @@ exports.alertasVencimientosFiscales = (0, scheduler_1.onSchedule)({ schedule: "0
                 },
             });
             console.log(`✅ Alerta enviada a ${response.successCount}/${tokens.length} dispositivos - ${nombreEmpresa}`);
-            // Crear notificación en Firestore para historial
+            // Guardar en bandeja in-app (path correcto)
             await db
-                .collection("empresas").doc(empresaId)
-                .collection("notificaciones")
+                .collection("notificaciones").doc(empresaId)
+                .collection("items")
                 .add({
                 titulo: titulo,
-                mensaje: mensaje,
-                tipo: "vencimiento_fiscal",
+                cuerpo: mensaje,
+                tipo: "vencimientoFiscal",
+                modulo_destino: "fiscal",
                 modelo: modelo.modelo,
                 fecha_vencimiento: admin.firestore.Timestamp.fromDate(modelo.fecha),
                 dias_restantes: dias,
-                created_at: admin.firestore.FieldValue.serverTimestamp(),
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                leida: false,
             });
         }
         catch (error) {

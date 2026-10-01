@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/fiscal/fiscal_capture_service.dart';
 import '../../../services/fiscal/fiscal_upload_service.dart';
 import '../../fiscal/pantallas/review_transaction_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Tipo de documento: gasto (factura recibida) o ingreso (factura emitida)
 enum TipoDocumento { gasto, ingreso }
@@ -82,12 +83,7 @@ class _UploadInvoiceScreenState extends State<UploadInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Subir documento'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Subir documento', showLeading: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

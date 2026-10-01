@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Subida masiva de imágenes al catálogo
@@ -228,17 +229,10 @@ class _SubirImagenesCatalogoScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF7B1FA2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Row(children: [
-          Icon(Icons.image_outlined, size: 20),
-          SizedBox(width: 8),
-          Text('Subir imágenes al catálogo',
-              style: TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Subir imágenes al catálogo',
+        showLeading: true,
+        extraActions: [
           if (_items.isNotEmpty && !_subiendo)
             Padding(
               padding: const EdgeInsets.only(right: 8),

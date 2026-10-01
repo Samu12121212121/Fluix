@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class GestionarCatalogoScreen extends StatefulWidget {
   final String empresaId;
@@ -89,16 +90,10 @@ class _GestionarCatalogoScreenState extends State<GestionarCatalogoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF7B1FA2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Row(children: [
-          Icon(Icons.inventory_2, size: 20),
-          SizedBox(width: 8),
-          Text('Gestionar catálogo', style: TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Gestionar catálogo',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Nuevo producto',

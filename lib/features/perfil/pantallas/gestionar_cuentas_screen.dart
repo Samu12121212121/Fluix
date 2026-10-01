@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
 import 'package:planeag_flutter/services/contenido_web_service.dart';
 import 'package:planeag_flutter/core/utils/permisos_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO LOCAL
@@ -288,25 +289,11 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
     if (widget.embedded) return body;
     return Scaffold(
       backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: barBg,
-        foregroundColor: textC,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: border),
-        ),
-        title: Row(children: [
-          Icon(Icons.manage_accounts_rounded, size: 18, color: accent),
-          const SizedBox(width: 8),
-          Text('Gestión de cuentas',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: textC)),
-        ]),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Gestión de cuentas',
+        extraActions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: textC),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _cargarCuentas,
             tooltip: 'Recargar',
           ),

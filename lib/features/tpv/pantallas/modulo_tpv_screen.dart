@@ -10,6 +10,7 @@ import 'configuracion_facturacion_tpv_screen.dart';
 import 'tpv_gestion_multi_screen.dart';
 import 'gestionar_catalogo_screen.dart';
 import 'subir_imagenes_catalogo_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class ModuloTpvScreen extends StatelessWidget {
   final String empresaId;
@@ -27,17 +28,7 @@ class ModuloTpvScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Row(children: [
-          Icon(Icons.point_of_sale, size: 22),
-          SizedBox(width: 8),
-          Text('TPV', style: TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const FluixAppBar(titulo: 'TPV'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

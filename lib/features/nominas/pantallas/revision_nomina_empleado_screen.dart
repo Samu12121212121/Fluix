@@ -4,6 +4,7 @@ import '../../../domain/modelos/nomina.dart';
 import '../../../services/firma_service.dart';
 import '../../../services/nomina_pdf_service.dart';
 import '../widgets/firma_digital_canvas.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA REVISIÓN Y FIRMA DE NÓMINA (empleado)
@@ -43,7 +44,7 @@ class _RevisionNominaEmpleadoScreenState extends State<RevisionNominaEmpleadoScr
     // Control de permisos: solo puede ver sus propias nóminas
     if (n.empleadoId != widget.empleadoId) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Acceso denegado')),
+        appBar: const FluixAppBar(titulo: 'Acceso denegado'),
         body: const Center(
           child: Text('No tienes permiso para ver esta nómina.',
             style: TextStyle(fontSize: 16, color: Colors.red)),
@@ -53,11 +54,10 @@ class _RevisionNominaEmpleadoScreenState extends State<RevisionNominaEmpleadoScr
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text('Nómina — ${n.periodo}'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Nómina — ${n.periodo}',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'Ver PDF',

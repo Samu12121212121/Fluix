@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA FICHAJE EMPLEADO
@@ -203,11 +204,7 @@ class _PantallaFichajeEmpleadoState extends State<PantallaFichajeEmpleado> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Sistema de Fichaje'),
-        centerTitle: true,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Sistema de Fichaje'),
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../domain/modelos/cliente_importado_model.dart';
 import '../../../services/importacion_clientes_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class ImportarCsvScreen extends StatefulWidget {
   final String empresaId;
@@ -340,10 +341,7 @@ class _ImportarCsvScreenState extends State<ImportarCsvScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Importar Clientes'),
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Importar Clientes', showLeading: true),
       body: IndexedStack(
         index: _pasoActual,
         children: [

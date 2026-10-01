@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de formulario para crear una factura rectificativa
 /// según Art. 15 del RD 1619/2012 (Reglamento de Facturación).
@@ -80,12 +81,7 @@ class _FormularioRectificativaScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Crear Factura Rectificativa'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Crear Factura Rectificativa', showLeading: true),
       body: Form(
         key: _formKey,
         child: ListView(

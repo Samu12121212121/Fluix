@@ -7,6 +7,7 @@ import '../../../models/tarjeta_sellos_model.dart';
 import '../../../services/fidelizacion_service.dart';
 import 'pantalla_escanear_qr_negocio.dart';
 import 'pantalla_qr_canje.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaTarjetaSellos extends StatefulWidget {
   final String negocioId;
@@ -48,12 +49,7 @@ class _PantallaTarjetaSellostate extends State<PantallaTarjetaSellos> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        elevation: 0,
-        title: const Text('Tarjeta de Fidelización', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: const FluixAppBar(titulo: 'Tarjeta de Fidelización', showLeading: true),
       body: StreamBuilder<ProgramaFidelizacionModel?>(
         stream: FidelizacionService.escucharPrograma(widget.negocioId),
         builder: (context, programaSnap) {

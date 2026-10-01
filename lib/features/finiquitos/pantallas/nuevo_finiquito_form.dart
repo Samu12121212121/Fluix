@@ -7,6 +7,7 @@ import 'package:planeag_flutter/services/finiquito_service.dart';
 import 'package:planeag_flutter/services/finiquito_pdf_service.dart';
 import 'package:planeag_flutter/services/finiquito_autorellena_service.dart';
 import 'package:planeag_flutter/features/finiquitos/pantallas/finiquito_detalle.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // FORMULARIO DE NUEVO FINIQUITO
@@ -239,12 +240,7 @@ class _NuevoFiniquitoFormState extends State<NuevoFiniquitoForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Nuevo finiquito'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-      ),
+      appBar: const FluixAppBar(titulo: 'Nuevo finiquito', showLeading: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(

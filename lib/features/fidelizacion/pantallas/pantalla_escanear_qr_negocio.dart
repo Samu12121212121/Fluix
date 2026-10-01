@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:confetti/confetti.dart';
 import '../../../services/fidelizacion_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaEscanearQRNegocio extends StatefulWidget {
   final String negocioId;
@@ -35,11 +36,10 @@ class _PantallaEscanearQRNegocioState extends State<PantallaEscanearQRNegocio> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: const Text('Escanear QR Negocio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [IconButton(icon: const Icon(Icons.flash_on), onPressed: () => _camera.toggleTorch())],
+      appBar: FluixAppBar(
+        titulo: 'Escanear QR Negocio',
+        showLeading: true,
+        extraActions: [IconButton(icon: const Icon(Icons.flash_on), onPressed: () => _camera.toggleTorch())],
       ),
       body: Stack(
         children: [

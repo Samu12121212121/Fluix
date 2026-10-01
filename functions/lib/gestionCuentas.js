@@ -46,7 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.webhookPagoWeb = exports.obtenerStatsPlataforma = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.PLANES_CONFIG = void 0;
+exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.obtenerStatsPlataforma = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.PLANES_CONFIG = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 // Guard: el módulo puede cargarse antes de que index.ts llame initializeApp()
@@ -812,5 +812,84 @@ exports.webhookPagoWeb = (0, https_1.onRequest)({ region: REGION, cors: false },
         console.error("❌ [webhookPagoWeb] Error:", err);
         res.status(500).json({ error: "Error interno del servidor" });
     }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN 6: vincularPropietarioAEmpresaExistente
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Callable. Crea (o reutiliza) un usuario en Firebase Auth y lo vincula como
+ * propietario de una empresa que ya existe en Firestore.
+ *
+ * Útil cuando la empresa fue creada manualmente o por otro flujo y necesitamos
+ * darle credenciales de acceso a su dueño.
+ *
+ * data: {
+ *   email: string       — email del propietario del negocio
+ *   empresaId: string   — ID del documento en /empresas/{empresaId}
+ *   nombrePropietario?: string
+ * }
+ */
+exports.vincularPropietarioAEmpresaExistente = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a, _b, _c, _d;
+    // 1. Autenticación
+    const callerUid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    if (!callerUid)
+        throw new https_1.HttpsError("unauthenticated", "Debes estar autenticado.");
+    // 2. Solo el propietario de la plataforma
+    await verificarPropietarioPlatforma(callerUid);
+    // 3. Validar parámetros
+    const { email, empresaId, nombrePropietario = "" } = request.data;
+    if (!email || !empresaId)
+        throw new https_1.HttpsError("invalid-argument", "email y empresaId son obligatorios.");
+    // 4. Verificar que la empresa existe
+    const empresaDoc = await db.collection("empresas").doc(empresaId).get();
+    if (!empresaDoc.exists)
+        throw new https_1.HttpsError("not-found", `No existe ninguna empresa con ID ${empresaId}.`);
+    const empresaData = empresaDoc.data();
+    // 5. Crear usuario en Auth (o reutilizar si ya existe)
+    const tempPassword = generarPasswordTemporal();
+    let uid;
+    let cuentaNueva = true;
+    try {
+        const newUser = await admin.auth().createUser({
+            email: email.toLowerCase().trim(),
+            password: tempPassword,
+            displayName: nombrePropietario || empresaData.nombre || email,
+            emailVerified: false,
+        });
+        uid = newUser.uid;
+    }
+    catch (err) {
+        const authErr = err;
+        if (authErr.code === "auth/email-already-exists") {
+            // El usuario ya existe en Auth — solo actualizamos Firestore
+            const existing = await admin.auth().getUserByEmail(email.toLowerCase().trim());
+            uid = existing.uid;
+            cuentaNueva = false;
+        }
+        else {
+            throw new https_1.HttpsError("internal", `Error en Firebase Auth: ${authErr.message}`);
+        }
+    }
+    // 6. Crear / sobreescribir el documento de usuario en Firestore
+    await db.collection("usuarios").doc(uid).set(Object.assign({ uid, nombre: nombrePropietario || empresaData.nombre || email, correo: email.toLowerCase().trim(), empresa_id: empresaId, rol: "propietario", es_plataforma_admin: false, fecha_vinculacion: admin.firestore.FieldValue.serverTimestamp() }, (cuentaNueva && {
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        modulos_personalizados: null,
+    })), { merge: true });
+    console.log(`✅ Vinculado: uid=${uid} → empresa=${empresaId} | cuenta_nueva=${cuentaNueva}`);
+    // 7. Enviar email de bienvenida solo si la cuenta es nueva
+    if (cuentaNueva) {
+        const planId = (_b = empresaData.plan_id) !== null && _b !== void 0 ? _b : "profesional";
+        const planNombre = (_d = (_c = exports.PLANES_CONFIG[planId]) === null || _c === void 0 ? void 0 : _c.nombre) !== null && _d !== void 0 ? _d : "Plan Profesional";
+        try {
+            await enviarEmailBienvenida(email.toLowerCase().trim(), empresaData.nombre || "Tu negocio", tempPassword, planNombre);
+            console.log(`📧 Email de bienvenida enviado a ${email}`);
+        }
+        catch (emailErr) {
+            console.warn("⚠️ Email de bienvenida no enviado:", emailErr);
+        }
+    }
+    return Object.assign({ ok: true, uid,
+        empresaId, email: email.toLowerCase().trim(), cuentaNueva }, (cuentaNueva && { tempPassword }));
 });
 //# sourceMappingURL=gestionCuentas.js.map

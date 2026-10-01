@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
 const _kBg     = Color(0xFF0A0F23);
@@ -376,16 +377,7 @@ class _ResenasFluixScreenState extends State<ResenasFluixScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: _kTexto,
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Reseñas Flix',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(widget.nombreNegocio,
-              style: const TextStyle(color: _kMuted, fontSize: 12)),
-        ]),
-      ),
+      appBar: const FluixAppBar(titulo: 'Reseñas Flix', showLeading: true),
       body: StreamBuilder<QuerySnapshot>(
         stream: _stream,
         builder: (ctx, snap) {

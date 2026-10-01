@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/festivo_model.dart';
 import '../../../services/festivos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA DE FESTIVOS LOCALES — CRUD manual para festivos de municipio
@@ -168,11 +169,10 @@ class _FestivosLocalesScreenState extends State<FestivosLocalesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Festivos'),
-        backgroundColor: const Color(0xFF00796B),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Festivos',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Importar desde API',

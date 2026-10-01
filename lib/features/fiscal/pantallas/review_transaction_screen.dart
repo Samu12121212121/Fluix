@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de revisión humana de facturas en estado [needs_review].
 /// Permite ver los datos extraídos por la IA, editarlos y confirmar/rechazar.
@@ -124,17 +125,15 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
     final withholdingCents = tx['withholding_amount_cents'] ?? 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Revisar factura'),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Revisar factura',
+        showLeading: true,
+        extraActions: [
           if (!_saving)
             TextButton(
               onPressed: _onConfirm,
-              child: const Text(
-                'CONFIRMAR',
-                style: TextStyle(
-                    color: Colors.green, fontWeight: FontWeight.bold),
-              ),
+              child: const Text('CONFIRMAR',
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -709,7 +708,7 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Documento original')),
+          appBar: const FluixAppBar(titulo: 'Documento original', showLeading: true),
           body: InteractiveViewer(
             child: Image.network(_documentUrl!),
           ),

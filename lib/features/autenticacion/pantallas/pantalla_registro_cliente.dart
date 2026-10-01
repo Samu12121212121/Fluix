@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/user_model.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../features/explorar_negocios/pantallas/pantalla_explorar.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaRegistroCliente extends StatefulWidget {
   const PantallaRegistroCliente({super.key});
@@ -37,14 +38,7 @@ class _PantallaRegistroClienteState extends State<PantallaRegistroCliente> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF43A047)),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: const FluixAppBar(showLeading: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -156,6 +150,7 @@ class _PantallaRegistroClienteState extends State<PantallaRegistroCliente> {
         TextFormField(
           controller: _telefonoController,
           keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
           enabled: !_cargando,
           decoration: InputDecoration(
             labelText: 'Teléfono',

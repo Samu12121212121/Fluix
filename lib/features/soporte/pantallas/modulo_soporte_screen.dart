@@ -6,6 +6,7 @@ import '../../../domain/modelos/sugerencia_empresa.dart';
 import '../../../services/sugerencias_service.dart';
 import '../../../services/contacto_soporte_service.dart';
 import '../../../core/widgets/flux_toast.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ── Pantalla de Soporte y Ayuda ───────────────────────────────────────────────
 // Secciones: Accesos rápidos | Tutoriales | Mejoras | Contáctanos
@@ -57,6 +58,7 @@ class _State extends State<ModuloSoporteScreen> {
     final isWide = w >= 800;
     return Scaffold(
       backgroundColor: _bg,
+      appBar: FluixAppBar(titulo: 'Soporte y Ayuda'),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(isWide ? 24 : 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

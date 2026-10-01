@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // HISTORIAL DE PRESENTACIONES — Estado de modelos AEAT por períodos
@@ -15,9 +16,7 @@ class HistorialPresentacionesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial de Presentaciones'),
-      ),
+      appBar: const FluixAppBar(titulo: 'Historial de Presentaciones', showLeading: true),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('empresas')

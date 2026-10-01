@@ -12,132 +12,420 @@ class _TabGaleriaWeb extends StatefulWidget {
 }
 
 class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
-  List<Map<String, dynamic>> _imagenes = [];
-  bool _cargando = false;
   bool _subiendo = false;
+  int _subiendoCount = 0;
+  bool _vistaLista = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _cargar();
-  }
+  // Stream en tiempo real
+  Stream<List<Map<String, dynamic>>> get _stream =>
+      widget.svc.obtenerGaleriaStream(widget.empresaId);
 
-  Future<void> _cargar() async {
-    setState(() => _cargando = true);
+  Future<void> _subirVarias() async {
+    setState(() { _subiendo = true; _subiendoCount = 0; });
     try {
-      final imgs = await widget.svc.obtenerGaleria(widget.empresaId);
-      if (mounted) setState(() { _imagenes = imgs; _cargando = false; });
-    } catch (_) {
-      if (mounted) setState(() => _cargando = false);
-    }
-  }
-
-  Future<void> _subirImagen() async {
-    setState(() => _subiendo = true);
-    try {
-      final url = await widget.svc.subirImagenDesdeGaleria(widget.empresaId, 'web/galeria');
-      if (url != null && mounted) {
-        await widget.svc.agregarAGaleria(widget.empresaId, url);
-        await _cargar();
+      final urls = await widget.svc.subirMultiplesImagenes(
+          widget.empresaId, 'web/galeria');
+      if (urls.isEmpty) return;
+      setState(() => _subiendoCount = urls.length);
+      for (final url in urls) {
+        final nombre = url.split('/').last.split('?').first;
+        await FirebaseFirestore.instance
+            .collection('empresas').doc(widget.empresaId)
+            .collection('galeria_web')
+            .add({
+              'url': url,
+              'nombre': nombre,
+              'subida': FieldValue.serverTimestamp(),
+            });
       }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${urls.length} imagen${urls.length != 1 ? 'es' : ''} subida${urls.length != 1 ? 's' : ''}'),
+        backgroundColor: const Color(0xFF10B981),
+        duration: const Duration(seconds: 2),
+      ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     } finally {
-      if (mounted) setState(() => _subiendo = false);
+      if (mounted) setState(() { _subiendo = false; _subiendoCount = 0; });
     }
+  }
+
+  Future<void> _eliminar(String id) async {
+    await widget.svc.eliminarDeGaleria(widget.empresaId, id);
+  }
+
+  Future<void> _renombrar(BuildContext ctx, Map<String, dynamic> img) async {
+    final ctrl = TextEditingController(text: img['nombre'] as String? ?? '');
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('Renombrar imagen',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: ctrl, autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Guardar')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (ok == true && mounted) {
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('galeria_web').doc(img['id'] as String)
+          .update({'nombre': ctrl.text.trim()});
+    }
+  }
+
+  void _verFullscreen(BuildContext ctx, List<Map<String, dynamic>> imgs, int idx) {
+    showDialog(
+      context: ctx,
+      builder: (_) => _GaleriaViewer(imagenes: imgs, indiceInicial: idx),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      // Header
-      Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Row(children: [
-          Container(width: 36, height: 36,
-              decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.photo_library_rounded, color: widget.color, size: 18)),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Galería', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-            Text('${_imagenes.length} imagen${_imagenes.length != 1 ? 'es' : ''}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-          ]),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: _subiendo ? null : _subirImagen,
-            icon: _subiendo
-                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.upload_rounded, size: 16),
-            label: const Text('Subir imagen', style: TextStyle(fontSize: 13)),
-            style: FilledButton.styleFrom(
-              backgroundColor: widget.color,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _stream,
+      builder: (ctx, snap) {
+        final imagenes = snap.data ?? [];
+        final cargando = snap.connectionState == ConnectionState.waiting && imagenes.isEmpty;
+
+        return Column(children: [
+          // ── Cabecera ───────────────────────────────────────────────────
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Galería', style: TextStyle(fontSize: 16,
+                    fontWeight: FontWeight.w800, color: widget.color)),
+                Text('${imagenes.length} imagen${imagenes.length != 1 ? 'es' : ''} · '
+                    'aparecen en la web al instante',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              ])),
+              // Toggle vista
+              IconButton(
+                icon: Icon(_vistaLista
+                    ? Icons.grid_view_rounded
+                    : Icons.view_list_rounded,
+                    size: 20, color: const Color(0xFF64748B)),
+                onPressed: () => setState(() => _vistaLista = !_vistaLista),
+                tooltip: _vistaLista ? 'Vista cuadrícula' : 'Vista lista',
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _subiendo ? null : _subirVarias,
+                icon: _subiendo
+                    ? SizedBox(width: 13, height: 13,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.add_photo_alternate_rounded, size: 15),
+                label: Text(_subiendo
+                    ? (_subiendoCount > 0
+                        ? 'Subiendo $_subiendoCount…'
+                        : 'Subiendo…')
+                    : 'Añadir fotos'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: widget.color,
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+
+          // ── Contenido ──────────────────────────────────────────────────
+          Expanded(child: cargando
+              ? Center(child: CircularProgressIndicator(color: widget.color))
+              : imagenes.isEmpty
+                  ? _buildVacio()
+                  : _vistaLista
+                      ? _buildLista(ctx, imagenes)
+                      : _buildGrid(ctx, imagenes)),
+        ]);
+      },
+    );
+  }
+
+  Widget _buildVacio() => Center(child: Column(
+    mainAxisAlignment: MainAxisAlignment.center, children: [
+    Container(width: 72, height: 72,
+        decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: 0.07), shape: BoxShape.circle),
+        child: Icon(Icons.photo_library_outlined, size: 32,
+            color: widget.color.withValues(alpha: 0.4))),
+    const SizedBox(height: 14),
+    const Text('Sin imágenes todavía',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+            color: Color(0xFF334155))),
+    const SizedBox(height: 5),
+    const Text('Selecciona varias a la vez para subir en lote',
+        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+    const SizedBox(height: 18),
+    FilledButton.icon(
+      onPressed: _subirVarias,
+      icon: const Icon(Icons.add_photo_alternate_rounded, size: 16),
+      label: const Text('Añadir fotos'),
+      style: FilledButton.styleFrom(
+        backgroundColor: widget.color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+    ),
+  ]));
+
+  Widget _buildGrid(BuildContext ctx, List<Map<String, dynamic>> imgs) =>
+      GridView.builder(
+        padding: const EdgeInsets.all(10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
+          childAspectRatio: 1,
+        ),
+        itemCount: imgs.length,
+        itemBuilder: (_, i) {
+          final img = imgs[i];
+          final url = img['url'] as String? ?? '';
+          return GestureDetector(
+            onTap: () => _verFullscreen(ctx, imgs, i),
+            onLongPress: () => _mostrarOpciones(ctx, img),
+            child: Stack(fit: StackFit.expand, children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  image: url.isNotEmpty
+                      ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
+                      : null,
+                ),
+                child: url.isEmpty
+                    ? Center(child: Icon(Icons.image_outlined,
+                        color: Colors.grey[300], size: 28))
+                    : null,
+              ),
+              // Botón eliminar
+              Positioned(top: 4, right: 4,
+                child: GestureDetector(
+                  onTap: () => _confirmarEliminar(ctx, img),
+                  child: Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(6)),
+                    child: const Icon(Icons.close, size: 12, color: Colors.white),
+                  ),
+                ),
+              ),
+            ]),
+          );
+        },
+      );
+
+  Widget _buildLista(BuildContext ctx, List<Map<String, dynamic>> imgs) =>
+      ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        itemCount: imgs.length,
+        itemBuilder: (_, i) {
+          final img = imgs[i];
+          final url = img['url'] as String? ?? '';
+          final nombre = img['nombre'] as String? ?? 'Sin nombre';
+          return GestureDetector(
+            onTap: () => _verFullscreen(ctx, imgs, i),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE8EDF2)),
+              ),
+              child: Row(children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(10)),
+                  child: url.isNotEmpty
+                      ? Image.network(url, width: 64, height: 64,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                              width: 64, height: 64,
+                              color: const Color(0xFFF1F5F9),
+                              child: const Icon(Icons.broken_image_outlined,
+                                  size: 24, color: Color(0xFFCBD5E1))))
+                      : Container(width: 64, height: 64,
+                          color: const Color(0xFFF1F5F9),
+                          child: const Icon(Icons.image_outlined, size: 24,
+                              color: Color(0xFFCBD5E1))),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(nombre,
+                    style: const TextStyle(fontSize: 13,
+                        fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                    overflow: TextOverflow.ellipsis)),
+                IconButton(
+                  icon: const Icon(Icons.more_vert_rounded, size: 18,
+                      color: Color(0xFF94A3B8)),
+                  onPressed: () => _mostrarOpciones(ctx, img),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  constraints: const BoxConstraints(),
+                ),
+              ]),
+            ),
+          );
+        },
+      );
+
+  void _mostrarOpciones(BuildContext ctx, Map<String, dynamic> img) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 8),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 12),
+        ListTile(
+          leading: const Icon(Icons.edit_outlined, size: 20),
+          title: const Text('Renombrar', style: TextStyle(fontSize: 14)),
+          onTap: () { Navigator.pop(ctx); _renombrar(ctx, img); },
+        ),
+        ListTile(
+          leading: const Icon(Icons.copy_rounded, size: 20),
+          title: const Text('Copiar URL', style: TextStyle(fontSize: 14)),
+          onTap: () {
+            Navigator.pop(ctx);
+            Clipboard.setData(ClipboardData(text: img['url'] as String? ?? ''));
+            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+              content: Text('URL copiada'),
+              backgroundColor: Color(0xFF10B981),
+              duration: Duration(seconds: 2),
+            ));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.delete_outline_rounded, size: 20,
+              color: Color(0xFFEF4444)),
+          title: const Text('Eliminar', style: TextStyle(
+              fontSize: 14, color: Color(0xFFEF4444))),
+          onTap: () { Navigator.pop(ctx); _confirmarEliminar(ctx, img); },
+        ),
+        const SizedBox(height: 8),
+      ])),
+    );
+  }
+
+  Future<void> _confirmarEliminar(BuildContext ctx, Map<String, dynamic> img) async {
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar imagen',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        content: const Text('Se borrará de la galería. No se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _eliminar(img['id'] as String? ?? '');
+  }
+}
+
+// ── Visor fullscreen de galería ────────────────────────────────────────────────
+
+class _GaleriaViewer extends StatefulWidget {
+  final List<Map<String, dynamic>> imagenes;
+  final int indiceInicial;
+
+  const _GaleriaViewer({required this.imagenes, required this.indiceInicial});
+
+  @override
+  State<_GaleriaViewer> createState() => _GaleriaViewerState();
+}
+
+class _GaleriaViewerState extends State<_GaleriaViewer> {
+  late int _idx;
+  late PageController _pageCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _idx = widget.indiceInicial;
+    _pageCtrl = PageController(initialPage: _idx);
+  }
+
+  @override
+  void dispose() { _pageCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final imgs = widget.imagenes;
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(children: [
+        PageView.builder(
+          controller: _pageCtrl,
+          itemCount: imgs.length,
+          onPageChanged: (i) => setState(() => _idx = i),
+          itemBuilder: (_, i) {
+            final url = imgs[i]['url'] as String? ?? '';
+            return InteractiveViewer(
+              child: Center(
+                child: url.isNotEmpty
+                    ? Image.network(url, fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.broken_image_outlined,
+                            size: 48, color: Colors.white30))
+                    : const Icon(Icons.image_outlined, size: 48, color: Colors.white30),
+              ),
+            );
+          },
+        ),
+        // Cerrar
+        Positioned(top: 16, right: 16,
+          child: IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+            onPressed: () => Navigator.pop(context),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black38,
             ),
           ),
-        ]),
-      ),
-      const Divider(height: 1),
-      Expanded(child: _cargando
-          ? Center(child: CircularProgressIndicator(color: widget.color))
-          : _imagenes.isEmpty
-              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(width: 72, height: 72,
-                      decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.08), shape: BoxShape.circle),
-                      child: Icon(Icons.photo_library_outlined, size: 34, color: widget.color.withValues(alpha: 0.45))),
-                  const SizedBox(height: 16),
-                  const Text('Sin imágenes todavía', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                  const SizedBox(height: 6),
-                  const Text('Sube imágenes para usarlas en tu web', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _subirImagen,
-                    icon: const Icon(Icons.upload_rounded, size: 16),
-                    label: const Text('Subir primera imagen'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.color, foregroundColor: Colors.white,
-                      elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                  ),
-                ]))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-                  ),
-                  itemCount: _imagenes.length,
-                  itemBuilder: (_, i) {
-                    final img = _imagenes[i];
-                    final url = img['url'] as String? ?? '';
-                    return Stack(children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(10),
-                          image: url.isNotEmpty ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover) : null,
-                        ),
-                        child: url.isEmpty ? Center(child: Icon(Icons.image_outlined, color: Colors.grey[300], size: 32)) : null,
-                      ),
-                      Positioned(top: 4, right: 4,
-                        child: GestureDetector(
-                          onTap: () async {
-                            await widget.svc.eliminarDeGaleria(widget.empresaId, img['id'] as String? ?? '');
-                            await _cargar();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                            child: const Icon(Icons.close, size: 12, color: Colors.white),
-                          ),
-                        )),
-                    ]);
-                  },
-                )),
-    ]);
+        ),
+        // Contador
+        Positioned(bottom: 24, left: 0, right: 0,
+          child: Text('${_idx + 1} / ${imgs.length}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        ),
+        // Nombre
+        if ((imgs[_idx]['nombre'] as String? ?? '').isNotEmpty)
+          Positioned(bottom: 44, left: 24, right: 24,
+            child: Text(imgs[_idx]['nombre'] as String,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white,
+                    fontSize: 14, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis),
+          ),
+      ]),
+    );
   }
 }
 
@@ -346,9 +634,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                   _categorias.contains(cat) ? _categorias.remove(cat) : _categorias.add(cat);
                 }),
                 color: color,
+                empresaId: widget.empresaId,
               ),
               const Divider(height: 1),
-              _ColeccionSelector(ctrl: _coleccionCtrl, color: color),
+              _ColeccionSelector(ctrl: _coleccionCtrl, color: color, empresaId: widget.empresaId),
               const Divider(height: 1),
               _campo(_tagCtrl, 'Badge (ej: Novedad, Recomendado)'),
               const Divider(height: 1),
@@ -945,21 +1234,66 @@ const _kColecciones = [
 class _ColeccionSelector extends StatefulWidget {
   final TextEditingController ctrl;
   final Color color;
-  const _ColeccionSelector({required this.ctrl, required this.color});
+  final String? empresaId;
+  const _ColeccionSelector({
+    required this.ctrl,
+    required this.color,
+    this.empresaId,
+  });
   @override
   State<_ColeccionSelector> createState() => _ColeccionSelectorState();
 }
 
 class _ColeccionSelectorState extends State<_ColeccionSelector> {
+  List<String>? _firestoreCols;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _colSub;
+
   @override
   void initState() {
     super.initState();
     widget.ctrl.addListener(() { if (mounted) setState(() {}); });
+    _suscribirColecciones();
+  }
+
+  void _suscribirColecciones() {
+    final eid = widget.empresaId;
+    if (eid == null || eid.isEmpty) return;
+    _colSub?.cancel();
+    _colSub = FirebaseFirestore.instance
+        .collection('empresas').doc(eid)
+        .collection('colecciones_catalogo')
+        .where('activo', isEqualTo: true)
+        .orderBy('orden')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        _firestoreCols = snap.docs
+            .map((d) => d.data()['nombre'] as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+      });
+    }, onError: (_) {
+      if (mounted) setState(() => _firestoreCols = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _colSub?.cancel();
+    super.dispose();
+  }
+
+  List<String> get _baseColecciones {
+    if (widget.empresaId == null) return _kColecciones;
+    final fc = _firestoreCols;
+    return (fc != null && fc.isNotEmpty) ? fc : _kColecciones;
   }
 
   @override
   Widget build(BuildContext context) {
     final seleccionada = widget.ctrl.text.trim();
+    final base = _baseColecciones;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -997,7 +1331,7 @@ class _ColeccionSelectorState extends State<_ColeccionSelector> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _kColecciones.map((col) {
+            children: base.map((col) {
               final sel = seleccionada == col;
               return GestureDetector(
                 onTap: () { widget.ctrl.text = col; setState(() {}); },
@@ -1063,11 +1397,13 @@ class _CategoriasSelector extends StatefulWidget {
   final Set<String> seleccionadas;
   final ValueChanged<String> onToggle;
   final Color color;
+  final String? empresaId;
 
   const _CategoriasSelector({
     required this.seleccionadas,
     required this.onToggle,
     required this.color,
+    this.empresaId,
   });
 
   @override
@@ -1077,11 +1413,50 @@ class _CategoriasSelector extends StatefulWidget {
 class _CategoriasSelectorState extends State<_CategoriasSelector> {
   bool _modoAdd = false;
   final _addCtrl = TextEditingController();
+  List<String>? _firestoreCats;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _catSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _suscribirCategorias();
+  }
+
+  void _suscribirCategorias() {
+    final eid = widget.empresaId;
+    if (eid == null || eid.isEmpty) return;
+    _catSub?.cancel();
+    _catSub = FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(eid)
+        .collection('categorias_catalogo')
+        .where('activo', isEqualTo: true)
+        .orderBy('orden')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        _firestoreCats = snap.docs
+            .map((d) => d.data()['nombre'] as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+      });
+    }, onError: (_) {
+      if (mounted) setState(() => _firestoreCats = null);
+    });
+  }
 
   @override
   void dispose() {
+    _catSub?.cancel();
     _addCtrl.dispose();
     super.dispose();
+  }
+
+  List<String> get _baseCats {
+    if (widget.empresaId == null) return _kCategorias;
+    final fc = _firestoreCats;
+    return (fc != null && fc.isNotEmpty) ? fc : _kCategorias;
   }
 
   // Devuelve el valor EXACTO almacenado en seleccionadas que coincide
@@ -1108,9 +1483,10 @@ class _CategoriasSelectorState extends State<_CategoriasSelector> {
 
   @override
   Widget build(BuildContext context) {
-    // Categorías extras en seleccionadas que no están en _kCategorias
+    final base = _baseCats;
+    // Categorías extras en seleccionadas que no están en la lista base
     final extras = widget.seleccionadas
-        .where((s) => !_kCategorias.any((k) => _normCat(k) == _normCat(s)))
+        .where((s) => !base.any((k) => _normCat(k) == _normCat(s)))
         .toList();
 
     return Padding(
@@ -1122,7 +1498,7 @@ class _CategoriasSelectorState extends State<_CategoriasSelector> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            ...[..._kCategorias, ...extras].map((cat) {
+            ...[...base, ...extras].map((cat) {
               final sel = _matchExistente(cat) != null;
               return GestureDetector(
                 onTap: () => _toggle(cat),

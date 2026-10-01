@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../domain/modelos/nomina.dart';
 import '../../../services/remesa_sepa_service.dart';
 import '../../../services/sepa_xml_generator.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Formulario para crear una nueva remesa SEPA.
 class NuevaRemesaForm extends StatefulWidget {
@@ -177,11 +178,7 @@ class _NuevaRemesaFormState extends State<NuevaRemesaForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Nueva remesa SEPA'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Nueva remesa SEPA', showLeading: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

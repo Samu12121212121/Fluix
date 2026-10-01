@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class ResumenFiscalScreen extends StatefulWidget {
   final String empresaId;
@@ -46,12 +47,7 @@ class _ResumenFiscalScreenState extends State<ResumenFiscalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Resumen Fiscal'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Resumen Fiscal', showLeading: true),
       body: Column(
         children: [
           _buildSelectorPeriodo(),

@@ -7,6 +7,7 @@ import '../../../domain/modelos/empresa.dart';
 import '../../../domain/modelos/empresa_config.dart';
 import '../../../core/utils/validador_nif_cif.dart';
 import '../../fiscal/pantallas/subir_certificado_verifactu_screen.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaConfiguracionFiscalEmpresa extends StatefulWidget {
   const PantallaConfiguracionFiscalEmpresa({super.key});
@@ -89,11 +90,7 @@ class _PantallaConfiguracionFiscalEmpresaState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Configuración fiscal de la empresa'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Configuración fiscal de la empresa', showLeading: true),
       body: provider.cargando
           ? const Center(child: CircularProgressIndicator())
           : Form(

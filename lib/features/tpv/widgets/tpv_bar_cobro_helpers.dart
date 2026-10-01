@@ -153,6 +153,7 @@ Future<CobroResult> guardarCobro(CobroParams p) async {
   }).toList();
 
   final pedidoData = {
+    'empresa_id': p.empresaId,
     'mesa_id': p.mesaId,
     'mesa_nombre': p.nombreMesa,
     'comensales': p.comensales,
@@ -220,7 +221,8 @@ Future<CobroResult> guardarCobro(CobroParams p) async {
     if (doc.exists) pedidoCreado = Pedido.fromFirestore(doc);
   } catch (_) {}
 
-  // Venta (compatibilidad)
+  // Venta (compatibilidad legacy — fallo no bloqueante)
+  try {
   await db
       .collection('empresas')
       .doc(p.empresaId)
@@ -242,6 +244,7 @@ Future<CobroResult> guardarCobro(CobroParams p) async {
     'fecha': FieldValue.serverTimestamp(),
     'pedido_id': pedidoId,
   });
+  } catch (_) {}
 
   // Caja diaria (solo si no es fiado)
   if (!p.esFiado) await _actualizarCajaDiaria(db, p);

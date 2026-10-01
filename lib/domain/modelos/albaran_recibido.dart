@@ -23,6 +23,7 @@ class LineaAlbaran {
   final double cantidadPedida;     // 0 si no se sabe
   final double cantidadRecibida;
   final String notas;              // discrepancias, daños, etc.
+  final double? precioUnitario;    // precio neto sin IVA; null = no informado
 
   const LineaAlbaran({
     required this.descripcion,
@@ -30,7 +31,11 @@ class LineaAlbaran {
     this.cantidadPedida = 0,
     required this.cantidadRecibida,
     this.notas = '',
+    this.precioUnitario,
   });
+
+  double get importeTotal =>
+      (precioUnitario ?? 0) * (cantidadRecibida > 0 ? cantidadRecibida : cantidadPedida);
 
   factory LineaAlbaran.fromMap(Map<String, dynamic> m) => LineaAlbaran(
     descripcion:      m['descripcion'] ?? '',
@@ -38,6 +43,7 @@ class LineaAlbaran {
     cantidadPedida:   (m['cantidad_pedida'] as num?)?.toDouble() ?? 0,
     cantidadRecibida: (m['cantidad_recibida'] as num?)?.toDouble() ?? 0,
     notas:            m['notas'] ?? '',
+    precioUnitario:   (m['precio_unitario'] as num?)?.toDouble(),
   );
 
   Map<String, dynamic> toMap() => {
@@ -46,6 +52,7 @@ class LineaAlbaran {
     'cantidad_pedida':   cantidadPedida,
     'cantidad_recibida': cantidadRecibida,
     'notas':             notas,
+    if (precioUnitario != null) 'precio_unitario': precioUnitario,
   };
 
   LineaAlbaran copyWith({
@@ -54,12 +61,14 @@ class LineaAlbaran {
     double? cantidadPedida,
     double? cantidadRecibida,
     String? notas,
+    double? precioUnitario,
   }) => LineaAlbaran(
     descripcion:      descripcion      ?? this.descripcion,
     referencia:       referencia       ?? this.referencia,
     cantidadPedida:   cantidadPedida   ?? this.cantidadPedida,
     cantidadRecibida: cantidadRecibida ?? this.cantidadRecibida,
     notas:            notas            ?? this.notas,
+    precioUnitario:   precioUnitario   ?? this.precioUnitario,
   );
 }
 

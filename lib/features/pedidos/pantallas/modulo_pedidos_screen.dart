@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class ModuloPedidosScreen extends StatefulWidget {
   final String empresaId;
-  const ModuloPedidosScreen({super.key, required this.empresaId});
+  final bool esPropietario;
+  const ModuloPedidosScreen({super.key, required this.empresaId, this.esPropietario = false});
 
   @override
   State<ModuloPedidosScreen> createState() => _ModuloPedidosScreenState();
@@ -56,21 +58,20 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Pedidos', style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: _creandoPrueba
-                ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.science_outlined),
-            tooltip: 'Crear datos de prueba',
-            onPressed: _creandoPrueba ? null : _crearDatosPrueba,
-          ),
+      appBar: FluixAppBar(
+        titulo: 'Pedidos',
+        showLeading: true,
+        extraActions: [
+          if (widget.esPropietario)
+            IconButton(
+              icon: _creandoPrueba
+                  ? const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.science_outlined),
+              tooltip: 'Crear datos de prueba',
+              onPressed: _creandoPrueba ? null : _crearDatosPrueba,
+            ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Nuevo pedido',
@@ -693,11 +694,10 @@ class _DetallePedidoNuevo extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF5F7FA),
-          appBar: AppBar(
-            title: Text('Pedido — ${pedido.clienteNombre}'),
-            backgroundColor: const Color(0xFF1976D2),
-            foregroundColor: Colors.white,
-            actions: [
+          appBar: FluixAppBar(
+            titulo: 'Pedido — ${pedido.clienteNombre}',
+            showLeading: true,
+            extraActions: [
               PopupMenuButton<EstadoPedido>(
                 icon: const Icon(Icons.more_vert),
                 tooltip: 'Cambiar estado',

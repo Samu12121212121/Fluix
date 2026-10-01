@@ -7,6 +7,7 @@ import '../../../domain/modelos/pedido.dart';
 import '../../../domain/modelos/importacion_tpv.dart';
 import '../../../services/csv_ventas_parser.dart';
 import '../../../services/pedidos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class ImportarVentasCsvScreen extends StatefulWidget {
   final String empresaId;
@@ -160,20 +161,7 @@ class _ImportarVentasCsvScreenState extends State<ImportarVentasCsvScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Importar ventas CSV', style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: (_paso + 1) / 5,
-            backgroundColor: Colors.white24,
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        ),
-      ),
+      appBar: const FluixAppBar(titulo: 'Importar ventas CSV', showLeading: true),
       body: IndexedStack(
         index: _paso.clamp(0, 4),
         children: [

@@ -4,6 +4,7 @@ import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/evento_web.dart';
 import '../../../domain/modelos/seccion_web.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TAB EVENTOS — listado y gestión de eventos de la web
@@ -216,6 +217,14 @@ class TabEventosWeb extends StatelessWidget {
       onTap: (e) => _abrirEditor(context, e, color),
       onToggle: (e, v) => svc.toggleActivoEvento(empresaId, e.id, v),
       onEliminar: (e) => _confirmarEliminar(context, e),
+      onDuplicar: (e) async {
+        await svc.duplicarEvento(empresaId, e);
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Evento duplicado — aparece oculto, actívalo cuando quieras'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 3),
+        ));
+      },
       onEscribir: onAbrirEditorWord != null
           ? (e) => onAbrirEditorWord!(_entradaDesdeEvento(e), [])
           : null,
@@ -320,14 +329,15 @@ class _TimelineEventos extends StatefulWidget {
   final void Function(EventoWeb) onTap;
   final void Function(EventoWeb, bool) onToggle;
   final void Function(EventoWeb) onEliminar;
-  final void Function(EventoWeb)? onEscribir; // abre el editor Word
+  final void Function(EventoWeb)? onEscribir;
+  final void Function(EventoWeb)? onDuplicar;
   final int totalProximos;
   final Set<String> ciudades;
 
   const _TimelineEventos({
     required this.porMes, required this.pasados, required this.color,
     required this.onTap, required this.onToggle, required this.onEliminar,
-    this.onEscribir,
+    this.onEscribir, this.onDuplicar,
     required this.totalProximos, required this.ciudades,
   });
 
@@ -379,6 +389,7 @@ class _TimelineEventosState extends State<_TimelineEventos> {
               onToggle: (v) => widget.onToggle(e, v),
               onEliminar: () => widget.onEliminar(e),
               onEscribir: widget.onEscribir != null ? () => widget.onEscribir!(e) : null,
+              onDuplicar: widget.onDuplicar != null ? () => widget.onDuplicar!(e) : null,
             )),
           ],
         )),
@@ -416,6 +427,7 @@ class _TimelineEventosState extends State<_TimelineEventos> {
               onToggle: (v) => widget.onToggle(e, v),
               onEliminar: () => widget.onEliminar(e),
               onEscribir: widget.onEscribir != null ? () => widget.onEscribir!(e) : null,
+              onDuplicar: widget.onDuplicar != null ? () => widget.onDuplicar!(e) : null,
             )),
         ],
       ],
@@ -523,12 +535,13 @@ class _FilaEvento extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool> onToggle;
   final VoidCallback onEliminar;
-  final VoidCallback? onEscribir; // abre editor Word para el evento
+  final VoidCallback? onEscribir;
+  final VoidCallback? onDuplicar;
 
   const _FilaEvento({
     required this.evento, required this.color, this.pasado = false,
     required this.onTap, required this.onToggle, required this.onEliminar,
-    this.onEscribir,
+    this.onEscribir, this.onDuplicar,
   });
 
   static const _kNazariBase = 'https://seashell-boar-580681.hostingersite.com';
@@ -747,6 +760,17 @@ class _FilaEvento extends StatelessWidget {
                                           color: Color(0xFF7C3AED))),
                                 ]),
                               ),
+                            const PopupMenuItem(
+                              value: 'duplicar',
+                              child: Row(children: [
+                                Icon(Icons.copy_outlined,
+                                    size: 14, color: Color(0xFF7C3AED)),
+                                SizedBox(width: 8),
+                                Text('Duplicar',
+                                    style: TextStyle(fontSize: 13,
+                                        color: Color(0xFF7C3AED))),
+                              ]),
+                            ),
                             const PopupMenuDivider(),
                             const PopupMenuItem(
                               value: 'eliminar',
@@ -762,10 +786,11 @@ class _FilaEvento extends StatelessWidget {
                             ),
                           ],
                           onSelected: (a) {
-                            if (a == 'editar')   onTap();
-                            if (a == 'toggle')   onToggle(!evento.activo);
-                            if (a == 'escribir') onEscribir?.call();
-                            if (a == 'eliminar') onEliminar();
+                            if (a == 'editar')    onTap();
+                            if (a == 'toggle')    onToggle(!evento.activo);
+                            if (a == 'escribir')  onEscribir?.call();
+                            if (a == 'duplicar')  onDuplicar?.call();
+                            if (a == 'eliminar')  onEliminar();
                           },
                         ),
                       ],
@@ -961,16 +986,9 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
     if (widget.scrollController == null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF0F2F5),
-        appBar: AppBar(
-          title: Text(widget.evento == null ? 'Nuevo evento' : 'Editar evento'),
-          backgroundColor: color, foregroundColor: Colors.white, elevation: 0,
-          actions: [
-            TextButton(
-              onPressed: _guardando ? null : () => _guardar(context),
-              child: Text(_guardando ? '…' : 'Guardar',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
+                appBar: FluixAppBar(
+          titulo: widget.evento == null ? 'Nuevo evento' : 'Editar evento',
+          showLeading: true,
         ),
         body: _buildForm(context, color, null),
       );

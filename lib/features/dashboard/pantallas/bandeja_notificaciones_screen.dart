@@ -14,6 +14,9 @@ import '../../nominas/pantallas/modulo_nominas_screen.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import '../../fiscal/pantallas/calendario_fiscal_screen.dart';
 import 'pantalla_contenido_web.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../core/widgets/fluix_bottom_nav.dart';
+import '../../../core/utils/app_settings.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA — Bandeja de notificaciones in-app
@@ -21,79 +24,130 @@ import 'pantalla_contenido_web.dart';
 
 class BandejaNotificacionesScreen extends StatelessWidget {
   final String empresaId;
-  const BandejaNotificacionesScreen({super.key, required this.empresaId});
+  final bool esPropietario;
+  const BandejaNotificacionesScreen({
+    super.key,
+    required this.empresaId,
+    this.esPropietario = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final svc = BandejaNotificacionesService();
-    final dark = MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final bg = dark ? const Color(0xFF0A0F23) : Colors.white;
-    final surface = dark ? const Color(0xFF1E2139) : const Color(0xFFF5F7FA);
-    final border = dark ? const Color(0xFF2A2E45) : const Color(0xFFE0E3EC);
-    final texto = dark ? Colors.white : const Color(0xFF0A0F23);
-    final muted = dark ? const Color(0xFFB0B3C1) : const Color(0xFF6B7280);
-    const accent = Color(0xFF00FFC8);
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppSettings.darkMode,
+      builder: (context, dark, _) {
+        final bg      = dark ? const Color(0xFF0A0F23) : Colors.white;
+        final surface = dark ? const Color(0xFF1E2139) : const Color(0xFFF5F7FA);
+        final border  = dark ? const Color(0xFF2A2E45) : const Color(0xFFE0E3EC);
+        final texto   = dark ? Colors.white : const Color(0xFF0F172A);
+        final muted   = dark ? const Color(0xFFB0B3C1) : const Color(0xFF6B7280);
+        const accent  = Color(0xFF00FFC8);
+        return _buildScaffold(context, svc, dark, bg, surface, border, texto, muted, accent);
+      },
+    );
+  }
 
+  Widget _buildScaffold(BuildContext context, BandejaNotificacionesService svc,
+      bool dark, Color bg, Color surface, Color border, Color texto, Color muted, Color accent) {
+    final size = MediaQuery.of(context).size;
+    final isPortraitMobile = size.shortestSide < 600 && size.height > size.width;
     return Scaffold(
       backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: dark ? const Color(0xFF0A0F23) : Colors.white,
-        foregroundColor: texto,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: border),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.notifications_outlined, size: 20, color: accent),
-            const SizedBox(width: 8),
-            Text('Notificaciones',
-                style: TextStyle(fontWeight: FontWeight.w700, color: texto, fontSize: 16)),
-          ],
-        ),
-        actions: [
+      bottomNavigationBar: isPortraitMobile
+          ? FluixBottomNav(empresaId: empresaId)
+          : null,
+      appBar: FluixAppBar(
+        titulo: 'Notificaciones',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: () => svc.marcarTodasLeidas(empresaId),
-            child: Text('Marcar leídas',
-                style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w600)),
+            child: const Text('Marcar leídas',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          IconButton(
-            icon: Icon(Icons.science_outlined, color: muted),
-            tooltip: 'Cargar ejemplos',
-            onPressed: () async {
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Cargar notificaciones de ejemplo'),
-                  content: const Text(
-                      'Se crearán 11 notificaciones de ejemplo (una por cada tipo). '
-                      '¿Continuar?'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar')),
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Cargar')),
-                  ],
-                ),
-              );
-              if (ok == true && context.mounted) {
-                await svc.sembrarEjemplos(empresaId);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: const Text('11 notificaciones de ejemplo cargadas'),
-                    backgroundColor: Colors.green.shade700,
-                    behavior: SnackBarBehavior.floating,
-                  ));
+          if (esPropietario) PopupMenuButton<String>(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: 'Herramientas de prueba',
+            onSelected: (v) async {
+              if (v == 'ejemplos') {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Cargar notificaciones de ejemplo'),
+                    content: const Text(
+                        'Se crearán 11 notificaciones de ejemplo (una por cada tipo básico). '
+                        '¿Continuar?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancelar')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Cargar')),
+                    ],
+                  ),
+                );
+                if (ok == true && context.mounted) {
+                  await svc.sembrarEjemplos(empresaId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: const Text('11 notificaciones cargadas'),
+                      backgroundColor: Colors.green.shade700,
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }
+              } else if (v == 'todos') {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('🧪 Test completo'),
+                    content: const Text(
+                        'Se crearán 23 notificaciones — una por cada tipo conocido, '
+                        'incluyendo los que normalmente solo llegan como push (suscripción, '
+                        'fiscal, WhatsApp, stock, cobertura, etc.).\n\n'
+                        'Úsalo para verificar cuáles aparecen y cuáles necesitan ajuste.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancelar')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Lanzar test')),
+                    ],
+                  ),
+                );
+                if (ok == true && context.mounted) {
+                  await svc.sembrarTodosLosTipos(empresaId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: const Text('✅ 23 notificaciones creadas — revisa cuáles llegan'),
+                      backgroundColor: Colors.indigo.shade700,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 4),
+                    ));
+                  }
                 }
               }
             },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'todos', child: ListTile(
+                leading: Icon(Icons.bug_report_outlined),
+                title: Text('🧪 Test completo (23 tipos)'),
+                subtitle: Text('Incluye push-only, WhatsApp, stock…', style: TextStyle(fontSize: 11)),
+                contentPadding: EdgeInsets.zero,
+              )),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'ejemplos', child: ListTile(
+                leading: Icon(Icons.science_outlined),
+                title: Text('Cargar 11 ejemplos básicos'),
+                contentPadding: EdgeInsets.zero,
+              )),
+            ],
           ),
           IconButton(
-            icon: Icon(Icons.delete_sweep_outlined, color: muted),
+            icon: const Icon(Icons.delete_sweep_outlined),
             onPressed: () async {
               await svc.eliminarAntiguas(empresaId);
               if (context.mounted) {
@@ -113,6 +167,30 @@ class BandejaNotificacionesScreen extends StatelessWidget {
         builder: (ctx, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator(color: accent));
+          }
+          if (snap.hasError) {
+            final err = snap.error.toString();
+            final esPermisos = err.contains('permission') || err.contains('PERMISSION_DENIED');
+            final esIndice = err.contains('index') || err.contains('requires an index');
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(esPermisos ? Icons.lock_outline : Icons.error_outline,
+                      size: 48, color: Colors.orange),
+                  const SizedBox(height: 16),
+                  Text(
+                    esPermisos ? 'Sin permisos para leer notificaciones'
+                      : esIndice ? 'Índice de Firestore requerido'
+                      : 'Error cargando notificaciones',
+                    style: TextStyle(color: texto, fontWeight: FontWeight.w700, fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(err, style: TextStyle(color: muted, fontSize: 11), textAlign: TextAlign.center),
+                ]),
+              ),
+            );
           }
           final items = snap.data ?? [];
           if (items.isEmpty) {
@@ -147,9 +225,8 @@ class BandejaNotificacionesScreen extends StatelessWidget {
                   texto: texto,
                   muted: muted,
                   accent: accent,
-                  onTap: () async {
-                    await svc.marcarLeida(empresaId, n.id);
-                    if (!ctx.mounted) return;
+                  onTap: () {
+                    svc.marcarLeida(empresaId, n.id);
                     _navegarAModulo(ctx, n, empresaId);
                   },
                   onDismiss: () => svc.eliminar(empresaId, n.id),
@@ -167,10 +244,7 @@ class BandejaNotificacionesScreen extends StatelessWidget {
                   texto: texto,
                   muted: muted,
                   accent: accent,
-                  onTap: () async {
-                    if (!ctx.mounted) return;
-                    _navegarAModulo(ctx, n, empresaId);
-                  },
+                  onTap: () => _navegarAModulo(ctx, n, empresaId),
                   onDismiss: () => svc.eliminar(empresaId, n.id),
                 )),
               ],

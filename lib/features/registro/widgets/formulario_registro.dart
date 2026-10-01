@@ -248,6 +248,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
         TextFormField(
           controller: _telefonoEmpresaController,
           keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
           decoration: const InputDecoration(
             labelText: 'Teléfono de la empresa',
             prefixIcon: Icon(Icons.phone),
@@ -343,6 +344,7 @@ class _FormularioRegistroState extends State<FormularioRegistro> {
         TextFormField(
           controller: _telefonoPropietarioController,
           keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
           decoration: const InputDecoration(
             labelText: 'Teléfono personal',
             prefixIcon: Icon(Icons.phone_outlined),

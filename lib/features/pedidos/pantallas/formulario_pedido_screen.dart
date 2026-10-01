@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/pedido_whatsapp.dart';
 import 'package:planeag_flutter/services/pedidos_whatsapp_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class FormularioPedidoScreen extends StatefulWidget {
   final String empresaId;
@@ -40,16 +41,15 @@ class _FormularioPedidoScreenState extends State<FormularioPedidoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Nuevo pedido'),
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Nuevo pedido',
+        showLeading: true,
+        extraActions: [
           TextButton(
             onPressed: _guardando ? null : _guardar,
             child: _guardando
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

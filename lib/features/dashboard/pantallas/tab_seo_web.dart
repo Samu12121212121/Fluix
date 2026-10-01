@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
@@ -32,6 +33,16 @@ class _TabSeoWebState extends State<TabSeoWeb> {
   bool _guardando = false;
   bool _cargado = false;
   bool _subiendoImagen = false;
+  bool _schemaCopiado = false;
+
+  // Schema.org wizard fields
+  final _schemaNombreCtrl    = TextEditingController();
+  final _schemaTelCtrl       = TextEditingController();
+  final _schemaDireccionCtrl = TextEditingController();
+  final _schemaCiudadCtrl    = TextEditingController();
+  final _schemaPrecioCtrl    = TextEditingController();
+  final _schemaHorarioCtrl   = TextEditingController();
+  String _schemaTipo = 'Restaurant';
 
   @override
   void initState() {
@@ -63,6 +74,12 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     _kwCtrl.dispose();
     _gaCtrl.dispose();
     _fbCtrl.dispose();
+    _schemaNombreCtrl.dispose();
+    _schemaTelCtrl.dispose();
+    _schemaDireccionCtrl.dispose();
+    _schemaCiudadCtrl.dispose();
+    _schemaPrecioCtrl.dispose();
+    _schemaHorarioCtrl.dispose();
     super.dispose();
   }
 
@@ -282,6 +299,15 @@ class _TabSeoWebState extends State<TabSeoWeb> {
               ),
             ]),
           ),
+          const SizedBox(height: 14),
+
+          // ── Schema.org — datos estructurados ────────────────────────────
+          _buildCard(
+            titulo: 'Datos estructurados (Schema.org)',
+            icono: Icons.schema_outlined,
+            color: color,
+            child: _buildSchemaWizard(color),
+          ),
           const SizedBox(height: 20),
 
           // Botón guardar
@@ -463,6 +489,155 @@ class _TabSeoWebState extends State<TabSeoWeb> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+
+  Widget _buildSchemaWizard(Color color) {
+    const tipos = [
+      ('Restaurant', '🍽 Restaurante'),
+      ('CafeOrCoffeeShop', '☕ Cafetería'),
+      ('BeautySalon', '💅 Peluquería'),
+      ('LocalBusiness', '🏪 Negocio local'),
+      ('MedicalBusiness', '🏥 Clínica'),
+      ('AutoRepair', '🔧 Taller'),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text(
+        'Genera el JSON-LD que Google usa para mostrar tu negocio '
+        'en resultados enriquecidos.',
+        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
+      ),
+      const SizedBox(height: 12),
+      // Tipo de negocio
+      Wrap(spacing: 6, runSpacing: 6,
+        children: tipos.map(((String val, String label) t) {
+          final sel = _schemaTipo == t.$1;
+          return GestureDetector(
+            onTap: () => setState(() => _schemaTipo = t.$1),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: sel ? color.withValues(alpha: 0.1) : const Color(0xFFF8F9FB),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: sel ? color : const Color(0xFFE2E8F0)),
+              ),
+              child: Text(t.$2, style: TextStyle(
+                  fontSize: 11,
+                  color: sel ? color : const Color(0xFF64748B),
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
+            ),
+          );
+        }).toList()),
+      const SizedBox(height: 12),
+      _schemaField(_schemaNombreCtrl, 'Nombre del negocio *', 'Taberna Juanita'),
+      const SizedBox(height: 8),
+      _schemaField(_schemaTelCtrl, 'Teléfono', '+34 912 345 678'),
+      const SizedBox(height: 8),
+      _schemaField(_schemaDireccionCtrl, 'Dirección', 'Calle Mayor 10'),
+      const SizedBox(height: 8),
+      _schemaField(_schemaCiudadCtrl, 'Ciudad', 'Guadalajara'),
+      if (_schemaTipo == 'Restaurant' || _schemaTipo == 'CafeOrCoffeeShop') ...[
+        const SizedBox(height: 8),
+        _schemaField(_schemaPrecioCtrl, 'Rango de precio', '€ (bajo), €€ (medio), €€€ (alto)'),
+      ],
+      const SizedBox(height: 8),
+      _schemaField(_schemaHorarioCtrl, 'Horario (ej: Mo-Fr 09:00-21:00)', 'Mo-Fr 13:00-16:00'),
+      const SizedBox(height: 14),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _generarYCopiarSchema,
+          icon: Icon(_schemaCopiado
+              ? Icons.check_rounded
+              : Icons.code_rounded, size: 15),
+          label: Text(_schemaCopiado ? '¡Copiado!' : 'Generar y copiar JSON-LD'),
+          style: FilledButton.styleFrom(
+            backgroundColor: _schemaCopiado ? const Color(0xFF10B981) : color,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      const Text(
+        'Pega el JSON-LD generado en el <head> de tu web.',
+        style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+      ),
+    ]);
+  }
+
+  Widget _schemaField(TextEditingController ctrl, String label, String hint) =>
+      TextFormField(
+        controller: ctrl,
+        style: const TextStyle(fontSize: 12),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          hintStyle: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          isDense: true,
+        ),
+      );
+
+  void _generarYCopiarSchema() {
+    final nombre = _schemaNombreCtrl.text.trim();
+    if (nombre.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Introduce el nombre del negocio'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    final schema = <String, dynamic>{
+      '@context': 'https://schema.org',
+      '@type': _schemaTipo,
+      'name': nombre,
+    };
+    final tel = _schemaTelCtrl.text.trim();
+    if (tel.isNotEmpty) schema['telephone'] = tel;
+    final dir = _schemaDireccionCtrl.text.trim();
+    final ciudad = _schemaCiudadCtrl.text.trim();
+    if (dir.isNotEmpty || ciudad.isNotEmpty) {
+      schema['address'] = {
+        '@type': 'PostalAddress',
+        if (dir.isNotEmpty)    'streetAddress': dir,
+        if (ciudad.isNotEmpty) 'addressLocality': ciudad,
+        'addressCountry': 'ES',
+      };
+    }
+    final precio = _schemaPrecioCtrl.text.trim();
+    if (precio.isNotEmpty &&
+        (_schemaTipo == 'Restaurant' || _schemaTipo == 'CafeOrCoffeeShop')) {
+      schema['priceRange'] = precio;
+    }
+    final horario = _schemaHorarioCtrl.text.trim();
+    if (horario.isNotEmpty) schema['openingHours'] = horario;
+
+    // Formatear JSON bonito
+    final lines = <String>[];
+    lines.add('<script type="application/ld+json">');
+    lines.add('{');
+    schema.forEach((k, v) {
+      if (v is String) {
+        lines.add('  "$k": "$v",');
+      } else if (v is Map) {
+        final inner = v.entries.map((e) => '    "${e.key}": "${e.value}"').join(',\n');
+        lines.add('  "$k": {\n$inner\n  },');
+      }
+    });
+    // Quitar última coma
+    if (lines.isNotEmpty && lines.last.endsWith(',')) {
+      lines[lines.length - 1] = lines.last.substring(0, lines.last.length - 1);
+    }
+    lines.add('}');
+    lines.add('</script>');
+
+    Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    setState(() => _schemaCopiado = true);
+    Future.delayed(const Duration(seconds: 3),
+        () { if (mounted) setState(() => _schemaCopiado = false); });
   }
 
   Widget _buildCard({

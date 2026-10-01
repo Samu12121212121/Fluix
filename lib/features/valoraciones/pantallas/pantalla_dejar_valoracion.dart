@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/valoracion_service.dart';
 import '../../../models/valoracion_model.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class _V {
   static const fondo      = Color(0xFF0A0F23);
@@ -64,13 +65,7 @@ class _PantallaDejarValoracionState extends State<PantallaDejarValoracion> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _V.fondo,
-      appBar: AppBar(
-        backgroundColor: _V.superficie,
-        foregroundColor: _V.texto,
-        elevation: 0,
-        title: const Text('Dejar valoración',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      ),
+      appBar: const FluixAppBar(titulo: 'Dejar valoración', showLeading: true),
       body: _yaValorado == null
           ? const Center(child: CircularProgressIndicator(color: _V.amarillo))
           : _yaValorado == true

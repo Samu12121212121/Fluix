@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/app_config_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE NOTIFICACIONES
@@ -86,12 +87,7 @@ class _PantallaNotificacionesState extends State<PantallaNotificaciones> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Notificaciones'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Notificaciones', showLeading: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -238,12 +234,7 @@ class PantallaTemayColores extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Tema y Colores'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Tema y Colores', showLeading: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -534,12 +525,7 @@ class _PantallaBackupState extends State<PantallaBackup> {
     final color = context.watch<AppConfigProvider>().colorPrimario;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Copia de Seguridad'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Copia de Seguridad', showLeading: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

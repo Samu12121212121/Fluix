@@ -263,7 +263,11 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     return Consumer<AppConfigProvider>(
       builder: (context, config, _) => GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: () => SesionService().registrarActividad(),
+        onTap: () {
+          // Cerrar teclado al tocar fuera de cualquier campo — aplica en toda la app
+          FocusManager.instance.primaryFocus?.unfocus();
+          SesionService().registrarActividad();
+        },
         onPanDown: (_) => SesionService().registrarActividad(),
         child: MaterialApp(
           title: 'Fluix CRM',
@@ -272,6 +276,7 @@ class _FluixCrmAppState extends State<FluixCrmApp>
           theme: config.temaClaro,
           darkTheme: config.temaOscuro,
           themeMode: config.themeMode,
+          scrollBehavior: const _FluixScrollBehavior(),
           locale: const Locale('es', 'ES'),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
@@ -282,6 +287,16 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             Locale('es', 'ES'),
             Locale('en', 'US'),
           ],
+          // Dismiss teclado al hacer scroll en cualquier parte de la app
+          builder: (context, child) => NotificationListener<ScrollUpdateNotification>(
+            onNotification: (n) {
+              if (n.dragDetails != null) {
+                FocusManager.instance.primaryFocus?.unfocus();
+              }
+              return false;
+            },
+            child: child!,
+          ),
           routes: {
             '/login': (_) => const PantallaLogin(),
           },
@@ -511,4 +526,14 @@ void _intentarInicializarAdmin() {
       print('ℹ️ AdminInitializer no ejecutado: $e');
     }
   });
+}
+
+// Scroll behavior que elimina el glow de overscroll en Android (iOS ya usa bouncing)
+class _FluixScrollBehavior extends ScrollBehavior {
+  const _FluixScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+          BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:planeag_flutter/domain/modelos/albaran_recibido.dart';
 import 'package:planeag_flutter/domain/modelos/contabilidad.dart';
 import 'package:planeag_flutter/services/contabilidad_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class FormularioAlbaranRecibidoScreen extends StatefulWidget {
   final String empresaId;
@@ -122,11 +123,9 @@ class _FormularioAlbaranRecibidoScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar albarán' : 'Nuevo albarán recibido'),
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      appBar: FluixAppBar(
+        titulo: _esEdicion ? 'Editar albarán' : 'Nuevo albarán recibido',
+        showLeading: true,
       ),
       body: Form(
         key: _formKey,
@@ -323,6 +322,63 @@ class _FormularioAlbaranRecibidoScreenState
               validator: _requerido)),
         ]),
         const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: _campo(linea.ctrlPrecioUnitario, 'Precio unit. s/IVA (€)',
+                tipo: const TextInputType.numberWithOptions(decimal: true),
+                hint: 'Opcional'),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: Listenable.merge(
+                  [linea.ctrlPrecioUnitario, linea.ctrlCantRecibida]),
+              builder: (_, __) {
+                final precio = double.tryParse(
+                    linea.ctrlPrecioUnitario.text.replaceAll(',', '.')) ?? 0;
+                final cant = double.tryParse(
+                    linea.ctrlCantRecibida.text.replaceAll(',', '.')) ?? 0;
+                final total = precio * cant;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: total > 0
+                        ? _primary.withValues(alpha: 0.06)
+                        : const Color(0xFFEFF4FB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: total > 0
+                            ? _primary.withValues(alpha: 0.3)
+                            : const Color(0xFFBBD0ED)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Importe',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 2),
+                      Text(
+                        total > 0
+                            ? '${total.toStringAsFixed(2)} €'
+                            : '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: total > 0 ? _primary : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
         _campo(linea.ctrlNotas, 'Notas (daños, discrepancias...)', maxLines: 2),
       ]),
     );
@@ -487,13 +543,18 @@ class _FormularioAlbaranRecibidoScreenState
     try {
       final lineas = _lineas
           .where((l) => l.ctrlDescripcion.text.trim().isNotEmpty)
-          .map((l) => LineaAlbaran(
-                descripcion:      l.ctrlDescripcion.text.trim(),
-                referencia:       l.ctrlReferencia.text.trim(),
-                cantidadPedida:   double.tryParse(l.ctrlCantPedida.text) ?? 0,
-                cantidadRecibida: double.tryParse(l.ctrlCantRecibida.text) ?? 0,
-                notas:            l.ctrlNotas.text.trim(),
-              ))
+          .map((l) {
+            final precioStr = l.ctrlPrecioUnitario.text.trim().replaceAll(',', '.');
+            final precio = precioStr.isEmpty ? null : double.tryParse(precioStr);
+            return LineaAlbaran(
+              descripcion:      l.ctrlDescripcion.text.trim(),
+              referencia:       l.ctrlReferencia.text.trim(),
+              cantidadPedida:   double.tryParse(l.ctrlCantPedida.text) ?? 0,
+              cantidadRecibida: double.tryParse(l.ctrlCantRecibida.text) ?? 0,
+              notas:            l.ctrlNotas.text.trim(),
+              precioUnitario:   precio,
+            );
+          })
           .toList();
 
       await _svc.guardarAlbaranRecibido(
@@ -558,23 +619,26 @@ class _FormularioAlbaranRecibidoScreenState
 // ── Clase auxiliar para editar una línea ─────────────────────────────────────
 
 class _LineaEditable {
-  final ctrlDescripcion  = TextEditingController();
-  final ctrlReferencia   = TextEditingController();
-  final ctrlCantPedida   = TextEditingController();
-  final ctrlCantRecibida = TextEditingController();
-  final ctrlNotas        = TextEditingController();
+  final ctrlDescripcion    = TextEditingController();
+  final ctrlReferencia     = TextEditingController();
+  final ctrlCantPedida     = TextEditingController();
+  final ctrlCantRecibida   = TextEditingController();
+  final ctrlPrecioUnitario = TextEditingController();
+  final ctrlNotas          = TextEditingController();
 
   _LineaEditable();
 
   static _LineaEditable fromLinea(LineaAlbaran l) {
     final e = _LineaEditable();
-    e.ctrlDescripcion.text  = l.descripcion;
-    e.ctrlReferencia.text   = l.referencia;
-    e.ctrlCantPedida.text   = l.cantidadPedida > 0
+    e.ctrlDescripcion.text    = l.descripcion;
+    e.ctrlReferencia.text     = l.referencia;
+    e.ctrlCantPedida.text     = l.cantidadPedida > 0
         ? l.cantidadPedida.toStringAsFixed(2) : '';
-    e.ctrlCantRecibida.text = l.cantidadRecibida > 0
+    e.ctrlCantRecibida.text   = l.cantidadRecibida > 0
         ? l.cantidadRecibida.toStringAsFixed(2) : '';
-    e.ctrlNotas.text        = l.notas;
+    e.ctrlPrecioUnitario.text = l.precioUnitario != null
+        ? l.precioUnitario!.toStringAsFixed(2) : '';
+    e.ctrlNotas.text          = l.notas;
     return e;
   }
 
@@ -583,6 +647,7 @@ class _LineaEditable {
     ctrlReferencia.dispose();
     ctrlCantPedida.dispose();
     ctrlCantRecibida.dispose();
+    ctrlPrecioUnitario.dispose();
     ctrlNotas.dispose();
   }
 }

@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../models/programa_fidelizacion_model.dart';
 import '../../../models/qr_canje_model.dart';
 import '../../../services/fidelizacion_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaQRCanje extends StatefulWidget {
   final String negocioId;
@@ -51,11 +52,7 @@ class _PantallaQRCanjeState extends State<PantallaQRCanje> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF151932),
-        title: const Text('QR de Canje', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: const FluixAppBar(titulo: 'QR de Canje', showLeading: true),
       body: StreamBuilder<QrCanjeModel?>(
         stream: FidelizacionService.escucharQrCanje(widget.negocioId, widget.qrId),
         builder: (context, snapshot) {

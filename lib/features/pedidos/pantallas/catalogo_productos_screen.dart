@@ -4,6 +4,7 @@ import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:planeag_flutter/widgets/producto_imagen_widgets.dart';
 import 'package:planeag_flutter/features/pedidos/widgets/importacion_catalogo_sheet.dart';
 import 'formulario_producto_screen.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class CatalogoProductosScreen extends StatefulWidget {
   final String empresaId;
@@ -33,13 +34,10 @@ class _CatalogoProductosScreenState extends State<CatalogoProductosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Catálogo de Productos',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        actions: [
-          // Importar CSV
+      appBar: FluixAppBar(
+        titulo: 'Catálogo de Productos',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.upload_file),
             tooltip: 'Importar CSV',
@@ -48,19 +46,16 @@ class _CatalogoProductosScreenState extends State<CatalogoProductosScreen> {
                   empresaId: widget.empresaId);
               if (ok == true && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('✅ Importación completada'),
+                  content: Text('Importación completada'),
                   backgroundColor: Colors.green,
                 ));
               }
             },
           ),
           IconButton(
-            icon: Icon(_soloActivos
-                ? Icons.visibility
-                : Icons.visibility_off),
+            icon: Icon(_soloActivos ? Icons.visibility : Icons.visibility_off),
             tooltip: _soloActivos ? 'Ver todos' : 'Solo activos',
-            onPressed: () =>
-                setState(() => _soloActivos = !_soloActivos),
+            onPressed: () => setState(() => _soloActivos = !_soloActivos),
           ),
         ],
       ),

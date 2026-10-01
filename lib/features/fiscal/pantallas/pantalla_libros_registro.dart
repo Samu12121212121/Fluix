@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../domain/modelos/factura.dart';
 import '../../../domain/modelos/factura_recibida.dart';
 import '../../../services/exportadores_aeat/libro_registro_iva_exporter.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA LIBROS REGISTRO IVA
@@ -193,23 +194,17 @@ class _PantallaLibrosRegistroState extends State<PantallaLibrosRegistro>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Libros Registro IVA'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.upload_file), text: 'Emitidas'),
-            Tab(icon: Icon(Icons.download_for_offline), text: 'Recibidas'),
-          ],
-        ),
-      ),
+      appBar: const FluixAppBar(titulo: 'Libros Registro IVA', showLeading: true),
       body: Column(
         children: [
+          // ── Tabs ─────────────────────────────────────────────────────────────
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(icon: Icon(Icons.upload_file), text: 'Emitidas'),
+              Tab(icon: Icon(Icons.download_for_offline), text: 'Recibidas'),
+            ],
+          ),
           // ── Selector de periodo ─────────────────────────────────────────────
           _SelectorPeriodo(
             anio: _anio,

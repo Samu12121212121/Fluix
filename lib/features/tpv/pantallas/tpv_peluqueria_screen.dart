@@ -1,4 +1,4 @@
-﻿// TPV Peluquería - Vista Agenda Profesional con Timeline
+// TPV Peluquería - Vista Agenda Profesional con Timeline
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -2887,6 +2887,7 @@ class _DialogoProfesionalState extends State<_DialogoProfesional> {
             TextField(
               controller: _telefonoCtrl,
               keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: 'Teléfono (opcional)',
                 prefixIcon: Icon(Icons.phone_outlined),
@@ -4887,6 +4888,7 @@ class _DialogoNuevaCitaState extends State<_DialogoNuevaCita> {
                 Expanded(child: TextField(
                   controller: _telefonoCtrl,
                   keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Teléfono',
                     prefixIcon: Icon(Icons.phone_outlined),
@@ -6875,6 +6877,7 @@ class _ColTicketState extends State<_ColTicket> {
           controller: ctrl,
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: tema.textoPrimario),
           textAlign: TextAlign.center,
           decoration: InputDecoration(
@@ -6929,6 +6932,7 @@ class _ColTicketState extends State<_ColTicket> {
                   controller: ctrl,
                   autofocus: true,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: esPorcentaje ? 'Porcentaje (%)' : 'Importe (€)',
                     prefixIcon: Icon(
@@ -7510,6 +7514,7 @@ class _ClienteBuscadorState extends State<_ClienteBuscador> {
               TextField(
                 controller: telefonoCtrl,
                 keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
                 autofocus: true,
                 decoration: const InputDecoration(
                     labelText: 'Teléfono',
@@ -7792,6 +7797,7 @@ class _DialogoPagoState extends State<_DialogoPago> {
                 controller: _ctrl,
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                   labelText: 'Entrega del cliente (€)',
                   prefixIcon: Icon(Icons.payments_outlined),
@@ -7863,6 +7869,7 @@ class _DialogoPagoState extends State<_DialogoPago> {
                   Expanded(child: TextField(
                     controller: _splitCtrls[i],
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.done,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       labelText: 'Persona ${i + 1} (€)',
@@ -7913,6 +7920,7 @@ class _DialogoPagoState extends State<_DialogoPago> {
                 child: TextField(
                   controller: _ctrlMixto1,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: _metodos.firstWhere(
                             (m) => m.id == _metodo,
@@ -7932,6 +7940,7 @@ class _DialogoPagoState extends State<_DialogoPago> {
                 child: TextField(
                   controller: _ctrlMixto2,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: _metodos.firstWhere(
                             (m) => m.id == _metodoSecundario,
@@ -9159,6 +9168,7 @@ class _PelCierreDeCajaState extends State<_PelCierreDeCaja> {
                   child: TextField(
                     controller: _efectivoContadoCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.done,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
                       prefixText: '€ ',
@@ -9942,6 +9952,7 @@ class _DialogoAperturaCajaState extends State<_DialogoAperturaCaja> {
           TextField(
             controller: _montoCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
             decoration: const InputDecoration(
               labelText: 'Monto inicial (€)',
               prefixIcon: Icon(Icons.euro),

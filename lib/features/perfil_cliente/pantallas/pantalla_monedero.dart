@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/trofeos_service.dart';
 import '../../../domain/modelos/monedero.dart';
 import '../../tienda_monedas/pantalla_tienda_monedas.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kBg      = Color(0xFF0A0F23);
 const _kSurface = Color(0xFF151932);
@@ -23,11 +24,10 @@ class PantallaMonedero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: _kSurface,
-        foregroundColor: _kTexto,
-        title: const Text('Mi Monedero', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Mi Monedero',
+        showLeading: true,
+        extraActions: [
           TextButton.icon(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTiendaMonedas())),
             icon: const Text('🛍️'),

@@ -56,7 +56,7 @@ function buildEmailEmpresa(opts: {
 
 // ── EMAIL al crear reserva de app_cliente (push/in-app está en index.ts) ─────
 export const onNuevaReservaEmail = onDocumentCreated(
-  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const snap = event.data; if (!snap) return;
     const r = snap.data(); const empresaId = event.params.empresaId; const reservaId = event.params.reservaId;
@@ -84,7 +84,7 @@ export const onNuevaReservaEmail = onDocumentCreated(
 
 // ── TRIGGER colección notificaciones_reservas (desde Flutter) ────────────────
 export const onNuevaNotificacionReserva = onDocumentCreated(
-  { document: "notificaciones_reservas/{docId}", region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
+  { document: "notificaciones_reservas/{docId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const snap = event.data; if (!snap) return;
     const data = snap.data(); if (data.procesado) return;
@@ -114,7 +114,7 @@ function setCors(res: any): void {
 
 // ── HTTP: Confirmar reserva ───────────────────────────────────────────────────
 export const confirmarReserva = onRequest(
-  { region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
   async (req, res) => {
     setCors(res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
@@ -144,7 +144,7 @@ export const confirmarReserva = onRequest(
 
 // ── HTTP: Rechazar reserva ────────────────────────────────────────────────────
 export const rechazarReserva = onRequest(
-  { region: REGION, secrets: ["RESEND_API_KEY", "RESERVAS_TOKEN_SECRET"] },
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
   async (req, res) => {
     setCors(res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }

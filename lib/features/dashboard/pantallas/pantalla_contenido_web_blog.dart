@@ -37,8 +37,18 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
   }
 
   void _abrirEditor(BuildContext context, List<CategoriaBlog> cats, {EntradaBlog? entrada}) {
+    // Si es entrada nueva y hay tipo fijo (noticias/entrevistas), precargarlo
+    final entradaEfectiva = entrada ??
+        (widget.filtroTipoFijo != null
+            ? EntradaBlog(
+                id: '',
+                titulo: '',
+                fechaPublicacion: DateTime.now(),
+                tipo: widget.filtroTipoFijo!,
+              )
+            : null);
     if (widget.onAbrirEditor != null) {
-      widget.onAbrirEditor!(entrada, cats);
+      widget.onAbrirEditor!(entradaEfectiva, cats);
       return;
     }
     // fallback: Navigator.push (mantener por compatibilidad)
@@ -49,7 +59,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
         builder: (_) => PantallaEditorBlog(
           empresaId: widget.empresaId,
           svc: widget.svc,
-          entrada: entrada,
+          entrada: entradaEfectiva,
           categorias: cats,
           embedded: false,
         ),

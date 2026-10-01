@@ -134,9 +134,12 @@ class PdfTemplateService {
   }
 
   Future<String> crearPlantilla(PdfTemplate plantilla) async {
-    final ref = _db.collection(_col).doc();
-    await ref.set(plantilla.copyWith(id: ref.id).toFirestore());
-    return ref.id;
+    // Usar el id existente para que document path == id field.
+    // establecerComoDefault y actualizarPlantilla dependen de esa igualdad.
+    final id = plantilla.id.isNotEmpty ? plantilla.id : _db.collection(_col).doc().id;
+    final ref = _db.collection(_col).doc(id);
+    await ref.set(plantilla.copyWith(id: id).toFirestore());
+    return id;
   }
 
   Future<void> actualizarPlantilla(PdfTemplate plantilla) async {

@@ -6,6 +6,7 @@ import '../../../services/trofeos_service.dart';
 import '../../tienda_monedas/pantalla_tienda_monedas.dart';
 import 'pantalla_monedero.dart';
 import '../widgets/trofeo_desbloqueado_overlay.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 const _kBg     = Color(0xFF0A0F23);
 const _kCard   = Color(0xFF1E2139);
@@ -36,11 +37,10 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
         return Stack(children: [
           Scaffold(
             backgroundColor: _kBg,
-            appBar: AppBar(
-              backgroundColor: const Color(0xFF151932),
-              foregroundColor: _kTexto,
-              title: const Text('Mis Trofeos', style: TextStyle(fontWeight: FontWeight.bold)),
-              actions: [
+            appBar: FluixAppBar(
+        titulo: 'Mis Trofeos',
+        showLeading: true,
+        extraActions: [
                 StreamBuilder<int>(
                   stream: TrofeosService.streamMonedas(uid),
                   builder: (_, snap) => GestureDetector(
@@ -65,7 +65,7 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
                   ),
                 ),
               ],
-            ),
+      ),
             body: StreamBuilder<Map<String, Map<String, dynamic>>>(
               stream: TrofeosService.streamTrofeos(uid),
               builder: (_, snap) {

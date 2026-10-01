@@ -9,6 +9,7 @@ import '../../fichajes/servicios/fichaje_service.dart';
 import '../../vacaciones/pantallas/nueva_solicitud_form.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import '../widgets/baja_laboral_widget.dart';
+import '../widgets/canal_comunicacion_widget.dart';
 import '../widgets/documentos_empleado_widget.dart';
 import '../widgets/nominas_empleado_widget.dart' show NominasEmpleadoWidget;
 
@@ -54,6 +55,23 @@ class PortalEmpleadoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Guard: si NO es modoAdmin, verificar que el usuario actual es el empleado
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (!modoAdmin && currentUid.isNotEmpty && currentUid != _uid) {
+      return Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF94A3B8)),
+          const SizedBox(height: 12),
+          const Text('Acceso restringido', style: TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+          const SizedBox(height: 6),
+          const Text('Este portal es solo para el empleado asignado.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+        ],
+      ));
+    }
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').doc(_uid).snapshots(),
       builder: (ctx, snap) {
@@ -126,6 +144,18 @@ class PortalEmpleadoScreen extends StatelessWidget {
                       esPropietario: true,
                     )),
                   ],
+
+                  // ── Canal de comunicación interno ─────────────────────────
+                  const SizedBox(height: 24),
+                  Text('Mensajes',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _text)),
+                  const SizedBox(height: 10),
+                  CanalComunicacionWidget(
+                    empresaId: empresaId,
+                    empleadoUid: _uid,
+                    empleadoNombre: nombre,
+                    modoAdmin: modoAdmin,
+                  ),
                 ],
               ),
             );

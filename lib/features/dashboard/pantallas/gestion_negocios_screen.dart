@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../models/negocio_publico_model.dart';
 import '../../../services/negocios_publicos_service.dart';
 import '../../../services/sincronizacion_servicios_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class _EmpresaItem {
   final String id;
@@ -46,11 +47,10 @@ class _GestionNegociosScreenState extends State<GestionNegociosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestión de Negocios'),
-        backgroundColor: _azul,
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Gestión de Negocios',
+        showLeading: true,
+        extraActions: [
           IconButton(icon: const Icon(Icons.add_business), onPressed: _crearNegocio, tooltip: 'Nuevo negocio'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: () => setState(() {}), tooltip: 'Actualizar'),
           PopupMenuButton<String>(

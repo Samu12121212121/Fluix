@@ -3,6 +3,7 @@ import 'package:planeag_flutter/domain/modelos/widget_config.dart' show WidgetCo
 import 'package:shimmer/shimmer.dart';
 import '../../../services/widget_manager_service.dart';
 import '../../../services/suscripcion_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Mapa de widget ID → pack requerido ('gestion', 'tienda', o null = siempre disponible)
 const Map<String, String?> _packRequeridoPorWidget = {
@@ -63,12 +64,10 @@ class _ConfiguracionWidgetsScreenState extends State<ConfiguracionWidgetsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Personalizar Dashboard'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Personalizar Dashboard',
+        showLeading: true,
+        extraActions: [
           IconButton(
             onPressed: _mostrarAyuda,
             icon: const Icon(Icons.help_outline),

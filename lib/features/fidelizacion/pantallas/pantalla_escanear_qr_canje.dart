@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/qr_canje_model.dart';
 import '../../../services/fidelizacion_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class PantallaEscanearQRCanje extends StatefulWidget {
   final String negocioId;
@@ -34,11 +35,10 @@ class _PantallaEscanearQRCanjeState extends State<PantallaEscanearQRCanje> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: const Text('Escanear Canje Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [IconButton(icon: const Icon(Icons.flash_on), onPressed: () => _camera.toggleTorch())],
+      appBar: FluixAppBar(
+        titulo: 'Escanear Canje Cliente',
+        showLeading: true,
+        extraActions: [IconButton(icon: const Icon(Icons.flash_on), onPressed: () => _camera.toggleTorch())],
       ),
       body: Stack(
         children: [

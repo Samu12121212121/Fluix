@@ -2323,6 +2323,7 @@ Future<void> mostrarDialogoAperturaCaja(
               controller: ctrl,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: 'Fondo inicial (€)',
                 prefixIcon: Icon(Icons.euro),
@@ -3802,6 +3803,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
                     controller: importeCtrl,
                     autofocus: true,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
                       labelText: 'Importe a descontar (€)',
                       prefixIcon: Icon(Icons.euro),
@@ -3866,6 +3868,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
           controller: ctrl,
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
           decoration: const InputDecoration(
             labelText: 'Nuevo precio unitario (€)',
             prefixIcon: Icon(Icons.euro),
@@ -5619,6 +5622,7 @@ Future<void> _mostrarDialogoEditarProducto(
                     child: TextField(
                       controller: ivaCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
                         suffixText: '%',
                         isDense: true,
@@ -5944,6 +5948,7 @@ class _DialogoNuevaMesaState extends State<_DialogoNuevaMesa> {
               decoration: const InputDecoration(
                   labelText: 'Número (opcional)', hintText: '1'),
               keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -6224,6 +6229,7 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
                     child: TextField(
                       controller: _ivaCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
                         suffixText: '%',
                         isDense: true,
@@ -6491,6 +6497,7 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
               TextField(
                 controller: _propinaCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
                 onChanged: (v) => setState(() => _propina = double.tryParse(v.replaceAll(',', '.')) ?? 0),
                 decoration: const InputDecoration(
                   labelText: 'Propina (opcional)',
@@ -6764,6 +6771,7 @@ class _DialogoMetodoPagoState extends State<_DialogoMetodoPago> {
                     child: TextField(
                       controller: _splitCtrls[i],
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         labelText: 'Persona ${i + 1} (€)',
@@ -7529,6 +7537,7 @@ class _CierreDeCajaState extends State<_CierreDeCaja> {
                             TextField(
                               controller: _efectivoRealCtrl,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textInputAction: TextInputAction.done,
                               decoration: const InputDecoration(
                                 labelText: 'Efectivo contado (€)',
                                 hintText: '0.00',

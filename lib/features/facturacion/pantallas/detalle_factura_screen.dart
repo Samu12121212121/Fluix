@@ -168,7 +168,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       title: Text('Crear rectificativa'),
                       contentPadding: EdgeInsets.zero,
                     )),
-              if (widget.factura.esAlbaran) ...[
+              if (widget.factura.esAlbaran && !widget.factura.facturado) ...[
                 const PopupMenuItem(
                     value: 'convertir_albaran',
                     child: ListTile(
@@ -177,7 +177,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       contentPadding: EdgeInsets.zero,
                     )),
               ],
-              if (widget.factura.esProforma) ...[
+              if (widget.factura.esProforma && !widget.factura.esAnulada) ...[
                 const PopupMenuItem(
                     value: 'presup_enviado',
                     child: ListTile(
@@ -281,7 +281,7 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                  child: const Text('PROFORMA', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w700, fontSize: 10)),
+                  child: const Text('PRESUPUESTO', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w700, fontSize: 10)),
                 ),
             ]),
             const SizedBox(height: 16),

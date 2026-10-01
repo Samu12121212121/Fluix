@@ -159,6 +159,8 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.shortestSide < 600 && size.height > size.width;
     return ColoredBox(
       color: _bg,
       child: RefreshIndicator(
@@ -169,15 +171,15 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                 ? _buildError(_errorCarga!)
                 : SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                    padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 32),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                      // ── Cabecera estilo dashboard ──────────────────────────
+                      // ── Cabecera ───────────────────────────────────────────
                       Row(children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           const Text('Panel de Plataforma',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _text)),
-                          const Text('Métricas globales de Fluix — ${ConstantesApp.webPropietaria}',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _text)),
+                          const Text('Métricas globales de Fluix',
                               style: TextStyle(fontSize: 12, color: _sub)),
                         ])),
                         TextButton.icon(
@@ -187,56 +189,67 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                           style: TextButton.styleFrom(foregroundColor: const Color(0xFF7C3AED)),
                         ),
                       ]),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // ── Strip KPI 1: Plataforma ────────────────────────────
                       _kpiStrip([
-                        _kd(Icons.business_outlined,       const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empresas',          '${_datos.totalEmpresas}',          '${_datos.empresasNuevasMes} nuevas este mes'),
-                        _kd(Icons.account_balance_wallet,  const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'MRR',               '€${_datos.mrr.toStringAsFixed(0)}','por mes recurrente'),
-                        _kd(Icons.trending_up_rounded,     const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'ARR',               '€${(_datos.mrr*12).toStringAsFixed(0)}','ingresos anuales'),
-                        _kd(Icons.check_circle_outline,    const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'Suscrip. activas',  '${_datos.suscripcionesActivas}',   'empresas pagando'),
-                        _kd(Icons.warning_amber_rounded,   const Color(0xFFFEF3C7), const Color(0xFFF59E0B), 'Vencen en 7d',     '${_datos.suscripcionesVencen7}',   'renovar pronto'),
+                        _kd(Icons.business_outlined,       const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empresas',          '${_datos.totalEmpresas}',          '${_datos.empresasNuevasMes} nuevas'),
+                        _kd(Icons.account_balance_wallet,  const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'MRR',               '€${_datos.mrr.toStringAsFixed(0)}','recurrente/mes'),
+                        _kd(Icons.trending_up_rounded,     const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'ARR',               '€${(_datos.mrr*12).toStringAsFixed(0)}','anual estimado'),
+                        _kd(Icons.check_circle_outline,    const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'Activas',           '${_datos.suscripcionesActivas}',   'pagando'),
+                        _kd(Icons.warning_amber_rounded,   const Color(0xFFFEF3C7), const Color(0xFFF59E0B), 'Vencen 7d',        '${_datos.suscripcionesVencen7}',   'renovar pronto'),
                         _kd(Icons.cancel_outlined,         const Color(0xFFFFE4E6), const Color(0xFFEF4444), 'Vencidas',         '${_datos.suscripcionesVencidas}',   'sin suscripción'),
-                      ]),
-                      const SizedBox(height: 12),
+                      ], mobile: isMobile),
+                      const SizedBox(height: 10),
 
                       // ── Strip KPI 2: Actividad ─────────────────────────────
                       _kpiStrip([
-                        _kd(Icons.shopping_bag_outlined,   const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Pedidos totales',   '${_datos.totalPedidos}',           'todas las empresas'),
-                        _kd(Icons.receipt_rounded,         const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'Facturas emitidas', '${_datos.totalFacturas}',           'historial total'),
+                        _kd(Icons.shopping_bag_outlined,   const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Pedidos',           '${_datos.totalPedidos}',           'todas las empresas'),
+                        _kd(Icons.receipt_rounded,         const Color(0xFFF3E8FF), const Color(0xFF7C3AED), 'Facturas',          '${_datos.totalFacturas}',           'historial total'),
                         _kd(Icons.star_half_rounded,       const Color(0xFFFEF3C7), const Color(0xFFF59E0B), 'Valoraciones',      '${_datos.totalValoraciones}',       'todas las reseñas'),
                         _kd(Icons.event_available_rounded, const Color(0xFFDCFCE7), const Color(0xFF22C55E), 'Reservas',          '${_datos.totalReservas}',           'historial total'),
-                        _kd(Icons.badge_rounded,           const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empleados',         '${_datos.totalUsuarios}',           'en toda la plataforma'),
-                        _kd(Icons.people_outlined,         const Color(0xFFDCFCE7), const Color(0xFF14B8A6), 'Usuarios B2C',      '${_datos.usuariosB2CTotal}',        '${_datos.usuariosB2CNuevosMes} nuevos este mes'),
-                      ]),
+                        _kd(Icons.badge_rounded,           const Color(0xFFDBEAFE), const Color(0xFF3B82F6), 'Empleados',         '${_datos.totalUsuarios}',           'en plataforma'),
+                        _kd(Icons.people_outlined,         const Color(0xFFDCFCE7), const Color(0xFF14B8A6), 'Usuarios B2C',      '${_datos.usuariosB2CTotal}',        '${_datos.usuariosB2CNuevosMes} nuevos'),
+                      ], mobile: isMobile),
                       const SizedBox(height: 16),
 
-                      // ── Contenido 2 columnas ──────────────────────────────
-                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        // Izquierda
-                        Expanded(flex: 3, child: Column(children: [
-                          _ingresoCard(),
-                          const SizedBox(height: 12),
-                          _actividadCard(),
-                          const SizedBox(height: 12),
-                          _metricasB2CCard(),
-                        ])),
-                        const SizedBox(width: 14),
-                        // Derecha
-                        Expanded(flex: 2, child: Column(children: [
-                          _suscripcionesCard(),
-                          const SizedBox(height: 12),
-                          _fichajesCard(),
-                          const SizedBox(height: 12),
-                          _webCard(),
-                          const SizedBox(height: 12),
-                          _negociosPublicosCard(context),
-                          const SizedBox(height: 12),
-                          _herramientasDevCard(context),
-                          const SizedBox(height: 12),
+                      // ── Contenido — columna única en móvil, 2 columnas en desktop ──
+                      if (isMobile)
+                        Column(children: [
+                          _ingresoCard(),      const SizedBox(height: 12),
+                          _suscripcionesCard(),const SizedBox(height: 12),
+                          _actividadCard(),    const SizedBox(height: 12),
+                          _fichajesCard(),     const SizedBox(height: 12),
+                          _webCard(),          const SizedBox(height: 12),
+                          _metricasB2CCard(),  const SizedBox(height: 12),
+                          _negociosPublicosCard(context), const SizedBox(height: 12),
+                          _herramientasDevCard(context),  const SizedBox(height: 12),
                           _nazariCard(context),
-                        ])),
-                      ]),
+                        ])
+                      else
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(flex: 3, child: Column(children: [
+                            _ingresoCard(),
+                            const SizedBox(height: 12),
+                            _actividadCard(),
+                            const SizedBox(height: 12),
+                            _metricasB2CCard(),
+                          ])),
+                          const SizedBox(width: 14),
+                          Expanded(flex: 2, child: Column(children: [
+                            _suscripcionesCard(),
+                            const SizedBox(height: 12),
+                            _fichajesCard(),
+                            const SizedBox(height: 12),
+                            _webCard(),
+                            const SizedBox(height: 12),
+                            _negociosPublicosCard(context),
+                            const SizedBox(height: 12),
+                            _herramientasDevCard(context),
+                            const SizedBox(height: 12),
+                            _nazariCard(context),
+                          ])),
+                        ]),
                     ]),
                   ),
       ),
@@ -253,14 +266,23 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
       (icon: icon, bg: bg, color: color, label: label, valor: valor, sub: sub);
 
   // Fila de KPI tiles (hasta 6)
-  Widget _kpiStrip(List<({IconData icon, Color bg, Color color, String label, String valor, String sub})> items) {
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: items.expand((e) => [
-            Expanded(child: _kpiTile(e.icon, e.bg, e.color, e.label, e.valor, e.sub)),
-            if (e != items.last) const SizedBox(width: 10),
-          ]).toList()),
-    );
+  Widget _kpiStrip(List<({IconData icon, Color bg, Color color, String label, String valor, String sub})> items, {bool mobile = false}) {
+    Widget buildRow(List<({IconData icon, Color bg, Color color, String label, String valor, String sub})> rowItems) =>
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: rowItems.expand((e) => [
+                Expanded(child: _kpiTile(e.icon, e.bg, e.color, e.label, e.valor, e.sub)),
+                if (e != rowItems.last) const SizedBox(width: 8),
+              ]).toList()),
+        );
+    if (!mobile) return buildRow(items);
+    // Móvil: filas de 3
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += 3) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
+      rows.add(buildRow(items.sublist(i, (i + 3).clamp(0, items.length))));
+    }
+    return Column(children: rows);
   }
 
   Widget _kpiTile(IconData icon, Color bgIcon, Color color, String label, String valor, String sub2) =>

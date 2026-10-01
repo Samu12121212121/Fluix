@@ -893,7 +893,7 @@ class PdfService {
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
                   child: pw.Text(
-                    'PROFORMA',
+                    'PRESUPUESTO',
                     style: pw.TextStyle(
                         color: PdfColor.fromHex('#009688'),
                         fontSize: 14,
@@ -1002,7 +1002,7 @@ class PdfService {
       final tipoUi = factura.esRectificativa
           ? uiTpl.TipoDocumentoPdf.facturaRectificativa
           : factura.esProforma
-              ? uiTpl.TipoDocumentoPdf.proforma
+              ? uiTpl.TipoDocumentoPdf.presupuesto
               : uiTpl.TipoDocumentoPdf.factura;
       tpl = await svc.getPlantillaDefault(empresaId, tipoUi);
       if (tpl != null) {
@@ -1741,7 +1741,7 @@ class PdfService {
     if (override != null) return override;
     if (f == null) return 'FACTURA';
     if (f.esRectificativa) return 'FACTURA RECTIFICATIVA';
-    if (f.esProforma) return 'FACTURA PROFORMA';
+    if (f.esProforma) return 'PRESUPUESTO';
     return 'FACTURA';
   }
 
@@ -3828,7 +3828,7 @@ class PdfService {
             ]),
             pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
               pw.Text(
-                factura.esRectificativa ? 'RECTIFICATIVA' : factura.esProforma ? 'PROFORMA' : 'FACTURA',
+                factura.esRectificativa ? 'RECTIFICATIVA' : factura.esProforma ? 'PRESUPUESTO' : 'FACTURA',
                 style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: colPrim, letterSpacing: 2),
               ),
               pw.Text(factura.numeroFactura, style: pw.TextStyle(fontSize: 11, color: colTxt, fontWeight: pw.FontWeight.bold)),
@@ -4011,7 +4011,7 @@ class PdfService {
             ]),
             pw.SizedBox(height: 16),
             pw.Text(
-              factura.esRectificativa ? 'FACTURA RECTIFICATIVA' : factura.esProforma ? 'FACTURA PROFORMA' : 'FACTURA',
+              factura.esRectificativa ? 'FACTURA RECTIFICATIVA' : factura.esProforma ? 'PRESUPUESTO' : 'FACTURA',
               style: pw.TextStyle(color: PdfColor(1, 1, 1, 0.55), fontSize: 9, letterSpacing: 3, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 4),

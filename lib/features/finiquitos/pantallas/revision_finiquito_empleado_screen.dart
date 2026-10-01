@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../domain/modelos/finiquito.dart';
 import '../../../services/firma_finiquito_service.dart';
 import '../widgets/firma_finiquito_canvas.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA DE REVISIÓN Y FIRMA DEL FINIQUITO (vista del empleado)
@@ -146,12 +147,7 @@ class _RevisionFiniquitoEmpleadoScreenState
     final f = widget.finiquito;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Revisión del finiquito'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const FluixAppBar(titulo: 'Revisión del finiquito', showLeading: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

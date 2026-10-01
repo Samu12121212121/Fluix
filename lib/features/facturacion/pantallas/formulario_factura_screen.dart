@@ -66,6 +66,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   final _ctrlNif = TextEditingController();
   final _ctrlRazonSocial = TextEditingController();
   final _ctrlDireccion = TextEditingController();
+  final _ctrlCodigoPostal = TextEditingController();
+  final _ctrlCiudad = TextEditingController();
   TipoClienteFactura _tipoCliente = TipoClienteFactura.particular;
   bool _mostrarDatosFiscales = false;
   String? _errorNif;
@@ -120,7 +122,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   @override
   void dispose() {
     AppSettings.darkMode.removeListener(_onDarkChange);
-    for (final c in [_ctrlNombre, _ctrlTelefono, _ctrlCorreo, _ctrlNif, _ctrlRazonSocial, _ctrlDireccion, _ctrlDiasVenc, _ctrlNotasInternas, _ctrlNotasCliente]) {
+    for (final c in [_ctrlNombre, _ctrlTelefono, _ctrlCorreo, _ctrlNif, _ctrlRazonSocial, _ctrlDireccion, _ctrlCodigoPostal, _ctrlCiudad, _ctrlDiasVenc, _ctrlNotasInternas, _ctrlNotasCliente]) {
       c.dispose();
     }
     super.dispose();
@@ -167,6 +169,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
       _ctrlNif.text = f.datosFiscales?.nif ?? '';
       _ctrlRazonSocial.text = f.datosFiscales?.razonSocial ?? '';
       _ctrlDireccion.text = f.datosFiscales?.direccion ?? '';
+      _ctrlCodigoPostal.text = f.datosFiscales?.codigoPostal ?? '';
+      _ctrlCiudad.text = f.datosFiscales?.ciudad ?? '';
     }
   }
 
@@ -182,6 +186,12 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
     final t = _t;
     return Scaffold(
       backgroundColor: _bgColor,
+      appBar: FluixAppBar(
+        titulo: widget.facturaExistente != null
+            ? 'Editar ${_tipoFactura.etiqueta.toLowerCase()}'
+            : 'Nuevo ${_tipoFactura == TipoFactura.albaran ? "albarán" : _tipoFactura.etiqueta.toLowerCase()}',
+        showLeading: true,
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -264,6 +274,29 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
     const SizedBox(height: 10),
     _campo('Razón social', _ctrlRazonSocial),
     _campo('Dirección fiscal completa', _ctrlDireccion),
+    Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(children: [
+        SizedBox(
+          width: 110,
+          child: TextFormField(
+            controller: _ctrlCodigoPostal,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
+            maxLength: 5,
+            decoration: _deco('CP').copyWith(counterText: ''),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextFormField(
+            controller: _ctrlCiudad,
+            textInputAction: TextInputAction.next,
+            decoration: _deco('Ciudad'),
+          ),
+        ),
+      ]),
+    ),
   ];
 
   List<Widget> _buildConfiguracion() => [
@@ -349,6 +382,7 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
       controller: _ctrlDiasVenc,
       decoration: _deco('Días hasta vencimiento'),
       keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
     ),
   ];
 
@@ -564,12 +598,12 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
   // ── ACCIONES ──────────────────────────────────────────────────────────────
 
   Future<void> _agregarLinea() async {
-    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio);
+    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio, empresaId: widget.empresaId);
     if (linea != null) setState(() => _lineas.add(linea));
   }
 
   Future<void> _editarLinea(int i) async {
-    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio, editar: _lineas[i]);
+    final linea = await mostrarLineaSheet(context, ivaDefault: _porcentajeIva, esComercio: _esComercio, editar: _lineas[i], empresaId: widget.empresaId);
     if (linea != null) setState(() => _lineas[i] = linea);
   }
 
@@ -612,6 +646,8 @@ class _FormularioFacturaScreenState extends State<FormularioFacturaScreen> {
           nif: nif,
           razonSocial: _ctrlRazonSocial.text.trim().isEmpty ? null : _ctrlRazonSocial.text.trim(),
           direccion: _ctrlDireccion.text.trim().isEmpty ? null : _ctrlDireccion.text.trim(),
+          codigoPostal: _ctrlCodigoPostal.text.trim().isEmpty ? null : _ctrlCodigoPostal.text.trim(),
+          ciudad: _ctrlCiudad.text.trim().isEmpty ? null : _ctrlCiudad.text.trim(),
         );
         if (!fiscales.tieneDatos) fiscales = null;
       }

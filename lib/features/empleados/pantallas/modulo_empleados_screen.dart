@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -14,8 +15,9 @@ import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/convenio_firestore_service.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../../../services/auth/invitaciones_service.dart';
+import '../widgets/canal_comunicacion_widget.dart';
 import '../widgets/selector_foto_widget.dart';
 import '../widgets/seccion_embargos_widget.dart';
 import '../widgets/documentos_empleado_widget.dart';
@@ -53,6 +55,12 @@ class ModuloEmpleadosScreen extends StatefulWidget {
   State<ModuloEmpleadosScreen> createState() => _ModuloEmpleadosScreenState();
 }
 
+String _generarPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  final rng = Random.secure();
+  return List.generate(10, (_) => chars[rng.nextInt(chars.length)]).join();
+}
+
 class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     with WidgetsBindingObserver, SafeStreamMixin {
 
@@ -80,8 +88,18 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   int     _paginaGrid = 0;
   QueryDocumentSnapshot? _seleccionado;
 
-  bool get _esPropietario =>
-      widget.sesion?.esAdmin ?? (PermisosService().sesion?.esAdmin ?? false);
+  // Verdadero si el usuario actual es admin o propietario (puede gestionar empleados)
+  bool get _esPropietario {
+    // 1. Sesión pasada desde el widget (fuente más fiable)
+    if (widget.sesion != null) return widget.sesion!.esAdmin;
+    // 2. Servicio de permisos global
+    final s = PermisosService().sesion;
+    if (s != null) return s.esAdmin;
+    // 3. Fallback: leer rol del usuario actual (cargado en _cargarTodo)
+    return _rolActualLocal == 'propietario' || _rolActualLocal == 'admin';
+  }
+
+  String _rolActualLocal = '';
 
   @override
   void initState() {
@@ -121,7 +139,16 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     if (!silencioso) setState(() { _cargando = true; _errorCarga = null; });
 
     try {
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      final currentUser = FirebaseAuth.instance.currentUser;
+      await currentUser?.getIdToken(true);
+
+      // Cargar rol del usuario actual como fallback de seguridad
+      if (currentUser != null && _rolActualLocal.isEmpty) {
+        final meDoc = await _firestore.collection('usuarios').doc(currentUser.uid).get();
+        if (mounted) {
+          _rolActualLocal = meDoc.data()?['rol'] as String? ?? '';
+        }
+      }
 
       final options = forzarRed
           ? const GetOptions(source: Source.server)
@@ -1052,6 +1079,9 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                   ]),
                   const SizedBox(height: 8),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                    _actionBtn(Icons.chat_bubble_outline_rounded, 'Mensaje',
+                        const Color(0xFF3B82F6),
+                        () => _abrirCanalComunicacion(id, nombre)),
                     _actionBtn(Icons.gavel_outlined, 'Embargos', _kOrange,
                         () => _abrirEmbargos(id, nombre)),
                     _actionBtn(
@@ -1191,7 +1221,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       const SizedBox(height: 8),
       Text(_esPropietario
           ? 'Pulsa "+ Nuevo empleado" para añadir el primero'
-          : 'Solo el propietario puede añadir empleados',
+          : 'Solo el administrador puede añadir empleados',
           style: TextStyle(color: Colors.grey[400], fontSize: 13)),
     ],
   ));
@@ -1345,6 +1375,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       builder: (_) => FormularioEmpleado(
           empresaId: widget.empresaId, id: id, data: data),
     );
+    if (mounted) _cargarTodo(silencioso: true);
   }
 
   Future<void> _invitarEmpleado() async {
@@ -1538,26 +1569,56 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         builder: (_) => const Center(child: CircularProgressIndicator()));
 
     try {
-      final empresaDoc = await _firestore.collection('empresas').doc(widget.empresaId).get();
-      final empresaNombre = ((empresaDoc.data()?['perfil'] as Map?)?['nombre']
-          ?? empresaDoc.data()?['nombre'] ?? 'Mi Empresa').toString();
+      final email    = resultado['email']!;
+      final nombre   = resultado['nombre']!;
+      final rol      = resultado['rol'] ?? 'staff';
+      final password = _generarPassword();
 
-      final fn = FirebaseFunctions.instanceFor(region: 'europe-west1')
-          .httpsCallable('crearEmpleadoConCredenciales',
-              options: HttpsCallableOptions(timeout: const Duration(seconds: 30)));
+      // Crear cuenta con Firebase app temporal para no cerrar sesión del admin
+      String nuevoUid;
+      FirebaseApp? tempApp;
+      try {
+        tempApp = await Firebase.initializeApp(
+            name: 'inv_${DateTime.now().millisecondsSinceEpoch}',
+            options: Firebase.app().options);
+        final tempAuth = FirebaseAuth.instanceFor(app: tempApp);
+        final cred = await tempAuth.createUserWithEmailAndPassword(
+            email: email, password: password);
+        nuevoUid = cred.user!.uid;
+        await tempAuth.signOut();
+      } on FirebaseAuthException catch (e) {
+        if (mounted) {
+          Navigator.pop(context);
+          final msg = e.code == 'email-already-in-use'
+              ? 'Ya existe un usuario con ese email'
+              : (e.message ?? 'Error al crear la cuenta');
+          FluxToast.error(context, msg);
+        }
+        return;
+      } finally {
+        try { await tempApp?.delete(); } catch (_) {}
+      }
 
-      final res = await fn.call({
-        'email':         resultado['email'],
-        'nombre':        resultado['nombre'],
-        'rol':           resultado['rol'],
-        'empresaId':     widget.empresaId,
-        'empresaNombre': empresaNombre,
+      await _firestore.collection('usuarios').doc(nuevoUid).set({
+        'nombre':        nombre,
+        'correo':        email,
+        'empresa_id':    widget.empresaId,
+        'rol':           rol,
+        'activo':        true,
+        'fecha_creacion': Timestamp.now(),
+        'permisos':      [],
+        'primera_vez':   true,
       });
+
+      // Enviar email de bienvenida con link para establecer contraseña
+      try {
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      } catch (_) {} // No crítico — el admin tiene la contraseña en el diálogo
 
       if (!mounted) return;
       Navigator.pop(context); // cerrar spinner
 
-      final tempPass = res.data['tempPassword'] as String? ?? '';
+      final tempPass = password;
 
       // Mostrar contraseña temporal al admin
       await showDialog(
@@ -1570,7 +1631,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
             Text('Acceso creado', style: TextStyle(fontSize: 17)),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Se ha enviado el acceso por email. Guarda también esta contraseña temporal por si falla el email:',
+            const Text('Se ha enviado un email al empleado para que establezca su contraseña. Anota también la contraseña temporal por si no llega el email:',
                 style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
             const SizedBox(height: 14),
             Container(
@@ -1603,14 +1664,8 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           ],
         ),
       );
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // cerrar spinner
-        final msg = e.code == 'already-exists'
-            ? 'Ya existe un usuario con ese email'
-            : 'Error: ${e.message ?? e.code}';
-        FluxToast.error(context, msg);
-      }
+      // Recargar lista de empleados
+      if (mounted) _cargarTodo(silencioso: true);
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // cerrar spinner
@@ -1697,6 +1752,34 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   }
 
   // ── Abrir portal del empleado (admin viendo uno concreto) ─────────────────
+
+  void _abrirCanalComunicacion(String empleadoUid, String nombre) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16, right: 16, top: 20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          CanalComunicacionWidget(
+            empresaId: widget.empresaId,
+            empleadoUid: empleadoUid,
+            empleadoNombre: nombre,
+            modoAdmin: true,
+          ),
+          const SizedBox(height: 16),
+        ]),
+      ),
+    );
+  }
 
   void _abrirPortalEmpleado(BuildContext context, String uid, String nombre) {
     Navigator.push(context, MaterialPageRoute(

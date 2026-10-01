@@ -3,6 +3,7 @@ import 'package:planeag_flutter/domain/modelos/finiquito.dart';
 import 'package:planeag_flutter/services/finiquito_service.dart';
 import 'package:planeag_flutter/features/finiquitos/pantallas/nuevo_finiquito_form.dart';
 import 'package:planeag_flutter/features/finiquitos/pantallas/finiquito_detalle.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PANTALLA PRINCIPAL DE FINIQUITOS
@@ -24,12 +25,7 @@ class FiniquitosScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Finiquitos y Liquidaciones'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-      ),
+      appBar: const FluixAppBar(titulo: 'Finiquitos y Liquidaciones'),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_finiquito',
         onPressed: () => Navigator.push(

@@ -8,6 +8,7 @@ import 'package:planeag_flutter/services/carta_cese_service.dart';
 import 'package:planeag_flutter/services/certificado_empresa_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'revision_finiquito_empleado_screen.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // DETALLE DE FINIQUITO — con firma, carta, certificado SEPE, baja y email
@@ -320,12 +321,10 @@ class _FiniquitoDetalleState extends State<FiniquitoDetalle> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('Detalle del finiquito'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Detalle del finiquito',
+        showLeading: true,
+        extraActions: [
           if (_f.estado == EstadoFiniquito.borrador && !_f.firmado)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -333,12 +332,12 @@ class _FiniquitoDetalleState extends State<FiniquitoDetalle> {
               tooltip: 'Eliminar',
             ),
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: Colors.deepOrange),
+            icon: const Icon(Icons.picture_as_pdf),
             onPressed: () => FiniquitoPdfService.generarYCompartir(context, _f),
             tooltip: 'PDF finiquito',
           ),
           IconButton(
-            icon: const Icon(Icons.email_outlined, color: Colors.indigo),
+            icon: const Icon(Icons.email_outlined),
             onPressed: _mostrarEnvioDocumentacion,
             tooltip: 'Enviar por email',
           ),

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../services/suscripcion_service.dart';
 import '../../../services/widget_manager_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para que el admin/propietario configure qué módulos
 /// puede ver cada empleado.
@@ -184,11 +185,7 @@ class _ConfigurarModulosEmpleadoScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Módulos del empleado'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Módulos del empleado', showLeading: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : ListView(

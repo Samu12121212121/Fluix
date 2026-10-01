@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/clientes_service.dart';
 import '../../../services/email_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA DE DETALLE EXPANDIDO DE RESERVA/CITA
@@ -260,11 +261,10 @@ class _DetalleReservaScreenState extends State<DetalleReservaScreen> {
     final color = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle de Reserva'),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Detalle de Reserva',
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: _abrirEditar,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/flash_slot_model.dart';
 import '../../../services/flash_slot_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PALETA
@@ -103,25 +104,7 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.fondo,
-      appBar: AppBar(
-        backgroundColor: _C.superficie,
-        foregroundColor: _C.texto,
-        elevation: 0,
-        title: Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _C.flash, borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text('⚡ FLASH',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900,
-                    color: _C.fondo)),
-          ),
-          const SizedBox(width: 10),
-          const Text('Crear slot de última hora',
-              style: TextStyle(fontSize: 15)),
-        ]),
-      ),
+      appBar: const FluixAppBar(titulo: 'Flash Slot', showLeading: true),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(

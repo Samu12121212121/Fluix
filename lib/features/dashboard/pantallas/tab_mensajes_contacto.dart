@@ -25,9 +25,16 @@ class TabMensajesContacto extends StatefulWidget {
 }
 
 class _TabMensajesContactoState extends State<TabMensajesContacto> {
-  // 'contacto' | 'manuscritos'
   String _filtro = 'contacto';
+  String _busqueda = '';
+  final _buscadorCtrl = TextEditingController();
   final _svc = ContactoWebService();
+
+  @override
+  void dispose() {
+    _buscadorCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,11 +47,21 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
         final todos = snapshot.data ?? [];
         final contacto    = todos.where((m) => !m.esManuscrito).toList();
         final manuscritos = todos.where((m) => m.esManuscrito).toList();
-        final lista = _filtro == 'manuscritos' ? manuscritos : contacto;
+        var lista = _filtro == 'manuscritos' ? manuscritos : contacto;
+        // Filtro de búsqueda
+        if (_busqueda.isNotEmpty) {
+          final q = _busqueda.toLowerCase();
+          lista = lista.where((m) =>
+            m.nombre.toLowerCase().contains(q) ||
+            m.email.toLowerCase().contains(q) ||
+            m.asunto.toLowerCase().contains(q) ||
+            m.mensaje.toLowerCase().contains(q)).toList();
+        }
         final sinLeer = lista.where((m) => !m.leido).length;
 
         return Column(children: [
           _buildHeader(sinLeer, contacto.length, manuscritos.length),
+          _buildBuscador(),
           if (lista.isEmpty)
             Expanded(child: _buildVacio())
           else
@@ -57,12 +74,51 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
                   mensaje: lista[i],
                   color: widget.color,
                   onTap: () => _abrirDetalle(context, lista[i]),
+                  onMarcarUrgente: () => _toggleUrgente(lista[i]),
                 ),
               ),
             ),
         ]);
       },
     );
+  }
+
+  Widget _buildBuscador() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+      child: TextField(
+        controller: _buscadorCtrl,
+        style: const TextStyle(fontSize: 13),
+        onChanged: (v) => setState(() => _busqueda = v),
+        decoration: InputDecoration(
+          hintText: 'Buscar por nombre, email, asunto o mensaje…',
+          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+          prefixIcon: const Icon(Icons.search_rounded, size: 17, color: Color(0xFF94A3B8)),
+          suffixIcon: _busqueda.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 15),
+                  onPressed: () { _buscadorCtrl.clear(); setState(() => _busqueda = ''); })
+              : null,
+          filled: true,
+          fillColor: const Color(0xFFF8F9FB),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: widget.color)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleUrgente(MensajeContactoWeb msg) async {
+    final esUrgente = (msg as dynamic).prioridad == 'urgente';
+    await _svc.actualizarCampo(widget.empresaId, msg.id,
+        'prioridad', esUrgente ? null : 'urgente');
   }
 
   Widget _buildHeader(int sinLeer, int nContacto, int nManus) {
@@ -183,11 +239,13 @@ class _TarjetaMensaje extends StatelessWidget {
   final MensajeContactoWeb mensaje;
   final Color color;
   final VoidCallback onTap;
+  final VoidCallback? onMarcarUrgente;
 
   const _TarjetaMensaje({
     required this.mensaje,
     required this.color,
     required this.onTap,
+    this.onMarcarUrgente,
   });
 
   @override
@@ -263,6 +321,24 @@ class _TarjetaMensaje extends StatelessWidget {
                   if (!respondido && mensaje.leido)
                     _statusBadge('Pendiente',
                         const Color(0xFFD97706), const Color(0xFFFEF3C7)),
+                  // Prioridad urgente
+                  if ((mensaje as dynamic).prioridad == 'urgente')
+                    _statusBadge('⚡ Urgente',
+                        const Color(0xFFDC2626), const Color(0xFFFEE2E2)),
+                  const Spacer(),
+                  // Botón urgente rápido
+                  GestureDetector(
+                    onTap: onMarcarUrgente,
+                    child: Icon(
+                      (mensaje as dynamic).prioridad == 'urgente'
+                          ? Icons.flash_on_rounded
+                          : Icons.flash_off_rounded,
+                      size: 14,
+                      color: (mensaje as dynamic).prioridad == 'urgente'
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
                 ]),
               ]),
             ),
@@ -637,31 +713,53 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               const SizedBox(height: 12),
 
               if (!_respondido)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _enviando ? null : _enviarRespuesta,
-                    icon: _enviando
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.email_rounded, size: 18),
-                    label: Text(_enviando
-                        ? 'Enviando...'
-                        : 'Enviar email de respuesta'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: c,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      textStyle: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600),
+                Column(children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _enviando ? null : _enviarRespuesta,
+                      icon: _enviando
+                          ? const SizedBox(height: 16, width: 16,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.email_rounded, size: 18),
+                      label: Text(_enviando ? 'Enviando...' : 'Enviar email de respuesta'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: c, foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                )
+                  // WhatsApp reply si hay teléfono
+                  if (msg.telefono != null && msg.telefono!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final tel = msg.telefono!.replaceAll(RegExp(r'[^\d+]'), '');
+                          final texto = Uri.encodeComponent(
+                              'Hola ${msg.nombre}, gracias por tu mensaje. ');
+                          final uri = Uri.parse('https://wa.me/$tel?text=$texto');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.chat_rounded, size: 18),
+                        label: Text('WhatsApp a ${msg.telefono}'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF25D366),
+                          side: const BorderSide(color: Color(0xFF25D366)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ])
               else
                 Container(
                   padding: const EdgeInsets.symmetric(

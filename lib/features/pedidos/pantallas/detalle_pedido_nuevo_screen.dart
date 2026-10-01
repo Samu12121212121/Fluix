@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/detalle_factura_screen.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DETALLE PEDIDO — modal bottom sheet
@@ -55,10 +56,9 @@ class _DetallePedidoNuevoScreenState extends State<DetallePedidoNuevoScreen> {
     // Fallback: pantalla completa (acceso directo via Navigator.push legacy)
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Text('Pedido #${widget.pedido.id.substring(0, 8).toUpperCase()}'),
-        backgroundColor: _colorEstado(widget.pedido.estado),
-        foregroundColor: Colors.white,
+      appBar: FluixAppBar(
+        titulo: 'Pedido #${widget.pedido.id.substring(0, 8).toUpperCase()}',
+        showLeading: true,
       ),
       body: _PedidoPopupContent(
         pedido: widget.pedido,

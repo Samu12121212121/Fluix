@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/tarea.dart';
 import 'package:planeag_flutter/services/tareas_service.dart';
+import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
 
 class EquiposScreen extends StatefulWidget {
   final String empresaId;
@@ -24,47 +25,18 @@ class _EquiposScreenState extends State<EquiposScreen> {
 
     return Scaffold(
       backgroundColor: bg,
+      appBar: FluixAppBar(
+        titulo: 'Equipos',
+        showLeading: true,
+        extraActions: [
+          IconButton(
+            onPressed: () => _dialogCrearEquipo(context, svc),
+            icon: const Icon(Icons.group_add_rounded),
+            tooltip: 'Nuevo equipo',
+          ),
+        ],
+      ),
       body: Column(children: [
-        // Header
-        Container(
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 16, right: 16, bottom: 14,
-          ),
-          decoration: const BoxDecoration(
-            color: cardBg,
-            border: Border(bottom: BorderSide(color: border)),
-          ),
-          child: Row(children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(border: Border.all(color: border), borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.close_rounded, size: 17, color: subC),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Equipos', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: textC)),
-              Text('Gestiona los equipos de trabajo', style: TextStyle(fontSize: 11, color: subC)),
-            ])),
-            GestureDetector(
-              onTap: () => _dialogCrearEquipo(context, svc),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: accent, borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.add_rounded, size: 15, color: Colors.white),
-                  SizedBox(width: 5),
-                  Text('Nuevo equipo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-                ]),
-              ),
-            ),
-          ]),
-        ),
         // Content
         Expanded(child: StreamBuilder<List<Equipo>>(
           stream: svc.equiposStream(widget.empresaId),

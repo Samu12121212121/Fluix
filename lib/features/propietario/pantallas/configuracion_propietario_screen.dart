@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../negocio_publico/pantallas/personalizacion_app_screen.dart';
 import '../../../features/dashboard/pantallas/pantalla_dashboard.dart';
 import '../../../services/demo_cuenta_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla de Configuración del Propietario
 /// Incluye: Gestión de reseñas Google, configuración de emails, scripts Hostinger
@@ -127,11 +128,9 @@ class _ConfiguracionPropietarioScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        title: const Text('Configuración del Propietario'),
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: Colors.white,
-        actions: [
+      appBar: FluixAppBar(
+        titulo: 'Configuración del Propietario',
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: () => _mostrarAyuda(),
@@ -660,11 +659,7 @@ class GestionResenasGoogleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F23),
-      appBar: AppBar(
-        title: const Text('Reseñas de Google'),
-        backgroundColor: const Color(0xFF151932),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const FluixAppBar(titulo: 'Reseñas de Google', showLeading: true),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

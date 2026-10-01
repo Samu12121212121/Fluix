@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 class TpvGestionMultiScreen extends StatelessWidget {
   final String empresaId;
@@ -9,16 +10,7 @@ class TpvGestionMultiScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Row(children: [
-          Icon(Icons.point_of_sale, size: 20),
-          SizedBox(width: 8),
-          Text('Gestión de TPVs', style: TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: const FluixAppBar(titulo: 'Gestión de TPVs', showLeading: true),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('empresas')
@@ -508,77 +500,70 @@ class _TpvPersonalizadoDetalleScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: Row(children: [
-          Expanded(
-            child: Text(_nombre,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-                overflow: TextOverflow.ellipsis),
-          ),
+      appBar: FluixAppBar(
+        titulo: _nombre,
+        showLeading: true,
+        extraActions: [
           IconButton(
             icon: const Icon(Icons.edit, size: 18),
             onPressed: _renombrar,
             tooltip: 'Renombrar',
           ),
-        ]),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
+        ],
+      ),
+      body: Column(children: [
+        TabBar(
           controller: _tabs,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(icon: Icon(Icons.store, size: 18), text: 'Catálogo base'),
             Tab(icon: Icon(Icons.add_box, size: 18), text: 'Extras'),
           ],
         ),
-      ),
-      body: Stack(
-        children: [
-          StreamBuilder<DocumentSnapshot>(
-            stream: _docRef.snapshots(),
-            builder: (ctx, snapDoc) {
-              if (!snapDoc.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final data =
-                  snapDoc.data!.data() as Map<String, dynamic>? ?? {};
-              final ocultos =
-                  List<String>.from(data['productos_ocultos'] ?? []);
-              final imagenes =
-                  Map<String, dynamic>.from(data['imagenes'] ?? {});
+        Expanded(child: Stack(
+          children: [
+            StreamBuilder<DocumentSnapshot>(
+              stream: _docRef.snapshots(),
+              builder: (ctx, snapDoc) {
+                if (!snapDoc.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final data =
+                    snapDoc.data!.data() as Map<String, dynamic>? ?? {};
+                final ocultos =
+                    List<String>.from(data['productos_ocultos'] ?? []);
+                final imagenes =
+                    Map<String, dynamic>.from(data['imagenes'] ?? {});
 
-              return TabBarView(
-                controller: _tabs,
-                children: [
-                  _TabCatalogoBase(
-                    empresaId: widget.empresaId,
-                    ocultos: ocultos,
-                    imagenes: imagenes,
-                    onToggleOculto: (id) => _toggleOculto(id, ocultos),
-                    onCambiarImagen: (id) =>
-                        _cambiarImagenBase(id, imagenes),
-                  ),
-                  _TabProductosExtra(
-                    docRef: _docRef,
-                    onAgregar: _agregarProductoExtra,
-                    onEliminar: _eliminarProductoExtra,
-                  ),
-                ],
-              );
-            },
-          ),
-          if (_guardando)
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: LinearProgressIndicator(),
+                return TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _TabCatalogoBase(
+                      empresaId: widget.empresaId,
+                      ocultos: ocultos,
+                      imagenes: imagenes,
+                      onToggleOculto: (id) => _toggleOculto(id, ocultos),
+                      onCambiarImagen: (id) =>
+                          _cambiarImagenBase(id, imagenes),
+                    ),
+                    _TabProductosExtra(
+                      docRef: _docRef,
+                      onAgregar: _agregarProductoExtra,
+                      onEliminar: _eliminarProductoExtra,
+                    ),
+                  ],
+                );
+              },
             ),
-        ],
-      ),
+            if (_guardando)
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: LinearProgressIndicator(),
+              ),
+          ],
+        )),
+      ]),
     );
   }
 }

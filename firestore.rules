@@ -53,7 +53,10 @@ service cloud.firestore {
   function esPlataformaAdmin() {
     return isAuth()
       && !esAnonimo()
-      && request.auth.token.plataforma_admin == true;
+      && (
+        request.auth.token.plataforma_admin == true
+        || (existeUsuarioDoc() && getUserData().get('es_plataforma_admin', false) == true)
+      );
   }
 
   function esPlataformaAdminConFallback() {
@@ -223,7 +226,7 @@ service cloud.firestore {
     allow delete: if esUsuarioReal()
       && existeUsuarioDoc()
       && resource.data.empresa_id == getUserData().empresa_id
-      && getRol() == 'propietario'
+      && (getRol() == 'admin' || getRol() == 'propietario')
       && uid() != userId;
 
     match /embargos/{embargoId} {
@@ -416,6 +419,10 @@ service cloud.firestore {
   // ════════════════════════════════════════════════════════════════════
 
   match /empresas/{empresaId} {
+
+    // Formulario público de reservas — el empresaId ya está en la URL que el negocio comparte.
+    // Solo get (lectura de un doc específico), no list (no pueden enumerar empresas).
+    allow get: if true;
 
     allow read: if perteneceAEmpresa(empresaId);
     allow read: if esPlataformaAdmin();
@@ -634,6 +641,11 @@ service cloud.firestore {
         || esPlataformaAdmin();
     }
 
+    match /albaranes_recibidos/{albaranId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     match /finiquitos/{finiquitoId} {
       allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
@@ -800,6 +812,26 @@ service cloud.firestore {
     match /menu_semanal/{diaId} {
       allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Galería web — lectura pública, escritura solo admin
+    match /galeria_web/{imagenId} {
+      allow read: if true;
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Analytics web — escritura pública (el script JS del cliente escribe visitas)
+    match /estadisticas/trafico_web {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write: if true; // el script anónimo escribe visitas
+    }
+    match /estadisticas/{visitaDoc} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write: if true; // visitas_YYYY-MM-DD escritas por el script anónimo
+    }
+    match /estadisticas/trafico_web/historico_diario/{fecha} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write: if true;
     }
 
     match /contacto_web/{mensajeId} {
@@ -1597,6 +1629,28 @@ match /pdf_templates/{templateId} {
   match /empresas/{empresaId}/web_secciones/{seccionId} {
     allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
     allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+  }
+
+  // ── Canal de comunicación interno Admin ↔ Empleado ─────────────────────
+  // Admin puede leer/escribir en cualquier canal de su empresa.
+  // El empleado solo puede leer/escribir en su propio canal (uid coincide).
+  match /empresas/{empresaId}/mensajes_internos/{empleadoUid}/mensajes/{msgId} {
+    allow read: if esAdminOPropietario(empresaId)
+                || (perteneceAEmpresa(empresaId) && uid() == empleadoUid)
+                || esPlataformaAdmin();
+    allow create: if (esAdminOPropietario(empresaId)
+                     || (perteneceAEmpresa(empresaId) && uid() == empleadoUid))
+                  && request.resource.data.keys().hasAll(['texto','remitente','ts'])
+                  && request.resource.data.texto is string
+                  && request.resource.data.texto.size() > 0
+                  && request.resource.data.texto.size() <= 2000;
+    allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+  }
+  match /empresas/{empresaId}/mensajes_internos/{empleadoUid} {
+    allow read, write: if esAdminOPropietario(empresaId)
+                       || (perteneceAEmpresa(empresaId) && uid() == empleadoUid)
+                       || esPlataformaAdmin();
   }
 
   // ════════════════════════════════════════════════════════════════════
