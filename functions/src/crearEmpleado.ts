@@ -27,7 +27,7 @@ function generarPasswordTemporal(): string {
 }
 
 export const crearEmpleadoConCredenciales = onCall(
-  { region: REGION },
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Debes estar autenticado.");

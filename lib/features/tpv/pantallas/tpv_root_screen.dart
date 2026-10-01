@@ -3435,17 +3435,21 @@ class _ColumnaComandaActiva extends StatelessWidget {
   Future<void> _reimprimirUltimoTicket(BuildContext context) async {
     if (mesaId == null) return;
     try {
+      // Solo filtramos por mesa_id + orderBy para evitar índice compuesto.
+      // El filtro de estado_pago se aplica client-side.
       final snap = await FirebaseFirestore.instance
           .collection('empresas')
           .doc(empresaId)
           .collection('pedidos')
           .where('mesa_id', isEqualTo: mesaId)
-          .where('estado_pago', isEqualTo: 'pagado')
           .orderBy('fecha_creacion', descending: true)
-          .limit(1)
+          .limit(10)
           .get();
+      final docs = snap.docs
+          .where((d) => d.data()['estado_pago'] == 'pagado')
+          .toList();
 
-      if (snap.docs.isEmpty) {
+      if (docs.isEmpty) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -3457,7 +3461,7 @@ class _ColumnaComandaActiva extends StatelessWidget {
         return;
       }
 
-      final data = snap.docs.first.data();
+      final data = docs.first.data();
       final nombre = (data['cliente_nombre'] as String?) ?? 'Mesa';
       final total = (data['total'] as num?)?.toDouble() ?? 0;
       final metodo = (data['metodo_pago'] as String?) ?? 'efectivo';
