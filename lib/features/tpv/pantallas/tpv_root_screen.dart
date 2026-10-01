@@ -2366,27 +2366,10 @@ Future<void> mostrarDialogoAperturaCaja(
   );
 }
 
-// ── NUEVO: pantalla cierre de caja desde AppBar ──────────────────────────
+// ── Cierre de caja — usa el diseño unificado del TPV peluquería ───────────
 Future<void> mostrarPantallaCierreCaja(
-    BuildContext context, String empresaId) async {
-  await showDialog(
-    context: context,
-    builder: (ctx) {
-      final screenH = MediaQuery.of(ctx).size.height;
-      final screenW = MediaQuery.of(ctx).size.width;
-      return Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: screenW.clamp(300, 780),
-            maxHeight: (screenH * 0.88).clamp(400, 680),
-          ),
-          child: _CierreDeCaja(empresaId: empresaId),
-        ),
-      );
-    },
-  );
-}
+    BuildContext context, String empresaId) =>
+    mostrarCierreTPV(context, empresaId);
 
 class _ResumenCounter extends StatelessWidget {
   final int count;

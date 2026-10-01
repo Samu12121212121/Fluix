@@ -5,7 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
-import 'package:planeag_flutter/features/tpv/pantallas/pantalla_cierre_caja.dart';
+import 'package:planeag_flutter/features/tpv/pantallas/tpv_peluqueria_screen.dart'
+    show mostrarCierreTPV;
 import 'dialogo_factura_tpv.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13,13 +14,8 @@ import 'dialogo_factura_tpv.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 
 Future<void> mostrarPantallaCierreCaja(
-    BuildContext context, String empresaId) async {
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-        builder: (_) => PantallaCierreCaja(empresaId: empresaId)),
-  );
-}
+    BuildContext context, String empresaId) =>
+    mostrarCierreTPV(context, empresaId);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIÁLOGO: APERTURA DE CAJA

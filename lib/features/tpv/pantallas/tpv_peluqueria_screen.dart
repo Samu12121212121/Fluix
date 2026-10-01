@@ -2291,10 +2291,22 @@ class _CierreWrapper extends StatelessWidget {
           ),
         ]),
       ),
-      Expanded(child: _PelCierreDeCaja(empresaId: empresaId, fecha: fecha)),
+      Expanded(child: PelCierreDeCaja(empresaId: empresaId, fecha: fecha)),
     ]);
   }
 }
+
+// ── Función global para abrir el cierre completo desde cualquier TPV ─────────
+Future<void> mostrarCierreTPV(BuildContext context, String empresaId) =>
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: const FluixAppBar(titulo: 'Cierre de caja', showLeading: true),
+          body: PelCierreDeCaja(empresaId: empresaId, fecha: DateTime.now()),
+        ),
+      ),
+    );
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FILA DE PROFESIONALES — con fallback a empleados si profesionales vacío
@@ -8379,16 +8391,16 @@ class _DashChip extends StatelessWidget {
 // CIERRE DE CAJA
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _PelCierreDeCaja extends StatefulWidget {
+class PelCierreDeCaja extends StatefulWidget {
   final String empresaId;
   final DateTime fecha;
-  const _PelCierreDeCaja({required this.empresaId, required this.fecha});
+  const PelCierreDeCaja({required this.empresaId, required this.fecha});
 
   @override
-  State<_PelCierreDeCaja> createState() => _PelCierreDeCajaState();
+  State<PelCierreDeCaja> createState() => PelCierreDeCajaState();
 }
 
-class _PelCierreDeCajaState extends State<_PelCierreDeCaja> {
+class PelCierreDeCajaState extends State<PelCierreDeCaja> {
   Map<String, dynamic>? _datos;
   Map<String, dynamic>? _empresa;
   bool _cargando = true, _cerrando = false;
