@@ -214,6 +214,61 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
 
   // ── Cabecera ──────────────────────────────────────────────────────────────
 
+  Future<void> _importarDesdeSecciones() async {
+    try {
+      // Leer todas las secciones de tipo galería en contenido_web
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('contenido_web')
+          .get();
+      final galeriaCol = FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('galeria_web');
+
+      // Obtener URLs ya existentes en galeria_web para no duplicar
+      final existentes = await galeriaCol.get();
+      final urlsExistentes = existentes.docs
+          .map((d) => d.data()['url'] as String? ?? '')
+          .toSet();
+
+      int importadas = 0;
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final tipo = data['tipo'] as String? ?? '';
+        if (tipo != 'galeria') continue;
+        final contenido = data['contenido'] as Map<String, dynamic>? ?? {};
+        final imgs = (contenido['imagenes_galeria'] as List<dynamic>?) ?? [];
+        for (final img in imgs) {
+          final url = (img as Map<String, dynamic>)['url'] as String? ?? '';
+          if (url.isEmpty || urlsExistentes.contains(url)) continue;
+          batch.set(galeriaCol.doc(), {
+            'url': url,
+            'nombre': img['descripcion'] as String? ?? 'Foto',
+            'subida': FieldValue.serverTimestamp(),
+          });
+          importadas++;
+        }
+      }
+
+      if (importadas > 0) await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(importadas > 0
+              ? '✅ $importadas foto${importadas != 1 ? 's' : ''} importada${importadas != 1 ? 's' : ''} desde Secciones'
+              : 'No hay fotos nuevas en Secciones para importar'),
+          backgroundColor: importadas > 0 ? const Color(0xFF10B981) : const Color(0xFF64748B),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
   Widget _buildCabecera(int count) => Container(
     color: Colors.white,
     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -223,6 +278,16 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
         Text('$count foto${count != 1 ? 's' : ''} · se publican en la web al instante',
             style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
       ])),
+      // Importar desde Secciones si hay imágenes ahí
+      IconButton(
+        icon: const Icon(Icons.download_rounded, size: 20),
+        tooltip: 'Importar fotos desde Secciones',
+        color: const Color(0xFF64748B),
+        onPressed: _subiendo ? null : _importarDesdeSecciones,
+        padding: const EdgeInsets.all(6),
+        constraints: const BoxConstraints(),
+      ),
+      const SizedBox(width: 8),
       FilledButton.icon(
         onPressed: _subiendo ? null : _subirVarias,
         icon: _subiendo

@@ -52,6 +52,7 @@ export {
   onNuevaNotificacionReserva,
   confirmarReserva,
   rechazarReserva,
+  onReservaEstadoCambiadoEmail,
 } from "./notificacionesReservas";
 export {
   onReservaPublicaCreada,

@@ -239,8 +239,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           .collection('web_secciones');
 
       if (widget.empresaId == _kNazariId) {
-        // Nazarí: siempre corregir tipos y añadir secciones que falten
         await _migrarSeccionesNazari(col);
+        return;
+      }
+      if (widget.empresaId == _kJuanitaId) {
+        await _migrarSeccionesJuanita(col);
         return;
       }
 
@@ -327,6 +330,62 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     if (cambios) await batch.commit();
   }
 
+  /// Para Juanita Taberna: solo carta, reservas, galería, menú semanal, contacto
+  Future<void> _migrarSeccionesJuanita(
+      CollectionReference<Map<String, dynamic>> col) async {
+    const esperadas = [
+      {'nombre': 'Carta',        'tipo': 'carta',        'orden': 0},
+      {'nombre': 'Reservas',     'tipo': 'reservas',     'orden': 1},
+      {'nombre': 'Galería',      'tipo': 'galeria',      'orden': 2},
+      {'nombre': 'Menú Semanal', 'tipo': 'menu_semanal', 'orden': 3},
+    ];
+
+    final snap   = await col.get();
+    final batch  = FirebaseFirestore.instance.batch();
+    bool cambios = false;
+
+    final permitidos = esperadas
+        .map((e) => _normNombre(e['nombre'] as String))
+        .toSet();
+
+    for (final exp in esperadas) {
+      final nombreEsp = _normNombre(exp['nombre'] as String);
+      final tipoEsp   = (exp['tipo'] as String).toLowerCase();
+      QueryDocumentSnapshot<Map<String, dynamic>>? existente;
+      for (final d in snap.docs) {
+        if (_normNombre(d.data()['nombre'] as String? ?? '') == nombreEsp) {
+          existente = d; break;
+        }
+      }
+      if (existente == null) {
+        batch.set(col.doc(), {...exp, 'activa': true});
+        cambios = true;
+      } else {
+        final tipoActual = (existente.data()['tipo'] as String? ?? '').toLowerCase();
+        if (tipoActual != tipoEsp) {
+          batch.update(existente.reference, {'tipo': tipoEsp});
+          cambios = true;
+        }
+        // Reactivar si estaba desactivada
+        if (existente.data()['activa'] == false) {
+          batch.update(existente.reference, {'activa': true});
+          cambios = true;
+        }
+      }
+    }
+
+    // Eliminar secciones no permitidas (Blog, Agenda, Noticias, Entrevistas, etc.)
+    for (final d in snap.docs) {
+      final nombre = _normNombre(d.data()['nombre'] as String? ?? '');
+      if (!permitidos.contains(nombre)) {
+        batch.delete(d.reference);
+        cambios = true;
+      }
+    }
+
+    if (cambios) await batch.commit();
+  }
+
   static String _normNombre(String s) => s
       .toLowerCase().trim()
       .replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i')
@@ -363,6 +422,50 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     AppSettings.darkMode.removeListener(_onDark);
     widget.volverAlHub?.removeListener(_onVolverAlHub);
     super.dispose();
+  }
+
+  /// Abre directamente la sección de tipo galería del módulo web (Secciones).
+  /// Si no existe, muestra el editor de secciones para que el usuario la cree.
+  Widget _buildEditorSeccionGaleria() {
+    return StreamBuilder<List<SeccionWeb>>(
+      stream: _svc.obtenerSecciones(widget.empresaId),
+      builder: (ctx, snap) {
+        final secciones = snap.data ?? [];
+        final galeria = secciones.cast<SeccionWeb?>().firstWhere(
+          (s) => s?.tipo == TipoSeccion.galeria, orElse: () => null);
+        if (galeria != null) {
+          return PantallaEditorSeccion(
+            empresaId: widget.empresaId,
+            seccion: galeria,
+            svc: _svc,
+            noScaffold: true,
+            onGuardado: () {},
+            modulosWeb: _modulosWeb,
+          );
+        }
+        // No existe sección galería → ofrecer crearla
+        return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.photo_library_outlined, size: 56, color: Color(0xFFCBD5E1)),
+          const SizedBox(height: 16),
+          const Text('No hay sección de galería',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+          const SizedBox(height: 8),
+          const Text('Créala desde la pestaña Secciones',
+              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () => setState(() => _moduloActivo = 'secciones'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Ir a Secciones'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7B1FA2),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ]));
+      },
+    );
   }
 
   void _onVolverAlHub() {
@@ -423,7 +526,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     widget.onSubModuloChanged?.call(_moduloActivoNombre ?? _moduloActivo);
   }
 
-  static const _kNazariId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+  static const _kNazariId   = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+  static const _kJuanitaId  = 'AP6JV9bxONgibrjaKzvrrk4xvWM2';
 
   // Módulos fijos (siempre presentes, sin importar el HTML de la empresa)
   static const _modsFixed = [
@@ -876,7 +980,9 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
           empresaId: widget.empresaId, color: mod.color);
       case 'mensajes':  return TabMensajesContacto(empresaId: widget.empresaId, color: mod.color);
       case 'campanas':  return TabCampanasEmail(empresaId: widget.empresaId, color: mod.color);
-      case 'galeria':    return _TabGaleriaWeb(empresaId: widget.empresaId, svc: _svc, color: mod.color);
+      // 'galeria' — se gestiona desde Secciones (tipo galeria) y se sincroniza
+      // automáticamente a galeria_web al guardar. Tab separado eliminado.
+      case 'galeria':    return _buildEditorSeccionGaleria();
       case 'analytics':  return TabAnalyticsWeb(empresaId: widget.empresaId);
       case 'config':     return TabConfigWeb(empresaId: widget.empresaId, svc: _svc);
       case 'seleccion':       return TabSeleccionNazari(empresaId: widget.empresaId);

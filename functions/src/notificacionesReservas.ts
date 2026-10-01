@@ -1,4 +1,4 @@
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
@@ -53,6 +53,97 @@ function buildEmailEmpresa(opts: {
 <tr><td style="background:#263238;padding:16px;text-align:center;"><p style="margin:0;color:#B0BEC5;font-size:12px;">Fluix CRM · Sistema de Reservas</p></td></tr>
 </table></td></tr></table></body></html>`;
 }
+
+// ── TRIGGER GENÉRICO: email al cliente cuando admin confirma o cancela ────────
+// Se dispara para CUALQUIER empresa cuando el estado cambia en Fluix.
+// La pantalla de detalle de reserva en la app actualiza el campo 'estado'.
+export const onReservaEstadoCambiadoEmail = onDocumentUpdated(
+  { document: "empresas/{empresaId}/reservas/{reservaId}", region: REGION, secrets: ["RESEND_API_KEY"] },
+  async (event) => {
+    const antes = event.data?.before?.data();
+    const despues = event.data?.after?.data();
+    if (!antes || !despues) return;
+
+    const estadoAntes = (antes.estado || "").toLowerCase();
+    const estadoDespues = (despues.estado || "").toLowerCase();
+    if (estadoAntes === estadoDespues) return;
+
+    const esConfirmada = estadoDespues === "confirmada";
+    const esCancelada = estadoDespues === "cancelada" || estadoDespues === "rechazada";
+    if (!esConfirmada && !esCancelada) return;
+
+    // Evitar reenvíos
+    if (despues.email_cliente_notificado === true) return;
+
+    const emailCliente: string =
+      despues.email_cliente || despues.email || despues.usuario_email ||
+      despues.cliente_email || despues.correo || "";
+    if (!emailCliente) {
+      console.log(`[reservaEmail] Sin email de cliente en reserva ${event.params.reservaId}`);
+      return;
+    }
+
+    const nombreCliente: string =
+      despues.nombre_cliente || despues.nombre || despues.usuario_nombre ||
+      despues.cliente_nombre || "Cliente";
+
+    let fechaHora = "";
+    try {
+      const fh = despues.fecha_hora?.toDate
+        ? despues.fecha_hora.toDate()
+        : new Date(despues.fecha_hora || Date.now());
+      fechaHora = fh.toLocaleString("es-ES", {
+        weekday: "long", day: "numeric", month: "long",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch (_) {}
+
+    const db = admin.firestore();
+    const empresaId = event.params.empresaId;
+
+    // Obtener nombre del negocio
+    let empresaNombre = "El negocio";
+    try {
+      const ns = await db.collection("negocios_publicos")
+        .where("empresaIdVinculada", "==", empresaId).limit(1).get();
+      if (!ns.empty) empresaNombre = ns.docs[0].data().nombre || empresaNombre;
+      else {
+        const emp = await db.collection("empresas").doc(empresaId).get();
+        empresaNombre = emp.data()?.nombre || emp.data()?.nombre_empresa || empresaNombre;
+      }
+    } catch (_) {}
+
+    try {
+      if (esConfirmada) {
+        await enviarConfirmacionReserva({
+          to: emailCliente,
+          clienteNombre: nombreCliente,
+          empresaNombre,
+          fechaHora: fechaHora || "Próximamente",
+          servicio: despues.servicio_nombre || despues.servicio || "",
+          personas: despues.personas ? `${despues.personas} personas`
+            : despues.comensales ? `${despues.comensales} comensales` : "",
+        });
+        console.log(`[reservaEmail] Confirmación → ${emailCliente}`);
+      } else {
+        await enviarCancelacionReserva({
+          to: emailCliente,
+          clienteNombre: nombreCliente,
+          empresaNombre,
+          fechaHora: fechaHora || "Próximamente",
+          servicio: despues.servicio_nombre || despues.servicio || "",
+          personas: despues.personas ? `${despues.personas} personas`
+            : despues.comensales ? `${despues.comensales} comensales` : "",
+          motivoCancelacion: despues.motivo_cancelacion || "Sin motivo especificado",
+        });
+        console.log(`[reservaEmail] Cancelación → ${emailCliente}`);
+      }
+      await event.data!.after.ref.update({ email_cliente_notificado: true });
+    } catch (err) {
+      console.error("[reservaEmail] Error:", err);
+    }
+  }
+);
 
 // ── EMAIL al crear reserva de app_cliente (push/in-app está en index.ts) ─────
 export const onNuevaReservaEmail = onDocumentCreated(

@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
@@ -95,6 +96,55 @@ class ContenidoWebService {
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
     data['orden'] = data['orden'] ?? 0;
     await docRef.set(data, SetOptions(merge: true));
+
+    // Si es galería, sincronizar automáticamente a galeria_web
+    // para que galeria.html los muestre sin configuración extra.
+    if (seccion.tipo == TipoSeccion.galeria) {
+      _syncGaleriaWeb(empresaId, seccion.contenido.imagenesGaleria);
+    }
+  }
+
+  /// Mantiene galeria_web sincronizada con los items de la sección galería.
+  /// Las URLs de la sección son la fuente de verdad — añade las nuevas y
+  /// elimina las que ya no están en la sección.
+  Future<void> _syncGaleriaWeb(
+      String empresaId, List<ItemGaleria> items) async {
+    try {
+      final col = _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('galeria_web');
+
+      final snap = await col.get();
+      final existingByUrl = {
+        for (final d in snap.docs)
+          (d.data()['url'] as String? ?? ''): d.id
+      };
+
+      final urlsNuevas = items.map((i) => i.url).toSet();
+      final batch = _firestore.batch();
+
+      // Añadir las que no existen todavía
+      for (final item in items) {
+        if (!existingByUrl.containsKey(item.url)) {
+          batch.set(col.doc(), {
+            'url': item.url,
+            'nombre': item.descripcion ?? '',
+            'subida': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      // Eliminar las que ya no están en la sección
+      for (final entry in existingByUrl.entries) {
+        if (!urlsNuevas.contains(entry.key)) {
+          batch.delete(col.doc(entry.value));
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('⚠️ _syncGaleriaWeb: $e');
+    }
   }
 
   Stream<List<Map<String, dynamic>>> obtenerHistorial(
@@ -396,10 +446,64 @@ class ContenidoWebService {
         'url': uri.toString(),
       });
 
+      // Si hay galería detectada, importar imágenes semilla si la colección está vacía
+      if (modulos.contains('galeria')) {
+        await _seedGaleriaIfEmpty(empresaId, bodyOnly, uri);
+      }
+
       return modulos;
     } catch (e) {
       print('⚠️ detectarModulosWeb: $e');
       return {};
+    }
+  }
+
+  /// Lee el bloque JSON `fluix-galeria-seed` de la web y, si `galeria_web`
+  /// está vacía, crea un documento por cada imagen para que Fluix las muestre.
+  Future<void> _seedGaleriaIfEmpty(
+      String empresaId, String html, Uri baseUri) async {
+    try {
+      final snap = await _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('galeria_web')
+          .limit(1).get();
+      if (snap.docs.isNotEmpty) return; // ya tiene imágenes
+
+      final seedMatch = RegExp(
+        r'id="fluix-galeria-seed"[^>]*>([\s\S]*?)</script>',
+        caseSensitive: false,
+      ).firstMatch(html);
+      if (seedMatch == null) return;
+
+      final rawJson = seedMatch.group(1)!.trim();
+      final data = jsonDecode(rawJson) as Map<String, dynamic>;
+      final fotos = (data['fotos'] as List<dynamic>?) ?? [];
+      if (fotos.isEmpty) return;
+
+      final batch = _firestore.batch();
+      for (final foto in fotos) {
+        final archivo = (foto['archivo'] as String? ?? '').trim();
+        if (archivo.isEmpty) continue;
+        final url = baseUri.resolve(archivo).toString();
+        final nombre = (foto['nombre'] as String?)?.trim() ??
+            archivo.split('/').last
+                .replaceAll(RegExp(r'\.[^.]+$'), '')
+                .replaceAll(RegExp(r'[_\-]+'), ' ');
+        batch.set(
+          _firestore
+              .collection('empresas').doc(empresaId)
+              .collection('galeria_web').doc(),
+          {
+            'url': url,
+            'nombre': nombre,
+            'subida': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+      await batch.commit();
+      print('✅ seedGaleria: ${fotos.length} imágenes importadas desde la web');
+    } catch (e) {
+      print('⚠️ seedGaleriaIfEmpty: $e');
     }
   }
 
@@ -1515,15 +1619,20 @@ messaging.onBackgroundMessage(function(payload) {
 
   /// Stream paginado filtrado por tipo — requiere índice compuesto tipo+fecha_publicacion
   Stream<List<EntradaBlog>> obtenerBlogPorTipo(String empresaId, String tipo, {int limite = 50}) {
+    // Sin orderBy en Firestore: documentos sin fecha_publicacion serían excluidos
+    // por Firestore al ordenar. Ordenamos client-side.
     return _blogCol(empresaId)
         .where('tipo', isEqualTo: tipo)
-        .orderBy('fecha_publicacion', descending: true)
         .limit(limite)
         .snapshots()
-        .map((s) => s.docs
-            .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
-            .where((e) => !e.eliminado)
-            .toList());
+        .map((s) {
+          final lista = s.docs
+              .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
+              .where((e) => !e.eliminado)
+              .toList();
+          lista.sort((a, b) => b.fechaPublicacion.compareTo(a.fechaPublicacion));
+          return lista;
+        });
   }
 
   /// Stream filtrado por seccion_id (secciones dinámicas data-fluix)

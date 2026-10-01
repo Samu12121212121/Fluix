@@ -498,17 +498,15 @@ service cloud.firestore {
           )
           && request.resource.data.size() <= 50;
 
-      // 5. Formularios web con autenticación anónima (Damajuana, etc.)
-      //    El SDK escribe nombre_cliente + telefono_cliente (no telefono a secas)
+      // 5. Formularios web con autenticación anónima
+      //    Acepta nombre o nombre_cliente, telefono o telefono_cliente
       allow create: if esAnonimo()
           && request.resource.data.estado in ['pendiente', 'PENDIENTE']
-          && request.resource.data.keys().hasAll(['nombre_cliente'])
-          && request.resource.data.nombre_cliente is string
-          && request.resource.data.nombre_cliente.size() > 0
-          && request.resource.data.nombre_cliente.size() <= 100
-          && request.resource.data.keys().hasAny(['telefono_cliente', 'telefono'])
+          && (request.resource.data.get('nombre_cliente','').size() > 0
+              || request.resource.data.get('nombre','').size() > 0)
+          && request.resource.data.keys().hasAny(['telefono_cliente','telefono','telefono_cliente'])
           && request.resource.data.origen == 'web'
-          && request.resource.data.size() <= 50;
+          && request.resource.data.size() <= 80;
     }
 
     // ── EMPLEADOS — lectura pública para formularios B2C ──────────────────
@@ -847,6 +845,9 @@ service cloud.firestore {
         && request.resource.data.mensaje.size() <= 5000;
       allow read, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
+
+    // Reservas web — formulario público escribe directamente en /reservas
+    // para que aparezcan en el tab Reservas de Fluix sin configuración extra.
 
     // Campañas de email marketing
     match /campanas_email/{campanaId} {

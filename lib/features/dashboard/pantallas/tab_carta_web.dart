@@ -755,7 +755,6 @@ class _EditorItemCarta extends StatefulWidget {
 class _EditorItemCartaState extends State<_EditorItemCarta> {
   final _nombreCtrl      = TextEditingController();
   final _descripcionCtrl = TextEditingController();
-  final _precioCtrl      = TextEditingController();
   final _precioTextoCtrl = TextEditingController();
   final _categoriaCtrl   = TextEditingController();
   final _imagenCtrl      = TextEditingController();
@@ -771,8 +770,6 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
     if (item != null) {
       _nombreCtrl.text      = item['nombre'] as String? ?? '';
       _descripcionCtrl.text = item['descripcion'] as String? ?? '';
-      final precio = (item['precio'] as num?)?.toDouble() ?? 0.0;
-      _precioCtrl.text = precio == 0 ? '' : precio.toString();
       _disponible = item['disponible'] as bool? ?? true;
       _categoriaCtrl.text   = item['categoria'] as String? ?? '';
       _imagenCtrl.text      = item['imagen_url'] as String? ?? '';
@@ -789,7 +786,6 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
   void dispose() {
     _nombreCtrl.dispose();
     _descripcionCtrl.dispose();
-    _precioCtrl.dispose();
     _precioTextoCtrl.dispose();
     _categoriaCtrl.dispose();
     _imagenCtrl.dispose();
@@ -823,14 +819,8 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
         _field(_descripcionCtrl, 'Descripción (opcional)', maxLines: 2),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(
-            child: _field(_precioCtrl, 'Precio €',
-                tipo: TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: _field(_precioTextoCtrl, 'Precio texto',
-              hint: '1,95€ / ud.')),
+          Expanded(child: _field(_precioTextoCtrl, 'Precio',
+              hint: 'ej: 4,50€  /  1,50€ / ud.')),
           const SizedBox(width: 8),
           Expanded(child: _field(_categoriaCtrl, 'Categoría',
               hint: 'Tapas, Carnes…')),
@@ -1067,7 +1057,7 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
           ?? 'plato_${DateTime.now().millisecondsSinceEpoch}';
       // Sube a Storage y devuelve URL pública — sin tocar Firestore todavía
       final url = await widget.svc.subirImagenDesdeGaleria(
-          widget.empresaId, 'carta/$itemId');
+          widget.empresaId, 'web/carta/$itemId');
       if (url != null && mounted) setState(() => _imagenCtrl.text = url);
     } catch (e) {
       if (mounted) {
@@ -1086,13 +1076,11 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
     if (nombre.isEmpty) return;
     setState(() => _guardando = true);
     try {
-      final precio = double.tryParse(_precioCtrl.text.replaceAll(',', '.')) ?? 0.0;
       final imgUrl = _imagenCtrl.text.trim();
       final data = <String, dynamic>{
         if (widget.item?['id'] != null) 'id': widget.item!['id'],
         'nombre':       nombre,
         'descripcion':  _descripcionCtrl.text.trim(),
-        'precio':       precio,
         'precio_texto': _precioTextoCtrl.text.trim(),
         'categoria':    _categoriaCtrl.text.trim(),
         'disponible':   _disponible,
