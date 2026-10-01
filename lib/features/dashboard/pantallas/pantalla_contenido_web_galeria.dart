@@ -748,8 +748,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   final _dimensionesCtrl = TextEditingController();
   final _pesoCtrl        = TextEditingController();
   final _mesCtrl         = TextEditingController();
+  final _diaCtrl         = TextEditingController();
   int    _anio  = DateTime.now().year;
   bool   _activo = true;
+  bool   _preventa = false;
   bool   _extraExpanded = false;
   bool   _guardando = false;
   bool   _subiendoImg = false;
@@ -799,8 +801,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       _dimensionesCtrl.text = it['campo_dimensiones'] ?? '';
       _pesoCtrl.text        = it['campo_peso']?.toString() ?? '';
       _mesCtrl.text         = it['campo_mes'] ?? '';
-      _anio   = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
-      _activo = it['activo'] as bool? ?? true;
+      _diaCtrl.text         = it['campo_dia']?.toString() ?? '';
+      _anio     = int.tryParse(it['campo_anio']?.toString() ?? '') ?? DateTime.now().year;
+      _activo   = it['activo']   as bool? ?? true;
+      _preventa = it['preventa'] as bool? ?? false;
     }
   }
 
@@ -809,7 +813,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     for (final c in [_nombreCtrl, _slugCtrl, _coleccionCtrl, _tagCtrl,
         _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
         _traductorCtrl, _ilustradorCtrl,
-        _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _pesoCtrl, _mesCtrl]) {
+        _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _pesoCtrl, _mesCtrl, _diaCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -1065,7 +1069,11 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                 const Divider(height: 1),
                 _campo(_pesoCtrl, 'Peso (g)', hint: 'ej. 320'),
                 const Divider(height: 1),
-                _campo(_mesCtrl, 'Mes'),
+                _campo(_mesCtrl, 'Mes', hint: 'ej. Octubre'),
+                const Divider(height: 1),
+                _campo(_diaCtrl, 'Día del mes',
+                    hint: 'ej. 2',
+                    keyboardType: TextInputType.number),
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1097,6 +1105,20 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               contentPadding: EdgeInsets.zero,
               activeColor: color,
+            )),
+            const SizedBox(height: 8),
+            _card(SwitchListTile(
+              value: _preventa,
+              onChanged: (v) => setState(() => _preventa = v),
+              title: Text(_preventa ? '🔖 En preventa' : '🔖 No es preventa',
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                _preventa
+                    ? 'Se mostrará aviso de fecha de salida en la web y carrito'
+                    : 'El libro ya está disponible y se envía de inmediato',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              contentPadding: EdgeInsets.zero,
+              activeColor: const Color(0xFFF59E0B),
             )),
             const SizedBox(height: 40),
           ],
@@ -1292,8 +1314,10 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     child: Icon(Icons.image_outlined, color: color.withValues(alpha: 0.4), size: 24),
   );
 
-  Widget _campo(TextEditingController ctrl, String label, {String? hint}) =>
+  Widget _campo(TextEditingController ctrl, String label,
+      {String? hint, TextInputType? keyboardType}) =>
       TextField(controller: ctrl,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint ?? label, labelText: label,
           border: InputBorder.none,
@@ -1440,6 +1464,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       'stripe_link':    _stripeLinkCtrl.text.trim(),
       'descripcion':    _descCtrl.text.trim(),
       'activo':         _activo,
+      'preventa':       _preventa,
       'campo_anio':     _anio.toString(),
     };
     void opt(String k, String v) { if (v.isNotEmpty) data[k] = v; }
@@ -1460,6 +1485,7 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     opt('campo_peso',        _pesoCtrl.text.trim());
     opt('peso',              _pesoCtrl.text.trim());
     opt('campo_mes',         _mesCtrl.text.trim());
+    opt('campo_dia',         _diaCtrl.text.trim());
     try {
       await widget.svc.guardarItemCatalogo(widget.empresaId, docId, data);
       if (mounted) {
