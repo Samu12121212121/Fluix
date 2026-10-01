@@ -3007,44 +3007,50 @@ class _ColumnaComandaActiva extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36, height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
-              children: [
-                Icon(Icons.swap_horiz, color: Color(0xFF00FFC8), size: 18),
-                SizedBox(width: 8),
-                Text('Transferir a mesa libre',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-              ],
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.45,
+        minChildSize: 0.25,
+        maxChildSize: 0.85,
+        builder: (_, ctrl) => Column(
+          children: [
+            Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
             ),
-          ),
-          const Divider(color: Color(0xFF2A2E45), height: 1),
-          ...mesasLibres.map((m) {
-            final nombre = (m['nombre'] as String?) ??
-                'Mesa ${m['numero'] ?? ''}';
-            final zona = m['zona'] as String? ?? '';
-            return ListTile(
-              leading: const Icon(Icons.table_restaurant_outlined,
-                  color: Colors.green, size: 20),
-              title: Text(nombre,
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-              subtitle: zona.isNotEmpty
-                  ? Text(zona,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11))
-                  : null,
-              onTap: () => Navigator.pop(context, m['id'] as String),
-            );
-          }),
-          const SizedBox(height: 12),
-        ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_horiz, color: Color(0xFF00FFC8), size: 18),
+                  SizedBox(width: 8),
+                  Text('Transferir a mesa libre',
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            const Divider(color: Color(0xFF2A2E45), height: 1),
+            Expanded(child: ListView(
+              controller: ctrl,
+              children: [
+                ...mesasLibres.map((m) {
+                  final nombre = (m['nombre'] as String?) ?? 'Mesa ${m['numero'] ?? ''}';
+                  final zona = m['zona'] as String? ?? '';
+                  return ListTile(
+                    leading: const Icon(Icons.table_restaurant_outlined, color: Colors.green, size: 20),
+                    title: Text(nombre, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    subtitle: zona.isNotEmpty
+                        ? Text(zona, style: const TextStyle(color: Colors.white38, fontSize: 11))
+                        : null,
+                    onTap: () => Navigator.pop(context, m['id'] as String),
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
+            )),
+          ],
+        ),
       ),
     );
 
@@ -3458,19 +3464,23 @@ class _ColumnaComandaActiva extends StatelessWidget {
   Future<void> _reimprimirUltimoTicket(BuildContext context) async {
     if (mesaId == null) return;
     try {
-      // Solo filtramos por mesa_id + orderBy para evitar índice compuesto.
-      // El filtro de estado_pago se aplica client-side.
+      // Sin orderBy en Firestore para no requerir índice compuesto.
+      // Filtramos y ordenamos completamente client-side.
       final snap = await FirebaseFirestore.instance
           .collection('empresas')
           .doc(empresaId)
           .collection('pedidos')
           .where('mesa_id', isEqualTo: mesaId)
-          .orderBy('fecha_creacion', descending: true)
-          .limit(10)
+          .limit(30)
           .get();
       final docs = snap.docs
           .where((d) => d.data()['estado_pago'] == 'pagado')
-          .toList();
+          .toList()
+        ..sort((a, b) {
+          final ta = (a.data()['fecha_creacion'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          final tb = (b.data()['fecha_creacion'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          return tb.compareTo(ta);
+        });
 
       if (docs.isEmpty) {
         if (context.mounted) {
