@@ -26,7 +26,7 @@ import '../widgets/empleados_banner_widget.dart';
 import '../../../services/tpv/impresora_bluetooth_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/tpv/cierre_caja_service.dart';
-import 'tpv_peluqueria_screen.dart' show mostrarCierreTPV;
+import 'tpv_peluqueria_screen.dart' show PelCierreDeCaja;
 import '../../../services/tpv/offline_queue_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/tpv/terminal_fisica_service.dart';
@@ -258,7 +258,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
           nuevaVenta: _limpiarTicket,
           abrirCajon: () { _abrirCajonFisico(); },
           aperturaCaja: () { _mostrarAperturaCaja(); },
-          cierreCaja: () => mostrarCierreTPV(context, widget.empresaId),
+          cierreCaja: () => setState(() => _mostrandoCierre = true),
           verHistorial: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
           verHold: () async {
             final recuperado = await HoldPedidosWidget.mostrar(context, _holdNotifier);
@@ -476,9 +476,9 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
                 ]),
               ),
-              Expanded(child: _TiendaCierreDeCaja(
+              Expanded(child: PelCierreDeCaja(
                 empresaId: widget.empresaId,
-                onCierreCerrado: () => setState(() => _cajaCerradaHoy = true),
+                fecha: DateTime.now(),
               )),
             ])
           : Column(children: [
@@ -642,7 +642,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
           onSelected: (v) {
             if (v == 'historial') HistorialTicketsWidget.mostrar(context, widget.empresaId);
             if (v == 'arqueo') _mostrarArqueoIntermedio();
-            if (v == 'cierre') mostrarCierreTPV(context, widget.empresaId);
+            if (v == 'cierre') setState(() => _mostrandoCierre = true);
             if (v == 'devoluciones') showDialog(context: context,
                 builder: (_) => DialogoDevoluciones(empresaId: widget.empresaId, colorPrimario: _kBlu));
           },
@@ -816,7 +816,7 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
             borderRadius: BorderRadius.circular(8),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: () => mostrarCierreTPV(context, widget.empresaId),
+              onTap: () => setState(() => _mostrandoCierre = true),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 child: Row(children: [

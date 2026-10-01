@@ -165,6 +165,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
   int _pendientesOffline = 0;
   bool _btConectado = false;
   bool _oscuro = false; // tema manual: false = claro (blanco por defecto)
+  bool _mostrandoCierre = false;
   late final ValueNotifier<bool> _oscuroNotifier;
 
   static const _tpvAppBarColor = Color(0xFF1565C0);
@@ -238,7 +239,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
         widget.onEmbedReady?.call(TpvEmbedActions(
           abrirCajon: _abrirCajon,
           aperturaCaja: () => mostrarDialogoAperturaCaja(context, widget.empresaId),
-          cierreCaja: () => mostrarPantallaCierreCaja(context, widget.empresaId),
+          cierreCaja: () => setState(() => _mostrandoCierre = true),
           verHistorial: () => HistorialTicketsWidget.mostrar(context, widget.empresaId),
           verHold: () async {
             final pedido = await HoldPedidosWidget.mostrar(context, _holdNotifier);
@@ -421,6 +422,28 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostrar cierre inline para no cubrir el sidebar/AppBar del dashboard
+    if (_mostrandoCierre) {
+      return Column(children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(children: [
+            TextButton.icon(
+              onPressed: () => setState(() => _mostrandoCierre = false),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 13),
+              label: const Text('Volver al TPV', style: TextStyle(fontSize: 13)),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF374151)),
+            ),
+          ]),
+        ),
+        Expanded(child: PelCierreDeCaja(empresaId: widget.empresaId, fecha: DateTime.now())),
+      ]);
+    }
+
     final tema = _oscuro ? _TpvRootTema.oscuro : _TpvRootTema.claro;
     final bgColor = tema.fondo;
 
@@ -554,7 +577,7 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
             ),
             // Cierre
             GestureDetector(
-              onTap: () => mostrarPantallaCierreCaja(context, widget.empresaId),
+              onTap: () => setState(() => _mostrandoCierre = true),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
