@@ -2959,7 +2959,7 @@ class _TiendaComandaPanel extends StatelessWidget {
       productoId: l.productoId,
       productoNombre: l.nombre,
       cantidad: l.cantidad,
-      precioUnitario: l.precioUnitario,
+      precioUnitario: l.baseImponible, // PVP incluye IVA — guardamos base
       ivaPorcentaje: l.ivaPorcentaje,
       notasLinea: l.notas?.isNotEmpty == true ? l.notas : null,
     ))
