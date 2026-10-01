@@ -1,5 +1,16 @@
 ﻿part of 'pantalla_contenido_web.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB GALERÍA — UI propia, distinta del catálogo
+//
+// Diferencias clave vs catálogo:
+//   • Grid 2 columnas full-bleed, sin nombres/precios sobre las imágenes
+//   • Caption opcional como overlay de gradiente en la parte inferior
+//   • Álbumes como chips de filtro (se derivan de las fotos existentes)
+//   • Badge "Portada" para la imagen destacada de cada álbum
+//   • Sin vista lista — siempre visual
+// ═══════════════════════════════════════════════════════════════════════════
+
 class _TabGaleriaWeb extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
@@ -14,9 +25,8 @@ class _TabGaleriaWeb extends StatefulWidget {
 class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
   bool _subiendo = false;
   int _subiendoCount = 0;
-  bool _vistaLista = false;
+  String? _albumFiltro; // null = mostrar todas
 
-  // Stream en tiempo real
   Stream<List<Map<String, dynamic>>> get _stream =>
       widget.svc.obtenerGaleriaStream(widget.empresaId);
 
@@ -28,18 +38,18 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
       if (urls.isEmpty) return;
       setState(() => _subiendoCount = urls.length);
       for (final url in urls) {
-        final nombre = url.split('/').last.split('?').first;
         await FirebaseFirestore.instance
             .collection('empresas').doc(widget.empresaId)
             .collection('galeria_web')
             .add({
               'url': url,
-              'nombre': nombre,
+              'caption': '',
+              if (_albumFiltro != null) 'album': _albumFiltro,
               'subida': FieldValue.serverTimestamp(),
             });
       }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${urls.length} imagen${urls.length != 1 ? 'es' : ''} subida${urls.length != 1 ? 's' : ''}'),
+        content: Text('${urls.length} foto${urls.length != 1 ? 's' : ''} subida${urls.length != 1 ? 's' : ''}'),
         backgroundColor: const Color(0xFF10B981),
         duration: const Duration(seconds: 2),
       ));
@@ -51,26 +61,27 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
     }
   }
 
-  Future<void> _eliminar(String id) async {
-    await widget.svc.eliminarDeGaleria(widget.empresaId, id);
-  }
+  Future<void> _eliminar(String id) async =>
+      widget.svc.eliminarDeGaleria(widget.empresaId, id);
 
-  Future<void> _renombrar(BuildContext ctx, Map<String, dynamic> img) async {
-    final ctrl = TextEditingController(text: img['nombre'] as String? ?? '');
+  // ── Caption ──────────────────────────────────────────────────────────────
+
+  Future<void> _editarCaption(BuildContext ctx, Map<String, dynamic> img) async {
+    final ctrl = TextEditingController(text: img['caption'] as String? ?? '');
     final ok = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
-        title: const Text('Renombrar imagen',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        title: const Text('Caption', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         content: TextField(
-          controller: ctrl, autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          controller: ctrl, autofocus: true, maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Texto de la foto (opcional)',
+            hintText: 'Ej: Terraza en verano',
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
         ],
       ),
     );
@@ -79,9 +90,88 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
       await FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('galeria_web').doc(img['id'] as String)
-          .update({'nombre': ctrl.text.trim()});
+          .update({'caption': ctrl.text.trim()});
     }
   }
+
+  // ── Álbum ─────────────────────────────────────────────────────────────────
+
+  Future<void> _editarAlbum(BuildContext ctx, Map<String, dynamic> img, Set<String> existentes) async {
+    final ctrl = TextEditingController(text: img['album'] as String? ?? '');
+    final ok = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx2, setLocal) => AlertDialog(
+          title: const Text('Álbum', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TextField(
+              controller: ctrl, autofocus: existentes.isEmpty,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del álbum',
+                hintText: 'Ej: Terraza, Eventos, Interior…',
+              ),
+            ),
+            if (existentes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Existentes:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 4, children: [
+                for (final a in existentes)
+                  ActionChip(
+                    label: Text(a, style: const TextStyle(fontSize: 11)),
+                    onPressed: () { ctrl.text = a; setLocal(() {}); },
+                  ),
+                ActionChip(
+                  label: const Text('Sin álbum', style: TextStyle(fontSize: 11, color: Color(0xFFEF4444))),
+                  onPressed: () { ctrl.text = ''; setLocal(() {}); },
+                ),
+              ]),
+            ],
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx2, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx2, true), child: const Text('Guardar')),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    if (ok == true && mounted) {
+      final val = ctrl.text.trim();
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('galeria_web').doc(img['id'] as String)
+          .update(val.isEmpty ? {'album': FieldValue.delete()} : {'album': val});
+    }
+  }
+
+  // ── Portada ───────────────────────────────────────────────────────────────
+
+  Future<void> _togglePortada(Map<String, dynamic> img) async {
+    final esPortada = img['es_portada'] as bool? ?? false;
+    final db = FirebaseFirestore.instance;
+    final batch = db.batch();
+    if (!esPortada) {
+      // Quitar portada anterior del mismo álbum
+      final snap = await db
+          .collection('empresas').doc(widget.empresaId)
+          .collection('galeria_web')
+          .where('es_portada', isEqualTo: true)
+          .where('album', isEqualTo: img['album'])
+          .get();
+      for (final d in snap.docs) {
+        batch.update(d.reference, {'es_portada': false});
+      }
+    }
+    batch.update(
+      db.collection('empresas').doc(widget.empresaId)
+        .collection('galeria_web').doc(img['id'] as String),
+      {'es_portada': !esPortada},
+    );
+    await batch.commit();
+  }
+
+  // ── Fullscreen ────────────────────────────────────────────────────────────
 
   void _verFullscreen(BuildContext ctx, List<Map<String, dynamic>> imgs, int idx) {
     showDialog(
@@ -90,75 +180,105 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _stream,
       builder: (ctx, snap) {
-        final imagenes = snap.data ?? [];
-        final cargando = snap.connectionState == ConnectionState.waiting && imagenes.isEmpty;
+        final todas = snap.data ?? [];
+        final albums = <String>{
+          for (final img in todas)
+            if ((img['album'] as String?)?.trim().isNotEmpty == true)
+              img['album'] as String
+        };
+        final imagenes = _albumFiltro == null
+            ? todas
+            : todas.where((img) => img['album'] == _albumFiltro).toList();
+        final cargando = snap.connectionState == ConnectionState.waiting && todas.isEmpty;
 
         return Column(children: [
-          // ── Cabecera ───────────────────────────────────────────────────
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            child: Row(children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Galería', style: TextStyle(fontSize: 16,
-                    fontWeight: FontWeight.w800, color: widget.color)),
-                Text('${imagenes.length} imagen${imagenes.length != 1 ? 'es' : ''} · '
-                    'aparecen en la web al instante',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              ])),
-              // Toggle vista
-              IconButton(
-                icon: Icon(_vistaLista
-                    ? Icons.grid_view_rounded
-                    : Icons.view_list_rounded,
-                    size: 20, color: const Color(0xFF64748B)),
-                onPressed: () => setState(() => _vistaLista = !_vistaLista),
-                tooltip: _vistaLista ? 'Vista cuadrícula' : 'Vista lista',
-                padding: const EdgeInsets.all(6),
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _subiendo ? null : _subirVarias,
-                icon: _subiendo
-                    ? SizedBox(width: 13, height: 13,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.add_photo_alternate_rounded, size: 15),
-                label: Text(_subiendo
-                    ? (_subiendoCount > 0
-                        ? 'Subiendo $_subiendoCount…'
-                        : 'Subiendo…')
-                    : 'Añadir fotos'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: widget.color,
-                  minimumSize: const Size(0, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ]),
-          ),
+          _buildCabecera(imagenes.length),
+          if (albums.isNotEmpty) _buildAlbumChips(albums),
           const Divider(height: 1),
-
-          // ── Contenido ──────────────────────────────────────────────────
           Expanded(child: cargando
               ? Center(child: CircularProgressIndicator(color: widget.color))
               : imagenes.isEmpty
                   ? _buildVacio()
-                  : _vistaLista
-                      ? _buildLista(ctx, imagenes)
-                      : _buildGrid(ctx, imagenes)),
+                  : _buildGrid(ctx, imagenes, albums)),
         ]);
       },
     );
   }
+
+  // ── Cabecera ──────────────────────────────────────────────────────────────
+
+  Widget _buildCabecera(int count) => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    child: Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Galería', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: widget.color)),
+        Text('$count foto${count != 1 ? 's' : ''} · se publican en la web al instante',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+      ])),
+      FilledButton.icon(
+        onPressed: _subiendo ? null : _subirVarias,
+        icon: _subiendo
+            ? const SizedBox(width: 13, height: 13,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.add_photo_alternate_rounded, size: 15),
+        label: Text(_subiendo
+            ? (_subiendoCount > 0 ? 'Subiendo $_subiendoCount…' : 'Subiendo…')
+            : 'Añadir fotos'),
+        style: FilledButton.styleFrom(
+          backgroundColor: widget.color,
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    ]),
+  );
+
+  // ── Chips de álbum ────────────────────────────────────────────────────────
+
+  Widget _buildAlbumChips(Set<String> albums) => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _albumChip('Todas', null),
+        ...albums.map((a) => _albumChip(a, a)),
+      ]),
+    ),
+  );
+
+  Widget _albumChip(String label, String? value) {
+    final sel = _albumFiltro == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: sel,
+        onSelected: (_) => setState(() => _albumFiltro = value),
+        selectedColor: widget.color.withValues(alpha: 0.12),
+        labelStyle: TextStyle(
+          fontSize: 12, fontWeight: FontWeight.w600,
+          color: sel ? widget.color : const Color(0xFF64748B),
+        ),
+        side: BorderSide(color: sel ? widget.color : const Color(0xFFE2E8F0)),
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  // ── Estado vacío ──────────────────────────────────────────────────────────
 
   Widget _buildVacio() => Center(child: Column(
     mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -168,8 +288,8 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
         child: Icon(Icons.photo_library_outlined, size: 32,
             color: widget.color.withValues(alpha: 0.4))),
     const SizedBox(height: 14),
-    const Text('Sin imágenes todavía',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+    Text(_albumFiltro != null ? 'Sin fotos en "$_albumFiltro"' : 'Sin fotos todavía',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
             color: Color(0xFF334155))),
     const SizedBox(height: 5),
     const Text('Selecciona varias a la vez para subir en lote',
@@ -187,105 +307,110 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
     ),
   ]));
 
-  Widget _buildGrid(BuildContext ctx, List<Map<String, dynamic>> imgs) =>
+  // ── Grid 2 columnas ───────────────────────────────────────────────────────
+
+  Widget _buildGrid(BuildContext ctx, List<Map<String, dynamic>> imgs, Set<String> albums) =>
       GridView.builder(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8,
-          childAspectRatio: 1,
+          crossAxisCount: 2,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: 0.85,
         ),
         itemCount: imgs.length,
-        itemBuilder: (_, i) {
-          final img = imgs[i];
-          final url = img['url'] as String? ?? '';
-          return GestureDetector(
-            onTap: () => _verFullscreen(ctx, imgs, i),
-            onLongPress: () => _mostrarOpciones(ctx, img),
-            child: Stack(fit: StackFit.expand, children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  image: url.isNotEmpty
-                      ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
-                      : null,
-                ),
-                child: url.isEmpty
-                    ? Center(child: Icon(Icons.image_outlined,
-                        color: Colors.grey[300], size: 28))
-                    : null,
-              ),
-              // Botón eliminar
-              Positioned(top: 4, right: 4,
-                child: GestureDetector(
-                  onTap: () => _confirmarEliminar(ctx, img),
-                  child: Container(
-                    width: 22, height: 22,
-                    decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(6)),
-                    child: const Icon(Icons.close, size: 12, color: Colors.white),
+        itemBuilder: (_, i) => _buildTile(ctx, imgs, i, albums),
+      );
+
+  Widget _buildTile(BuildContext ctx, List<Map<String, dynamic>> imgs, int i, Set<String> albums) {
+    final img = imgs[i];
+    final url = img['url'] as String? ?? '';
+    final caption = (img['caption'] as String?)?.trim() ?? '';
+    final esPortada = img['es_portada'] as bool? ?? false;
+
+    return GestureDetector(
+      onTap: () => _verFullscreen(ctx, imgs, i),
+      onLongPress: () => _mostrarOpciones(ctx, img, albums),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 4, offset: const Offset(0, 2),
+          )],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(fit: StackFit.expand, children: [
+            // ── Imagen ───────────────────────────────────────────────
+            url.isNotEmpty
+                ? Image.network(url, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.grey[300], size: 28)))
+                : Center(child: Icon(Icons.image_outlined,
+                    color: Colors.grey[300], size: 28)),
+
+            // ── Caption overlay ───────────────────────────────────────
+            if (caption.isNotEmpty)
+              Positioned(bottom: 0, left: 0, right: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Color(0xCC000000), Colors.transparent],
+                    ),
                   ),
+                  child: Text(caption,
+                      style: const TextStyle(color: Colors.white,
+                          fontSize: 11, fontWeight: FontWeight.w500, height: 1.3),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
               ),
-            ]),
-          );
-        },
-      );
 
-  Widget _buildLista(BuildContext ctx, List<Map<String, dynamic>> imgs) =>
-      ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        itemCount: imgs.length,
-        itemBuilder: (_, i) {
-          final img = imgs[i];
-          final url = img['url'] as String? ?? '';
-          final nombre = img['nombre'] as String? ?? 'Sin nombre';
-          return GestureDetector(
-            onTap: () => _verFullscreen(ctx, imgs, i),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE8EDF2)),
+            // ── Badge portada ─────────────────────────────────────────
+            if (esPortada)
+              Positioned(top: 6, left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.color.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('Portada',
+                      style: TextStyle(color: Colors.white,
+                          fontSize: 9, fontWeight: FontWeight.w700)),
+                ),
               ),
-              child: Row(children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(10)),
-                  child: url.isNotEmpty
-                      ? Image.network(url, width: 64, height: 64,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                              width: 64, height: 64,
-                              color: const Color(0xFFF1F5F9),
-                              child: const Icon(Icons.broken_image_outlined,
-                                  size: 24, color: Color(0xFFCBD5E1))))
-                      : Container(width: 64, height: 64,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.image_outlined, size: 24,
-                              color: Color(0xFFCBD5E1))),
+
+            // ── Botón menú ────────────────────────────────────────────
+            Positioned(top: 4, right: 4,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _mostrarOpciones(ctx, img, albums),
+                child: Container(
+                  width: 26, height: 26,
+                  decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.more_vert_rounded,
+                      size: 14, color: Colors.white),
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(nombre,
-                    style: const TextStyle(fontSize: 13,
-                        fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                    overflow: TextOverflow.ellipsis)),
-                IconButton(
-                  icon: const Icon(Icons.more_vert_rounded, size: 18,
-                      color: Color(0xFF94A3B8)),
-                  onPressed: () => _mostrarOpciones(ctx, img),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  constraints: const BoxConstraints(),
-                ),
-              ]),
+              ),
             ),
-          );
-        },
-      );
+          ]),
+        ),
+      ),
+    );
+  }
 
-  void _mostrarOpciones(BuildContext ctx, Map<String, dynamic> img) {
+  // ── Opciones (sheet) ──────────────────────────────────────────────────────
+
+  void _mostrarOpciones(BuildContext ctx, Map<String, dynamic> img, Set<String> albums) {
+    final esPortada = img['es_portada'] as bool? ?? false;
     showModalBottomSheet(
       context: ctx,
       backgroundColor: Colors.white,
@@ -296,11 +421,33 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
         Container(width: 36, height: 4,
             decoration: BoxDecoration(color: const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         ListTile(
-          leading: const Icon(Icons.edit_outlined, size: 20),
-          title: const Text('Renombrar', style: TextStyle(fontSize: 14)),
-          onTap: () { Navigator.pop(ctx); _renombrar(ctx, img); },
+          leading: const Icon(Icons.short_text_rounded, size: 20),
+          title: const Text('Editar caption', style: TextStyle(fontSize: 14)),
+          subtitle: (img['caption'] as String?)?.isNotEmpty == true
+              ? Text(img['caption'] as String,
+                  style: const TextStyle(fontSize: 12), maxLines: 1,
+                  overflow: TextOverflow.ellipsis)
+              : null,
+          onTap: () { Navigator.pop(ctx); _editarCaption(ctx, img); },
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_album_outlined, size: 20),
+          title: const Text('Álbum', style: TextStyle(fontSize: 14)),
+          subtitle: (img['album'] as String?)?.isNotEmpty == true
+              ? Text(img['album'] as String, style: const TextStyle(fontSize: 12))
+              : const Text('Sin álbum', style: TextStyle(fontSize: 12)),
+          onTap: () { Navigator.pop(ctx); _editarAlbum(ctx, img, albums); },
+        ),
+        ListTile(
+          leading: Icon(
+            esPortada ? Icons.star_rounded : Icons.star_border_rounded,
+            size: 20, color: widget.color,
+          ),
+          title: Text(esPortada ? 'Quitar portada' : 'Establecer portada',
+              style: const TextStyle(fontSize: 14)),
+          onTap: () { Navigator.pop(ctx); _togglePortada(img); },
         ),
         ListTile(
           leading: const Icon(Icons.copy_rounded, size: 20),
@@ -318,8 +465,8 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
         ListTile(
           leading: const Icon(Icons.delete_outline_rounded, size: 20,
               color: Color(0xFFEF4444)),
-          title: const Text('Eliminar', style: TextStyle(
-              fontSize: 14, color: Color(0xFFEF4444))),
+          title: const Text('Eliminar', style: TextStyle(fontSize: 14,
+              color: Color(0xFFEF4444))),
           onTap: () { Navigator.pop(ctx); _confirmarEliminar(ctx, img); },
         ),
         const SizedBox(height: 8),
@@ -331,7 +478,7 @@ class _TabGaleriaWebState extends State<_TabGaleriaWeb> {
     final ok = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminar imagen',
+        title: const Text('Eliminar foto',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         content: const Text('Se borrará de la galería. No se puede deshacer.'),
         actions: [
@@ -375,15 +522,25 @@ class _GaleriaViewerState extends State<_GaleriaViewer> {
   @override
   void dispose() { _pageCtrl.dispose(); super.dispose(); }
 
+  void _irA(int idx) {
+    _pageCtrl.animateToPage(idx,
+        duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
+  }
+
   @override
   Widget build(BuildContext context) {
     final imgs = widget.imagenes;
+    final total = imgs.length;
+    final caption = (imgs[_idx]['caption'] as String?)?.trim() ?? '';
+    final album   = (imgs[_idx]['album']   as String?)?.trim() ?? '';
+
     return Dialog.fullscreen(
       backgroundColor: Colors.black,
       child: Stack(children: [
+        // ── Swipe de imágenes ─────────────────────────────────────────
         PageView.builder(
           controller: _pageCtrl,
-          itemCount: imgs.length,
+          itemCount: total,
           onPageChanged: (i) => setState(() => _idx = i),
           itemBuilder: (_, i) {
             final url = imgs[i]['url'] as String? ?? '';
@@ -392,38 +549,77 @@ class _GaleriaViewerState extends State<_GaleriaViewer> {
                 child: url.isNotEmpty
                     ? Image.network(url, fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => const Icon(
-                            Icons.broken_image_outlined,
-                            size: 48, color: Colors.white30))
+                            Icons.broken_image_outlined, size: 48, color: Colors.white30))
                     : const Icon(Icons.image_outlined, size: 48, color: Colors.white30),
               ),
             );
           },
         ),
-        // Cerrar
+
+        // ── Cerrar ────────────────────────────────────────────────────
         Positioned(top: 16, right: 16,
           child: IconButton(
             icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
             onPressed: () => Navigator.pop(context),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black38,
+            style: IconButton.styleFrom(backgroundColor: Colors.black38),
+          ),
+        ),
+
+        // ── Flecha anterior ───────────────────────────────────────────
+        if (_idx > 0)
+          Positioned(left: 8, top: 0, bottom: 0,
+            child: Center(
+              child: IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 32),
+                onPressed: () => _irA(_idx - 1),
+                style: IconButton.styleFrom(backgroundColor: Colors.black26),
+              ),
             ),
           ),
-        ),
-        // Contador
-        Positioned(bottom: 24, left: 0, right: 0,
-          child: Text('${_idx + 1} / ${imgs.length}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
-        ),
-        // Nombre
-        if ((imgs[_idx]['nombre'] as String? ?? '').isNotEmpty)
-          Positioned(bottom: 44, left: 24, right: 24,
-            child: Text(imgs[_idx]['nombre'] as String,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white,
-                    fontSize: 14, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis),
+
+        // ── Flecha siguiente ──────────────────────────────────────────
+        if (_idx < total - 1)
+          Positioned(right: 8, top: 0, bottom: 0,
+            child: Center(
+              child: IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 32),
+                onPressed: () => _irA(_idx + 1),
+                style: IconButton.styleFrom(backgroundColor: Colors.black26),
+              ),
+            ),
           ),
+
+        // ── Pie: caption + álbum + contador ──────────────────────────
+        Positioned(bottom: 0, left: 0, right: 0,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0xCC000000), Colors.transparent],
+              ),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center, children: [
+              if (caption.isNotEmpty)
+                Text(caption,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white,
+                        fontSize: 14, fontWeight: FontWeight.w500, height: 1.4),
+                    maxLines: 3, overflow: TextOverflow.ellipsis),
+              if (album.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(album.toUpperCase(),
+                    style: const TextStyle(color: Colors.white54,
+                        fontSize: 10, letterSpacing: 0.8, fontWeight: FontWeight.w600)),
+              ],
+              const SizedBox(height: 6),
+              Text('${_idx + 1} / $total',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            ]),
+          ),
+        ),
       ]),
     );
   }
