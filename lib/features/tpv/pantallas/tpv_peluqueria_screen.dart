@@ -480,7 +480,7 @@ class _TpvPeluqueriaState extends State<TpvPeluqueriaScreen> {
   StreamSubscription<List<ConnectivityResult>>? _connectSub;
 
   // ── Configuración fiscal ──────────────────────────────────────────────────
-  bool _preciosConIva = false;
+  bool _preciosConIva = true;
   int  _descuentoMaxPct = 100;
   bool _mostrarPropina = true;
 
@@ -6224,7 +6224,7 @@ class _ColTicketState extends State<_ColTicket> {
                       'nombre': nombre,
                       'precio': 0.0, // precio actualizado al cobrar
                       'iva_porcentaje': 21.0,
-                      'precio_con_iva': false,
+                      'precio_con_iva': true,
                     }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -6265,7 +6265,7 @@ class _ColTicketState extends State<_ColTicket> {
                 'precio': (m['precio'] as num?)?.toDouble() ?? 0.0,
                 'categoria': m['categoria'] as String? ?? 'General',
                 'iva_porcentaje': (m['iva_porcentaje'] as num?)?.toDouble() ?? 21.0,
-                'precio_con_iva': m['precio_con_iva'] as bool? ?? false,
+                'precio_con_iva': m['precio_con_iva'] as bool? ?? true,
               };
             }).toList();
 
