@@ -29,6 +29,7 @@ import '../../../services/pedidos_service.dart';
 import '../../../services/tpv_facturacion_service.dart';
 import '../../../services/tpv/impresora_service.dart';
 import '../../../services/cierre_caja_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../services/verifactu/qr_service.dart';
 import '../../../services/tpv/tpv_document_renderer.dart';
 import '../../../domain/modelos/pedido.dart';
