@@ -19,6 +19,8 @@ class MensajeContactoWeb {
   final String? enlace;
   final String? archivoUrl;
   final String? archivoNombre;
+  // Prioridad del mensaje (null = normal, 'urgente' = marcado)
+  final String? prioridad;
 
   MensajeContactoWeb({
     required this.id,
@@ -38,6 +40,7 @@ class MensajeContactoWeb {
     this.enlace,
     this.archivoUrl,
     this.archivoNombre,
+    this.prioridad,
   });
 
   bool get esManuscrito => origen == 'manuscrito';
@@ -61,6 +64,7 @@ class MensajeContactoWeb {
       enlace:        map['enlace'],
       archivoUrl:    map['archivo_url'] as String?,
       archivoNombre: map['archivo_nombre'] as String?,
+      prioridad:     map['prioridad'] as String?,
     );
   }
 

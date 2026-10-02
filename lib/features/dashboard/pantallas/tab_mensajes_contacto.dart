@@ -116,7 +116,7 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
   }
 
   Future<void> _toggleUrgente(MensajeContactoWeb msg) async {
-    final esUrgente = (msg as dynamic).prioridad == 'urgente';
+    final esUrgente = msg.prioridad == 'urgente';
     await _svc.actualizarCampo(widget.empresaId, msg.id,
         'prioridad', esUrgente ? null : 'urgente');
   }
@@ -322,7 +322,7 @@ class _TarjetaMensaje extends StatelessWidget {
                     _statusBadge('Pendiente',
                         const Color(0xFFD97706), const Color(0xFFFEF3C7)),
                   // Prioridad urgente
-                  if ((mensaje as dynamic).prioridad == 'urgente')
+                  if (mensaje.prioridad == 'urgente')
                     _statusBadge('⚡ Urgente',
                         const Color(0xFFDC2626), const Color(0xFFFEE2E2)),
                   const Spacer(),
@@ -330,11 +330,11 @@ class _TarjetaMensaje extends StatelessWidget {
                   GestureDetector(
                     onTap: onMarcarUrgente,
                     child: Icon(
-                      (mensaje as dynamic).prioridad == 'urgente'
+                      mensaje.prioridad == 'urgente'
                           ? Icons.flash_on_rounded
                           : Icons.flash_off_rounded,
                       size: 14,
-                      color: (mensaje as dynamic).prioridad == 'urgente'
+                      color: mensaje.prioridad == 'urgente'
                           ? const Color(0xFFDC2626)
                           : const Color(0xFFCBD5E1),
                     ),
