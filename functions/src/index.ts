@@ -565,7 +565,7 @@ function _formatearFechaReserva(reserva: FirebaseFirestore.DocumentData): string
  * - Envía email al empresario si tiene email_notificaciones configurado
  */
 export const onNuevoMensajeContacto = onDocumentCreated(
-  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION },
+  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const empresaId = event.params.empresaId;
     const msg = event.data?.data();
@@ -653,7 +653,7 @@ export const onNuevoMensajeContacto = onDocumentCreated(
  * Trigger: campos `respondido` (false→true) y `respuesta` (nuevo) en el doc.
  */
 export const onMensajeContactoRespondido = onDocumentUpdated(
-  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION },
+  { document: "empresas/{empresaId}/contacto_web/{mensajeId}", region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const empresaId = event.params.empresaId;
     const antes   = event.data?.before.data();
