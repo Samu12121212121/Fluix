@@ -5,8 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../services/trofeos_service.dart';
-import '../../perfil_cliente/pantallas/pantalla_trofeos.dart';
 import '../../../models/negocio_publico_model.dart';
 import '../../../services/geolocalizacion_service.dart';
 import '../../perfil_cliente/pantallas/pantalla_perfil_cliente.dart';
@@ -392,31 +390,7 @@ class _TabExplorarState extends State<_TabExplorar> {
         fontWeight: FontWeight.w800, letterSpacing: -1,
       )),
       actions: [
-        // Contador de monedas
-        if (FirebaseAuth.instance.currentUser != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: StreamBuilder<int>(
-              stream: TrofeosService.streamMonedas(FirebaseAuth.instance.currentUser!.uid),
-              builder: (_, snap) => GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTrofeos())),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFB830).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFFFB830).withValues(alpha: 0.4)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Text('🪙', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 4),
-                    Text('${snap.data ?? 0}', style: const TextStyle(
-                      color: Color(0xFFFFB830), fontSize: 12, fontWeight: FontWeight.w900)),
-                  ]),
-                ),
-              ),
-            ),
-          ),
+        // Trofeos y tienda — pendientes de implementar
         // Botón filtros
         GestureDetector(
           onTap: () async {

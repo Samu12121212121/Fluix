@@ -209,6 +209,10 @@ class _TabReservasWebState extends State<TabReservasWeb> {
               duration: Duration(seconds: 2)));
           }),
           const SizedBox(width: 6),
+          // Borrar reservas pasadas
+          _iconChip(Icons.delete_sweep_rounded, 'Limpiar',
+              () => _mostrarDialogoBorrarPasadas()),
+          const SizedBox(width: 6),
           // Seleccionar lote
           _iconChip(
             _modoSeleccion ? Icons.close_rounded : Icons.checklist_rounded,
@@ -844,6 +848,170 @@ class _TabReservasWebState extends State<TabReservasWeb> {
         color: _color,
       ),
     );
+  }
+
+  // ── Borrar reservas pasadas ───────────────────────────────────────────────────
+
+  Future<void> _mostrarDialogoBorrarPasadas() async {
+    final hoy = DateTime.now();
+    DateTime desde = DateTime(hoy.year - 1, hoy.month, hoy.day);
+    DateTime hasta = DateTime(hoy.year, hoy.month, hoy.day);
+    String? estadoFiltro; // null = todas
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          Future<void> pickDesde() async {
+            final d = await showDatePicker(
+              context: ctx,
+              initialDate: desde,
+              firstDate: DateTime(2020),
+              lastDate: hasta,
+              locale: const Locale('es', 'ES'),
+            );
+            if (d != null) setModalState(() => desde = d);
+          }
+
+          Future<void> pickHasta() async {
+            final d = await showDatePicker(
+              context: ctx,
+              initialDate: hasta,
+              firstDate: desde,
+              lastDate: DateTime.now(),
+              locale: const Locale('es', 'ES'),
+            );
+            if (d != null) setModalState(() => hasta = d);
+          }
+
+          final estadosOpciones = <(String?, String)>[
+            (null,         'Todas'),
+            ('PENDIENTE',  'Pendiente'),
+            ('CONFIRMADA', 'Confirmada'),
+            ('CANCELADA',  'Cancelada'),
+          ];
+
+          String fmt(DateTime d) =>
+              '${d.day.toString().padLeft(2,'0')}/'
+              '${d.month.toString().padLeft(2,'0')}/'
+              '${d.year}';
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(children: [
+              Icon(Icons.delete_sweep_rounded, color: Color(0xFFEF4444), size: 20),
+              SizedBox(width: 8),
+              Text('Borrar reservas', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ]),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Selecciona el rango de fechas y el tipo de reservas a eliminar.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+              const SizedBox(height: 16),
+              // Desde
+              Row(children: [
+                const Text('Desde:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(
+                  onPressed: pickDesde,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: Text(fmt(desde)),
+                )),
+              ]),
+              const SizedBox(height: 8),
+              // Hasta
+              Row(children: [
+                const Text('Hasta: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(
+                  onPressed: pickHasta,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: Text(fmt(hasta)),
+                )),
+              ]),
+              const SizedBox(height: 14),
+              // Estado
+              const Align(alignment: Alignment.centerLeft,
+                  child: Text('Tipo de reserva:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6, runSpacing: 6,
+                children: estadosOpciones.map((opt) {
+                  final sel = estadoFiltro == opt.$1;
+                  return ChoiceChip(
+                    label: Text(opt.$2, style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600,
+                        color: sel ? Colors.white : const Color(0xFF334155))),
+                    selected: sel,
+                    selectedColor: const Color(0xFFEF4444),
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    onSelected: (_) => setModalState(() => estadoFiltro = opt.$1),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 16),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Esta acción es permanente y no se puede deshacer.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFFDC2626)))),
+                ]),
+              ),
+            ]),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    try {
+      final n = await widget.svc.eliminarReservasBulk(
+        empresaId: widget.empresaId,
+        desde: desde,
+        hasta: hasta,
+        estado: estadoFiltro,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$n reserva${n != 1 ? 's' : ''} eliminada${n != 1 ? 's' : ''}'),
+          backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al eliminar: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ));
+      }
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

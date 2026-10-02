@@ -1091,6 +1091,21 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                       () => _toggleActivo(id, activo),
                     ),
                   ]),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _eliminarEmpleado(id, nombre),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                      label: const Text('Eliminar empleado',
+                          style: TextStyle(fontSize: 11)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _kRed,
+                        side: const BorderSide(color: _kRed),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
                 ]),
               ),
 
@@ -1365,6 +1380,40 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         FluxToast.aviso(context, 'Empleado desactivado. Ha perdido el acceso.');
       }
       setState(() => _seleccionado = null);
+    }
+  }
+
+  Future<void> _eliminarEmpleado(String id, String nombre) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Eliminar empleado',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        content: Text(
+            '¿Seguro que quieres eliminar a $nombre?\n\n'
+            'Esta acción eliminará el perfil pero no su cuenta de usuario.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _kRed),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _firestore.collection('usuarios').doc(id).delete();
+      if (mounted) {
+        setState(() => _seleccionado = null);
+        FluxToast.exito(context, '$nombre eliminado');
+        _cargarTodo(silencioso: true);
+      }
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
     }
   }
 

@@ -2643,6 +2643,12 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
       ));
       return;
     }
+    // Vaciar el campo de etiqueta pendiente antes de guardar
+    final _tagPendiente = _etiquetaCtrl.text.trim();
+    if (_tagPendiente.isNotEmpty && !_etiquetas.contains(_tagPendiente)) {
+      _etiquetas.add(_tagPendiente);
+      _etiquetaCtrl.clear();
+    }
     setState(() => _guardando = true);
     final entrada = EntradaBlog(
       id: widget.entrada?.id ?? '',

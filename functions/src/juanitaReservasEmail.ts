@@ -105,7 +105,13 @@ export const onJuanitaReservaEstadoCambiado = onDocumentUpdated(
     } catch (_) {}
 
     const servicio: string = despues.servicio_nombre || despues.servicio || "";
-    const personas: string = despues.numero_personas ? `${despues.numero_personas} personas` : "";
+    const personas: string =
+      despues.numero_personas ? `${despues.numero_personas} personas`
+      : despues.personas ? `${despues.personas} personas`
+      : despues.comensales ? `${despues.comensales} comensales`
+      : "";
+    const zona: string = despues.zona || despues.sala || despues.ubicacion || "";
+    const notas: string = despues.notas || despues.nota || despues.nota_interna || despues.mensaje || "";
 
     try {
       if (esConfirmada) {
@@ -116,6 +122,8 @@ export const onJuanitaReservaEstadoCambiado = onDocumentUpdated(
           fechaHora: fechaHora || "Próximamente",
           servicio,
           personas,
+          zona,
+          notas,
         });
         console.log(`[juanita] Confirmación enviada a ${emailCliente}`);
       } else {

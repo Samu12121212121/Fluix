@@ -227,43 +227,6 @@ class _PantallaLoginState extends State<PantallaLogin> {
             style: TextStyle(color: Color(0xFF6B6E82), fontSize: 14), // Gris muted
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Expanded(child: Divider(color: Color(0xFF2A2E45))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: const Text('o prueba la demo', style: TextStyle(color: Color(0xFF6B6E82), fontSize: 12)),
-            ),
-            const Expanded(child: Divider(color: Color(0xFF2A2E45))),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: OutlinedButton.icon(
-            onPressed: _ocupado ? null : _iniciarSesionDemo,
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF00FFC8)),
-              foregroundColor: const Color(0xFF00FFC8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            icon: _cargandoDemo
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FFC8)))
-                : const Icon(Icons.play_circle_outline, color: Color(0xFF00FFC8)),
-            label: Text(
-              _cargandoDemo ? 'Cargando demo...' : 'Probar cuenta demo',
-              style: const TextStyle(color: Color(0xFF00FFC8), fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Sin registro · Datos de ejemplo · Solo lectura',
-          style: TextStyle(color: Color(0xFF6B6E82), fontSize: 11), // Texto hint
-          textAlign: TextAlign.center,
-        ),
         const SizedBox(height: 24),
         // ── Botones pequeños de registro ────────────────────────────────
         Row(

@@ -114,15 +114,24 @@ export const onReservaEstadoCambiadoEmail = onDocumentUpdated(
     } catch (_) {}
 
     try {
+      const _servicio = despues.servicio_nombre || despues.servicio || "";
+      const _personas =
+        despues.personas ? `${despues.personas} personas`
+        : despues.numero_personas ? `${despues.numero_personas} personas`
+        : despues.comensales ? `${despues.comensales} comensales` : "";
+      const _zona  = despues.zona  || despues.sala  || despues.ubicacion || "";
+      const _notas = despues.notas || despues.nota  || despues.nota_interna || despues.mensaje || "";
+
       if (esConfirmada) {
         await enviarConfirmacionReserva({
           to: emailCliente,
           clienteNombre: nombreCliente,
           empresaNombre,
           fechaHora: fechaHora || "Próximamente",
-          servicio: despues.servicio_nombre || despues.servicio || "",
-          personas: despues.personas ? `${despues.personas} personas`
-            : despues.comensales ? `${despues.comensales} comensales` : "",
+          servicio: _servicio,
+          personas: _personas,
+          zona: _zona,
+          notas: _notas,
         });
         console.log(`[reservaEmail] Confirmación → ${emailCliente}`);
       } else {
@@ -131,9 +140,8 @@ export const onReservaEstadoCambiadoEmail = onDocumentUpdated(
           clienteNombre: nombreCliente,
           empresaNombre,
           fechaHora: fechaHora || "Próximamente",
-          servicio: despues.servicio_nombre || despues.servicio || "",
-          personas: despues.personas ? `${despues.personas} personas`
-            : despues.comensales ? `${despues.comensales} comensales` : "",
+          servicio: _servicio,
+          personas: _personas,
           motivoCancelacion: despues.motivo_cancelacion || "Sin motivo especificado",
         });
         console.log(`[reservaEmail] Cancelación → ${emailCliente}`);

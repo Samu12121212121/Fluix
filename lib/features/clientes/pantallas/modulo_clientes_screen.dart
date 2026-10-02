@@ -940,6 +940,20 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
           ),
         ),
+        if (_esPropietario) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _eliminarCliente(doc.id, nombre),
+            icon: const Icon(Icons.delete_outline_rounded, size: 14),
+            label: const Text('Eliminar cliente', style: TextStyle(fontSize: 11)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _kRed,
+              side: const BorderSide(color: _kRed, width: 1),
+              minimumSize: const Size(double.infinity, 36),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ],
         // ── Email de bienvenida ───────────────────────────────────────────────
         if ((d['correo'] as String? ?? '').contains('@')) ...[
           const SizedBox(height: 6),
@@ -1391,6 +1405,40 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
       }
     } on FirebaseFunctionsException catch (e) {
       if (mounted) FluxToast.error(context, 'Error ${e.code}: ${e.message}');
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    }
+  }
+
+  Future<void> _eliminarCliente(String clienteId, String nombre) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Eliminar cliente',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        content: Text('¿Seguro que quieres eliminar a $nombre? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: _kRed),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _firestore
+          .collection('empresas').doc(widget.empresaId)
+          .collection('clientes').doc(clienteId)
+          .delete();
+      if (mounted) {
+        setState(() => _seleccionado = null);
+        FluxToast.exito(context, '$nombre eliminado');
+      }
     } catch (e) {
       if (mounted) FluxToast.error(context, 'Error: $e');
     }

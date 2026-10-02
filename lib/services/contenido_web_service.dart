@@ -1919,7 +1919,10 @@ messaging.onBackgroundMessage(function(payload) {
   }
 
   Future<void> eliminarEvento(String empresaId, String eventoId) async {
-    await _eventosCol(empresaId).doc(eventoId).update({'eliminado': true});
+    await _eventosCol(empresaId).doc(eventoId).update({
+      'eliminado': true,
+      'activo': false,
+    });
   }
 
   Future<void> toggleActivoEvento(String empresaId, String eventoId, bool activo) async {
@@ -3150,4 +3153,39 @@ messaging.onBackgroundMessage(function(payload) {
             'estado': 'CANCELADA',
             'fecha_modificacion': FieldValue.serverTimestamp(),
           });
+
+  Future<void> eliminarReservaWeb(String empresaId, String reservaId) =>
+      _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('reservas').doc(reservaId)
+          .delete();
+
+  /// Elimina en lote reservas que cumplan fecha <= [hasta] y opcionalmente [estado].
+  /// [estado] null = todas. Devuelve el número de documentos borrados.
+  Future<int> eliminarReservasBulk({
+    required String empresaId,
+    required DateTime desde,
+    required DateTime hasta,
+    String? estado, // null = todas
+  }) async {
+    var query = _firestore
+        .collection('empresas').doc(empresaId)
+        .collection('reservas')
+        .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+        .where('fecha_hora', isLessThanOrEqualTo: Timestamp.fromDate(
+            DateTime(hasta.year, hasta.month, hasta.day, 23, 59, 59)));
+
+    final snap = await query.get();
+    final batch = _firestore.batch();
+    int count = 0;
+    for (final doc in snap.docs) {
+      final estadoDoc = (doc.data()['estado'] as String? ?? '').toUpperCase();
+      if (estado == null || estadoDoc == estado.toUpperCase()) {
+        batch.delete(doc.reference);
+        count++;
+      }
+    }
+    if (count > 0) await batch.commit();
+    return count;
+  }
 }

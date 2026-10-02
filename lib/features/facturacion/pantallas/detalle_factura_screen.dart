@@ -15,6 +15,7 @@ import 'package:planeag_flutter/services/email_service.dart';
 import 'package:planeag_flutter/services/verifactu_service.dart';
 import 'package:planeag_flutter/services/verifactu/qr_service.dart';
 import 'package:planeag_flutter/services/verifactu/verifactu_flow_service.dart' hide EstadoVerifactu;
+import 'package:planeag_flutter/core/utils/permisos_service.dart';
 import 'formulario_factura_screen.dart';
 import 'formulario_rectificativa_screen.dart';
 
@@ -66,6 +67,8 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
   String get _userId =>
       FirebaseAuth.instance.currentUser?.uid ?? '';
+  bool get _puedeEnviarEmail =>
+      PermisosService().sesion?.esAdmin ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -146,13 +149,14 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
                       contentPadding: EdgeInsets.zero,
                     )),
               ],
-              const PopupMenuItem(
-                  value: 'enviar',
-                  child: ListTile(
-                    leading: Icon(Icons.send, color: Color(0xFF0D47A1)),
-                    title: Text('Enviar al cliente'),
-                    contentPadding: EdgeInsets.zero,
-                  )),
+              if (_puedeEnviarEmail)
+                const PopupMenuItem(
+                    value: 'enviar',
+                    child: ListTile(
+                      leading: Icon(Icons.send, color: Color(0xFF0D47A1)),
+                      title: Text('Enviar al cliente'),
+                      contentPadding: EdgeInsets.zero,
+                    )),
               const PopupMenuItem(
                   value: 'duplicar',
                   child: ListTile(
