@@ -1749,10 +1749,12 @@ messaging.onBackgroundMessage(function(payload) {
     await guardarEntradaBlog(empresaId, entrada);
   }
 
-  /// Soft-delete: marca eliminado=true en lugar de borrar físicamente
+  /// Soft-delete: marca eliminado=true y publicada=false para que desaparezca de la web
   Future<void> eliminarEntradaBlog(String empresaId, String entradaId) async {
     await _blogCol(empresaId).doc(entradaId).update({
       'eliminado': true,
+      'publicada': false,
+      'estado': 'eliminado',
       'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
   }
