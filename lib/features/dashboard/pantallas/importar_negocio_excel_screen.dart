@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:xml/xml.dart' as xml;
 import 'package:flutter/material.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../core/widgets/flux_toast.dart';
@@ -48,10 +49,12 @@ class _ImportarNegocioExcelScreenState
   Future<void> _seleccionarFichero() async {
     setState(() { _cargando = true; _error = null; _parseado = null; });
     try {
+      // withData:true en Windows/iOS causa deadlock en el isolate de FilePicker.
+      // Solo activarlo en web (donde no hay acceso a path).
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
-        withData: true,
+        withData: kIsWeb, // solo en web; en nativo leemos desde path
       );
       if (result == null || result.files.isEmpty) {
         setState(() => _cargando = false);
@@ -61,11 +64,9 @@ class _ImportarNegocioExcelScreenState
       final file = result.files.first;
       List<int> bytes;
 
-      if (file.bytes != null) {
-        // Web y la mayoría de plataformas con withData:true
+      if (kIsWeb && file.bytes != null) {
         bytes = file.bytes!;
       } else if (!kIsWeb && file.path != null) {
-        // iOS/macOS: a veces bytes es null aunque withData=true; leer desde path
         bytes = await File(file.path!).readAsBytes();
       } else {
         setState(() { _error = 'No se pudo leer el fichero. Inténtalo de nuevo.'; _cargando = false; });
@@ -91,39 +92,188 @@ class _ImportarNegocioExcelScreenState
     }
   }
 
-  // ── Extrae texto de una celda de forma segura (excel v4 usa CellValue) ──────
-  static String? _cellText(Data? cell) {
-    if (cell == null) return null;
-    final v = cell.value;
-    if (v == null) return null;
-    // CellValue subclases: TextCellValue, IntCellValue, DoubleCellValue, etc.
-    final s = v.toString().trim();
-    return s.isEmpty || s == 'null' ? null : s;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PARSER XLSX PROPIO — usa archive (descomprimir ZIP) + xml (leer XML)
+  // No depende del paquete 'excel' que tiene bugs de null-check en v3/v4.
+  // Un .xlsx es un ZIP que contiene:
+  //   xl/sharedStrings.xml   → tabla de strings compartidos
+  //   xl/workbook.xml        → lista de hojas con sus nombres y rId
+  //   xl/_rels/workbook.xml.rels → mapea rId → ruta de archivo
+  //   xl/worksheets/sheet*.xml → datos de celdas
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Convierte columna Excel letra(s) a índice 0-based: A→0, B→1, Z→25, AA→26
+  static int _colToIdx(String col) {
+    int idx = 0;
+    for (final c in col.toUpperCase().runes) {
+      idx = idx * 26 + (c - 65 + 1);
+    }
+    return idx - 1;
+  }
+
+  /// Extrae el texto de una fila dado índice de columna, usando sharedStrings
+  static String? _getText(
+    List<xml.XmlElement> cellsInRow,
+    int colIdx,
+    List<String> ss,
+  ) {
+    try {
+      for (final cell in cellsInRow) {
+        final ref = cell.getAttribute('r') ?? '';
+        // ref = "A2", "B2", etc. — extraer la parte de letras
+        final colStr = ref.replaceAll(RegExp(r'[0-9]'), '');
+        if (_colToIdx(colStr) != colIdx) continue;
+
+        final t = cell.getAttribute('t') ?? '';
+        if (t == 's') {
+          // Shared string
+          final vEl = cell.findElements('v').firstOrNull;
+          final idxStr = vEl?.innerText.trim() ?? '';
+          final i = int.tryParse(idxStr);
+          if (i != null && i < ss.length) return ss[i].trim().nullIfEmpty;
+        } else if (t == 'inlineStr') {
+          final tEl = cell.findAllElements('t').firstOrNull;
+          return tEl?.innerText.trim().nullIfEmpty;
+        } else {
+          // Número u otro tipo — devolver como texto
+          final vEl = cell.findElements('v').firstOrNull;
+          final s = vEl?.innerText.trim() ?? '';
+          return s.nullIfEmpty;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ── Parser del Excel ─────────────────────────────────────────────────────
   _NegocioParseado _parsearExcel(List<int> bytes) {
-    final Excel excel;
-    try {
-      excel = Excel.decodeBytes(bytes);
-    } catch (e) {
-      throw Exception('El fichero no es un .xlsx válido: $e');
+    // 1. Descomprimir el ZIP
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    // Mapa rápido de nombre de archivo → contenido XML
+    Map<String, String> getFile(String path) {
+      final f = archive.findFile(path);
+      return f != null ? {path: String.fromCharCodes(f.content as List<int>)} : {};
     }
 
-    // Lee una hoja tipo CAMPO|VALOR (fila 1 cabecera)
-    Map<String, String?> _leerHojaCampoValor(String nombre) {
-      final sheet = excel.tables[nombre];
-      if (sheet == null) return {};
-      final mapa = <String, String?>{};
-      for (int i = 1; i < sheet.maxRows; i++) {
-        final row = sheet.row(i);
-        if (row.isEmpty) continue;
-        final campo = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
-        final valor = row.length > 1 ? _cellText(row[1]) : null;
-        if (campo.isNotEmpty && campo != 'CAMPO' && !campo.startsWith('NOTA') &&
-            !campo.startsWith('IMPORTANTE') && !campo.startsWith('PENDIENTE')) {
-          mapa[campo] = (valor == null || valor.isEmpty) ? null : valor;
+    String? rawFile(String path) {
+      final f = archive.findFile(path);
+      if (f == null) return null;
+      return String.fromCharCodes(f.content as List<int>);
+    }
+
+    // 2. Shared strings
+    final List<String> sharedStrings = [];
+    final ssRaw = rawFile('xl/sharedStrings.xml');
+    if (ssRaw != null) {
+      try {
+        final ssDoc = xml.XmlDocument.parse(ssRaw);
+        for (final si in ssDoc.findAllElements('si')) {
+          // Concatenar todos los <t> dentro de <si> (para rich text)
+          final text = si.findAllElements('t').map((t) => t.innerText).join('');
+          sharedStrings.add(text);
         }
+      } catch (_) {}
+    }
+
+    // 3. Mapear nombre de hoja → archivo worksheet
+    final Map<String, String> sheetNameToFile = {};
+    final wbRaw = rawFile('xl/workbook.xml');
+    final relsRaw = rawFile('xl/_rels/workbook.xml.rels');
+    if (wbRaw != null && relsRaw != null) {
+      try {
+        final wbDoc = xml.XmlDocument.parse(wbRaw);
+        final relsDoc = xml.XmlDocument.parse(relsRaw);
+        // rId → target (ruta relativa al archivo xl/)
+        final ridToTarget = <String, String>{};
+        for (final rel in relsDoc.findAllElements('Relationship')) {
+          final id = rel.getAttribute('Id') ?? '';
+          final target = rel.getAttribute('Target') ?? '';
+          if (id.isNotEmpty) ridToTarget[id] = target;
+        }
+        // nombre de hoja → archivo
+        for (final sheet in wbDoc.findAllElements('sheet')) {
+          final name = sheet.getAttribute('name') ?? '';
+          final rId = sheet.getAttribute('r:id') ??
+              sheet.getAttribute('relationships:id') ?? '';
+          final target = ridToTarget[rId] ?? '';
+          if (name.isNotEmpty && target.isNotEmpty) {
+            // Normalizar target a ruta dentro del ZIP:
+            // "/xl/worksheets/sheet1.xml" → "xl/worksheets/sheet1.xml"
+            // "../worksheets/sheet1.xml"  → "xl/worksheets/sheet1.xml"
+            // "worksheets/sheet1.xml"     → "xl/worksheets/sheet1.xml"
+            String path = target;
+            if (path.startsWith('/')) {
+              path = path.substring(1); // quitar slash inicial
+            } else if (path.startsWith('../')) {
+              path = 'xl/${path.replaceAll('../', '')}';
+            } else if (!path.startsWith('xl/')) {
+              path = 'xl/$path';
+            }
+            sheetNameToFile[name] = path;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 4. Leer una hoja como lista de filas (cada fila = lista de strings por columna)
+    List<List<String?>> _leerHoja(String nombre) {
+      final path = sheetNameToFile[nombre];
+      if (path == null) return [];
+      final raw = rawFile(path);
+      if (raw == null) return [];
+      try {
+        final doc = xml.XmlDocument.parse(raw);
+        final rows = <List<String?>>[];
+        for (final rowEl in doc.findAllElements('row')) {
+          final cells = rowEl.findElements('c').toList();
+          if (cells.isEmpty) continue;
+          // Encontrar el máximo índice de columna en esta fila
+          int maxCol = 0;
+          for (final c in cells) {
+            final ref = c.getAttribute('r') ?? '';
+            final colStr = ref.replaceAll(RegExp(r'[0-9]'), '');
+            if (colStr.isNotEmpty) {
+              final idx = _colToIdx(colStr);
+              if (idx > maxCol) maxCol = idx;
+            }
+          }
+          final row = List<String?>.filled(maxCol + 1, null);
+          for (final c in cells) {
+            final ref = c.getAttribute('r') ?? '';
+            final colStr = ref.replaceAll(RegExp(r'[0-9]'), '');
+            if (colStr.isEmpty) continue;
+            final colIdx = _colToIdx(colStr);
+            row[colIdx] = _getText([c], colIdx, sharedStrings);
+          }
+          rows.add(row);
+        }
+        return rows;
+      } catch (_) {
+        return [];
+      }
+    }
+
+    // Helper: extrae valor de columna de una fila
+    String? _val(List<String?> row, int col) {
+      if (col >= row.length) return null;
+      final v = row[col]?.trim();
+      return (v == null || v.isEmpty || v == 'null') ? null : v;
+    }
+
+    // 5. Lee hojas CAMPO|VALOR (columna 0 = campo, columna 1 = valor)
+    Map<String, String?> _leerHojaCampoValor(String nombre) {
+      final rows = _leerHoja(nombre);
+      final mapa = <String, String?>{};
+      for (int i = 1; i < rows.length; i++) {
+        final row = rows[i];
+        if (row.isEmpty) continue;
+        final campo = _val(row, 0) ?? '';
+        final valor = _val(row, 1);
+        if (campo.isEmpty || campo == 'CAMPO' ||
+            campo.startsWith('NOTA') || campo.startsWith('IMPORTANTE') ||
+            campo.startsWith('PENDIENTE')) continue;
+        mapa[campo] = valor;
       }
       return mapa;
     }
@@ -135,43 +285,39 @@ class _ImportarNegocioExcelScreenState
 
     // ── Horario ──────────────────────────────────────────────────────────────
     final horariosRaw = <Map<String, String?>>[];
-    final sheetHor = excel.tables['Horario'];
-    if (sheetHor != null) {
-      for (int i = 1; i < sheetHor.maxRows; i++) {
-        final row = sheetHor.row(i);
-        if (row.isEmpty) continue;
-        final dia = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
-        if (dia.isEmpty || dia.startsWith('IMPORTANTE') || dia.startsWith('D') ||
-            dia == 'DÍA' || dia == 'DIA') continue;
-        horariosRaw.add({
-          'dia':      dia,
-          'abierto':  row.length > 1 ? _cellText(row[1]) : null,
-          'apertura1':row.length > 2 ? _cellText(row[2]) : null,
-          'cierre1':  row.length > 3 ? _cellText(row[3]) : null,
-          'apertura2':row.length > 4 ? _cellText(row[4]) : null,
-          'cierre2':  row.length > 5 ? _cellText(row[5]) : null,
-        });
-      }
+    final rowsHor = _leerHoja('Horario');
+    for (int i = 1; i < rowsHor.length; i++) {
+      final row = rowsHor[i];
+      if (row.isEmpty) continue;
+      final dia = _val(row, 0) ?? '';
+      if (dia.isEmpty || dia == 'DÍA' || dia == 'DIA' ||
+          dia.startsWith('IMPORTANTE') || dia.startsWith('D')) continue;
+      horariosRaw.add({
+        'dia':       dia,
+        'abierto':   _val(row, 1),
+        'apertura1': _val(row, 2),
+        'cierre1':   _val(row, 3),
+        'apertura2': _val(row, 4),
+        'cierre2':   _val(row, 5),
+      });
     }
 
     // ── Servicios ────────────────────────────────────────────────────────────
     final servicios = <Map<String, String?>>[];
-    final sheetSvc = excel.tables['Servicios'];
-    if (sheetSvc != null) {
-      for (int i = 1; i < sheetSvc.maxRows; i++) {
-        final row = sheetSvc.row(i);
-        if (row.isEmpty) continue;
-        final nombre = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
-        if (nombre.isEmpty || nombre == 'NOMBRE DEL SERVICIO' || nombre == 'NOTA') continue;
-        servicios.add({
-          'nombre':      nombre,
-          'descripcion': row.length > 1 ? _cellText(row[1]) : null,
-          'categoria':   row.length > 2 ? _cellText(row[2]) : null,
-          'precio':      row.length > 3 ? _cellText(row[3]) : null,
-          'duracion':    row.length > 5 ? _cellText(row[5]) : null,
-          'activo':      row.length > 7 ? (_cellText(row[7]) ?? 'Sí') : 'Sí',
-        });
-      }
+    final rowsSvc = _leerHoja('Servicios');
+    for (int i = 1; i < rowsSvc.length; i++) {
+      final row = rowsSvc[i];
+      if (row.isEmpty) continue;
+      final nombre = _val(row, 0) ?? '';
+      if (nombre.isEmpty || nombre == 'NOMBRE DEL SERVICIO' || nombre == 'NOTA') continue;
+      servicios.add({
+        'nombre':      nombre,
+        'descripcion': _val(row, 1),
+        'categoria':   _val(row, 2),
+        'precio':      _val(row, 3),
+        'duracion':    _val(row, 5),
+        'activo':      _val(row, 7) ?? 'Sí',
+      });
     }
 
     // ── Mapeo → NegocioParseado ────────────────────────────────────────────
@@ -682,4 +828,8 @@ class _NegocioParseado {
     this.formularioTitulo, this.formularioBoton,
     required this.servicios,
   });
+}
+
+extension _NullIfEmpty on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
 }

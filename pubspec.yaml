@@ -108,9 +108,7 @@ dependencies:
     # CSV parsing
     csv: ^6.0.0
 
-    # Excel parsing (importación fichas negocios .xlsx)
-    # v4.x tiene bugs de null-check en bordes de celda; v3.x es más estable
-    excel: ^3.0.0
+    # xlsx = ZIP + XML — parseamos directamente con archive + xml (sin paquete excel)
 
     # Google Sign In
     google_sign_in: ^6.2.1
@@ -133,6 +131,7 @@ dependencies:
     pointycastle: ^3.7.3
     asn1lib: ^1.6.0
     archive: ^3.4.9
+    xml: ^6.5.0
     flutter_secure_storage: ^9.2.2
 
     # Sonidos de notificación
