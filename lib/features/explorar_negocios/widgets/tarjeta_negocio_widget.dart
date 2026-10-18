@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../models/negocio_publico_model.dart';
 import '../../reservas_cliente/pantallas/detalle_negocio_screen.dart';
 
@@ -46,27 +47,27 @@ class TarjetaNegocioWidget extends StatelessWidget {
   }
 
   Widget _buildImageSection() {
-    return Container(
-      width: 140,
-      height: 140,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        image: negocio.fotoUrl != null
-            ? DecorationImage(
-                image: NetworkImage(negocio.fotoUrl!),
+    return ClipRRect(
+      borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+      child: SizedBox(
+        width: 140,
+        height: 140,
+        child: negocio.fotoUrl != null && negocio.fotoUrl!.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: negocio.fotoUrl!,
                 fit: BoxFit.cover,
+                placeholder: (_ctx, _url) => _placeholder(),
+                errorWidget: (_ctx, _url, _err) => _placeholder(),
               )
-            : null,
+            : _placeholder(),
       ),
-      child: negocio.fotoUrl == null
-          ? Icon(
-              Icons.store,
-              size: 50,
-              color: Colors.grey[400],
-            )
-          : null,
     );
   }
+
+  Widget _placeholder() => Container(
+    color: const Color(0xFFEEF2F7),
+    child: const Center(child: Icon(Icons.storefront_outlined, size: 36, color: Color(0xFFCBD5E1))),
+  );
 
   Widget _buildInfoSection() {
     return Padding(

@@ -275,23 +275,52 @@ class _CopiarSdkCard extends StatefulWidget {
 
 class _CopiarSdkCardState extends State<_CopiarSdkCard> {
   bool _copiado = false;
+  bool _desplegando = false;
+  bool _desplegado = false;
 
-  void _copiar() {
-    final sdk = ContenidoWebService().generarScriptHostinger(widget.empresaId);
-    Clipboard.setData(ClipboardData(text: sdk));
+  void _copiarSnippet() {
+    final snippet = ContenidoWebService.snippetHtmlScript(widget.empresaId);
+    Clipboard.setData(ClipboardData(text: snippet));
     setState(() => _copiado = true);
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _copiado = false);
     });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('✅ Script SDK copiado al portapapeles'),
+      content: Text('✅ Snippet copiado — pégalo una sola vez en tu HTML'),
       backgroundColor: Colors.green,
       behavior: SnackBarBehavior.floating,
     ));
   }
 
+  Future<void> _desplegar() async {
+    setState(() { _desplegando = true; _desplegado = false; });
+    try {
+      final svc = ContenidoWebService();
+      // Forzar re-deploy borrando la versión guardada
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('config_web').doc('script_version')
+          .delete();
+      await svc.desplegarScript(widget.empresaId);
+      if (mounted) setState(() { _desplegado = true; _desplegando = false; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('✅ Script desplegado — la web ya usa la nueva versión'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (mounted) setState(() { _desplegando = false; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final snippet = ContenidoWebService.snippetHtmlScript(widget.empresaId);
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -307,33 +336,63 @@ class _CopiarSdkCardState extends State<_CopiarSdkCard> {
           const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Fluix Web SDK', style: TextStyle(fontWeight: FontWeight.w700,
                 fontSize: 14, color: Color(0xFF0F172A))),
-            Text('Pega este script antes de </body> en tu web.',
+            Text('Pega este snippet UNA VEZ en tu HTML. Nunca más necesitarás cambiarlo.',
                 style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
           ])),
         ]),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _copiar,
-            icon: Icon(_copiado ? Icons.check_rounded : Icons.copy_rounded, size: 16),
-            label: Text(_copiado ? '¡Copiado!' : 'Copiar script SDK'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _copiado ? Colors.green : const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+        const SizedBox(height: 12),
+        // Snippet compacto
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
           ),
+          child: Text(snippet,
+            style: const TextStyle(fontSize: 10, fontFamily: 'monospace',
+                color: Color(0xFF334155))),
         ),
         const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _copiarSnippet,
+              icon: Icon(_copiado ? Icons.check_rounded : Icons.copy_rounded, size: 15),
+              label: Text(_copiado ? '¡Copiado!' : 'Copiar snippet'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _copiado ? Colors.green : const Color(0xFF1565C0),
+                foregroundColor: Colors.white, elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _desplegando ? null : _desplegar,
+              icon: _desplegando
+                  ? const SizedBox(width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(_desplegado ? Icons.check_rounded : Icons.upload_rounded, size: 15),
+              label: Text(_desplegando ? 'Desplegando…'
+                  : _desplegado ? '¡Actualizado!' : 'Desplegar ahora'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _desplegado ? Colors.green : const Color(0xFF0F9D58),
+                foregroundColor: Colors.white, elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
         const Text(
-          'El script detecta automáticamente qué módulos data-fluix-* tienes en el HTML '
-          'y solo carga los necesarios. Cualquier cambio desde la app se refleja '
-          'en la web en tiempo real sin tocar código.',
-          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.5),
+          '⚡ El script se auto-despliega al abrir el módulo web. '
+          'Usa "Desplegar ahora" solo si actualizaste la app y quieres forzar la actualización.',
+          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.5),
         ),
       ]),
     );

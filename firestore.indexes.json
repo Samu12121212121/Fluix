@@ -1,6 +1,39 @@
 {
   "indexes": [
     {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado_pago",    "order": "ASCENDING" },
+        { "fieldPath": "cliente_nombre", "order": "ASCENDING" },
+        { "fieldPath": "fecha_hora",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos_web_nazari",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tiene_ebook",     "order": "ASCENDING" },
+        { "fieldPath": "fecha_creacion",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "categorias_catalogo",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "orden",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "colecciones_catalogo",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "orden",  "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "carta_web",
       "queryScope": "COLLECTION",
       "fields": [
@@ -476,6 +509,38 @@
       ]
     },
     {
+      "collectionGroup": "negocios_publicos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ratingGoogle",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "servicio_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "notificaciones",
       "queryScope": "COLLECTION",
       "fields": [
@@ -896,6 +961,93 @@
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
+        {"fieldPath": "empleado_id",  "order": "ASCENDING"},
+        {"fieldPath": "fecha",        "order": "ASCENDING"},
+        {"fieldPath": "es_correccion","order": "ASCENDING"},
+        {"fieldPath": "creado_at",    "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "fecha",        "order": "ASCENDING"},
+        {"fieldPath": "es_correccion","order": "ASCENDING"},
+        {"fieldPath": "creado_at",    "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "empleado_id",  "order": "ASCENDING"},
+        {"fieldPath": "fecha",        "order": "ASCENDING"},
+        {"fieldPath": "es_correccion","order": "ASCENDING"},
+        {"fieldPath": "corregido_at", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "correccion_de","order": "ASCENDING"},
+        {"fieldPath": "corregido_at", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "estado_pago",    "order": "ASCENDING"},
+        {"fieldPath": "cliente_nombre", "order": "ASCENDING"},
+        {"fieldPath": "fecha_hora",     "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "mensajes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "remitente", "order": "ASCENDING"},
+        {"fieldPath": "leido",     "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "solicitudes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "empleado_id",   "order": "ASCENDING"},
+        {"fieldPath": "tipo",          "order": "ASCENDING"},
+        {"fieldPath": "estado",        "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "solicitudes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "empleado_id",   "order": "ASCENDING"},
+        {"fieldPath": "fecha_creacion","order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "cliente_correo",  "order": "ASCENDING"},
+        {"fieldPath": "fecha_creacion",  "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "cliente_nombre",  "order": "ASCENDING"},
+        {"fieldPath": "fecha_creacion",  "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "fichajes",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
           "fieldPath": "empleado_id",
           "order": "ASCENDING"
@@ -1153,6 +1305,34 @@
         {
           "fieldPath": "estado",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reservas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "cliente_uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "valoraciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "origen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
         }
       ]
     },

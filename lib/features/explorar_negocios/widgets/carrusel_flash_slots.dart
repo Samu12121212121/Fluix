@@ -131,7 +131,7 @@ class _TarjetaFlash extends StatefulWidget {
 }
 
 class _TarjetaFlashState extends State<_TarjetaFlash> {
-  static const _accent = Color(0xFF00FFC8);
+  static const _accent = Color(0xFF0D47A1);
 
   late Timer _timer;
   late Duration _restante;
@@ -220,21 +220,39 @@ class _TarjetaFlashState extends State<_TarjetaFlash> {
     }
 
     try {
-      await FirebaseFirestore.instance
+      final slotRef = FirebaseFirestore.instance
           .collection('negocios_publicos')
           .doc(widget.slot.negocioId)
           .collection('flash_slots')
-          .doc(widget.slot.id)
-          .update({
-        'huecos_reservados': FieldValue.increment(1),
-        'reservas_ids': FieldValue.arrayUnion([uid]),
+          .doc(widget.slot.id);
+
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final snap = await tx.get(slotRef);
+        if (!snap.exists) throw Exception('Slot no encontrado');
+        final data       = snap.data()!;
+        final reservados = (data['huecos_reservados'] as num?)?.toInt() ?? 0;
+        final totales    = (data['huecos_totales']    as num?)?.toInt() ?? 0;
+        final estado     = data['estado'] as String? ?? '';
+        final reservasIds = List<dynamic>.from(data['reservas_ids'] as List? ?? []);
+        if (reservasIds.contains(uid)) {
+          throw Exception('Ya reservado');
+        }
+        if (estado != 'activo' || reservados >= totales) {
+          throw Exception('Slot lleno o inactivo');
+        }
+        tx.update(slotRef, {
+          'huecos_reservados': FieldValue.increment(1),
+          'reservas_ids':      FieldValue.arrayUnion([uid]),
+        });
       });
-      if (context.mounted) {
-        FluxToast.exito(context, '¡Reserva confirmada!');
-      }
+
+      if (context.mounted) FluxToast.exito(context, '¡Reserva confirmada!');
     } catch (e) {
       if (context.mounted) {
-        FluxToast.error(context, 'Error: $e');
+        final msg = e.toString().contains('lleno') ? 'Ya no quedan plazas'
+            : e.toString().contains('reservado') ? 'Ya tienes una reserva en este slot'
+            : 'Error al reservar';
+        FluxToast.error(context, msg);
       }
     }
   }

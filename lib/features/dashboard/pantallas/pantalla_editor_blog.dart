@@ -68,6 +68,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   int          _rightTab         = 0;
   Timer?       _slugTimer;
   int          _carouselPage     = 0;
+  final _contentFocus = FocusNode();
 
   // Undo / Redo stacks
   final _history   = <String>[];
@@ -177,6 +178,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     _contenidoCtrl.dispose(); _etiquetaCtrl.dispose();
     _seoTituloCtrl.dispose(); _seoDescCtrl.dispose();
     _videoUrlCtrl.dispose();  _audioUrlCtrl.dispose();
+    _contentFocus.dispose();
     _slugTimer?.cancel();
     super.dispose();
   }
@@ -297,51 +299,39 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
           onTap: () => _mostrarPanelOpciones(context, color),
         ),
         const SizedBox(width: 8),
-        // Publicar / Guardar
-        PopupMenuButton<String>(
-          onSelected: (v) async {
-            if (v == 'publicar') {
-              setState(() => _estado = EstadoBlog.publicado);
-              await _guardar(context);
-            } else if (v == 'borrador') {
-              setState(() => _estado = EstadoBlog.borrador);
-              await _guardar(context);
-            }
+        // Guardar borrador — botón secundario siempre visible
+        OutlinedButton.icon(
+          onPressed: _guardando ? null : () async {
+            setState(() => _estado = EstadoBlog.borrador);
+            await _guardar(context);
           },
-          itemBuilder: (_) => [
-            PopupMenuItem(value: 'publicar', child: Row(children: [
-              const Icon(Icons.publish_rounded, size: 15, color: Color(0xFF059669)),
-              const SizedBox(width: 8),
-              const Text('Publicar', style: TextStyle(fontSize: 13, color: Color(0xFF059669),
-                  fontWeight: FontWeight.w600)),
-            ])),
-            PopupMenuItem(value: 'borrador', child: Row(children: [
-              const Icon(Icons.save_outlined, size: 15, color: Color(0xFF6B7280)),
-              const SizedBox(width: 8),
-              const Text('Guardar borrador', style: TextStyle(fontSize: 13)),
-            ])),
-          ],
-          child: Container(
+          icon: const Icon(Icons.save_outlined, size: 14),
+          label: const Text('Borrador'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF6B7280),
+            side: const BorderSide(color: Color(0xFFD1D5DB)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Publicar — botón primario
+        FilledButton.icon(
+          onPressed: _guardando ? null : () async {
+            setState(() => _estado = EstadoBlog.publicado);
+            await _guardar(context);
+          },
+          icon: _guardando
+              ? const SizedBox(width: 12, height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.publish_rounded, size: 14),
+          label: const Text('Publicar'),
+          style: FilledButton.styleFrom(
+            backgroundColor: color,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: _estado == EstadoBlog.publicado ? color : color,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (_guardando)
-                const SizedBox(width: 12, height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              else
-                const Icon(Icons.publish_rounded, size: 14, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(
-                _estado == EstadoBlog.publicado ? 'Publicar' : 'Guardar',
-                style: const TextStyle(color: Colors.white, fontSize: 12.5,
-                    fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white),
-            ]),
+            textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
           ),
         ),
       ]),
@@ -361,21 +351,26 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
           // Tipo de bloque
           PopupMenuButton<String>(
             tooltip: 'Tipo de bloque',
-            onSelected: _cambiarTipoBloque,
+            onSelected: (tipo) {
+              _cambiarTipoBloque(tipo);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _contentFocus.requestFocus();
+              });
+            },
             itemBuilder: (_) => ['Párrafo', 'Título 1', 'Título 2', 'Título 3', 'Cita']
                 .map((t) => PopupMenuItem(value: t, child: Text(t,
                     style: const TextStyle(fontSize: 13))))
                 .toList(),
-            child: _dropBtn('Párrafo'),
+            child: _dropBtn(_currentBlockLabel),
           ),
           _vsep(),
-          _tb(Icons.format_bold,          'Negrita',        () => _wrapSel('**')),
-          _tb(Icons.format_italic,        'Cursiva',        () => _wrapSel('_')),
-          _tb(Icons.format_strikethrough, 'Tachado',        () => _wrapSel('~~')),
+          _tb(Icons.format_bold,          'Negrita',        () => _wrapSel('**'),  isActive: _isFormatActive('**')),
+          _tb(Icons.format_italic,        'Cursiva',        () => _wrapSel('_'),   isActive: _isFormatActive('_')),
+          _tb(Icons.format_strikethrough, 'Tachado',        () => _wrapSel('~~'),  isActive: _isFormatActive('~~')),
           _vsep(),
-          _tb(Icons.format_quote,         'Cita',           () => _linePrefix('> ')),
-          _tb(Icons.format_list_bulleted, 'Lista viñetas',  () => _linePrefix('- ')),
-          _tb(Icons.format_list_numbered, 'Lista numerada', () => _linePrefix('1. ')),
+          _tb(Icons.format_quote,         'Cita',           () => _linePrefix('> '),  isActive: _lineHasPrefix('> ')),
+          _tb(Icons.format_list_bulleted, 'Lista viñetas',  () => _linePrefix('- '),  isActive: _lineHasPrefix('- ')),
+          _tb(Icons.format_list_numbered, 'Lista numerada', () => _linePrefix('1. '), isActive: _lineMatchesRe(RegExp(r'^\d+\. '))),
           _tb(Icons.horizontal_rule,      'Separador',      () => _ins('\n\n---\n\n')),
           _vsep(),
           _tb(Icons.link_rounded,         'Enlace',         () => _ins('[texto](url)')),
@@ -475,6 +470,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
                   // ── Contenido ──────────────────────────────────────────────
                   TextField(
                     controller: _contenidoCtrl,
+                    focusNode: _contentFocus,
                     maxLines: null,
                     minLines: 18,
                     style: const TextStyle(
@@ -895,14 +891,74 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       color: const Color(0xFFE5E7EB));
 
-  Widget _tb(IconData icon, String tooltip, VoidCallback fn) => Tooltip(
+  // ── Format state detection ────────────────────────────────────────────────
+
+  bool _isFormatActive(String marker) {
+    final sel = _contenidoCtrl.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return false;
+    final text = _contenidoCtrl.text;
+    final pos = sel.baseOffset.clamp(0, text.length);
+    final before = text.substring(0, pos);
+    final after = text.substring(pos);
+    return marker.allMatches(before).length.isOdd &&
+           marker.allMatches(after).length.isOdd;
+  }
+
+  bool _lineHasPrefix(String prefix) {
+    final sel = _contenidoCtrl.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return false;
+    final text = _contenidoCtrl.text;
+    final pos = sel.baseOffset.clamp(0, text.length);
+    final lineStart = text.lastIndexOf('\n', pos > 0 ? pos - 1 : 0) + 1;
+    final lineEnd = text.indexOf('\n', pos);
+    final line = text.substring(lineStart, lineEnd < 0 ? text.length : lineEnd);
+    return line.startsWith(prefix);
+  }
+
+  bool _lineMatchesRe(RegExp re) {
+    final sel = _contenidoCtrl.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return false;
+    final text = _contenidoCtrl.text;
+    final pos = sel.baseOffset.clamp(0, text.length);
+    final lineStart = text.lastIndexOf('\n', pos > 0 ? pos - 1 : 0) + 1;
+    final lineEnd = text.indexOf('\n', pos);
+    final line = text.substring(lineStart, lineEnd < 0 ? text.length : lineEnd);
+    return re.hasMatch(line);
+  }
+
+  String get _currentBlockLabel {
+    final sel = _contenidoCtrl.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return 'Párrafo';
+    final text = _contenidoCtrl.text;
+    final pos = sel.baseOffset.clamp(0, text.length);
+    final lineStart = text.lastIndexOf('\n', pos > 0 ? pos - 1 : 0) + 1;
+    final lineEnd = text.indexOf('\n', pos);
+    final line = text.substring(lineStart, lineEnd < 0 ? text.length : lineEnd);
+    if (line.startsWith('# ')) return 'Título 1';
+    if (line.startsWith('## ')) return 'Título 2';
+    if (line.startsWith('### ')) return 'Título 3';
+    if (line.startsWith('> ')) return 'Cita';
+    return 'Párrafo';
+  }
+
+  Widget _tb(IconData icon, String tooltip, VoidCallback fn, {bool isActive = false}) => Tooltip(
     message: tooltip,
     child: InkWell(
-      onTap: fn,
+      onTap: () {
+        fn();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _contentFocus.requestFocus();
+        });
+      },
       borderRadius: BorderRadius.circular(5),
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-        child: Icon(icon, size: 17, color: const Color(0xFF374151)),
+        decoration: isActive ? BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(5),
+        ) : null,
+        child: Icon(icon, size: 17,
+            color: isActive ? const Color(0xFF2563EB) : const Color(0xFF374151)),
       ),
     ),
   );
@@ -2757,12 +2813,70 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   void _wrapSel(String mark) {
     _snapshot();
     final sel = _contenidoCtrl.selection;
-    if (!sel.isValid || sel.isCollapsed) { _ins('${mark}texto$mark'); return; }
     final t = _contenidoCtrl.text;
-    final wrapped = '$mark${t.substring(sel.start, sel.end)}$mark';
-    _contenidoCtrl.text = t.substring(0, sel.start) + wrapped + t.substring(sel.end);
-    _contenidoCtrl.selection =
-        TextSelection.collapsed(offset: sel.start + wrapped.length);
+
+    if (sel.isValid && !sel.isCollapsed) {
+      final before   = t.substring(0, sel.start);
+      final selected = t.substring(sel.start, sel.end);
+      final after    = t.substring(sel.end);
+
+      // Selection wrapped just outside → quitar
+      if (before.endsWith(mark) && after.startsWith(mark)) {
+        _contenidoCtrl.text = t.substring(0, sel.start - mark.length) +
+                              selected +
+                              t.substring(sel.end + mark.length);
+        _contenidoCtrl.selection = TextSelection(
+          baseOffset:   sel.start - mark.length,
+          extentOffset: sel.end   - mark.length,
+        );
+        return;
+      }
+
+      // El texto seleccionado ya incluye los marcadores (ej: "**texto**") → quitar
+      if (selected.startsWith(mark) && selected.endsWith(mark) &&
+          selected.length > mark.length * 2) {
+        final inner = selected.substring(mark.length, selected.length - mark.length);
+        if (!inner.contains(mark)) {
+          _contenidoCtrl.text = t.substring(0, sel.start) + inner + t.substring(sel.end);
+          _contenidoCtrl.selection = TextSelection(
+            baseOffset: sel.start, extentOffset: sel.start + inner.length);
+          return;
+        }
+      }
+
+      // Envolver
+      final wrapped = '$mark$selected$mark';
+      _contenidoCtrl.text = t.substring(0, sel.start) + wrapped + t.substring(sel.end);
+      _contenidoCtrl.selection =
+          TextSelection.collapsed(offset: sel.start + wrapped.length);
+      return;
+    }
+
+    // Cursor sin selección: quitar si ya está dentro de un bloque con ese formato
+    if (sel.isValid) {
+      final pos    = sel.baseOffset;
+      final before = t.substring(0, pos);
+      final after  = t.substring(pos);
+
+      if (mark.allMatches(before).length.isOdd &&
+          mark.allMatches(after).length.isOdd) {
+        final openPos  = before.lastIndexOf(mark);
+        final closeRel = after.indexOf(mark);
+        if (openPos >= 0 && closeRel >= 0) {
+          final closePos = pos + closeRel;
+          final inner = t.substring(openPos + mark.length, closePos);
+          _contenidoCtrl.text = t.substring(0, openPos) +
+                                inner +
+                                t.substring(closePos + mark.length);
+          _contenidoCtrl.selection = TextSelection.collapsed(
+              offset: openPos + (pos - openPos - mark.length).clamp(0, inner.length));
+          return;
+        }
+      }
+    }
+
+    // Sin contexto de formato: insertar placeholder
+    _ins('${mark}texto$mark');
   }
 
   void _linePrefix(String prefix) {
@@ -2772,6 +2886,24 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         ? _contenidoCtrl.selection.start : t.length;
     final ls = t.lastIndexOf('\n', pos > 0 ? pos - 1 : 0);
     final at = ls < 0 ? 0 : ls + 1;
+    final rest = t.substring(at);
+
+    // Toggle: quitar si la línea ya tiene este prefijo
+    final numRe = RegExp(r'^\d+\. ');
+    if (prefix == '1. ' && numRe.hasMatch(rest)) {
+      final m = numRe.firstMatch(rest)!;
+      _contenidoCtrl.text = t.substring(0, at) + t.substring(at + m.end);
+      _contenidoCtrl.selection = TextSelection.collapsed(
+          offset: (pos - m.end).clamp(at, t.length));
+      return;
+    }
+    if (rest.startsWith(prefix)) {
+      _contenidoCtrl.text = t.substring(0, at) + t.substring(at + prefix.length);
+      _contenidoCtrl.selection = TextSelection.collapsed(
+          offset: (pos - prefix.length).clamp(at, t.length));
+      return;
+    }
+
     _contenidoCtrl.text = t.substring(0, at) + prefix + t.substring(at);
     _contenidoCtrl.selection =
         TextSelection.collapsed(offset: at + prefix.length + (pos - at));

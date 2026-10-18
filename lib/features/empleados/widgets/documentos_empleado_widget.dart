@@ -147,7 +147,7 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
             Text('Subir documento', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ]),
           content: SizedBox(
-            width: 360,
+            width: double.infinity,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(
                 controller: nombreCtrl,

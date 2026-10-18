@@ -4,7 +4,9 @@ import '../../domain/modelos/factura.dart';
 import '../../domain/modelos/factura_recibida.dart';
 import '../../domain/modelos/empresa.dart';
 import 'empresa_config_service.dart';
-import 'verifactu_service.dart';
+import 'pdf_config_service.dart';
+import 'verifactu_service.dart' hide EstadoVerifactu;
+import 'verifactu/verifactu_flow_service.dart';
 import 'validador_fiscal_integral.dart';
 
 final _log = Logger();
@@ -120,10 +122,12 @@ class FacturacionService {
       usuarioNombre: usuarioNombre,
       accion: 'creada',
       descripcion: tipo == TipoFactura.proforma
-          ? 'Proforma creada'
+          ? 'Presupuesto creado'
           : tipo == TipoFactura.rectificativa
               ? 'Factura rectificativa creada'
-              : 'Factura creada',
+              : tipo == TipoFactura.albaran
+                  ? 'Albarán creado'
+                  : 'Factura creada',
       fecha: DateTime.now(),
     );
 
@@ -201,7 +205,16 @@ class FacturacionService {
       _log.w('Advertencias fiscales: ${resultadoValidacion.advertencias}');
     }
 
-    await docRef.set(factura.toFirestore());
+    // Guardar snapshot del emisor para reproducibilidad legal (LGT art. 163).
+    // Si la empresa cambia sus datos en el futuro, esta factura sigue reproduciendo
+    // los datos del emisor en el momento de su emisión.
+    final snapshotEmisor = await PdfConfigService.snapshotEmisor(empresaId)
+        .catchError((_) => <String, dynamic>{});
+
+    await docRef.set({
+      ...factura.toFirestore(),
+      if (snapshotEmisor.isNotEmpty) 'snapshot_emisor': snapshotEmisor,
+    });
 
     // Registrar en Verifactu — solo documentos fiscales (no proformas ni albaranes)
     bool verifactuOk = false;
@@ -211,17 +224,48 @@ class FacturacionService {
       return ResultadoCrearFactura(factura: factura);
     }
     try {
-      await VerifactuService.registrarFactura(
+      // Paso 1: Calcular hash y guardar datos Verifactu en la factura
+      final datosVf = await VerifactuService.registrarFactura(
         empresaId: empresaId,
         factura: factura,
       );
-      verifactuOk = true;
-      mensajeVerifactu = '✅ Factura registrada en VeriFactu correctamente';
+
+      // Paso 2: Generar XML + firmar + enviar a la AEAT
+      // (la firma y el envío SOAP se ejecutan en Cloud Functions para que
+      //  el certificado nunca salga del servidor)
+      final config = await VerifactuService.obtenerConfig(empresaId);
+      if (config != null && config.habilitado) {
+        final xmlSinFirmar = VerifactuService.generarXml(
+          factura: factura,
+          datos: datosVf,
+          config: config,
+        );
+        final resultado = await VerifactuFlowService.enviarFactura(
+          xmlSinFirmar: xmlSinFirmar,
+          empresaId: empresaId,
+          facturaId: factura.id,
+        );
+        if (resultado.estado == EstadoVerifactu.enviado) {
+          verifactuOk = true;
+          mensajeVerifactu =
+              '✅ Factura enviada a la AEAT (CSV: ${resultado.csv ?? "pendiente"})';
+        } else {
+          verifactuError = true;
+          mensajeVerifactu =
+              '⚠️ AEAT rechazó la factura: ${resultado.descripcionError ?? resultado.estado.name}';
+          _log.w('VeriFactu rechazado para ${factura.numeroFactura}: ${resultado.descripcionError}');
+        }
+      } else {
+        // Hash guardado pero sin envío — empresa sin certificado configurado
+        verifactuOk = true;
+        mensajeVerifactu = '✅ Hash Verifactu calculado. Configura el certificado digital para enviar a la AEAT.';
+      }
     } catch (e) {
       final msg = e.toString();
       if (msg.contains('no configurado') ||
           msg.contains('deshabilitado') ||
-          msg.contains('habilitado')) {
+          msg.contains('habilitado') ||
+          msg.contains('No está configurado')) {
         // VeriFactu desactivado para esta empresa — no es un error
         _log.d('VeriFactu desactivado: $e');
       } else {
@@ -436,15 +480,28 @@ class FacturacionService {
       'historial': FieldValue.arrayUnion([entradaOriginal.toMap()]),
     });
 
-    // Registrar en VeriFactu (rectificativa)
+    // Registrar en VeriFactu (rectificativa) — mismo pipeline que crearFactura
     try {
-      await VerifactuService.registrarFactura(
+      final datosVf = await VerifactuService.registrarFactura(
         empresaId: empresaId,
         factura: factura,
       );
+      final config = await VerifactuService.obtenerConfig(empresaId);
+      if (config != null && config.habilitado) {
+        final xml = VerifactuService.generarXml(
+          factura: factura,
+          datos: datosVf,
+          config: config,
+        );
+        await VerifactuFlowService.enviarFactura(
+          xmlSinFirmar: xml,
+          empresaId: empresaId,
+          facturaId: factura.id,
+        );
+      }
     } catch (e) {
       _log.e('ERROR VeriFactu (rectificativa $numero): $e');
-      // No bloqueamos la operación, pero el error queda en el log
+      // No bloqueamos la operación — la factura ya está guardada
     }
 
     return factura;
@@ -1120,7 +1177,7 @@ class FacturacionService {
     if (datos.esIntracomunitario) return true;
     if ((datos.nifIvaComunitario ?? '').trim().isNotEmpty) return true;
     final pais = (datos.pais ?? '').trim().toUpperCase();
-    if (pais.isNotEmpty && pais != 'ESPANA' && pais != 'ES') return true;
+    if (pais.isNotEmpty && pais != 'ESPAÑA' && pais != 'ESPANA' && pais != 'ES') return true;
     return _tienePrefijoVatEu(datos.nif ?? '');
   }
 

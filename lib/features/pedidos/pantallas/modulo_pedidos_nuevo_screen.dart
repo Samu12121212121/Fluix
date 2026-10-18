@@ -9,6 +9,7 @@ import '../../../domain/modelos/pedido.dart';
 import '../../../services/pedidos_service.dart';
 import '../../../services/catalogo_web_sync_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../widgets/tpv/pedidos_web_widget.dart';
 import 'detalle_pedido_nuevo_screen.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -17,7 +18,8 @@ import 'detalle_pedido_nuevo_screen.dart';
 
 class ModuloPedidosNuevoScreen extends StatefulWidget {
   final String empresaId;
-  const ModuloPedidosNuevoScreen({super.key, required this.empresaId});
+  final int? initialTab;
+  const ModuloPedidosNuevoScreen({super.key, required this.empresaId, this.initialTab});
   @override
   State<ModuloPedidosNuevoScreen> createState() => _ModuloPedidosNuevoScreenState();
 }
@@ -44,11 +46,36 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
   Color get _soft    => _dark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
   Color get _inputBg => _dark ? const Color(0x08FFFFFF) : const Color(0xFFF8FAFC);
 
+  static const _kNazariId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+  bool get _esNazari => widget.empresaId == _kNazariId;
+  final Set<String> _expandidosEbook = {};
+  // Cache de imagen_url por catalogo_id — se carga una vez al montar
+  Map<String, String> _catalogoImgs = {};
+
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    final defaultTab = widget.initialTab ?? (_esNazari ? 2 : 0);
+    _tabs = TabController(length: _esNazari ? 4 : 3, initialIndex: defaultTab, vsync: this);
     _tabs.addListener(() => setState(() {}));
+    if (_esNazari) _cargarImagenesCatalogo();
+  }
+
+  Future<void> _cargarImagenesCatalogo() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('catalogo_web')
+          .get();
+      final mapa = <String, String>{};
+      for (final doc in snap.docs) {
+        final img = doc.data()['imagen_url'] as String? ?? '';
+        if (img.isNotEmpty) mapa[doc.id] = img;
+        final slug = doc.data()['slug'] as String? ?? '';
+        if (slug.isNotEmpty && img.isNotEmpty) mapa[slug] = img;
+      }
+      if (mounted) setState(() => _catalogoImgs = mapa);
+    } catch (_) {}
   }
 
   @override
@@ -129,7 +156,12 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
           _buildTabBar(),
           Expanded(child: TabBarView(
             controller: _tabs,
-            children: [_buildTabCatalogo(), _buildTabInventario(), _buildTabPedidos()],
+            children: [
+              _esNazari ? _buildTabCatalogoWeb() : _buildTabCatalogo(),
+              _buildTabInventario(),
+              _buildTabPedidos(),
+              if (_esNazari) _buildTabEbooks(),
+            ],
           )),
         ]),
       ),
@@ -146,6 +178,10 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
       _tabBtn(1, Icons.inventory_rounded, 'Inventario'),
       const SizedBox(width: 6),
       _tabBtn(2, Icons.receipt_long_rounded, 'Pedidos'),
+      if (_esNazari) ...[
+        const SizedBox(width: 6),
+        _tabBtn(3, Icons.menu_book_rounded, 'Ebooks'),
+      ],
     ]),
   );
 
@@ -179,7 +215,194 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
           .collection('movimientos_stock');
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TAB 0 — CATÁLOGO (grid compacto + filtro por categoría)
+  // TAB 0 — CATÁLOGO WEB (Nazarí: lee catalogo_web, mismas categorías que la web)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static const _kColeccionesNazari = [
+    'Clásicos Ilustrados', 'Mexuar', 'Cadí', 'Partal', 'Thule',
+    'Nenúfar', 'Daraxa', 'Cuarto Dorado', 'Arrayanes', 'Medina',
+  ];
+
+  String _normCatPedidos(String s) => s.toLowerCase()
+      .replaceAll(RegExp(r'[àáâãäā]'), 'a')
+      .replaceAll(RegExp(r'[èéêëē]'), 'e')
+      .replaceAll(RegExp(r'[ìíîïī]'), 'i')
+      .replaceAll(RegExp(r'[òóôõöō]'), 'o')
+      .replaceAll(RegExp(r'[ùúûüū]'), 'u')
+      .replaceAll('ñ', 'n');
+
+  String _sinPrefijoColeccion(String s) {
+    final t = s.trim();
+    final lo = t.toLowerCase();
+    if (lo.startsWith('colección ')) return t.substring(10).trim();
+    if (lo.startsWith('coleccion ')) return t.substring(10).trim();
+    return t;
+  }
+
+  Widget _buildTabCatalogoWeb() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('catalogo_web')
+          .where('activo', isEqualTo: true)
+          .orderBy('orden')
+          .snapshots(),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final todos = (snap.data?.docs ?? [])
+            .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
+            .toList();
+
+        // Categorías: colección editorial + categoría/género
+        final catSeen = <String>{};
+        final cats = <String>['todas', ...[
+          ...todos.expand<String>((i) {
+            final col = _sinPrefijoColeccion(i['campo_coleccion'] as String? ?? i['coleccion'] as String? ?? '');
+            final cat = (i['categoria'] as String? ?? i['genero'] as String? ?? '').trim();
+            return [if (col.isNotEmpty) col, if (cat.isNotEmpty) cat];
+          }),
+          ..._kColeccionesNazari,
+        ].where((c) => catSeen.add(_normCatPedidos(c))).toList()..sort()];
+
+        final q = _busCat.toLowerCase();
+        final filtrados = todos.where((i) {
+          if (q.isNotEmpty) {
+            final nombre = (i['nombre'] ?? i['titulo'] ?? '').toString().toLowerCase();
+            final autor  = (i['campo_autor'] ?? i['autor'] ?? '').toString().toLowerCase();
+            if (!nombre.contains(q) && !autor.contains(q)) return false;
+          }
+          if (_filtroCat != 'todas') {
+            final col = _sinPrefijoColeccion((i['campo_coleccion'] ?? i['coleccion'] ?? '').toString());
+            final cat = (i['categoria'] ?? i['genero'] ?? '').toString();
+            final norm = _normCatPedidos(_filtroCat);
+            if (_normCatPedidos(col) != norm && _normCatPedidos(cat) != norm) return false;
+          }
+          return true;
+        }).toList();
+
+        return Column(children: [
+          // KPIs
+          Container(color: _bg, padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Row(children: [
+              _kpi('${todos.length}', 'Libros', const Color(0xFF6B1E2A)), const SizedBox(width: 8),
+              _kpi('${filtrados.length}', 'Filtrados', _kAzul),
+            ]),
+          ),
+          // Toolbar
+          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: _searchBox(_busCat, 'Buscar libro o autor…',
+                (v) => setState(() => _busCat = v))),
+          // Chips de categoría/colección
+          if (cats.length > 1)
+            SizedBox(height: 40,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemCount: cats.length,
+                itemBuilder: (_, i) {
+                  final cat = cats[i];
+                  final sel = _filtroCat == cat;
+                  return GestureDetector(
+                    onTap: () => setState(() => _filtroCat = cat),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: sel ? const Color(0xFF6B1E2A) : _inputBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: sel ? const Color(0xFF6B1E2A) : _border),
+                      ),
+                      child: Text(cat == 'todas' ? 'Todas' : cat,
+                        style: TextStyle(fontSize: 12,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
+                            color: sel ? Colors.white : _soft)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 8),
+          // Grid de libros
+          Expanded(child: filtrados.isEmpty
+            ? _empty('No hay libros en el catálogo')
+            : LayoutBuilder(builder: (_, c) {
+                final cols = c.maxWidth > 900 ? 5 : c.maxWidth > 600 ? 3 : 2;
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cols, childAspectRatio: 0.68,
+                    crossAxisSpacing: 10, mainAxisSpacing: 10),
+                  itemCount: filtrados.length,
+                  itemBuilder: (_, i) => _libroWebCard(filtrados[i]),
+                );
+              })),
+        ]);
+      },
+    );
+  }
+
+  Widget _libroWebCard(Map<String, dynamic> libro) {
+    final nombre  = libro['nombre'] as String? ?? libro['titulo'] as String? ?? '—';
+    final autor   = libro['campo_autor'] as String? ?? libro['autor'] as String? ?? '';
+    final precio  = libro['precio'] as String? ?? '';
+    final imagen  = libro['imagen_url'] as String? ?? libro['imagen'] as String? ?? '';
+    final coleccion = libro['campo_coleccion'] as String? ?? libro['coleccion'] as String? ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _panel, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+        boxShadow: _dark ? [] : [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Portada
+        Expanded(flex: 60, child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+          child: imagen.isNotEmpty
+              ? CachedNetworkImage(imageUrl: imagen, fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorWidget: (_, __, ___) => _portadaPlaceholder())
+              : _portadaPlaceholder(),
+        )),
+        // Info
+        Expanded(flex: 40, child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(nombre, style: TextStyle(fontSize: 11.5,
+                fontWeight: FontWeight.w700, color: _text),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+            if (autor.isNotEmpty)
+              Text(autor, style: TextStyle(fontSize: 10, color: _soft),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              if (precio.isNotEmpty)
+                Text(precio, style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w700, color: Color(0xFF6B1E2A))),
+              if (coleccion.isNotEmpty)
+                Flexible(child: Text(coleccion,
+                    style: TextStyle(fontSize: 9, color: _soft),
+                    maxLines: 1, overflow: TextOverflow.ellipsis)),
+            ]),
+          ]),
+        )),
+      ]),
+    );
+  }
+
+  Widget _portadaPlaceholder() => Container(
+    color: const Color(0xFF6B1E2A).withValues(alpha: 0.08),
+    child: const Center(child: Icon(Icons.menu_book_rounded,
+        size: 28, color: Color(0xFF6B1E2A))),
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB 0 — CATÁLOGO TPV (grid compacto + filtro por categoría)
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildTabCatalogo() => StreamBuilder<List<Producto>>(
@@ -459,48 +682,231 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
   // TAB 2 — PEDIDOS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTabPedidos() => StreamBuilder<List<Pedido>>(
-    stream: _svc.pedidosStream(widget.empresaId),
-    builder: (ctx, snap) {
-      if (snap.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      final todos = snap.data ?? [];
-      final q = _busPed.toLowerCase();
-      final filtrados = q.isEmpty
-          ? todos
-          : todos.where((p) =>
-              p.clienteNombre.toLowerCase().contains(q) ||
-              p.lineas.any((l) => l.productoNombre.toLowerCase().contains(q))).toList();
-      final now = DateTime.now();
-      final hoy = todos.where((p) =>
-        p.fechaCreacion.year == now.year &&
-        p.fechaCreacion.month == now.month &&
-        p.fechaCreacion.day == now.day).length;
-      final pendientes = todos.where((p) => p.estado == EstadoPedido.pendiente).length;
-      final cobrados   = todos.where((p) => p.estadoPago == EstadoPago.pagado).length;
+  Widget _buildTabPedidos() {
+    // Para Nazarí mostramos solo los pedidos web (pedidos_web_nazari)
+    if (_esNazari) return _buildTabPedidosWebNazari();
+    // Para otros negocios: pedidos internos
+    return StreamBuilder<List<Pedido>>(
+      stream: _svc.pedidosStream(widget.empresaId),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final todos = snap.data ?? [];
+        final q = _busPed.toLowerCase();
+        final filtrados = q.isEmpty
+            ? todos
+            : todos.where((p) =>
+                p.clienteNombre.toLowerCase().contains(q) ||
+                p.lineas.any((l) => l.productoNombre.toLowerCase().contains(q))).toList();
+        final now = DateTime.now();
+        final hoy = todos.where((p) =>
+          p.fechaCreacion.year == now.year &&
+          p.fechaCreacion.month == now.month &&
+          p.fechaCreacion.day == now.day).length;
+        final pendientes = todos.where((p) => p.estado == EstadoPedido.pendiente).length;
+        final cobrados   = todos.where((p) => p.estadoPago == EstadoPago.pagado).length;
 
-      return Column(children: [
-        Container(color: _bg, padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-          child: Row(children: [
-            _kpi('${todos.length}', 'Total', _kAzul),   const SizedBox(width: 8),
-            _kpi('$pendientes',     'Pendientes', _kAmbar), const SizedBox(width: 8),
-            _kpi('$cobrados',       'Cobrados', _kVerde), const SizedBox(width: 8),
-            _kpi('$hoy',            'Hoy', _soft),
-          ]),
-        ),
-        Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          child: _searchBox(_busPed, 'Buscar por cliente o producto…',
-              (v) => setState(() => _busPed = v))),
-        Expanded(child: filtrados.isEmpty
-          ? _empty('Sin pedidos registrados')
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-              itemCount: filtrados.length,
-              itemBuilder: (_, i) => _pedidoCard(filtrados[i]))),
-      ]);
-    },
-  );
+        return Column(children: [
+          Container(color: _bg, padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Row(children: [
+              _kpi('${todos.length}', 'Total', _kAzul),   const SizedBox(width: 8),
+              _kpi('$pendientes',     'Pendientes', _kAmbar), const SizedBox(width: 8),
+              _kpi('$cobrados',       'Cobrados', _kVerde), const SizedBox(width: 8),
+              _kpi('$hoy',            'Hoy', _soft),
+            ]),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            child: _searchBox(_busPed, 'Buscar por cliente o producto…',
+                (v) => setState(() => _busPed = v))),
+          Expanded(child: filtrados.isEmpty
+            ? _empty('Sin pedidos registrados')
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+                itemCount: filtrados.length,
+                itemBuilder: (_, i) => _pedidoCard(filtrados[i]))),
+        ]);
+      },
+    );
+  }
+
+  // ── Tab Pedidos para Nazarí: todos los pedidos_web_nazari ────────────────
+  Widget _buildTabPedidosWebNazari() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('pedidos_web_nazari')
+          .orderBy('fecha_creacion', descending: true)
+          .limit(200)
+          .snapshots(),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snap.data?.docs ?? [];
+        final pendTrans = docs.where((d) {
+          final m = d.data() as Map<String, dynamic>;
+          return m['estado_pago'] == 'pendiente' && m['metodo_pago'] == 'transferencia';
+        }).length;
+        final pagados = docs.where((d) =>
+            (d.data() as Map<String, dynamic>)['estado_pago'] == 'pagado').length;
+        final pendBizum = docs.where((d) {
+          final m = d.data() as Map<String, dynamic>;
+          return m['estado_pago'] == 'pendiente' && m['metodo_pago'] == 'bizum';
+        }).length;
+
+        return Column(children: [
+          Container(
+            color: _bg,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Row(children: [
+              _kpi('${docs.length}', 'Total', _kAzul), const SizedBox(width: 8),
+              _kpi('$pendTrans', 'Transf.', _kAmbar), const SizedBox(width: 8),
+              _kpi('$pendBizum', 'Bizum', const Color(0xFF0099df)), const SizedBox(width: 8),
+              _kpi('$pagados', 'Pagados', _kVerde),
+            ]),
+          ),
+          Expanded(
+            child: docs.isEmpty
+                ? _empty('Sin pedidos web')
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
+                    itemCount: docs.length,
+                    itemBuilder: (_, i) {
+                      final data = docs[i].data() as Map<String, dynamic>;
+                      final docId = docs[i].id;
+                      return TarjetaEbookWeb(
+                        id: docId,
+                        empresaId: widget.empresaId,
+                        data: data,
+                        catalogoImgs: _catalogoImgs,
+                        expandido: _expandidosEbook.contains(docId),
+                        onExpand: () => setState(() {
+                          _expandidosEbook.contains(docId)
+                              ? _expandidosEbook.remove(docId)
+                              : _expandidosEbook.add(docId);
+                        }),
+                        onConfirmarPago: () => _confirmarTransferenciaEbook(docId),
+                      );
+                    },
+                  ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB 3 — EBOOKS WEB (solo Nazarí) — pedidos_web_nazari con tiene_ebook=true
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTabEbooks() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas')
+          .doc(widget.empresaId)
+          .collection('pedidos_web_nazari')
+          .where('tiene_ebook', isEqualTo: true)
+          .orderBy('fecha_creacion', descending: true)
+          .limit(100)
+          .snapshots(),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snap.data?.docs ?? [];
+
+        // KPIs
+        final pendTrans = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return data['estado_pago'] == 'pendiente' &&
+              data['metodo_pago'] == 'transferencia';
+        }).length;
+        final entregados = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return data['estado_pago'] == 'pagado';
+        }).length;
+
+        return Column(children: [
+          Container(
+            color: _bg,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            child: Row(children: [
+              _kpi('${docs.length}', 'Total', _kAzul), const SizedBox(width: 8),
+              _kpi('$pendTrans', 'Transf. pendientes', _kAmbar), const SizedBox(width: 8),
+              _kpi('$entregados', 'Entregados', _kVerde),
+            ]),
+          ),
+          Expanded(
+            child: docs.isEmpty
+                ? _empty('Sin pedidos con ebooks')
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
+                    itemCount: docs.length,
+                    itemBuilder: (_, i) {
+                      final data = docs[i].data() as Map<String, dynamic>;
+                      final docId = docs[i].id;
+                      return TarjetaEbookWeb(
+                        id: docId,
+                        empresaId: widget.empresaId,
+                        data: data,
+                        expandido: _expandidosEbook.contains(docId),
+                        onExpand: () => setState(() {
+                          if (_expandidosEbook.contains(docId)) {
+                            _expandidosEbook.remove(docId);
+                          } else {
+                            _expandidosEbook.add(docId);
+                          }
+                        }),
+                        onConfirmarPago: () => _confirmarTransferenciaEbook(docId),
+                      );
+                    },
+                  ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  Future<void> _confirmarTransferenciaEbook(String pedidoId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar transferencia'),
+        content: const Text('¿Has recibido el pago? Se enviará el ebook al comprador.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _kVerde),
+            child: const Text('Confirmar y entregar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('pedidos_web_nazari').doc(pedidoId)
+          .update({
+        'estado_pago': 'pagado',
+        'estado': 'pagado',
+        'fecha_pago': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Pago confirmado — ebook en camino'),
+          backgroundColor: Color(0xFF10B981),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
 
   Widget _pedidoCard(Pedido p) {
     final Color estadoColor;
@@ -752,12 +1158,20 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
                     final prodRef = FirebaseFirestore.instance
                         .collection('empresas').doc(widget.empresaId)
                         .collection('productos').doc(productoIdSel);
-                    final snap = await prodRef.get();
-                    final stockActual = (snap.data()?['stock'] as num?)?.toInt() ?? 0;
-                    final delta = tipoSel == 'entrada' ? cant
-                        : tipoSel == 'salida' ? -cant : (cant - stockActual);
-                    stockResultante = (stockActual + delta).clamp(0, 999999);
-                    await prodRef.update({'stock': stockResultante});
+                    if (tipoSel == 'ajuste') {
+                      // Ajuste a valor absoluto — necesita read-then-write pero es intencional
+                      final snap = await prodRef.get();
+                      final stockActual = (snap.data()?['stock'] as num?)?.toInt() ?? 0;
+                      final delta = cant - stockActual;
+                      stockResultante = cant.clamp(0, 999999);
+                      await prodRef.update({'stock': stockResultante, 'stock_anterior': stockActual});
+                    } else {
+                      // Entrada/salida: usar increment atómico para evitar race conditions
+                      final delta = tipoSel == 'entrada' ? cant : -cant;
+                      await prodRef.update({'stock': FieldValue.increment(delta)});
+                      final snap = await prodRef.get();
+                      stockResultante = (snap.data()?['stock'] as num?)?.toInt() ?? 0;
+                    }
                   }
                   await _movCol.add({
                     'tipo': tipoSel,

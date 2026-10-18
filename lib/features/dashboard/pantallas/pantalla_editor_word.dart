@@ -67,9 +67,12 @@ class PantallaEditorWord extends StatefulWidget {
 
 class _PantallaEditorWordState extends State<PantallaEditorWord> {
   // ── Controladores ────────────────────────────────────────────────────────
-  final _scrollCtrl       = ScrollController();
-  final _editorScrollCtrl = ScrollController();
-  final _editorFocusNode  = FocusNode();
+  final _scrollCtrl        = ScrollController();
+  final _editorScrollCtrl  = ScrollController();
+  final _editorFocusNode   = FocusNode();
+  // Nodo y scroll separados para la vista preview (nunca deben compartirse con el editor)
+  final _previewFocusNode  = FocusNode();
+  final _previewScrollCtrl = ScrollController();
   final _tituloCtrl   = TextEditingController();
   final _resumenCtrl  = TextEditingController();
   final _autorCtrl    = TextEditingController();
@@ -212,6 +215,8 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     _scrollCtrl.dispose();
     _editorScrollCtrl.dispose();
     _editorFocusNode.dispose();
+    _previewFocusNode.dispose();
+    _previewScrollCtrl.dispose();
     _tituloCtrl.dispose();
     _resumenCtrl.dispose();
     _autorCtrl.dispose();
@@ -270,6 +275,19 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   }
 
   // ── Guardar ──────────────────────────────────────────────────────────────
+
+  /// Guarda como borrador si hay título y cambios pendientes, luego cierra.
+  Future<void> _salirConBorrador(BuildContext context) async {
+    final titulo = _tituloCtrl.text.trim();
+    if (titulo.isNotEmpty && (_autoguardadoPendiente || _esNuevo)) {
+      await _autoguardar(); // silencioso — no muestra snackbar
+    }
+    if (widget.onCancelar != null) {
+      widget.onCancelar!();
+    } else if (context.mounted) {
+      Navigator.pop(context);
+    }
+  }
 
   Future<void> _autoguardar() async {
     if (_guardando) return;
@@ -484,11 +502,16 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     ]);
 
     if (widget.onGuardado != null || widget.onCancelar != null) {
-      return LayoutBuilder(builder: (_, c) {
-        final h = c.maxHeight.isInfinite ? null : c.maxHeight;
-        return SizedBox(width: double.infinity, height: h,
-            child: ColoredBox(color: const Color(0xFFF0F2F5), child: body));
-      });
+      // PopScope prevents accidental dismissal via iOS swipe-back or Android
+      // predictive-back when embedded. Back is handled explicitly by _topBar.
+      return PopScope(
+        canPop: false,
+        child: LayoutBuilder(builder: (_, c) {
+          final h = c.maxHeight.isInfinite ? null : c.maxHeight;
+          return SizedBox(width: double.infinity, height: h,
+              child: ColoredBox(color: const Color(0xFFF0F2F5), child: body));
+        }),
+      );
     }
     return Scaffold(backgroundColor: const Color(0xFFF0F2F5), body: body);
   }
@@ -503,7 +526,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(children: [
         GestureDetector(
-          onTap: widget.onCancelar ?? () => Navigator.pop(context),
+          onTap: () => _salirConBorrador(context),
           child: const Row(children: [
             Icon(Icons.arrow_back_ios_new_rounded, size: 13, color: Color(0xFF6B7280)),
             SizedBox(width: 4),
@@ -523,7 +546,19 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         _barBtn(
           icon: _preview ? Icons.edit_note_rounded : Icons.visibility_outlined,
           label: _preview ? 'Editar' : 'Preview',
-          onTap: () => setState(() => _preview = !_preview),
+          onTap: () {
+            if (!_preview) {
+              // Entrando en preview: liberar el foco del editor
+              _editorFocusNode.unfocus();
+            }
+            setState(() => _preview = !_preview);
+            if (_preview == false) {
+              // Volviendo a edición: restaurar el foco limpio
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _editorFocusNode.requestFocus();
+              });
+            }
+          },
         ),
         const SizedBox(width: 6),
         _barBtn(
@@ -630,6 +665,47 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         ),
       );
 
+  // ── Helpers de estado y toggle de formato ────────────────────────────────
+
+  /// Devuelve true si el atributo está activo en la selección/cursor actual.
+  bool _isAttrActive(Attribute attr) {
+    final style = _quillCtrl.getSelectionStyle();
+    final current = style.attributes[attr.key];
+    if (current == null) return false;
+    // Para listas: ol y ul comparten clave 'list', comparar por valor
+    return current.value == attr.value;
+  }
+
+  /// Toggle explícito: aplica si no está, quita si ya está.
+  void _toggle(Attribute attr) {
+    if (_isAttrActive(attr)) {
+      _quillCtrl.formatSelection(Attribute.clone(attr, null));
+    } else {
+      _quillCtrl.formatSelection(attr);
+    }
+  }
+
+  String get _currentBlockType {
+    final style = _quillCtrl.getSelectionStyle();
+    final bq = style.attributes[Attribute.blockQuote.key];
+    if (bq != null && bq.value == true) return 'Cita';
+    final header = style.attributes[Attribute.header.key];
+    if (header == null || header.value == null) return 'Párrafo';
+    return switch (header.value) {
+      1 => 'Título 1',
+      2 => 'Título 2',
+      3 => 'Título 3',
+      _ => 'Párrafo',
+    };
+  }
+
+  void _applyFormat(VoidCallback fn) {
+    fn();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _editorFocusNode.requestFocus();
+    });
+  }
+
   // ── Toolbar WYSIWYG ───────────────────────────────────────────────────────
 
   Widget _toolbar(Color color) => Container(
@@ -639,44 +715,63 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
-        // Tipo de bloque
+        // Tipo de bloque — muestra el tipo actual
         PopupMenuButton<String>(
           tooltip: 'Tipo de bloque',
-          onSelected: (tipo) {
-            final a = switch (tipo) {
-              'Título 1' => Attribute.h1,
-              'Título 2' => Attribute.h2,
-              'Título 3' => Attribute.h3,
-              _          => Attribute.header,
-            };
+          onSelected: (tipo) => _applyFormat(() {
             if (tipo == 'Párrafo') {
               _quillCtrl.formatSelection(Attribute.clone(Attribute.header, null));
+              _quillCtrl.formatSelection(Attribute.clone(Attribute.blockQuote, null));
+            } else if (tipo == 'Cita') {
+              _toggle(Attribute.blockQuote);
             } else {
+              final a = switch (tipo) {
+                'Título 1' => Attribute.h1,
+                'Título 2' => Attribute.h2,
+                'Título 3' => Attribute.h3,
+                _          => Attribute.header,
+              };
               _quillCtrl.formatSelection(a);
             }
-          },
-          itemBuilder: (_) => ['Párrafo','Título 1','Título 2','Título 3']
+          }),
+          itemBuilder: (_) => ['Párrafo','Título 1','Título 2','Título 3','Cita']
               .map((t) => PopupMenuItem(value: t,
                   child: Text(t, style: const TextStyle(fontSize: 13))))
               .toList(),
-          child: _dropBtn('Párrafo'),
+          child: _dropBtn(_currentBlockType),
         ),
         _vsep(),
-        _tb(Icons.format_bold,          'Negrita',         () => _quillCtrl.formatSelection(Attribute.bold)),
-        _tb(Icons.format_italic,        'Cursiva',         () => _quillCtrl.formatSelection(Attribute.italic)),
-        _tb(Icons.format_strikethrough, 'Tachado',         () => _quillCtrl.formatSelection(Attribute.strikeThrough)),
-        _tb(Icons.format_underline,     'Subrayado',       () => _quillCtrl.formatSelection(Attribute.underline)),
+        _tb(Icons.format_bold,          'Negrita',
+            () => _applyFormat(() => _toggle(Attribute.bold)),
+            isActive: _isAttrActive(Attribute.bold)),
+        _tb(Icons.format_italic,        'Cursiva',
+            () => _applyFormat(() => _toggle(Attribute.italic)),
+            isActive: _isAttrActive(Attribute.italic)),
+        _tb(Icons.format_strikethrough, 'Tachado',
+            () => _applyFormat(() => _toggle(Attribute.strikeThrough)),
+            isActive: _isAttrActive(Attribute.strikeThrough)),
+        _tb(Icons.format_underline,     'Subrayado',
+            () => _applyFormat(() => _toggle(Attribute.underline)),
+            isActive: _isAttrActive(Attribute.underline)),
         _vsep(),
-        _tb(Icons.format_quote,         'Cita',            () => _quillCtrl.formatSelection(Attribute.blockQuote)),
-        _tb(Icons.format_list_bulleted, 'Lista viñetas',   () => _quillCtrl.formatSelection(Attribute.ul)),
-        _tb(Icons.format_list_numbered, 'Lista numerada',  () => _quillCtrl.formatSelection(Attribute.ol)),
+        _tb(Icons.format_quote,         'Cita',
+            () => _applyFormat(() => _toggle(Attribute.blockQuote)),
+            isActive: _isAttrActive(Attribute.blockQuote)),
+        _tb(Icons.format_list_bulleted, 'Lista viñetas',
+            () => _applyFormat(() => _toggle(Attribute.ul)),
+            isActive: _isAttrActive(Attribute.ul)),
+        _tb(Icons.format_list_numbered, 'Lista numerada',
+            () => _applyFormat(() => _toggle(Attribute.ol)),
+            isActive: _isAttrActive(Attribute.ol)),
         _vsep(),
         Builder(builder: (ctx) =>
-            _tb(Icons.link_rounded,     'Insertar enlace', () => _mostrarDialogoEnlace(ctx))),
+            _tb(Icons.link_rounded, 'Insertar enlace',
+                () => _mostrarDialogoEnlace(ctx),
+                isActive: _isAttrActive(Attribute.link))),
         _tb(Icons.add_photo_alternate_outlined, 'Insertar imagen', _insertarImagenEnContenido),
         _vsep(),
-        _tb(Icons.undo_rounded, 'Deshacer', () => _quillCtrl.undo()),
-        _tb(Icons.redo_rounded, 'Rehacer',  () => _quillCtrl.redo()),
+        _tb(Icons.undo_rounded, 'Deshacer', () => _applyFormat(() => _quillCtrl.undo())),
+        _tb(Icons.redo_rounded, 'Rehacer',  () => _applyFormat(() => _quillCtrl.redo())),
       ]),
     ),
   );
@@ -685,14 +780,21 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       color: const Color(0xFFE5E7EB));
 
-  Widget _tb(IconData icon, String tip, VoidCallback fn) => Tooltip(
+  Widget _tb(IconData icon, String tip, VoidCallback fn, {bool isActive = false}) => Tooltip(
     message: tip,
     child: InkWell(
       onTap: fn,
       borderRadius: BorderRadius.circular(5),
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-        child: Icon(icon, size: 17, color: const Color(0xFF374151)),
+        decoration: isActive
+            ? BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(5),
+              )
+            : null,
+        child: Icon(icon, size: 17,
+            color: isActive ? const Color(0xFF2563EB) : const Color(0xFF374151)),
       ),
     ),
   );
@@ -1055,10 +1157,11 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                 Divider(color: Colors.grey[200], height: 1),
                 const SizedBox(height: 28),
                 // Vista previa del contenido renderizado
+                // ⚠️ Usa controladores SEPARADOS del editor para no contaminar el foco
                 QuillEditor(
                   controller: _quillCtrl,
-                  scrollController: _editorScrollCtrl,
-                  focusNode: _editorFocusNode,
+                  scrollController: _previewScrollCtrl,
+                  focusNode: _previewFocusNode,
                   config: const QuillEditorConfig(
                     scrollable: false,
                     autoFocus: false,
@@ -1537,33 +1640,64 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   // ── Diálogo enlace ────────────────────────────────────────────────────────
 
   void _mostrarDialogoEnlace(BuildContext context) {
-    final textoCtrl = TextEditingController();
-    final urlCtrl   = TextEditingController();
-    final sel = _quillCtrl.selection;
-    if (sel.isValid && sel.start != sel.end) {
-      textoCtrl.text = _quillCtrl.document.getPlainText(sel.start, sel.end - sel.start);
-    }
+    // Guardar selección antes de que el diálogo robe el foco
+    final savedSel = _quillCtrl.selection;
+    final haySeleccion = savedSel.isValid && savedSel.start != savedSel.end;
+
+    final textoCtrl = TextEditingController(
+      text: haySeleccion
+          ? _quillCtrl.document.getPlainText(savedSel.start, savedSel.end - savedSel.start)
+          : '',
+    );
+    final urlCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Insertar enlace'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: textoCtrl,
-              decoration: const InputDecoration(labelText: 'Texto del enlace')),
+          TextField(
+            controller: textoCtrl,
+            decoration: const InputDecoration(labelText: 'Texto del enlace'),
+          ),
           const SizedBox(height: 8),
-          TextField(controller: urlCtrl,
-              decoration: const InputDecoration(labelText: 'URL', hintText: 'https://...')),
+          TextField(
+            controller: urlCtrl,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'URL', hintText: 'https://...'),
+          ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              final url = urlCtrl.text.trim();
-              if (url.isNotEmpty) {
+              final url   = urlCtrl.text.trim();
+              final texto = textoCtrl.text.trim();
+              if (url.isEmpty) return;
+
+              if (haySeleccion) {
+                // Aplicar enlace a la selección guardada
+                _quillCtrl.updateSelection(savedSel, ChangeSource.local);
                 _quillCtrl.formatSelection(LinkAttribute(url));
+              } else if (texto.isNotEmpty) {
+                // Insertar texto nuevo con el enlace
+                final pos = savedSel.isValid ? savedSel.baseOffset
+                    : _quillCtrl.document.length - 1;
+                _quillCtrl.document.insert(pos, texto);
+                _quillCtrl.updateSelection(
+                    TextSelection(baseOffset: pos, extentOffset: pos + texto.length),
+                    ChangeSource.local);
+                _quillCtrl.formatSelection(LinkAttribute(url));
+                _quillCtrl.updateSelection(
+                    TextSelection.collapsed(offset: pos + texto.length),
+                    ChangeSource.local);
               }
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _editorFocusNode.requestFocus();
+              });
             },
             child: const Text('Insertar'),
           ),

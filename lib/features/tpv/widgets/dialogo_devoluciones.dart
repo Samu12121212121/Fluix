@@ -164,7 +164,7 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
     try {
       final db = FirebaseFirestore.instance;
       final lineasSeleccionadas = _lineasDevolucion
-          .where((l) => l['seleccionado'] == true && (l['cantidad_devolver'] as int) > 0)
+          .where((l) => l['seleccionado'] == true && ((l['cantidad_devolver'] as num?)?.toInt() ?? 0) > 0)
           .toList();
 
       // 1. Crear documento en devoluciones/
@@ -220,7 +220,7 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
               .collection('catalogo')
               .doc(productoId)
               .update({
-            'stock': FieldValue.increment(linea['cantidad_devolver'] as int),
+            'stock': FieldValue.increment((linea['cantidad_devolver'] as num?)?.toInt() ?? 0),
           });
         } catch (_) {
           // El producto puede no existir en catálogo (productos antiguos)
@@ -257,11 +257,11 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
 
         await ImpressoraBluetooth().imprimirTicket(TicketData(
           nombreEmpresa: '*** DEVOLUCIÓN *** $nombreEmpresa',
-          numeroTicket: _ticketSeleccionado!['numero_ticket'] as int,
+          numeroTicket: (_ticketSeleccionado!['numero_ticket'] as num?)?.toInt() ?? 0,
           fecha: DateTime.now(),
           lineas: lineasSeleccionadas.map((l) => LineaTicket(
             nombre: '-${l['producto_nombre']}',
-            cantidad: l['cantidad_devolver'] as int,
+            cantidad: (l['cantidad_devolver'] as num?)?.toInt() ?? 0,
             precioUnitario: (l['precio_unitario'] as num?)?.toDouble() ?? 0.0,
           )).toList(),
           total: -_importeDevolver, // Negativo
@@ -310,7 +310,7 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
     return Dialog(
       backgroundColor: Colors.white,
       child: Container(
-        width: 600,
+        width: MediaQuery.of(context).size.width > 660 ? 600 : double.infinity,
         height: MediaQuery.of(context).size.height * 0.8,
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -503,8 +503,8 @@ class _DialogoDevolucionesState extends State<DialogoDevoluciones> {
                   itemBuilder: (context, idx) {
                     final linea = _lineasDevolucion[idx];
                     final seleccionado = linea['seleccionado'] as bool;
-                    final cantOriginal = linea['cantidad_original'] as int;
-                    final cantDevolver = linea['cantidad_devolver'] as int;
+                    final cantOriginal = (linea['cantidad_original'] as num?)?.toInt() ?? 0;
+                    final cantDevolver = (linea['cantidad_devolver'] as num?)?.toInt() ?? 0;
                     final precio = (linea['precio_unitario'] as num?)?.toDouble() ?? 0.0;
 
                     return Card(

@@ -185,7 +185,7 @@ class ImportacionCatalogoService {
 
         final nombre    = fila.datos['nombre']!;
         final categoria = _d('categoria') ?? 'General';
-        final precio    = double.parse(fila.datos['precio']!.replaceAll(',', '.'));
+        final precio    = double.tryParse((fila.datos['precio'] ?? '0').replaceAll(',', '.')) ?? 0.0;
         final iva       = double.tryParse(fila.datos['iva_porcentaje'] ?? '') ?? 21;
         final activo    = (fila.datos['activo'] ?? 'true').toLowerCase() != 'false';
         final destacado = (fila.datos['destacado'] ?? 'false').toLowerCase() == 'true';

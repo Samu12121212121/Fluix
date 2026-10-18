@@ -67,11 +67,12 @@ class _DuplicadosClienteScreenState extends State<DuplicadosClienteScreen> {
   }
 
   String _nombreCliente(String id) {
-    final doc = _clientes?.firstWhere(
+    if (_clientes == null || _clientes!.isEmpty) return id;
+    final doc = _clientes!.firstWhere(
       (d) => d.id == id,
       orElse: () => _clientes!.first,
     );
-    return (doc?.data() as Map<String, dynamic>?)?['nombre'] ?? id;
+    return (doc.data() as Map<String, dynamic>?)?['nombre'] ?? id;
   }
 
   @override
@@ -211,15 +212,18 @@ class _DuplicadosClienteScreenState extends State<DuplicadosClienteScreen> {
               children: [
                 const Icon(Icons.person, size: 18, color: Color(0xFF0D47A1)),
                 const SizedBox(width: 6),
-                Text(
-                  _nombreCliente(principalId),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: Color(0xFF0D47A1),
+                Expanded(
+                  child: Text(
+                    _nombreCliente(principalId),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Color(0xFF0D47A1),
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 6, vertical: 2),

@@ -10,18 +10,13 @@ import '../../../services/trofeos_service.dart';
 import '../../tienda_monedas/pantalla_tienda_monedas.dart';
 import '../../tienda_monedas/widgets/avatar_con_marco.dart';
 import '../widgets/avatar_picker_sheet.dart';
-import '../../../core/widgets/fluix_app_bar.dart';
-
-const _kBg      = Color(0xFF0A0F23);
-const _kSurface = Color(0xFF151932);
-const _kCard    = Color(0xFF1E2139);
-const _kCard2   = Color(0xFF252A45);
-const _kBorde   = Color(0xFF2A2E45);
-const _kAccent  = Color(0xFF00FFC8);
-const _kRosa    = Color(0xFFFF3296);
+const _kBg      = Color(0xFFF4F6FB);
+const _kBorde   = Color(0xFFDDE3ED);
+const _kAccent  = Color(0xFF00BFA5);
+const _kRosa    = Color(0xFFE91E63);
 const _kOro     = Color(0xFFFFB830);
-const _kTexto   = Color(0xFFFFFFFF);
-const _kMuted   = Color(0xFFB0B3C1);
+const _kTexto   = Color(0xFF1E293B);
+const _kMuted   = Color(0xFF64748B);
 
 class PantallaPerfilCliente extends StatelessWidget {
   const PantallaPerfilCliente({super.key});
@@ -33,7 +28,17 @@ class PantallaPerfilCliente extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: const FluixAppBar(titulo: 'Mi Perfil', showLeading: true),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        automaticallyImplyLeading: false,
+        title: const Text('Fluix',
+            style: TextStyle(color: _kAccent, fontSize: 24,
+                fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+      ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('usuarios').doc(fbUser.uid).snapshots(),
         builder: (context, snap) {
@@ -74,7 +79,7 @@ class _HeroHeader extends StatelessWidget {
   Future<void> _editarAvatar(BuildContext context) async {
     await showModalBottomSheet(
       context: context,
-      backgroundColor: _kCard,
+      backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => AvatarPickerSheet(
@@ -104,9 +109,10 @@ class _HeroHeader extends StatelessWidget {
     final titulo   = userData['canje_titulo'] as String?;
     final midnight = (userData['canje_tema'] as String?) == 'midnight';
     final colorHex = userData['canje_color_nombre'] as String?;
-    final Color nombreColor = colorHex != null
-        ? Color(int.parse(colorHex.replaceFirst('#', '0xFF')))
-        : _kTexto;
+    Color nombreColor = _kTexto;
+    if (colorHex != null) {
+      try { nombreColor = Color(int.parse(colorHex.replaceFirst('#', '0xFF'))); } catch (_) {}
+    }
 
     final avatarInner = Container(
       width: 90, height: 90,
@@ -117,22 +123,23 @@ class _HeroHeader extends StatelessWidget {
       child: fotoUrl != null
           ? ClipOval(child: Image.network(fotoUrl, width: 90, height: 90, fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Center(child: Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _kBg)))))
+                style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)))))
           : Center(child: emoji != null
               ? Text(emoji, style: const TextStyle(fontSize: 42))
               : Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _kBg))),
+                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white))),
     );
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kCard, midnight ? const Color(0xFF0D1B2A) : _kCard2],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _kBorde),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 16, offset: const Offset(0, 4),
+        )],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -147,8 +154,8 @@ class _HeroHeader extends StatelessWidget {
               onTap: () => _editarAvatar(context),
               child: Container(
                 width: 28, height: 28,
-                decoration: BoxDecoration(color: _kAccent, shape: BoxShape.circle, border: Border.all(color: _kCard, width: 2)),
-                child: const Icon(Icons.camera_alt_rounded, size: 13, color: _kBg),
+                decoration: BoxDecoration(color: _kAccent, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
               ),
             ),
           ]),
@@ -156,7 +163,7 @@ class _HeroHeader extends StatelessWidget {
           Text(user.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: nombreColor)),
           if (titulo != null && titulo.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(titulo, style: TextStyle(fontSize: 12, color: midnight ? const Color(0xFF3F8EFC) : _kAccent, fontStyle: FontStyle.italic)),
+            Text(titulo, style: const TextStyle(fontSize: 12, color: _kAccent, fontStyle: FontStyle.italic)),
           ],
           const SizedBox(height: 3),
           Text(user.email, style: const TextStyle(fontSize: 13, color: _kMuted)),
@@ -236,7 +243,7 @@ class _QuickActions extends StatelessWidget {
 
   void _editarPerfil(BuildContext context) {
     showModalBottomSheet(
-      context: context, backgroundColor: _kCard, isScrollControlled: true,
+      context: context, backgroundColor: Colors.white, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => _EditarPerfilSheet(uid: uid, userData: userData),
     );
@@ -308,15 +315,16 @@ class _EditarPerfilSheetState extends State<_EditarPerfilSheet> {
   Widget build(BuildContext context) {
     const style = TextStyle(color: _kTexto);
     final deco = InputDecoration(
-      filled: true, fillColor: _kCard2,
+      filled: true, fillColor: _kBg,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorde)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kBorde)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kAccent)),
       labelStyle: const TextStyle(color: _kMuted),
     );
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: _kBorde, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 16),
         const Text('Editar perfil', style: TextStyle(color: _kTexto, fontSize: 17, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
@@ -328,8 +336,8 @@ class _EditarPerfilSheetState extends State<_EditarPerfilSheet> {
         const SizedBox(height: 20),
         SizedBox(width: double.infinity, child: FilledButton(
           onPressed: _guardando ? null : _guardar,
-          style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg, padding: const EdgeInsets.symmetric(vertical: 14)),
-          child: _guardando ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg)) : const Text('Guardar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          child: _guardando ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Guardar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         )),
       ]),
     );
@@ -346,13 +354,22 @@ class _ReservasRecientes extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: _kBorde, width: 0.5)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorde, width: 0.5),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: Row(children: [
-            const Text('📅', style: TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.calendar_today_rounded, size: 16, color: _kAccent),
+            ),
+            const SizedBox(width: 10),
             const Expanded(child: Text('Mis Reservas', style: TextStyle(color: _kTexto, fontSize: 15, fontWeight: FontWeight.bold))),
             TextButton(onPressed: () {}, child: const Text('Ver todo', style: TextStyle(color: _kAccent, fontSize: 12))),
           ]),
@@ -421,7 +438,12 @@ class _InfoSection extends StatelessWidget {
     final bio = data['bio'] as String?;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      decoration: BoxDecoration(color: _kCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: _kBorde, width: 0.5)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorde, width: 0.5),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Información', style: TextStyle(color: _kTexto, fontSize: 15, fontWeight: FontWeight.bold)),
@@ -505,13 +527,14 @@ class _LogoutButton extends StatelessWidget {
 
   Future<void> _confirmLogout(BuildContext context) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-      backgroundColor: _kCard,
+      backgroundColor: Colors.white,
       title: const Text('Cerrar sesión', style: TextStyle(color: _kTexto)),
       content: const Text('¿Seguro que deseas cerrar sesión?', style: TextStyle(color: _kMuted)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar', style: TextStyle(color: _kMuted))),
         FilledButton(onPressed: () => Navigator.pop(context, true),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF2850)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF2850), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
           child: const Text('Cerrar sesión')),
       ],
     ));

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Servicio para calcular y actualizar métricas web en tiempo real
 class ActualizadorMetricasWeb {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  StreamSubscription<DocumentSnapshot>? _listenerSub;
 
   /// Recalcula las métricas de tráfico web leyendo los documentos diarios
   Future<void> recalcularMetricas(String empresaId) async {
@@ -85,7 +87,8 @@ class ActualizadorMetricasWeb {
     final hoy = DateTime.now();
     final fechaHoyStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
     
-    _db
+    _listenerSub?.cancel();
+    _listenerSub = _db
         .collection('empresas')
         .doc(empresaId)
         .collection('estadisticas')
@@ -93,10 +96,11 @@ class ActualizadorMetricasWeb {
         .snapshots()
         .listen((snapshot) {
       if (snapshot.exists) {
-        // Recalcular cuando cambian las visitas de hoy
         recalcularMetricas(empresaId);
       }
     });
   }
+
+  void dispose() => _listenerSub?.cancel();
 }
 

@@ -700,44 +700,42 @@ class _EditarReservaSheetState extends State<_EditarReservaSheet> {
                     ],
                   ),
                   // Selector de fecha y hora
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.schedule_outlined,
-                        color: Colors.grey),
-                    title: Text(
-                      DateFormat('EEEE d MMMM · HH:mm', 'es')
-                          .format(DateTime(_fecha.year, _fecha.month,
-                              _fecha.day, _hora.hour, _hora.minute))
-                          ._cap(),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextButton(
-                          onPressed: () async {
-                            final d = await showDatePicker(
-                              context: context,
-                              initialDate: _fecha,
-                              firstDate: DateTime.now()
-                                  .subtract(const Duration(days: 365)),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 365)),
-                            );
-                            if (d != null) setState(() => _fecha = d);
-                          },
-                          child: const Text('Fecha'),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule_outlined, color: Colors.grey, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          DateFormat('EEEE d MMMM · HH:mm', 'es')
+                              .format(DateTime(_fecha.year, _fecha.month,
+                                  _fecha.day, _hora.hour, _hora.minute))
+                              ._cap(),
+                          style: const TextStyle(fontSize: 14),
                         ),
-                        TextButton(
-                          onPressed: () async {
-                            final t = await showTimePicker(
-                                context: context, initialTime: _hora);
-                            if (t != null) setState(() => _hora = t);
-                          },
-                          child: const Text('Hora'),
-                        ),
-                      ],
-                    ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _fecha,
+                            firstDate: DateTime.now()
+                                .subtract(const Duration(days: 365)),
+                            lastDate: DateTime.now()
+                                .add(const Duration(days: 365)),
+                          );
+                          if (d != null) setState(() => _fecha = d);
+                        },
+                        child: const Text('Fecha'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final t = await showTimePicker(
+                              context: context, initialTime: _hora);
+                          if (t != null) setState(() => _hora = t);
+                        },
+                        child: const Text('Hora'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   const Text('Estado',

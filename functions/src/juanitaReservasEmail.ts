@@ -101,6 +101,7 @@ export const onJuanitaReservaEstadoCambiado = onDocumentUpdated(
       fechaHora = fh.toLocaleString("es-ES", {
         weekday: "long", day: "numeric", month: "long",
         hour: "2-digit", minute: "2-digit",
+        timeZone: "Europe/Madrid",
       });
     } catch (_) {}
 

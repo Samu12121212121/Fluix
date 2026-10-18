@@ -96,12 +96,21 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
 
   // ── Filtrado (igual que empleados) ────────────────────────────────────────
 
+  static String _normOrd(String s) {
+    const Map<String, String> d = {
+      'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+      'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+      'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U',
+    };
+    return s.toLowerCase().split('').map((c) => d[c] ?? c).join();
+  }
+
   List<QueryDocumentSnapshot> _filtrar(List<QueryDocumentSnapshot> lista) {
     final sorted = List<QueryDocumentSnapshot>.from(lista);
     sorted.sort((a, b) {
       final na = ((a.data() as Map)['nombre'] as String?) ?? '';
       final nb = ((b.data() as Map)['nombre'] as String?) ?? '';
-      return na.toLowerCase().compareTo(nb.toLowerCase());
+      return _normOrd(na).compareTo(_normOrd(nb));
     });
     return sorted;
   }
@@ -958,7 +967,7 @@ class _ModuloClientesScreenState extends State<ModuloClientesScreen> {
         if ((d['correo'] as String? ?? '').contains('@')) ...[
           const SizedBox(height: 6),
           OutlinedButton.icon(
-            onPressed: () => _enviarEmailBienvenida(doc.id, nombre, d['correo'] as String),
+            onPressed: () => _enviarEmailBienvenida(doc.id, nombre, d['correo'] as String? ?? ''),
             icon: const Icon(Icons.mark_email_read_outlined, size: 14),
             label: Text(
               (d['email_bienvenida_enviado'] == true)

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/domain/modelos/tarea.dart';
@@ -35,12 +36,23 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
   late Tarea _tarea;
   final TextEditingController _subtareaCtrl = TextEditingController();
   bool _agregandoSubtarea = false;
+  String _nombreUsuario = 'Usuario';
 
   @override
   void initState() {
     super.initState();
     _tarea = widget.tarea;
     _tabs = TabController(length: 4, vsync: this);
+    _cargarNombreUsuario();
+  }
+
+  Future<void> _cargarNombreUsuario() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios').doc(widget.usuarioId).get();
+      final nombre = doc.data()?['nombre'] as String? ?? '';
+      if (nombre.isNotEmpty && mounted) setState(() => _nombreUsuario = nombre);
+    } catch (_) {}
   }
 
   @override
@@ -312,14 +324,14 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
               'Tarea completada. La siguiente se creará el '
               '${DateFormat('dd/MM/yyyy').format(proxima)}',
             );
-            // Generar la instancia
-            await recSvc.crearInstanciaDesde(
-              plantilla: _tarea.esPlantillaRecurrencia
-                  ? _tarea
-                  : _tarea, // usar la tarea actual como referencia
-              fechaLimite: proxima,
-              generadoPorId: widget.usuarioId,
-            );
+            // Generar la instancia solo si tiene configuración de recurrencia
+            if (_tarea.configuracionRecurrencia != null) {
+              await recSvc.crearInstanciaDesde(
+                plantilla: _tarea,
+                fechaLimite: proxima,
+                generadoPorId: widget.usuarioId,
+              );
+            }
           }
         }
       },
@@ -649,7 +661,7 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen>
       empresaId: widget.empresaId,
       tareaId: _tarea.id,
       usuarioId: widget.usuarioId,
-      nombreUsuario: 'Yo',
+      nombreUsuario: _nombreUsuario,
       texto: texto,
     );
     _mensajeCtrl.clear();

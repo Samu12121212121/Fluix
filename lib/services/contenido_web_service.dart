@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
@@ -61,6 +62,17 @@ class ContenidoWebService {
           print('❌ obtenerSecciones ERROR: $e');
           return <SeccionWeb>[];
         });
+  }
+
+  /// Actualiza el timestamp de versión web de una colección.
+  /// La web lo comprueba en cada carga y, si cambió, invalida su caché local.
+  Future<void> _bumpWebVersion(String empresaId, String coleccion) async {
+    try {
+      await _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('configuracion').doc('web_version')
+          .set({coleccion: FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } catch (_) {}
   }
 
   Future<void> guardarSeccion(String empresaId, SeccionWeb seccion) async {
@@ -856,7 +868,7 @@ class ContenidoWebService {
   //              <div data-fluix-seccion="id"></div> → sección personalizada
   // Atributos de config: data-fluix-limite, data-fluix-tipo, data-fluix-ciudad, data-fluix-categoria
 
-  /// Genera el Fluix Web SDK para Hostinger
+  /// Genera el Fluix Web SDK para Hostinger (snippet inline — uso legacy)
   String generarScriptHostinger(String empresaId) {
     final sdk = _fluixWebSdk.replaceAll('__EMPRESA__', empresaId);
     return '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
@@ -864,6 +876,51 @@ class ContenidoWebService {
         '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
         '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>\n'
         '<script>\n$sdk\n</script>\n';
+  }
+
+  /// URL pública del script en Firebase Storage (nunca cambia para una empresa).
+  /// El HTML solo necesita este <script src> una vez.
+  static String urlScript(String empresaId) {
+    final path = Uri.encodeComponent('empresas/$empresaId/fluix-sdk.js');
+    return 'https://firebasestorage.googleapis.com/v0/b/planeaapp-4bea4.appspot.com/o/$path?alt=media';
+  }
+
+  /// Snippet HTML listo para pegar en Hostinger (usa URL en lugar de inline)
+  static String snippetHtmlScript(String empresaId) {
+    final url = urlScript(empresaId);
+    return '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
+        '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>\n'
+        '<script src="$url"></script>';
+  }
+
+  /// Sube el JS a Firebase Storage. Solo re-sube si el contenido cambió (hash distinto).
+  /// Llamar al abrir el módulo web — se ejecuta en ~500ms y no bloquea la UI.
+  Future<void> desplegarScript(String empresaId) async {
+    try {
+      final contenido = _fluixWebSdk.replaceAll('__EMPRESA__', empresaId);
+      final hash = contenido.length.toString();
+
+      final versionRef = _firestore
+          .collection('empresas').doc(empresaId)
+          .collection('config_web').doc('script_version');
+      final snap = await versionRef.get();
+      if (snap.exists && snap.data()?['hash'] == hash) return; // ya actualizado
+
+      final ref = _storage.ref('empresas/$empresaId/fluix-sdk.js');
+      await ref.putData(
+        Uint8List.fromList(utf8.encode(contenido)),
+        SettableMetadata(
+          contentType: 'application/javascript',
+          cacheControl: 'public, max-age=300',
+        ),
+      );
+      await versionRef.set({
+        'hash': hash,
+        'actualizado': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {} // no bloquea si hay error de permisos o red
   }
 
   /// Contenido del service worker que el cliente debe subir a /firebase-messaging-sw.js
@@ -948,10 +1005,13 @@ messaging.onBackgroundMessage(function(payload) {
   }
   function wField(ce,campo,item){
     var v=item[campo],tag=ce.tagName.toLowerCase();
+    // Para 'categoria': preferir el array 'categorias' si existe
+    if(campo==="categoria"&&item.categorias&&item.categorias.length){v=item.categorias.join(", ");}
     if(v===undefined||v===null){if(tag==="img")ce.style.display="none";return;}
     if(campo==="fecha"){ce.textContent=fmtFecha(v);return;}
     if(tag==="img"){ce.src=v||"";ce.style.display=v?"":"none";return;}
     if(tag==="a"){ce.href=v||"#";return;}
+    if(Array.isArray(v)){ce.textContent=v.map(function(a){return typeof a==="object"?a.nombre||"":String(a);}).filter(Boolean).join(", ");return;}
     ce.textContent=v;
   }
   function fillFields(root,item){
@@ -1037,9 +1097,19 @@ messaging.onBackgroundMessage(function(payload) {
   function modCatalogo(){
     document.querySelectorAll("[data-fluix-catalogo]").forEach(function(el){
       var limite=parseInt(fcfg(el,"limite","50")),cat=fcfg(el,"categoria",""),tpl=el.querySelector("template[data-fluix-item]");
-      db.collection("empresas").doc(EMPRESA).collection("catalogo_web").where("activo","==",true).orderBy("orden").onSnapshot(function(snap){
+      db.collection("empresas").doc(EMPRESA).collection("catalogo_web").where("activo","==",true).onSnapshot(function(snap){
         var items=[];
-        snap.forEach(function(doc){var d=doc.data();d.id=doc.id;if(cat&&d.categoria!==cat)return;items.push(d);});
+        snap.forEach(function(doc){
+          var d=doc.data();d.id=doc.id;
+          if(cat){
+            var cats=(d.categorias&&d.categorias.length)
+              ?d.categorias.map(function(c){return String(c).trim().toLowerCase();})
+              :(d.categoria||"").split("/").map(function(s){return s.trim().toLowerCase();});
+            if(!cats.some(function(c){return c===cat.toLowerCase();}))return;
+          }
+          items.push(d);
+        });
+        items.sort(function(a,b){return((a.orden==null?9999:a.orden)-(b.orden==null?9999:b.orden));});
         items=items.slice(0,limite);
         if(!items.length){el.innerHTML="";return;}
         if(tpl){renderTpl(el,tpl,items);return;}
@@ -1049,7 +1119,7 @@ messaging.onBackgroundMessage(function(payload) {
             +'<div class="fluix-cat-body">'
             +(it.tag?'<span class="fluix-cat-tag">'+it.tag+'</span>':"")
             +'<h3 class="fluix-cat-nombre">'+it.nombre+'</h3>'
-            +(it.campo_autor?'<span class="fluix-cat-autor">'+it.campo_autor+'</span>':"")
+            +(function(){var a=(it.autores&&it.autores.length?it.autores.map(function(x){return x.nombre||"";}).filter(Boolean).join(", "):it.campo_autor||"");return a?'<span class="fluix-cat-autor">'+a+'</span>':"";})()
             +(it.descripcion?'<p class="fluix-cat-desc">'+it.descripcion+'</p>':"")
             +(it.precio?'<span class="fluix-cat-precio">'+it.precio+'</span>':"")
             +(it.precio_digital?'<span class="fluix-cat-precio-digital">'+it.precio_digital+'</span>':"")
@@ -1282,9 +1352,7 @@ messaging.onBackgroundMessage(function(payload) {
           if(!items.length){el.innerHTML="";return;}
           if(tpl){
             renderTpl(el,tpl,items.map(function(it){
-              return{id:it.id,titulo:it.titulo,autor:it.autor,imagen_url:it.imagen,
-                nota_editorial:it.nota_editorial,es_libro_del_mes:it.es_libro_del_mes,
-                slug:it.slug};
+              return Object.assign({},it,{imagen_url:it.imagen||it.imagen_url});
             }));
             return;
           }
@@ -1605,16 +1673,27 @@ messaging.onBackgroundMessage(function(payload) {
   CollectionReference<Map<String, dynamic>> _categoriasCol(String empresaId) =>
       _firestore.collection('empresas').doc(empresaId).collection('blog_categorias');
 
-  /// Stream de entradas NO eliminadas, filtrado en cliente para evitar índice compuesto
+  /// Stream de entradas NO eliminadas.
+  /// Sin orderBy en Firestore para incluir documentos importados de WP que
+  /// no tienen campo fecha_publicacion (Firestore excluye esos docs con orderBy).
+  /// Ordenamos y filtramos client-side, igual que hace el blog.html de la web.
   Stream<List<EntradaBlog>> obtenerBlog(String empresaId) {
     return _blogCol(empresaId)
-        .where('eliminado', isEqualTo: false)
-        .orderBy('fecha_publicacion', descending: true)
-        .limit(200)
+        .limit(5000)
         .snapshots()
-        .map((s) => s.docs
-            .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
-            .toList());
+        .map((s) {
+          final lista = s.docs
+              .where((d) {
+                final data = d.data();
+                if (data['eliminado'] == true) return false;
+                if ((data['estado'] as String? ?? '') == 'eliminado') return false;
+                return true;
+              })
+              .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
+              .toList();
+          lista.sort((a, b) => b.fechaPublicacion.compareTo(a.fechaPublicacion));
+          return lista;
+        });
   }
 
   /// Stream paginado filtrado por tipo — requiere índice compuesto tipo+fecha_publicacion
@@ -1666,6 +1745,7 @@ messaging.onBackgroundMessage(function(payload) {
     await _blogCol(empresaId)
         .doc(entrada.id.isEmpty ? null : entrada.id)
         .set(data, SetOptions(merge: true));
+    unawaited(_bumpWebVersion(empresaId, 'blog'));
   }
 
   /// Actualiza campos adicionales de una entrada de blog (ej: contenido_html pre-renderizado).
@@ -1757,6 +1837,35 @@ messaging.onBackgroundMessage(function(payload) {
       'estado': 'eliminado',
       'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
+    unawaited(_bumpWebVersion(empresaId, 'blog'));
+  }
+
+  /// Stream de entradas en papelera (eliminado=true) ordenadas por fecha de eliminación
+  Stream<List<EntradaBlog>> obtenerPapeleraBlog(String empresaId, {String? tipo}) {
+    Query<Map<String, dynamic>> q = _blogCol(empresaId).where('eliminado', isEqualTo: true);
+    if (tipo != null) q = q.where('tipo', isEqualTo: tipo);
+    return q.snapshots().map((snap) {
+      final list = snap.docs.map((d) => EntradaBlog.fromMap({'id': d.id, ...d.data()})).toList();
+      list.sort((a, b) => (b.fechaEliminacion ?? b.fechaPublicacion)
+          .compareTo(a.fechaEliminacion ?? a.fechaPublicacion));
+      return list;
+    }).handleError((_) => <EntradaBlog>[]);
+  }
+
+  /// Restaura una entrada de la papelera (la vuelve a borrador)
+  Future<void> restaurarEntradaBlog(String empresaId, String entradaId) async {
+    await _blogCol(empresaId).doc(entradaId).update({
+      'eliminado': false,
+      'estado': 'borrador',
+      'fecha_eliminacion': FieldValue.delete(),
+    });
+    unawaited(_bumpWebVersion(empresaId, 'blog'));
+  }
+
+  /// Elimina permanentemente una entrada de la papelera
+  Future<void> eliminarPermanenteEntradaBlog(String empresaId, String entradaId) async {
+    await _blogCol(empresaId).doc(entradaId).delete();
+    unawaited(_bumpWebVersion(empresaId, 'blog'));
   }
 
   Future<void> actualizarCampoEntradaBlog(
@@ -1771,6 +1880,7 @@ messaging.onBackgroundMessage(function(payload) {
       'publicada': publicar,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+    unawaited(_bumpWebVersion(empresaId, 'blog'));
   }
 
   Future<void> toggleDestacadoBlog(
@@ -1908,6 +2018,7 @@ messaging.onBackgroundMessage(function(payload) {
     await _eventosCol(empresaId)
         .doc(evento.id.isEmpty ? null : evento.id)
         .set(data, SetOptions(merge: true));
+    unawaited(_bumpWebVersion(empresaId, 'eventos'));
   }
 
   Future<void> duplicarEvento(String empresaId, EventoWeb evento) async {
@@ -1924,7 +2035,37 @@ messaging.onBackgroundMessage(function(payload) {
     await _eventosCol(empresaId).doc(eventoId).update({
       'eliminado': true,
       'activo': false,
+      'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
+    unawaited(_bumpWebVersion(empresaId, 'eventos'));
+  }
+
+  Stream<List<EventoWeb>> obtenerPapeleraEventos(String empresaId) {
+    return _eventosCol(empresaId)
+        .where('eliminado', isEqualTo: true)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs
+              .map((d) => EventoWeb.fromMap({...d.data(), 'id': d.id}))
+              .toList();
+          list.sort((a, b) => b.fecha.compareTo(a.fecha));
+          return list;
+        })
+        .handleError((_) => <EventoWeb>[]);
+  }
+
+  Future<void> restaurarEvento(String empresaId, String eventoId) async {
+    await _eventosCol(empresaId).doc(eventoId).update({
+      'eliminado': false,
+      'activo': false,
+      'fecha_eliminacion': FieldValue.delete(),
+    });
+    unawaited(_bumpWebVersion(empresaId, 'eventos'));
+  }
+
+  Future<void> eliminarPermanenteEvento(String empresaId, String eventoId) async {
+    await _eventosCol(empresaId).doc(eventoId).delete();
+    unawaited(_bumpWebVersion(empresaId, 'eventos'));
   }
 
   Future<void> toggleActivoEvento(String empresaId, String eventoId, bool activo) async {
@@ -1932,6 +2073,7 @@ messaging.onBackgroundMessage(function(payload) {
       'activo': activo,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+    unawaited(_bumpWebVersion(empresaId, 'eventos'));
   }
 
   Future<void> crearEventosEjemplo(String empresaId) async {
@@ -2330,12 +2472,17 @@ messaging.onBackgroundMessage(function(payload) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Stream<List<Map<String, dynamic>>> obtenerLibros(String empresaId) {
-    return _firestore
-        .collection('empresas').doc(empresaId)
-        .collection('libros')
-        .orderBy('titulo')
+    return _catalogoCol(empresaId)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+        .map((snap) {
+          final docs = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          docs.sort((a, b) {
+            final ta = (a['titulo'] as String? ?? a['nombre'] as String? ?? '').toLowerCase();
+            final tb = (b['titulo'] as String? ?? b['nombre'] as String? ?? '').toLowerCase();
+            return ta.compareTo(tb);
+          });
+          return docs;
+        });
   }
 
   Future<void> guardarLibro(
@@ -2391,11 +2538,30 @@ messaging.onBackgroundMessage(function(payload) {
         : _autorSlugId(nombre);
 
     final isNew = docId == null || docId.isEmpty;
-    await col.doc(id).set({
-      ...data,
-      'fecha_actualizacion': FieldValue.serverTimestamp(),
-      if (isNew) 'fecha_creacion': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    if (isNew) {
+      // Insertar al principio: desplazar prioridad de todos los existentes con prioridad > 0
+      try {
+        final snap = await col.get();
+        final shiftBatch = _firestore.batch();
+        for (final doc in snap.docs) {
+          final p = (doc.data()['prioridad'] as num?)?.toInt() ?? 0;
+          if (p > 0) shiftBatch.update(doc.reference, {'prioridad': p + 1});
+        }
+        await shiftBatch.commit();
+      } catch (_) {}
+      await col.doc(id).set({
+        ...data,
+        'prioridad': 1,
+        'fecha_creacion': FieldValue.serverTimestamp(),
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else {
+      await col.doc(id).set({
+        ...data,
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    unawaited(_bumpWebVersion(empresaId, 'autores'));
   }
 
   Future<void> eliminarAutor(String empresaId, String docId) async {
@@ -2403,6 +2569,7 @@ messaging.onBackgroundMessage(function(payload) {
         .collection('empresas').doc(empresaId)
         .collection('autores').doc(docId)
         .delete();
+    unawaited(_bumpWebVersion(empresaId, 'autores'));
   }
 
   /// Elimina autores duplicados (mismo nombre normalizado) conservando
@@ -2658,16 +2825,23 @@ messaging.onBackgroundMessage(function(payload) {
       // Sincronizar datos en seleccion_nazari si el libro está en la Selección
       unawaited(_sincronizarEnSeleccion(empresaId, docId, data));
     } else {
-      // Determinar orden contando documentos existentes
-      int orden = 0;
+      // Insertar al principio: desplazar orden de todos los existentes +1
       try {
-        final snap = await _catalogoCol(empresaId).get();
-        orden = snap.docs.length;
+        final existingSnap = await _catalogoCol(empresaId).get();
+        if (existingSnap.docs.isNotEmpty) {
+          final shiftBatch = _firestore.batch();
+          for (final doc in existingSnap.docs) {
+            final cur = (doc.data()['orden'] as num?)?.toInt() ?? 0;
+            shiftBatch.update(doc.reference, {'orden': cur + 1});
+          }
+          await shiftBatch.commit();
+        }
       } catch (_) {}
-      data['orden'] = orden;
+      data['orden'] = 0;
       await _catalogoCol(empresaId)
           .add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
     }
+    unawaited(_bumpWebVersion(empresaId, 'catalogo_web'));
   }
 
   Future<void> _sincronizarEnSeleccion(
@@ -2734,6 +2908,7 @@ messaging.onBackgroundMessage(function(payload) {
 
   Future<void> eliminarItemCatalogo(String empresaId, String docId) async {
     await _catalogoCol(empresaId).doc(docId).delete();
+    unawaited(_bumpWebVersion(empresaId, 'catalogo_web'));
   }
 
   Future<void> toggleLibroDelMesCatalogo(

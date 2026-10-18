@@ -39,6 +39,7 @@ class GestionFichajesScreen extends StatefulWidget {
 class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
   final _svc   = FichajeService();
   Timer?          _clockTimer;
+  StreamSubscription<QuerySnapshot>? _fichajeHoySub;
   DateTime        _ahora            = DateTime.now();
   Fichaje?        _misFichaje;
   bool            _fichando         = false;
@@ -59,6 +60,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
   @override
   void dispose() {
     _clockTimer?.cancel();
+    _fichajeHoySub?.cancel();
     super.dispose();
   }
 
@@ -67,8 +69,8 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     if (uid == null) return;
     try {
       final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      // Stream en lugar de Future para que el fichaje se actualice en tiempo real
-      FirebaseFirestore.instance
+      _fichajeHoySub?.cancel();
+      _fichajeHoySub = FirebaseFirestore.instance
           .collection('empresas').doc(widget.empresaId)
           .collection('fichajes')
           .where('empleado_id', isEqualTo: uid)
@@ -1546,7 +1548,7 @@ class _DialogAltaEmpleadoState extends State<_DialogAltaEmpleado> {
         Text('Dar de alta en fichajes'),
       ]),
       content: SizedBox(
-        width: 380,
+        width: double.infinity,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -1881,7 +1883,7 @@ class _DialogConfigurarPINState extends State<_DialogConfigurarPIN> {
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.pinActual == null ? 'Configurar acceso' : 'Parámetros del empleado'),
     content: SizedBox(
-      width: 380,
+      width: double.infinity,
       child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(widget.nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         const SizedBox(height: 16),
@@ -2468,7 +2470,7 @@ class _DialogFichajesEmpleado extends StatelessWidget {
     final mesTxt = DateFormat('MMMM yyyy', 'es_ES').format(mes);
     return AlertDialog(
       title: Text(empleadoNombre),
-      content: SizedBox(width: 420, child: FutureBuilder<List<Fichaje>>(
+      content: SizedBox(width: double.infinity, child: FutureBuilder<List<Fichaje>>(
         future: svc.fichajesMes(empresaId: empresaId, mes: mes),
         builder: (ctx, snap) {
           if (snap.connectionState == ConnectionState.waiting)

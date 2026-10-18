@@ -7,6 +7,7 @@ import '../../../models/negocio_publico_model.dart';
 import 'resenas_fluix_screen.dart';
 import 'terminos_condiciones_screen.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../services/seed_peluqueria_demo_service.dart';
 
 const _kAzul = Color(0xFF0D47A1);
 const _kOro  = Color(0xFFFFB830);
@@ -29,7 +30,34 @@ class _GestionNegociosPublicosScreenState
   @override
   void dispose() {
     _searchController.dispose();
+
     super.dispose();
+  }
+
+  bool _seedCargando = false;
+
+  Future<void> _ejecutarSeedPeluqueria() async {
+    setState(() => _seedCargando = true);
+    try {
+      await SeedPeluqueriaDemoService().seedTodo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Peluquería Fluix Demo lista. Abre la pantalla Explorar.'),
+            backgroundColor: Color(0xFF00BFA5),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _seedCargando = false);
+    }
   }
 
   @override
@@ -37,6 +65,19 @@ class _GestionNegociosPublicosScreenState
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: const FluixAppBar(titulo: 'Gestión de Negocios Públicos'),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _seedCargando ? null : _ejecutarSeedPeluqueria,
+        backgroundColor: const Color(0xFFA855F7),
+        foregroundColor: Colors.white,
+        icon: _seedCargando
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : const Icon(Icons.content_cut_rounded),
+        label: Text(_seedCargando ? 'Creando...' : 'Demo Peluquería'),
+      ),
       body: Column(
         children: [
           _buildFiltros(),

@@ -52,8 +52,8 @@ class BannerSuscripcion extends StatelessWidget {
 
         final diasRestantes = fechaFin.difference(DateTime.now()).inDays;
 
-        // Solo mostrar si quedan 7 días o menos
-        if (diasRestantes > 7) return const SizedBox.shrink();
+        // Solo mostrar si quedan entre 0 y 7 días (no cuando ya venció)
+        if (diasRestantes < 0 || diasRestantes > 7) return const SizedBox.shrink();
 
         return _buildBanner(context, diasRestantes, fechaFin);
       },

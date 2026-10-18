@@ -328,10 +328,13 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
             const SizedBox(height: 12),
             ...f.lineas.map((l) => _buildLineaDetalle(l)),
             Divider(height: 24, color: _bdr),
-            _buildFilaTotal('Base imponible', '${f.subtotal.toStringAsFixed(2)}€'),
-            if (f.descuentoGlobal > 0)
+            if (f.descuentoGlobal > 0) ...[
+              _buildFilaTotal('Subtotal', '${f.subtotal.toStringAsFixed(2)}€'),
               _buildFilaTotal('Descuento global (${f.descuentoGlobal.toInt()}%)',
                   '-${f.importeDescuentoGlobal.toStringAsFixed(2)}€'),
+            ],
+            _buildFilaTotal('Base imponible',
+                '${(f.subtotal - f.importeDescuentoGlobal).toStringAsFixed(2)}€'),
             _buildFilaTotal('IVA', '${f.totalIva.toStringAsFixed(2)}€'),
             if (f.totalRecargoEquivalencia > 0)
               _buildFilaTotal('Recargo equiv.', '${f.totalRecargoEquivalencia.toStringAsFixed(2)}€'),

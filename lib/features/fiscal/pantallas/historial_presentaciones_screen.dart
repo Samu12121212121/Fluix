@@ -22,7 +22,7 @@ class HistorialPresentacionesScreen extends StatelessWidget {
             .collection('empresas')
             .doc(empresaId)
             .collection('modelos_fiscales')
-            .orderBy('periodo', descending: true)
+            .orderBy('fecha_calculo', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

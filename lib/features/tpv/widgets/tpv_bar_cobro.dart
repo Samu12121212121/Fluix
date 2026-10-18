@@ -118,7 +118,7 @@ class _PantallaCobroState extends State<_PantallaCobro> {
 
     return Dialog(
       child: Container(
-        width: 520,
+        width: MediaQuery.of(context).size.width > 600 ? 520 : double.infinity,
         constraints: const BoxConstraints(maxHeight: 700),
         decoration: BoxDecoration(
           color: const Color(0xFF0A0F23),

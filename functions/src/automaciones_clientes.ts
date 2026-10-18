@@ -246,6 +246,10 @@ export const onPedidoCRM = functions.firestore.onDocumentCreated(
     const total     = ((data.precio_total || data.total || 0) as number);
     const origen    = (data.origen as string | undefined) ?? "pedido_web";
 
+    // Solo crear clientes desde canales externos — nunca desde flujos internos del TPV
+    const origenesInternos = ["presencial", "tpvExterno", "tpv_externo", "caja_rapida", "caja_directa"];
+    if (origenesInternos.includes(origen)) return;
+
     if (!nombre || norm(nombre) === "cliente") return;
 
     const esNuevo = !(await _clienteExiste(empresaId, nombre, correo, telefono));

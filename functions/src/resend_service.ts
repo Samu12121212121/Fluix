@@ -715,7 +715,7 @@ export async function enviarDescargaEbook(opts: {
   fechaExpiracion: string;
   maxDescargas?: number;
 }): Promise<EmailResult> {
-  const max = opts.maxDescargas ?? 5;
+  const max = opts.maxDescargas ?? 1;
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -759,7 +759,7 @@ export async function enviarDescargaEbook(opts: {
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;font-size:12px;color:#6b7280;line-height:1.6;">
               <strong>ℹ️ Información importante:</strong><br>
               • Este enlace expira el <strong>${opts.fechaExpiracion}</strong><br>
-              • Puedes descargar hasta <strong>${max} veces</strong><br>
+              • Este enlace es de un solo uso (<strong>${max === 1 ? "1 descarga" : max + " descargas"}</strong>). Guarda el archivo en tu dispositivo.<br>
               • Si tienes problemas, escríbenos a <a href="mailto:info@editorialnazari.com" style="color:#6b1e2a;">info@editorialnazari.com</a>
             </div>
           </td>

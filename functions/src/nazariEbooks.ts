@@ -20,23 +20,22 @@
 
 import * as admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import Stripe from "stripe";
 import { enviarDescargaEbook } from "./resend_service";
+import { enviarNotificacionEmpresa } from "./utils/notificaciones";
 
 const db = admin.firestore();
 const REGION = "europe-west1";
 const EID = "0PoomHYDUJf5w8tDFRLhFi9iURF3"; // Editorial Nazarí empresa ID
 const BASE_URL = "https://www.editorialnazari.com";
 
-const stripeKey = () => process.env.STRIPE_SECRET_KEY ?? "";
+const stripeKey = () => process.env.STRIPE_SECRET_KEY_NAZARI ?? process.env.STRIPE_SECRET_KEY ?? "";
 const webhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
-// Datos de cuenta bancaria para transferencias — reemplazar por los datos reales
-const IBAN_TRANSFERENCIA = (process.env.IBAN_TRANSFERENCIA ?? "ES00 0000 0000 0000 0000 0000") as string;
-void IBAN_TRANSFERENCIA;
-const TITULAR_CUENTA = "Editorial Nazarí" as string;
-void TITULAR_CUENTA;
+const IBAN_TRANSFERENCIA = (process.env.IBAN_TRANSFERENCIA ?? "ES86 3058 3007 1127 2030 7780") as string;
+const TITULAR_CUENTA     = (process.env.TITULAR_CUENTA    ?? "Editorial Nazarí") as string;
+const BIZUM_NUMERO       = (process.env.BIZUM_NUMERO       ?? "+34 620 32 75 27") as string;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -52,9 +51,10 @@ async function _entregarEbooks(opts: {
   nombre: string;
   items: Array<{ catalogo_id: string; titulo?: string }>;
   referencia: string; // session_id o pedido_id
-}) {
+}): Promise<{ entregados: number; omitidos: number }> {
   const { email, nombre, items, referencia } = opts;
-  if (!email || !items.length) return;
+  if (!email || !items.length) return { entregados: 0, omitidos: 0 };
+  let entregados = 0, omitidos = 0;
 
   for (const item of items) {
     const slugId = item.catalogo_id;
@@ -82,31 +82,42 @@ async function _entregarEbooks(opts: {
 
     if (!ebookPath) {
       console.log(`Libro ${slugId} sin ebook_storage_path — omitiendo`);
+      omitidos++;
       continue;
     }
 
     const token = genToken();
     const expiracion = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
 
-    await db.collection("empresas").doc(EID)
-      .collection("descargas_ebook")
-      .add({
-        token,
-        libro_slug: slugId,
-        libro_titulo: libroTitulo,
-        libro_autor: libroAutor,
-        email_comprador: email,
-        nombre_comprador: nombre || email,
-        storage_path: ebookPath,
-        max_descargas: 5,
-        descargas_realizadas: 0,
-        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
-        fecha_expiracion: admin.firestore.Timestamp.fromDate(expiracion),
-        referencia,
-        activo: true,
-      });
+    try {
+      await db.collection("empresas").doc(EID)
+        .collection("descargas_ebook")
+        .add({
+          token,
+          libro_slug: slugId,
+          libro_titulo: libroTitulo,
+          libro_autor: libroAutor,
+          email_comprador: email,
+          nombre_comprador: nombre || email,
+          storage_path: ebookPath,
+          max_descargas: 3,
+          descargas_realizadas: 0,
+          fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+          fecha_expiracion: admin.firestore.Timestamp.fromDate(expiracion),
+          referencia,
+          activo: true,
+        });
+    } catch (e) {
+      console.error(`_entregarEbooks: error guardando token para ${slugId}:`, e);
+      omitidos++;
+      continue;
+    }
 
-    const downloadUrl = `https://europe-west1-planeaapp-4bea4.cloudfunctions.net/verificarDescargaEbook?token=${token}`;
+    // La URL del email apunta a descarga.html (página con botón bonito)
+    // que a su vez enlaza directamente al CF para la descarga del binario
+    const downloadUrl = `${BASE_URL}/descarga.html?token=${token}`
+      + `&titulo=${encodeURIComponent(libroTitulo)}`
+      + `&autor=${encodeURIComponent(libroAutor)}`;
     try {
       await enviarDescargaEbook({
         to: email,
@@ -115,14 +126,16 @@ async function _entregarEbooks(opts: {
         libroAutor,
         downloadUrl,
         fechaExpiracion: expiracion.toLocaleDateString("es-ES"),
-        maxDescargas: 5,
+        maxDescargas: 3,
       });
+      entregados++;
+      console.log(`✅ Token generado para ${email} — ${libroTitulo}`);
     } catch (e) {
       console.error(`Error enviando email descarga a ${email}:`, e);
+      omitidos++;
     }
-
-    console.log(`✅ Token generado para ${email} — ${libroTitulo}`);
   }
+  return { entregados, omitidos };
 }
 
 // ── 1. CREAR CHECKOUT EBOOK (sustituye al Cloud Run para ebooks) ───────────────
@@ -135,44 +148,175 @@ const _NAZARI_CORS = [
   "null", // origen file:// para pruebas locales
 ] as const;
 
-/** Lee el precio real de un producto desde Firestore. Lanza error si no existe o está inactivo. */
-async function _resolverPrecioNazari(catalogoId: string): Promise<{
+/** Lee precio + peso de un producto. Lanza error si no existe o está inactivo. */
+async function _resolverPrecioNazari(catalogoId: string, pedirEbook = false): Promise<{
   nombre: string;
   imagenUrl: string;
   precioEuros: number;
+  pesoGramos: number;
+  esEbook: boolean;
+  esPreventa: boolean;
 }> {
+  // Slug ebook_XXX → strip prefijo y forzar pedirEbook=true
+  const isEbookSlug = catalogoId.startsWith("ebook_");
+  const realId = isEbookSlug ? catalogoId.slice(6) : catalogoId;
+  const pedirEbookFinal = pedirEbook || isEbookSlug;
+
   const col = db.collection("empresas").doc(EID).collection("catalogo_web");
-  let snap = await col.doc(catalogoId).get();
+  let snap = await col.doc(realId).get();
 
   if (!snap.exists) {
-    const bySlug = await col.where("slug", "==", catalogoId).limit(1).get();
+    const bySlug = await col.where("slug", "==", realId).limit(1).get();
     if (!bySlug.empty) snap = bySlug.docs[0] as any;
   }
 
-  if (!snap.exists) throw new Error(`Producto no encontrado: ${catalogoId}`);
+  if (!snap.exists) throw new Error(`Producto no encontrado: ${realId}`);
   const d = snap.data()!;
-  if (d.activo === false) throw new Error(`Producto no disponible: ${catalogoId}`);
+  if (d.activo === false) throw new Error(`Producto no disponible: ${realId}`);
 
-  const precioRaw = String(d.precio ?? "").replace(",", ".").replace(/[^0-9.]/g, "");
+  const esEbook    = pedirEbookFinal || !!((d.ebook_storage_path as string | undefined) ?? "").trim();
+  const esPreventa = d.preventa === true;
+
+  // Si es ebook y tiene precio_digital, usarlo; si no, usar precio físico
+  const precioFuente = esEbook && (d.precio_digital || d.precioEbook)
+    ? String(d.precio_digital ?? d.precioEbook ?? "")
+    : String(d.precio ?? "");
+  const precioRaw   = precioFuente.replace(",", ".").replace(/[^0-9.]/g, "");
   const precioEuros = parseFloat(precioRaw || "0");
   if (isNaN(precioEuros) || precioEuros <= 0) {
-    throw new Error(`Precio inválido en ${catalogoId}: "${d.precio}"`);
+    throw new Error(`Precio inválido en ${catalogoId}: "${precioFuente}"`);
   }
+
+  const esEbookReal = !!((d.ebook_storage_path as string | undefined) ?? "").trim();
+  const pesoRaw = d.campo_peso ?? d.peso ?? "300";
+  // Sin peso para ebooks y preventa
+  const pesoGramos = (esEbook || esPreventa)
+    ? 0
+    : Math.max(1, parseInt(String(pesoRaw).replace(/[^0-9]/g, ""), 10) || 300);
 
   return {
     nombre: (d.nombre ?? d.titulo ?? "Libro") as string,
     imagenUrl: (d.imagen_url ?? "") as string,
     precioEuros,
+    pesoGramos,
+    esEbook: esEbook || esEbookReal,
+    esPreventa,
   };
 }
 
+/** Opciones de envío para Stripe según zona, total de productos y peso */
+/** Coste de envío para Bizum / Transferencia (sin Stripe) — mismas reglas que _shippingOptions */
+function _calcEnvioEuros(zona: string, totalEuros: number, pesoGramos: number, soloSinEnvio: boolean): number {
+  if (soloSinEnvio) return 0;
+  const z = (zona || "ES").toUpperCase();
+  if (z === "ES") {
+    if (totalEuros >= 30) return 0;
+    if (pesoGramos <= 100) return 1.50;
+    if (pesoGramos <= 500) return 2.50;
+    return 3.00;
+  }
+  if (z === "EU")    return 15.00;
+  if (z === "LATAM") return 20.00;
+  return 30.00; // WORLD
+}
+
+function _shippingOptions(zona: string, totalEuros: number, pesoGramos: number) {
+  const urgente = {
+    shipping_rate_data: {
+      type: "fixed_amount" as const,
+      fixed_amount: { amount: 600, currency: "eur" },
+      display_name: "Envío urgente (24-48h)",
+      delivery_estimate: {
+        minimum: { unit: "business_day" as const, value: 1 },
+        maximum: { unit: "business_day" as const, value: 2 },
+      },
+    },
+  };
+
+  if (zona === "ES") {
+    if (totalEuros >= 30) {
+      return [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount" as const,
+            fixed_amount: { amount: 0, currency: "eur" },
+            display_name: "Envío gratuito · Ordinario (3-5 días laborables)",
+            delivery_estimate: {
+              minimum: { unit: "business_day" as const, value: 3 },
+              maximum: { unit: "business_day" as const, value: 5 },
+            },
+          },
+        },
+        urgente,
+      ];
+    }
+    let ordinarioCents: number;
+    if (pesoGramos <= 100) ordinarioCents = 150;
+    else if (pesoGramos <= 500) ordinarioCents = 250;
+    else ordinarioCents = 300;
+    const precioStr = (ordinarioCents / 100).toFixed(2).replace(".", ",");
+    return [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount" as const,
+          fixed_amount: { amount: ordinarioCents, currency: "eur" },
+          display_name: `Envío ordinario (3-5 días laborables) — ${precioStr} €`,
+          delivery_estimate: {
+            minimum: { unit: "business_day" as const, value: 3 },
+            maximum: { unit: "business_day" as const, value: 5 },
+          },
+        },
+      },
+      urgente,
+    ];
+  }
+  if (zona === "EU") {
+    return [{
+      shipping_rate_data: {
+        type: "fixed_amount" as const,
+        fixed_amount: { amount: 1500, currency: "eur" },
+        display_name: "Envío Europa (7-14 días laborables)",
+        delivery_estimate: {
+          minimum: { unit: "business_day" as const, value: 7 },
+          maximum: { unit: "business_day" as const, value: 14 },
+        },
+      },
+    }];
+  }
+  if (zona === "LATAM") {
+    return [{
+      shipping_rate_data: {
+        type: "fixed_amount" as const,
+        fixed_amount: { amount: 2000, currency: "eur" },
+        display_name: "Envío Latinoamérica (14-21 días laborables)",
+        delivery_estimate: {
+          minimum: { unit: "business_day" as const, value: 14 },
+          maximum: { unit: "business_day" as const, value: 21 },
+        },
+      },
+    }];
+  }
+  // WORLD
+  return [{
+    shipping_rate_data: {
+      type: "fixed_amount" as const,
+      fixed_amount: { amount: 3000, currency: "eur" },
+      display_name: "Envío internacional (14-30 días laborables)",
+      delivery_estimate: {
+        minimum: { unit: "business_day" as const, value: 14 },
+        maximum: { unit: "business_day" as const, value: 30 },
+      },
+    },
+  }];
+}
+
 export const crearCheckoutNazari = onRequest(
-  { region: REGION, cors: _NAZARI_CORS as unknown as string[] },
+  { region: REGION, cors: _NAZARI_CORS as unknown as string[], secrets: ["STRIPE_SECRET_KEY_NAZARI"] },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("POST only"); return; }
 
     // El cliente envía catalogo_id y cantidad. El precio se lee SIEMPRE desde Firestore.
-    const { items, email, nombre, zona, metodo_pago } = req.body as {
+    const { items, email, nombre, telefono, zona, metodo_pago, direccion, pack_mode } = req.body as {
       items: Array<{
         catalogo_id?: string;
         slug?: string;
@@ -180,59 +324,126 @@ export const crearCheckoutNazari = onRequest(
         titulo?: string;
         precio?: number;
         imagen?: string;
+        es_ebook?: boolean;  // true = pedir versión digital (usa precio_digital)
       }>;
       email: string;
       nombre?: string;
+      telefono?: string;
       zona?: string;
       metodo_pago?: string;
+      pack_mode?: boolean;  // true = aplicar descuento del pack desde configuracion/pack_seleccion
+      direccion?: {
+        nombre?: string;
+        linea1?: string;
+        linea2?: string;
+        cp?: string;
+        ciudad?: string;
+        pais?: string;
+      };
     };
+    // Normalizar dirección de envío si viene en el body
+    const dirEnvio = (direccion?.linea1 || direccion?.ciudad) ? {
+      nombre:   direccion.nombre   || nombre || "",
+      telefono: telefono || "",
+      linea1:   direccion.linea1   || "",
+      linea2:   direccion.linea2   || "",
+      cp:       direccion.cp       || "",
+      ciudad:   direccion.ciudad   || "",
+      pais:     direccion.pais     || zona   || "ES",
+    } : null;
 
     if (!email || !items?.length) {
       res.status(400).json({ error: "email e items son obligatorios" });
       return;
     }
 
-    const stripe = new Stripe(stripeKey());
-
     try {
-      // Resolver precios desde Firestore — el cliente no puede influir en el importe
+      // Resolver precios + peso desde Firestore — el cliente no puede influir en el importe
       const resolvedItems = await Promise.all(
         items.map(async (i) => {
           const id = (i.catalogo_id || i.slug || "").trim();
           if (!id) throw new Error("Item sin catalogo_id");
-          const { nombre: titulo, imagenUrl, precioEuros } = await _resolverPrecioNazari(id);
+          const { nombre: titulo, imagenUrl, precioEuros, pesoGramos, esEbook, esPreventa } = await _resolverPrecioNazari(id, i.es_ebook === true);
           return {
             catalogo_id: id,
             titulo,
             imagenUrl,
             precioEuros,
+            pesoGramos,
+            esEbook,
+            esPreventa,
             cantidad: Math.max(1, Math.floor(Number(i.cantidad) || 1)),
           };
         })
       );
 
-      // Guardar orden con precios validados
+      const totalBruto = resolvedItems.reduce((sum, i) => sum + i.precioEuros * i.cantidad, 0);
+      const pesoTotal = resolvedItems.reduce((sum, i) => sum + i.pesoGramos * i.cantidad, 0);
+      const soloSinEnvio = resolvedItems.every(i => i.esEbook || i.esPreventa);
+
+      // Descuento pack: si pack_mode=true, leer porcentaje desde Firestore
+      let packDescuentoPct = 0;
+      if (pack_mode === true) {
+        const packSnap = await db.collection("empresas").doc(EID)
+          .collection("configuracion").doc("pack_seleccion").get();
+        const packData = packSnap.data() ?? {};
+        if (packData.activo !== true) {
+          res.status(400).json({ error: "El pack no está activo" });
+          return;
+        }
+        packDescuentoPct = typeof packData.descuento_porcentaje === "number" ? packData.descuento_porcentaje : 0;
+      }
+      const total = packDescuentoPct > 0
+        ? Math.round(totalBruto * (1 - packDescuentoPct / 100) * 100) / 100
+        : totalBruto;
+
       const ordenRef = db.collection("empresas").doc(EID)
         .collection("pedidos_web_nazari").doc();
 
-      await ordenRef.set({
-        email,
-        nombre: nombre || "",
-        zona: zona || "ES",
-        metodo_pago: "stripe",
-        estado: "pendiente_pago",
-        estado_pago: "pendiente",
-        items: resolvedItems.map((i) => ({
+      const itemsGuardados = resolvedItems.map((i) => {
+        const precioConDesc = packDescuentoPct > 0
+          ? Math.round(i.precioEuros * (1 - packDescuentoPct / 100) * 100) / 100
+          : i.precioEuros;
+        return {
           catalogo_id: i.catalogo_id,
           titulo: i.titulo,
-          precio: i.precioEuros,
+          precio: precioConDesc,
           cantidad: i.cantidad,
-        })),
-        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
-        origen: "web_nazari",
+          es_ebook: i.esEbook || false,
+          imagen_url: i.imagenUrl || "",
+        };
       });
+      const tieneEbook   = resolvedItems.some(i => i.esEbook);
+      const tieneLibro   = resolvedItems.some(i => !i.esEbook);
 
-      const total = resolvedItems.reduce((sum, i) => sum + i.precioEuros * i.cantidad, 0);
+      // Calcular envío para métodos sin Stripe (Bizum y Transferencia)
+      const envioEuros = _calcEnvioEuros(zona || "ES", total, pesoTotal, soloSinEnvio);
+      const totalConEnvio = Math.round((total + envioEuros) * 100) / 100;
+
+      // ── Rama: Bizum directo (pago al número de teléfono) ─────────────────
+      if (metodo_pago === "bizum") {
+        await ordenRef.set({
+          email, nombre: nombre || "", zona: zona || "ES",
+          metodo_pago: "bizum", estado: "pendiente_pago", estado_pago: "pendiente",
+          items: itemsGuardados,
+          subtotal: Math.round(total * 100) / 100,
+          envio: envioEuros,
+          total: totalConEnvio,
+          fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+          origen: "web_nazari",
+          tiene_ebook: tieneEbook, tiene_libro: tieneLibro,
+          ...(dirEnvio ? { direccion_envio: dirEnvio } : {}),
+        });
+        const totalStr    = totalConEnvio.toFixed(2).replace(".", ",") + " €";
+        const envioStr    = envioEuros > 0 ? envioEuros.toFixed(2).replace(".", ",") + " €" : "Gratis";
+        const conceptoCorto = ordenRef.id.slice(0, 8).toUpperCase();
+        res.json({
+          tipo: "bizum", pedido_id: ordenRef.id, total: totalStr, envio: envioStr,
+          bizum_numero: BIZUM_NUMERO,
+          redirect_url: `${BASE_URL}/gracias.html?tipo=bizum&pedido=${ordenRef.id}&total=${encodeURIComponent(totalStr)}&concepto=${conceptoCorto}`,
+        });
+        return;
+      }
 
       // ── Rama: transferencia bancaria ─────────────────────────────────────
       if (metodo_pago === "transferencia") {
@@ -243,29 +454,34 @@ export const crearCheckoutNazari = onRequest(
           metodo_pago: "transferencia",
           estado: "pendiente_pago",
           estado_pago: "pendiente",
-          items: resolvedItems.map((i) => ({
-            catalogo_id: i.catalogo_id,
-            titulo: i.titulo,
-            precio: i.precioEuros,
-            cantidad: i.cantidad,
-          })),
-          total: Math.round(total * 100) / 100,
+          items: itemsGuardados,
+          subtotal: Math.round(total * 100) / 100,
+          envio: envioEuros,
+          total: totalConEnvio,
           fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
           origen: "web_nazari",
+          tiene_ebook: tieneEbook, tiene_libro: tieneLibro,
+          ...(dirEnvio ? { direccion_envio: dirEnvio } : {}),
         });
 
-        const totalStr = total.toFixed(2).replace(".", ",") + " €";
+        const totalStr = totalConEnvio.toFixed(2).replace(".", ",") + " €";
+        const envioStr = envioEuros > 0 ? envioEuros.toFixed(2).replace(".", ",") + " €" : "Gratis";
         const conceptoCorto = ordenRef.id.slice(0, 8).toUpperCase();
         res.json({
           tipo: "transferencia",
           pedido_id: ordenRef.id,
           total: totalStr,
+          envio: envioStr,
+          iban: IBAN_TRANSFERENCIA,
+          titular: TITULAR_CUENTA,
           redirect_url: `${BASE_URL}/gracias.html?tipo=transferencia&pedido=${ordenRef.id}&total=${encodeURIComponent(totalStr)}&concepto=${conceptoCorto}`,
         });
         return;
       }
 
-      // ── Rama: Stripe (tarjeta + Bizum) ───────────────────────────────────
+      // ── Rama: Stripe (tarjeta + Bizum + métodos habilitados en dashboard) ──
+      const stripe = new Stripe(stripeKey(), { apiVersion: "2024-06-20" as any });
+
       await ordenRef.set({
         email,
         nombre: nombre || "",
@@ -273,14 +489,11 @@ export const crearCheckoutNazari = onRequest(
         metodo_pago: "stripe",
         estado: "pendiente_pago",
         estado_pago: "pendiente",
-        items: resolvedItems.map((i) => ({
-          catalogo_id: i.catalogo_id,
-          titulo: i.titulo,
-          precio: i.precioEuros,
-          cantidad: i.cantidad,
-        })),
+        items: itemsGuardados,
+        total: Math.round(total * 100) / 100,
         fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
         origen: "web_nazari",
+        tiene_ebook: tieneEbook, tiene_libro: tieneLibro,
       });
 
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolvedItems.map((i) => ({
@@ -295,16 +508,33 @@ export const crearCheckoutNazari = onRequest(
         quantity: i.cantidad,
       }));
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
+      const zonaFinal = (zona || "ES").toUpperCase();
+      const shipping = soloSinEnvio ? [] : _shippingOptions(zonaFinal, total, pesoTotal);
+
+      const sessionParams: Record<string, unknown> = {
         mode: "payment",
         customer_email: email,
         line_items: lineItems,
+      };
+      if (!soloSinEnvio) {
+        sessionParams.shipping_address_collection = {
+          allowed_countries: zonaFinal === "ES"
+            ? ["ES"]
+            : zonaFinal === "EU"
+              ? ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE"]
+              : undefined,
+        };
+        sessionParams.shipping_options = shipping;
+      }
+
+      const session = await (stripe.checkout.sessions.create as Function)({
+        ...sessionParams,
+        phone_number_collection: { enabled: false },
         metadata: {
           orden_id: ordenRef.id,
           empresa_id: EID,
           email,
-          zona: zona || "ES",
+          zona: zonaFinal,
         },
         success_url: `${BASE_URL}/gracias.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/catalogo.html`,
@@ -323,7 +553,7 @@ export const crearCheckoutNazari = onRequest(
 
 // ── 2. STRIPE WEBHOOK ──────────────────────────────────────────────────────────
 export const stripeWebhookNazari = onRequest(
-  { region: REGION, cors: false },
+  { region: REGION, cors: false, secrets: ["RESEND_API_KEY", "STRIPE_SECRET_KEY_NAZARI"] },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("POST only"); return; }
 
@@ -366,12 +596,25 @@ export const stripeWebhookNazari = onRequest(
           return;
         }
 
+        // shipping_details (API ≥2022-08-01) o shipping (API legacy) — cast para compatibilidad de tipos
+        const _s = session as any;
+        const shipping = _s.shipping_details || _s.shipping;
+        const dir = shipping?.address ? {
+          nombre:  shipping.name || nombre,
+          linea1:  shipping.address.line1  || "",
+          linea2:  shipping.address.line2  || "",
+          ciudad:  shipping.address.city   || "",
+          cp:      shipping.address.postal_code || "",
+          pais:    shipping.address.country || "",
+        } : null;
+
         await ordenRef.update({
           estado: "pagado",
           estado_pago: "pagado",
           stripe_session_id: session.id,
           email,
           nombre_comprador: nombre,
+          ...(dir ? { direccion_envio: dir } : {}),
           fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
         });
 
@@ -382,6 +625,32 @@ export const stripeWebhookNazari = onRequest(
           items: orden.items || [],
           referencia: session.id,
         });
+
+        // Notificar a Fluix — igual que Bizum/Transferencia en onNuevoPedidoWeb
+        try {
+          const total = (orden.total as number | undefined) ?? 0;
+          const items = (orden.items as { titulo?: string }[]) ?? [];
+          const primerTitulo = items[0]?.titulo ?? "artículo web";
+          const cuerpo = `${nombre || email} — ${total.toFixed(2)} € por tarjeta/Bizum · ${primerTitulo}`;
+          await db.collection("notificaciones").doc(EID).collection("items").add({
+            titulo:          "✅ Pedido pagado (tarjeta/Bizum)",
+            cuerpo,
+            tipo:            "pedidoNuevo",
+            timestamp:       admin.firestore.FieldValue.serverTimestamp(),
+            leida:           false,
+            modulo_destino:  "pedidos",
+            entidad_id:      ordenId,
+            remitente_email: email,
+          });
+          await enviarNotificacionEmpresa(
+            EID,
+            "✅ Pedido pagado (tarjeta/Bizum)",
+            cuerpo,
+            { tipo: "nuevo_pedido", pedido_id: ordenId, origen: "web_nazari" }
+          );
+        } catch (notifErr) {
+          console.warn("Notificación Fluix fallida (no crítico):", notifErr);
+        }
       } catch (e) {
         console.error("Error procesando checkout.session.completed:", e);
       }
@@ -425,50 +694,49 @@ export const verificarDescargaEbook = onRequest(
         return;
       }
 
-      // Comprobar límite de descargas
+      // Comprobar límite de descargas (1 descarga por enlace)
       const realizadas = (data.descargas_realizadas as number) || 0;
-      const maxDesc = (data.max_descargas as number) || 5;
+      const maxDesc = (data.max_descargas as number) || 1;
       if (realizadas >= maxDesc) {
-        res.status(403).json({ ok: false, error: `Límite de ${maxDesc} descargas alcanzado` });
+        res.status(403).json({ ok: false, error: "Este enlace ya ha sido utilizado. Contacta con info@editorialnazari.com si necesitas ayuda." });
         return;
       }
 
-      // Generar signed URL (válida 2 horas)
       const storagePath = data.storage_path as string;
       const titulo = (data.libro_titulo as string) || "ebook";
-      const ext = storagePath.split(".").pop() || "epub";
+      const ext = (storagePath.split(".").pop() || "epub").toLowerCase();
+      const mimeType = ext === "epub" ? "application/epub+zip" : "application/pdf";
 
-      const bucket = admin.storage().bucket();
+      // Usar el bucket explícito para evitar problemas de configuración
+      const bucket = admin.storage().bucket("planeaapp-4bea4.firebasestorage.app");
       const file = bucket.file(storagePath);
       const [exists] = await file.exists();
       if (!exists) {
-        res.status(404).json({ ok: false, error: "Archivo no disponible aún" });
+        res.status(404).json({ ok: false, error: "Archivo no disponible. Contacta con info@editorialnazari.com" });
         return;
       }
 
-      const [signedUrl] = await file.getSignedUrl({
-        action: "read",
-        expires: Date.now() + 2 * 60 * 60 * 1000,
-        responseDisposition: `attachment; filename="${titulo.replace(/[^a-z0-9]/gi, "_")}.${ext}"`,
-      });
-
-      // Incrementar contador
+      // Incrementar contador ANTES de servir (evita descargas repetidas si el stream falla)
       await docRef.update({
         descargas_realizadas: admin.firestore.FieldValue.increment(1),
         ultima_descarga: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      const restantes = maxDesc - realizadas - 1;
+      // Servir el archivo directamente desde el Cloud Function (sin signed URL)
+      // Evita dependencia de permisos IAM para signBlob
+      const nombreArchivo = titulo.replace(/[^a-zA-Z0-9\s\-_]/g, "").trim().replace(/\s+/g, "_") || "ebook";
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${nombreArchivo}.${ext}"`);
+      res.setHeader("Cache-Control", "no-store");
 
-      // Si es una petición de navegador (Accept: text/html), redirigir directamente al archivo
-      const acceptsHtml = (req.headers.accept || '').includes('text/html');
-      if (acceptsHtml || req.method === 'GET') {
-        res.redirect(302, signedUrl);
-        return;
-      }
-
-      // Para peticiones AJAX (descarga.html), devolver JSON
-      res.json({ ok: true, downloadUrl: signedUrl, titulo, descargas_restantes: restantes });
+      const stream = file.createReadStream();
+      stream.on("error", (err) => {
+        console.error("Stream error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: "Error al servir el archivo." });
+        }
+      });
+      stream.pipe(res);
     } catch (err: any) {
       console.error("verificarDescargaEbook error:", err.message);
       res.status(500).json({ ok: false, error: "Error interno. Inténtalo de nuevo." });
@@ -479,7 +747,7 @@ export const verificarDescargaEbook = onRequest(
 // ── 4. TRIGGER TRANSFERENCIAS: admin confirma pago manualmente ─────────────────
 // Cuando en Fluix el admin marca estado_pago → "pagado" en un pedido web
 export const onPedidoNazariPagado = onDocumentUpdated(
-  { document: `empresas/${EID}/pedidos_web_nazari/{pedidoId}`, region: REGION },
+  { document: `empresas/${EID}/pedidos_web_nazari/{pedidoId}`, region: REGION, secrets: ["RESEND_API_KEY"] },
   async (event) => {
     const antes = event.data?.before.data();
     const despues = event.data?.after.data();
@@ -506,5 +774,103 @@ export const onPedidoNazariPagado = onDocumentUpdated(
     });
 
     console.log(`✅ Ebooks entregados por transferencia — pedido ${event.params.pedidoId}`);
+  }
+);
+
+// ── Notificación a Fluix para TODOS los pedidos web al crearse ───────────────
+export const onNuevoPedidoWeb = onDocumentCreated(
+  { document: `empresas/${EID}/pedidos_web_nazari/{pedidoId}`, region: REGION },
+  async (event) => {
+    const pedido = event.data?.data();
+    if (!pedido) return;
+
+    const metodo = (pedido.metodo_pago as string) ?? "";
+    if (metodo === "") return;
+
+    const total  = (pedido.total as number | undefined) ?? 0;
+    const email  = (pedido.email as string)  || "cliente";
+    const nombre = (pedido.nombre as string) || email;
+    const items  = (pedido.items as { titulo?: string }[]) ?? [];
+    const primerTitulo = items[0]?.titulo ?? "artículo web";
+
+    const metodoLabel = metodo === "stripe" ? "tarjeta/Bizum"
+      : metodo === "bizum" ? "Bizum directo"
+      : "Transferencia";
+    const estadoLabel = metodo === "stripe" ? " · pendiente de pago" : "";
+    const cuerpo = `${nombre} — ${total.toFixed(2)} € por ${metodoLabel}${estadoLabel} · ${primerTitulo}`;
+
+    // Notificación in-app
+    await db.collection("notificaciones").doc(EID).collection("items").add({
+      titulo:          `🛒 Nuevo pedido (${metodoLabel})`,
+      cuerpo,
+      tipo:            "pedidoNuevo",
+      timestamp:       admin.firestore.FieldValue.serverTimestamp(),
+      leida:           false,
+      modulo_destino:  "pedidos",
+      entidad_id:      event.params.pedidoId,
+      remitente_email: email,
+    });
+
+    // Push a todos los dispositivos de la empresa
+    await enviarNotificacionEmpresa(
+      EID,
+      `🛒 Nuevo pedido (${metodoLabel})`,
+      cuerpo,
+      { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId, origen: "web_nazari" }
+    );
+  }
+);
+
+// ── Simulación de compra (solo propietario Fluix) ─────────────────────────────
+export const simularCompraEbook = onRequest(
+  { region: REGION, cors: _NAZARI_CORS as unknown as string[], secrets: ["RESEND_API_KEY"] },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("POST only"); return; }
+
+    const { catalogo_id, email, nombre } = req.body as {
+      catalogo_id?: string; email?: string; nombre?: string;
+    };
+
+    if (!catalogo_id || !email) {
+      res.status(400).json({ ok: false, error: "catalogo_id y email son obligatorios" });
+      return;
+    }
+
+    try {
+      const pedidoRef = db
+        .collection("empresas").doc(EID)
+        .collection("pedidos_web_nazari").doc();
+
+      await pedidoRef.set({
+        email,
+        nombre: nombre || "Simulación Propietario",
+        items: [{ catalogo_id }],
+        estado: "pagado",
+        estado_pago: "pagado",
+        metodo_pago: "simulacion",
+        simulacion: true,
+        total: 0,
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
+        origen: "simulacion_fluix",
+      });
+
+      const { entregados, omitidos } = await _entregarEbooks({
+        email,
+        nombre: nombre || "Simulación Propietario",
+        items: [{ catalogo_id }],
+        referencia: `simulacion_${pedidoRef.id}`,
+      });
+
+      res.json({
+        ok: true,
+        pedido_id: pedidoRef.id,
+        email_enviado: entregados > 0,
+        sin_ebook: omitidos > 0 && entregados === 0,
+      });
+    } catch (err: any) {
+      console.error("simularCompraEbook error:", err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
   }
 );

@@ -11,7 +11,7 @@ class PantallaNotificacionesCliente extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F23),
+      backgroundColor: const Color(0xFFF4F6FB),
       appBar: FluixAppBar(
         titulo: 'Notificaciones',
         showLeading: true,
@@ -20,14 +20,14 @@ class PantallaNotificacionesCliente extends StatelessWidget {
             TextButton(
               onPressed: () => _marcarTodasLeidas(uid),
               child: const Text('Marcar leídas',
-                  style: TextStyle(color: Color(0xFF00FFC8), fontSize: 12)),
+                  style: TextStyle(color: Color(0xFF00BFA5), fontSize: 12, fontWeight: FontWeight.w600)),
             ),
         ],
       ),
       body: uid == null
           ? const Center(
               child: Text('Inicia sesión para ver notificaciones',
-                  style: TextStyle(color: Color(0xFFB0B3C1))))
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 14)))
           : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('usuarios')
@@ -39,7 +39,7 @@ class PantallaNotificacionesCliente extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF00FFC8)));
+                      child: CircularProgressIndicator(color: Color(0xFF00BFA5)));
                 }
 
                 final docs = snapshot.data?.docs ?? [];
@@ -49,30 +49,36 @@ class PantallaNotificacionesCliente extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.notifications_none_rounded,
-                            size: 64,
-                            color: const Color(0xFFB0B3C1).withValues(alpha: 0.3)),
+                        Container(
+                          width: 80, height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00BFA5).withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.notifications_none_rounded,
+                              size: 40, color: Color(0xFF00BFA5)),
+                        ),
                         const SizedBox(height: 16),
-                        const Text('No tienes notificaciones',
+                        const Text('Sin notificaciones',
                             style: TextStyle(
-                                color: Color(0xFFFFFFFF),
+                                color: Color(0xFF1E293B),
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         const Text('Aquí aparecerán confirmaciones\nde reservas y avisos',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Color(0xFFB0B3C1), fontSize: 13)),
+                                color: Color(0xFF64748B), fontSize: 13)),
                       ],
                     ),
                   );
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: docs.length,
                   separatorBuilder: (_, __) =>
-                      const Divider(height: 1, color: Color(0xFF2A2E45)),
+                      const Divider(height: 1, color: Color(0xFFE2E8F0), indent: 68),
                   itemBuilder: (context, i) {
                     final data = docs[i].data() as Map<String, dynamic>;
                     final leida = data['leida'] as bool? ?? false;
@@ -121,9 +127,9 @@ class _NotifItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final titulo = data['titulo'] as String? ?? 'Notificación';
     final cuerpo = data['cuerpo'] as String? ?? '';
-    final tipo = data['tipo'] as String? ?? 'info';
-    final ts = data['creado_en'] as Timestamp?;
-    final fecha = ts?.toDate();
+    final tipo   = data['tipo']  as String? ?? 'info';
+    final ts     = data['creado_en'] as Timestamp?;
+    final fecha  = ts?.toDate();
 
     final (iconData, color) = _iconPorTipo(tipo);
 
@@ -139,18 +145,18 @@ class _NotifItem extends StatelessWidget {
         }
       },
       child: Container(
-        color: leida ? Colors.transparent : const Color(0xFF00FFC8).withValues(alpha: 0.04),
+        color: leida ? Colors.transparent : const Color(0xFF00BFA5).withValues(alpha: 0.04),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40, height: 40,
+              width: 44, height: 44,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
+                color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(iconData, color: color, size: 20),
+              child: Icon(iconData, color: color, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -161,30 +167,30 @@ class _NotifItem extends StatelessWidget {
                     Expanded(
                       child: Text(titulo,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: const Color(0xFF1E293B),
                             fontSize: 14,
-                            fontWeight: leida ? FontWeight.w400 : FontWeight.w700,
+                            fontWeight: leida ? FontWeight.w500 : FontWeight.w700,
                           )),
                     ),
                     if (!leida)
                       Container(
-                        width: 7, height: 7,
+                        width: 8, height: 8,
                         decoration: const BoxDecoration(
-                            color: Color(0xFF00FFC8), shape: BoxShape.circle),
+                            color: Color(0xFF00BFA5), shape: BoxShape.circle),
                       ),
                   ]),
                   if (cuerpo.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(cuerpo,
                         style: const TextStyle(
-                            color: Color(0xFFB0B3C1), fontSize: 12, height: 1.4),
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                            color: Color(0xFF64748B), fontSize: 12.5, height: 1.4),
+                        maxLines: 3, overflow: TextOverflow.ellipsis),
                   ],
                   if (fecha != null) ...[
                     const SizedBox(height: 5),
                     Text(_formatFecha(fecha),
                         style: const TextStyle(
-                            color: Color(0xFF6B6E82), fontSize: 11)),
+                            color: Color(0xFF94A3B8), fontSize: 11)),
                   ],
                 ],
               ),
@@ -197,28 +203,32 @@ class _NotifItem extends StatelessWidget {
 
   (IconData, Color) _iconPorTipo(String tipo) {
     switch (tipo) {
-      case 'reserva_confirmada':
-        return (Icons.check_circle_outline_rounded, const Color(0xFF00FFC8));
-      case 'reserva_cancelada':
-        return (Icons.cancel_outlined, const Color(0xFFFF2850));
-      case 'reserva_pendiente':
-        return (Icons.schedule_rounded, const Color(0xFFFF4678));
-      case 'promo':
-        return (Icons.local_offer_outlined, const Color(0xFFFF3296));
+      case 'reservaConfirmada':
+        return (Icons.check_circle_rounded, const Color(0xFF10B981));
+      case 'reservaCancelada':
+        return (Icons.cancel_rounded, const Color(0xFFEF4444));
+      case 'reservaNueva':
+      case 'reservaPendiente':
+        return (Icons.calendar_today_rounded, const Color(0xFF00BFA5));
+      case 'oferta':
+      case 'flash':
+        return (Icons.bolt_rounded, const Color(0xFFFFB830));
+      case 'puntos':
+      case 'monedas':
+        return (Icons.stars_rounded, const Color(0xFFFFB830));
       default:
-        return (Icons.notifications_none_rounded, const Color(0xFFB0B3C1));
+        return (Icons.notifications_rounded, const Color(0xFF64748B));
     }
   }
 
-  String _formatFecha(DateTime dt) {
+  String _formatFecha(DateTime d) {
     final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 2) return 'Ahora';
+    final diff = now.difference(d);
+    if (diff.inMinutes < 1)  return 'Ahora mismo';
     if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Hace ${diff.inHours}h';
-    if (diff.inDays == 1) return 'Ayer';
-    if (diff.inDays < 7) return 'Hace ${diff.inDays} días';
-    return '${dt.day}/${dt.month}/${dt.year}';
+    if (diff.inHours < 24)   return 'Hace ${diff.inHours} h';
+    if (diff.inDays == 1)    return 'Ayer';
+    if (diff.inDays < 7)     return 'Hace ${diff.inDays} días';
+    return '${d.day}/${d.month}/${d.year}';
   }
 }
-

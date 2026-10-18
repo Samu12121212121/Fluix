@@ -27,9 +27,11 @@ service cloud.firestore {
   }
 
   function perteneceAEmpresa(empresaId) {
+    let data = getUserData();
     return esUsuarioReal()
       && existeUsuarioDoc()
-      && getUserData().empresa_id == empresaId;
+      && (data.empresa_id == empresaId
+          || data.get('empresa_ids', []).hasAny([empresaId]));
   }
 
   function getRol() {
@@ -165,9 +167,12 @@ service cloud.firestore {
       && (getRol() == 'admin' || getRol() == 'propietario');
     allow read: if esPlataformaAdmin();
     // Lectura pública de usuarios activos para selección de profesional B2C
+    // Cubre tanto get() individual como list() en queries con filtro empresa_id
     allow read: if isAuth()
       && resource.data.get('activo', false) == true
       && resource.data.empresa_id is string;
+    allow list: if isAuth()
+      && !esAnonimo();
 
     // Admin de plataforma puede crear cualquier usuario (alta de nuevas cuentas)
     allow create: if esPlataformaAdmin();
@@ -300,7 +305,9 @@ service cloud.firestore {
       allow read: if esUsuarioReal() && uid() == userId;
       allow update: if esUsuarioReal() && uid() == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
-      allow create, delete: if false; // Solo Cloud Functions
+      // El propio usuario puede crear notificaciones propias (ej: confirmación de reserva)
+      allow create: if esUsuarioReal() && uid() == userId;
+      allow delete: if false;
     }
 
     // ── PREFS B2C (throttle promos por negocio) ──────────────────────────────
@@ -734,12 +741,12 @@ service cloud.firestore {
 
     match /secciones_web/{seccionId} {
       allow read: if true;
-      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
     }
 
     match /contenido_web/{docId} {
       allow read: if true;
-      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
     }
 
     // Script SDK de Fluix: el ping de estado se escribe una vez por sesión (auth anónima).
@@ -753,7 +760,9 @@ service cloud.firestore {
     // Blog público — lectura libre para la web del cliente
     match /blog/{postId} {
       allow read: if true;
-      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Staff puede crear y editar entradas (borradores incluidos); solo admin/propietario puede borrar
+      allow create, update: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       // Herramienta de importación masiva (usuario anónimo — solo empresa Nazarí)
       allow create: if esAnonimo()
           && empresaId == '0PoomHYDUJf5w8tDFRLhFi9iURF3'
@@ -766,7 +775,7 @@ service cloud.firestore {
 
       // Historial de versiones del editor
       match /versiones/{versionId} {
-        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read, write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
       }
     }
 
@@ -798,6 +807,26 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId)
         || esPlataformaAdmin()
         || staffTieneModulo(empresaId, 'catalogo');
+    }
+
+    // Categorías y colecciones del catálogo editorial (Nazarí)
+    match /categorias_catalogo/{catId} {
+      allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+    match /colecciones_catalogo/{colId} {
+      allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // Pedidos web y ebooks (Nazarí)
+    match /pedidos_web_nazari/{pedidoId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+    match /descargas_ebook/{tokenId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     // Carta del bar/restaurante — lectura pública, escritura solo admin
@@ -879,11 +908,28 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // ── CONFIGURACIÓN DE PDFs ─────────────────────────────────────────────
+    // Solo propietario/admin de la misma empresa. Nunca lectura cross-empresa.
+
+    match /configuracion/pdf {
+      allow read:  if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
     // ── CONFIGURACIÓN DE RESERVAS ──────────────────────────────────────────
     // Lectura pública para formularios web, escritura para admin/propietario
 
     match /configuracion/reservas {
       allow read: if true; // Lectura pública para formularios web
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── CONFIG_RESERVAS (app booking B2C) ─────────────────────────────────
+    // Lectura pública: el formulario de reservas del cliente necesita leer
+    // la configuración (horarios, tipo, campos extra) sin estar autenticado.
+
+    match /config_reservas/{docId} {
+      allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
@@ -1112,6 +1158,7 @@ service cloud.firestore {
       allow read: if docId == 'web_avanzada';
       allow read: if docId == 'vacaciones';          // Config de vacaciones/festivos
       allow read: if docId == 'pack_seleccion';     // Pack La Selección Nazarí — lectura pública para la web
+      allow read: if docId == 'web_version';        // Timestamps de versión — lectura pública para invalidar caché web
       allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
       allow create, update, delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
@@ -1170,6 +1217,30 @@ service cloud.firestore {
       allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       // Inalterabilidad total exigida por RD 1007/2023 art. 4.1.a
+      allow update, delete: if false;
+    }
+
+    // ── VERIFACTU — legado (VerifactuService interno) ────────────────────────
+    match /facturas_verifactu/{facturaId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Inalterabilidad — no se permite modificar registros Verifactu
+      allow update, delete: if false;
+    }
+
+    // ── COLA DE REMISIÓN AEAT ─────────────────────────────────────────────────
+    match /cola_verifactu/{itemId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Solo Cloud Functions actualizan el estado del envío
+      allow update: if esPlataformaAdmin();
+      allow delete: if false;
+    }
+
+    // ── EVENTOS VERIFACTU ─────────────────────────────────────────────────────
+    match /eventos_verifactu/{eventoId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       allow update, delete: if false;
     }
 
@@ -1409,7 +1480,15 @@ service cloud.firestore {
   function esAdminDelNegocio(negocioId) {
     return isAuth()
       && exists(/databases/$(database)/documents/negocios_publicos/$(negocioId))
-      && get(/databases/$(database)/documents/negocios_publicos/$(negocioId)).data.adminIds.hasAny([uid()]);
+      && (
+        // Admins de la empresa vinculada al negocio
+        (esUsuarioReal()
+          && existeUsuarioDoc()
+          && (getRol() == 'admin' || getRol() == 'propietario')
+          && getUserData().empresa_id == get(/databases/$(database)/documents/negocios_publicos/$(negocioId)).data.empresaIdVinculada)
+        // Plataforma admin siempre puede
+        || esPlataformaAdmin()
+      );
   }
 
   // ─── FLASH SLOTS (subcol de negocios_publicos) ────────────────────────────
@@ -1629,7 +1708,7 @@ match /pdf_templates/{templateId} {
 
   match /empresas/{empresaId}/web_secciones/{seccionId} {
     allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
-    allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    allow write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
   }
 
   // ── Canal de comunicación interno Admin ↔ Empleado ─────────────────────

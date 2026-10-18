@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum TipoEvento { presentacion, feria, taller, lectura, otro }
+enum TipoEvento { presentacion, firma, feria, taller, lectura, otro }
 
 extension TipoEventoExt on TipoEvento {
   String get id {
     switch (this) {
       case TipoEvento.presentacion: return 'presentacion';
+      case TipoEvento.firma:        return 'firma';
       case TipoEvento.feria:        return 'feria';
       case TipoEvento.taller:       return 'taller';
       case TipoEvento.lectura:      return 'lectura';
@@ -15,6 +16,7 @@ extension TipoEventoExt on TipoEvento {
   String get label {
     switch (this) {
       case TipoEvento.presentacion: return 'Presentación';
+      case TipoEvento.firma:        return 'Firma';
       case TipoEvento.feria:        return 'Feria';
       case TipoEvento.taller:       return 'Taller';
       case TipoEvento.lectura:      return 'Lectura';
@@ -28,7 +30,7 @@ extension TipoEventoExt on TipoEvento {
       case 'lectura':        return TipoEvento.lectura;
       case 'presentacion':   return TipoEvento.presentacion;
       case 'presentación':   return TipoEvento.presentacion;
-      case 'firma':          return TipoEvento.presentacion;
+      case 'firma':          return TipoEvento.firma;
       default:               return TipoEvento.otro;
     }
   }

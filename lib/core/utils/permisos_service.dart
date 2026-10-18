@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../constantes/constantes_app.dart';
 import 'package:planeag_flutter/services/suscripcion_service.dart';
+import 'package:planeag_flutter/features/multisede/servicios/multisede_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SISTEMA DE ROLES Y PERMISOS — Fluix CRM
@@ -73,7 +74,7 @@ class SesionUsuario {
           'facturacion', 'nominas', 'vacaciones', 'fichaje', 'web',
         ];
       case RolApp.staff:
-        return ['reservas', 'clientes', 'valoraciones', 'fichaje', 'empleados'];
+        return ['reservas', 'clientes', 'valoraciones', 'fichaje', 'empleados', 'web'];
       case RolApp.clienteFinal:
         return ['explorar'];
       default:
@@ -143,7 +144,9 @@ class PermisosService {
       if (!doc.exists) return null;
 
       final data = doc.data()!;
-      final empresaId = data['empresa_id'] as String? ?? '';
+      // Usa la sede activa si el usuario es multi-sede; si no, la empresa_id
+      final empresaActiva = await MultisedeService().obtenerEmpresaActiva();
+      final empresaId = empresaActiva ?? data['empresa_id'] as String? ?? '';
       var rolStr = data['rol'] as String? ?? 'staff';
 
       // ── GUARD DEMO ──

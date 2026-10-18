@@ -308,88 +308,138 @@ class _TabMenuSemanalWebState extends State<TabMenuSemanalWeb> {
   }
 
   Widget _buildHeader(BuildContext ctx, List<Map<String, dynamic>> dias, int activos) {
+    final popupToggle = GestureDetector(
+      onTap: _guardandoPopup ? null : () => _togglePopupMenu(!_popupActivo),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: _popupActivo ? _color.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _popupActivo ? _color.withValues(alpha: 0.4) : Colors.transparent,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _guardandoPopup
+              ? SizedBox(width: 13, height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _color))
+              : Icon(_popupActivo ? Icons.campaign_rounded : Icons.campaign_outlined,
+                  size: 13, color: _popupActivo ? _color : const Color(0xFF475569)),
+          const SizedBox(width: 4),
+          Text(_popupActivo ? 'Popup ON' : 'Popup',
+              style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600,
+                color: _popupActivo ? _color : const Color(0xFF475569),
+              )),
+        ]),
+      ),
+    );
+
+    final addBtn = FilledButton.icon(
+      onPressed: () => _abrirEditor(null),
+      icon: const Icon(Icons.add_rounded, size: 14),
+      label: const Text('Añadir día'),
+      style: FilledButton.styleFrom(
+        backgroundColor: _color,
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Menú Semanal', style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w800, color: _color)),
-            Text('$activos día${activos != 1 ? 's' : ''} activo${activos != 1 ? 's' : ''} esta semana',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-          ])),
-          if (dias.isNotEmpty) ...[
-            // Renovar semana
-            _accionBtn(
-              icon: _renovando
-                  ? const SizedBox(width: 13, height: 13,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.refresh_rounded, size: 13),
-              label: 'Renovar',
-              onTap: _renovando ? null : () => _renovarSemana(dias),
-            ),
-            const SizedBox(width: 6),
-            // Guardar plantilla
-            _accionBtn(
-              icon: const Icon(Icons.bookmark_add_outlined, size: 13),
-              label: 'Guardar',
-              onTap: () => _guardarPlantilla(dias),
-            ),
-            const SizedBox(width: 6),
-          ],
-          // Aplicar plantilla
-          _accionBtn(
-            icon: const Icon(Icons.bookmarks_outlined, size: 13),
-            label: 'Plantillas',
-            onTap: () => _mostrarPlantillas(ctx),
-          ),
-          const SizedBox(width: 6),
-          // Toggle popup web
-          GestureDetector(
-            onTap: _guardandoPopup ? null : () => _togglePopupMenu(!_popupActivo),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: _popupActivo
-                    ? _color.withValues(alpha: 0.12)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _popupActivo ? _color.withValues(alpha: 0.4) : Colors.transparent,
-                ),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                _guardandoPopup
-                    ? SizedBox(width: 13, height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _color))
-                    : Icon(_popupActivo ? Icons.campaign_rounded : Icons.campaign_outlined,
-                        size: 13, color: _popupActivo ? _color : const Color(0xFF475569)),
-                const SizedBox(width: 4),
-                Text(_popupActivo ? 'Popup ON' : 'Popup',
-                    style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600,
-                      color: _popupActivo ? _color : const Color(0xFF475569),
-                    )),
+      child: LayoutBuilder(
+        builder: (_, constraints) {
+          final esMovil = constraints.maxWidth < 480;
+
+          if (esMovil) {
+            // ── Móvil: dos filas ──────────────────────────────────────────
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Menú Semanal', style: TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w800, color: _color)),
+                  Text('$activos día${activos != 1 ? 's' : ''} activo${activos != 1 ? 's' : ''} esta semana',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                ])),
+                addBtn,
               ]),
-            ),
-          ),
-          const SizedBox(width: 6),
-          FilledButton.icon(
-            onPressed: () => _abrirEditor(null),
-            icon: const Icon(Icons.add_rounded, size: 14),
-            label: const Text('Añadir día'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _color,
-              minimumSize: const Size(0, 34),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ]),
-      ]),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  if (dias.isNotEmpty) ...[
+                    _accionBtn(
+                      icon: _renovando
+                          ? const SizedBox(width: 13, height: 13,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.refresh_rounded, size: 13),
+                      label: 'Renovar',
+                      onTap: _renovando ? null : () => _renovarSemana(dias),
+                    ),
+                    const SizedBox(width: 6),
+                    _accionBtn(
+                      icon: const Icon(Icons.bookmark_add_outlined, size: 13),
+                      label: 'Guardar',
+                      onTap: () => _guardarPlantilla(dias),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  _accionBtn(
+                    icon: const Icon(Icons.bookmarks_outlined, size: 13),
+                    label: 'Plantillas',
+                    onTap: () => _mostrarPlantillas(ctx),
+                  ),
+                  const SizedBox(width: 6),
+                  popupToggle,
+                ]),
+              ),
+            ]);
+          }
+
+          // ── Desktop/tablet: fila única ───────────────────────────────
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Menú Semanal', style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800, color: _color)),
+                Text('$activos día${activos != 1 ? 's' : ''} activo${activos != 1 ? 's' : ''} esta semana',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              ])),
+              if (dias.isNotEmpty) ...[
+                _accionBtn(
+                  icon: _renovando
+                      ? const SizedBox(width: 13, height: 13,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.refresh_rounded, size: 13),
+                  label: 'Renovar',
+                  onTap: _renovando ? null : () => _renovarSemana(dias),
+                ),
+                const SizedBox(width: 6),
+                _accionBtn(
+                  icon: const Icon(Icons.bookmark_add_outlined, size: 13),
+                  label: 'Guardar',
+                  onTap: () => _guardarPlantilla(dias),
+                ),
+                const SizedBox(width: 6),
+              ],
+              _accionBtn(
+                icon: const Icon(Icons.bookmarks_outlined, size: 13),
+                label: 'Plantillas',
+                onTap: () => _mostrarPlantillas(ctx),
+              ),
+              const SizedBox(width: 6),
+              popupToggle,
+              const SizedBox(width: 6),
+              addBtn,
+            ]),
+          ]);
+        },
+      ),
     );
   }
 
@@ -850,8 +900,14 @@ class _EditorDiaMenuState extends State<_EditorDiaMenu> {
         if (widget.dia?['orden'] != null) 'orden': widget.dia!['orden'],
       };
       await widget.onGuardar(data);
-    } catch (_) {
-      if (mounted) setState(() => _guardando = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _guardando = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
     }
   }
 }

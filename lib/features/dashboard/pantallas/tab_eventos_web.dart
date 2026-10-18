@@ -49,6 +49,7 @@ class TabEventosWeb extends StatelessWidget {
         }
         final eventos = snap.data ?? [];
         final proximos = eventos.where((e) => e.esFuturo && e.activo).length;
+        final ocultos  = eventos.where((e) => !e.activo && e.esFuturo).length;
 
         return Stack(
           children: [
@@ -65,6 +66,10 @@ class TabEventosWeb extends StatelessWidget {
                         Colors.grey[500]!),
                     _divV(),
                     _kpi('Total', '${eventos.length}', const Color(0xFF455A64)),
+                    if (ocultos > 0) ...[
+                      _divV(),
+                      _kpi('Ocultos', '$ocultos', const Color(0xFFF59E0B)),
+                    ],
                     if (empresaId == _kNazariId) ...[
                       _divV(),
                       _BtnImportarNazari(empresaId: empresaId, svc: svc, color: color, compact: true),
@@ -81,14 +86,28 @@ class TabEventosWeb extends StatelessWidget {
             ),
             Positioned(
               right: 16, bottom: 16,
-              child: FloatingActionButton.extended(
-                heroTag: 'fab_nuevo_evento',
-                onPressed: () => _abrirEditor(context, null, color),
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.event_note),
-                label: const Text('Nuevo evento'),
-              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                // Papelera
+                FloatingActionButton(
+                  heroTag: 'fab_papelera_evento',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF94A3B8),
+                  elevation: 2,
+                  tooltip: 'Papelera',
+                  onPressed: () => _mostrarPapelera(context),
+                  child: const Icon(Icons.delete_sweep_rounded, size: 20),
+                ),
+                const SizedBox(width: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'fab_nuevo_evento',
+                  onPressed: () => _abrirEditor(context, null, color),
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.event_note),
+                  label: const Text('Nuevo evento'),
+                ),
+              ]),
             ),
           ],
         );
@@ -246,11 +265,13 @@ class TabEventosWeb extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      isDismissible: false,    // no cerrar tocando fuera
+      enableDrag: false,       // no cerrar arrastrando el handle
       backgroundColor: Colors.transparent,
       builder: (_) => DraggableScrollableSheet(
         initialChildSize: 0.92,
         maxChildSize: 0.98,
-        minChildSize: 0.5,
+        minChildSize: 0.92,    // igual que initial: impide encoger el sheet con scroll
         expand: false,
         builder: (ctx, scrollCtrl) => Container(
           decoration: const BoxDecoration(
@@ -262,13 +283,9 @@ class TabEventosWeb extends StatelessWidget {
             Container(
               color: Colors.white,
               child: Column(children: [
+                // No drag handle — drag disabled to prevent accidental close on scroll
                 Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 4),
-                  child: Container(width: 40, height: 4,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(children: [
                     Container(width: 36, height: 36,
                         decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
@@ -278,7 +295,26 @@ class TabEventosWeb extends StatelessWidget {
                       evento == null ? 'Nuevo evento' : 'Editar evento',
                       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                     )),
-                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, size: 20)),
+                    IconButton(
+                      onPressed: () async {
+                        // Ask confirmation if the user has entered a title
+                        final formKey = ctx;
+                        final cerrar = await showDialog<bool>(
+                          context: formKey,
+                          builder: (d) => AlertDialog(
+                            title: const Text('¿Cerrar sin guardar?'),
+                            content: const Text('Los cambios no guardados se perderán.'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Seguir editando')),
+                              TextButton(onPressed: () => Navigator.pop(d, true),
+                                  child: const Text('Cerrar', style: TextStyle(color: Color(0xFFEF4444)))),
+                            ],
+                          ),
+                        );
+                        if (cerrar == true && ctx.mounted) Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
                   ]),
                 ),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
@@ -295,6 +331,18 @@ class TabEventosWeb extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+
+  void _mostrarPapelera(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _PapeleraEventos(empresaId: empresaId, svc: svc),
     );
   }
 
@@ -666,6 +714,22 @@ class _FilaEvento extends StatelessWidget {
                                           color: cTipo,
                                           fontWeight: FontWeight.w700)),
                                 ),
+                                if (!evento.activo && !pasado) ...[
+                                  const SizedBox(width: 5),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text('Oculto',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFFF59E0B),
+                                            fontWeight: FontWeight.w700)),
+                                  ),
+                                ],
                                 if ((evento.ciudad ?? '').isNotEmpty) ...[
                                   const SizedBox(width: 5),
                                   Icon(Icons.place_rounded,
@@ -1047,9 +1111,21 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
                   hintText: 'Subtítulo (ej: "José Prados firma ejemplares")',
                   border: InputBorder.none, contentPadding: EdgeInsets.zero)),
             const Divider(height: 16),
+            Row(children: [
+              const Expanded(
+                child: Text('Descripción',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              ),
+              _BotonFormatoEvento(ctrl: _descCtrl, icono: Icons.format_italic,
+                  tooltip: 'Cursiva  (_texto_)', marcador: '_'),
+              _BotonFormatoEvento(ctrl: _descCtrl, icono: Icons.format_bold,
+                  tooltip: 'Negrita  (**texto**)', marcador: '**'),
+            ]),
             TextField(controller: _descCtrl, maxLines: 3,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
               decoration: const InputDecoration(
-                  hintText: 'Descripción del evento…',
+                  hintText: 'Descripción del evento… (cursiva: _texto_)',
                   border: InputBorder.none, contentPadding: EdgeInsets.zero)),
           ])),
           const SizedBox(height: 10),
@@ -1226,22 +1302,51 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
             ],
           ])),
           const SizedBox(height: 14),
-          // Botón guardar (visible en modo sheet)
-          SizedBox(
-            width: double.infinity, height: 50,
-            child: FilledButton.icon(
-              onPressed: _guardando ? null : () => _guardar(context),
-              icon: _guardando
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save_rounded, size: 18),
-              label: Text(_guardando ? 'Guardando…' : widget.evento == null ? 'Crear evento' : 'Guardar cambios',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-              style: FilledButton.styleFrom(
-                backgroundColor: color,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          // Botones guardar
+          Row(children: [
+            // Guardar oculto (borrador)
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _guardando ? null : () async {
+                  setState(() => _activo = false);
+                  await _guardar(context);
+                },
+                icon: const Icon(Icons.visibility_off_outlined, size: 16),
+                label: const Text('Guardar oculto'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF6B7280),
+                  side: const BorderSide(color: Color(0xFFD1D5DB)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 50),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 10),
+            // Guardar y publicar en web
+            Expanded(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: _guardando ? null : () async {
+                  setState(() => _activo = true);
+                  await _guardar(context);
+                },
+                icon: _guardando
+                    ? const SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.public_rounded, size: 18),
+                label: Text(
+                  _guardando ? 'Guardando…' : widget.evento == null ? 'Publicar evento' : 'Guardar y publicar',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: color,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 50),
+                ),
+              ),
+            ),
+          ]),
           const SizedBox(height: 32),
         ],
     );
@@ -1469,5 +1574,240 @@ class _PantallaEditorEventoState extends State<_PantallaEditorEvento> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+}
+
+class _BotonFormatoEvento extends StatelessWidget {
+  final TextEditingController ctrl;
+  final IconData icono;
+  final String tooltip;
+  final String marcador;
+
+  const _BotonFormatoEvento({
+    required this.ctrl, required this.icono,
+    required this.tooltip, required this.marcador,
+  });
+
+  void _aplicar() {
+    final sel = ctrl.selection;
+    final txt = ctrl.text;
+    if (!sel.isValid) return;
+    final start = sel.start < 0 ? txt.length : sel.start;
+    final end   = sel.end   < 0 ? txt.length : sel.end;
+    final selected = txt.substring(start, end);
+    final nuevo = selected.isEmpty
+        ? '${txt.substring(0, start)}$marcador$marcador${txt.substring(end)}'
+        : '${txt.substring(0, start)}$marcador$selected$marcador${txt.substring(end)}';
+    final cursor = selected.isEmpty
+        ? start + marcador.length
+        : end + marcador.length * 2;
+    ctrl.value = ctrl.value.copyWith(
+      text: nuevo,
+      selection: TextSelection.collapsed(offset: cursor),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: _aplicar,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icono, size: 16, color: const Color(0xFF64748B)),
+      ),
+    ),
+  );
+}
+
+// ── Papelera de eventos ───────────────────────────────────────────────────────
+
+class _PapeleraEventos extends StatelessWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+
+  const _PapeleraEventos({required this.empresaId, required this.svc});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Column(children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          child: Column(children: [
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              const Icon(Icons.delete_sweep_rounded, size: 20, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Papelera — Eventos',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A)))),
+              TextButton(
+                onPressed: () => _vaciarPapelera(context),
+                style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFEF4444),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                child: const Text('Vaciar todo', style: TextStyle(fontSize: 12)),
+              ),
+            ]),
+          ]),
+        ),
+        // Lista
+        Expanded(
+          child: StreamBuilder<List<EventoWeb>>(
+            stream: svc.obtenerPapeleraEventos(empresaId),
+            builder: (_, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final items = snap.data ?? [];
+              if (items.isEmpty) {
+                return Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.delete_outline_rounded, size: 48, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text('La papelera está vacía',
+                        style: TextStyle(fontSize: 15, color: Colors.grey[500],
+                            fontWeight: FontWeight.w500)),
+                  ]),
+                );
+              }
+              return ListView.separated(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final e = items[i];
+                  final fecha = '${e.fecha.day}/${e.fecha.month}/${e.fecha.year}';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(children: [
+                      Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(e.titulo.isEmpty ? '(sin título)' : e.titulo,
+                            style: const TextStyle(fontSize: 13,
+                                fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        Text(fecha,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                      ])),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () async {
+                          await svc.restaurarEvento(empresaId, e.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('✅ "${e.titulo.isEmpty ? 'Evento' : e.titulo}" restaurado'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ));
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF2563EB),
+                          side: const BorderSide(color: Color(0xFF2563EB)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                        child: const Text('Restaurar'),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: const Icon(Icons.delete_forever_rounded, size: 18,
+                            color: Color(0xFFEF4444)),
+                        tooltip: 'Eliminar definitivamente',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _confirmarEliminacionPermanente(context, e),
+                      ),
+                    ]),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _vaciarPapelera(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vaciar papelera'),
+        content: const Text(
+            'Se eliminarán permanentemente todos los eventos de la papelera.\n\n'
+            'Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Vaciar todo',
+                style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      final snap = await svc.obtenerPapeleraEventos(empresaId).first;
+      for (final e in snap) {
+        await svc.eliminarPermanenteEvento(empresaId, e.id);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Papelera vaciada'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _confirmarEliminacionPermanente(
+      BuildContext context, EventoWeb evento) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar permanentemente'),
+        content: Text(
+            '¿Eliminar "${evento.titulo.isEmpty ? 'este evento' : evento.titulo}" para siempre?\n\nNo podrá recuperarse.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar',
+                style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await svc.eliminarPermanenteEvento(empresaId, evento.id);
   }
 }

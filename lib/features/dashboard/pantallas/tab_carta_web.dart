@@ -753,11 +753,12 @@ class _EditorItemCarta extends StatefulWidget {
 }
 
 class _EditorItemCartaState extends State<_EditorItemCarta> {
-  final _nombreCtrl      = TextEditingController();
-  final _descripcionCtrl = TextEditingController();
-  final _precioTextoCtrl = TextEditingController();
-  final _categoriaCtrl   = TextEditingController();
-  final _imagenCtrl      = TextEditingController();
+  final _nombreCtrl       = TextEditingController();
+  final _descripcionCtrl  = TextEditingController();
+  final _precioTextoCtrl  = TextEditingController();
+  final _categoriaCtrl    = TextEditingController();
+  final _subcategoriaCtrl = TextEditingController();
+  final _imagenCtrl       = TextEditingController();
   bool _disponible  = true;
   bool _guardando   = false;
   bool _subiendoImg = false;
@@ -771,8 +772,9 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
       _nombreCtrl.text      = item['nombre'] as String? ?? '';
       _descripcionCtrl.text = item['descripcion'] as String? ?? '';
       _disponible = item['disponible'] as bool? ?? true;
-      _categoriaCtrl.text   = item['categoria'] as String? ?? '';
-      _imagenCtrl.text      = item['imagen_url'] as String? ?? '';
+      _categoriaCtrl.text    = item['categoria'] as String? ?? '';
+      _subcategoriaCtrl.text = item['subcategoria'] as String? ?? '';
+      _imagenCtrl.text       = item['imagen_url'] as String? ?? '';
       _precioTextoCtrl.text = item['precio_texto'] as String? ?? '';
       final alerg = item['alergenos'];
       if (alerg is List) _alergenos.addAll(alerg.cast<String>());
@@ -788,6 +790,7 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
     _descripcionCtrl.dispose();
     _precioTextoCtrl.dispose();
     _categoriaCtrl.dispose();
+    _subcategoriaCtrl.dispose();
     _imagenCtrl.dispose();
     super.dispose();
   }
@@ -823,8 +826,11 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
               hint: 'ej: 4,50€  /  1,50€ / ud.')),
           const SizedBox(width: 8),
           Expanded(child: _field(_categoriaCtrl, 'Categoría',
-              hint: 'Tapas, Carnes…')),
+              hint: 'Desayunos, Principales…')),
         ]),
+        const SizedBox(height: 12),
+        _field(_subcategoriaCtrl, 'Subcategoría (opcional)',
+            hint: 'Bebidas, Tostadas, Lo Tradicional…'),
         const SizedBox(height: 12),
         // ── Alérgenos ─────────────────────────────────────────────────────
         _buildAlergenos(),
@@ -1089,8 +1095,14 @@ class _EditorItemCartaState extends State<_EditorItemCarta> {
         if (widget.item?['orden'] != null) 'orden': widget.item!['orden'],
       };
       await widget.onGuardar(data);
-    } catch (_) {
-      if (mounted) setState(() => _guardando = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _guardando = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
     }
   }
 }

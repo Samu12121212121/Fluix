@@ -144,9 +144,11 @@ class _PantallaValoracionesNegocioState extends State<PantallaValoracionesNegoci
             const SizedBox(height: 16),
             const Divider(color: _C.borde, height: 1),
             const SizedBox(height: 16),
-            BarraDistribucionEstrellas(
-              distribucion: _calcularDistribucion(),
-            ),
+            // Solo mostrar distribución cuando se han cargado todas las valoraciones
+            if (!_hayMas)
+              BarraDistribucionEstrellas(
+                distribucion: _calcularDistribucion(),
+              ),
           ],
         ]),
       ),

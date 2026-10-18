@@ -134,6 +134,59 @@ class _TabReservasWebState extends State<TabReservasWeb> {
     _salirModoSeleccion();
   }
 
+  Future<void> _eliminarLote() async {
+    final n = _seleccionadas.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 20),
+          SizedBox(width: 8),
+          Text('Eliminar reservas', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        ]),
+        content: Text('¿Eliminar permanentemente $n reserva${n != 1 ? 's' : ''}? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    for (final id in List<String>.from(_seleccionadas)) {
+      await widget.svc.eliminarReservaWeb(widget.empresaId, id);
+    }
+    _salirModoSeleccion();
+  }
+
+  Future<void> _eliminarReserva(Reserva r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 20),
+          SizedBox(width: 8),
+          Text('Eliminar reserva', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        ]),
+        content: Text('¿Eliminar permanentemente la reserva de ${r.clienteNombre}? No se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await widget.svc.eliminarReservaWeb(widget.empresaId, r.id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Reserva>>(
@@ -755,7 +808,10 @@ class _TabReservasWebState extends State<TabReservasWeb> {
               fontSize: 13)),
       const Spacer(),
       if (_seleccionadas.isNotEmpty) ...[
-        _loteBtn(Icons.close_rounded, 'Cancelar', const Color(0xFFEF4444),
+        _loteBtn(Icons.delete_rounded, 'Eliminar', const Color(0xFFEF4444),
+            _eliminarLote),
+        const SizedBox(width: 8),
+        _loteBtn(Icons.close_rounded, 'Cancelar', const Color(0xFF94A3B8),
             _cancelarLote),
         const SizedBox(width: 8),
         _loteBtn(Icons.check_rounded, 'Confirmar', const Color(0xFF10B981),
@@ -832,7 +888,8 @@ class _TabReservasWebState extends State<TabReservasWeb> {
       builder: (_) => _DetalleReservaSheet(
           reserva: r, empresaId: widget.empresaId, color: _color,
           onConfirmar: () => _confirmar(r),
-          onCancelar:  () => _cancelar(r)),
+          onCancelar:  () => _cancelar(r),
+          onEliminar:  () => _eliminarReserva(r)),
     );
   }
 
@@ -1049,6 +1106,7 @@ class _DetalleReservaSheet extends StatefulWidget {
   final Color color;
   final VoidCallback onConfirmar;
   final VoidCallback onCancelar;
+  final VoidCallback onEliminar;
 
   const _DetalleReservaSheet({
     required this.reserva,
@@ -1056,6 +1114,7 @@ class _DetalleReservaSheet extends StatefulWidget {
     required this.color,
     required this.onConfirmar,
     required this.onCancelar,
+    required this.onEliminar,
   });
 
   @override
@@ -1220,6 +1279,16 @@ class _DetalleReservaSheetState extends State<_DetalleReservaSheet> {
               ),
             ),
           ]),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: () { Navigator.pop(context); widget.onEliminar(); },
+            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFF94A3B8)),
+            label: const Text('Eliminar permanentemente',
+                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+          ),
+        ),
       ]),
     );
   }

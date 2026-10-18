@@ -95,6 +95,7 @@ export const onReservaEstadoCambiadoEmail = onDocumentUpdated(
       fechaHora = fh.toLocaleString("es-ES", {
         weekday: "long", day: "numeric", month: "long",
         hour: "2-digit", minute: "2-digit",
+        timeZone: "Europe/Madrid",
       });
     } catch (_) {}
 
@@ -163,7 +164,7 @@ export const onNuevaReservaEmail = onDocumentCreated(
     if (!["app_cliente", "web_publica", "fluix_b2c"].includes(origen)) return;
     const db = admin.firestore();
     let ft = "";
-    try { const d = r.fecha_hora?.toDate ? r.fecha_hora.toDate() : new Date(r.fecha_hora); ft = d.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
+    try { const d = r.fecha_hora?.toDate ? r.fecha_hora.toDate() : new Date(r.fecha_hora); ft = d.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" }); } catch (_) {}
     const cn = r.nombre_cliente || r.cliente_nombre || r.usuario_nombre || "Un cliente";
     try {
       const ns = await db.collection("negocios_publicos").where("empresaIdVinculada", "==", empresaId).limit(1).get();
@@ -193,7 +194,7 @@ export const onNuevaNotificacionReserva = onDocumentCreated(
     const email: string = data.email_notificaciones || ""; if (!email) return;
     const nn: string = data.negocio_nombre || "Tu Negocio"; const dr: Record<string, any> = data.datos_reserva || {};
     let ft = "";
-    try { const fh = dr.fecha_hora?.toDate ? dr.fecha_hora.toDate() : new Date(dr.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
+    try { const fh = dr.fecha_hora?.toDate ? dr.fecha_hora.toDate() : new Date(dr.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" }); } catch (_) {}
     const cn = dr.usuario_nombre || dr.nombre_cliente || "Cliente";
     const ta = generarToken(reservaId, empresaId, "aceptar"); const tr = generarToken(reservaId, empresaId, "rechazar");
     const html = buildEmailEmpresa({ negocioNombre: nn, clienteNombre: cn, fechaHora: ft || "No especificada", servicio: dr.servicio_nombre || "", personas: dr.numero_personas ? `${dr.numero_personas} personas` : "", notas: dr.notas || "", camposExtra: dr.campos_extra || {}, urlAceptar: `${BASE_URL}/confirmar?id=${reservaId}&empresa=${empresaId}&token=${ta}`, urlRechazar: `${BASE_URL}/rechazar?id=${reservaId}&empresa=${empresaId}&token=${tr}` });
@@ -227,7 +228,7 @@ export const confirmarReserva = onRequest(
       const s = await ref.get(); if (!s.exists) { res.status(404).send(_land("error", "No encontrada", "Esta reserva no existe.", "")); return; }
       const rd = s.data()!;
       if (rd.estado === "confirmada") { res.send(_land("ya_confirmada", "Ya confirmada", "Ya fue confirmada anteriormente.", "green")); return; }
-      let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
+      let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" }); } catch (_) {}
       if (req.method === "GET") { res.send(_formConfirmar(rid, eid, token, rd, ft)); return; }
       await ref.update({ estado: "confirmada", confirmado_en: admin.firestore.FieldValue.serverTimestamp() });
       const ec: string = rd.email_cliente || rd.usuario_email || rd.cliente_email || "";
@@ -257,7 +258,7 @@ export const rechazarReserva = onRequest(
       const s = await ref.get(); if (!s.exists) { res.status(404).send(_land("error", "No encontrada", "Esta reserva no existe.", "")); return; }
       const rd = s.data()!;
       if (rd.estado === "cancelada" || rd.estado === "rechazada") { res.send(_land("ya_gestionada", "Ya gestionada", "Ya fue rechazada.", "orange")); return; }
-      let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); } catch (_) {}
+      let ft = ""; try { const fh = rd.fecha_hora?.toDate ? rd.fecha_hora.toDate() : new Date(rd.fecha_hora); ft = fh.toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" }); } catch (_) {}
       if (req.method === "GET") { res.send(_formRechazar(rid, eid, token, rd, ft)); return; }
       await ref.update({ estado: "cancelada", motivo_cancelacion: motivo, rechazado_en: admin.firestore.FieldValue.serverTimestamp() });
       const ec: string = rd.email_cliente || rd.usuario_email || rd.cliente_email || "";

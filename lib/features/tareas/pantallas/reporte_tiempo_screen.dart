@@ -28,6 +28,8 @@ class _ReporteTiempoScreenState extends State<ReporteTiempoScreen>
   Map<String, int> _porEmpleado = {};
   List<MapEntry<String, int>> _rankingTareas = [];
   List<Tarea> _todasTareas = [];
+  // Cache de futures de usuario para evitar queries duplicadas en cada rebuild
+  final Map<String, Future<DocumentSnapshot>> _userFutures = {};
 
   @override
   void initState() {
@@ -219,10 +221,11 @@ class _ReporteTiempoScreenState extends State<ReporteTiempoScreen>
                 const SizedBox(width: 10),
                 Expanded(
                   child: FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('usuarios')
-                        .doc(usuarioId)
-                        .get(),
+                    future: _userFutures.putIfAbsent(usuarioId, () =>
+                        FirebaseFirestore.instance
+                            .collection('usuarios')
+                            .doc(usuarioId)
+                            .get()),
                     builder: (_, snap) {
                       final nombre = snap.data?.get('nombre') as String? ??
                           usuarioId.substring(0, 8);

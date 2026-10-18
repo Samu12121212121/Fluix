@@ -80,9 +80,9 @@ class FacturaRecurrente {
       importe: (d['importe'] as num?)?.toDouble() ?? 0,
       iva: (d['iva'] as num?)?.toDouble() ?? 21,
       periodo: PeriodoRecurrenciaExt.fromKey(d['periodo'] ?? 'mensual'),
-      fechaInicio: (d['fecha_inicio'] as Timestamp).toDate(),
+      fechaInicio: (d['fecha_inicio'] as Timestamp?)?.toDate() ?? DateTime.now(),
       fechaFin: d['fecha_fin'] != null ? (d['fecha_fin'] as Timestamp).toDate() : null,
-      proximaEmision: (d['proxima_emision'] as Timestamp).toDate(),
+      proximaEmision: (d['proxima_emision'] as Timestamp?)?.toDate() ?? DateTime.now(),
       activa: d['activa'] ?? true,
       facturasGeneradasIds: List<String>.from(d['facturas_generadas_ids'] ?? []),
       ultimaEmision: d['ultima_emision'] != null

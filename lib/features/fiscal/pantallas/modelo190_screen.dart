@@ -33,12 +33,14 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
   late int _anio;
   bool _procesando = false;
   EmpresaConfig? _empresaConfig;
+  Future<Modelo190?>? _futureModelo;
 
   @override
   void initState() {
     super.initState();
     // Por defecto el ejercicio anterior (el 190 se presenta en enero del año siguiente)
     _anio = widget.anioInicial ?? DateTime.now().year - 1;
+    _futureModelo = _svc.obtener(widget.empresaId, _anio);
     _cargarEmpresa();
   }
 
@@ -180,7 +182,7 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
     final body = _procesando
         ? const Center(child: CircularProgressIndicator())
         : FutureBuilder<Modelo190?>(
-            future: _svc.obtener(widget.empresaId, _anio),
+            future: _futureModelo,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -213,12 +215,12 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
         extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() => _anio--),
+            onPressed: () => setState(() { _anio--; _futureModelo = _svc.obtener(widget.empresaId, _anio); }),
           ),
           Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() => _anio++),
+            onPressed: () => setState(() { _anio++; _futureModelo = _svc.obtener(widget.empresaId, _anio); }),
           ),
         ],
       ),

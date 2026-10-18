@@ -197,7 +197,9 @@ class EstadisticasService {
       final diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
       for (final reserva in reservas30Dias) {
-        final fecha = (reserva['fecha'] as Timestamp).toDate();
+        final raw = reserva['fecha'];
+        final fecha = raw is Timestamp ? raw.toDate() : DateTime.tryParse(raw?.toString() ?? '');
+        if (fecha == null) continue;
         final diaSemana = diasSemana[fecha.weekday - 1];
         distribucionDias[diaSemana] = (distribucionDias[diaSemana] ?? 0) + 1;
       }
@@ -752,11 +754,18 @@ class EstadisticasService {
     }
   }
 
+  StreamSubscription? _autoUpdateSub;
+
   /// Programar actualización automática de estadísticas
   void programarActualizacionAutomatica(String empresaId) {
-    // Actualizar estadísticas cada hora
-    Stream.periodic(const Duration(hours: 1)).listen((_) {
+    _autoUpdateSub?.cancel();
+    _autoUpdateSub = Stream.periodic(const Duration(hours: 1)).listen((_) {
       calcularEstadisticasCompletas(empresaId);
     });
+  }
+
+  void cancelarActualizacionAutomatica() {
+    _autoUpdateSub?.cancel();
+    _autoUpdateSub = null;
   }
 }

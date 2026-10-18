@@ -29,6 +29,8 @@ import 'services/auth/token_refresh_service.dart';
 import 'services/facturacion_service.dart';
 
 Future<void> main() async {
+  if (!kDebugMode) debugPrint = (String? message, {int? wrapWidth}) {};
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // En Windows los errores async no capturados matan el proceso.
@@ -389,7 +391,7 @@ class _PantallaRuta extends StatefulWidget {
 }
 
 class _PantallaRutaState extends State<_PantallaRuta> {
-  late Future<DocumentSnapshot> _futureUsuario;
+  Future<DocumentSnapshot>? _futureUsuario;
   Future<DocumentSnapshot>? _futureEmpresa;
   Future<DocumentSnapshot>? _futureSuscripcion;
 
@@ -411,6 +413,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
   @override
   Widget build(BuildContext context) {
     if (_uid == null) return const PantallaLogin();
+    if (_futureUsuario == null) return const PantallaCarga();
 
     return FutureBuilder<DocumentSnapshot>(
       future: _futureUsuario,
@@ -423,7 +426,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
 
         // Si es cliente final, ir a la pantalla de explorar
         if (userData != null) {
-          final rolString = userData['role'] as String?;
+          final rolString = userData['rol'] as String?; // campo correcto: 'rol' sin 'e'
           if (rolString == 'clienteFinal') {
             return const PantallaExplorar();
           }
@@ -502,6 +505,7 @@ class _PantallaRutaState extends State<_PantallaRuta> {
                     empresaId: empresaId,
                     estado: estado,
                     fechaFin: fechaFin,
+                    esPropietario: (userData?['rol'] as String?) == 'propietario',
                   );
                 }
 

@@ -43,7 +43,7 @@ class Pausa {
 
   factory Pausa.fromMap(Map<String, dynamic> map) {
     return Pausa(
-      inicio: map['inicio'] as Timestamp,
+      inicio: map['inicio'] as Timestamp? ?? Timestamp.now(),
       fin: map['fin'] as Timestamp?,
     );
   }

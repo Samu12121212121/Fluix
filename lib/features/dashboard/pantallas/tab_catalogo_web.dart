@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -52,6 +54,12 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
   final _buscadorCtrl = TextEditingController();
   // Stream cacheado: no se recrea en cada setState, evita el parpadeo del buscador
   late final Stream<List<Map<String, dynamic>>> _stream;
+  // Orden local para evitar snap-back durante la escritura async
+  List<Map<String, dynamic>>? _localOrder;
+  // Defer ReorderableListView to the next frame to avoid parentDataDirty assertion.
+  // Firestore delivers cached data synchronously on first build; rendering the
+  // ReorderableListView in that same frame conflicts with Flutter's semantics pass.
+  bool _readyToRender = false;
 
   @override
   void initState() {
@@ -59,6 +67,9 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
     _stream = widget.seccionId != null
         ? widget.svc.obtenerCatalogoWebSeccion(widget.empresaId, widget.seccionId!)
         : widget.svc.obtenerCatalogoWeb(widget.empresaId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _readyToRender = true);
+    });
   }
 
   @override
@@ -402,7 +413,9 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
           Expanded(
             child: filtrados.isEmpty
                 ? _buildVacio(context, todos.isEmpty, color)
-                : _buildLista(filtrados, color),
+                : !_readyToRender
+                    ? const SizedBox.shrink() // defer 1 frame to avoid parentDataDirty
+                    : _buildLista(filtrados, color),
           ),
         ]);
       },
@@ -482,14 +495,19 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
   }
 
   Widget _buildLista(List<Map<String, dynamic>> items, Color color) {
+    final displayItems = _localOrder ?? items;
     return ReorderableListView.builder(
+      // Key based on empresaId ensures full teardown when the company changes,
+      // preventing parentDataDirty assertion during ReorderableListView semantics pass.
+      key: ValueKey(widget.empresaId),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-      itemCount: items.length,
+      itemCount: displayItems.length,
       onReorder: (oldIdx, newIdx) async {
         if (newIdx > oldIdx) newIdx--;
-        final lista = List<Map<String, dynamic>>.from(items);
+        final lista = List<Map<String, dynamic>>.from(displayItems);
         final item = lista.removeAt(oldIdx);
         lista.insert(newIdx, item);
+        setState(() => _localOrder = lista);
         final batch = FirebaseFirestore.instance.batch();
         for (var i = 0; i < lista.length; i++) {
           final id = lista[i]['id'] as String?;
@@ -498,20 +516,33 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
               .collection('empresas').doc(widget.empresaId)
               .collection('catalogo_web').doc(id), {'orden': i});
         }
-        await batch.commit();
+        try {
+          await batch.commit();
+          if (mounted) setState(() => _localOrder = null);
+        } catch (e) {
+          if (mounted) {
+            setState(() => _localOrder = null);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Error al guardar orden: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
+        }
       },
       itemBuilder: (_, i) => _TarjetaItemCatalogo(
-        key: ValueKey(items[i]['id'] ?? i),
-        item: items[i], color: color,
-        onEdit: () => _abrirEditor(items[i]),
+        key: ValueKey(displayItems[i]['id'] ?? i),
+        item: displayItems[i], color: color,
+        index: i,
+        onEdit: () => _abrirEditor(displayItems[i]),
         onToggle: (v) => widget.svc.toggleActivoItemCatalogo(
-            widget.empresaId, items[i]['id'] as String, v),
-        onDelete: () => _confirmarEliminar(items[i]),
+            widget.empresaId, displayItems[i]['id'] as String, v),
+        onDelete: () => _confirmarEliminar(displayItems[i]),
         onLibroDelMes: () async {
           try {
             await widget.svc.toggleLibroDelMesCatalogo(
-                widget.empresaId, items[i]['id'] as String,
-                items[i]['es_libro_del_mes'] as bool? ?? false);
+                widget.empresaId, displayItems[i]['id'] as String,
+                displayItems[i]['es_libro_del_mes'] as bool? ?? false);
           } catch (e) {
             if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red,
@@ -521,8 +552,8 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         onMasVendido: () async {
           try {
             await widget.svc.toggleMasVendidoCatalogo(
-                widget.empresaId, items[i]['id'] as String,
-                items[i]['es_mas_vendido'] as bool? ?? false);
+                widget.empresaId, displayItems[i]['id'] as String,
+                displayItems[i]['es_mas_vendido'] as bool? ?? false);
           } catch (e) {
             if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red,
@@ -594,8 +625,21 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await widget.svc.eliminarItemCatalogo(
-                  widget.empresaId, item['id'] as String);
+              final id = item['id']?.toString() ?? '';
+              if (id.isEmpty) return;
+              try {
+                await widget.svc.eliminarItemCatalogo(widget.empresaId, id);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('✅ "${item['nombre'] ?? ''}" eliminado'),
+                  backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ));
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Error al eliminar: $e'),
+                  backgroundColor: Colors.red, behavior: SnackBarBehavior.floating,
+                ));
+              }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),
@@ -1056,6 +1100,7 @@ class _KvRow {
 class _TarjetaItemCatalogo extends StatelessWidget {
   final Map<String, dynamic> item;
   final Color color;
+  final int index;
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
@@ -1065,6 +1110,7 @@ class _TarjetaItemCatalogo extends StatelessWidget {
   const _TarjetaItemCatalogo({
     super.key,
     required this.item, required this.color,
+    required this.index,
     required this.onEdit, required this.onToggle, required this.onDelete,
     required this.onLibroDelMes, required this.onMasVendido,
   });
@@ -1179,24 +1225,6 @@ class _TarjetaItemCatalogo extends StatelessWidget {
               ],
             ])),
             // Controles
-            if (stripe)
-              Tooltip(
-                message: 'Copiar link de pago',
-                child: IconButton(
-                  icon: const Icon(Icons.link_rounded, size: 16, color: Color(0xFF635BFF)),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: stripeUrl));
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Link copiado'),
-                        duration: Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ));
-                    }
-                  },
-                ),
-              ),
             IconButton(
               icon: Icon(
                 esLibroMes ? Icons.star_rounded : Icons.star_border_rounded,
@@ -1234,9 +1262,9 @@ class _TarjetaItemCatalogo extends StatelessWidget {
               visualDensity: VisualDensity.compact,
             ),
             ReorderableDragStartListener(
-              index: 0, // el padre ReorderableListView maneja el índice real
-              child: Icon(Icons.drag_handle_rounded,
-                  color: const Color(0xFFCBD5E1), size: 20),
+              index: index,
+              child: const Icon(Icons.drag_handle_rounded,
+                  color: Color(0xFFCBD5E1), size: 20),
             ),
           ]),
         );
@@ -1258,15 +1286,15 @@ class _TarjetaItemCatalogo extends StatelessWidget {
 
 // ── Selector de autor ────────────────────────────────────────────────────────
 
-class _AutorPickerSheet extends StatefulWidget {
+class AutorPickerSheet extends StatefulWidget {
   final List<Map<String, String>> docs;
   final Color color;
-  const _AutorPickerSheet({required this.docs, required this.color});
+  const AutorPickerSheet({required this.docs, required this.color});
   @override
-  State<_AutorPickerSheet> createState() => _AutorPickerSheetState();
+  State<AutorPickerSheet> createState() => AutorPickerSheetState();
 }
 
-class _AutorPickerSheetState extends State<_AutorPickerSheet> {
+class AutorPickerSheetState extends State<AutorPickerSheet> {
   String _q = '';
   final _ctrl = TextEditingController();
 
@@ -1352,6 +1380,32 @@ class _AutorPickerSheetState extends State<_AutorPickerSheet> {
 
 // (Editor de item integrado en pantalla_contenido_web.dart como _EditorCatalogoEmbebido)
 
+class CreditoEntry {
+  final TextEditingController ctrl;
+  String id;
+  String genero;
+
+  CreditoEntry({String nombre = '', this.id = '', this.genero = ''})
+      : ctrl = TextEditingController(text: nombre);
+
+  void dispose() => ctrl.dispose();
+
+  Map<String, dynamic> toMap() {
+    final n = ctrl.text.trim();
+    if (n.isEmpty && id.isEmpty) return {};
+    return {'nombre': n, if (id.isNotEmpty) 'id': id, if (genero.isNotEmpty) 'genero': genero};
+  }
+
+  static CreditoEntry fromMap(dynamic m) {
+    final map = m is Map ? Map<String, dynamic>.from(m as Map) : <String, dynamic>{};
+    return CreditoEntry(
+      nombre: map['nombre'] as String? ?? '',
+      id:     map['id']     as String? ?? '',
+      genero: map['genero'] as String? ?? '',
+    );
+  }
+}
+
 class _PantallaEditorItemCatalogo extends StatefulWidget {
   final String empresaId;
   final ContenidoWebService svc;
@@ -1379,14 +1433,9 @@ class _PantallaEditorItemCatalogoState
   final _precioDigCtrl   = TextEditingController();
   final _stripeLinkCtrl  = TextEditingController();
   final _descCtrl        = TextEditingController();
-  final _autorCtrl       = TextEditingController();
-  String _autorId = '';        // campo_autor_id
-  final _traductorCtrl   = TextEditingController();
-  String _traductorId    = ''; // campo_traductor_id
-  String _traductorGenero = '';
-  final _ilustradorCtrl  = TextEditingController();
-  String _ilustradorId   = ''; // campo_ilustrador_id
-  String _ilustradorGenero = '';
+  final _autoresEntries     = <CreditoEntry>[];
+  final _traductoresEntries  = <CreditoEntry>[];
+  final _ilustradoresEntries = <CreditoEntry>[];
   final _isbnCtrl        = TextEditingController();
   final _paginasCtrl     = TextEditingController();
   final _formatoCtrl     = TextEditingController();
@@ -1396,11 +1445,13 @@ class _PantallaEditorItemCatalogoState
   final _pesoCtrl              = TextEditingController();
   final _coleccionCtrl         = TextEditingController();
   final _preventaEnvioCtrl     = TextEditingController();
+  final _ebookPathCtrl         = TextEditingController();
   int  _anio  = DateTime.now().year;
   bool _activo = true;
   bool _preventa = false;
   bool _extraExpanded = false;
   bool _guardando = false;
+  bool _subiendoEbook = false;
 
   @override
   void initState() {
@@ -1416,14 +1467,35 @@ class _PantallaEditorItemCatalogoState
       _precioDigCtrl.text   = it['precio_digital']?.toString() ?? '';
       _stripeLinkCtrl.text  = it['stripe_link'] ?? '';
       _descCtrl.text        = it['descripcion'] ?? '';
-      _autorCtrl.text       = it['campo_autor'] ?? '';
-      _autorId              = it['campo_autor_id'] as String? ?? '';
-      _traductorCtrl.text   = it['campo_traductor'] ?? '';
-      _traductorId          = it['campo_traductor_id'] as String? ?? '';
-      _traductorGenero      = it['campo_traductor_genero'] as String? ?? '';
-      _ilustradorCtrl.text  = it['campo_ilustrador'] ?? '';
-      _ilustradorId         = it['campo_ilustrador_id'] as String? ?? '';
-      _ilustradorGenero     = it['campo_ilustrador_genero'] as String? ?? '';
+      // Cargar autores (array nuevo o campo único legacy)
+      final _autArr = it['autores'] as List<dynamic>? ?? [];
+      if (_autArr.isNotEmpty) {
+        _autoresEntries.addAll(_autArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_autor'] as String? ?? '';
+        if (n.isNotEmpty) _autoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_autor_id'] as String? ?? ''));
+      }
+      // Cargar traductores
+      final _tradArr = it['traductores'] as List<dynamic>? ?? [];
+      if (_tradArr.isNotEmpty) {
+        _traductoresEntries.addAll(_tradArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_traductor'] as String? ?? '';
+        if (n.isNotEmpty) _traductoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_traductor_id'] as String? ?? '',
+            genero: it['campo_traductor_genero'] as String? ?? ''));
+      }
+      // Cargar ilustradores
+      final _ilustArr = it['ilustradores'] as List<dynamic>? ?? [];
+      if (_ilustArr.isNotEmpty) {
+        _ilustradoresEntries.addAll(_ilustArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_ilustrador'] as String? ?? '';
+        if (n.isNotEmpty) _ilustradoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_ilustrador_id'] as String? ?? '',
+            genero: it['campo_ilustrador_genero'] as String? ?? ''));
+      }
       _isbnCtrl.text        = it['campo_isbn'] ?? '';
       _paginasCtrl.text     = it['campo_paginas'] ?? '';
       _formatoCtrl.text     = it['campo_formato'] ?? '';
@@ -1436,6 +1508,7 @@ class _PantallaEditorItemCatalogoState
       _activo    = it['activo'] as bool? ?? true;
       _preventa  = it['preventa'] as bool? ?? false;
       _preventaEnvioCtrl.text = it['preventa_envio_lejano']?.toString() ?? '';
+      _ebookPathCtrl.text     = it['ebook_storage_path'] as String? ?? '';
     }
   }
 
@@ -1443,10 +1516,13 @@ class _PantallaEditorItemCatalogoState
   void dispose() {
     for (final c in [_nombreCtrl, _slugCtrl, _categoriaCtrl, _tagCtrl,
         _imagenCtrl, _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
-        _autorCtrl, _traductorCtrl, _ilustradorCtrl,
         _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl,
-        _mesCtrl, _diaCtrl, _pesoCtrl, _coleccionCtrl, _preventaEnvioCtrl]) {
+        _mesCtrl, _diaCtrl, _pesoCtrl, _coleccionCtrl, _preventaEnvioCtrl,
+        _ebookPathCtrl]) {
       c.dispose();
+    }
+    for (final e in [..._autoresEntries, ..._traductoresEntries, ..._ilustradoresEntries]) {
+      e.dispose();
     }
     super.dispose();
   }
@@ -1490,13 +1566,22 @@ class _PantallaEditorItemCatalogoState
                 )),
               ]),
             ),
+            const Divider(height: 1),
+            CampoEbookStorage(
+              ctrl: _ebookPathCtrl,
+              empresaId: widget.empresaId,
+              itemId: widget.item?['id'] as String? ?? widget.item?['slug'] as String?,
+              subiendoEbook: _subiendoEbook,
+              onSubiendo: (v) => setState(() => _subiendoEbook = v),
+              color: color,
+            ),
           ])),
           const SizedBox(height: 10),
           _card(TextFormField(
             controller: _descCtrl,
             maxLines: 5,
             decoration: const InputDecoration(
-              hintText: 'Descripción / sinopsis…',
+              hintText: 'Descripción / sinopsis… (cursiva: _texto_)',
               border: InputBorder.none, contentPadding: EdgeInsets.zero),
           )),
           const SizedBox(height: 10),
@@ -1523,11 +1608,11 @@ class _PantallaEditorItemCatalogoState
           if (_extraExpanded) ...[
             const SizedBox(height: 4),
             _card(Column(children: [
-              _campoAutorConSelector(color),
+              _buildListaCreditos('Autor/a', _autoresEntries, color, conGenero: false),
               const Divider(height: 1),
-              _campoConGenero(_traductorCtrl, 'Traductor/a', '_traductorGenero'),
+              _buildListaCreditos('Traductor/a', _traductoresEntries, color, conGenero: true),
               const Divider(height: 1),
-              _campoConGenero(_ilustradorCtrl, 'Ilustrador/a', '_ilustradorGenero'),
+              _buildListaCreditos('Ilustrador/a', _ilustradoresEntries, color, conGenero: true),
               const Divider(height: 1),
               _campo(_coleccionCtrl, 'Colección editorial',
                   hint: 'Colección Arrayanes, Colección Daraxa…'),
@@ -1613,66 +1698,93 @@ class _PantallaEditorItemCatalogoState
     );
   }
 
-  // ── Selector de autor con ID garantizado ────────────────────────────────────
-
-  Widget _campoAutorConSelector(Color color) {
-    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-      Expanded(
-        child: TextField(
-          controller: _autorCtrl,
-          decoration: InputDecoration(
-            hintText: 'Autor / Responsable',
-            labelText: _autorId.isNotEmpty
-                ? 'Autor (ID vinculado ✓)'
-                : 'Autor / Responsable',
-            labelStyle: TextStyle(
-              color: _autorId.isNotEmpty
-                  ? const Color(0xFF10B981)
-                  : Colors.grey,
-              fontSize: 13,
-            ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
-          ),
-          onChanged: (_) { if (_autorId.isNotEmpty) setState(() => _autorId = ''); },
+  Widget _buildListaCreditos(String tipo, List<CreditoEntry> entries, Color color,
+      {required bool conGenero}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...entries.asMap().entries.map((e) {
+          final idx = e.key;
+          final entry = e.value;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: entry.ctrl,
+                  decoration: InputDecoration(
+                    hintText: tipo,
+                    labelText: entry.id.isNotEmpty ? '$tipo (vinculado ✓)' : tipo,
+                    labelStyle: TextStyle(
+                      color: entry.id.isNotEmpty ? const Color(0xFF10B981) : Colors.grey,
+                      fontSize: 13),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8)),
+                  onChanged: (_) {
+                    if (entry.id.isNotEmpty) setState(() => entry.id = '');
+                  },
+                ),
+              ),
+              if (conGenero) _GeneroChip(
+                label: 'F',
+                selected: entry.genero == 'f',
+                onTap: () => setState(() =>
+                    entry.genero = entry.genero == 'f' ? '' : 'f'),
+              ),
+              if (conGenero) const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Seleccionar de la lista de autores',
+                icon: Icon(Icons.person_search_rounded, size: 20,
+                    color: entry.id.isNotEmpty ? const Color(0xFF10B981) : color),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _abrirSelectorCreditoMulti(tipo, idx, entries, color),
+              ),
+              if (entries.length > 1)
+                IconButton(
+                  tooltip: 'Eliminar',
+                  icon: const Icon(Icons.remove_circle_outline_rounded,
+                      size: 18, color: Color(0xFFEF4444)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() {
+                    entries[idx].dispose();
+                    entries.removeAt(idx);
+                  }),
+                ),
+            ]),
+          );
+        }).toList(),
+        TextButton.icon(
+          onPressed: () => setState(() => entries.add(CreditoEntry())),
+          icon: Icon(Icons.add_circle_outline_rounded, size: 14, color: color),
+          label: Text('+ Añadir $tipo',
+              style: TextStyle(fontSize: 12, color: color)),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+            minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
         ),
-      ),
-      IconButton(
-        tooltip: 'Seleccionar autor de la lista',
-        icon: Icon(Icons.person_search_rounded,
-            size: 20,
-            color: _autorId.isNotEmpty ? const Color(0xFF10B981) : color),
-        visualDensity: VisualDensity.compact,
-        onPressed: () => _abrirSelectorAutor(color),
-      ),
-    ]);
+      ],
+    );
   }
 
-  Future<void> _abrirSelectorAutor(Color color) async {
+  Future<void> _abrirSelectorCreditoMulti(String tipo, int idx,
+      List<CreditoEntry> entries, Color color) async {
     final snap = await FirebaseFirestore.instance
         .collection('empresas').doc(widget.empresaId)
-        .collection('autores')
-        .orderBy('nombre')
-        .limit(300)
-        .get();
+        .collection('autores').orderBy('nombre').limit(300).get();
     if (!mounted) return;
     final result = await showModalBottomSheet<Map<String, String>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
+      context: context, isScrollControlled: true, backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _AutorPickerSheet(
-          docs: snap.docs.map((d) => {
-                'id': d.id,
-                'nombre': d.data()['nombre'] as String? ?? '',
-              }).toList(),
-          color: color),
+      builder: (_) => AutorPickerSheet(
+        docs: snap.docs.map((d) =>
+            {'id': d.id, 'nombre': d.data()['nombre'] as String? ?? ''}).toList(),
+        color: color),
     );
     if (result != null && mounted) {
       setState(() {
-        _autorCtrl.text = result['nombre']!;
-        _autorId        = result['id']!;
+        entries[idx].ctrl.text = result['nombre']!;
+        entries[idx].id        = result['id']!;
       });
     }
   }
@@ -1688,69 +1800,6 @@ class _PantallaEditorItemCatalogoState
           contentPadding: const EdgeInsets.symmetric(vertical: 10)),
       );
 
-  // Campo traductor/ilustrador con selector del catálogo de autores
-  Widget _campoConGenero(TextEditingController ctrl, String label, String generoKey) {
-    final esTraductor = generoKey == '_traductorGenero';
-    final currentId     = esTraductor ? _traductorId     : _ilustradorId;
-    final currentGenero = esTraductor ? _traductorGenero : _ilustradorGenero;
-    void setGenero(String v) => setState(() {
-      if (esTraductor) _traductorGenero = v; else _ilustradorGenero = v;
-    });
-    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-      Expanded(
-        child: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            hintText: label,
-            labelText: currentId.isNotEmpty ? '$label (vinculado ✓)' : label,
-            labelStyle: TextStyle(
-              color: currentId.isNotEmpty ? const Color(0xFF10B981) : Colors.grey,
-              fontSize: 13),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10)),
-          onChanged: (_) {
-            if (currentId.isNotEmpty) setState(() {
-              if (esTraductor) _traductorId = ''; else _ilustradorId = '';
-            });
-          },
-        ),
-      ),
-      _GeneroChip(label: 'F', selected: currentGenero == 'f',
-          onTap: () => setGenero(currentGenero == 'f' ? '' : 'f')),
-      const SizedBox(width: 4),
-      IconButton(
-        tooltip: 'Seleccionar de la lista de autores',
-        icon: Icon(Icons.person_search_rounded, size: 20,
-            color: currentId.isNotEmpty ? const Color(0xFF10B981) : Colors.grey),
-        visualDensity: VisualDensity.compact,
-        onPressed: () => _abrirSelectorCredito(label, esTraductor),
-      ),
-    ]);
-  }
-
-  Future<void> _abrirSelectorCredito(String label, bool esTraductor) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('empresas').doc(widget.empresaId)
-        .collection('autores').orderBy('nombre').limit(300).get();
-    if (!mounted) return;
-    final result = await showModalBottomSheet<Map<String, String>>(
-      context: context, isScrollControlled: true, backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _AutorPickerSheet(
-        docs: snap.docs.map((d) => {'id': d.id, 'nombre': d.data()['nombre'] as String? ?? ''}).toList(),
-        color: const Color(0xFF6366F1)),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        final nombre = result['nombre']!;
-        final id     = result['id']!;
-        if (esTraductor) { _traductorCtrl.text = nombre; _traductorId = id; }
-        else             { _ilustradorCtrl.text = nombre; _ilustradorId = id; }
-      });
-    }
-  }
-
   Widget _card(Widget child) => Container(
     padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
     decoration: BoxDecoration(
@@ -1762,6 +1811,9 @@ class _PantallaEditorItemCatalogoState
   );
 
   Future<void> _guardar(BuildContext context) async {
+    FocusScope.of(context).unfocus(); // commit IME antes de leer los controllers
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
     if (_nombreCtrl.text.trim().isEmpty) return;
     setState(() => _guardando = true);
     final docId = widget.item?['id'] as String?;
@@ -1781,18 +1833,64 @@ class _PantallaEditorItemCatalogoState
       'descripcion':    _descCtrl.text.trim(),
       'activo':         _activo,
     };
-    void opt(String k, String v) { if (v.isNotEmpty) data[k] = v; }
-    opt('campo_autor',       _autorCtrl.text.trim());
-    opt('autor',             _autorCtrl.text.trim());   // alias canónico para web
-    if (_autorId.isNotEmpty) data['campo_autor_id'] = _autorId;
-    opt('campo_traductor',        _traductorCtrl.text.trim());
-    opt('traductor',              _traductorCtrl.text.trim());
-    if (_traductorId.isNotEmpty) data['campo_traductor_id'] = _traductorId;
-    if (_traductorGenero.isNotEmpty) data['campo_traductor_genero'] = _traductorGenero;
-    opt('campo_ilustrador',       _ilustradorCtrl.text.trim());
-    opt('ilustrador',             _ilustradorCtrl.text.trim());
-    if (_ilustradorId.isNotEmpty) data['campo_ilustrador_id'] = _ilustradorId;
-    if (_ilustradorGenero.isNotEmpty) data['campo_ilustrador_genero'] = _ilustradorGenero;
+    void opt(String k, String v) { data[k] = v.isNotEmpty ? v : FieldValue.delete(); }
+
+    // Autores — guarda array + alias canónicos (primer autor = backward compat)
+    final _autLista = _autoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_autLista.isNotEmpty) {
+      data['autores'] = _autLista;
+      final first = _autLista.first;
+      opt('campo_autor', first['nombre'] as String? ?? '');
+      opt('autor',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_autor_id'] = fid;
+    } else {
+      // Si se quitaron todos los autores, borrar campos legacy para que la web no los muestre
+      data['autores']       = [];
+      data['campo_autor']   = '';
+      data['autor']         = '';
+      data['campo_autor_id'] = '';
+    }
+
+    // Traductores
+    final _tradLista = _traductoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_tradLista.isNotEmpty) {
+      data['traductores'] = _tradLista;
+      final first = _tradLista.first;
+      opt('campo_traductor', first['nombre'] as String? ?? '');
+      opt('traductor',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_traductor_id'] = fid;
+      final fg = first['genero'] as String? ?? '';
+      if (fg.isNotEmpty) data['campo_traductor_genero'] = fg;
+    } else {
+      // Si se quitaron todos los traductores, borrar campos legacy
+      data['traductores']           = [];
+      data['campo_traductor']       = FieldValue.delete();
+      data['traductor']             = FieldValue.delete();
+      data['campo_traductor_id']    = FieldValue.delete();
+      data['campo_traductor_genero'] = FieldValue.delete();
+    }
+
+    // Ilustradores
+    final _ilustLista = _ilustradoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_ilustLista.isNotEmpty) {
+      data['ilustradores'] = _ilustLista;
+      final first = _ilustLista.first;
+      opt('campo_ilustrador', first['nombre'] as String? ?? '');
+      opt('ilustrador',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_ilustrador_id'] = fid;
+      final fg = first['genero'] as String? ?? '';
+      if (fg.isNotEmpty) data['campo_ilustrador_genero'] = fg;
+    } else {
+      // Si se quitaron todos los ilustradores, borrar campos legacy
+      data['ilustradores']           = [];
+      data['campo_ilustrador']       = FieldValue.delete();
+      data['ilustrador']             = FieldValue.delete();
+      data['campo_ilustrador_id']    = FieldValue.delete();
+      data['campo_ilustrador_genero'] = FieldValue.delete();
+    }
     opt('campo_coleccion',   _coleccionCtrl.text.trim());
     opt('coleccion',         _coleccionCtrl.text.trim()); // alias canónico para web
     opt('campo_isbn',        _isbnCtrl.text.trim());
@@ -1805,6 +1903,8 @@ class _PantallaEditorItemCatalogoState
     opt('campo_dia',         _diaCtrl.text.trim());
     data['campo_anio'] = _anio.toString();
     data['preventa']   = _preventa;
+    final _ebookPath = _ebookPathCtrl.text.trim();
+    if (_ebookPath.isNotEmpty) data['ebook_storage_path'] = _ebookPath;
     if (_preventa) {
       final envioLejano = _preventaEnvioCtrl.text.trim();
       if (envioLejano.isNotEmpty) {
@@ -1830,6 +1930,113 @@ class _PantallaEditorItemCatalogoState
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+}
+
+// ── Widget para subir/gestionar ebook a Firebase Storage ──────────────────────
+
+class CampoEbookStorage extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String empresaId;
+  final String? itemId;
+  final bool subiendoEbook;
+  final ValueChanged<bool> onSubiendo;
+  final Color color;
+
+  const CampoEbookStorage({
+    super.key,
+    required this.ctrl,
+    required this.empresaId,
+    required this.itemId,
+    required this.subiendoEbook,
+    required this.onSubiendo,
+    this.color = const Color(0xFF6366F1),
+  });
+
+  Future<void> _subir(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['epub', 'pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    onSubiendo(true);
+    try {
+      final ext  = file.extension ?? 'epub';
+      final id   = itemId ?? 'ebook_${DateTime.now().millisecondsSinceEpoch}';
+      final path = 'ebooks/$empresaId/$id/ebook.$ext';
+      final ref  = FirebaseStorage.instance.ref(path);
+      await ref.putData(
+        file.bytes!,
+        SettableMetadata(contentType: ext == 'pdf' ? 'application/pdf' : 'application/epub+zip'),
+      );
+      ctrl.text = path;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Ebook subido correctamente'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al subir: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      onSubiendo(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = ctrl.text.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Archivo ebook (EPUB/PDF)',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 2),
+            Text(
+              path.isEmpty ? 'Sin archivo subido' : path.split('/').last,
+              style: TextStyle(
+                fontSize: 12,
+                color: path.isEmpty ? Colors.grey[400] : const Color(0xFF10B981),
+                fontStyle: path.isEmpty ? FontStyle.italic : FontStyle.normal,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ]),
+        ),
+        if (subiendoEbook)
+          const SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          TextButton.icon(
+            onPressed: () => _subir(context),
+            icon: Icon(path.isEmpty ? Icons.upload_file_rounded : Icons.refresh_rounded,
+                size: 15, color: color),
+            label: Text(path.isEmpty ? 'Subir' : 'Cambiar',
+                style: TextStyle(fontSize: 12, color: color)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+      ]),
+    );
   }
 }
 

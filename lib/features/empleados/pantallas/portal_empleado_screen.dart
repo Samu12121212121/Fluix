@@ -687,7 +687,7 @@ class PortalEmpleadoScreen extends StatelessWidget {
             GestionFichajesScreen(empresaId: empresaId, esAdmin: modoAdmin)));
       case 'Vacaciones':
         Navigator.push(ctx, MaterialPageRoute(builder: (_) =>
-            VacacionesScreen(empresaId: empresaId)));
+            VacacionesScreen(empresaId: empresaId, embedded: false)));
       case 'Nóminas':
         NominasEmpleadoWidget.mostrar(ctx,
             empleadoId: _uid, empresaId: empresaId, nombreEmpleado: nombre);

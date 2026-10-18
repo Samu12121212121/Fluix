@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../services/stock_service.dart';
 
 class GestionarCatalogoScreen extends StatefulWidget {
   final String empresaId;
@@ -11,14 +12,23 @@ class GestionarCatalogoScreen extends StatefulWidget {
   State<GestionarCatalogoScreen> createState() => _GestionarCatalogoScreenState();
 }
 
-class _GestionarCatalogoScreenState extends State<GestionarCatalogoScreen> {
+class _GestionarCatalogoScreenState extends State<GestionarCatalogoScreen>
+    with SingleTickerProviderStateMixin {
   final _searchCtrl = TextEditingController();
   String _busqueda = '';
   String _categoriaFiltro = 'Todos';
+  late final TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _tabCtrl.dispose();
     super.dispose();
   }
 
@@ -100,9 +110,39 @@ class _GestionarCatalogoScreenState extends State<GestionarCatalogoScreen> {
             onPressed: _abrirNuevo,
           ),
         ],
+        bottom: TabBar(
+          controller: _tabCtrl,
+          tabs: const [
+            Tab(icon: Icon(Icons.inventory_2_outlined, size: 18), text: 'Catálogo'),
+            Tab(icon: Icon(Icons.warning_amber_rounded, size: 18), text: 'Stock'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabCtrl,
         children: [
+          _buildCatalogo(),
+          _PanelStock(empresaId: widget.empresaId),
+        ],
+      ),
+      floatingActionButton: ListenableBuilder(
+        listenable: _tabCtrl,
+        builder: (_, __) => _tabCtrl.index == 0
+            ? FloatingActionButton.extended(
+                onPressed: _abrirNuevo,
+                backgroundColor: const Color(0xFF7B1FA2),
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.add),
+                label: const Text('Nuevo producto'),
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildCatalogo() {
+    return Column(
+      children: [
           // ── Buscador ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(12),
@@ -269,15 +309,7 @@ class _GestionarCatalogoScreenState extends State<GestionarCatalogoScreen> {
               },
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirNuevo,
-        backgroundColor: const Color(0xFF7B1FA2),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo producto'),
-      ),
+      ],
     );
   }
 }
@@ -307,6 +339,9 @@ class _ProductoItem extends StatelessWidget {
     final iva = (data['iva_porcentaje'] as num?)?.toDouble() ?? 10;
     final activo = data['activo'] as bool? ?? true;
     final imgUrl = data['thumbnail_url'] as String? ?? data['imagen_url'] as String?;
+    final controlStock = data['control_stock'] as bool? ?? false;
+    final stock = controlStock ? (data['stock'] as num?)?.toInt() : null;
+    final stockMinimo = (data['stock_minimo'] as num?)?.toInt() ?? 5;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -361,6 +396,10 @@ class _ProductoItem extends StatelessWidget {
                     Text('IVA ${iva.toStringAsFixed(0)}%',
                         style: TextStyle(
                             fontSize: 10, color: Colors.grey[500])),
+                    if (stock != null) ...[
+                      const SizedBox(width: 8),
+                      _StockBadge(stock: stock, minimo: stockMinimo),
+                    ],
                   ]),
                 ],
               ),
@@ -484,9 +523,12 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
   late final TextEditingController _etiquetaPrecio2Ctrl;
   late final TextEditingController _categoriaCtrl;
   late final TextEditingController _imagenCtrl;
+  late final TextEditingController _stockCtrl;
+  late final TextEditingController _stockMinimoCtrl;
   late double _iva;
   late List<String> _alergenos;
   late String _destino;
+  late bool _controlStock;
   bool _guardando = false;
 
   @override
@@ -508,6 +550,13 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
     _iva = (widget.data['iva_porcentaje'] as num?)?.toDouble() ?? 10;
     _alergenos = List<String>.from(widget.data['alergenos'] ?? []);
     _destino = widget.data['destino'] as String? ?? 'cocina';
+    _controlStock = widget.data['control_stock'] as bool? ?? false;
+    final stockVal = (widget.data['stock'] as num?)?.toInt();
+    _stockCtrl = TextEditingController(
+        text: stockVal != null ? '$stockVal' : '');
+    final stockMin = (widget.data['stock_minimo'] as num?)?.toInt();
+    _stockMinimoCtrl = TextEditingController(
+        text: stockMin != null ? '$stockMin' : '5');
   }
 
   @override
@@ -518,6 +567,8 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
     _etiquetaPrecio2Ctrl.dispose();
     _categoriaCtrl.dispose();
     _imagenCtrl.dispose();
+    _stockCtrl.dispose();
+    _stockMinimoCtrl.dispose();
     super.dispose();
   }
 
@@ -541,6 +592,9 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
       final imgUrl =
           _imagenCtrl.text.trim().isEmpty ? null : _imagenCtrl.text.trim();
 
+      final stockNuevo = int.tryParse(_stockCtrl.text.trim());
+      final stockMinimoNuevo = int.tryParse(_stockMinimoCtrl.text.trim()) ?? 5;
+
       final payload = {
         'nombre': nombre,
         'precio': precio,
@@ -549,6 +603,10 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         'activo': true,
         'alergenos': _alergenos,
         'destino': _destino,
+        'control_stock': _controlStock,
+        if (_controlStock && stockNuevo != null) 'stock': stockNuevo,
+        if (_controlStock) 'stock_minimo': stockMinimoNuevo,
+        if (!_controlStock) 'stock': FieldValue.delete(),
         if (precio2 != null) 'precio2': precio2,
         if (precio2 == null) 'precio2': FieldValue.delete(),
         if (etiqueta2.isNotEmpty) 'etiqueta_precio2': etiqueta2,
@@ -651,6 +709,65 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
                 ),
               ]),
               const SizedBox(height: 16),
+
+              // ── Control de stock ────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _controlStock
+                      ? const Color(0xFF1565C0).withValues(alpha: 0.05)
+                      : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _controlStock
+                        ? const Color(0xFF1565C0).withValues(alpha: 0.3)
+                        : Colors.grey[300]!,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.inventory_2_outlined,
+                          size: 16, color: Color(0xFF1565C0)),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text('Control de stock',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                      Switch(
+                        value: _controlStock,
+                        activeColor: const Color(0xFF1565C0),
+                        onChanged: (v) => setState(() => _controlStock = v),
+                      ),
+                    ]),
+                    if (_controlStock) ...[
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Expanded(
+                          child: _field(
+                            _stockCtrl, 'Stock actual', Icons.storage_outlined,
+                            tipo: TextInputType.number,
+                            hint: '0',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _field(
+                            _stockMinimoCtrl, 'Mínimo alerta',
+                            Icons.warning_amber_outlined,
+                            tipo: TextInputType.number,
+                            hint: '5',
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
               // Alergenos (14 UE)
               Align(
                 alignment: Alignment.centerLeft,
@@ -726,6 +843,239 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
+    );
+  }
+}
+
+// ── Badge de stock en la tarjeta de producto ──────────────────────────────────
+
+class _StockBadge extends StatelessWidget {
+  final int stock;
+  final int minimo;
+  const _StockBadge({required this.stock, required this.minimo});
+
+  @override
+  Widget build(BuildContext context) {
+    final agotado = stock <= 0;
+    final bajo = stock <= minimo;
+    final color = agotado
+        ? Colors.red
+        : bajo
+            ? Colors.orange
+            : Colors.green;
+    final label = agotado ? 'Agotado' : '$stock uds';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(
+          agotado
+              ? Icons.block_rounded
+              : bajo
+                  ? Icons.warning_amber_rounded
+                  : Icons.inventory_2_outlined,
+          size: 9,
+          color: color,
+        ),
+        const SizedBox(width: 3),
+        Text(label,
+            style: TextStyle(
+                fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+      ]),
+    );
+  }
+}
+
+// ── Panel de alertas de stock (tab "Stock") ───────────────────────────────────
+
+class _PanelStock extends StatelessWidget {
+  final String empresaId;
+  const _PanelStock({required this.empresaId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AlertaStock>>(
+      stream: StockService().alertasStockStream(empresaId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final alertas = snap.data ?? [];
+        if (alertas.isEmpty) {
+          return Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.check_circle_outline_rounded,
+                  size: 56, color: Colors.green[300]),
+              const SizedBox(height: 12),
+              const Text('Todo el stock está al día',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(
+                'No hay productos con stock bajo\nni agotados.',
+                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ]),
+          );
+        }
+
+        final agotados = alertas.where((a) => a.agotado).toList();
+        final bajos = alertas.where((a) => !a.agotado).toList();
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (agotados.isNotEmpty) ...[
+              _seccionHeader('Agotados', Colors.red, Icons.block_rounded,
+                  agotados.length),
+              ...agotados.map((a) => _AlertaItem(
+                    alerta: a,
+                    empresaId: empresaId,
+                  )),
+              const SizedBox(height: 16),
+            ],
+            if (bajos.isNotEmpty) ...[
+              _seccionHeader('Stock bajo', Colors.orange,
+                  Icons.warning_amber_rounded, bajos.length),
+              ...bajos.map((a) => _AlertaItem(
+                    alerta: a,
+                    empresaId: empresaId,
+                  )),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _seccionHeader(
+      String titulo, Color color, IconData icono, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        Icon(icono, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(titulo,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color)),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text('$count',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color)),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AlertaItem extends StatelessWidget {
+  final AlertaStock alerta;
+  final String empresaId;
+  const _AlertaItem({required this.alerta, required this.empresaId});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = alerta.agotado ? Colors.red : Colors.orange;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
+      ),
+      color: color.withValues(alpha: 0.04),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(alerta.nombre,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    alerta.agotado
+                        ? 'Agotado · mínimo ${alerta.stockMinimo}'
+                        : 'Stock: ${alerta.stock} · mínimo ${alerta.stockMinimo}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ]),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _dialogoAjustar(context),
+            icon: const Icon(Icons.edit_outlined, size: 14),
+            label: const Text('Ajustar', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1565C0),
+              side: const BorderSide(color: Color(0xFF1565C0)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _dialogoAjustar(BuildContext context) async {
+    final ctrl = TextEditingController(
+        text: alerta.stock > 0 ? '${alerta.stock}' : '');
+    final nuevo = await showDialog<int>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Ajustar stock · ${alerta.nombre}'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Nuevo stock',
+            prefixIcon: Icon(Icons.storage_outlined),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final v = int.tryParse(ctrl.text.trim());
+              Navigator.pop(context, v);
+            },
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0)),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (nuevo == null) return;
+    await StockService().ajustarStock(
+      empresaId: empresaId,
+      productoId: alerta.productoId,
+      nuevoStock: nuevo,
     );
   }
 }

@@ -58,6 +58,9 @@ import 'pantalla_grafo_app.dart';
 import '../../soporte/pantallas/modulo_soporte_screen.dart';
 import '../../negocio_publico/pantallas/modulo_app_screen.dart';
 import '../../../services/stock_service.dart';
+import '../../multisede/servicios/multisede_service.dart';
+import '../../multisede/pantallas/selector_sede_screen.dart';
+import '../../multisede/pantallas/bottom_sheet_sedes.dart';
 import '../../../core/widgets/flux_toast.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../core/widgets/fluix_bottom_nav.dart';
@@ -88,6 +91,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   String _nombreUsuario = '';
   String _nombreEmpresa = '';
   bool _cargando = true;
+  bool _esMultiSede = false;
   bool _generandoDemo = false;
   List<String> _modulosActivos = [];
   SesionUsuario? _sesion;
@@ -705,15 +709,19 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         // Cargar sesión con permisos
         final sesion = await PermisosService().cargarSesion();
         debugPrint(' ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
+        // Comprobar si el usuario gestiona varias sedes
+        final sedes = await MultisedeService().obtenerSedes();
+
         if (!mounted) return;
         setState(() {
-          _empresaId = empresaId;
-          _empresaIdPropia ??= empresaId;
+          _empresaId = (empresaId?.isNotEmpty == true) ? empresaId : null;
+          _empresaIdPropia ??= _empresaId;
           _sesion = sesion;
           _nombreUsuario = data['nombre'] ??
               FirebaseAuth.instance.currentUser?.displayName ??
               '';
           _cargando = false;
+          _esMultiSede = sedes.length > 1;
         });
         // Suscribir a notificaciones de la empresa
         if (empresaId != null) {
@@ -888,6 +896,19 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
+              if (_esMultiSede) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'cambiar_sede',
+                  child: ListTile(
+                    leading: Icon(Icons.swap_horiz_rounded,
+                        color: Color(0xFF7C3AED)),
+                    title: Text('Cambiar negocio',
+                        style: TextStyle(color: Color(0xFF7C3AED))),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'vista_usuario',
@@ -1539,6 +1560,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     return Container(
       color: bg,
       child: ReorderableListView.builder(
+        // Key ensures full teardown when company changes, preventing parentDataDirty assertion
+        key: ValueKey(_empresaId),
         padding: const EdgeInsets.only(top: 10, bottom: 24),
         itemCount: visibles.length,
         buildDefaultDragHandles: false,
@@ -2572,7 +2595,12 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (index == 0 || index == 1) {
           setState(() => _paginaHome = index);
         } else if (index == 4) {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => PantallaPerfil(sesion: _sesion, dark: _darkMode)));
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => FluixModuleShell(
+              child: PantallaPerfil(sesion: _sesion, dark: _darkMode),
+              empresaId: _empresaId,
+            ),
+          ));
         }
       },
       child: SizedBox(width: 56, child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -3023,9 +3051,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (_sesion?.esPropietarioPlatforma == true)
         _SidebarItem(Icons.account_tree_rounded, 'Grafo App', 'grafo_app'),
     ];
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOut,
+    return Container(
       width: sidebarWidth,
       decoration: BoxDecoration(
           color: bg, border: Border(right: BorderSide(color: border))),
@@ -3506,6 +3532,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           tooltip: dark ? 'Modo claro' : 'Modo oscuro',
           onPressed: () => AppSettings.setDark(!dark),
           padding: const EdgeInsets.symmetric(horizontal: 4),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
@@ -3527,6 +3554,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   onPressed: () => _mostrarNotificacionesPopup(context, dark),
                   icon: Icon(Icons.notifications_outlined, size: 20,
                       color: dark ? Colors.white70 : const Color(0xFF64748B)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
                 if (count > 0)
                   Positioned(top: 6, right: 6, child: Container(
@@ -3563,7 +3592,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               ),
               const SizedBox(width: 6),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 130),
+                constraints: const BoxConstraints(maxWidth: 90),
                 child: Text(empresaLabel,
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: text)),
@@ -5382,9 +5411,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 16, 14),
           child: Row(children: [
-            Text('Agenda de los próximos 7 días',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: text)),
-            const Spacer(),
+            Flexible(child: Text('Agenda 7 días',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: text),
+                overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 8),
             // Botón "Hoy"
             if (!isCurrentWeek)
               GestureDetector(
@@ -6476,8 +6506,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final sel = _rightPanelTab == tab;
     return GestureDetector(
       onTap: () => setState(() => _rightPanelTab = tab),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: sel ? const Color(0xFF3B82F6) : Colors.transparent,
@@ -7011,7 +7040,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'empleados':      screen = ModuloEmpleadosScreen(empresaId: eid, sesion: ses); break;
       case 'pedidos':        screen = ModuloPedidosNuevoScreen(empresaId: eid); break;
       case 'tareas':         screen = ModuloTareasScreen(empresaId: eid); break;
-      case 'cuentas':        screen = GestionarCuentasScreen(sesion: _sesion); break;
+      case 'cuentas':        screen = GestionarCuentasScreen(sesion: _sesion, embedded: true); break;
       case 'perfil':         screen = PantallaPerfil(sesion: _sesion, dark: _darkMode); break;
       case 'reservas':       screen = ModuloReservasScreen(empresaId: eid, sesion: ses); break;
       case 'valoraciones':   screen = ModuloValoraciones(empresaId: eid); break;
@@ -7100,7 +7129,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                                 autorUid: _sesion?.uid ?? '',
                               );
       case 'grafo_app':       return _sesion?.esPropietarioPlatforma == true ? const PantallaGrafoApp() : const Center(child: Text('Sin acceso'));
-      case 'cuentas':         return _sesion?.esPropietarioPlatforma == true ? GestionarCuentasScreen(sesion: _sesion) : const Center(child: Text('Sin acceso'));
+      case 'cuentas':         return _sesion?.esPropietarioPlatforma == true ? GestionarCuentasScreen(sesion: _sesion, embedded: true) : const Center(child: Text('Sin acceso'));
       default:                return Center(child: Text('Módulo "$moduloId" no disponible', style: TextStyle(color: Colors.red)));
     }
   }
@@ -7245,8 +7274,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: activo ? color : Colors.grey[100],
@@ -8041,7 +8069,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
 
     if (!mounted) return;
-    await showDialog(
+
+    // Returns (id, nombre) or null if cancelled.
+    // We apply setState AFTER the dialog is fully dismissed to avoid concurrent
+    // rebuilds during the dialog's exit animation (parentDataDirty assertion).
+    final seleccion = await showDialog<(String, String)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx2, setModal) => AlertDialog(
@@ -8049,24 +8081,25 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           title: Row(children: [
             const Icon(Icons.business_rounded, size: 20),
             const SizedBox(width: 8),
-            const Text('Seleccionar empresa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const Spacer(),
+            const Expanded(child: Text('Seleccionar empresa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
             if (_empresaId != _empresaIdPropia)
-              TextButton.icon(
-                icon: const Icon(Icons.home_rounded, size: 14),
-                label: const Text('Mi empresa', style: TextStyle(fontSize: 12)),
+              IconButton(
+                icon: const Icon(Icons.home_rounded, size: 18),
+                tooltip: 'Mi empresa',
                 onPressed: () async {
-                  Navigator.pop(ctx2);
                   final propiaId = _empresaIdPropia;
                   if (propiaId == null) return;
                   final empDoc = await FirebaseFirestore.instance.collection('empresas').doc(propiaId).get();
                   final nombre = empDoc.data()?['perfil']?['nombre'] ?? empDoc.data()?['nombre'] ?? '';
-                  if (mounted) setState(() { _empresaId = propiaId; _nombreEmpresa = nombre.toString(); });
+                  if (ctx2.mounted) Navigator.pop(ctx2, (propiaId, nombre.toString()));
                 },
               ),
           ]),
           content: SizedBox(
-            width: 400, height: 450,
+            // double.maxFinite (not infinity) prevents AlertDialog's IntrinsicWidth
+            // from traversing into ListView, which would throw "RenderViewport does
+            // not support returning intrinsic dimensions".
+            width: double.maxFinite, height: 450,
             child: Column(children: [
               TextField(
                 controller: busqCtrl,
@@ -8107,11 +8140,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                       title: Text(nombre.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       subtitle: Text(filtradas[i].id, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       trailing: esActual ? const Icon(Icons.check_circle, size: 16, color: Color(0xFF00FFC8)) : null,
-                      onTap: () async {
-                        Navigator.pop(ctx2);
-                        final id = filtradas[i].id;
-                        if (mounted) setState(() { _empresaId = id; _nombreEmpresa = nombre.toString(); });
-                      },
+                      onTap: () => Navigator.pop(ctx2, (filtradas[i].id, nombre.toString())),
                     );
                   },
                 ),
@@ -8122,6 +8151,21 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       ),
     );
     busqCtrl.dispose();
+
+    // Defer setState to the next frame so the dialog's exit animation fully
+    // completes before the dashboard rebuilds. Calling setState synchronously
+    // after showDialog returns can trigger parentDataDirty / _debugDuringDeviceUpdate
+    // assertions because the dialog route's animation is still in progress.
+    if (seleccion != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _empresaId = seleccion.$1;
+          _nombreEmpresa = seleccion.$2;
+          _modulosListaOrdenada = null;
+        });
+      });
+    }
   }
 
   void _manejarMenu(String accion) {
@@ -8133,6 +8177,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             builder: (_) => PantallaPerfil(sesion: _sesion, dark: _darkMode),
           ),
         );
+        break;
+      case 'cambiar_sede':
+        _abrirSelectorSede();
         break;
       case 'vista_usuario':
         Navigator.of(context).pushAndRemoveUntil(
@@ -8165,6 +8212,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                         }
                       }
                       PermisosService().limpiarSesion();
+                      await MultisedeService().limpiarEmpresaActiva();
                       debugPrint('🔴 SIGNOUT: permisos limpiados');
                       try {
                         await FirebaseAuth.instance.signOut();
@@ -8186,6 +8234,27 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         );
         break;
     }
+  }
+
+  Future<void> _abrirSelectorSede() async {
+    final sedes = await MultisedeService().obtenerSedes();
+    if (!mounted) return;
+
+    final seleccionada = await showModalBottomSheet<SedeInfo>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BottomSheetSedes(
+        sedes: sedes,
+        empresaActual: _empresaId ?? '',
+      ),
+    );
+    if (seleccionada == null) return;
+    if (seleccionada.empresaId == _empresaId) return;
+
+    await MultisedeService().guardarEmpresaActiva(seleccionada.empresaId);
+    if (!mounted) return;
+    setState(() => _cargando = true);
+    await _cargarDatosUsuario();
   }
 
   String _obtenerIniciales(String nombre) {
@@ -8341,7 +8410,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   Widget _buildAlertaStockBajo() {
     if (_empresaId == null) return const SizedBox.shrink();
 
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<List<AlertaStock>>(
       future: StockService().productosConStockBajo(_empresaId!),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -8357,7 +8426,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 color: Colors.orange.shade700, size: 28),
             content: Text(
               '⚠️ ${productos.length} producto(s) con stock bajo: '
-              '${productos.take(3).map((p) => p['nombre']).join(', ')}'
+              '${productos.take(3).map((p) => p.nombre).join(', ')}'
               '${productos.length > 3 ? '...' : ''}',
               style: TextStyle(
                   fontSize: 13,
@@ -8382,15 +8451,13 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (_, i) {
                           final p = productos[i];
-                          final stock = p['stock'] ?? 0;
-                          final min = p['stock_minimo'] ?? 0;
                           return ListTile(
                             dense: true,
                             leading: const Icon(Icons.warning_amber_rounded,
                                 color: Colors.orange, size: 20),
-                            title: Text(p['nombre'] ?? '',
+                            title: Text(p.nombre,
                                 style: const TextStyle(fontSize: 13)),
-                            trailing: Text('$stock / $min',
+                            trailing: Text('${p.stock} / ${p.stockMinimo}',
                                 style: const TextStyle(
                                     fontSize: 12, color: Colors.red,
                                     fontWeight: FontWeight.w600)),

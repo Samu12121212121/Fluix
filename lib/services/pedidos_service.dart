@@ -229,20 +229,17 @@ class PedidosService {
     EstadisticasTriggerService().pedidoCreado(empresaId, total);
 
     // ── Decrementar stock ──────────────────────────────────────────────────
-    // Se hace después de crear el pedido para no bloquear el flujo de cobro.
-    // Si falla, el pedido ya está registrado — el stock puede corregirse manualmente.
+    // Idempotente: StockService escribe stock_descontado:true en el pedido
+    // al finalizar. Si crearPedido se reintenta, la segunda llamada es no-op.
     try {
       await StockService().decrementarStockPorVenta(
         empresaId: empresaId,
+        pedidoId: ref.id,
         lineas: lineas,
       );
     } on StockInsuficienteException catch (e) {
-      // Stock insuficiente — el pedido se registra pero se avisa
       debugPrint('⚠️ Stock insuficiente: $e');
-      // El llamador puede capturar esta excepción para mostrar un aviso
-      // sin cancelar el cobro (política: cobrar primero, ajustar stock después)
     } catch (e) {
-      // Error inesperado — no bloquear el cobro
       debugPrint('⚠️ Error al decrementar stock: $e');
     }
 
@@ -269,22 +266,26 @@ class PedidosService {
       'historial': FieldValue.arrayUnion([entrada.toMap()]),
     });
 
-    // ── Descontar stock al entregar ──────────────────────────────────────────
-    // Solo descuenta UNA VEZ: cuando el estado cambia a "entregado".
-    // Usa transacción para evitar concurrencia.
-    if (nuevoEstado == EstadoPedido.entregado) {
-      final pedidoDoc = await _pedidos(empresaId).doc(pedidoId).get();
-      final lineas = (pedidoDoc.data()?['lineas'] as List<dynamic>? ?? []);
-      final batch  = _db.batch();
-      for (final l in lineas) {
-        final productoId = l['producto_id'] as String?;
-        if (productoId == null || productoId.isEmpty) continue;
-        final cant = (l['cantidad'] as num?)?.toInt() ?? 0;
-        if (cant <= 0) continue;
-        final prodRef = _productos(empresaId).doc(productoId);
-        batch.update(prodRef, {'stock': FieldValue.increment(-cant)});
+    // ── Stock al cancelar ────────────────────────────────────────────────────
+    // El descuento se hace en crearPedido (idempotente vía stock_descontado).
+    // Aquí solo restauramos si se cancela un pedido que ya tenía stock descontado.
+    if (nuevoEstado == EstadoPedido.cancelado) {
+      try {
+        final pedidoDoc = await _pedidos(empresaId).doc(pedidoId).get();
+        final lineasRaw = (pedidoDoc.data()?['lineas'] as List<dynamic>? ?? []);
+        final lineas = lineasRaw
+            .map((l) => LineaPedido.fromMap(l as Map<String, dynamic>))
+            .toList();
+        if (lineas.isNotEmpty) {
+          await StockService().restaurarStockPorCancelacion(
+            empresaId: empresaId,
+            pedidoId: pedidoId,
+            lineas: lineas,
+          );
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error al restaurar stock en cancelación: $e');
       }
-      await batch.commit();
     }
   }
 

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Chip que muestra el cliente vinculado a una tarea con navegación directa.
-class ClienteVinculadoWidget extends StatelessWidget {
+// Stateful para cachear el Future y evitar Firestore reads en cada rebuild del padre.
+class ClienteVinculadoWidget extends StatefulWidget {
   final String empresaId;
   final String clienteId;
   final VoidCallback? onTap;
@@ -15,14 +16,27 @@ class ClienteVinculadoWidget extends StatelessWidget {
   });
 
   @override
+  State<ClienteVinculadoWidget> createState() => _ClienteVinculadoWidgetState();
+}
+
+class _ClienteVinculadoWidgetState extends State<ClienteVinculadoWidget> {
+  late Future<DocumentSnapshot> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(widget.empresaId)
+        .collection('clientes')
+        .doc(widget.clienteId)
+        .get();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(empresaId)
-          .collection('clientes')
-          .doc(clienteId)
-          .get(),
+      future: _future,
       builder: (context, snap) {
         if (!snap.hasData) {
           return const SizedBox(
@@ -47,7 +61,7 @@ class ClienteVinculadoWidget extends StatelessWidget {
           ),
           backgroundColor: const Color(0xFF00796B).withValues(alpha: 0.08),
           side: const BorderSide(color: Color(0xFF00796B)),
-          onPressed: onTap,
+          onPressed: widget.onTap,
           tooltip: 'Ver ficha del cliente',
         );
       },

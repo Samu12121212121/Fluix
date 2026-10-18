@@ -7,19 +7,32 @@ import 'package:flutter/material.dart';
 // Sin autenticación. Guarda en empresas/{id}/reservas con origen:'web'
 // ═════════════════════════════════════════════════════════════════════════════
 
-class PantallaReservaPublica extends StatelessWidget {
+class PantallaReservaPublica extends StatefulWidget {
   final String empresaId;
   const PantallaReservaPublica({super.key, required this.empresaId});
+
+  @override
+  State<PantallaReservaPublica> createState() => _PantallaReservaPublicaState();
+}
+
+class _PantallaReservaPublicaState extends State<PantallaReservaPublica> {
+  late final Future<DocumentSnapshot> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = FirebaseFirestore.instance
+        .collection('empresas')
+        .doc(widget.empresaId)
+        .get();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('empresas')
-            .doc(empresaId)
-            .get(),
+        future: _future,
         builder: (ctx, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -34,7 +47,7 @@ class PantallaReservaPublica extends StatelessWidget {
           final color  = _parseColor(data['color_primario'] as String?) ??
               const Color(0xFF1565C0);
           return _FormReservaPublica(
-            empresaId: empresaId,
+            empresaId: widget.empresaId,
             nombreEmpresa: nombre,
             logoUrl: logo,
             color: color,

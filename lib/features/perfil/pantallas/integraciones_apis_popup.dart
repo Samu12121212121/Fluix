@@ -914,7 +914,7 @@ class _ApiCardState extends State<_ApiCard> {
               child: Icon(Icons.close_rounded, color: subC2, size: 18)),
           ]),
           content: SizedBox(
-            width: 420,
+            width: double.infinity,
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.only(top: 14, bottom: 4),

@@ -8,21 +8,21 @@ import '../../../models/negocio_publico_model.dart';
 // ═══════════════════════════════════════════════════════════════════
 class _C {
   static const negro      = Color(0xFF0A0F23);
-  static const grisOscuro = Color(0xFF151932);
-  static const grisMedio  = Color(0xFF1E2139);
-  static const grisClaro  = Color(0xFF2A2E45);
-  static const accent     = Color(0xFF00FFC8);
-  static const accentRosa = Color(0xFFFF3296);
+  static const grisOscuro = Color(0xFFEEF2F7);
+  static const grisMedio  = Color(0xFFFFFFFF);
+  static const grisClaro  = Color(0xFFDDE3ED);
+  static const accent     = Color(0xFF00BFA5);
+  static const accentRosa = Color(0xFFE91E63);
   static const oro        = Color(0xFFFFB830);
-  static const texto      = Color(0xFFFFFFFF);
-  static const textoMuted = Color(0xFFB0B3C1);
-  static const textoHint  = Color(0xFF6B6E82);
+  static const texto      = Color(0xFF1E293B);
+  static const textoMuted = Color(0xFF64748B);
+  static const textoHint  = Color(0xFF94A3B8);
 
   // Colores de carga calendario
-  static const cargaLibre     = Color(0xFF00C896); // verde  — 0 reservas
-  static const cargaBaja      = Color(0xFFFFD166); // amarillo — 1–4
-  static const cargaMedia     = Color(0xFFFF9A3C); // naranja — 5–9
-  static const cargaAlta      = Color(0xFFFF4444); // rojo   — 10+
+  static const cargaLibre     = Color(0xFF00C896);
+  static const cargaBaja      = Color(0xFFFFD166);
+  static const cargaMedia     = Color(0xFFFF9A3C);
+  static const cargaAlta      = Color(0xFFFF4444);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -125,57 +125,29 @@ class TabReservasScreen extends StatefulWidget {
 
 class _TabReservasScreenState extends State<TabReservasScreen> {
   String? _categoriaSeleccionada;
-  _ServicioUI? _servicioSeleccionado;
-
-  // Controlador para el DraggableScrollable del booking sheet
-  final DraggableScrollableController _sheetCtrl = DraggableScrollableController();
-
-  @override
-  void dispose() {
-    _sheetCtrl.dispose();
-    super.dispose();
-  }
 
   void _seleccionarServicio(_ServicioUI s) {
-    setState(() => _servicioSeleccionado = s);
-  }
-
-  void _cerrarSheet() {
-    setState(() => _servicioSeleccionado = null);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _BookingSheet(
+        negocio: widget.negocio,
+        servicio: s,
+        onClose: () => Navigator.pop(context),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // ── Fondo: lista de servicios ──────────────────────────
-        _CuerpoServicios(
-          negocio: widget.negocio,
-          categoriaActiva: _categoriaSeleccionada,
-          onCategoriaChanged: (c) => setState(() => _categoriaSeleccionada = c),
-          onServicioTap: _seleccionarServicio,
-          bloqueado: _servicioSeleccionado != null,
-        ),
-
-        // ── Overlay oscuro cuando el sheet está abierto ────────
-        if (_servicioSeleccionado != null)
-          GestureDetector(
-            onTap: _cerrarSheet,
-            child: AnimatedOpacity(
-              opacity: _servicioSeleccionado != null ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: Container(color: Colors.black.withValues(alpha: 0.55)),
-            ),
-          ),
-
-        // ── Sheet de booking ───────────────────────────────────
-        if (_servicioSeleccionado != null)
-          _BookingSheet(
-            negocio: widget.negocio,
-            servicio: _servicioSeleccionado!,
-            onClose: _cerrarSheet,
-          ),
-      ],
+    return _CuerpoServicios(
+      negocio: widget.negocio,
+      categoriaActiva: _categoriaSeleccionada,
+      onCategoriaChanged: (c) => setState(() => _categoriaSeleccionada = c),
+      onServicioTap: _seleccionarServicio,
+      bloqueado: false,
     );
   }
 }
@@ -200,6 +172,7 @@ class _CuerpoServicios extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (negocio.empresaIdVinculada.isEmpty) return _EmptyServicios();
     // Fuente única: empresas/{empresaIdVinculada}/servicios (mismo módulo de Mi App)
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -299,8 +272,7 @@ class _Header extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFF00FFC8), Color(0xFF00D4AA)]),
+              color: _C.accent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Row(children: [
@@ -605,16 +577,12 @@ class _BookingSheet extends StatefulWidget {
 // Pasos del flow
 enum _Paso { calendario, hora, profesional, confirmacion }
 
-class _BookingSheetState extends State<_BookingSheet>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _anim;
-  late Animation<Offset> _slide;
-
+class _BookingSheetState extends State<_BookingSheet> {
   _Paso _paso = _Paso.calendario;
   DateTime? _diaSeleccionado;
   String? _horaSeleccionada;
-  String? _profesionalId;  // ← Guardamos ID en lugar de nombre
-  String? _profesionalNombre;  // ← Nombre para mostrar
+  String? _profesionalId;
+  String? _profesionalNombre;
 
   // Cache de conteos de reservas por día (date-string → int)
   final Map<String, int> _cargaDias = {};
@@ -623,20 +591,7 @@ class _BookingSheetState extends State<_BookingSheet>
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 380));
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
-    _anim.forward();
     _cargarCargaCalendario();
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
   }
 
   // Carga cuántas reservas hay por día para el mes actual y el siguiente
@@ -683,59 +638,40 @@ class _BookingSheetState extends State<_BookingSheet>
   int _reservasDia(DateTime d) =>
       _cargaDias['${d.year}-${d.month}-${d.day}'] ?? 0;
 
-  Future<void> _cerrar() async {
-    await _anim.reverse();
-    widget.onClose();
-  }
+  void _cerrar() => widget.onClose();
 
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.of(context).size.height;
+    final screenH = MediaQuery.sizeOf(context).height;
 
-    return Positioned(
-      left: 0, right: 0, bottom: 0,
-      child: SlideTransition(
-        position: _slide,
-        child: Container(
-          constraints: BoxConstraints(maxHeight: screenH * 0.88),
-          decoration: const BoxDecoration(
-            color: Color(0xFF131728),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 40,
-                  offset: Offset(0, -8)),
-            ],
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Handle + header
-            _SheetHeader(
-              servicio: widget.servicio,
-              paso: _paso,
-              onClose: _cerrar,
-            ),
-
-            // Indicador de pasos
-            _PasoIndicador(paso: _paso),
-
-            // Contenido según paso
-            Flexible(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                transitionBuilder: (child, anim) => SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.08, 0),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-                  child: FadeTransition(opacity: anim, child: child),
-                ),
-                child: _buildPaso(),
-              ),
-            ),
-          ]),
-        ),
+    return Container(
+      height: screenH * 0.92,
+      decoration: const BoxDecoration(
+        color: _C.grisMedio,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      child: Column(children: [
+        // Handle
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Center(child: Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: _C.grisClaro, borderRadius: BorderRadius.circular(2)))),
+        ),
+        // Header del servicio + pasos
+        _SheetHeader(servicio: widget.servicio, paso: _paso, onClose: _cerrar),
+        _PasoIndicador(paso: _paso),
+        // Contenido según paso — ocupa todo el espacio restante
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+              child: child,
+            ),
+            child: _buildPaso(),
+          ),
+        ),
+      ]),
     );
   }
 
@@ -822,6 +758,10 @@ class _BookingSheetState extends State<_BookingSheet>
         int.parse(partes[0]),
         int.parse(partes[1]),
       );
+      // Fecha como string "YYYY-MM-DD" — requerido por el TPV peluquería para filtrar por día
+      final fechaStr = '${fechaHora.year}-'
+          '${fechaHora.month.toString().padLeft(2, '0')}-'
+          '${fechaHora.day.toString().padLeft(2, '0')}';
 
       final user = FirebaseAuth.instance.currentUser;
       final clienteNombre = user?.displayName ?? user?.email?.split('@').first ?? 'Cliente';
@@ -837,18 +777,21 @@ class _BookingSheetState extends State<_BookingSheet>
         'cliente_uid': uid,
         'cliente_nombre': clienteNombre,
         'cliente_email': clienteEmail,
-        
+
         // Datos de la reserva
         'servicio_id': widget.servicio.id,
         'servicio_nombre': widget.servicio.nombre,
         'empleado_id': _profesionalId,
+        'profesional_id': _profesionalId, // alias para compatibilidad con TPV peluquería
         'empleado_nombre': _profesionalNombre,
         'fecha_hora': Timestamp.fromDate(fechaHora),
+        'fecha': fechaStr, // string "YYYY-MM-DD" requerido por TPV peluquería
         'duracion': widget.servicio.duracion,
+        'duracion_minutos': widget.servicio.duracion, // alias para TPV peluquería
         'precio': widget.servicio.precio ?? widget.servicio.precioDesde,
-        
+
         // Estado y metadata
-        'estado': 'pendiente',  // ← Owner debe aceptar/rechazar
+        'estado': 'pendiente',
         'origen': 'fluix_b2c',
         'negocio_id': widget.negocio.id,
         'negocio_nombre': widget.negocio.nombre,
@@ -856,7 +799,18 @@ class _BookingSheetState extends State<_BookingSheet>
         'modificado_en': FieldValue.serverTimestamp(),
       });
 
-      // Notificación in-app al dueño del negocio (path correcto para la bandeja)
+      // Determinar módulo destino según tipo de TPV — peluquería va a su agenda propia
+      String moduloDestino = 'reservas';
+      if (empresaId.isNotEmpty) {
+        try {
+          final empDoc = await FirebaseFirestore.instance
+              .collection('empresas').doc(empresaId).get();
+          final tipoTpv = empDoc.data()?['tipo_tpv'] as String? ?? 'bar';
+          if (tipoTpv == 'peluqueria_estetica') moduloDestino = 'tpv_peluqueria';
+        } catch (_) {}
+      }
+
+      // Notificación in-app al dueño del negocio
       if (empresaId.isNotEmpty) {
         try {
           await FirebaseFirestore.instance
@@ -866,7 +820,7 @@ class _BookingSheetState extends State<_BookingSheet>
             'cuerpo': '$clienteNombre · ${widget.servicio.nombre} · '
                 '${fechaHora.day}/${fechaHora.month} ${fechaHora.hour}:${fechaHora.minute.toString().padLeft(2,'0')}',
             'tipo': 'reservaNueva',
-            'modulo_destino': 'reservas',
+            'modulo_destino': moduloDestino,
             'entidad_id': citaRef.id,
             'remitente_nombre': clienteNombre,
             'timestamp': FieldValue.serverTimestamp(),
@@ -875,8 +829,34 @@ class _BookingSheetState extends State<_BookingSheet>
         } catch (_) {}
       }
 
+      // Notificación persistente al cliente con datos de la reserva
+      if (uid != null) {
+        try {
+          final fechaStr = '${fechaHora.day.toString().padLeft(2,'0')}/'
+              '${fechaHora.month.toString().padLeft(2,'0')}/${fechaHora.year}';
+          final horaStr = '${fechaHora.hour.toString().padLeft(2,'0')}:'
+              '${fechaHora.minute.toString().padLeft(2,'0')}';
+          await FirebaseFirestore.instance
+              .collection('usuarios').doc(uid).collection('notificaciones')
+              .add({
+            'titulo': '📅 Reserva en ${widget.negocio.nombre}',
+            'cuerpo': '${widget.servicio.nombre} · $fechaStr a las $horaStr'
+                '${(_profesionalNombre != null && _profesionalNombre!.isNotEmpty) ? ' con $_profesionalNombre' : ''}',
+            'tipo': 'reservaNueva',
+            'negocio_id': widget.negocio.id,
+            'negocio_nombre': widget.negocio.nombre,
+            'reserva_id': citaRef.id,
+            'servicio_nombre': widget.servicio.nombre,
+            'fecha_hora': Timestamp.fromDate(fechaHora),
+            'profesional_nombre': _profesionalNombre,
+            'creado_en': FieldValue.serverTimestamp(),
+            'leida': false,
+          });
+        } catch (_) {}
+      }
+
       if (mounted) {
-        await _cerrar();
+        _cerrar();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Row(children: [
             Icon(Icons.check_circle, color: _C.negro),
@@ -1347,7 +1327,7 @@ class _GridMes extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 // PASO 2 — SELECCIÓN DE HORA
 // ═══════════════════════════════════════════════════════════════════
-class _PasoHora extends StatelessWidget {
+class _PasoHora extends StatefulWidget {
   final NegocioPublico negocio;
   final _ServicioUI servicio;
   final DateTime dia;
@@ -1363,22 +1343,13 @@ class _PasoHora extends StatelessWidget {
     required this.onVolver,
   });
 
-  // Genera slots en base al horario del negocio
-  // Por ahora genera slots fijos; en producción leer de horarios del negocio
-  List<String> _generarSlots() {
-    final slots = <String>[];
-    // Mañana: 9:00 - 14:00 cada 30min
-    for (int h = 9; h < 14; h++) {
-      slots.add('${h.toString().padLeft(2, '0')}:00');
-      slots.add('${h.toString().padLeft(2, '0')}:30');
-    }
-    // Tarde: 16:00 - 20:00 cada 30min
-    for (int h = 16; h < 20; h++) {
-      slots.add('${h.toString().padLeft(2, '0')}:00');
-      slots.add('${h.toString().padLeft(2, '0')}:30');
-    }
-    return slots;
-  }
+  @override
+  State<_PasoHora> createState() => _PasoHoraState();
+}
+
+class _PasoHoraState extends State<_PasoHora> {
+  Set<String> _horasOcupadas = {};
+  bool _cargando = true;
 
   static const _meses = [
     '', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -1386,12 +1357,131 @@ class _PasoHora extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _cargarOcupados();
+  }
+
+  // Carga los slots ya reservados para ese día y servicio
+  Future<void> _cargarOcupados() async {
+    final empresaId = widget.negocio.empresaIdVinculada;
+    if (empresaId.isEmpty) {
+      if (mounted) setState(() => _cargando = false);
+      return;
+    }
+    final inicio = DateTime(widget.dia.year, widget.dia.month, widget.dia.day);
+    final fin    = inicio.add(const Duration(days: 1));
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId).collection('reservas')
+          .where('servicio_id', isEqualTo: widget.servicio.id)
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio),
+                               isLessThan:             Timestamp.fromDate(fin))
+          .where('estado', whereIn: ['pendiente', 'confirmada'])
+          .get();
+      final ocupadas = <String>{};
+      for (final doc in snap.docs) {
+        final ts = doc.data()['fecha_hora'] as Timestamp?;
+        if (ts == null) continue;
+        final dt = ts.toDate();
+        ocupadas.add(
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
+        );
+      }
+      if (mounted) setState(() { _horasOcupadas = ocupadas; _cargando = false; });
+    } catch (_) {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  // Genera slots en base al horario real del negocio
+  List<String> _generarSlots() {
+    final nombresDia = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final diaSemana  = widget.dia.weekday; // 1=Lunes … 7=Domingo
+
+    // Intenta leer horario del negocio (campo horario: Map<String, Map>)
+    int? apertura, cierre, aperturaTarde, cierreTarde;
+    final h = widget.negocio.horario?[nombresDia[diaSemana]];
+    if (h != null) {
+      if (h['cerrado'] == true) return []; // día cerrado
+      apertura     = _parseHora(h['apertura']      as String?);
+      cierre       = _parseHora(h['cierre']        as String?);
+      aperturaTarde= _parseHora(h['apertura_tarde'] as String?);
+      cierreTarde  = _parseHora(h['cierre_tarde']   as String?);
+    }
+    // Fallback: horarios (Map<int, HorarioDia>)
+    if (apertura == null) {
+      final hd = widget.negocio.horarios?[diaSemana];
+      if (hd != null) {
+        if (!hd.abierto) return [];
+        apertura     = _parseHora(hd.horaApertura);
+        cierre       = _parseHora(hd.horaCierre);
+        aperturaTarde= _parseHora(hd.horaAperturaTarde);
+        cierreTarde  = _parseHora(hd.horaCierreTarde);
+      }
+    }
+    // Fallback final si no hay datos de horario
+    apertura      ??= 9;
+    cierre        ??= 14;
+    aperturaTarde ??= 16;
+    cierreTarde   ??= 20;
+
+    final slots = <String>[];
+    void addRange(int from, int to) {
+      for (int h = from; h < to; h++) {
+        slots.add('${h.toString().padLeft(2, '0')}:00');
+        slots.add('${h.toString().padLeft(2, '0')}:30');
+      }
+    }
+    addRange(apertura, cierre);
+    if (aperturaTarde > cierre) addRange(aperturaTarde, cierreTarde);
+    return slots;
+  }
+
+  int? _parseHora(String? s) {
+    if (s == null || s.isEmpty) return null;
+    return int.tryParse(s.split(':')[0]);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final slots = _generarSlots();
-    final ahora = DateTime.now();
-    final esDiaHoy = dia.year == ahora.year &&
-        dia.month == ahora.month &&
-        dia.day == ahora.day;
+    if (_cargando) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(color: _C.accent, strokeWidth: 2),
+        ),
+      );
+    }
+
+    final slots    = _generarSlots();
+    final ahora    = DateTime.now();
+    final esDiaHoy = widget.dia.year == ahora.year &&
+        widget.dia.month == ahora.month &&
+        widget.dia.day == ahora.day;
+
+    if (slots.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.block_rounded, size: 40, color: _C.textoMuted),
+            const SizedBox(height: 12),
+            const Text('Cerrado este día',
+                style: TextStyle(color: _C.textoMuted, fontSize: 14)),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: widget.onVolver,
+              child: const Text('Elegir otro día',
+                  style: TextStyle(color: _C.accent, fontSize: 13)),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    final slotsManana = slots.where((s) => int.parse(s.split(':')[0]) < 14).toList();
+    final slotsTarde  = slots.where((s) => int.parse(s.split(':')[0]) >= 14).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -1404,61 +1494,55 @@ class _PasoHora extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(children: [
-            const Icon(Icons.calendar_today_rounded,
-                size: 16, color: _C.accent),
+            const Icon(Icons.calendar_today_rounded, size: 16, color: _C.accent),
             const SizedBox(width: 10),
             Text(
-              '${dia.day} de ${_meses[dia.month]} de ${dia.year}',
+              '${widget.dia.day} de ${_meses[widget.dia.month]} de ${widget.dia.year}',
               style: const TextStyle(
                   color: _C.texto, fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             GestureDetector(
-              onTap: onVolver,
+              onTap: widget.onVolver,
               child: const Text('Cambiar',
                   style: TextStyle(color: _C.accent, fontSize: 12)),
             ),
           ]),
         ),
 
-        const SizedBox(height: 20),
+        if (slotsManana.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Text('Mañana',
+              style: TextStyle(color: _C.textoMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10, runSpacing: 10,
+            children: slotsManana.map((slot) {
+              final h   = int.parse(slot.split(':')[0]);
+              final m   = int.parse(slot.split(':')[1]);
+              final dt  = DateTime(widget.dia.year, widget.dia.month, widget.dia.day, h, m);
+              final ok  = !(esDiaHoy && dt.isBefore(ahora)) && !_horasOcupadas.contains(slot);
+              return _SlotHora(hora: slot, disponible: ok, onTap: () => widget.onHoraSeleccionada(slot));
+            }).toList(),
+          ),
+        ],
 
-        const Text('Mañana',
-            style: TextStyle(color: _C.textoMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-
-        // Slots mañana
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: slots.where((s) => int.parse(s.split(':')[0]) < 14).map((slot) {
-            final hora = int.parse(slot.split(':')[0]);
-            final min = int.parse(slot.split(':')[1]);
-            final slotDt = DateTime(dia.year, dia.month, dia.day, hora, min);
-            final pasado = esDiaHoy && slotDt.isBefore(ahora);
-            return _SlotHora(
-                hora: slot, disponible: !pasado, onTap: () => onHoraSeleccionada(slot));
-          }).toList(),
-        ),
-
-        const SizedBox(height: 20),
-
-        const Text('Tarde',
-            style: TextStyle(color: _C.textoMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: slots.where((s) => int.parse(s.split(':')[0]) >= 16).map((slot) {
-            final hora = int.parse(slot.split(':')[0]);
-            final min = int.parse(slot.split(':')[1]);
-            final slotDt = DateTime(dia.year, dia.month, dia.day, hora, min);
-            final pasado = esDiaHoy && slotDt.isBefore(ahora);
-            return _SlotHora(
-                hora: slot, disponible: !pasado, onTap: () => onHoraSeleccionada(slot));
-          }).toList(),
-        ),
+        if (slotsTarde.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Text('Tarde',
+              style: TextStyle(color: _C.textoMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10, runSpacing: 10,
+            children: slotsTarde.map((slot) {
+              final h   = int.parse(slot.split(':')[0]);
+              final m   = int.parse(slot.split(':')[1]);
+              final dt  = DateTime(widget.dia.year, widget.dia.month, widget.dia.day, h, m);
+              final ok  = !(esDiaHoy && dt.isBefore(ahora)) && !_horasOcupadas.contains(slot);
+              return _SlotHora(hora: slot, disponible: ok, onTap: () => widget.onHoraSeleccionada(slot));
+            }).toList(),
+          ),
+        ],
       ]),
     );
   }

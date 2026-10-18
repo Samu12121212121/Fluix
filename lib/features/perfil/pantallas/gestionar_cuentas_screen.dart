@@ -10,6 +10,7 @@ import 'package:planeag_flutter/core/config/planes_config.dart';
 import 'package:planeag_flutter/services/contenido_web_service.dart';
 import 'package:planeag_flutter/core/utils/permisos_service.dart';
 import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+import 'package:planeag_flutter/features/dashboard/pantallas/web_modulos_config_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO LOCAL
@@ -519,6 +520,33 @@ class _TarjetaCuenta extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF1565C0),
                   side: const BorderSide(color: Color(0xFF1565C0)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Botón configuración módulos web
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WebModulosConfigScreen(
+                      empresaId: cuenta.empresaId,
+                      nombreEmpresa: cuenta.nombre,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.web_rounded, size: 16, color: Color(0xFF059669)),
+                label: const Text('Módulos web'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF059669),
+                  side: const BorderSide(color: Color(0xFF059669)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 8),

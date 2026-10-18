@@ -6,6 +6,7 @@ import '../../../core/config/planes_config.dart';
 import '../../../services/datos_prueba_fluixtech_service.dart';
 import '../pantallas/gestion_negocios_screen.dart';
 import '../pantallas/pantalla_dashboard.dart';
+import '../pantallas/verifactu_test_screen.dart';
 import '../../../services/demo_cuenta_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/features/fichajes/servicios/fichaje_demo_data.dart';
@@ -224,6 +225,7 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                           _metricasB2CCard(),  const SizedBox(height: 12),
                           _negociosPublicosCard(context), const SizedBox(height: 12),
                           _herramientasDevCard(context),  const SizedBox(height: 12),
+                          _verifactuTestCard(context),    const SizedBox(height: 12),
                           _nazariCard(context),
                         ])
                       else
@@ -246,6 +248,8 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
                             _negociosPublicosCard(context),
                             const SizedBox(height: 12),
                             _herramientasDevCard(context),
+                            const SizedBox(height: 12),
+                            _verifactuTestCard(context),
                             const SizedBox(height: 12),
                             _nazariCard(context),
                           ])),
@@ -653,6 +657,42 @@ class _ModuloPropietarioState extends State<ModuloPropietario> {
           ),
         ),
       ]),
+    ],
+  );
+
+  // ── TEST VERIFACTU ────────────────────────────────────────────────────────
+
+  Widget _verifactuTestCard(BuildContext context) => _dashCard(
+    'Verifactu — Banco de pruebas', Icons.security_rounded, const Color(0xFF0D47A1),
+    [
+      const Text(
+        '16 tests para verificar el sistema de registro fiscal electrónico: '
+        'hash SHA-256, encadenamiento, tipos F1/F2/R1, validaciones, QR y cola AEAT.',
+        style: TextStyle(fontSize: 11.5, color: _sub, height: 1.4),
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: () {
+            final empresaId = ConstantesApp.empresaPropietariaId;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VerifactuTestScreen(empresaId: empresaId),
+              ),
+            );
+          },
+          icon: const Icon(Icons.play_circle_outline_rounded, size: 16),
+          label: const Text('Abrir banco de pruebas',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0D47A1),
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ),
     ],
   );
 

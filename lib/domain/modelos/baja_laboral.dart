@@ -117,7 +117,7 @@ class BajaLaboral {
 
   factory BajaLaboral.fromMap(Map<String, dynamic> m, String id) => BajaLaboral(
     id: id,
-    empleadoId: m['empleado_id'] as String,
+    empleadoId: m['empleado_id'] as String? ?? '',
     tipo: TipoContingencia.values.firstWhere(
           (e) => e.name == (m['tipo'] as String?),
       orElse: () => TipoContingencia.enfermedadComun,

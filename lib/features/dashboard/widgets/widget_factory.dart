@@ -36,6 +36,8 @@ class WidgetFactory {
         return WidgetResumenPedidos(empresaId: empresaId);
       case 'ingresos_mes':
         return WidgetIngresosMes(empresaId: empresaId);
+      case 'alertas_stock':
+        return WidgetAlertasStock(empresaId: empresaId);
 
       default:
         debugPrint('WidgetFactory: id no reconocido -> ${config.id}');

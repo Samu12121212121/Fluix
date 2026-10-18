@@ -28,12 +28,14 @@ class Company {
 
   factory Company.fromJson(Map<String, dynamic> json) {
     return Company(
-      id: json['id'],
-      name: json['name'],
-      adminUserId: json['adminUserId'],
-      createdAt: DateTime.parse(json['createdAt']),
+      id:          json['id'] as String? ?? '',
+      name:        json['name'] as String? ?? '',
+      adminUserId: json['adminUserId'] as String? ?? '',
+      createdAt:   json['createdAt'] != null
+          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
+          : DateTime.now(),
       managerIds: List<String>.from(json['managerIds'] ?? []),
-      isActive: json['isActive'] ?? true,
+      isActive:   json['isActive'] as bool? ?? true,
     );
   }
 }

@@ -29,6 +29,8 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
     with SingleTickerProviderStateMixin, SafeStreamMixin {
   late TabController _tc;
   bool _isDark = false;
+  String? _empleadoFiltro;
+  String? _servicioFiltro;
 
   Color get _bg   => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
   Color get _surf => _isDark ? const Color(0xFF1E293B) : Colors.white;
@@ -52,6 +54,14 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
   }
 
   Future<void> _confirmarBorrarPasadas(BuildContext context) async {
+    final tieneFiltroProfesional = _empleadoFiltro != null;
+    final tieneFilbroServicio    = _servicioFiltro  != null;
+    final descripcion = tieneFiltroProfesional
+        ? 'las reservas pasadas de "$_empleadoFiltro"'
+        : tieneFilbroServicio
+            ? 'las reservas pasadas del servicio "$_servicioFiltro"'
+            : 'todas las reservas y citas pasadas';
+
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -60,8 +70,8 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
           SizedBox(width: 8),
           Text('Borrar reservas pasadas'),
         ]),
-        content: const Text(
-          'Se eliminarán todas las reservas y citas cuya fecha ya ha pasado.\n\n'
+        content: Text(
+          'Se eliminarán $descripcion cuya fecha ya ha pasado.\n\n'
           'Esta acción no se puede deshacer.',
         ),
         actions: [
@@ -77,9 +87,9 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
     if (confirmado != true) return;
     if (!context.mounted) return;
 
-    final db = FirebaseFirestore.instance;
+    final db    = FirebaseFirestore.instance;
     final ahora = Timestamp.fromDate(DateTime.now());
-    int total = 0;
+    int total   = 0;
     try {
       for (final col in ['reservas', 'citas']) {
         final snap = await db
@@ -88,13 +98,38 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
             .collection(col)
             .where('fecha_hora', isLessThan: ahora)
             .get();
-        for (final doc in snap.docs) {
-          await doc.reference.delete();
+
+        // Aplicar filtros activos antes de borrar
+        final aEliminar = snap.docs.where((doc) {
+          final data = (doc.data() as Map<String, dynamic>?) ?? {};
+          if (_empleadoFiltro != null) {
+            final prof = (data['profesional'] ?? data['empleado'] ?? '').toString();
+            if (prof != _empleadoFiltro) return false;
+          }
+          if (_servicioFiltro != null) {
+            final serv = (data['servicio'] ?? data['tipo'] ?? '').toString();
+            if (serv != _servicioFiltro) return false;
+          }
+          return true;
+        }).toList();
+
+        // Borrar en lotes de 500 (límite de Firestore batch)
+        WriteBatch batch = db.batch();
+        int enLote = 0;
+        for (final doc in aEliminar) {
+          batch.delete(doc.reference);
+          enLote++;
           total++;
+          if (enLote == 500) {
+            await batch.commit();
+            batch  = db.batch();
+            enLote = 0;
+          }
         }
+        if (enLote > 0) await batch.commit();
       }
       if (context.mounted) {
-        FluxToast.exito(context, '$total reservas pasadas eliminadas');
+        FluxToast.exito(context, '$total reservas eliminadas');
       }
     } catch (e) {
       if (context.mounted) {
@@ -151,6 +186,10 @@ class _ModuloReservasScreenState extends State<ModuloReservasScreen>
           sesion: widget.sesion,
           onNueva: () => _FormNuevaReserva.mostrar(
               context: context, empresaId: widget.empresaId),
+          onFiltrosChanged: (emp, serv) => setState(() {
+            _empleadoFiltro = emp;
+            _servicioFiltro = serv;
+          }),
         )),
       ]),
       floatingActionButton: FloatingActionButton.extended(
@@ -176,12 +215,15 @@ class _BodyStreams extends StatefulWidget {
   final TabController tc;
   final SesionUsuario? sesion;
   final VoidCallback onNueva;
+  final void Function(String? empleado, String? servicio)? onFiltrosChanged;
 
-  const _BodyStreams(
-      {required this.empresaId,
-        required this.tc,
-        required this.sesion,
-        required this.onNueva});
+  const _BodyStreams({
+    required this.empresaId,
+    required this.tc,
+    required this.sesion,
+    required this.onNueva,
+    this.onFiltrosChanged,
+  });
 
   @override
   State<_BodyStreams> createState() => _BodyStreamsState();
@@ -252,10 +294,13 @@ class _BodyStreamsState extends State<_BodyStreams> {
             label: const Text('Todos'),
             selected:
                 _empleadoFiltro == null && _servicioFiltro == null,
-            onSelected: (_) => setState(() {
-              _empleadoFiltro = null;
-              _servicioFiltro = null;
-            }),
+            onSelected: (_) {
+              setState(() {
+                _empleadoFiltro = null;
+                _servicioFiltro = null;
+              });
+              widget.onFiltrosChanged?.call(null, null);
+            },
           ),
           const SizedBox(width: 8),
           ...profesionales.map((p) => Padding(
@@ -265,11 +310,13 @@ class _BodyStreamsState extends State<_BodyStreams> {
                   label: Text(p,
                       style: const TextStyle(fontSize: 12)),
                   selected: _empleadoFiltro == p,
-                  onSelected: (_) => setState(() {
-                    _empleadoFiltro =
-                        _empleadoFiltro == p ? null : p;
-                    _servicioFiltro = null;
-                  }),
+                  onSelected: (_) {
+                    setState(() {
+                      _empleadoFiltro = _empleadoFiltro == p ? null : p;
+                      _servicioFiltro = null;
+                    });
+                    widget.onFiltrosChanged?.call(_empleadoFiltro, null);
+                  },
                 ),
               )),
           if (profesionales.isNotEmpty && servicios.isNotEmpty)
@@ -286,11 +333,13 @@ class _BodyStreamsState extends State<_BodyStreams> {
                   label: Text(s,
                       style: const TextStyle(fontSize: 12)),
                   selected: _servicioFiltro == s,
-                  onSelected: (_) => setState(() {
-                    _servicioFiltro =
-                        _servicioFiltro == s ? null : s;
-                    _empleadoFiltro = null;
-                  }),
+                  onSelected: (_) {
+                    setState(() {
+                      _servicioFiltro = _servicioFiltro == s ? null : s;
+                      _empleadoFiltro = null;
+                    });
+                    widget.onFiltrosChanged?.call(null, _servicioFiltro);
+                  },
                 ),
               )),
         ],
@@ -1045,7 +1094,7 @@ class _Tarjeta extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (precio != null)
+                if (precio != null && precio is num)
                   Text(
                     '€${(precio as num).toStringAsFixed(2)}',
                     style: const TextStyle(
@@ -1201,44 +1250,42 @@ class _FormNuevaReserva {
                       ],
                     ),
                     // Fecha y hora
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.schedule_outlined,
-                          color: Colors.grey),
-                      title: Text(
-                        DateFormat('EEEE d MMMM · HH:mm', 'es')
-                            .format(DateTime(fecha.year, fecha.month, fecha.day,
-                            hora.hour, hora.minute))
-                            .capitalized,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton(
-                            onPressed: () async {
-                              final d = await showDatePicker(
-                                context: ctx,
-                                initialDate: fecha,
-                                firstDate: DateTime.now()
-                                    .subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now()
-                                    .add(const Duration(days: 365)),
-                              );
-                              if (d != null) setS(() => fecha = d);
-                            },
-                            child: const Text('Fecha'),
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule_outlined, color: Colors.grey, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            DateFormat('EEEE d MMMM · HH:mm', 'es')
+                                .format(DateTime(fecha.year, fecha.month, fecha.day,
+                                hora.hour, hora.minute))
+                                .capitalized,
+                            style: const TextStyle(fontSize: 14),
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              final t = await showTimePicker(
-                                  context: ctx, initialTime: hora);
-                              if (t != null) setS(() => hora = t);
-                            },
-                            child: const Text('Hora'),
-                          ),
-                        ],
-                      ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: ctx,
+                              initialDate: fecha,
+                              firstDate: DateTime.now()
+                                  .subtract(const Duration(days: 365)),
+                              lastDate: DateTime.now()
+                                  .add(const Duration(days: 365)),
+                            );
+                            if (d != null) setS(() => fecha = d);
+                          },
+                          child: const Text('Fecha'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final t = await showTimePicker(
+                                context: ctx, initialTime: hora);
+                            if (t != null) setS(() => hora = t);
+                          },
+                          child: const Text('Hora'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     const Text('Estado',

@@ -120,7 +120,7 @@ class _ClientesSilenciososScreenState extends State<ClientesSilenciososScreen> {
   }
 
   Widget _buildTarjeta(Map<String, dynamic> c) {
-    final dias = c['dias_inactivo'] as int;
+    final dias = (c['dias_inactivo'] as num?)?.toInt() ?? 0;
     final totalGastado = ((c['total_gastado'] ?? 0) as num).toDouble();
     final nombre = c['nombre'] ?? '';
     final iniciales = nombre.isNotEmpty

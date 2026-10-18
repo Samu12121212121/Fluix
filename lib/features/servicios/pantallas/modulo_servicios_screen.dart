@@ -25,7 +25,17 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: const FluixAppBar(titulo: 'Servicios'),
+      appBar: FluixAppBar(
+        titulo: 'Servicios',
+        extraActions: [
+          if (widget.sesion?.puedeGestionarServicios ?? true)
+            IconButton(
+              icon: const Icon(Icons.upload_file),
+              tooltip: 'Importar CSV',
+              onPressed: _importarCsv,
+            ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('empresas')
@@ -140,30 +150,16 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
         },
       ),
       floatingActionButton: (widget.sesion?.puedeGestionarServicios ?? true)
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  heroTag: 'fab_csv',
-                  onPressed: _importarCsv,
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF7B1FA2),
-                  tooltip: 'Importar CSV',
-                  elevation: 2,
-                  child: const Icon(Icons.upload_file),
-                ),
-                const SizedBox(width: 12),
-                FloatingActionButton.extended(
-                  heroTag: 'fab_servicios',
-                  onPressed: _abrirFormulario,
-                  backgroundColor: const Color(0xFF7B1FA2),
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nuevo servicio'),
-                ),
-              ],
+          ? FloatingActionButton.extended(
+              heroTag: 'fab_servicios',
+              onPressed: _abrirFormulario,
+              backgroundColor: const Color(0xFF7B1FA2),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Nuevo servicio'),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 

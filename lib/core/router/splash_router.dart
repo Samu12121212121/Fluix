@@ -4,9 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
 import 'package:planeag_flutter/features/autenticacion/pantallas/pantalla_login.dart';
 import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_dashboard.dart';
+import 'package:planeag_flutter/features/explorar_negocios/pantallas/pantalla_explorar.dart';
 import 'package:planeag_flutter/features/onboarding/pantallas/pantalla_onboarding.dart';
 import 'package:planeag_flutter/features/registro/pantallas/pantalla_registrar_empresa_social.dart';
 import 'package:planeag_flutter/features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
+import 'package:planeag_flutter/features/multisede/servicios/multisede_service.dart';
+import 'package:planeag_flutter/features/multisede/pantallas/selector_sede_screen.dart';
 
 final _log = Logger();
 
@@ -51,8 +54,10 @@ class _SplashRouterState extends State<SplashRouter> {
       final correo = (userData['correo'] as String?) ?? user.email ?? '';
       final empresaId = userData['empresa_id'] as String?;
 
-      // Sin empresa → flujo de registro social incompleto
+      // Sin empresa → cliente final B2C o registro social incompleto
       if (empresaId == null) {
+        final rol = userData['rol'] as String? ?? '';
+        if (rol == 'clienteFinal') return const PantallaExplorar();
         if (nombre.isEmpty && correo.isEmpty) {
           return PantallaOnboarding(empresaId: uid);
         }
@@ -62,15 +67,32 @@ class _SplashRouterState extends State<SplashRouter> {
         );
       }
 
+      // ── Multi-sede: si tiene varias empresas y ninguna activa → selector ──
+      final empresaActiva = await MultisedeService().obtenerEmpresaActiva();
+      if (empresaActiva == null) {
+        // obtenerEmpresaActiva devuelve null solo cuando hay 2+ sedes y el
+        // usuario no ha seleccionado ninguna todavía.
+        return const SelectorSedeScreen();
+      }
+      // Usar la sede activa (puede ser la misma que empresaId en caso mono-sede)
+      final empresaIdEfectivo = empresaActiva;
+
       // 2. Traer empresa y suscripción en paralelo
       final results = await Future.wait([
-        db.collection('empresas').doc(empresaId).get(),
-        db.collection('empresas').doc(empresaId).collection('suscripcion').doc('actual').get(),
+        db.collection('empresas').doc(empresaIdEfectivo).get(),
+        db.collection('empresas').doc(empresaIdEfectivo).collection('suscripcion').doc('actual').get(),
       ]);
 
       final empresaDoc = results[0];
       final suscDoc = results[1];
       final suscData = suscDoc.data();
+
+      // 2b. Verificar onboarding completado
+      final onboardingCompletado =
+          empresaDoc.data()?['onboarding_completado'] as bool? ?? true;
+      if (!onboardingCompletado) {
+        return PantallaOnboarding(empresaId: empresaIdEfectivo);
+      }
 
       // 3. Verificar suscripción
       if (suscData != null && suscDoc.exists) {
@@ -81,9 +103,10 @@ class _SplashRouterState extends State<SplashRouter> {
           if (raw is Timestamp) fechaFin = raw.toDate();
 
           return PantallaSuscripcionVencida(
-            empresaId: empresaId,
+            empresaId: empresaIdEfectivo,
             estado: estado,
             fechaFin: fechaFin,
+            esPropietario: (userData['rol'] as String?) == 'propietario',
           );
         }
       }

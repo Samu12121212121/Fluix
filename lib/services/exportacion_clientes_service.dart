@@ -12,6 +12,12 @@ class ExportacionClientesService {
   static final _fmtFecha = DateFormat('dd/MM/yyyy');
   static final _fmtFechaArchivo = DateFormat('yyyy-MM-dd');
 
+  static DateTime? _parseFechaField(dynamic v) {
+    if (v is Timestamp) return v.toDate();
+    if (v is String) return DateTime.tryParse(v);
+    return null;
+  }
+
   // ── EXPORTAR A CSV ────────────────────────────────────────────────────────
 
   Future<File> exportarCSV({
@@ -55,14 +61,14 @@ class ExportacionClientesService {
         c['localidad'] ?? '',
         (c['etiquetas'] as List?)?.join(', ') ?? '',
         c['estado_cliente'] ?? 'contacto',
-        c['fecha_registro'] != null
-            ? _fmtFecha.format(DateTime.parse(c['fecha_registro']))
+        _parseFechaField(c['fecha_registro']) != null
+            ? _fmtFecha.format(_parseFechaField(c['fecha_registro'])!)
             : '',
         datosFacturacion['total'].toStringAsFixed(2),
-        c['ultima_actividad'] != null
-            ? _fmtFecha.format(DateTime.parse(c['ultima_actividad']))
-            : (c['ultima_visita'] != null
-                ? _fmtFecha.format(DateTime.parse(c['ultima_visita']))
+        _parseFechaField(c['ultima_actividad']) != null
+            ? _fmtFecha.format(_parseFechaField(c['ultima_actividad'])!)
+            : (_parseFechaField(c['ultima_visita']) != null
+                ? _fmtFecha.format(_parseFechaField(c['ultima_visita'])!)
                 : 'Sin actividad'),
         datosFacturacion['count'].toString(),
       ]);
@@ -128,14 +134,14 @@ class ExportacionClientesService {
         c['localidad'] ?? '',
         (c['etiquetas'] as List?)?.join(', ') ?? '',
         c['estado_cliente'] ?? 'contacto',
-        c['fecha_registro'] != null
-            ? _fmtFecha.format(DateTime.parse(c['fecha_registro']))
+        _parseFechaField(c['fecha_registro']) != null
+            ? _fmtFecha.format(_parseFechaField(c['fecha_registro'])!)
             : '',
         datosFacturacion['total'].toStringAsFixed(2),
-        c['ultima_actividad'] != null
-            ? _fmtFecha.format(DateTime.parse(c['ultima_actividad']))
-            : (c['ultima_visita'] != null
-                ? _fmtFecha.format(DateTime.parse(c['ultima_visita']))
+        _parseFechaField(c['ultima_actividad']) != null
+            ? _fmtFecha.format(_parseFechaField(c['ultima_actividad'])!)
+            : (_parseFechaField(c['ultima_visita']) != null
+                ? _fmtFecha.format(_parseFechaField(c['ultima_visita'])!)
                 : 'Sin actividad'),
         datosFacturacion['count'].toString(),
       ]);

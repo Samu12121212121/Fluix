@@ -3,36 +3,65 @@ import 'package:flutter/foundation.dart';
 import '../domain/modelos/pedido.dart';
 
 /// Gestiona el stock del catálogo de productos.
-/// Todas las operaciones son atómicas vía batch de Firestore.
+///
+/// Contrato de idempotencia:
+///   Cuando el descuento tiene éxito, escribe `stock_descontado: true` en el
+///   documento del pedido. Antes de decrementar comprueba ese flag — si ya
+///   está activo, la operación es un no-op (seguro ante reintentos).
+///
+/// Contrato de controlStock:
+///   Solo se descuenta/restaura stock en productos con `control_stock == true`.
+///   Los productos sin ese campo, o con `control_stock: false`, no se tocan.
 class StockService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  StockService([FirebaseFirestore? db])
+      : _db = db ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> _catalogo(String empresaId) =>
       _db.collection('empresas').doc(empresaId).collection('catalogo');
 
+  DocumentReference<Map<String, dynamic>> _pedidoRef(
+          String empresaId, String pedidoId) =>
+      _db
+          .collection('empresas')
+          .doc(empresaId)
+          .collection('pedidos')
+          .doc(pedidoId);
+
   // ─────────────────────────────────────────────────────────────────────
-  // Decremento al vender
+  // Decremento al vender (idempotente, transaccional por producto)
   // ─────────────────────────────────────────────────────────────────────
 
   /// Decrementa el stock de los productos vendidos.
-  /// Si un producto no tiene campo `stock` o este es null, no hace nada
-  /// para ese producto (stock no gestionado).
-  /// Si el stock es insuficiente, lanza [StockInsuficienteException].
+  ///
+  /// - Solo actúa sobre productos con `control_stock == true`.
+  /// - Es idempotente: si el pedido ya tiene `stock_descontado: true`, no
+  ///   hace nada (protege ante reintentos del caller).
+  /// - Usa una transacción Firestore por producto para evitar stock negativo
+  ///   en ventas concurrentes.
+  /// - Si un producto tiene stock insuficiente lanza [StockInsuficienteException].
+  ///   En ese caso el caller debe decidir si bloquear o continuar; el pedido
+  ///   NO queda marcado como `stock_descontado`.
   Future<void> decrementarStockPorVenta({
     required String empresaId,
+    required String pedidoId,
     required List<LineaPedido> lineas,
   }) async {
-    // 1. Leer stock actual de todos los productos en paralelo
-    final futures = lineas.map((l) =>
-        _catalogo(empresaId).doc(l.productoId).get());
+    // 1. Idempotencia: comprobar si ya se descontó
+    final pedidoSnap = await _pedidoRef(empresaId, pedidoId).get();
+    if (pedidoSnap.data()?['stock_descontado'] == true) return;
+
+    // 2. Filtrar sólo las líneas con productos que tienen control_stock
+    //    Leer todos en paralelo para minimizar latencia.
+    final futures = lineas.map((l) => _catalogo(empresaId).doc(l.productoId).get());
     final snaps = await Future.wait(futures);
 
-    // 2. Verificar stock suficiente
+    final lineasGestionadas = <({LineaPedido linea, int stockActual})>[];
     for (int i = 0; i < lineas.length; i++) {
       final data = snaps[i].data();
-      if (data == null) continue; // producto no encontrado, ignorar
-      final stockActual = (data['stock'] as num?)?.toInt();
-      if (stockActual == null) continue; // stock no gestionado
+      if (data == null) continue;
+      if (data['control_stock'] != true) continue;
+      final stockActual = (data['stock'] as num?)?.toInt() ?? 0;
       if (stockActual < lineas[i].cantidad) {
         throw StockInsuficienteException(
           productoNombre: lineas[i].productoNombre,
@@ -40,31 +69,90 @@ class StockService {
           cantidadSolicitada: lineas[i].cantidad,
         );
       }
+      lineasGestionadas.add((linea: lineas[i], stockActual: stockActual));
     }
 
-    // 3. Decrementar en batch atómico
-    final batch = _db.batch();
-    for (int i = 0; i < lineas.length; i++) {
-      final data = snaps[i].data();
-      if (data == null) continue;
-      final stockActual = (data['stock'] as num?)?.toInt();
-      if (stockActual == null) continue; // stock no gestionado
-      batch.update(
-        _catalogo(empresaId).doc(lineas[i].productoId),
-        {
-          'stock': FieldValue.increment(-lineas[i].cantidad),
-          'ultima_actualizacion_stock': FieldValue.serverTimestamp(),
-        },
-      );
+    if (lineasGestionadas.isEmpty) {
+      // Ningún producto gestionado — marcar igualmente para no repetir
+      await _pedidoRef(empresaId, pedidoId)
+          .update({'stock_descontado': true});
+      return;
     }
-    await batch.commit();
+
+    // 3. Transacción atómica: decrementar cada producto y marcar pedido
+    //    Firestore permite hasta 500 docs por transacción, suficiente para un TPV.
+    await _db.runTransaction((txn) async {
+      // Re-leer dentro de la transacción para lectura consistente
+      final reReads = await Future.wait(
+        lineasGestionadas.map((e) =>
+            txn.get(_catalogo(empresaId).doc(e.linea.productoId))),
+      );
+
+      for (int i = 0; i < lineasGestionadas.length; i++) {
+        final snap = reReads[i];
+        final data = snap.data();
+        if (data == null || data['control_stock'] != true) continue;
+        final stock = (data['stock'] as num?)?.toInt() ?? 0;
+        if (stock < lineasGestionadas[i].linea.cantidad) {
+          throw StockInsuficienteException(
+            productoNombre: lineasGestionadas[i].linea.productoNombre,
+            stockDisponible: stock,
+            cantidadSolicitada: lineasGestionadas[i].linea.cantidad,
+          );
+        }
+        txn.update(snap.reference, {
+          'stock': FieldValue.increment(-lineasGestionadas[i].linea.cantidad),
+          'ultima_actualizacion_stock': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Marcar el pedido como stock descontado dentro de la misma transacción
+      txn.update(_pedidoRef(empresaId, pedidoId), {'stock_descontado': true});
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // Incremento al recibir mercancía
+  // Restauración al cancelar / devolver
   // ─────────────────────────────────────────────────────────────────────
 
-  /// Incrementa el stock al registrar una entrada de mercancía.
+  /// Restaura el stock cuando un pedido se cancela o se devuelve.
+  ///
+  /// Solo actúa si el pedido tiene `stock_descontado: true` para evitar
+  /// restaurar stock que nunca se descontó.
+  Future<void> restaurarStockPorCancelacion({
+    required String empresaId,
+    required String pedidoId,
+    required List<LineaPedido> lineas,
+  }) async {
+    final pedidoSnap = await _pedidoRef(empresaId, pedidoId).get();
+    if (pedidoSnap.data()?['stock_descontado'] != true) return;
+
+    await _db.runTransaction((txn) async {
+      final refs = lineas
+          .where((l) => l.productoId.isNotEmpty)
+          .map((l) => _catalogo(empresaId).doc(l.productoId))
+          .toList();
+
+      final prodSnaps = await Future.wait(refs.map((r) => txn.get(r)));
+
+      for (int i = 0; i < refs.length; i++) {
+        final data = prodSnaps[i].data();
+        if (data == null || data['control_stock'] != true) continue;
+        txn.update(refs[i], {
+          'stock': FieldValue.increment(lineas[i].cantidad),
+          'ultima_actualizacion_stock': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Marcar que ya no está descontado para evitar doble restauración
+      txn.update(_pedidoRef(empresaId, pedidoId), {'stock_descontado': false});
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Incremento manual (entrada de mercancía)
+  // ─────────────────────────────────────────────────────────────────────
+
   Future<void> incrementarStock({
     required String empresaId,
     required String productoId,
@@ -76,36 +164,77 @@ class StockService {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Alertas de stock bajo
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Devuelve productos con stock por debajo del mínimo configurado.
-  /// Si el producto no tiene `stock_minimo`, usa 5 como valor por defecto.
-  Future<List<Map<String, dynamic>>> productosConStockBajo(
-    String empresaId,
-  ) async {
-    final snap = await _catalogo(empresaId)
-        .where('activo', isEqualTo: true)
-        .get();
-
-    final bajos = <Map<String, dynamic>>[];
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final stock = (data['stock'] as num?)?.toInt();
-      if (stock == null) continue; // stock no gestionado, ignorar
-      final minimo = (data['stock_minimo'] as num?)?.toInt() ?? 5;
-      if (stock <= minimo) {
-        bajos.add({
-          'id': doc.id,
-          'nombre': data['nombre'] ?? '',
-          'stock': stock,
-          'stock_minimo': minimo,
-        });
-      }
-    }
-    return bajos;
+  Future<void> ajustarStock({
+    required String empresaId,
+    required String productoId,
+    required int nuevoStock,
+  }) async {
+    await _catalogo(empresaId).doc(productoId).update({
+      'stock': nuevoStock,
+      'ultima_actualizacion_stock': FieldValue.serverTimestamp(),
+    });
   }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Consultas
+  // ─────────────────────────────────────────────────────────────────────
+
+  /// Devuelve stream de productos con control de stock activo, ordenados
+  /// por nivel de alerta (agotado primero, luego stock bajo).
+  Stream<List<AlertaStock>> alertasStockStream(String empresaId) {
+    return _catalogo(empresaId)
+        .where('activo', isEqualTo: true)
+        .where('control_stock', isEqualTo: true)
+        .snapshots()
+        .map((snap) {
+      final alertas = <AlertaStock>[];
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final stock = (data['stock'] as num?)?.toInt();
+        if (stock == null) continue;
+        final minimo = (data['stock_minimo'] as num?)?.toInt() ?? 5;
+        if (stock <= minimo) {
+          alertas.add(AlertaStock(
+            productoId: doc.id,
+            nombre: data['nombre'] as String? ?? '—',
+            stock: stock,
+            stockMinimo: minimo,
+            agotado: stock <= 0,
+          ));
+        }
+      }
+      alertas.sort((a, b) {
+        if (a.agotado && !b.agotado) return -1;
+        if (!a.agotado && b.agotado) return 1;
+        return a.stock.compareTo(b.stock);
+      });
+      return alertas;
+    });
+  }
+
+  /// Versión one-shot para el dashboard widget.
+  Future<List<AlertaStock>> productosConStockBajo(String empresaId) =>
+      alertasStockStream(empresaId).first;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Modelos de alerta
+// ─────────────────────────────────────────────────────────────────────────
+
+class AlertaStock {
+  final String productoId;
+  final String nombre;
+  final int stock;
+  final int stockMinimo;
+  final bool agotado;
+
+  const AlertaStock({
+    required this.productoId,
+    required this.nombre,
+    required this.stock,
+    required this.stockMinimo,
+    required this.agotado,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -128,4 +257,3 @@ class StockInsuficienteException implements Exception {
       'Stock insuficiente para "$productoNombre": '
       'disponible $stockDisponible, solicitado $cantidadSolicitada';
 }
-

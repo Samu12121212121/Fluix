@@ -88,11 +88,13 @@ class FiscalUploadService {
         );
 
     uploadTask.snapshotEvents.listen((snap) {
-      final uploadPercent = snap.bytesTransferred / snap.totalBytes;
-      onProgress?.call(UploadProgress(
-        step: 'Subiendo archivo...',
-        percent: 0.10 + (uploadPercent * 0.40),
-      ));
+      if (snap.totalBytes > 0) {
+        final uploadPercent = snap.bytesTransferred / snap.totalBytes;
+        onProgress?.call(UploadProgress(
+          step: 'Subiendo archivo...',
+          percent: 0.10 + (uploadPercent * 0.40),
+        ));
+      }
     });
 
     await uploadTask;

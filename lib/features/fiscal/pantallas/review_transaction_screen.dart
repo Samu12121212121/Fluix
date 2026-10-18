@@ -102,12 +102,14 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
+        appBar: FluixAppBar(titulo: 'Revisión factura', showLeading: true),
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_tx == null) {
       return const Scaffold(
+        appBar: FluixAppBar(titulo: 'Revisión factura', showLeading: true),
         body: Center(child: Text('Factura no encontrada')),
       );
     }
@@ -699,7 +701,7 @@ class _ReviewTransactionScreenState extends State<ReviewTransactionScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(ctrl.dispose);
   }
 
   void _verDocumentoCompleto() {

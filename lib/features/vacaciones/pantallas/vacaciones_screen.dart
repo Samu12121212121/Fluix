@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../core/widgets/flux_toast.dart';
 import '../../../models/vacacion_model.dart';
 import '../../../services/vacaciones_service.dart';
@@ -21,7 +22,10 @@ const _kPurple = Color(0xFF8B5CF6);
 class VacacionesScreen extends StatefulWidget {
   final String empresaId;
   final SesionUsuario? sesion;
-  const VacacionesScreen({super.key, required this.empresaId, this.sesion});
+  /// true  = dentro del dashboard (no crea Scaffold propio)
+  /// false = ruta standalone (crea Scaffold + FluixAppBar, oculta header verde)
+  final bool embedded;
+  const VacacionesScreen({super.key, required this.empresaId, this.sesion, this.embedded = true});
 
   @override
   State<VacacionesScreen> createState() => _VacacionesScreenState();
@@ -102,30 +106,51 @@ class _VacacionesScreenState extends State<VacacionesScreen>
             (s.fechaInicio.month == mes || s.fechaFin.month == mes) &&
             s.fechaInicio.year == anio).length;
         final ausentesHoy = todas.where((s) =>
+            s.estado == EstadoSolicitud.aprobado &&
             !hoy.isBefore(s.fechaInicio) && !hoy.isAfter(s.fechaFin)).length;
         final pendientes  = todas.where((s) => s.estado == EstadoSolicitud.solicitado).length;
 
-        return ColoredBox(
+        final contenido = ColoredBox(
           color: _bg,
           child: Column(children: [
-            // ── Header ──────────────────────────────────────────────────────
-            _buildHeader(),
+            // Header verde solo en modo embedded (el dashboard no lo necesita, pero
+            // cuando se usa en la web/sidebar sí aporta identidad visual)
+            if (widget.embedded) _buildHeader(),
             // ── TabBar ──────────────────────────────────────────────────────
             _buildTabBar(pendientes),
             // ── Contenido ───────────────────────────────────────────────────
             Expanded(child: TabBarView(
               controller: _tabs,
               children: [
-                // Tab 0: Calendario
                 _buildCalendarioTab(filtradas, vacMes, permMes, ausentesHoy, pendientes),
-                // Tab 1: Solicitudes
                 _buildSolicitudesTab(filtradas, todas),
-                // Tab 2: Cobertura
                 _buildCoberturaTab(todas),
               ],
             )),
           ]),
         );
+
+        // Standalone (ruta push): Scaffold propio con AppBar y back button
+        if (!widget.embedded) {
+          return Scaffold(
+            backgroundColor: _bg,
+            appBar: FluixAppBar(
+              titulo: 'Vacaciones y ausencias',
+              showLeading: true,
+              extraActions: _esAdmin
+                  ? [
+                      IconButton(
+                        icon: const Icon(Icons.add_rounded),
+                        tooltip: 'Nueva solicitud',
+                        onPressed: _nuevaSolicitud,
+                      )
+                    ]
+                  : const [],
+            ),
+            body: contenido,
+          );
+        }
+        return contenido;
       },
     );
   }

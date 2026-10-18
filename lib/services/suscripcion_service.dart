@@ -197,6 +197,10 @@ class SuscripcionService {
   bool tieneModulo(String moduloId) {
     if (_cache == null) return false;
     if (!_cache!.estaActiva) return false;
+    // Primero verificar modulosActivos (incluye modulosOverride de Firestore)
+    final id = moduloId == 'web' ? 'contenido_web' : moduloId;
+    if (_cache!.modulosActivos.contains(id)) return true;
+    // Fallback: verificar por packs/addons (compatibilidad con sistema antiguo)
     return PlanesConfig.moduloDisponible(
       moduloId: moduloId,
       packsActivos: _cache!.packsActivos,

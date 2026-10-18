@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -174,6 +175,7 @@ class SincronizacionServiciosService {
   /// Retorna una función para cancelar el listener.
   Function setupAutoSync(String empresaId) {
     Stream<QuerySnapshot>? stream;
+    StreamSubscription<QuerySnapshot>? subscription;
 
     // Función que se ejecuta cuando detecta cambios
     void handleChanges(QuerySnapshot snapshot, String negocioId) async {
@@ -212,14 +214,17 @@ class SincronizacionServiciosService {
           .collection('servicios')
           .snapshots();
 
-      stream!.listen(
+      final sub = stream!.listen(
         (snapshot) => handleChanges(snapshot, negocioId),
         onError: (e) => debugPrint('❌ Error en auto-sync: $e'),
       );
+      subscription = sub;
     });
 
-    // Retornar función de cancelación (por ahora vacía, se puede mejorar)
-    return () => debugPrint('🛑 Auto-sync cancelado para empresa $empresaId');
+    return () {
+      subscription?.cancel();
+      debugPrint('🛑 Auto-sync cancelado para empresa $empresaId');
+    };
   }
 }
 

@@ -113,6 +113,8 @@ export {
   stripeWebhookNazari,
   verificarDescargaEbook,
   onPedidoNazariPagado,
+  simularCompraEbook,
+  onNuevoPedidoWeb,
 } from "./nazariEbooks";
 
 export { onJuanitaReservaEstadoCambiado } from "./juanitaReservasEmail";
@@ -2747,8 +2749,21 @@ export { firmarXMLVerifactu } from "./firmarXMLVerifactu";
 export { remitirVerifactu } from "./remitirVerifactu";
 
 // ── BLOG: Publicar posts programados (cada 15 min) ────────────────────────────
-export { publicarPostsProgramados } from "./schedulerBlog";
+export { publicarPostsProgramados, desactivarPreventaPasada } from "./schedulerBlog";
 export { getBlogEntry, getBlogLista } from "./blogApi";
+
+// ── NAZARÍ: Regeneración automática de caché JS ───────────────────────────────
+export {
+  onCatalogoWebCambio,
+  onAutoresCambio,
+  onOrdenAutoresCambio,
+  onBlogCambio,
+  onEventosCambio,
+  onSeleccionCambio,
+  onPackSeleccionCambio,
+  onPagosConfigCambio,
+  regenerarCacheNazari,
+} from "./nazariCache";
 
 // ── GESTIÓN DE CUENTAS Y SUSCRIPCIONES (sin pasar por Apple/Google) ──────────
 export {

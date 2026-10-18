@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
+import '../stock_service.dart';
+import '../../domain/modelos/pedido.dart';
 
 class OfflineQueueService {
   static final OfflineQueueService _i = OfflineQueueService._();
@@ -103,7 +105,26 @@ class OfflineQueueService {
       final data = Map<String, dynamic>.from(pedido)..remove('_local_id');
 
       try {
-        await pedidosRef.add(data);
+        final docRef = await pedidosRef.add(data);
+
+        // Decrementar stock ahora que hay conexión.
+        // Es idempotente: si falla y se reintenta, stock_descontado lo protege.
+        try {
+          final lineasRaw = (data['lineas'] as List<dynamic>? ?? []);
+          final lineas = lineasRaw
+              .map((l) => LineaPedido.fromMap(l as Map<String, dynamic>))
+              .toList();
+          if (lineas.isNotEmpty) {
+            await StockService().decrementarStockPorVenta(
+              empresaId: empresaId,
+              pedidoId: docRef.id,
+              lineas: lineas,
+            );
+          }
+        } catch (_) {
+          // No bloquear la sincronización si el stock falla
+        }
+
         if (localId != null) await eliminar(localId);
       } catch (_) {
         // Deja el pedido en cola y continúa con el siguiente

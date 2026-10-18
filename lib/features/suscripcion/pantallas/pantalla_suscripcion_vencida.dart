@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../core/utils/permisos_service.dart';
+import '../../../core/utils/permisos_service.dart'; // solo para limpiarSesion en signOut
 
 class PantallaSuscripcionVencida extends StatelessWidget {
   final String empresaId;
   final String estado; // VENCIDA, PENDIENTE, SUSPENDIDA
   final DateTime? fechaFin;
+  final bool esPropietario;
 
   const PantallaSuscripcionVencida({
     super.key,
     required this.empresaId,
     required this.estado,
     this.fechaFin,
+    this.esPropietario = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final esPropietario = PermisosService().sesion?.esPropietario ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),

@@ -30,6 +30,10 @@ class _TabBlogWebState extends State<TabBlogWeb> {
   String? _filtroCategoria;
   final _buscadorCtrl = TextEditingController();
 
+  static const int _primeraPagina = 25;
+  static const int _tamPagina     = 50;
+  int _paginaActual = 0;
+
   // Selección múltiple
   bool _modoSeleccion = false;
   final Set<String> _seleccionados = {};
@@ -270,7 +274,7 @@ class _TabBlogWebState extends State<TabBlogWeb> {
                         icon: const Icon(Icons.clear_rounded, size: 16),
                         onPressed: () {
                           _buscadorCtrl.clear();
-                          setState(() => _busqueda = '');
+                          setState(() { _busqueda = ''; _paginaActual = 0; });
                         })
                     : null,
                 filled: true,
@@ -288,7 +292,7 @@ class _TabBlogWebState extends State<TabBlogWeb> {
                     horizontal: 12, vertical: 9),
                 isDense: true,
               ),
-              onChanged: (v) => setState(() => _busqueda = v),
+              onChanged: (v) => setState(() { _busqueda = v; _paginaActual = 0; }),
             ),
           ),
           const SizedBox(width: 8),
@@ -351,6 +355,7 @@ class _TabBlogWebState extends State<TabBlogWeb> {
               onTap: () => setState(() {
                 _filtroEstado = null;
                 _filtroCategoria = null;
+                _paginaActual = 0;
               }),
               color: color,
             ),
@@ -364,6 +369,7 @@ class _TabBlogWebState extends State<TabBlogWeb> {
                   onTap: () => setState(() {
                     _filtroEstado = _filtroEstado == estado ? null : estado;
                     _filtroCategoria = null;
+                    _paginaActual = 0;
                   }),
                   color: estado.color,
                 ),
@@ -380,6 +386,7 @@ class _TabBlogWebState extends State<TabBlogWeb> {
                     onTap: () => setState(() {
                       _filtroCategoria = _filtroCategoria == cat.id ? null : cat.id;
                       _filtroEstado = null;
+                      _paginaActual = 0;
                     }),
                     color: color,
                   ),
@@ -471,32 +478,109 @@ class _TabBlogWebState extends State<TabBlogWeb> {
     );
   }
 
+  // Calcula cuántos items hay en cada página (0-indexed)
+  int _inicioPage(int page) =>
+      page == 0 ? 0 : _primeraPagina + (page - 1) * _tamPagina;
+  int _finPage(int page, int total) =>
+      (page == 0 ? _primeraPagina : _primeraPagina + page * _tamPagina)
+          .clamp(0, total);
+  int _totalPages(int total) {
+    if (total == 0) return 0;
+    if (total <= _primeraPagina) return 1;
+    return 1 + ((total - _primeraPagina) / _tamPagina).ceil();
+  }
+
   Widget _buildLista(
       List<EntradaBlog> entradas, List<CategoriaBlog> categorias, Color color) {
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(12, 10, 12, _modoSeleccion ? 90 : 120),
-      itemCount: entradas.length,
-      itemBuilder: (ctx, i) {
-        final e = entradas[i];
-        final cat = categorias.where((c) => c.id == e.categoriaId).firstOrNull;
-        final seleccionado = _seleccionados.contains(e.id);
-        return _TarjetaEntrada(
-          entrada: e,
-          categoria: cat,
-          color: color,
-          seleccionado: seleccionado,
-          modoSeleccion: _modoSeleccion,
-          onTap: _modoSeleccion
-              ? () => _toggleSeleccion(e.id)
-              : () => _abrirEditor(context, e, categorias, color),
-          onToggle: (v) =>
-              widget.svc.togglePublicarBlog(widget.empresaId, e.id, v),
-          onEliminar: () => _confirmarEliminar(context, e),
-          onDuplicar: () => _duplicar(context, e),
-          onToggleDestacado: () => widget.svc.toggleDestacadoBlog(
-              widget.empresaId, e.id, !e.destacado),
-        );
-      },
+    final total   = entradas.length;
+    final pages   = _totalPages(total);
+    // Si la página activa quedó fuera de rango (ej. al filtrar), volver a 0
+    final pagina  = _paginaActual.clamp(0, pages > 0 ? pages - 1 : 0);
+    final inicio  = _inicioPage(pagina);
+    final fin     = _finPage(pagina, total);
+    final visible = entradas.sublist(inicio, fin);
+
+    return Column(
+      children: [
+        // ── Tabs de paginación ───────────────────────────────────
+        if (pages > 1)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (int p = 0; p < pages; p++) ...[
+                    if (p > 0) const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => setState(() => _paginaActual = p),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: pagina == p
+                              ? color
+                              : color.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: pagina == p
+                                ? color
+                                : color.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Text(
+                          '${_inicioPage(p) + 1}–${_finPage(p, total)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: pagina == p ? Colors.white : color,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 10),
+                  Text(
+                    '$total artículos',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        // ── Lista de la página actual ─────────────────────────────
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(12, 10, 12, _modoSeleccion ? 90 : 120),
+            itemCount: visible.length,
+            itemBuilder: (ctx, i) {
+              final e = visible[i];
+              final cat =
+                  categorias.where((c) => c.id == e.categoriaId).firstOrNull;
+              final seleccionado = _seleccionados.contains(e.id);
+              return _TarjetaEntrada(
+                entrada: e,
+                categoria: cat,
+                color: color,
+                seleccionado: seleccionado,
+                modoSeleccion: _modoSeleccion,
+                onTap: _modoSeleccion
+                    ? () => _toggleSeleccion(e.id)
+                    : () => _abrirEditor(context, e, categorias, color),
+                onToggle: (v) =>
+                    widget.svc.togglePublicarBlog(widget.empresaId, e.id, v),
+                onEliminar: () => _confirmarEliminar(context, e),
+                onDuplicar: () => _duplicar(context, e),
+                onToggleDestacado: () => widget.svc.toggleDestacadoBlog(
+                    widget.empresaId, e.id, !e.destacado),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

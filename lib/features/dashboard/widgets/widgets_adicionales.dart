@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../services/google_reviews_service.dart';
+import '../../../services/stock_service.dart';
 import '../pantallas/configurar_google_reviews_screen.dart';
+import '../../tpv/pantallas/gestionar_catalogo_screen.dart';
 
 // ── Widget de KPIs Rápidos ────────────────────────────────────────────────────
 
@@ -984,5 +986,175 @@ class _WidgetIngresosMesState extends State<WidgetIngresosMes> {
         'ingresos_por_dia': <int, double>{},
       };
     }
+  }
+}
+
+// ── Widget Alertas de Stock ───────────────────────────────────────────────────
+
+class WidgetAlertasStock extends StatelessWidget {
+  final String empresaId;
+  const WidgetAlertasStock({super.key, required this.empresaId});
+
+  static const _kRed    = Color(0xFFD32F2F);
+  static const _kOrange = Color(0xFFF57C00);
+  static const _kGreen  = Color(0xFF388E3C);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AlertaStock>>(
+      stream: StockService().alertasStockStream(empresaId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+        final alertas = snap.data ?? [];
+        final hayAgotados = alertas.any((a) => a.agotado);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: alertas.isEmpty
+                  ? Colors.grey[200]!
+                  : hayAgotados
+                      ? _kRed.withValues(alpha: 0.3)
+                      : _kOrange.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: (alertas.isEmpty
+                              ? _kGreen
+                              : hayAgotados ? _kRed : _kOrange)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      alertas.isEmpty
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.inventory_2_outlined,
+                      size: 18,
+                      color: alertas.isEmpty
+                          ? _kGreen
+                          : hayAgotados ? _kRed : _kOrange,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Stock',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.bold)),
+                  ),
+                  if (alertas.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              GestionarCatalogoScreen(empresaId: empresaId),
+                        ),
+                      ),
+                      child: const Text('Ver catálogo',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF1976D2),
+                              fontWeight: FontWeight.w600)),
+                    ),
+                ]),
+                const SizedBox(height: 12),
+                if (alertas.isEmpty)
+                  Row(children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 14, color: _kGreen),
+                    const SizedBox(width: 6),
+                    Text('Todo el stock está correcto',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ])
+                else ...[
+                  Row(children: [
+                    _kpi('Agotados',
+                        alertas.where((a) => a.agotado).length, _kRed),
+                    const SizedBox(width: 10),
+                    _kpi('Stock bajo',
+                        alertas.where((a) => !a.agotado).length, _kOrange),
+                  ]),
+                  const SizedBox(height: 10),
+                  ...alertas.take(3).map((a) => _filaAlerta(a)),
+                  if (alertas.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('+ ${alertas.length - 3} más',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF1976D2))),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _kpi(String label, int count, Color color) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(children: [
+            Text('$count',
+                style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+          ]),
+        ),
+      );
+
+  Widget _filaAlerta(AlertaStock a) {
+    final color = a.agotado ? _kRed : _kOrange;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        Icon(
+            a.agotado ? Icons.block_rounded : Icons.warning_amber_rounded,
+            size: 13, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+            child: Text(a.nombre,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            a.agotado ? 'Agotado' : '${a.stock} uds',
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700, color: color),
+          ),
+        ),
+      ]),
+    );
   }
 }

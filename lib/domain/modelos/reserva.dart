@@ -110,7 +110,7 @@ class Reserva extends Equatable {
     }
 
     if (fecha is String) {
-      return DateTime.parse(fecha);
+      return DateTime.tryParse(fecha) ?? DateTime.now();
     }
 
     if (fecha is DateTime) {

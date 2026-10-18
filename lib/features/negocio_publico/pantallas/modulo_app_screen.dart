@@ -15,9 +15,15 @@ import 'terminos_condiciones_screen.dart';
 import 'resenas_fluix_screen.dart';
 import '../../../core/utils/app_settings.dart';
 
+import '../negocio_theme.dart';
+import '../secciones/sec_identidad_contacto.dart';
+import '../secciones/sec_ubicacion_horarios.dart';
+import '../secciones/sec_servicios.dart';
+import '../secciones/sec_config_avanzada.dart';
+
 // Accent fijos — iguales en claro y oscuro
-const _kAccent = Color(0xFF00FFC8);
-const _kRosa   = Color(0xFFFF3296);
+const _kAccent = Color(0xFF00BFA5);
+const _kRosa   = Color(0xFFE91E63);
 const _kOro    = Color(0xFFFFB830);
 
 // Colores reactivos al modo oscuro — accesibles desde cualquier widget del archivo
@@ -41,15 +47,81 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   bool _subiendo = false;
   String? _negocioId;
   String _nombreNegocio = '';
-  int _tabIndex = 0;
+  final _nombreCtrl    = TextEditingController();
+  final _descCtrl      = TextEditingController();
+  final _emailCtrl     = TextEditingController();
+  final _telefonoCtrl  = TextEditingController();
+  final _igCtrl        = TextEditingController();
+  final _fbCtrl        = TextEditingController();
+  final _waCtrl        = TextEditingController();
+  final _webCtrl       = TextEditingController();
 
-  final _nombreCtrl = TextEditingController();
-  final _descCtrl   = TextEditingController();
-  final _emailCtrl  = TextEditingController();
-  final _igCtrl     = TextEditingController();
-  final _fbCtrl     = TextEditingController();
-  final _waCtrl     = TextEditingController();
-  final _webCtrl    = TextEditingController();
+  // ── Identidad ──
+  final _nombreLegalCtrl   = TextEditingController();
+  final _descCortaCtrl     = TextEditingController();
+  final _taglineCtrl       = TextEditingController();
+  String? _logoUrl, _avatarUrl, _videoUrl;
+  List<String> _subcategorias = [], _etiquetas = [], _idiomas = [], _publicoObjetivo = [];
+  int? _anioApertura;
+
+  // ── Contacto extra ──
+  final _tiktokCtrl        = TextEditingController();
+  final _youtubeCtrl       = TextEditingController();
+  final _emailPublicoCtrl  = TextEditingController();
+
+  // ── Ubicación ──
+  final _calleCtrl       = TextEditingController();
+  final _numCtrl         = TextEditingController();
+  final _cpCtrl          = TextEditingController();
+  final _localidadCtrl   = TextEditingController();
+  final _provinciaCtrl   = TextEditingController();
+  final _indicacionesCtrl = TextEditingController();
+  final _zonaServicioCtrl = TextEditingController();
+  final _latCtrl         = TextEditingController();
+  final _lngCtrl         = TextEditingController();
+  bool _mostrarDireccion = true;
+
+  // ── Horarios extras ──
+  bool _turnosPartidos = false, _atencionConCita = true, _atencionSinCita = false;
+  final _cierreTemporalCtrl = TextEditingController();
+  final _ultimaHoraCtrl     = TextEditingController();
+  final _zonaHorariaCtrl    = TextEditingController();
+
+  // ── Reservas config ──
+  bool _reservasOnlineActivas = true, _mostrarAgenda = true;
+  bool _reservarSinRegistro = false, _listaEspera = false, _pagosAnticipados = false;
+  int _antelacionMin = 2, _antelacionMax = 30;
+  bool _mostrarEquipo = true, _permitirElegirProfesional = true;
+  final _textoBotonCtrl  = TextEditingController();
+  final _instrReservaCtrl = TextEditingController();
+
+  // ── Reseñas config ──
+  bool _mostrarResenasGoogle = true, _mostrarResenasFluix = true, _permitirResenas = true;
+
+  // ── Pagos ──
+  final _razonSocialCtrl = TextEditingController();
+  final _nifCifCtrl      = TextEditingController();
+  List<String> _metodosPago = [];
+  bool _pagosOnline = false, _preciosConImpuestos = true, _facturaDisponible = false;
+
+  // ── Diseño ──
+  final _colorPrincipalCtrl  = TextEditingController();
+  final _colorSecundarioCtrl = TextEditingController();
+  final _textoBienvenidaCtrl = TextEditingController();
+  final _msgPromoCtrl        = TextEditingController();
+
+  // ── SEO ──
+  final _urlPublicaCtrl = TextEditingController();
+  final _tituloSeoCtrl  = TextEditingController();
+  final _descSeoCtrl    = TextEditingController();
+  List<String> _palabrasClave = [];
+  bool _aparecerEnResultados = true, _indexarExternamente = false;
+
+  // ── Visibilidad ──
+  Map<String, bool> _seccionesVisibles = {};
+
+  // ── Navegación ──
+  String? _seccionActual; // null = grid de secciones
 
   String _categoria     = 'general';
   List<String> _fotos   = [];
@@ -103,7 +175,18 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   @override
   void dispose() {
     AppSettings.darkMode.removeListener(_onDark);
-    for (final c in [_nombreCtrl, _descCtrl, _emailCtrl, _igCtrl, _fbCtrl, _waCtrl, _webCtrl]) c.dispose();
+    for (final c in [
+      _nombreCtrl, _descCtrl, _emailCtrl, _telefonoCtrl, _igCtrl, _fbCtrl, _waCtrl, _webCtrl,
+      _nombreLegalCtrl, _descCortaCtrl, _taglineCtrl,
+      _tiktokCtrl, _youtubeCtrl, _emailPublicoCtrl,
+      _calleCtrl, _numCtrl, _cpCtrl, _localidadCtrl, _provinciaCtrl,
+      _indicacionesCtrl, _zonaServicioCtrl, _latCtrl, _lngCtrl,
+      _cierreTemporalCtrl, _ultimaHoraCtrl, _zonaHorariaCtrl,
+      _textoBotonCtrl, _instrReservaCtrl,
+      _razonSocialCtrl, _nifCifCtrl,
+      _colorPrincipalCtrl, _colorSecundarioCtrl, _textoBienvenidaCtrl, _msgPromoCtrl,
+      _urlPublicaCtrl, _tituloSeoCtrl, _descSeoCtrl,
+    ]) c.dispose();
     super.dispose();
   }
 
@@ -131,12 +214,74 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           _negocioId       = doc.id;
           _nombreNegocio   = n.nombre;
           _nombreCtrl.text = n.nombre;
+          _nombreLegalCtrl.text = n.nombreLegal ?? '';
           _descCtrl.text   = n.descripcionDetallada ?? '';
+          _descCortaCtrl.text = n.descripcionCorta ?? '';
+          _taglineCtrl.text = n.tagline ?? '';
           _emailCtrl.text  = n.emailNotificaciones ?? '';
+          _telefonoCtrl.text = n.telefono ?? '';
+          _emailPublicoCtrl.text = n.emailPublico ?? '';
           _igCtrl.text     = n.instagram ?? '';
           _fbCtrl.text     = n.facebook ?? '';
           _waCtrl.text     = n.whatsapp ?? '';
+          _tiktokCtrl.text = n.tiktok ?? '';
+          _youtubeCtrl.text = n.youtube ?? '';
           _webCtrl.text    = n.website ?? '';
+          _logoUrl         = n.logoUrl;
+          _avatarUrl       = n.avatarUrl;
+          _videoUrl        = n.videoUrl;
+          _subcategorias   = n.subcategorias ?? [];
+          _etiquetas       = n.etiquetas ?? [];
+          _idiomas         = n.idiomas ?? [];
+          _publicoObjetivo = n.publicoObjetivo ?? [];
+          _anioApertura    = n.anioApertura;
+          _calleCtrl.text  = n.calle ?? '';
+          _numCtrl.text    = n.numero ?? '';
+          _cpCtrl.text     = n.codigoPostal ?? '';
+          _localidadCtrl.text = n.localidad ?? '';
+          _provinciaCtrl.text = n.provincia ?? '';
+          _indicacionesCtrl.text = n.indicacionesLlegar ?? '';
+          _zonaServicioCtrl.text = n.zonaServicio ?? '';
+          _latCtrl.text    = n.latitud?.toString() ?? '';
+          _lngCtrl.text    = n.longitud?.toString() ?? '';
+          _mostrarDireccion = n.mostrarDireccion ?? true;
+          _turnosPartidos  = n.turnosPartidos ?? false;
+          _atencionConCita = n.atencionConCita ?? true;
+          _atencionSinCita = n.atencionSinCita ?? false;
+          _cierreTemporalCtrl.text = n.cierreTemporalHasta ?? '';
+          _ultimaHoraCtrl.text = n.ultimaHoraAdmision ?? '';
+          _zonaHorariaCtrl.text = n.zonaHoraria ?? '';
+          _reservasOnlineActivas = n.reservasOnlineActivas ?? true;
+          _mostrarAgenda   = n.mostrarAgenda ?? true;
+          _reservarSinRegistro = n.reservarSinRegistro ?? false;
+          _listaEspera     = n.listaEspera ?? false;
+          _pagosAnticipados = n.pagosAnticipados ?? false;
+          _antelacionMin   = n.antelacionMinHoras ?? 2;
+          _antelacionMax   = n.antelacionMaxDias ?? 30;
+          _textoBotonCtrl.text = n.textoBotonReserva ?? '';
+          _instrReservaCtrl.text = n.instruccionesReserva ?? '';
+          _mostrarEquipo   = n.mostrarEquipo ?? true;
+          _permitirElegirProfesional = n.permitirElegirProfesional ?? true;
+          _mostrarResenasGoogle = n.mostrarResenasGoogle ?? true;
+          _mostrarResenasFluix = n.mostrarResenasFluix ?? true;
+          _permitirResenas = n.permitirResenas ?? true;
+          _razonSocialCtrl.text = n.razonSocial ?? '';
+          _nifCifCtrl.text = n.nifCif ?? '';
+          _metodosPago     = n.metodosPago ?? [];
+          _pagosOnline     = n.pagosOnline ?? false;
+          _preciosConImpuestos = n.preciosConImpuestos ?? true;
+          _facturaDisponible = n.facturaDisponible ?? false;
+          _colorPrincipalCtrl.text = n.colorPrincipal ?? '';
+          _colorSecundarioCtrl.text = n.colorSecundario ?? '';
+          _textoBienvenidaCtrl.text = n.textoBienvenida ?? '';
+          _msgPromoCtrl.text = n.mensajePromocional ?? '';
+          _urlPublicaCtrl.text = n.urlPublica ?? '';
+          _tituloSeoCtrl.text = n.tituloSeo ?? '';
+          _descSeoCtrl.text = n.descripcionSeo ?? '';
+          _palabrasClave   = n.palabrasClave ?? [];
+          _aparecerEnResultados = n.aparecerEnResultados ?? true;
+          _indexarExternamente = n.indexarExternamente ?? false;
+          _seccionesVisibles = n.seccionesVisibles ?? {};
           _fotos           = n.fotosGaleria ?? [];
           _categoria       = n.categoria.name;
           _servicios       = n.serviciosDestacados ?? [];
@@ -163,17 +308,74 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
     try {
       final datos = {
         'nombre': nombre, 'categoria': _categoria, 'activo': _activo,
+        // Identidad
+        'nombreLegal': _nombreLegalCtrl.text.trim(),
         'descripcionDetallada': _descCtrl.text.trim(),
+        'descripcionCorta': _descCortaCtrl.text.trim(),
+        'tagline': _taglineCtrl.text.trim(),
+        if (_logoUrl != null) 'logoUrl': _logoUrl,
+        if (_avatarUrl != null) 'avatarUrl': _avatarUrl,
+        if (_videoUrl != null) 'videoUrl': _videoUrl,
+        'subcategorias': _subcategorias, 'etiquetas': _etiquetas,
+        'idiomas': _idiomas, 'publicoObjetivo': _publicoObjetivo,
+        if (_anioApertura != null) 'anioApertura': _anioApertura,
+        // Contacto
         'emailNotificaciones': _emailCtrl.text.trim(),
-        'fotosGaleria': _fotos,
+        'emailPublico': _emailPublicoCtrl.text.trim(),
+        'telefono': _telefonoCtrl.text.trim(),
+        'instagram': _igCtrl.text.trim(), 'facebook': _fbCtrl.text.trim(),
+        'whatsapp': _waCtrl.text.trim(), 'website': _webCtrl.text.trim(),
+        'tiktok': _tiktokCtrl.text.trim(), 'youtube': _youtubeCtrl.text.trim(),
+        // Ubicación
+        'calle': _calleCtrl.text.trim(), 'numero': _numCtrl.text.trim(),
+        'codigoPostal': _cpCtrl.text.trim(), 'localidad': _localidadCtrl.text.trim(),
+        'provincia': _provinciaCtrl.text.trim(),
+        'indicacionesLlegar': _indicacionesCtrl.text.trim(),
+        'zonaServicio': _zonaServicioCtrl.text.trim(),
+        if (_latCtrl.text.isNotEmpty) 'latitud': double.tryParse(_latCtrl.text),
+        if (_lngCtrl.text.isNotEmpty) 'longitud': double.tryParse(_lngCtrl.text),
+        'mostrarDireccion': _mostrarDireccion,
+        // Horarios
         'horarios': _horarios.map((k, v) => MapEntry(k.toString(), v.toJson())),
-        'serviciosDestacados': _servicios,
+        'turnosPartidos': _turnosPartidos,
+        'atencionConCita': _atencionConCita, 'atencionSinCita': _atencionSinCita,
+        'cierreTemporalHasta': _cierreTemporalCtrl.text.trim(),
+        'ultimaHoraAdmision': _ultimaHoraCtrl.text.trim(),
+        'zonaHoraria': _zonaHorariaCtrl.text.trim(),
+        // Reservas
+        'reservasOnlineActivas': _reservasOnlineActivas, 'mostrarAgenda': _mostrarAgenda,
+        'reservarSinRegistro': _reservarSinRegistro, 'listaEspera': _listaEspera,
+        'pagosAnticipados': _pagosAnticipados,
+        'antelacionMinHoras': _antelacionMin, 'antelacionMaxDias': _antelacionMax,
+        'textoBotonReserva': _textoBotonCtrl.text.trim(),
+        'instruccionesReserva': _instrReservaCtrl.text.trim(),
+        'mostrarEquipo': _mostrarEquipo, 'permitirElegirProfesional': _permitirElegirProfesional,
+        // Reseñas
+        'mostrarResenasGoogle': _mostrarResenasGoogle, 'mostrarResenasFluix': _mostrarResenasFluix,
+        'permitirResenas': _permitirResenas,
+        // Galería y servicios
+        'fotosGaleria': _fotos, 'serviciosDestacados': _servicios,
         'caracteristicas': _caracteristicas,
         'camposPersonalizados': _campos.map((c) => c.toJson()).toList(),
         'resenasFluix': _resenas.map((r) => r.toJson()).toList(),
         'nivelPrecio': _nivelPrecio, 'duracionPromedio': _duracion,
-        'instagram': _igCtrl.text.trim(), 'facebook': _fbCtrl.text.trim(),
-        'whatsapp': _waCtrl.text.trim(), 'website': _webCtrl.text.trim(),
+        // Pagos
+        'razonSocial': _razonSocialCtrl.text.trim(), 'nifCif': _nifCifCtrl.text.trim(),
+        'metodosPago': _metodosPago, 'pagosOnline': _pagosOnline,
+        'preciosConImpuestos': _preciosConImpuestos, 'facturaDisponible': _facturaDisponible,
+        // Diseño
+        'colorPrincipal': _colorPrincipalCtrl.text.trim(),
+        'colorSecundario': _colorSecundarioCtrl.text.trim(),
+        'textoBienvenida': _textoBienvenidaCtrl.text.trim(),
+        'mensajePromocional': _msgPromoCtrl.text.trim(),
+        // SEO
+        'urlPublica': _urlPublicaCtrl.text.trim(),
+        'tituloSeo': _tituloSeoCtrl.text.trim(), 'descripcionSeo': _descSeoCtrl.text.trim(),
+        'palabrasClave': _palabrasClave,
+        'aparecerEnResultados': _aparecerEnResultados,
+        'indexarExternamente': _indexarExternamente,
+        // Visibilidad
+        'seccionesVisibles': _seccionesVisibles,
       };
       if (_negocioId == null) {
         datos['empresaIdVinculada'] = widget.empresaId;
@@ -222,6 +424,71 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
     }
   }
 
+  // ── Helpers UI compartidos por todas las secciones ───────────────────────
+  Widget _buildSwOpt(String label, bool value, ValueChanged<bool> onChanged) =>
+      Row(children: [
+        Expanded(child: Text(label, style: TextStyle(color: _kTexto, fontSize: 13))),
+        Switch(value: value, onChanged: onChanged, activeColor: _kAccent,
+            activeTrackColor: _kAccent.withValues(alpha: 0.25),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+      ]);
+
+  Widget _buildChipListField(String titulo, List<String> items,
+      void Function(String) onAdd, void Function(String) onRemove,
+      {List<String>? sugerencias}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(titulo, style: TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          ...items.map((v) => Chip(
+            label: Text(v, style: TextStyle(color: _kTexto, fontSize: 12)),
+            backgroundColor: _kCard2,
+            side: BorderSide(color: _kAccent.withValues(alpha: 0.5)),
+            deleteIconColor: _kRosa,
+            onDeleted: () => onRemove(v),
+          )),
+          ActionChip(
+            avatar: Icon(Icons.add, color: _kAccent, size: 16),
+            label: Text('Añadir', style: TextStyle(color: _kAccent, fontSize: 12)),
+            backgroundColor: _kCard2, side: BorderSide(color: _kBorde),
+            onPressed: () => _pedirTextoChipDialog(titulo, sugerencias, onAdd),
+          ),
+        ]),
+      ]);
+
+  void _pedirTextoChipDialog(String titulo, List<String>? sugerencias, void Function(String) onAdd) async {
+    final ctrl = TextEditingController();
+    final r = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _kCard,
+        title: Text('Añadir a $titulo', style: TextStyle(color: _kTexto, fontSize: 15)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: ctrl, autofocus: true, style: TextStyle(color: _kTexto),
+              decoration: _dec('Escribe y pulsa OK')),
+          if (sugerencias != null) ...[
+            const SizedBox(height: 12),
+            Wrap(spacing: 6, runSpacing: 6, children: sugerencias.map((s) =>
+              GestureDetector(onTap: () { ctrl.text = s; },
+                child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: _kCard2, borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _kBorde)),
+                  child: Text(s, style: TextStyle(color: _kTexto, fontSize: 12)))),
+            ).toList()),
+          ],
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar', style: TextStyle(color: _kMuted))),
+          FilledButton(onPressed: () {
+            if (ctrl.text.trim().isNotEmpty) Navigator.pop(context, ctrl.text.trim());
+          }, style: FilledButton.styleFrom(backgroundColor: _kAccent, foregroundColor: _kBg),
+              child: const Text('Añadir')),
+        ],
+      ),
+    );
+    if (r != null) onAdd(r);
+  }
+
   void _snack(String msg, {bool error = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -258,115 +525,310 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _buildHeader(),
           const SizedBox(height: 16),
-          _buildTabBar(),
-          const SizedBox(height: 16),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(key: ValueKey(_tabIndex), child: _tabContent()),
-          ),
-          const SizedBox(height: 24),
-          _buildBotonGuardar(),
+          if (_seccionActual != null) ...[
+            // Back button
+            GestureDetector(
+              onTap: () => setState(() => _seccionActual = null),
+              child: Row(children: [
+                Icon(Icons.arrow_back_ios_rounded, color: _kAccent, size: 16),
+                const SizedBox(width: 6),
+                Text('Todas las secciones', style: TextStyle(color: _kAccent, fontSize: 13, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+              child: KeyedSubtree(key: ValueKey(_seccionActual), child: _buildSectionContent(_seccionActual!)),
+            ),
+            const SizedBox(height: 24),
+            _buildBotonGuardar(),
+          ] else ...[
+            _buildSectionGrid(),
+          ],
           const SizedBox(height: 28),
         ]),
       ),
     );
   }
 
-  Widget _tabContent() {
-    switch (_tabIndex) {
-      case 1:  return _buildTabServicios();
-      case 2:  return _buildTabHorarios();
-      case 3:  return _buildTabConfig();
-      case 4:  return _buildTabResenas();
-      default: return _buildTabPerfil();
+  // Secciones que tienen impacto directo en tabs del perfil público del cliente
+  static const _seccionesConToggle = {
+    'servicios', 'productos', 'reservas', 'profesionales',
+    'resenas', 'galeria', 'promociones', 'politicas',
+  };
+
+  static const _secciones = [
+    ('identidad',     Icons.storefront_outlined,     'Identidad',         Color(0xFF00BFA5)),
+    ('contacto',      Icons.phone_outlined,           'Contacto',          Color(0xFF3B82F6)),
+    ('ubicacion',     Icons.location_on_outlined,     'Ubicación',         Color(0xFFFF9800)),
+    ('horarios',      Icons.schedule_outlined,        'Horarios',          Color(0xFF9B59B6)),
+    ('servicios',     Icons.content_cut_outlined,     'Servicios',         Color(0xFFE91E63)),
+    ('productos',     Icons.shopping_bag_outlined,    'Productos',         Color(0xFFFFB830)),
+    ('reservas',      Icons.calendar_month_outlined,  'Reservas',          Color(0xFF00BFA5)),
+    ('profesionales', Icons.people_outline,           'Profesionales',     Color(0xFF3B82F6)),
+    ('resenas',       Icons.star_outline_rounded,     'Reseñas',           Color(0xFFFFB830)),
+    ('galeria',       Icons.photo_library_outlined,   'Galería',           Color(0xFFE91E63)),
+    ('politicas',     Icons.gavel_outlined,           'Políticas',         Color(0xFF718096)),
+    ('pagos',         Icons.payments_outlined,        'Pagos',             Color(0xFF27AE60)),
+    ('diseno',        Icons.palette_outlined,         'Diseño',            Color(0xFF9B59B6)),
+    ('promociones',   Icons.local_offer_outlined,     'Promociones',       Color(0xFFFF9800)),
+    ('seo',           Icons.search_rounded,           'SEO',               Color(0xFF3B82F6)),
+    ('visibilidad',   Icons.visibility_outlined,      'Visibilidad',       Color(0xFF00BFA5)),
+    ('estadisticas',  Icons.bar_chart_rounded,        'Estadísticas',      Color(0xFFFFB830)),
+  ];
+
+  Widget _buildSectionGrid() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Cabecera explicativa
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Expanded(child: Text(
+            '${_secciones.length} secciones · toca para editar',
+            style: TextStyle(color: _kMuted, fontSize: 12),
+          )),
+          Icon(Icons.visibility_outlined, size: 14, color: _kMuted),
+          const SizedBox(width: 4),
+          Text('= visible en perfil público',
+              style: TextStyle(color: _kMuted, fontSize: 11)),
+        ]),
+      ),
+
+      ..._secciones.map((s) {
+        final tieneToggle = _seccionesConToggle.contains(s.$1);
+        final visible = _seccionesVisibles[s.$1] ?? true;
+        final oculto  = tieneToggle && !visible;
+
+        return GestureDetector(
+          onTap: () => setState(() => _seccionActual = s.$1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: oculto ? _kBg : _kCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: oculto ? _kBorde.withValues(alpha: 0.5) : _kBorde,
+                width: 0.5,
+              ),
+            ),
+            child: Row(children: [
+              // Icono de sección
+              Opacity(
+                opacity: oculto ? 0.45 : 1.0,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: s.$4.withValues(alpha: oculto ? 0.06 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(s.$2, color: oculto ? _kMuted : s.$4, size: 17),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Nombre
+              Expanded(child: Opacity(
+                opacity: oculto ? 0.5 : 1.0,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(s.$3, style: TextStyle(
+                      color: _kTexto, fontSize: 14, fontWeight: FontWeight.w600)),
+                  if (oculto)
+                    Text('Oculto en perfil público',
+                        style: TextStyle(color: _kMuted, fontSize: 10)),
+                ]),
+              )),
+
+              // Toggle ojo (solo secciones con impacto en B2C)
+              if (tieneToggle) ...[
+                GestureDetector(
+                  onTap: () {
+                    final nuevo = Map<String, bool>.from(_seccionesVisibles);
+                    nuevo[s.$1] = !visible;
+                    setState(() { _seccionesVisibles = nuevo; });
+                    // Guardar inmediatamente en Firestore
+                    if (_negocioId != null) {
+                      FirebaseFirestore.instance
+                          .collection('negocios_publicos')
+                          .doc(_negocioId)
+                          .update({'seccionesVisibles': nuevo})
+                          .catchError((_) {});
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6, left: 4),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: visible
+                            ? _kAccent.withValues(alpha: 0.10)
+                            : _kBorde.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        visible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                        size: 16,
+                        color: visible ? _kAccent : _kMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              Icon(Icons.chevron_right_rounded, color: _kMuted, size: 16),
+            ]),
+          ),
+        );
+      }),
+    ]);
+  }
+
+  Widget _buildSectionContent(String seccion) {
+    switch (seccion) {
+      case 'identidad':     return _buildIdentidad();
+      case 'contacto':      return _buildContactoCompleto();
+      case 'ubicacion':     return _buildUbicacion();
+      case 'horarios':      return _buildHorariosCompleto();
+      case 'servicios':     return _buildServiciosApp();
+      case 'productos':     return _buildProductos();
+      case 'reservas':      return _buildReservasConfig();
+      case 'profesionales': return _buildProfesionales();
+      case 'resenas':       return _buildResenasConfig();
+      case 'galeria':       return _buildFotos();
+      case 'politicas':     return _buildPoliticas();
+      case 'pagos':         return _buildPagos();
+      case 'diseno':        return _buildDiseno();
+      case 'promociones':   return _buildFlashSlots();
+      case 'seo':           return _buildSeo();
+      case 'visibilidad':   return _buildVisibilidad();
+      case 'estadisticas':  return _buildEstadisticas();
+      default:              return _buildIdentidad();
     }
   }
 
-  // ── Tab bar ────────────────────────────────────────────────────────────────
+  // ── Wrappers para secciones nuevas ────────────────────────────────────────
+  Widget _buildIdentidad() => buildSeccionIdentidad(context,
+    dark: _isDark, nombreCtrl: _nombreCtrl, nombreLegalCtrl: _nombreLegalCtrl,
+    descCortaCtrl: _descCortaCtrl, descCtrl: _descCtrl,
+    categoria: _categoria, subcategorias: _subcategorias, etiquetas: _etiquetas,
+    idiomas: _idiomas, publicoObjetivo: _publicoObjetivo, fotos: _fotos,
+    subiendo: _subiendo, anioApertura: _anioApertura, nivelPrecio: _nivelPrecio,
+    onCatChanged: (v) => setState(() => _categoria = v),
+    onSubcatChanged: (v) => setState(() => _subcategorias = v),
+    onEtiquetasChanged: (v) => setState(() => _etiquetas = v),
+    onIdiomasChanged: (v) => setState(() => _idiomas = v),
+    onPublicoChanged: (v) => setState(() => _publicoObjetivo = v),
+    onNivelPrecioChanged: (v) => setState(() => _nivelPrecio = v),
+    onAnioChanged: (v) => setState(() => _anioApertura = v),
+    onSubirFoto: _subirFoto,
+    onFotosChanged: (v) => setState(() => _fotos = v),
+  );
 
-  Widget _buildTabBar() {
-    final tabs = [
-      (Icons.storefront_outlined,  'Perfil'),
-      (Icons.content_cut_rounded,  'Servicios'),
-      (Icons.schedule_rounded,     'Horarios'),
-      (Icons.tune_rounded,         'Config'),
-      (Icons.star_rounded,         'Reseñas'),
-    ];
-    return Container(
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kBorde, width: 0.5),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(children: List.generate(tabs.length, (i) {
-        final sel = _tabIndex == i;
-        return Expanded(child: GestureDetector(
-          onTap: () => setState(() => _tabIndex = i),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            decoration: BoxDecoration(
-              color: sel ? _kAccent : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(tabs[i].$1, size: 15, color: sel ? _kBg : _kMuted),
-              const SizedBox(width: 5),
-              Text(tabs[i].$2, style: TextStyle(
-                color: sel ? _kBg : _kMuted,
-                fontSize: 12,
-                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-              )),
-            ]),
-          ),
-        ));
-      })),
-    );
-  }
+  Widget _buildContactoCompleto() => buildSeccionContacto(context,
+    dark: _isDark, telefonoCtrl: _telefonoCtrl, waCtrl: _waCtrl,
+    emailPublicoCtrl: _emailPublicoCtrl, emailNotiCtrl: _emailCtrl,
+    igCtrl: _igCtrl, fbCtrl: _fbCtrl, tiktokCtrl: _tiktokCtrl, youtubeCtrl: _youtubeCtrl, webCtrl: _webCtrl,
+    vis: _seccionesVisibles,
+    onVisChanged: (v) => setState(() => _seccionesVisibles = v),
+  );
 
-  // ── Tab content groups ─────────────────────────────────────────────────────
+  Widget _buildUbicacion() => buildSeccionUbicacion(context,
+    dark: _isDark, calleCtrl: _calleCtrl, numeroCtrl: _numCtrl, cpCtrl: _cpCtrl,
+    localidadCtrl: _localidadCtrl, provinciaCtrl: _provinciaCtrl,
+    indicacionesCtrl: _indicacionesCtrl, zonaServicioCtrl: _zonaServicioCtrl,
+    latitud: double.tryParse(_latCtrl.text), longitud: double.tryParse(_lngCtrl.text),
+    radioAtencionKm: 10.0, mostrarDireccion: _mostrarDireccion,
+    onLatChanged: (v) { _latCtrl.text = v?.toString() ?? ''; },
+    onLngChanged: (v) { _lngCtrl.text = v?.toString() ?? ''; },
+    onRadioChanged: (v) => setState(() {}),
+    onMostrarDireccionChanged: (v) => setState(() => _mostrarDireccion = v),
+  );
 
-  Widget _buildTabPerfil() {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (isMobile) ...[
-        _buildFotos(),
-        const SizedBox(height: 16),
-        _buildInfoBasica(),
-      ] else
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: _buildFotos()),
-            const SizedBox(width: 16),
-            Expanded(child: _buildInfoBasica()),
-          ]),
-        ),
-      const SizedBox(height: 16),
-      _buildContacto(),
-    ]);
-  }
+  Widget _buildHorariosCompleto() => buildSeccionHorarios(context,
+    dark: _isDark, horarios: _horarios, turnosPartidos: _turnosPartidos,
+    atencionConCita: _atencionConCita, atencionSinCita: _atencionSinCita,
+    zonaHorariaCtrl: _zonaHorariaCtrl,
+    onHorariosChanged: (v) => setState(() => _horarios = v),
+    onTurnosPartidosChanged: (v) => setState(() => _turnosPartidos = v),
+    onAtencionConCitaChanged: (v) => setState(() => _atencionConCita = v),
+    onAtencionSinCitaChanged: (v) => setState(() => _atencionSinCita = v),
+    snack: _snack,
+  );
 
-  Widget _buildTabServicios() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildServiciosApp(),
-      const SizedBox(height: 16),
-      _buildFlashSlots(),
-    ]);
-  }
+  Widget _buildProductos() => buildSeccionProductos(context,
+    dark: _isDark, negocioId: _negocioId, empresaId: widget.empresaId, snack: _snack);
 
-  Widget _buildTabHorarios() => _buildHorarios();
+  Widget _buildReservasConfig() => buildSeccionReservasConfig(context,
+    dark: _isDark, reservasOnlineActivas: _reservasOnlineActivas, mostrarAgenda: _mostrarAgenda,
+    reservarSinRegistro: _reservarSinRegistro, listaEspera: _listaEspera,
+    pagosAnticipados: _pagosAnticipados, antelacionMinHoras: _antelacionMin, antelacionMaxDias: _antelacionMax,
+    textoBotonCtrl: _textoBotonCtrl, instrReservaCtrl: _instrReservaCtrl,
+    onReservasActChanged: (v) => setState(() => _reservasOnlineActivas = v),
+    onAgendaChanged: (v) => setState(() => _mostrarAgenda = v),
+    onSinRegistroChanged: (v) => setState(() => _reservarSinRegistro = v),
+    onListaEsperaChanged: (v) => setState(() => _listaEspera = v),
+    onPagosAnticipChanged: (v) => setState(() => _pagosAnticipados = v),
+    onAntelMinChanged: (v) => setState(() => _antelacionMin = v),
+    onAntelMaxChanged: (v) => setState(() => _antelacionMax = v),
+  );
 
-  Widget _buildTabConfig() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildCaracteristicas(),
-      const SizedBox(height: 16),
-      _buildFormulario(),
-      const SizedBox(height: 16),
-      _buildTerminos(),
-    ]);
-  }
+  Widget _buildProfesionales() => buildSeccionProfesionales(context,
+    dark: _isDark, empresaId: widget.empresaId,
+    mostrarEquipo: _mostrarEquipo, permitirElegir: _permitirElegirProfesional,
+    onMostrarEquipoChanged: (v) => setState(() => _mostrarEquipo = v),
+    onPermitirElegirChanged: (v) => setState(() => _permitirElegirProfesional = v),
+  );
+
+  Widget _buildResenasConfig() => buildSeccionResenas(context,
+    dark: _isDark, negocioId: _negocioId, empresaId: widget.empresaId,
+    mostrarResenasGoogle: _mostrarResenasGoogle, mostrarResenasFluix: _mostrarResenasFluix, permitirResenas: _permitirResenas,
+    onGoogleChanged: (v) => setState(() => _mostrarResenasGoogle = v),
+    onFluixChanged: (v) => setState(() => _mostrarResenasFluix = v),
+    onPermitirChanged: (v) => setState(() => _permitirResenas = v),
+    snack: _snack,
+  );
+
+  Widget _buildPoliticas() => buildSeccionPoliticas(context,
+    dark: _isDark, negocioId: _negocioId, negocioNombre: _nombreNegocio, snack: _snack);
+
+  Widget _buildPagos() => buildSeccionPagos(context,
+    dark: _isDark, razonSocialCtrl: _razonSocialCtrl, nifCifCtrl: _nifCifCtrl,
+    metodosPago: _metodosPago, pagosOnline: _pagosOnline,
+    preciosConImpuestos: _preciosConImpuestos, facturaDisponible: _facturaDisponible,
+    onMetodosChanged: (v) => setState(() => _metodosPago = v),
+    onPagosOnlineChanged: (v) => setState(() => _pagosOnline = v),
+    onImpuestosChanged: (v) => setState(() => _preciosConImpuestos = v),
+    onFacturaChanged: (v) => setState(() => _facturaDisponible = v),
+  );
+
+  Widget _buildDiseno() => buildSeccionDiseno(context,
+    dark: _isDark, textoBienvenidaCtrl: _textoBienvenidaCtrl, msgPromoCtrl: _msgPromoCtrl);
+
+  Widget _buildSeo() => buildSeccionSeo(context,
+    dark: _isDark, urlPublicaCtrl: _urlPublicaCtrl, tituloSeoCtrl: _tituloSeoCtrl,
+    descSeoCtrl: _descSeoCtrl, palabrasClave: _palabrasClave,
+    indexarExternamente: _indexarExternamente, aparecerEnResultados: _aparecerEnResultados,
+    onPalabrasChanged: (v) => setState(() => _palabrasClave = v),
+    onIndexarChanged: (v) => setState(() => _indexarExternamente = v),
+    onAparecerChanged: (v) => setState(() => _aparecerEnResultados = v),
+  );
+
+  Widget _buildVisibilidad() => Column(children: [
+    buildSeccionTabs(context,
+      dark: _isDark, vis: _seccionesVisibles,
+      onVisChanged: (v) => setState(() => _seccionesVisibles = v)),
+    buildSeccionVisibilidad(context,
+      dark: _isDark, vis: _seccionesVisibles,
+      onVisChanged: (v) => setState(() => _seccionesVisibles = v)),
+  ]);
+
+  Widget _buildEstadisticas() => buildSeccionEstadisticas(context,
+    dark: _isDark, negocioId: _negocioId);
+
+  // _buildTabResenas usado en sec_config_avanzada.dart → _buildResenasConfig()
 
   Widget _buildTabResenas() {
     return StreamBuilder<QuerySnapshot>(
@@ -465,55 +927,101 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildHeader() {
+    final nombre = _nombreCtrl.text.trim();
+    final tieneNombre = nombre.isNotEmpty;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kAccent.withValues(alpha: 0.25)),
+        border: Border(bottom: BorderSide(color: _kBorde, width: 0.5)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: _kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.phone_android, color: _kAccent, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Mi App Pública', style: TextStyle(color: _kTexto, fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(
-              _negocioId == null
-                  ? 'Rellena los datos y pulsa Activar para publicar'
-                  : '✅ Publicado · cambios en tiempo real',
-              style: TextStyle(color: _kMuted, fontSize: 12),
+      child: Row(children: [
+        // Nombre + estado
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            tieneNombre ? nombre : 'Ficha sin nombre',
+            style: TextStyle(
+              color: tieneNombre ? _kTexto : _kMuted,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
             ),
-          ])),
-          const SizedBox(width: 12),
-          if (_negocioId != null) ...[
-            Text(_activo ? 'Visible' : 'Oculto',
-                style: TextStyle(color: _activo ? _kAccent : _kMuted, fontSize: 11)),
-            Switch(
-              value: _activo, onChanged: (v) => setState(() => _activo = v),
-              activeColor: _kAccent, activeTrackColor: _kAccent.withValues(alpha: 0.25),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Row(children: [
+            Container(
+              width: 7, height: 7,
+              decoration: BoxDecoration(
+                color: _negocioId != null && _activo ? _kAccent : (_negocioId != null ? const Color(0xFFFF9800) : _kMuted),
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(width: 6),
-          ],
-          FilledButton.icon(
-            onPressed: _guardando ? null : _guardar,
-            icon: _guardando
-                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
-                : Icon(Icons.save_rounded, size: 17),
-            label: Text(_guardando ? 'Guardando...' : (_negocioId == null ? 'Activar' : 'Guardar')),
-            style: FilledButton.styleFrom(
-              backgroundColor: _kAccent, foregroundColor: _kBg,
-              textStyle: TextStyle(fontWeight: FontWeight.bold),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            Text(
+              _negocioId == null
+                  ? 'Sin publicar'
+                  : _activo ? 'Publicado y visible' : 'Publicado · oculto',
+              style: TextStyle(
+                color: _negocioId != null && _activo ? _kAccent : _kMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ]),
+        ])),
+
+        // Toggle visible/oculto
+        if (_negocioId != null) ...[
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _activo = !_activo),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _activo ? _kAccent.withValues(alpha: 0.12) : _kCard2,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _activo ? _kAccent.withValues(alpha: 0.4) : _kBorde),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  _activo ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                  size: 13,
+                  color: _activo ? _kAccent : _kMuted,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  _activo ? 'Visible' : 'Oculto',
+                  style: TextStyle(
+                    color: _activo ? _kAccent : _kMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ]),
             ),
           ),
-        ]),
+        ],
+
+        // Botón guardar
+        const SizedBox(width: 10),
+        FilledButton.icon(
+          onPressed: _guardando ? null : _guardar,
+          icon: _guardando
+              ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _kBg))
+              : const Icon(Icons.save_rounded, size: 15),
+          label: Text(
+            _guardando ? '…' : (_negocioId == null ? 'Activar' : 'Guardar'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: _kAccent, foregroundColor: _kBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            minimumSize: Size.zero,
+          ),
+        ),
       ]),
     );
   }
@@ -640,9 +1148,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
           child: LinearProgressIndicator(color: _kAccent),
         ),
         // Área de fotos con scroll cuando hay muchas
-        Expanded(
-          child: SingleChildScrollView(
-            child: Wrap(spacing: 10, runSpacing: 10, children: [
+        Wrap(spacing: 10, runSpacing: 10, children: [
               ..._fotos.asMap().entries.map((e) => Stack(children: [
                 Container(
                   width: 110, height: 110,
@@ -690,8 +1196,6 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
                 ),
               ),
             ]),
-          ),
-        ),
         if (_fotos.isNotEmpty) Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text('${_fotos.length} foto${_fotos.length == 1 ? '' : 's'} · La primera es la portada en Explorar',

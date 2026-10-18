@@ -5,6 +5,7 @@ import '../../../services/bandeja_notificaciones_service.dart';
 import '../../tareas/pantallas/modulo_tareas_screen.dart';
 import '../../reservas/pantallas/modulo_reservas_screen.dart';
 import '../../reservas/pantallas/detalle_reserva_screen.dart';
+import '../../tpv/pantallas/tpv_peluqueria_screen.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
 import '../../clientes/pantallas/modulo_clientes_screen.dart';
 import '../../pedidos/pantallas/modulo_pedidos_nuevo_screen.dart';
@@ -61,10 +62,10 @@ class BandejaNotificacionesScreen extends StatelessWidget {
         titulo: 'Notificaciones',
         showLeading: true,
         extraActions: [
-          TextButton(
+          IconButton(
             onPressed: () => svc.marcarTodasLeidas(empresaId),
-            child: const Text('Marcar leídas',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            icon: const Icon(Icons.done_all_rounded),
+            tooltip: 'Marcar todas leídas',
           ),
           if (esPropietario) PopupMenuButton<String>(
             icon: const Icon(Icons.science_outlined),
@@ -410,6 +411,11 @@ void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empre
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ModuloReservasScreen(empresaId: empresaId),
       ));
+    case 'tpv_peluqueria':
+      Navigator.push(context, MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => TpvPeluqueriaScreen(empresaId: empresaId, esAdmin: true, esPropietario: true),
+      ));
     case 'tareas':
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ModuloTareasScreen(empresaId: empresaId),
@@ -424,7 +430,10 @@ void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empre
       ));
     case 'pedidos':
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ModuloPedidosNuevoScreen(empresaId: empresaId),
+        builder: (_) => ModuloPedidosNuevoScreen(
+          empresaId: empresaId,
+          initialTab: notif.tipo == TipoNotificacion.pedidoNuevo ? 3 : null,
+        ),
       ));
     case 'empleados':
       Navigator.push(context, MaterialPageRoute(
@@ -440,7 +449,7 @@ void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empre
       ));
     case 'vacaciones':
       Navigator.push(context, MaterialPageRoute(
-        builder: (_) => VacacionesScreen(empresaId: empresaId),
+        builder: (_) => VacacionesScreen(empresaId: empresaId, embedded: false),
       ));
     case 'fiscal':
       Navigator.push(context, MaterialPageRoute(

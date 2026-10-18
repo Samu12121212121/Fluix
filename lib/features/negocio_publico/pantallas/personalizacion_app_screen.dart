@@ -435,7 +435,11 @@ class _TabHorarios extends StatelessWidget {
 
   Future<String?> _pickTime(BuildContext context, String horaActual) async {
     final parts = horaActual.split(':');
-    final initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    if (parts.length < 2) return null;
+    final hour   = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    final initial = TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked == null) return null;
     return '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';

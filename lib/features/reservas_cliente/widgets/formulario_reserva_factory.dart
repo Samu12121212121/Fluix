@@ -21,23 +21,42 @@ class ReservaService {
       throw Exception('Este negocio no puede recibir reservas online en este momento.');
     }
 
+    // Obtener datos de contacto del cliente desde Firestore
+    String nombreCliente = '';
+    String emailCliente  = '';
+    String telefonoCliente = '';
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+      final userData = userDoc.data();
+      if (userData != null) {
+        nombreCliente   = userData['nombre']   as String? ?? userData['name']   as String? ?? '';
+        emailCliente    = userData['correo']   as String? ?? userData['email']  as String? ?? '';
+        telefonoCliente = userData['telefono'] as String? ?? '';
+      }
+    } catch (_) {}
+    // Fallback a Firebase Auth si Firestore no tiene los datos
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (nombreCliente.isEmpty) nombreCliente = authUser?.displayName ?? '';
+    if (emailCliente.isEmpty)  emailCliente  = authUser?.email ?? '';
+
     // 1. Guardar reserva en la colección de la empresa
-    // cliente_uid = campo que usan Cloud Functions de trofeos
-    // usuario_uid = campo legacy (backward compat)
     final docRef = await FirebaseFirestore.instance
         .collection('empresas')
         .doc(empresaId)
         .collection('reservas')
         .add({
       ...datos,
-      'cliente_uid': uid,   // para Cloud Functions de trofeos
-      'usuario_uid': uid,   // compatibilidad legacy
+      'cliente_uid':      uid,
+      'usuario_uid':      uid,
+      'nombre_cliente':   nombreCliente,
+      'email_cliente':    emailCliente,
+      'telefono_cliente': telefonoCliente,
       'estado': 'pendiente',
       'origen': 'app_cliente',
-      'negocio_id': negocio.id,
+      'negocio_id':     negocio.id,
       'negocio_nombre': negocio.nombre,
-      'creado_en': FieldValue.serverTimestamp(),
-      'fecha_creacion': FieldValue.serverTimestamp(),
+      'creado_en':       FieldValue.serverTimestamp(),
+      'fecha_creacion':  FieldValue.serverTimestamp(),
     });
 
     // 2. Disparar notificación → Cloud Function onNuevaReservaEmail
@@ -364,6 +383,7 @@ class _FormularioPersonalizadoState extends State<FormularioPersonalizado> {
         ),
       );
       // Limpiar formulario
+      _formKey.currentState?.reset();
       setState(() => _valores.clear());
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -457,8 +477,7 @@ class _FormularioEsteticaPeluqueriaState extends State<FormularioEsteticaPeluque
   }
 
   Widget _buildEmpleadoSelector() {
-    if (widget.negocio.empresaIdVinculada == null ||
-        widget.negocio.empresaIdVinculada!.isEmpty) {
+    if (widget.negocio.empresaIdVinculada.isEmpty) {
       return const SizedBox.shrink();
     }
     return StreamBuilder<QuerySnapshot>(
@@ -469,6 +488,7 @@ class _FormularioEsteticaPeluqueriaState extends State<FormularioEsteticaPeluque
           .where('activo', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) return const SizedBox.shrink();
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: _CF.accent));
         }
@@ -506,9 +526,7 @@ class _FormularioEsteticaPeluqueriaState extends State<FormularioEsteticaPeluque
   }
 
   Widget _buildServicioSelector() {
-    // Validar que empresaIdVinculada no esté vacío
-    if (widget.negocio.empresaIdVinculada == null || 
-        widget.negocio.empresaIdVinculada!.isEmpty) {
+    if (widget.negocio.empresaIdVinculada.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -711,7 +729,7 @@ class _FormularioEsteticaPeluqueriaState extends State<FormularioEsteticaPeluque
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -941,7 +959,7 @@ class _FormularioRestauranteState extends State<FormularioRestaurante> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('¡Reserva realizada! Recibirás confirmación por email'), backgroundColor: Colors.green),
       );
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
@@ -1136,7 +1154,7 @@ class _FormularioEstandarState extends State<FormularioEstandar> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('¡Reserva realizada! Recibirás confirmación por email'), backgroundColor: Colors.green),
       );
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {

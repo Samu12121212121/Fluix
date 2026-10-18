@@ -4,11 +4,13 @@ import '../../domain/models/pdf_template.dart';
 import '../../domain/models/pdf_gallery_categories.dart';
 import '../../data/pdf_template_service.dart';
 import 'template_editor_screen.dart';
+import 'pdf_test_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../services/pdf_service.dart';
 import '../../../../services/email_service.dart';
 import '../../../../core/utils/app_settings.dart';
 import '../../../../core/utils/permisos_service.dart';
+import '../../../../core/widgets/fluix_app_bar.dart';
 
 // ── Colores fijos (acento morado, siempre igual en claro/oscuro) ─────────────
 const _kPurple      = Color(0xFF6D5EF8);
@@ -131,6 +133,21 @@ class _State extends State<PdfTemplatesListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kBg,
+      appBar: FluixAppBar(
+        titulo: 'Plantillas PDF',
+        showLeading: true,
+        extraActions: [
+          IconButton(
+            icon: const Text('🧪', style: TextStyle(fontSize: 18)),
+            tooltip: 'Test PDFs (7 tipos × 8 diseños)',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PdfTestScreen(empresaId: widget.empresaId),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: _init
         ? const Center(child: CircularProgressIndicator())
         : _cat == _Cat.misPlantillas
@@ -162,14 +179,8 @@ class _State extends State<PdfTemplatesListScreen> {
 
   Widget _headerFiltros() => Container(
     color: _kSurf,
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+    padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(width: 32, height: 32, decoration: BoxDecoration(color: _kPurpleLight, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.picture_as_pdf, color: _kPurple, size: 16)),
-        const SizedBox(width: 10),
-        Text('Plantillas de documentos', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kText)),
-      ]),
-      const SizedBox(height: 10),
       SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: _Cat.values.map((c) {
         final sel = _cat == c;
         return Padding(padding: const EdgeInsets.only(right: 8), child: GestureDetector(
@@ -312,17 +323,30 @@ class _State extends State<PdfTemplatesListScreen> {
           const SizedBox(height: 2),
           Text(p.descripcion, style: TextStyle(fontSize: 9.5, color: _kTextSec, height: 1.35), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _btn('Preview', Icons.visibility_outlined, false, () => PdfService.previewPlantilla(context, p, widget.empresaId))),
-            if (_esPropietario) ...[
+          LayoutBuilder(builder: (_, bc) {
+            final compact = bc.maxWidth < 145;
+            if (compact) {
+              return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _iconBtn(Icons.visibility_outlined, 'Vista previa',
+                  () => PdfService.previewPlantilla(context, p, widget.empresaId)),
+                if (_esPropietario) _emailIconBtn(p),
+                _iconBtn(Icons.add_circle_outline, 'Usar diseño',
+                  () => _usarPlantillaGaleria(p)),
+              ]);
+            }
+            return Row(children: [
+              Expanded(child: _btn('Preview', Icons.visibility_outlined, false,
+                () => PdfService.previewPlantilla(context, p, widget.empresaId))),
+              if (_esPropietario) ...[
+                const SizedBox(width: 6),
+                _emailIconBtn(p),
+              ],
               const SizedBox(width: 6),
-              _emailIconBtn(p),
-            ],
-            const SizedBox(width: 6),
-            Expanded(child: _guardandoGaleria
-              ? Container(height: 30, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(8)), child: const Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))))
-              : _btn('Usar', Icons.add_circle_outline, true, () => _usarPlantillaGaleria(p))),
-          ]),
+              Expanded(child: _guardandoGaleria
+                ? Container(height: 30, decoration: BoxDecoration(color: _kPurple, borderRadius: BorderRadius.circular(8)), child: const Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))))
+                : _btn('Usar', Icons.add_circle_outline, true, () => _usarPlantillaGaleria(p))),
+            ]);
+          }),
         ])),
       ]),
     );
@@ -374,7 +398,7 @@ class _State extends State<PdfTemplatesListScreen> {
 
   Widget _gallery(List<PdfTemplate> items) {
     final w = MediaQuery.of(context).size.width;
-    final cols = w > 1400 ? 7 : w > 1100 ? 6 : w > 800 ? 5 : 4;
+    final cols = w > 1400 ? 7 : w > 1100 ? 6 : w > 800 ? 5 : w > 550 ? 4 : 2;
 
     // Agrupar por tipo para mostrar secciones
     final order = <TipoDocumentoPdf>[];
@@ -455,24 +479,41 @@ class _State extends State<PdfTemplatesListScreen> {
             const SizedBox(height: 3),
             Text(p.nombre, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 10, color: _kText), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            Row(children: [
-              // Botón predeterminar — la estrella indica cuál es la activa para PDFs
-              Expanded(child: _btn(
-                p.esDefault ? '★ Activa' : '☆ Usar',
-                p.esDefault ? Icons.star_rounded : Icons.star_border_rounded,
-                p.esDefault,
-                p.esDefault ? () {} : () => _marcarDefault(p),
-                bgColor: p.esDefault ? const Color(0xFFF59E0B) : null,
-              )),
-              const SizedBox(width: 3),
-              _iconBtn(Icons.visibility_outlined, 'Preview', () => PdfService.previewPlantilla(context, p, widget.empresaId)),
-              if (_esPropietario) ...[
+            LayoutBuilder(builder: (_, bc) {
+              final compact = bc.maxWidth < 145;
+              if (compact) {
+                return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                  _iconBtn(
+                    p.esDefault ? Icons.star_rounded : Icons.star_border_rounded,
+                    p.esDefault ? 'Activa' : 'Usar',
+                    p.esDefault ? () {} : () => _marcarDefault(p),
+                    color: p.esDefault ? const Color(0xFFF59E0B) : null,
+                  ),
+                  _iconBtn(Icons.visibility_outlined, 'Vista previa',
+                    () => PdfService.previewPlantilla(context, p, widget.empresaId)),
+                  if (_esPropietario) _emailIconBtn(p),
+                  _iconBtn(Icons.edit_outlined, 'Editar', () => _editar(p)),
+                ]);
+              }
+              return Row(children: [
+                Expanded(child: _btn(
+                  p.esDefault ? '★ Activa' : '☆ Usar',
+                  p.esDefault ? Icons.star_rounded : Icons.star_border_rounded,
+                  p.esDefault,
+                  p.esDefault ? () {} : () => _marcarDefault(p),
+                  bgColor: p.esDefault ? const Color(0xFFF59E0B) : null,
+                )),
                 const SizedBox(width: 3),
-                _emailIconBtn(p),
-              ],
-              const SizedBox(width: 3),
-              Expanded(child: _btn('Editar', Icons.edit_outlined, true, () => _editar(p))),
-            ]),
+                _iconBtn(Icons.visibility_outlined, 'Preview',
+                  () => PdfService.previewPlantilla(context, p, widget.empresaId)),
+                if (_esPropietario) ...[
+                  const SizedBox(width: 3),
+                  _emailIconBtn(p),
+                ],
+                const SizedBox(width: 3),
+                Expanded(child: _btn('Editar', Icons.edit_outlined, true, () => _editar(p))),
+              ]);
+            }),
           ])),
         ]),
       ),
@@ -516,19 +557,19 @@ class _State extends State<PdfTemplatesListScreen> {
     );
   }
 
-  Widget _iconBtn(IconData icon, String tooltip, VoidCallback fn) =>
+  Widget _iconBtn(IconData icon, String tooltip, VoidCallback fn, {Color? color}) =>
       Tooltip(
         message: tooltip,
         child: GestureDetector(
           onTap: fn,
           child: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: _kCanvas,
+              color: color != null ? color.withValues(alpha: 0.12) : _kCanvas,
               borderRadius: BorderRadius.circular(7),
-              border: Border.all(color: _kBorder),
+              border: Border.all(color: color ?? _kBorder),
             ),
-            child: Icon(icon, size: 10, color: _kTextSec),
+            child: Icon(icon, size: 14, color: color ?? _kTextSec),
           ),
         ),
       );

@@ -741,6 +741,8 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   final _precioCtrl      = TextEditingController();
   final _precioDigCtrl   = TextEditingController();
   final _stripeLinkCtrl  = TextEditingController();
+  final _ebookPathCtrl   = TextEditingController();
+  bool   _subiendoEbook  = false;
   final _descCtrl        = TextEditingController();
   final _isbnCtrl        = TextEditingController();
   final _paginasCtrl     = TextEditingController();
@@ -756,14 +758,9 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   bool   _guardando = false;
   bool   _subiendoImg = false;
   String? _imagenUrl;
-  String? _autorId;
-  String? _autorNombre;
-  final _traductorCtrl  = TextEditingController();
-  String  _traductorId  = '';
-  String  _traductorGen = ''; // 'f' = femenino
-  final _ilustradorCtrl = TextEditingController();
-  String  _ilustradorId  = '';
-  String  _ilustradorGen = '';
+  final _autoresEntries     = <CreditoEntry>[];
+  final _traductoresEntries  = <CreditoEntry>[];
+  final _ilustradoresEntries = <CreditoEntry>[];
 
   @override
   void initState() {
@@ -785,16 +782,37 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       _precioCtrl.text      = it['precio'] ?? '';
       _precioDigCtrl.text   = it['precio_digital'] ?? '';
       _stripeLinkCtrl.text  = it['stripe_link'] ?? '';
+      _ebookPathCtrl.text   = it['ebook_storage_path'] as String? ?? '';
       _descCtrl.text        = it['descripcion'] ?? '';
-      _autorNombre          = (it['campo_autor'] as String?)?.isNotEmpty == true
-                                ? it['campo_autor'] as String : null;
-      _autorId              = it['campo_autor_id'] as String?;
-      _traductorCtrl.text   = it['campo_traductor'] as String? ?? '';
-      _traductorId          = it['campo_traductor_id'] as String? ?? '';
-      _traductorGen         = it['campo_traductor_genero'] as String? ?? '';
-      _ilustradorCtrl.text  = it['campo_ilustrador'] as String? ?? '';
-      _ilustradorId         = it['campo_ilustrador_id'] as String? ?? '';
-      _ilustradorGen        = it['campo_ilustrador_genero'] as String? ?? '';
+      // Autores
+      final _autArr = it['autores'] as List<dynamic>? ?? [];
+      if (_autArr.isNotEmpty) {
+        _autoresEntries.addAll(_autArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_autor'] as String? ?? '';
+        if (n.isNotEmpty) _autoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_autor_id'] as String? ?? ''));
+      }
+      // Traductores
+      final _tradArr = it['traductores'] as List<dynamic>? ?? [];
+      if (_tradArr.isNotEmpty) {
+        _traductoresEntries.addAll(_tradArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_traductor'] as String? ?? '';
+        if (n.isNotEmpty) _traductoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_traductor_id'] as String? ?? '',
+            genero: it['campo_traductor_genero'] as String? ?? ''));
+      }
+      // Ilustradores
+      final _ilustArr = it['ilustradores'] as List<dynamic>? ?? [];
+      if (_ilustArr.isNotEmpty) {
+        _ilustradoresEntries.addAll(_ilustArr.map(CreditoEntry.fromMap));
+      } else {
+        final n = it['campo_ilustrador'] as String? ?? '';
+        if (n.isNotEmpty) _ilustradoresEntries.add(CreditoEntry(
+            nombre: n, id: it['campo_ilustrador_id'] as String? ?? '',
+            genero: it['campo_ilustrador_genero'] as String? ?? ''));
+      }
       _isbnCtrl.text        = it['campo_isbn'] ?? '';
       _paginasCtrl.text     = it['campo_paginas'] ?? '';
       _formatoCtrl.text     = it['campo_formato'] ?? '';
@@ -811,10 +829,12 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   @override
   void dispose() {
     for (final c in [_nombreCtrl, _slugCtrl, _coleccionCtrl, _tagCtrl,
-        _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _descCtrl,
-        _traductorCtrl, _ilustradorCtrl,
+        _precioCtrl, _precioDigCtrl, _stripeLinkCtrl, _ebookPathCtrl, _descCtrl,
         _isbnCtrl, _paginasCtrl, _formatoCtrl, _dimensionesCtrl, _pesoCtrl, _mesCtrl, _diaCtrl]) {
       c.dispose();
+    }
+    for (final e in [..._autoresEntries, ..._traductoresEntries, ..._ilustradoresEntries]) {
+      e.dispose();
     }
     super.dispose();
   }
@@ -977,15 +997,39 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
                   )),
                 ]),
               ),
+              const Divider(height: 1),
+              CampoEbookStorage(
+                ctrl: _ebookPathCtrl,
+                empresaId: widget.empresaId,
+                itemId: widget.item?['id'] as String? ?? widget.item?['slug'] as String?,
+                subiendoEbook: _subiendoEbook,
+                onSubiendo: (v) => setState(() => _subiendoEbook = v),
+                color: color,
+              ),
             ])),
             const SizedBox(height: 10),
-            _card(TextFormField(
-              controller: _descCtrl,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Descripción / sinopsis…',
-                border: InputBorder.none, contentPadding: EdgeInsets.zero),
-            )),
+            _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Expanded(
+                  child: Text('Descripción / sinopsis',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                ),
+                _BotonFormato(ctrl: _descCtrl, icono: Icons.format_italic,
+                    tooltip: 'Cursiva  (_texto_)', marcador: '_'),
+                _BotonFormato(ctrl: _descCtrl, icono: Icons.format_bold,
+                    tooltip: 'Negrita  (**texto**)', marcador: '**'),
+              ]),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _descCtrl,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                decoration: const InputDecoration(
+                  hintText: 'Descripción / sinopsis… (cursiva: _texto_)',
+                  border: InputBorder.none, contentPadding: EdgeInsets.zero),
+              ),
+            ])),
             const SizedBox(height: 10),
             GestureDetector(
               onTap: () => setState(() => _extraExpanded = !_extraExpanded),
@@ -1009,55 +1053,11 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
             if (_extraExpanded) ...[
               const SizedBox(height: 4),
               _card(Column(children: [
-                // Selector de autor vinculado a colección autores
-                StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: widget.svc.obtenerAutores(widget.empresaId),
-                  builder: (_, snap) {
-                    final autores = snap.data ?? [];
-                    final ids = <String>{};
-                    final uniq = autores.where((a) {
-                      final id = a['id']?.toString() ?? '';
-                      return id.isNotEmpty && ids.add(id);
-                    }).toList();
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(children: [
-                        Text('Autor', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _abrirSelectorAutor(context, uniq),
-                            child: Row(children: [
-                              Expanded(child: Text(
-                                _autorNombre ?? 'Sin autor vinculado',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: _autorNombre != null
-                                      ? const Color(0xFF0F172A) : Colors.grey[400],
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              )),
-                              Icon(Icons.search_rounded, size: 16,
-                                  color: widget.color.withValues(alpha: 0.5)),
-                            ]),
-                          ),
-                        ),
-                        if (_autorNombre != null)
-                          GestureDetector(
-                            onTap: () => setState(() { _autorId = null; _autorNombre = null; }),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Icon(Icons.clear_rounded, size: 15, color: Colors.grey[400]),
-                            ),
-                          ),
-                      ]),
-                    );
-                  },
-                ),
+                _buildListaCreditos('Autor/a', _autoresEntries, color, conGenero: false),
                 const Divider(height: 1),
-                _campoCredito(_traductorCtrl, 'Traductor/a', true),
+                _buildListaCreditos('Traductor/a', _traductoresEntries, color, conGenero: true),
                 const Divider(height: 1),
-                _campoCredito(_ilustradorCtrl, 'Ilustrador/a', false),
+                _buildListaCreditos('Ilustrador/a', _ilustradoresEntries, color, conGenero: true),
                 const Divider(height: 1),
                 _campo(_isbnCtrl, 'ISBN / Referencia'),
                 const Divider(height: 1),
@@ -1128,200 +1128,120 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
   }
 
   // Campo traductor/ilustrador con mismo picker que el autor
-  Widget _campoCredito(TextEditingController ctrl, String label, bool esTraductor) {
-    final gen    = esTraductor ? _traductorGen    : _ilustradorGen;
-    final id     = esTraductor ? _traductorId     : _ilustradorId;
-    final nombre = ctrl.text.isNotEmpty ? ctrl.text : null;
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: widget.svc.obtenerAutores(widget.empresaId),
-      builder: (_, snap) {
-        final autores = snap.data ?? [];
-        final ids = <String>{};
-        final uniq = autores.where((a) {
-          final aid = a['id']?.toString() ?? '';
-          return aid.isNotEmpty && ids.add(aid);
-        }).toList();
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(children: [
-            Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _abrirSelectorCredito(context, uniq, esTraductor),
-                child: Row(children: [
-                  Expanded(child: Text(
-                    nombre ?? 'Sin $label vinculado/a',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: nombre != null
-                          ? (id.isNotEmpty ? const Color(0xFF10B981) : const Color(0xFF0F172A))
-                          : Colors.grey[400]),
-                    overflow: TextOverflow.ellipsis,
-                  )),
-                  Icon(Icons.search_rounded, size: 16,
-                      color: widget.color.withValues(alpha: 0.5)),
-                ]),
-              ),
-            ),
-            // Chip F para género femenino
-            GestureDetector(
-              onTap: () => setState(() {
-                if (esTraductor) _traductorGen = gen == 'f' ? '' : 'f';
-                else _ilustradorGen = gen == 'f' ? '' : 'f';
-              }),
-              child: Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: gen == 'f' ? const Color(0xFF6366F1) : Colors.transparent,
-                  border: Border.all(color: gen == 'f' ? const Color(0xFF6366F1) : Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(4)),
-                child: Text('F', style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700,
-                  color: gen == 'f' ? Colors.white : Colors.grey)),
-              ),
-            ),
-            if (nombre != null)
-              GestureDetector(
-                onTap: () => setState(() {
-                  ctrl.clear();
-                  if (esTraductor) { _traductorId = ''; _traductorGen = ''; }
-                  else             { _ilustradorId = ''; _ilustradorGen = ''; }
-                }),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: Icon(Icons.clear_rounded, size: 15, color: Colors.grey[400]),
+  Widget _buildListaCreditos(String tipo, List<CreditoEntry> entries, Color color,
+      {required bool conGenero}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...entries.asMap().entries.map((e) {
+          final idx = e.key;
+          final entry = e.value;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: entry.ctrl,
+                  decoration: InputDecoration(
+                    hintText: tipo,
+                    labelText: entry.id.isNotEmpty ? '$tipo (vinculado ✓)' : tipo,
+                    labelStyle: TextStyle(
+                      color: entry.id.isNotEmpty ? const Color(0xFF10B981) : Colors.grey,
+                      fontSize: 13),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8)),
+                  onChanged: (_) {
+                    if (entry.id.isNotEmpty) setState(() => entry.id = '');
+                  },
                 ),
               ),
-          ]),
-        );
-      },
+              if (conGenero) GestureDetector(
+                onTap: () => setState(() =>
+                    entry.genero = entry.genero == 'f' ? '' : 'f'),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: entry.genero == 'f' ? color : Colors.transparent,
+                    border: Border.all(color: entry.genero == 'f' ? color : Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(4)),
+                  child: Text('F', style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700,
+                    color: entry.genero == 'f' ? Colors.white : Colors.grey)),
+                ),
+              ),
+              if (conGenero) const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Seleccionar de la lista de autores',
+                icon: Icon(Icons.person_search_rounded, size: 20,
+                    color: entry.id.isNotEmpty ? const Color(0xFF10B981) : color),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _abrirSelectorCreditoMulti(tipo, idx, entries, color),
+              ),
+              if (entries.length > 1)
+                IconButton(
+                  tooltip: 'Eliminar',
+                  icon: const Icon(Icons.remove_circle_outline_rounded,
+                      size: 18, color: Color(0xFFEF4444)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() {
+                    entries[idx].dispose();
+                    entries.removeAt(idx);
+                  }),
+                ),
+            ]),
+          );
+        }).toList(),
+        TextButton.icon(
+          onPressed: () => setState(() => entries.add(CreditoEntry())),
+          icon: Icon(Icons.add_circle_outline_rounded, size: 14, color: color),
+          label: Text('+ Añadir $tipo', style: TextStyle(fontSize: 12, color: color)),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+            minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+        ),
+      ],
     );
   }
 
-  Future<void> _abrirSelectorCredito(
-      BuildContext context,
-      List<Map<String, dynamic>> autores,
-      bool esTraductor) async {
-    final ctrl = TextEditingController();
-    final result = await showModalBottomSheet<Map<String, String?>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          final q = ctrl.text.toLowerCase();
-          final filtrados = q.isEmpty
-              ? autores
-              : autores.where((a) =>
-                  (a['nombre']?.toString() ?? '').toLowerCase().contains(q)).toList();
-          return SizedBox(
-            height: MediaQuery.of(ctx).size.height * 0.75,
-            child: Column(children: [
-              const SizedBox(height: 12),
-              Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2))),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(esTraductor ? 'Seleccionar traductor/a' : 'Seleccionar ilustrador/a',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar…',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      suffixIcon: ctrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
-                              onPressed: () { ctrl.clear(); setModal(() {}); })
-                          : null,
-                      filled: true, fillColor: const Color(0xFFF8F9FB),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: widget.color)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      isDense: true,
-                    ),
-                    onChanged: (_) => setModal(() {}),
-                  ),
-                ]),
-              ),
-              const Divider(height: 1),
-              Expanded(child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
-                    title: Text('— Sin ${esTraductor ? "traductor/a" : "ilustrador/a"} —',
-                        style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                    onTap: () => Navigator.pop(ctx, <String, String?>{'id': null, 'nombre': null}),
-                  ),
-                  ...filtrados.map((a) {
-                    final aid    = a['id']?.toString() ?? '';
-                    final nombre = a['nombre']?.toString() ?? '';
-                    final sel    = esTraductor ? _traductorId == aid : _ilustradorId == aid;
-                    return ListTile(
-                      leading: Icon(Icons.check_circle_outline_rounded, size: 18,
-                          color: sel ? widget.color : Colors.grey[300]),
-                      title: Text(nombre, style: TextStyle(fontSize: 13,
-                          fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
-                      selected: sel,
-                      selectedTileColor: widget.color.withValues(alpha: 0.06),
-                      onTap: () => Navigator.pop(ctx, <String, String?>{'id': aid, 'nombre': nombre}),
-                    );
-                  }),
-                  if (filtrados.isEmpty)
-                    Padding(padding: const EdgeInsets.all(24),
-                      child: Center(child: Text('Sin resultados para "${ctrl.text}"',
-                          style: const TextStyle(color: Colors.grey, fontSize: 13)))),
-                ],
-              )),
-            ]),
-          );
-        },
-      ),
-    );
-    ctrl.dispose();
-    if (result != null && mounted) {
-      setState(() {
-        final nombre = result['nombre'];
-        final aid    = result['id'];
-        if (esTraductor) {
-          _traductorCtrl.text = nombre ?? '';
-          _traductorId        = aid ?? '';
-        } else {
-          _ilustradorCtrl.text = nombre ?? '';
-          _ilustradorId        = aid ?? '';
-        }
-      });
+  Future<void> _abrirSelectorCreditoMulti(String tipo, int idx,
+      List<CreditoEntry> entries, Color color) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('autores').orderBy('nombre').limit(300).get();
+      if (!mounted) return;
+      final docs = snap.docs.map((d) =>
+          {'id': d.id, 'nombre': d.data()['nombre'] as String? ?? ''}).toList();
+      final result = await showModalBottomSheet<Map<String, String>>(
+        context: context, isScrollControlled: true, backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => AutorPickerSheet(docs: docs, color: color),
+      );
+      if (result != null && mounted) {
+        setState(() {
+          entries[idx].ctrl.text = result['nombre']!;
+          entries[idx].id        = result['id']!;
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error al cargar autores: $e'),
+        backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
     }
   }
 
-  Widget _imgFallback(Color color) => Container(
-    width: 56, height: 72,
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(8)),
-    child: Icon(Icons.image_outlined, color: color.withValues(alpha: 0.4), size: 24),
-  );
-
   Widget _campo(TextEditingController ctrl, String label,
       {String? hint, TextInputType? keyboardType}) =>
-      TextField(controller: ctrl,
+      TextField(
+        controller: ctrl,
         keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint ?? label, labelText: label,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 10)));
+          contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+      );
 
   Widget _card(Widget child) => Container(
     padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
@@ -1333,125 +1253,26 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
     child: child,
   );
 
-  Future<void> _abrirSelectorAutor(
-      BuildContext context, List<Map<String, dynamic>> autores) async {
-    final ctrl = TextEditingController();
-    final result = await showModalBottomSheet<Map<String, String?>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          final q = ctrl.text.toLowerCase();
-          final filtrados = q.isEmpty
-              ? autores
-              : autores.where((a) =>
-                  (a['nombre']?.toString() ?? '').toLowerCase().contains(q)).toList();
-          return SizedBox(
-            height: MediaQuery.of(ctx).size.height * 0.75,
-            child: Column(children: [
-              const SizedBox(height: 12),
-              Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2))),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Seleccionar autor',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar autor…',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      suffixIcon: ctrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
-                              onPressed: () { ctrl.clear(); setModal(() {}); })
-                          : null,
-                      filled: true,
-                      fillColor: const Color(0xFFF8F9FB),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: widget.color)),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      isDense: true,
-                    ),
-                    onChanged: (_) => setModal(() {}),
-                  ),
-                ]),
-              ),
-              const Divider(height: 1),
-              Expanded(child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.close_rounded, size: 18, color: Colors.grey[400]),
-                    title: const Text('— Sin autor vinculado —',
-                        style: TextStyle(fontSize: 13, color: Colors.grey)),
-                    selected: _autorId == null,
-                    selectedTileColor: widget.color.withValues(alpha: 0.06),
-                    onTap: () => Navigator.pop(ctx, <String, String?>{'id': null, 'nombre': null}),
-                  ),
-                  ...filtrados.map((a) {
-                    final id = a['id']?.toString() ?? '';
-                    final nombre = a['nombre']?.toString() ?? '';
-                    return ListTile(
-                      leading: Icon(Icons.check_circle_outline_rounded,
-                          size: 18,
-                          color: _autorId == id ? widget.color : Colors.grey[300]),
-                      title: Text(nombre,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: _autorId == id
-                                ? FontWeight.w600 : FontWeight.normal,
-                          )),
-                      selected: _autorId == id,
-                      selectedTileColor: widget.color.withValues(alpha: 0.06),
-                      onTap: () => Navigator.pop(ctx, <String, String?>{'id': id, 'nombre': nombre}),
-                    );
-                  }),
-                  if (filtrados.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(child: Text(
-                        'Sin resultados para "${ctrl.text}"',
-                        style: const TextStyle(color: Colors.grey, fontSize: 13))),
-                    ),
-                ],
-              )),
-            ]),
-          );
-        },
-      ),
-    );
-    ctrl.dispose();
-    // Aplicar resultado después de que el modal haya cerrado completamente
-    if (result != null && mounted) {
-      setState(() {
-        _autorId     = result['id'];
-        _autorNombre = result['nombre'];
-      });
-    }
-  }
+  Widget _imgFallback(Color color) => Container(
+    width: 56, height: 72,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Icon(Icons.image_outlined, color: color.withValues(alpha: 0.4), size: 24),
+  );
 
   Future<void> _guardar(BuildContext context) async {
+    FocusScope.of(context).unfocus(); // commit IME antes de leer los controllers
+    await Future.delayed(const Duration(milliseconds: 80)); // margen para el commit del teclado
+    if (!mounted) return;
     if (_nombreCtrl.text.trim().isEmpty) return;
     setState(() => _guardando = true);
     final docId = widget.item?['id'] as String?;
+    final isNew = docId == null;
     final data = <String, dynamic>{
       'nombre':         _nombreCtrl.text.trim(),
+      'titulo':         _nombreCtrl.text.trim(),
       'slug':           _slugCtrl.text.trim(),
       'categorias':     (_categorias.toList()..sort()),
       'categoria':      _categorias.isEmpty ? '' : (_categorias.toList()..sort()).join(' / '),
@@ -1459,25 +1280,79 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       'campo_coleccion': _coleccionCtrl.text.trim(),
       'tag':            _tagCtrl.text.trim(),
       'imagen_url':     _imagenUrl ?? '',
-      'precio':         _precioCtrl.text.trim(),
-      'precio_digital': _precioDigCtrl.text.trim(),
-      'stripe_link':    _stripeLinkCtrl.text.trim(),
+      'imagen':         _imagenUrl ?? '',
+      'precio':              _precioCtrl.text.trim(),
+      'precio_digital':      _precioDigCtrl.text.trim(),
+      'stripe_link':         _stripeLinkCtrl.text.trim(),
+      'payment_link':        _stripeLinkCtrl.text.trim(),
+      'ebook_storage_path':  _ebookPathCtrl.text.trim(),
       'descripcion':    _descCtrl.text.trim(),
       'activo':         _activo,
       'preventa':       _preventa,
       'campo_anio':     _anio.toString(),
     };
-    void opt(String k, String v) { if (v.isNotEmpty) data[k] = v; }
-    if (_autorNombre != null && _autorNombre!.isNotEmpty) data['campo_autor'] = _autorNombre!;
-    if (_autorId != null) data['campo_autor_id'] = _autorId!;
-    opt('campo_traductor',  _traductorCtrl.text.trim());
-    opt('traductor',        _traductorCtrl.text.trim());
-    if (_traductorId.isNotEmpty) data['campo_traductor_id'] = _traductorId;
-    if (_traductorGen.isNotEmpty) data['campo_traductor_genero'] = _traductorGen;
-    opt('campo_ilustrador', _ilustradorCtrl.text.trim());
-    opt('ilustrador',       _ilustradorCtrl.text.trim());
-    if (_ilustradorId.isNotEmpty) data['campo_ilustrador_id'] = _ilustradorId;
-    if (_ilustradorGen.isNotEmpty) data['campo_ilustrador_genero'] = _ilustradorGen;
+    // FieldValue.delete() solo es válido en update/set(merge:true), no en add().
+    void opt(String k, String v) {
+      if (v.isNotEmpty) data[k] = v;
+      else if (!isNew) data[k] = FieldValue.delete();
+    }
+    // Autores
+    final _autLista = _autoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_autLista.isNotEmpty) {
+      data['autores'] = _autLista;
+      final first = _autLista.first;
+      opt('campo_autor', first['nombre'] as String? ?? '');
+      opt('autor',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_autor_id'] = fid;
+    } else {
+      data['autores']        = [];
+      if (!isNew) {
+        data['campo_autor']    = FieldValue.delete();
+        data['autor']          = FieldValue.delete();
+        data['campo_autor_id'] = FieldValue.delete();
+      }
+    }
+    // Traductores
+    final _tradLista = _traductoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_tradLista.isNotEmpty) {
+      data['traductores'] = _tradLista;
+      final first = _tradLista.first;
+      opt('campo_traductor', first['nombre'] as String? ?? '');
+      opt('traductor',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_traductor_id'] = fid;
+      final fg = first['genero'] as String? ?? '';
+      if (fg.isNotEmpty) data['campo_traductor_genero'] = fg;
+    } else {
+      data['traductores'] = [];
+      if (!isNew) {
+        data['campo_traductor']        = FieldValue.delete();
+        data['traductor']              = FieldValue.delete();
+        data['campo_traductor_id']     = FieldValue.delete();
+        data['campo_traductor_genero'] = FieldValue.delete();
+      }
+    }
+    // Ilustradores
+    final _ilustLista = _ilustradoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
+    if (_ilustLista.isNotEmpty) {
+      data['ilustradores'] = _ilustLista;
+      final first = _ilustLista.first;
+      opt('campo_ilustrador', first['nombre'] as String? ?? '');
+      opt('ilustrador',       first['nombre'] as String? ?? '');
+      final fid = first['id'] as String? ?? '';
+      if (fid.isNotEmpty) data['campo_ilustrador_id'] = fid;
+      final fg = first['genero'] as String? ?? '';
+      if (fg.isNotEmpty) data['campo_ilustrador_genero'] = fg;
+    } else {
+      data['ilustradores'] = [];
+      if (!isNew) {
+        data['campo_ilustrador']        = FieldValue.delete();
+        data['ilustrador']              = FieldValue.delete();
+        data['campo_ilustrador_id']     = FieldValue.delete();
+        data['campo_ilustrador_genero'] = FieldValue.delete();
+      }
+    }
     opt('campo_isbn',        _isbnCtrl.text.trim());
     opt('campo_paginas',     _paginasCtrl.text.trim());
     opt('campo_formato',     _formatoCtrl.text.trim());
@@ -1501,6 +1376,55 @@ class _EditorCatalogoEmbebidoState extends State<_EditorCatalogoEmbebido> {
       if (mounted) setState(() => _guardando = false);
     }
   }
+}
+
+// ── Botón de formato inline (cursiva, negrita) para TextEditingController ────
+
+class _BotonFormato extends StatelessWidget {
+  final TextEditingController ctrl;
+  final IconData icono;
+  final String tooltip;
+  final String marcador;
+
+  const _BotonFormato({
+    required this.ctrl, required this.icono,
+    required this.tooltip, required this.marcador,
+  });
+
+  void _aplicar() {
+    final sel = ctrl.selection;
+    final txt = ctrl.text;
+    if (!sel.isValid) return;
+    final start = sel.start < 0 ? txt.length : sel.start;
+    final end   = sel.end   < 0 ? txt.length : sel.end;
+    final selected = txt.substring(start, end);
+    String nuevo;
+    int cursorPos;
+    if (selected.isEmpty) {
+      nuevo = '${txt.substring(0, start)}$marcador$marcador${txt.substring(end)}';
+      cursorPos = start + marcador.length;
+    } else {
+      nuevo = '${txt.substring(0, start)}$marcador$selected$marcador${txt.substring(end)}';
+      cursorPos = end + marcador.length * 2;
+    }
+    ctrl.value = ctrl.value.copyWith(
+      text: nuevo,
+      selection: TextSelection.collapsed(offset: cursorPos),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: _aplicar,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icono, size: 16, color: const Color(0xFF64748B)),
+      ),
+    ),
+  );
 }
 
 // ── Selector de Colección editorial ──────────────────────────────────────────
@@ -1622,8 +1546,7 @@ class _ColeccionSelectorState extends State<_ColeccionSelector> {
               final sel = seleccionada == col;
               return GestureDetector(
                 onTap: () { widget.ctrl.text = col; setState(() {}); },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                child: Container(
                   margin: const EdgeInsets.only(right: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -1789,8 +1712,9 @@ class _CategoriasSelectorState extends State<_CategoriasSelector> {
               final sel = _matchExistente(cat) != null;
               return GestureDetector(
                 onTap: () => _toggle(cat),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                // AnimatedContainer inside Wrap triggers parentDataDirty assertion
+                // (semantics tick fires during layout pass). Use Container instead.
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: sel

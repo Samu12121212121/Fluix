@@ -112,6 +112,7 @@ class Producto {
   final double? precioCoste;        // precio de coste para calcular márgenes
   final String? ubicacion;          // almacén/ubicación principal (estantería, almacén A…)
   final Map<String, dynamic> atributosExtra; // campos sectoriales (autor, isbn, paginas…)
+  final bool controlStock;               // true → stock se descuenta en cada venta
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
 
@@ -143,6 +144,7 @@ class Producto {
     this.precioCoste,
     this.ubicacion,
     this.atributosExtra = const {},
+    this.controlStock = false,
     required this.fechaCreacion,
     this.fechaActualizacion,
   });
@@ -222,6 +224,7 @@ class Producto {
       atributosExtra: d['atributos_extra'] != null
           ? Map<String, dynamic>.from(d['atributos_extra'] as Map)
           : const {},
+      controlStock: d['control_stock'] as bool? ?? false,
       fechaCreacion: parseTimestamp(d['fecha_creacion']),
       fechaActualizacion: d['fecha_actualizacion'] != null
           ? parseTimestamp(d['fecha_actualizacion'])
@@ -256,6 +259,7 @@ class Producto {
     if (precioCoste != null) 'precio_coste': precioCoste,
     if (ubicacion != null) 'ubicacion': ubicacion,
     if (atributosExtra.isNotEmpty) 'atributos_extra': atributosExtra,
+    'control_stock': controlStock,
     'fecha_creacion': Timestamp.fromDate(fechaCreacion),
     'fecha_actualizacion': fechaActualizacion != null
         ? Timestamp.fromDate(fechaActualizacion!)
@@ -290,6 +294,7 @@ class Producto {
     double? precioCoste,
     String? ubicacion,
     Map<String, dynamic>? atributosExtra,
+    bool? controlStock,
   }) => Producto(
     id: id,
     empresaId: empresaId,
@@ -318,6 +323,7 @@ class Producto {
     precioCoste: precioCoste ?? this.precioCoste,
     ubicacion: ubicacion ?? this.ubicacion,
     atributosExtra: atributosExtra ?? this.atributosExtra,
+    controlStock: controlStock ?? this.controlStock,
     fechaCreacion: fechaCreacion,
     fechaActualizacion: this.fechaActualizacion,
   );

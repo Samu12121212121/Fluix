@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'web_modulos_config_screen.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -215,6 +216,20 @@ class _GestionNegociosScreenState extends State<GestionNegociosScreen> {
                   child: const Icon(Icons.edit, size: 16, color: _azul),
                 ),
               ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => WebModulosConfigScreen(
+                    empresaId: negocio.empresaIdVinculada ?? '',
+                    nombreEmpresa: negocio.nombre,
+                  ),
+                )),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: const Color(0xFF059669).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                  child: const Icon(Icons.web_rounded, size: 16, color: Color(0xFF059669)),
+                ),
+              ),
             ]),
           ]),
         ),
@@ -377,6 +392,8 @@ class _GestionNegociosScreenState extends State<GestionNegociosScreen> {
       case CategoriaNegocio.hoteles:      return const Color(0xFF8E24AA);
       case CategoriaNegocio.tiendas:      return const Color(0xFFFF6F00);
       case CategoriaNegocio.fruterias:    return const Color(0xFF4CAF50);
+      case CategoriaNegocio.barberias:    return const Color(0xFF5D4037);
+      case CategoriaNegocio.cafeterias:   return const Color(0xFF6D4C41);
     }
   }
 
@@ -393,6 +410,8 @@ class _GestionNegociosScreenState extends State<GestionNegociosScreen> {
       case CategoriaNegocio.hoteles:      return Icons.hotel;
       case CategoriaNegocio.tiendas:      return Icons.shopping_bag;
       case CategoriaNegocio.fruterias:    return Icons.local_grocery_store;
+      case CategoriaNegocio.barberias:    return Icons.content_cut;
+      case CategoriaNegocio.cafeterias:   return Icons.coffee;
     }
   }
 }
@@ -1475,7 +1494,7 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSt) => AlertDialog(
         title: Text(existing == null ? 'Nuevo campo' : 'Editar campo'),
-        content: SizedBox(width: 340, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SizedBox(width: double.infinity, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: labelCtrl, decoration: const InputDecoration(labelText: 'Nombre del campo *', border: OutlineInputBorder(), isDense: true)),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(

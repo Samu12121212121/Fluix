@@ -70,19 +70,19 @@ class PdfTemplate extends Equatable {
   factory PdfTemplate.fromMap(Map<String, dynamic> map, String id) {
     return PdfTemplate(
       id: id,
-      type: PdfDocumentType.values.byName(map['type'] as String),
-      name: map['name'] as String,
+      type: PdfDocumentType.values.byName(map['type'] as String? ?? 'factura'),
+      name: map['name'] as String? ?? '',
       description: map['description'] as String? ?? '',
-      version: map['version'] as int,
+      version: (map['version'] as num?)?.toInt() ?? 1,
       isActive: map['is_active'] as bool? ?? true,
       isDefault: map['is_default'] as bool? ?? false,
       isSystemTemplate: map['is_system_template'] as bool? ?? false,
-      createdAt: (map['created_at'] as Timestamp).toDate(),
-      updatedAt: (map['updated_at'] as Timestamp).toDate(),
+      createdAt: (map['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (map['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdBy: map['created_by'] as String?,
-      page: PdfPageConfig.fromMap(map['page'] as Map<String, dynamic>),
-      styles: PdfStyles.fromMap(map['styles'] as Map<String, dynamic>),
-      blocks: (map['blocks'] as List)
+      page: PdfPageConfig.fromMap(map['page'] as Map<String, dynamic>? ?? {}),
+      styles: PdfStyles.fromMap(map['styles'] as Map<String, dynamic>? ?? {}),
+      blocks: ((map['blocks'] as List?) ?? [])
           .map((b) => PdfBlock.fromMap(b as Map<String, dynamic>))
           .toList(),
       metadata: PdfTemplateMetadata.fromMap(

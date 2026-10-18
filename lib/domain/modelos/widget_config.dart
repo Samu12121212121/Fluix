@@ -374,6 +374,7 @@ class WidgetConfig {
       WidgetConfig(id: 'resumen_facturacion',   nombre: 'Resumen Facturación',   descripcion: 'Total facturado hoy y del mes, pendientes de cobro',          icono: Icons.receipt_long,     activo: true,  orden: 7),
       WidgetConfig(id: 'resumen_pedidos',       nombre: 'Resumen Pedidos',       descripcion: 'Pedidos y ventas del día',                                    icono: Icons.shopping_bag,     activo: true,  orden: 8),
       WidgetConfig(id: 'ingresos_mes',          nombre: 'Ingresos del Mes',      descripcion: 'Evolución de ingresos del mes actual vs mes anterior',        icono: Icons.trending_up,      activo: false, orden: 9),
+      WidgetConfig(id: 'alertas_stock',         nombre: 'Alertas de Stock',      descripcion: 'Productos agotados o con stock bajo en el catálogo TPV',       icono: Icons.inventory_2,      activo: false, orden: 10),
     ];
   }
 
@@ -401,6 +402,7 @@ class WidgetConfig {
     'resumen_facturacion',
     'resumen_pedidos',
     'ingresos_mes',
+    'alertas_stock',
   };
 
 }

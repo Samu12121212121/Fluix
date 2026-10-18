@@ -75,6 +75,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   List<_WebSeccionDin> _webSecciones = [];
   StreamSubscription<QuerySnapshot>? _seccionesSub;
 
+  // Config módulos fijos leída de configuracion/web_modulos
+  // clave: id del módulo ('mensajes', 'analytics', 'campanas', 'config')
+  Map<String, _WebModFijoCfg> _modsFijosConfig = {};
+  StreamSubscription<DocumentSnapshot>? _modsCfgSub;
+
   // Cache del blog compartido por todas las fichas del hub.
   List<EntradaBlog> _blogCache = [];
   StreamSubscription<List<EntradaBlog>>? _blogSub;
@@ -109,6 +114,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     super.initState();
     _isDark = AppSettings.darkMode.value;
     AppSettings.darkMode.addListener(_onDark);
+    unawaited(_svc.desplegarScript(widget.empresaId));
     _svc.detectarModulosWeb(widget.empresaId).then((m) {
       if (mounted) setState(() => _modulosWeb = m);
       if (m.isNotEmpty) _autoSeedModulosDetectados(m);
@@ -130,6 +136,28 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       });
     }, onError: (_) {});
     _autoSeedSecciones();
+    // Suscripción a la config de módulos fijos (nombre personalizado + visibilidad)
+    _modsCfgSub = FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('configuracion').doc('web_modulos')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      final data = snap.data() ?? {};
+      final fijosRaw = data['fijos'] as List<dynamic>? ?? [];
+      final mapa = <String, _WebModFijoCfg>{};
+      for (final f in fijosRaw) {
+        final m = f as Map<String, dynamic>;
+        final id = m['id'] as String? ?? '';
+        if (id.isNotEmpty) {
+          mapa[id] = _WebModFijoCfg(
+            nombre:  m['nombre'] as String? ?? id,
+            visible: m['visible'] as bool? ?? true,
+          );
+        }
+      }
+      setState(() => _modsFijosConfig = mapa);
+    }, onError: (_) {});
     _blogSub = _svc.obtenerBlog(widget.empresaId).listen(
       (entries) { if (mounted) setState(() => _blogCache = entries); },
       onError: (_) {},
@@ -416,6 +444,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   void dispose() {
     _hubPageCtrl.dispose();
     _seccionesSub?.cancel();
+    _modsCfgSub?.cancel();
     _blogSub?.cancel();
     _noticiasSub?.cancel();
     _entrevistasSub?.cancel();
@@ -541,10 +570,22 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   List<_WebSeccionDin> get _seccionesFiltradas =>
       _webSecciones.where((s) => s.activa).toList();
 
+  // Módulos fijos con nombre/visibilidad configurados por el propietario
+  List<_WebMod> get _modsFijosAplicados {
+    if (_modsFijosConfig.isEmpty) return _modsFixed;
+    return _modsFixed
+        .where((m) => _modsFijosConfig[m.id]?.visible ?? true)
+        .map((m) {
+          final cfg = _modsFijosConfig[m.id];
+          if (cfg == null || cfg.nombre == m.titulo) return m;
+          return _WebMod(m.id, cfg.nombre, m.desc, m.icono, m.color);
+        }).toList();
+  }
+
   // Módulos leídos directamente de web_secciones + utilidades fijas al final
   List<_WebMod> get _mods => [
     ..._seccionesFiltradas.map((s) => s.toWebMod()),
-    ..._modsFixed,
+    ..._modsFijosAplicados,
   ];
 
   String get _appBarTitulo {
@@ -1221,7 +1262,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         }
         return ClipRect(
           child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             ...muestra.map((e) {
               final dia = e.fecha.day.toString().padLeft(2, '0');
@@ -2499,6 +2540,13 @@ class _WebMod {
   final IconData icono;
   final Color color;
   const _WebMod(this.id, this.titulo, this.desc, this.icono, this.color);
+}
+
+// Configuración de módulo fijo leída de configuracion/web_modulos
+class _WebModFijoCfg {
+  final String nombre;
+  final bool visible;
+  const _WebModFijoCfg({required this.nombre, required this.visible});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -434,7 +434,7 @@ class _DialogoFacturaGeneradaState extends State<_DialogoFacturaGenerada> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.hardEdge,
       child: SizedBox(
-        width: 480,
+        width: MediaQuery.of(context).size.width > 540 ? 480 : double.infinity,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

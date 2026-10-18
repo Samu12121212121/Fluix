@@ -256,12 +256,21 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
 
   // ── Ordenado alfabético ───────────────────────────────────────────────────
 
+  static String _normOrd(String s) {
+    const Map<String, String> d = {
+      'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+      'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+      'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U',
+    };
+    return s.toLowerCase().split('').map((c) => d[c] ?? c).join();
+  }
+
   List<QueryDocumentSnapshot> _filtrar(List<QueryDocumentSnapshot> lista) {
     final r = List<QueryDocumentSnapshot>.from(lista);
     r.sort((a, b) {
       final na = ((a.data() as Map)['nombre'] as String?) ?? '';
       final nb = ((b.data() as Map)['nombre'] as String?) ?? '';
-      return na.toLowerCase().compareTo(nb.toLowerCase());
+      return _normOrd(na).compareTo(_normOrd(nb));
     });
     return r;
   }
@@ -297,13 +306,18 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     }
 
     if (_cargando && _empleados.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: _kBg,
-        body: Center(child: CircularProgressIndicator(color: _kBlue)),
+        appBar: FluixAppBar(titulo: 'Empleados', showLeading: ModalRoute.of(context)?.isFirst == false),
+        body: const Center(child: CircularProgressIndicator(color: _kBlue)),
       );
     }
     if (_errorCarga != null && _empleados.isEmpty) {
-      return Scaffold(backgroundColor: _kBg, body: _buildError(_errorCarga));
+      return Scaffold(
+        backgroundColor: _kBg,
+        appBar: FluixAppBar(titulo: 'Empleados', showLeading: ModalRoute.of(context)?.isFirst == false),
+        body: _buildError(_errorCarga),
+      );
     }
 
     final canPop    = ModalRoute.of(context)?.isFirst == false;
@@ -1189,7 +1203,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         (Icons.beach_access_outlined, 'Vacaciones y ausencias', _kOrange,
             () => Navigator.push(context, MaterialPageRoute(
                 builder: (_) => VacacionesScreen(
-                    empresaId: widget.empresaId, sesion: widget.sesion)))),
+                    empresaId: widget.empresaId, sesion: widget.sesion, embedded: false)))),
       (Icons.folder_outlined, 'Documentos', _kBlue,
           () => _abrirDocumentos(id, d['nombre'] as String? ?? '')),
       (Icons.gavel_outlined, 'Embargos', _kRed,

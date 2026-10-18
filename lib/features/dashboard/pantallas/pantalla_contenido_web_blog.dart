@@ -27,8 +27,13 @@ class _BlogSplitView extends StatefulWidget {
 
 class _BlogSplitViewState extends State<_BlogSplitView> {
   String? _filtroTipo; // null = todos | 'articulo' | 'noticia'
+  EstadoBlog? _filtroEstado; // null = todos | borrador | publicado | programado
   String _busqueda = '';
   final _searchCtrl = TextEditingController();
+
+  static const int _primeraPagina = 25;
+  static const int _tamPagina     = 50;
+  int _pagina = 0;
 
   @override
   void dispose() {
@@ -74,17 +79,33 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
       builder: (_, catSnap) {
         final categorias = catSnap.data ?? [];
         return StreamBuilder<List<EntradaBlog>>(
+          // Siempre obtenerBlog para incluir entradas WP-importadas sin campo 'tipo'.
+          // Si hay filtroTipoFijo filtramos por tipo en cliente (igual que la web).
           stream: widget.seccionId != null
               ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
-              : widget.filtroTipoFijo != null
-                  ? widget.svc.obtenerBlogPorTipo(widget.empresaId, widget.filtroTipoFijo!, limite: 300)
-                  : widget.svc.obtenerBlog(widget.empresaId),
+              : widget.svc.obtenerBlog(widget.empresaId),
           builder: (_, snap) {
             final isLoading = snap.connectionState == ConnectionState.waiting;
             final todos     = snap.data ?? [];
+            // Cuando hay filtroTipoFijo (Noticias/Entrevistas) filtramos igual que la web:
+            //   solo publicadas (publicada==true || estado==publicado) y por tipo.
+            // En el blog general mostramos todo (incluidos borradores) para gestión.
+            final porFiltro = widget.filtroTipoFijo == null
+                ? todos
+                : todos.where((e) {
+                    // Solo publicadas (misma lógica que blog.html)
+                    if (!e.publicada) return false;
+                    // Por tipo exacto
+                    if (e.tipo == widget.filtroTipoFijo) return true;
+                    // Entradas WP sin tipo → si tienen url_externa son entrevistas
+                    if (e.tipo.isEmpty && widget.filtroTipoFijo == 'entrevista') {
+                      return e.urlExterna != null && e.urlExterna!.isNotEmpty;
+                    }
+                    return false;
+                  }).toList();
             // Deduplicar por slug y título (igual que la web)
             final _vistos = <String>{};
-            final porTipo = todos.where((e) {
+            final porTipo = porFiltro.where((e) {
               final k  = e.slug.isNotEmpty ? e.slug : e.id;
               final kt = 't:${e.titulo.trim().toLowerCase()}';
               if (_vistos.contains(k) || (e.titulo.isNotEmpty && _vistos.contains(kt))) return false;
@@ -115,6 +136,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                 _buildBuscador(surf: kSurf, border: kBorder, sub: kSub),
                 if (widget.filtroTipoFijo == null)
                   _buildFiltroTipo(porTipo, surf: kSurf, border: kBorder),
+                _buildFiltroEstado(porTipo, surf: kSurf, border: kBorder),
                 Expanded(child: _buildArticleGrid(context, articulos, categorias, dark: dark, isLoading: isLoading)),
               ]),
             );
@@ -143,7 +165,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                   icon: const Icon(Icons.clear_rounded, size: 15),
                   onPressed: () {
                     _searchCtrl.clear();
-                    setState(() => _busqueda = '');
+                    setState(() { _busqueda = ''; _pagina = 0; });
                   })
               : null,
           filled: true,
@@ -160,7 +182,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           isDense: true,
         ),
-        onChanged: (v) => setState(() => _busqueda = v),
+        onChanged: (v) => setState(() { _busqueda = v; _pagina = 0; }),
       ),
     );
   }
@@ -196,6 +218,19 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                 style: TextStyle(fontSize: 11, color: sub)),
         ]),
         const Spacer(),
+        // ── Papelera ────────────────────────────────────────────────────────
+        IconButton(
+          icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+          tooltip: 'Papelera',
+          color: const Color(0xFF94A3B8),
+          style: IconButton.styleFrom(
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            minimumSize: const Size(36, 36),
+          ),
+          onPressed: () => _mostrarPapelera(context),
+        ),
+        const SizedBox(width: 6),
         // ── Limpiar duplicados (solo cuando hay tipo fijo: noticias/entrevistas)
         if (widget.filtroTipoFijo != null)
           _BtnDedupBlog(
@@ -264,6 +299,22 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
     );
   }
 
+  void _mostrarPapelera(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _PapeleraBlog(
+        empresaId: widget.empresaId,
+        svc: widget.svc,
+        filtroTipo: widget.filtroTipoFijo,
+      ),
+    );
+  }
+
   Widget _buildFiltroTipo(List<EntradaBlog> todos, {Color surf = Colors.white, Color border = const Color(0xFFE2E8F0)}) {
     int cnt(String? t) => t == null
         ? todos.length
@@ -297,7 +348,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
   Widget _chipTipo(String? tipo, String label, IconData icon, Color color, int count) {
     final sel = _filtroTipo == tipo;
     return GestureDetector(
-      onTap: () => setState(() => _filtroTipo = tipo),
+      onTap: () => setState(() { _filtroTipo = tipo; _pagina = 0; }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
@@ -337,11 +388,76 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
     );
   }
 
+  Widget _buildFiltroEstado(List<EntradaBlog> todos, {Color surf = Colors.white, Color border = const Color(0xFFE2E8F0)}) {
+    final cntBorrador   = todos.where((a) => a.estado == EstadoBlog.borrador).length;
+    final cntPublicado  = todos.where((a) => a.estado == EstadoBlog.publicado).length;
+    final cntProgramado = todos.where((a) => a.estado == EstadoBlog.programado).length;
+    if (cntBorrador == 0 && cntProgramado == 0) return const SizedBox.shrink();
+    return Container(
+      decoration: BoxDecoration(color: surf, border: Border(bottom: BorderSide(color: border))),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          _chipEstado(null, 'Todos', Icons.apps_rounded, const Color(0xFF475569), todos.length),
+          if (cntBorrador > 0) ...[
+            const SizedBox(width: 6),
+            _chipEstado(EstadoBlog.borrador, 'Borradores', Icons.edit_note_rounded, const Color(0xFFF59E0B), cntBorrador),
+          ],
+          if (cntPublicado > 0) ...[
+            const SizedBox(width: 6),
+            _chipEstado(EstadoBlog.publicado, 'Publicados', Icons.public_rounded, const Color(0xFF059669), cntPublicado),
+          ],
+          if (cntProgramado > 0) ...[
+            const SizedBox(width: 6),
+            _chipEstado(EstadoBlog.programado, 'Programados', Icons.schedule_rounded, const Color(0xFF2563EB), cntProgramado),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _chipEstado(EstadoBlog? estado, String label, IconData icon, Color color, int count) {
+    final sel = _filtroEstado == estado;
+    return GestureDetector(
+      onTap: () => setState(() { _filtroEstado = estado; _pagina = 0; }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: sel ? color : color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: sel ? color : color.withValues(alpha: 0.25), width: sel ? 1.5 : 1),
+          boxShadow: sel ? [BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 2))] : [],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: sel ? Colors.white : color),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(color: sel ? Colors.white : color, fontSize: 12, fontWeight: FontWeight.w600)),
+          if (count > 0) ...[
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: sel ? Colors.white.withValues(alpha: 0.25) : color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$count', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: sel ? Colors.white : color)),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
   Widget _buildArticleGrid(BuildContext context, List<EntradaBlog> articulos,
       List<CategoriaBlog> cats, {bool dark = false, bool isLoading = false}) {
-    final filtrados = _filtroTipo == null
+    var filtrados = _filtroTipo == null
         ? articulos
         : articulos.where((a) => _tipoNorm(a.tipo) == _filtroTipo).toList();
+    if (_filtroEstado != null) {
+      filtrados = filtrados.where((a) => a.estado == _filtroEstado).toList();
+    }
 
     if (isLoading && filtrados.isEmpty) {
       return _buildSkeletonList(dark: dark);
@@ -431,21 +547,94 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
       ]));
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
-      itemCount: filtrados.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) {
-        final a = filtrados[i];
-        return _ArticleListItem(
-          articulo: a,
-          onTap: () => _abrirEditor(context, cats, entrada: a),
-          svc: widget.svc,
-          empresaId: widget.empresaId,
-          isDark: dark,
-        );
-      },
-    );
+    // ── Paginación ────────────────────────────────────────────────
+    final total  = filtrados.length;
+    final pages  = total <= _primeraPagina
+        ? 1
+        : 1 + ((total - _primeraPagina) / _tamPagina).ceil();
+    final pagina = _pagina.clamp(0, pages - 1);
+    final inicio = pagina == 0 ? 0 : _primeraPagina + (pagina - 1) * _tamPagina;
+    final fin    = (pagina == 0 ? _primeraPagina : _primeraPagina + pagina * _tamPagina)
+        .clamp(0, total);
+    final visible = filtrados.sublist(inicio, fin);
+
+    final kBgPag  = dark ? const Color(0xFF1E293B) : Colors.white;
+    final kBorder = dark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
+    return Column(children: [
+      // ── Tabs de página ─────────────────────────────────────────
+      if (pages > 1)
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+          decoration: BoxDecoration(
+            color: kBgPag,
+            border: Border(bottom: BorderSide(color: kBorder))),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              for (int p = 0; p < pages; p++) ...[
+                if (p > 0) const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => setState(() => _pagina = p),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: pagina == p
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF2563EB).withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: pagina == p
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF2563EB).withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Text(
+                      '${(p == 0 ? 0 : _primeraPagina + (p - 1) * _tamPagina) + 1}'
+                      '–'
+                      '${(p == 0 ? _primeraPagina : _primeraPagina + p * _tamPagina).clamp(0, total)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: pagina == p
+                            ? Colors.white
+                            : const Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 10),
+              Text('$total entradas',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: dark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8))),
+            ]),
+          ),
+        ),
+      // ── Lista de la página actual ──────────────────────────────
+      Expanded(
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
+          itemCount: visible.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) {
+            final a = visible[i];
+            return _ArticleListItem(
+              articulo: a,
+              onTap: () => _abrirEditor(context, cats, entrada: a),
+              svc: widget.svc,
+              empresaId: widget.empresaId,
+              isDark: dark,
+            );
+          },
+        ),
+      ),
+    ]);
   }
 
   Widget _buildSkeletonList({bool dark = false}) {
@@ -589,6 +778,8 @@ class _ArticleListItem extends StatelessWidget {
                     Icon(Icons.star_rounded, size: 13, color: Colors.amber[600]),
                   ],
                   const Spacer(),
+                  // Duplicate shortcut — visible without opening the ⋮ menu
+                  _DuplicateBtn(svc: svc, empresaId: empresaId, articulo: a, color: metaColor),
                   _buildPopup(context, a, metaColor),
                 ]),
                 const SizedBox(height: 5),
@@ -838,6 +1029,69 @@ class _ArticleListItem extends StatelessWidget {
   }
 }
 
+// ── Botón duplicar entrada ────────────────────────────────────────────────────
+
+class _DuplicateBtn extends StatefulWidget {
+  final ContenidoWebService svc;
+  final String empresaId;
+  final EntradaBlog articulo;
+  final Color color;
+
+  const _DuplicateBtn({
+    required this.svc, required this.empresaId,
+    required this.articulo, required this.color,
+  });
+
+  @override
+  State<_DuplicateBtn> createState() => _DuplicateBtnState();
+}
+
+class _DuplicateBtnState extends State<_DuplicateBtn> {
+  bool _cargando = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28, height: 28,
+      child: _cargando
+          ? Padding(
+              padding: const EdgeInsets.all(6),
+              child: CircularProgressIndicator(
+                  strokeWidth: 1.5, color: widget.color))
+          : IconButton(
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.copy_outlined, size: 15, color: widget.color),
+              tooltip: 'Duplicar entrada',
+              onPressed: () async {
+                setState(() => _cargando = true);
+                try {
+                  await widget.svc.duplicarEntradaBlog(
+                      widget.empresaId, widget.articulo);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ Entrada duplicada como borrador'),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 2),
+                    ));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ));
+                  }
+                } finally {
+                  if (mounted) setState(() => _cargando = false);
+                }
+              },
+            ),
+    );
+  }
+}
+
 // ── Botón limpiar duplicados de blog ─────────────────────────────────────────
 
 class _BtnDedupBlog extends StatefulWidget {
@@ -924,5 +1178,222 @@ class _BtnDedupBlogState extends State<_BtnDedupBlog> {
         minimumSize: Size.zero,
       ),
     );
+  }
+}
+
+// ── Papelera de blog ──────────────────────────────────────────────────────────
+
+class _PapeleraBlog extends StatelessWidget {
+  final String empresaId;
+  final ContenidoWebService svc;
+  final String? filtroTipo;
+
+  const _PapeleraBlog({
+    required this.empresaId,
+    required this.svc,
+    this.filtroTipo,
+  });
+
+  String _tipoLabel(String tipo) => switch (tipo) {
+    'noticia'     => 'Noticia',
+    'entrevista'  => 'Entrevista',
+    'articulo'    => 'Artículo',
+    _             => tipo,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => Column(children: [
+        // Handle + header
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          child: Column(children: [
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              const Icon(Icons.delete_sweep_rounded, size: 20, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Papelera',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A)))),
+              TextButton(
+                onPressed: () => _vaciarPapelera(context),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFFEF4444),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                child: const Text('Vaciar todo', style: TextStyle(fontSize: 12)),
+              ),
+            ]),
+          ]),
+        ),
+        // Lista
+        Expanded(
+          child: StreamBuilder<List<EntradaBlog>>(
+            stream: svc.obtenerPapeleraBlog(empresaId, tipo: filtroTipo),
+            builder: (_, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final items = snap.data ?? [];
+              if (items.isEmpty) {
+                return Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.delete_outline_rounded, size: 48, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    Text('La papelera está vacía',
+                        style: TextStyle(fontSize: 15, color: Colors.grey[500],
+                            fontWeight: FontWeight.w500)),
+                  ]),
+                );
+              }
+              return ListView.separated(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final e = items[i];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(children: [
+                      Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(e.titulo.isEmpty ? '(sin título)' : e.titulo,
+                            style: const TextStyle(fontSize: 13,
+                                fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(_tipoLabel(e.tipo),
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                          ),
+                          const SizedBox(width: 6),
+                          if (e.fechaEliminacion != null)
+                            Text(
+                              'Eliminado el ${e.fechaEliminacion!.day}/${e.fechaEliminacion!.month}/${e.fechaEliminacion!.year}',
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                            ),
+                        ]),
+                      ])),
+                      const SizedBox(width: 8),
+                      // Restaurar
+                      OutlinedButton(
+                        onPressed: () async {
+                          await svc.restaurarEntradaBlog(empresaId, e.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('✅ "${e.titulo.isEmpty ? 'Entrada' : e.titulo}" restaurada como borrador'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ));
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF2563EB),
+                          side: const BorderSide(color: Color(0xFF2563EB)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                        child: const Text('Restaurar'),
+                      ),
+                      const SizedBox(width: 6),
+                      // Eliminar definitivo
+                      IconButton(
+                        icon: const Icon(Icons.delete_forever_rounded, size: 18,
+                            color: Color(0xFFEF4444)),
+                        tooltip: 'Eliminar definitivamente',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _confirmarEliminacionPermanente(context, e),
+                      ),
+                    ]),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _vaciarPapelera(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vaciar papelera'),
+        content: const Text(
+            'Se eliminarán permanentemente todas las entradas de la papelera.\n\n'
+            'Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Vaciar todo',
+                style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      final snap = await svc.obtenerPapeleraBlog(empresaId, tipo: filtroTipo).first;
+      for (final e in snap) {
+        await svc.eliminarPermanenteEntradaBlog(empresaId, e.id);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Papelera vaciada'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _confirmarEliminacionPermanente(
+      BuildContext context, EntradaBlog entrada) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar permanentemente'),
+        content: Text('¿Eliminar "${entrada.titulo.isEmpty ? 'esta entrada' : entrada.titulo}" para siempre?\n\nNo podrá recuperarse.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar',
+                style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await svc.eliminarPermanenteEntradaBlog(empresaId, entrada.id);
   }
 }

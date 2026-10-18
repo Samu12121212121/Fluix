@@ -137,8 +137,8 @@ extension MotivoRectificacionExt on MotivoRectificacion {
   String get codigoAEAT {
     switch (this) {
       case MotivoRectificacion.errorDatosDestinatario: return 'R1';
-      case MotivoRectificacion.devolucionTotal: return 'R2';
-      case MotivoRectificacion.devolucionParcial: return 'R2';
+      case MotivoRectificacion.devolucionTotal: return 'R1';
+      case MotivoRectificacion.devolucionParcial: return 'R1';
       case MotivoRectificacion.descuentoPosterior: return 'R3';
       case MotivoRectificacion.errorImportes: return 'R4';
       case MotivoRectificacion.modificacionBaseArt80: return 'R5';

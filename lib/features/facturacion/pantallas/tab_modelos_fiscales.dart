@@ -142,9 +142,16 @@ class _TabModelosFiscalesState extends State<TabModelosFiscales> {
     final tieneNifOk = empresaConfig.tieneNifConfigurado && empresaConfig.tieneNifValido;
     final isWide = MediaQuery.of(context).size.width >= _kDesktopBreakpoint;
 
-    return isWide
-        ? _buildDesktopLayout(color, modelos, esSociedad, tieneNifOk, alertas)
-        : _buildMobileLayout(color, modelos, esSociedad, tieneNifOk, alertas);
+    return Column(
+      children: [
+        _AvisoOrientativo(isDark: widget.isDark),
+        Expanded(
+          child: isWide
+              ? _buildDesktopLayout(color, modelos, esSociedad, tieneNifOk, alertas)
+              : _buildMobileLayout(color, modelos, esSociedad, tieneNifOk, alertas),
+        ),
+      ],
+    );
   }
 
   // ── DESKTOP: sidebar izquierda + contenido derecha ────────────────────────
@@ -1167,4 +1174,91 @@ class _ModeloInfo {
   final int idx;
   final bool periodico; // true = trimestral/mensual, false = anual
   const _ModeloInfo(this.num, this.label, this.icon, this.color, this.idx, {this.periodico = true});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Banner de aviso orientativo — se muestra siempre en la parte superior
+// ─────────────────────────────────────────────────────────────────────────────
+class _AvisoOrientativo extends StatefulWidget {
+  final bool isDark;
+  const _AvisoOrientativo({this.isDark = false});
+
+  @override
+  State<_AvisoOrientativo> createState() => _AvisoOrientativoState();
+}
+
+class _AvisoOrientativoState extends State<_AvisoOrientativo> {
+  bool _cerrado = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cerrado) return const SizedBox.shrink();
+
+    final bgColor     = widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB);
+    final borderColor = widget.isDark ? const Color(0xFFCA8A04) : const Color(0xFFFCD34D);
+    final iconColor   = const Color(0xFFD97706);
+    final titleColor  = widget.isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E);
+    final bodyColor   = widget.isDark ? const Color(0xFFFDE68A) : const Color(0xFF78350F);
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: 1.2),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(Icons.info_outline_rounded, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Aviso importante',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'La información y los cálculos mostrados tienen carácter orientativo y pueden '
+                    'contener errores o imprecisiones. Recomendamos contar con el asesoramiento de '
+                    'un gestor profesional para garantizar el correcto cumplimiento de las '
+                    'obligaciones fiscales y administrativas.',
+                    style: TextStyle(fontSize: 11.5, color: bodyColor, height: 1.45),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'En Fluix seguimos trabajando para mejorar nuestras herramientas y ofrecer cada '
+                    'vez más funcionalidades que permitan gestionar estos procesos de forma autónoma, '
+                    'segura y sencilla, con el objetivo de reducir costes y ahorrar en gestoría.',
+                    style: TextStyle(fontSize: 11, color: bodyColor.withValues(alpha: 0.8), height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => setState(() => _cerrado = true),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(Icons.close_rounded, size: 16, color: bodyColor.withValues(alpha: 0.6)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -12,6 +12,8 @@ import 'package:printing/printing.dart';
 import '../domain/modelos/factura.dart';
 import '../domain/modelos/contabilidad.dart';
 import '../domain/modelos/pdf_template.dart';
+import '../domain/modelos/pdf_configuracion.dart';
+import 'pdf_config_service.dart';
 import 'verifactu_service.dart';
 import 'verifactu/qr_service.dart';
 // Servicio de la feature de plantillas (usa la misma colección que la UI)
@@ -173,51 +175,90 @@ class PdfService {
   }
 
   static Future<Map<String, String>> _cargarDatosEmpresa(String empresaId) async {
+    // Prioridad 1: PdfConfiguracion (fuente de verdad si ya está configurada)
     try {
-      // Cargar documento raíz y config de facturación en paralelo
+      final pdfCfg = await PdfConfigService.cargar(empresaId);
+      if (pdfCfg.razonSocial.isNotEmpty) {
+        debugPrint('📄 [PDF] Usando PdfConfiguracion → "${pdfCfg.razonSocial}"');
+        return {
+          'nombre':   pdfCfg.razonSocial,
+          'cif':      pdfCfg.cif,
+          'direccion':pdfCfg.domicilioCompleto,
+          'ciudad':   pdfCfg.localidad,
+          'codigo_postal': pdfCfg.codigoPostal,
+          'telefono': pdfCfg.telefono ?? '',
+          'correo':   pdfCfg.email ?? '',
+          'web':      pdfCfg.web ?? '',
+          'iban':     pdfCfg.iban ?? '',
+          'logo_url': pdfCfg.logoUrl ?? '',
+        };
+      }
+    } catch (e) {
+      debugPrint('⚠️ [PDF] PdfConfiguracion no disponible, fallback: $e');
+    }
+
+    // Prioridad 2: datos crudos de Firestore (fallback para empresas sin configurar)
+    try {
       final futures = await Future.wait([
         _db.collection('empresas').doc(empresaId).get(),
-        // Config TPV de facturación (puede tener nombre_empresa sobreescrito)
         _db.collection('empresas').doc(empresaId)
             .collection('configuracion').doc('facturacionTpv').get(),
+        _db.collection('empresas').doc(empresaId)
+            .collection('configuracion').doc('pagos').get(),
       ]);
 
       final raiz = futures[0] as DocumentSnapshot<Map<String, dynamic>>;
       final configFact = futures[1] as DocumentSnapshot<Map<String, dynamic>>;
+      final configPagos = futures[2] as DocumentSnapshot<Map<String, dynamic>>;
 
       if (!raiz.exists) return {};
 
       final data = raiz.data() ?? {};
       final perfil = data['perfil'] as Map<String, dynamic>? ?? {};
       final cfg = configFact.data() ?? {};
+      final pagos = configPagos.data() ?? {};
 
-      // Prioridad: perfil (doc raíz) primero, TPV config como fallback fiscal
       final nombreEmpresa = (
-        data['nombre_empresa'] ??          // guardado desde "Mi empresa" en perfil
-        data['razon_social'] ??            // razón social en raíz
-        data['nombre_fiscal'] ??           // nombre fiscal
-        data['nombre_negocio'] ??          // nombre negocio
-        perfil['nombre_empresa'] ??        // nombre empresa en perfil anidado
-        cfg['nombre_empresa'] ??           // ajustes de facturación TPV
-        cfg['razon_social'] ??             // razón social en config TPV
-        _resolverNombreEmpresa(data)       // último recurso: data['nombre']
+        data['nombre_empresa'] ?? data['razon_social'] ?? data['nombre_fiscal'] ??
+        data['nombre_negocio'] ?? perfil['nombre_empresa'] ??
+        cfg['nombre_empresa'] ?? cfg['razon_social'] ??
+        _resolverNombreEmpresa(data)
       )?.toString() ?? '';
 
-      debugPrint('📄 [PDF] Empresa: $empresaId → nombre="$nombreEmpresa"');
+      debugPrint('📄 [PDF] Fallback empresa: $empresaId → "$nombreEmpresa"');
 
+      final dirBase = (data['direccion'] ?? data['domicilio_fiscal'] ?? perfil['direccion'] ?? cfg['domicilio_fiscal'] ?? '').toString();
+      final ciudad  = (data['ciudad'] ?? data['municipio'] ?? cfg['municipio'] ?? '').toString().trim();
+      final cp      = (data['codigo_postal'] ?? cfg['codigo_postal'] ?? '').toString().trim();
+      final dirFull = _completarDireccion(dirBase, cp, ciudad);
       return {
-        'nombre': nombreEmpresa.isEmpty ? 'Mi Empresa' : nombreEmpresa,
-        'cif': (data['nif'] ?? data['cif'] ?? cfg['nif'] ?? cfg['cif'] ?? '').toString(),
-        'direccion': (data['direccion'] ?? data['domicilio_fiscal'] ?? perfil['direccion'] ?? cfg['domicilio_fiscal'] ?? '').toString(),
+        'nombre':   nombreEmpresa.isEmpty ? 'Mi Empresa' : nombreEmpresa,
+        'cif':      (data['nif'] ?? data['cif'] ?? cfg['nif'] ?? cfg['cif'] ?? '').toString(),
+        'direccion': dirFull,
+        'ciudad':   ciudad,
+        'codigo_postal': cp,
         'telefono': (data['telefono'] ?? perfil['telefono'] ?? cfg['telefono'] ?? '').toString(),
-        'correo': (data['correo'] ?? data['email_contacto'] ?? perfil['correo'] ?? cfg['correo'] ?? '').toString(),
-        'iban': (data['iban_empresa'] ?? cfg['iban'] ?? '').toString(),
+        'correo':   (data['correo'] ?? data['email'] ?? data['email_contacto'] ?? perfil['correo'] ?? cfg['correo'] ?? '').toString(),
+        'web':      (data['web'] ?? data['url'] ?? '').toString(),
+        'iban':     (data['iban_empresa'] ?? cfg['iban'] ?? pagos['transferencia_iban'] ?? '').toString(),
         'logo_url': (data['logo_url'] ?? perfil['logo_url'] ?? '').toString(),
       };
     } catch (e) {
       debugPrint('❌ Error cargando datos empresa: $e');
       return {};
     }
+  }
+
+  // Añade CP + ciudad a la dirección si no están ya incluidos
+  static String _completarDireccion(String dir, String cp, String ciudad) {
+    if (dir.isEmpty) {
+      return [if (cp.isNotEmpty) cp, if (ciudad.isNotEmpty) ciudad].join(' ').trim();
+    }
+    final extra = [
+      if (cp.isNotEmpty && !dir.contains(cp)) cp,
+      if (ciudad.isNotEmpty && !dir.toLowerCase().contains(ciudad.toLowerCase())) ciudad,
+    ].join(' ').trim();
+    return extra.isEmpty ? dir : '$dir, $extra';
   }
 
   // ── DESCARGAR LOGO ────────────────────────────────────────────────────────
@@ -712,7 +753,7 @@ class PdfService {
                   pw.SizedBox(
                     width: 60,
                     child: pw.Text(
-                      '${l.precioUnitario.toStringAsFixed(2)} €',
+                      _fmtNum(l.precioUnitario),
                       style: pw.TextStyle(
                           fontSize: 10, color: PdfColors.black),
                       textAlign: pw.TextAlign.right,
@@ -741,7 +782,7 @@ class PdfService {
                   pw.SizedBox(
                     width: 65,
                     child: pw.Text(
-                      '${l.subtotalSinIva.toStringAsFixed(2)} €',
+                      _fmtNum(l.subtotalSinIva),
                       style: pw.TextStyle(
                           fontSize: 10, color: PdfColors.black),
                       textAlign: pw.TextAlign.right,
@@ -763,56 +804,30 @@ class PdfService {
               child: pw.Column(
                 children: [
                   // Base imponible
-                  _rowTotal(
-                    'Base imponible',
-                    '${_baseImponibleTotal.toStringAsFixed(2)} €',
-                    colorGris,
-                    fontSize: 11,
-                  ),
+                  _rowTotal('Base imponible', _fmtNum(_baseImponibleTotal), colorGris, fontSize: 11),
                   if (factura.descuentoGlobal > 0)
                     _rowTotal(
                       'Descuento (${factura.descuentoGlobal.toStringAsFixed(0)}%)',
-                      '-${factura.importeDescuentoGlobal.toStringAsFixed(2)} €',
-                      PdfColor.fromHex('#E65100'),
-                      fontSize: 11,
+                      '-${_fmtNum(factura.importeDescuentoGlobal)}',
+                      PdfColor.fromHex('#E65100'), fontSize: 11,
                     ),
-                  // Desglose IVA por tipo
                   if (sortedRates.length <= 1)
                     _rowTotal(
                       'IVA ${sortedRates.isNotEmpty ? sortedRates.first.toStringAsFixed(0) : '0'}%',
-                      '${factura.totalIva.toStringAsFixed(2)} €',
-                      colorGris,
-                      fontSize: 11,
+                      _fmtNum(factura.totalIva), colorGris, fontSize: 11,
                     )
                   else
                     ...sortedRates.map((rate) => _rowTotal(
                           'IVA ${rate.toStringAsFixed(0)}%',
-                          '${(_cuotasPorIva[rate] ?? 0).toStringAsFixed(2)} €',
-                          colorGris,
-                          fontSize: 11,
+                          _fmtNum(_cuotasPorIva[rate] ?? 0), colorGris, fontSize: 11,
                         )),
                   if (factura.totalRecargoEquivalencia > 0)
-                    _rowTotal(
-                      'Recargo equiv.',
-                      '${factura.totalRecargoEquivalencia.toStringAsFixed(2)} €',
-                      colorGris,
-                      fontSize: 11,
-                    ),
+                    _rowTotal('Recargo equiv.', _fmtNum(factura.totalRecargoEquivalencia), colorGris, fontSize: 11),
                   if (factura.porcentajeIrpf > 0)
-                    _rowTotal(
-                      'IRPF ${factura.porcentajeIrpf.toStringAsFixed(0)}%',
-                      '-${factura.retencionIrpf.toStringAsFixed(2)} €',
-                      colorGris,
-                      fontSize: 11,
-                    ),
+                    _rowTotal('IRPF ${factura.porcentajeIrpf.toStringAsFixed(0)}%',
+                        '-${_fmtNum(factura.retencionIrpf)}', colorGris, fontSize: 11),
                   pw.Divider(color: colorLinea),
-                  _rowTotal(
-                    'TOTAL',
-                    '${factura.total.toStringAsFixed(2)} €',
-                    colorAzul,
-                    bold: true,
-                    fontSize: 14,
-                  ),
+                  _rowTotal('TOTAL', _fmtNum(factura.total), colorAzul, bold: true, fontSize: 14),
                 ],
               ),
             ),
@@ -981,7 +996,14 @@ class PdfService {
 
   static Future<Uint8List> generarFacturaPdfConDatos(
       Factura factura, String empresaId, {bool registrarAuditoria = false}) async {
-    final empresa = await _cargarDatosEmpresa(empresaId);
+    // Cargar config PDF y datos empresa en paralelo
+    final results = await Future.wait([
+      _cargarDatosEmpresa(empresaId),
+      PdfConfigService.cargar(empresaId).then<PdfConfiguracion?>((c) => c).catchError((_) => null),
+    ]);
+    final empresa = results[0] as Map<String, String>;
+    final pdfCfg  = results[1] as PdfConfiguracion?;
+
     final nombreEmpresa = empresa['nombre'] ?? '';
     final cifEmpresa = empresa['cif'];
     final direccionEmpresa = empresa['direccion'];
@@ -1054,6 +1076,7 @@ class PdfService {
           logoBytes: logoBytes,
           qrBytes: qrBytes,
           esVerifactu: esVerifactu,
+          pdfCfg: pdfCfg,
         );
         if (registrarAuditoria && factura.id.isNotEmpty) {
           _registrarPlantillaUsada(empresaId, factura.id, tpl.id, tpl.nombre);
@@ -1095,6 +1118,7 @@ class PdfService {
     Uint8List? logoBytes,
     Uint8List? qrBytes,
     bool esVerifactu = false,
+    PdfConfiguracion? pdfCfg,
   }) async {
     // Todos los layouts actuales usan _generarPdfBytes con los parámetros
     // completos del template (colores, márgenes). El estiloLayout controla
@@ -1145,30 +1169,43 @@ class PdfService {
       // Layouts del selector de diseño — pasan datos reales de Factura
       case 'd1_corp':
         return _pdfD1Corp(primario: tpl.colorPrimario, nombreEmpresa: nombreEmpresa,
-            cifEmpresa: cifEmpresa, logoBytes: logoBytes,
-            anio: factura.fechaEmision.year, factura: factura);
+            cifEmpresa: cifEmpresa, direccionEmpresa: dirEmpresa,
+            ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd2_minimal':
         return _pdfD2Minimal(nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
-            logoBytes: logoBytes, anio: factura.fechaEmision.year, factura: factura);
+            direccionEmpresa: dirEmpresa, ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd3_hero':
         return _pdfD3Hero(primario: tpl.colorPrimario, nombreEmpresa: nombreEmpresa,
-            cifEmpresa: cifEmpresa, logoBytes: logoBytes,
-            anio: factura.fechaEmision.year, factura: factura);
+            cifEmpresa: cifEmpresa, direccionEmpresa: dirEmpresa,
+            ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd4_sidebar':
         return _pdfD4Sidebar(primario: tpl.colorPrimario, nombreEmpresa: nombreEmpresa,
-            cifEmpresa: cifEmpresa, logoBytes: logoBytes,
-            anio: factura.fechaEmision.year, factura: factura);
+            cifEmpresa: cifEmpresa, direccionEmpresa: dirEmpresa,
+            ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd5_cards':
         return _pdfD5Cards(primario: tpl.colorPrimario, nombreEmpresa: nombreEmpresa,
-            cifEmpresa: cifEmpresa, logoBytes: logoBytes,
-            anio: factura.fechaEmision.year, factura: factura);
+            cifEmpresa: cifEmpresa, direccionEmpresa: dirEmpresa,
+            ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd6_dark':
         return _pdfD6Dark(primario: tpl.colorPrimario, nombreEmpresa: nombreEmpresa,
-            cifEmpresa: cifEmpresa, logoBytes: logoBytes,
-            anio: factura.fechaEmision.year, factura: factura);
+            cifEmpresa: cifEmpresa, ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       case 'd7_exec':
         return _pdfD7Exec(nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
-            logoBytes: logoBytes, anio: factura.fechaEmision.year, factura: factura);
+            direccionEmpresa: dirEmpresa, ibanEmpresa: ibanEmpresa,
+            logoBytes: logoBytes, anio: factura.fechaEmision.year,
+            factura: factura, pdfCfg: pdfCfg);
       // 'clasico', 'nazari' y cualquier otro → layout estándar con colores del template
       default:
         return _generarPdfBytes(
@@ -1201,7 +1238,12 @@ class PdfService {
     String empresaId, {
     bool registrarAuditoria = false,
   }) async {
-    final empresa = await _cargarDatosEmpresa(empresaId);
+    final results = await Future.wait([
+      _cargarDatosEmpresa(empresaId),
+      PdfConfigService.cargar(empresaId).then<PdfConfiguracion?>((c) => c).catchError((_) => null),
+    ]);
+    final empresa = results[0] as Map<String, String>;
+    final pdfCfg  = results[1] as PdfConfiguracion?;
     final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
 
     uiTpl.PdfTemplate? tpl;
@@ -1221,24 +1263,17 @@ class PdfService {
       _logFallback('presupuesto_template_error', e.toString());
     }
 
-    // Añadir aviso de presupuesto en notas si están vacías
-    final facturaParaPdf = factura.notasCliente == null || factura.notasCliente!.isEmpty
-        ? factura.copyWith(
-            notasCliente: 'PRESUPUESTO — Sin efecto fiscal. '
-                'Válido 30 días desde la fecha de emisión.',
-          )
-        : factura;
-
     // Aplicar plantilla (incluidos layouts d1-d7) si existe
     if (tpl != null) {
       try {
         final bytes = await _generarPdfConTemplate(
-          factura: facturaParaPdf,
+          factura: factura,
           tpl: tpl,
           empresa: empresa,
           logoBytes: logoBytes,
           qrBytes: null, // presupuesto no tiene QR Verifactu
           esVerifactu: false,
+          pdfCfg: pdfCfg,
         );
         if (registrarAuditoria && factura.id.isNotEmpty) {
           _registrarPlantillaUsada(empresaId, factura.id, tpl.id, tpl.nombre);
@@ -1255,7 +1290,7 @@ class PdfService {
       _registrarPlantillaUsada(empresaId, factura.id, tpl.id, tpl.nombre);
     }
     return _generarPdfBytes(
-      factura: facturaParaPdf,
+      factura: factura,
       nombreEmpresa: empresa['nombre']?.isNotEmpty == true ? empresa['nombre']! : 'Mi Empresa',
       cifEmpresa: empresa['cif']?.isNotEmpty == true ? empresa['cif'] : null,
       direccionEmpresa: empresa['direccion']?.isNotEmpty == true ? empresa['direccion'] : null,
@@ -1385,24 +1420,30 @@ class PdfService {
       case 'd1_corp':
         return _pdfD1Corp(primario: plantilla.colorPrimario,
             nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+            direccionEmpresa: dir,
             logoBytes: logoBytes, anio: ahora.year,
             tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd2_minimal':
         return _pdfD2Minimal(nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+            direccionEmpresa: dir,
             logoBytes: logoBytes, anio: ahora.year,
             tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd3_hero':
         return _pdfD3Hero(primario: plantilla.colorPrimario,
             nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
-            logoBytes: logoBytes, anio: ahora.year);
+            direccionEmpresa: dir,
+            logoBytes: logoBytes, anio: ahora.year,
+            tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd4_sidebar':
         return _pdfD4Sidebar(primario: plantilla.colorPrimario,
             nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+            direccionEmpresa: dir,
             logoBytes: logoBytes, anio: ahora.year,
             tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd5_cards':
         return _pdfD5Cards(primario: plantilla.colorPrimario,
             nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+            direccionEmpresa: dir,
             logoBytes: logoBytes, anio: ahora.year,
             tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd6_dark':
@@ -1412,6 +1453,7 @@ class PdfService {
             tipoDoc: plantilla.tipo.label.toUpperCase());
       case 'd7_exec':
         return _pdfD7Exec(nombreEmpresa: nombreEmpresa, cifEmpresa: cifEmpresa,
+            direccionEmpresa: dir,
             logoBytes: logoBytes, anio: ahora.year,
             tipoDoc: plantilla.tipo.label.toUpperCase());
       // ────────────────────────────────────────────────────────────────────────
@@ -1715,12 +1757,24 @@ class PdfService {
   static double get _demoIva  => _demoBase * 0.21;
   static double get _demoTotal=> _demoBase + _demoIva;
 
-  static String _fmtNum(double v) => '€${v.toStringAsFixed(2).replaceAll('.', ',')}';
+  static String _fmtNum(double v) {
+    final sign   = v < 0 ? '-' : '';
+    final parts  = v.abs().toStringAsFixed(2).split('.');
+    final intStr = parts[0];
+    final dec    = parts.length > 1 ? parts[1] : '00';
+    final buf    = StringBuffer();
+    for (int i = 0; i < intStr.length; i++) {
+      if (i > 0 && (intStr.length - i) % 3 == 0) buf.write('.');
+      buf.write(intStr[i]);
+    }
+    return '$sign$buf,$dec €';
+  }
+
   static String _fmtAnio(int a) => '${DateTime.now().day.toString().padLeft(2,'0')}/${DateTime.now().month.toString().padLeft(2,'0')}/$a';
 
   // ── Helpers para datos reales vs demo en layouts _pdfD* ──────────────────────
-  static String _dNumFactura(Factura? f, int anio) =>
-      f?.numeroFactura ?? 'FAC-$anio-0001';
+  static String _dNumFactura(Factura? f, int anio, [String? tipoDoc]) =>
+      f?.numeroFactura ?? '${_cfg(null, tipoDoc).prefijo}-$anio-0001';
   static String _dFecha(Factura? f, int anio) => f != null
       ? '${f.fechaEmision.day.toString().padLeft(2, '0')}/${f.fechaEmision.month.toString().padLeft(2, '0')}/${f.fechaEmision.year}'
       : _fmtAnio(anio);
@@ -1729,20 +1783,182 @@ class PdfService {
     final nif = f?.datosFiscales?.nif;
     return nif != null && nif.isNotEmpty ? 'NIF $nif' : 'NIF B12345678';
   }
+
+  /// Dirección del destinatario para el PDF.
+  /// Obligatoria en facturas completas (Art. 6.1.d RD 1619/2012).
+  /// Devuelve null si no hay datos — el layout no renderizará la línea.
+  static String? _dClienteDireccion(Factura? f) {
+    if (f == null) return 'Calle Ejemplo, 1 · 28001 Madrid';
+    final df = f.datosFiscales;
+    if (df == null) return null;
+    final parts = [
+      if (df.direccion?.isNotEmpty == true) df.direccion!,
+      if (df.codigoPostal?.isNotEmpty == true || df.ciudad?.isNotEmpty == true)
+        [df.codigoPostal, df.ciudad].where((s) => s?.isNotEmpty == true).join(' '),
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
   static double _dBase(Factura? f)  => f?.subtotal  ?? _demoBase;
   static double _dIva(Factura? f)   => f?.totalIva  ?? _demoIva;
   static double _dTotal(Factura? f) => f?.total     ?? _demoTotal;
+
+  /// Base imponible real = subtotal de líneas MENOS descuento global.
+  static double _dBaseImponible(Factura? f) =>
+      f != null ? f.subtotal - f.importeDescuentoGlobal : _demoBase;
+
+  /// Cuota IVA por tipo impositivo, con el factor de descuento global aplicado.
+  static Map<double, double> _dDesgloseIvaCuotas(Factura? f) {
+    if (f == null) return {21.0: _demoIva};
+    final factor = f.descuentoGlobal > 0 ? (1.0 - f.descuentoGlobal / 100.0) : 1.0;
+    final m = <double, double>{};
+    for (final l in f.lineas) {
+      m[l.porcentajeIva] = (m[l.porcentajeIva] ?? 0) + l.importeIva * factor;
+    }
+    return m;
+  }
   static String _capitalizar(String s) => s
       .split(' ')
       .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
       .join(' ');
 
-  static String _dTipoDoc(Factura? f, [String? override]) {
-    if (override != null) return override;
-    if (f == null) return 'FACTURA';
-    if (f.esRectificativa) return 'FACTURA RECTIFICATIVA';
-    if (f.esProforma) return 'PRESUPUESTO';
-    return 'FACTURA';
+  // ── Configuración por tipo de documento ────────────────────────────────────
+  // Única fuente de verdad para textos, prefijos y visibilidad por tipo.
+  // Todos los layouts d1-d7 leen de aquí.
+
+  static const _cfgFactura = _DocConfig(
+    titulo: 'FACTURA', prefijo: 'F',
+    etiquetaCliente: 'Facturado a', etiquetaNumero: 'Nº Factura',
+    tituloTotal: 'Total a pagar', etiquetaFecha2: 'Vencimiento',
+    mostrarPago: true, mostrarVto: true, mostrarFirma: false,
+    notaLegal: 'Factura emitida conforme al Real Decreto 1619/2012.',
+  );
+  static const _cfgRectificativa = _DocConfig(
+    titulo: 'FACTURA RECTIFICATIVA', prefijo: 'R',
+    etiquetaCliente: 'Facturado a', etiquetaNumero: 'Nº Rectificativa',
+    tituloTotal: 'Total rectificativa', etiquetaFecha2: 'Vencimiento',
+    mostrarPago: true, mostrarVto: true, mostrarFirma: false,
+    notaLegal: 'Factura rectificativa emitida conforme al Art. 15 del R.D. 1619/2012.',
+  );
+  static const _cfgPresupuesto = _DocConfig(
+    titulo: 'PRESUPUESTO', prefijo: 'P',
+    etiquetaCliente: 'Presupuesto para', etiquetaNumero: 'Nº Presupuesto',
+    tituloTotal: 'Total presupuesto', etiquetaFecha2: 'Válido hasta',
+    mostrarPago: false, mostrarVto: true, mostrarFirma: false,
+    notaLegal: 'Documento sin validez fiscal. No constituye factura a efectos del R.D. 1619/2012.',
+  );
+  static const _cfgProforma = _DocConfig(
+    titulo: 'PROFORMA', prefijo: 'PF',
+    etiquetaCliente: 'Presupuesto para', etiquetaNumero: 'Nº Proforma',
+    tituloTotal: 'Total proforma', etiquetaFecha2: 'Válido hasta',
+    mostrarPago: false, mostrarVto: true, mostrarFirma: false,
+    notaLegal: 'Factura proforma. No constituye factura a efectos del R.D. 1619/2012.',
+  );
+  static const _cfgAlbaran = _DocConfig(
+    titulo: 'ALBARÁN', prefijo: 'ALB',
+    etiquetaCliente: 'Entregar a', etiquetaNumero: 'Nº Albarán',
+    tituloTotal: 'Total unidades', etiquetaFecha2: 'Fecha entrega',
+    mostrarPago: false, mostrarVto: false, mostrarFirma: true,
+    notaLegal: 'Albarán de entrega. Conforme la recepción, firme y selle el documento.',
+  );
+  static const _cfgFichajes = _DocConfig(
+    titulo: 'INFORME DE FICHAJES', prefijo: 'FCH',
+    etiquetaCliente: 'Empleado', etiquetaNumero: 'Nº Informe',
+    tituloTotal: 'Total horas', etiquetaFecha2: 'Periodo',
+    mostrarPago: false, mostrarVto: false, mostrarFirma: false,
+    notaLegal: 'Informe de control horario conforme al R.D.L. 8/2019.',
+  );
+  static const _cfgInforme = _DocConfig(
+    titulo: 'INFORME INTERNO', prefijo: 'INF',
+    etiquetaCliente: 'Dirigido a', etiquetaNumero: 'Nº Informe',
+    tituloTotal: 'Total', etiquetaFecha2: null,
+    mostrarPago: false, mostrarVto: false, mostrarFirma: false,
+    notaLegal: 'Documento de uso interno. Confidencial.',
+  );
+
+  // ── Clave interna del tipo de documento ──────────────────────────────────
+  static String _tipoKey(Factura? f, [String? tipoDoc]) {
+    if (tipoDoc != null) {
+      final t = tipoDoc.toUpperCase();
+      if (t.contains('RECTIF')) return 'rectificativa';
+      if (t == 'PRESUPUESTO') return 'presupuesto';
+      if (t.contains('PROFORMA')) return 'proforma';
+      if (t == 'ALBARÁN' || t == 'ALBARAN' || t == 'ALBAR') return 'albaran';
+      if (t.contains('FICHAJ') || t.contains('HORA')) return 'fichajes';
+      if (t.contains('INFORME')) return 'informeInterno';
+      return 'factura';
+    }
+    if (f == null) return 'factura';
+    if (f.esRectificativa) return 'rectificativa';
+    if (f.esAlbaran) return 'albaran';
+    if (f.esProforma) return 'presupuesto';
+    return 'factura';
+  }
+
+  // ── _cfg: deriva DocConfig — primero de PdfConfiguracion (Firestore),
+  //    luego de los defaults hardcodeados. Ningún texto de tipo va en los diseños.
+  static _DocConfig _cfg(Factura? f, [String? tipoDoc, PdfConfiguracion? pdfCfg]) {
+    if (pdfCfg != null) {
+      final key      = _tipoKey(f, tipoDoc);
+      final tipoCfg  = pdfCfg.cfgTipo(key);
+      final prefijo  = pdfCfg.prefijoParaTipo(key);
+      final titulo   = tipoCfg.titulo.toUpperCase();
+      return _DocConfig(
+        titulo:          titulo,
+        prefijo:         prefijo,
+        etiquetaCliente: tipoCfg.etiquetaCliente,
+        etiquetaNumero:  'Nº ${tipoCfg.titulo}',
+        tituloTotal:     _tituloTotalDesdeCfg(key, tipoCfg),
+        etiquetaFecha2:  tipoCfg.diasVencimiento > 0
+            ? (key == 'presupuesto' || key == 'proforma' ? 'Válido hasta' : 'Vencimiento')
+            : null,
+        mostrarPago:     tipoCfg.mostrarPago,
+        mostrarVto:      tipoCfg.diasVencimiento > 0,
+        mostrarFirma:    key == 'albaran',
+        notaLegal:       tipoCfg.pieLegal,
+      );
+    }
+    // Fallback a defaults hardcodeados (empresas sin PdfConfiguracion)
+    final key = _tipoKey(f, tipoDoc);
+    return switch (key) {
+      'rectificativa'  => _cfgRectificativa,
+      'presupuesto'    => _cfgPresupuesto,
+      'proforma'       => _cfgProforma,
+      'albaran'        => _cfgAlbaran,
+      'fichajes'       => _cfgFichajes,
+      'informeInterno' => _cfgInforme,
+      _                => _cfgFactura,
+    };
+  }
+
+  static String _tituloTotalDesdeCfg(String key, ConfigTipoDocPdf c) => switch (key) {
+    'factura'       => 'Total a pagar',
+    'rectificativa' => 'Total rectificativa',
+    'presupuesto'   => 'Total presupuesto',
+    'proforma'      => 'Total proforma',
+    'albaran'       => c.mostrarImportes ? 'Total albarán' : '',
+    'fichajes'      => 'Total horas',
+    _               => 'Total',
+  };
+
+  static String _dTipoDoc(Factura? f, [String? override, PdfConfiguracion? pdfCfg]) =>
+      override ?? _cfg(f, null, pdfCfg).titulo;
+
+  static String _dTituloTotal(Factura? f, [String? tipoDoc, PdfConfiguracion? pdfCfg]) =>
+      _cfg(f, tipoDoc, pdfCfg).tituloTotal;
+
+  static String _dEtiquetaCliente(Factura? f, [String? tipoDoc, PdfConfiguracion? pdfCfg]) =>
+      _cfg(f, tipoDoc, pdfCfg).etiquetaCliente;
+
+  static String _dLabelNumeroDoc(Factura? f, [String? tipoDoc, PdfConfiguracion? pdfCfg]) =>
+      _cfg(f, tipoDoc, pdfCfg).etiquetaNumero;
+
+  /// Construye la línea "CIF B12345678 · Calle Mayor 1, Madrid" del emisor.
+  static String _dCifDir(String? cif, String? dir, {String sep = ' · '}) {
+    final parts = [
+      if (cif?.isNotEmpty == true) 'CIF $cif',
+      if (dir?.isNotEmpty == true) dir!,
+    ];
+    return parts.join(sep);
   }
 
   // Lista de líneas normalizada para los layouts _pdfD*
@@ -1814,27 +2030,55 @@ class PdfService {
       ]),
     );
 
-  // Footer legal adaptado al tipo de documento.
-  static String _dFooterLegal(Factura? f) {
-    if (f?.esRectificativa == true) {
-      return 'Factura rectificativa emitida conforme al Art. 15 del R.D. 1619/2012.';
-    }
-    if (f?.esProforma == true) {
-      return 'Documento sin validez fiscal. No constituye factura según el R.D. 1619/2012.';
-    }
-    return 'Factura emitida conforme al Real Decreto 1619/2012.';
-  }
+  static String _dFooterLegal(Factura? f, [String? tipoDoc, PdfConfiguracion? pdfCfg]) =>
+      _cfg(f, tipoDoc, pdfCfg).notaLegal;
+
+  // Bloque de firma/sello para albaranes y documentos de recepción.
+  static pw.Widget _dBloqueFirema() =>
+    pw.Container(
+      width: double.infinity,
+      margin: const pw.EdgeInsets.only(top: 8),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColor.fromHex('#CCCCCC'), width: 0.8),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        children: [
+          _dFirmaBox('Entregado por', 160),
+          pw.SizedBox(width: 16),
+          _dFirmaBox('Recibido / Conforme', 160),
+        ],
+      ),
+    );
+
+  static pw.Widget _dFirmaBox(String label, double width) =>
+    pw.SizedBox(
+      width: width,
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Text(label, style: pw.TextStyle(fontSize: 8,
+            color: PdfColor.fromHex('#666'), fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 36),
+        pw.Container(height: 0.5, color: PdfColor.fromHex('#999')),
+        pw.SizedBox(height: 4),
+        pw.Text('Nombre, Fecha y Firma / Sello',
+            style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('#AAA'))),
+      ]),
+    );
 
   // ── D1: Clásico Corporativo ───────────────────────────────────────────────
   static Future<Uint8List> _pdfD1Corp({
     required String primario, required String nombreEmpresa,
-    String? cifEmpresa, Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    String? cifEmpresa, String? direccionEmpresa, String? ibanEmpresa,
+    Uint8List? logoBytes, required int anio,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final navy = PdfColor.fromHex(primario.isNotEmpty ? primario : '#1B2A4A');
     final (fontR, fontB) = await _FC.nB;
     final pdf   = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
     final _lineas = _dLineas(factura);
+    final cfg = _cfg(factura, tipoDoc, pdfCfg);
 
     pdf.addPage(pw.MultiPage(
       pageTheme: pw.PageTheme(pageFormat: PdfPageFormat.a4,
@@ -1850,15 +2094,20 @@ class PdfService {
               pw.Text(nombreEmpresa.toUpperCase(), style: pw.TextStyle(color: PdfColors.white,
                   fontSize: 18, fontWeight: pw.FontWeight.bold, letterSpacing: 0.5)),
               pw.SizedBox(height: 4),
-              pw.Text('${cifEmpresa != null ? 'CIF $cifEmpresa · ' : ''}Madrid',
+              pw.Text(_dCifDir(cifEmpresa, direccionEmpresa),
                   style: pw.TextStyle(color: PdfColor(0.67, 0.71, 0.80), fontSize: 10)),
             ]),
             pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-              pw.Text(_dTipoDoc(factura, tipoDoc), style: pw.TextStyle(color: PdfColors.white,
+              pw.Text(_dTipoDoc(factura, tipoDoc, pdfCfg), style: pw.TextStyle(color: PdfColors.white,
                   fontSize: 22, fontWeight: pw.FontWeight.bold, letterSpacing: 1)),
               pw.SizedBox(height: 4),
-              pw.Text('Nº ${_dNumFactura(factura, anio)} · ${_dFecha(factura, anio)}',
+              pw.Text('Nº ${_dNumFactura(factura, anio, tipoDoc)} · ${_dFecha(factura, anio)}',
                   style: pw.TextStyle(color: PdfColor(0.67, 0.71, 0.80), fontSize: 11)),
+              if (factura?.fechaOperacion != null &&
+                  _fmtDate(factura!.fechaOperacion!) != _fmtDate(factura.fechaEmision))
+                pw.Text('Operación: ${_fmtDate(factura.fechaOperacion!)}',
+                    style: pw.TextStyle(color: PdfColor(0.67, 0.71, 0.80),
+                        fontSize: 9, fontStyle: pw.FontStyle.italic)),
             ]),
           ]),
         ),
@@ -1869,10 +2118,12 @@ class PdfService {
             // Parties
             pw.Row(children: [
               pw.Expanded(child: _d1Party('Emisor', nombreEmpresa,
-                  cifEmpresa != null ? 'CIF $cifEmpresa\nMadrid' : 'Madrid')),
+                  _dCifDir(cifEmpresa, direccionEmpresa, sep: '\n'))),
               pw.SizedBox(width: 24),
-              pw.Expanded(child: _d1Party('Cliente', _dClienteNombre(factura),
-                  '${_dClienteNif(factura)}')),
+              pw.Expanded(child: _d1Party(_dEtiquetaCliente(factura, tipoDoc, pdfCfg),
+                  _dClienteNombre(factura),
+                  [_dClienteNif(factura), _dClienteDireccion(factura)]
+                      .where((s) => s != null && s.isNotEmpty).join('\n'))),
             ]),
             pw.Divider(color: PdfColor.fromHex('#E5E5E5'), height: 32),
             // Bloque legal rectificativa (Art. 15 RD 1619/2012)
@@ -1883,8 +2134,19 @@ class PdfService {
             // Totals
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
               pw.SizedBox(width: 280, child: pw.Column(children: [
-                _d1TRow('Base imponible', _fmtNum(_dBase(factura))),
-                _d1TRow('IVA', _fmtNum(_dIva(factura))),
+                _d1TRow('Base imponible', _fmtNum(_dBaseImponible(factura))),
+                if ((factura?.descuentoGlobal ?? 0) > 0)
+                  _d1TRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.importeDescuentoGlobal)}'),
+                ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                      ..sort((a, b) => a.key.compareTo(b.key)))
+                    .map((e) =>
+                        _d1TRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value))),
+                if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+                  _d1TRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia)),
+                if ((factura?.porcentajeIrpf ?? 0) > 0)
+                  _d1TRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.retencionIrpf)}'),
                 pw.SizedBox(height: 6),
                 pw.Container(
                   padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1899,36 +2161,49 @@ class PdfService {
               ])),
             ]),
             pw.SizedBox(height: 24),
-            pw.Divider(color: PdfColor.fromHex('#E5E5E5'), height: 1),
-            pw.SizedBox(height: 16),
-            pw.Row(children: [
-              pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Text('DATOS DE PAGO', style: pw.TextStyle(fontSize: 9,
-                    fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1a1a1a'), letterSpacing: 0.4)),
-                pw.SizedBox(height: 4),
-                pw.Text('IBAN: ES00 0000 0000 0000 0000\nTitular: $nombreEmpresa',
-                    style: pw.TextStyle(fontSize: 10.5, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
-              ])),
-              pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Text('NOTAS', style: pw.TextStyle(fontSize: 9,
-                    fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1a1a1a'), letterSpacing: 0.4)),
-                pw.SizedBox(height: 4),
-                pw.Text('Gracias por confiar en $nombreEmpresa. Vencimiento: ${_fmtAnio(anio)}.',
-                    style: pw.TextStyle(fontSize: 10.5, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
-              ])),
-            ]),
-            pw.SizedBox(height: 20),
-            // Disclaimer proforma (bloque centrado con borde)
+            if (cfg.mostrarPago) ...[
+              pw.Divider(color: PdfColor.fromHex('#E5E5E5'), height: 1),
+              pw.SizedBox(height: 16),
+              pw.Row(children: [
+                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  pw.Text('DATOS DE PAGO', style: pw.TextStyle(fontSize: 9,
+                      fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1a1a1a'))),
+                  pw.SizedBox(height: 4),
+                  if (ibanEmpresa?.isNotEmpty == true)
+                    pw.Text('IBAN: $ibanEmpresa\nTitular: $nombreEmpresa',
+                        style: pw.TextStyle(fontSize: 10.5, color: PdfColor.fromHex('#666'), lineSpacing: 3))
+                  else if (factura != null)
+                    pw.Text('Solicite los datos bancarios al emisor.',
+                        style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#999'))),
+                ])),
+                if (cfg.mostrarVto)
+                  pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Text(cfg.etiquetaFecha2?.toUpperCase() ?? 'VENCIMIENTO', style: pw.TextStyle(fontSize: 9,
+                        fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1a1a1a'))),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      factura?.fechaVencimiento != null
+                          ? '${factura!.fechaVencimiento!.day.toString().padLeft(2,'0')}/${factura.fechaVencimiento!.month.toString().padLeft(2,'0')}/${factura.fechaVencimiento!.year}'
+                          : '30 días desde la emisión',
+                      style: pw.TextStyle(fontSize: 10.5, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
+                  ])),
+              ]),
+              pw.SizedBox(height: 20),
+            ],
             if (factura?.esProforma == true) ...[
               pw.Center(child: _dBloqueProforma()),
               pw.SizedBox(height: 12),
+            ],
+            if (cfg.mostrarFirma) ...[
+              pw.SizedBox(height: 16),
+              _dBloqueFirema(),
             ],
             pw.Container(
               padding: const pw.EdgeInsets.only(top: 12),
               decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(
                   color: PdfColor.fromHex('#E5E5E5'), width: 1,
                   style: pw.BorderStyle.dashed))),
-              child: pw.Text(_dFooterLegal(factura),
+              child: pw.Text(_dFooterLegal(factura, tipoDoc, pdfCfg),
                   style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#999'))),
             ),
           ]),
@@ -1952,16 +2227,16 @@ class PdfService {
   static pw.Widget _d1Table(PdfColor navy,
       List<({String desc, int qty, double price, double total, double iva})> lineas) {
     return pw.Table(
-      columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(36),
-          2: const pw.FixedColumnWidth(60), 3: const pw.FixedColumnWidth(36),
-          4: const pw.FixedColumnWidth(60)},
+      columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FixedColumnWidth(46),
+          2: pw.FixedColumnWidth(66), 3: pw.FixedColumnWidth(40),
+          4: pw.FixedColumnWidth(66)},
       children: [
         pw.TableRow(
           decoration: pw.BoxDecoration(color: navy),
           children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IVA', 'IMPORTE'].map((h) =>
-            pw.Padding(padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: pw.Text(h, style: pw.TextStyle(color: PdfColors.white,
-                  fontSize: 9.5, fontWeight: pw.FontWeight.bold, letterSpacing: 0.4)))).toList(),
+            pw.Padding(padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: pw.Text(h, softWrap: false, style: pw.TextStyle(color: PdfColors.white,
+                  fontSize: 9, fontWeight: pw.FontWeight.bold)))).toList(),
         ),
         ...lineas.asMap().entries.map((e) => pw.TableRow(
           decoration: pw.BoxDecoration(
@@ -1994,8 +2269,9 @@ class PdfService {
   // ── D2: Minimalista ───────────────────────────────────────────────────────
   static Future<Uint8List> _pdfD2Minimal({
     required String nombreEmpresa, String? cifEmpresa,
+    String? direccionEmpresa, String? ibanEmpresa,
     Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final (fontR, fontB) = await _FC.nB;
     final pdf   = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
@@ -2014,27 +2290,30 @@ class PdfService {
             pw.Text(nombreEmpresa.toUpperCase(), style: pw.TextStyle(
                 fontSize: 15, fontWeight: pw.FontWeight.bold, letterSpacing: 2)),
             pw.SizedBox(height: 6),
-            pw.Text(cifEmpresa != null ? 'CIF $cifEmpresa — Madrid' : 'Madrid',
+            pw.Text(_dCifDir(cifEmpresa, direccionEmpresa, sep: ' — '),
                 style: pw.TextStyle(fontSize: 9, color: soft, letterSpacing: 0.5)),
           ]),
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-            pw.Text(_dTipoDoc(factura, tipoDoc), style: pw.TextStyle(
+            pw.Text(_dTipoDoc(factura, tipoDoc, pdfCfg), style: pw.TextStyle(
                 fontSize: 9, color: soft, letterSpacing: 3)),
             pw.SizedBox(height: 6),
-            pw.Text(_dNumFactura(factura, anio), style: pw.TextStyle(
+            pw.Text(_dNumFactura(factura, anio, tipoDoc), style: pw.TextStyle(
                 fontSize: 24, fontWeight: pw.FontWeight.normal, color: ink)),
           ]),
         ]),
         pw.SizedBox(height: 50),
         pw.Row(children: [
           pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text('FACTURADO A', style: pw.TextStyle(
-                fontSize: 8.5, color: faint, letterSpacing: 1.5)),
+            pw.Text(_dEtiquetaCliente(factura, tipoDoc, pdfCfg).toUpperCase(),
+                style: pw.TextStyle(fontSize: 8.5, color: faint, letterSpacing: 1.5)),
             pw.SizedBox(height: 8),
             pw.Text(_dClienteNombre(factura), style: pw.TextStyle(
                 fontSize: 13, fontWeight: pw.FontWeight.bold)),
             pw.Text(_dClienteNif(factura),
                 style: pw.TextStyle(fontSize: 10, color: soft, lineSpacing: 4)),
+            if (_dClienteDireccion(factura) != null)
+              pw.Text(_dClienteDireccion(factura)!,
+                  style: pw.TextStyle(fontSize: 9, color: soft, lineSpacing: 3)),
           ])),
           pw.SizedBox(width: 80),
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -2043,8 +2322,16 @@ class PdfService {
             pw.SizedBox(height: 8),
             pw.Text('Emisión: ${_dFecha(factura, anio)}',
                 style: pw.TextStyle(fontSize: 10, color: soft)),
-            pw.Text('Vto: 30 días',
+            if (factura != null && _cfg(factura, tipoDoc, pdfCfg).mostrarVto)
+              pw.Text(
+                factura!.fechaVencimiento != null
+                    ? '${_cfg(factura, tipoDoc, pdfCfg).etiquetaFecha2 ?? "Vto."}: ${_fmtDate(factura.fechaVencimiento!)}'
+                    : '${_cfg(factura, tipoDoc, pdfCfg).etiquetaFecha2 ?? "Vto."}: 30 días',
                 style: pw.TextStyle(fontSize: 10, color: soft)),
+            if (factura?.fechaOperacion != null &&
+                _fmtDate(factura!.fechaOperacion!) != _fmtDate(factura.fechaEmision))
+              pw.Text('Operación: ${_fmtDate(factura.fechaOperacion!)}',
+                  style: pw.TextStyle(fontSize: 9, color: soft, fontStyle: pw.FontStyle.italic)),
           ]),
         ]),
         pw.SizedBox(height: factura?.esRectificativa == true ? 16 : 50),
@@ -2063,8 +2350,8 @@ class PdfService {
                   bottom: pw.BorderSide(color: ink, width: 1))),
               children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IMPORTE'].map((h) =>
                 pw.Padding(padding: const pw.EdgeInsets.only(bottom: 12),
-                  child: pw.Text(h, style: pw.TextStyle(fontSize: 8.5,
-                      color: faint, letterSpacing: 1)))).toList(),
+                  child: pw.Text(h, softWrap: false, style: pw.TextStyle(fontSize: 8.5,
+                      color: faint, fontWeight: pw.FontWeight.bold)))).toList(),
             ),
             ..._lineas.map((l) => pw.TableRow(
               decoration: pw.BoxDecoration(border: pw.Border(
@@ -2087,8 +2374,20 @@ class PdfService {
         pw.SizedBox(height: 36),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
           pw.SizedBox(width: 260, child: pw.Column(children: [
-            _d2TRow('Base imponible', _fmtNum(_dBase(factura)), soft, ink),
-            _d2TRow('IVA', _fmtNum(_dIva(factura)), soft, ink),
+            _d2TRow('Base imponible', _fmtNum(_dBaseImponible(factura)), soft, ink),
+            if ((factura?.descuentoGlobal ?? 0) > 0)
+              _d2TRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.importeDescuentoGlobal)}',
+                  PdfColor.fromHex('#E65100'), PdfColor.fromHex('#E65100')),
+            ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                  ..sort((a, b) => a.key.compareTo(b.key)))
+                .map((e) =>
+                    _d2TRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value), soft, ink)),
+            if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+              _d2TRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia), soft, ink),
+            if ((factura?.porcentajeIrpf ?? 0) > 0)
+              _d2TRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.retencionIrpf)}', soft, ink),
             pw.SizedBox(height: 6),
             pw.Divider(color: ink, thickness: 1),
             pw.SizedBox(height: 8),
@@ -2104,10 +2403,18 @@ class PdfService {
           pw.Center(child: _dBloqueProforma()),
           pw.SizedBox(height: 16),
         ],
+        if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+          pw.SizedBox(height: 12),
+          _dBloqueFirema(),
+        ],
         pw.Row(children: [
-          pw.Expanded(child: _d2FooterCol('PAGO', 'IBAN ES00 0000 0000 0000 0000\nTransferencia bancaria')),
-          pw.SizedBox(width: 60),
-          pw.Expanded(child: _d2FooterCol('NOTAS', _dFooterLegal(factura))),
+          if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago)
+            pw.Expanded(child: _d2FooterCol('PAGO',
+                ibanEmpresa?.isNotEmpty == true
+                    ? 'IBAN $ibanEmpresa\nTransferencia bancaria'
+                    : 'Transferencia bancaria')),
+          if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago) pw.SizedBox(width: 60),
+          pw.Expanded(child: _d2FooterCol('NOTAS', _dFooterLegal(factura, tipoDoc, pdfCfg))),
         ]),
       ],
     ));
@@ -2132,8 +2439,9 @@ class PdfService {
   // ── D3: Moderno Hero ──────────────────────────────────────────────────────
   static Future<Uint8List> _pdfD3Hero({
     required String primario, required String nombreEmpresa,
-    String? cifEmpresa, Uint8List? logoBytes, required int anio,
-    Factura? factura,
+    String? cifEmpresa, String? direccionEmpresa, String? ibanEmpresa,
+    Uint8List? logoBytes, required int anio,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final heroColor = PdfColor.fromHex(primario.isNotEmpty ? primario : '#7C6CF0');
     final (fontR, fontB) = await _FC.nB;
@@ -2154,12 +2462,12 @@ class PdfService {
               pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                 pw.Text(nombreEmpresa, style: pw.TextStyle(
                     fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-                pw.Text(cifEmpresa != null ? 'CIF $cifEmpresa · Madrid' : 'Madrid',
+                pw.Text(_dCifDir(cifEmpresa, direccionEmpresa),
                     style: pw.TextStyle(fontSize: 11,
                         color: PdfColor(1, 1, 1, 0.75))),
               ]),
               pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                pw.Text('Total a pagar', style: pw.TextStyle(fontSize: 11,
+                pw.Text(_dTituloTotal(factura, tipoDoc, pdfCfg), style: pw.TextStyle(fontSize: 11,
                     color: PdfColor(1, 1, 1, 0.75))),
                 pw.Text(_fmtNum(_dTotal(factura)), style: pw.TextStyle(
                     fontSize: 34, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
@@ -2167,7 +2475,7 @@ class PdfService {
             ]),
             pw.SizedBox(height: 20),
             pw.Row(children: [
-              _d3Pill('Factura Nº ${_dNumFactura(factura, anio)}'),
+              _d3Pill('${_dTipoDoc(factura, tipoDoc, pdfCfg)} Nº ${_dNumFactura(factura, anio, tipoDoc)}'),
               pw.SizedBox(width: 10),
               _d3Pill('Emitida ${_dFecha(factura, anio)}'),
               pw.SizedBox(width: 10),
@@ -2183,8 +2491,12 @@ class PdfService {
               pw.Expanded(child: _d3Card('Emisor', nombreEmpresa,
                   cifEmpresa != null ? 'CIF $cifEmpresa' : '', heroColor)),
               pw.SizedBox(width: 20),
-              pw.Expanded(child: _d3Card('Cliente', _dClienteNombre(factura),
-                  _dClienteNif(factura), heroColor)),
+              pw.Expanded(child: _d3Card(
+                  _dEtiquetaCliente(factura, tipoDoc, pdfCfg),
+                  _dClienteNombre(factura),
+                  [_dClienteNif(factura), _dClienteDireccion(factura)]
+                      .where((s) => s != null && s.isNotEmpty).join('  ·  '),
+                  heroColor)),
             ]),
             pw.SizedBox(height: factura?.esRectificativa == true ? 16 : 28),
             // Bloque legal rectificativa (Art. 15 RD 1619/2012)
@@ -2193,14 +2505,14 @@ class PdfService {
               pw.SizedBox(height: 12),
             ],
             pw.Table(
-              columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(36),
-                  2: const pw.FixedColumnWidth(60), 3: const pw.FixedColumnWidth(36),
-                  4: const pw.FixedColumnWidth(60)},
+              columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FixedColumnWidth(44),
+                  2: pw.FixedColumnWidth(64), 3: pw.FixedColumnWidth(40),
+                  4: pw.FixedColumnWidth(64)},
               children: [
                 pw.TableRow(children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IVA', 'IMPORTE'].map((h) =>
-                  pw.Padding(padding: const pw.EdgeInsets.only(left: 12, bottom: 10),
-                    child: pw.Text(h, style: pw.TextStyle(fontSize: 9,
-                        color: PdfColor.fromHex('#AAA'), letterSpacing: 0.5, fontWeight: pw.FontWeight.bold)))).toList()),
+                  pw.Padding(padding: const pw.EdgeInsets.only(left: 8, bottom: 10),
+                    child: pw.Text(h, softWrap: false, style: pw.TextStyle(fontSize: 9,
+                        color: PdfColor.fromHex('#AAA'), fontWeight: pw.FontWeight.bold)))).toList()),
                 ..._lineas.map((l) => pw.TableRow(
                   decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFfafafc)),
                   children: [
@@ -2222,8 +2534,19 @@ class PdfService {
             pw.SizedBox(height: 20),
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
               pw.SizedBox(width: 270, child: pw.Column(children: [
-                _simpleTRow('Base imponible', _fmtNum(_dBase(factura))),
-                _simpleTRow('IVA', _fmtNum(_dIva(factura))),
+                _simpleTRow('Base imponible', _fmtNum(_dBaseImponible(factura))),
+                if ((factura?.descuentoGlobal ?? 0) > 0)
+                  _simpleTRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.importeDescuentoGlobal)}'),
+                ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                      ..sort((a, b) => a.key.compareTo(b.key)))
+                    .map((e) =>
+                        _simpleTRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value))),
+                if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+                  _simpleTRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia)),
+                if ((factura?.porcentajeIrpf ?? 0) > 0)
+                  _simpleTRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.retencionIrpf)}'),
                 pw.SizedBox(height: 8),
                 pw.Container(
                   padding: const pw.EdgeInsets.fromLTRB(18, 14, 18, 14),
@@ -2244,8 +2567,12 @@ class PdfService {
               pw.SizedBox(height: 10),
               pw.Center(child: _dBloqueProforma()),
             ],
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+              pw.SizedBox(height: 12),
+              _dBloqueFirema(),
+            ],
             pw.SizedBox(height: 12),
-            pw.Text(_dFooterLegal(factura),
+            pw.Text(_dFooterLegal(factura, tipoDoc, pdfCfg),
                 style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
           ]),
         ),
@@ -2279,8 +2606,9 @@ class PdfService {
   // ── D4: Sidebar Dividido ──────────────────────────────────────────────────
   static Future<Uint8List> _pdfD4Sidebar({
     required String primario, required String nombreEmpresa,
-    String? cifEmpresa, Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    String? cifEmpresa, String? direccionEmpresa, String? ibanEmpresa,
+    Uint8List? logoBytes, required int anio,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final dark   = PdfColor.fromHex('#1a1a1a');
     final accent = PdfColor(0.72, 0.68, 1.0); // purple-ish
@@ -2308,15 +2636,15 @@ class PdfService {
             pw.Text(nombreEmpresa, style: pw.TextStyle(color: PdfColors.white,
                 fontSize: 13, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 4),
-            pw.Text(cifEmpresa != null ? 'CIF $cifEmpresa\nMadrid' : 'Madrid',
+            pw.Text(_dCifDir(cifEmpresa, direccionEmpresa, sep: '\n'),
                 style: pw.TextStyle(fontSize: 10, color: PdfColor(0.6, 0.6, 0.6), lineSpacing: 3)),
             pw.SizedBox(height: 24),
-            _d4SideBlock('Facturado a', _dClienteNombre(factura), _dClienteNif(factura)),
-            _d4SideBlock('Nº Factura', _dNumFactura(factura, anio), ''),
+            _d4SideBlock(_dEtiquetaCliente(factura, tipoDoc, pdfCfg), _dClienteNombre(factura), _dClienteNif(factura)),
+            _d4SideBlock(_dLabelNumeroDoc(factura, tipoDoc, pdfCfg), _dNumFactura(factura, anio, tipoDoc), ''),
             _d4SideBlock('Emisión', _dFecha(factura, anio), ''),
             pw.Spacer(),
             pw.Divider(color: PdfColor(0.2, 0.2, 0.2), height: 16),
-            pw.Text('Total a pagar', style: pw.TextStyle(fontSize: 9,
+            pw.Text(_dTituloTotal(factura, tipoDoc, pdfCfg), style: pw.TextStyle(fontSize: 9,
                 color: PdfColor(0.6, 0.6, 0.6), letterSpacing: 0.4)),
             pw.SizedBox(height: 4),
             pw.Text(_fmtNum(_dTotal(factura)), style: pw.TextStyle(
@@ -2327,7 +2655,7 @@ class PdfService {
         pw.Expanded(child: pw.Padding(
           padding: const pw.EdgeInsets.all(34),
           child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text(tipoDoc != null ? _capitalizar(tipoDoc) : 'Factura de servicios', style: pw.TextStyle(
+            pw.Text(_capitalizar(tipoDoc ?? _dTipoDoc(factura, null, pdfCfg)), style: pw.TextStyle(
                 fontSize: 20, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 4),
             pw.Text('Año $anio', style: pw.TextStyle(
@@ -2338,16 +2666,16 @@ class PdfService {
               pw.SizedBox(height: 12),
             ] else pw.SizedBox(height: 24),
             pw.Table(
-              columnWidths: {0: const pw.FlexColumnWidth(4), 1: const pw.FixedColumnWidth(36),
-                  2: const pw.FixedColumnWidth(60), 3: const pw.FixedColumnWidth(60)},
+              columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FixedColumnWidth(44),
+                  2: pw.FixedColumnWidth(66), 3: pw.FixedColumnWidth(66)},
               children: [
                 pw.TableRow(
                   decoration: pw.BoxDecoration(border: pw.Border(
                       bottom: pw.BorderSide(color: dark, width: 2))),
                   children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IMPORTE'].map((h) =>
                     pw.Padding(padding: const pw.EdgeInsets.only(left: 8, bottom: 10),
-                      child: pw.Text(h, style: pw.TextStyle(fontSize: 9,
-                          color: PdfColor.fromHex('#BBB'), letterSpacing: 0.4)))).toList()),
+                      child: pw.Text(h, softWrap: false, style: pw.TextStyle(fontSize: 9,
+                          color: PdfColor.fromHex('#BBB'))))).toList()),
                 ..._lineas.map((l) => pw.TableRow(
                   decoration: pw.BoxDecoration(border: pw.Border(
                       bottom: pw.BorderSide(color: PdfColor.fromHex('#EEE')))),
@@ -2369,29 +2697,48 @@ class PdfService {
             pw.SizedBox(height: 20),
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
               pw.SizedBox(width: 220, child: pw.Column(children: [
-                _simpleTRow('Base imponible', _fmtNum(_dBase(factura))),
-                _simpleTRow('IVA', _fmtNum(_dIva(factura))),
+                _simpleTRow('Base imponible', _fmtNum(_dBaseImponible(factura))),
+                if ((factura?.descuentoGlobal ?? 0) > 0)
+                  _simpleTRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.importeDescuentoGlobal)}'),
+                ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                      ..sort((a, b) => a.key.compareTo(b.key)))
+                    .map((e) =>
+                        _simpleTRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value))),
+                if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+                  _simpleTRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia)),
+                if ((factura?.porcentajeIrpf ?? 0) > 0)
+                  _simpleTRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.retencionIrpf)}'),
               ])),
             ]),
             pw.SizedBox(height: 20),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(16),
-              decoration: pw.BoxDecoration(color: PdfColor.fromHex('#F7F7F7'),
-                  borderRadius: pw.BorderRadius.circular(10)),
-              child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Text('DATOS DE PAGO', style: pw.TextStyle(fontSize: 9,
-                    fontWeight: pw.FontWeight.bold, letterSpacing: 0.4)),
-                pw.SizedBox(height: 4),
-                pw.Text('IBAN ES00 0000 0000 0000 0000 — Transferencia bancaria. Gracias por confiar en $nombreEmpresa.',
-                    style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
-              ]),
-            ),
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago)
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(color: PdfColor.fromHex('#F7F7F7'),
+                    borderRadius: pw.BorderRadius.circular(10)),
+                child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  pw.Text('DATOS DE PAGO', style: pw.TextStyle(fontSize: 9,
+                      fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                      ibanEmpresa?.isNotEmpty == true
+                          ? 'IBAN $ibanEmpresa — Transferencia bancaria. Gracias por confiar en $nombreEmpresa.'
+                          : 'Gracias por confiar en $nombreEmpresa.',
+                      style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#666'), lineSpacing: 3)),
+                ]),
+              ),
             if (factura?.esProforma == true) ...[
               pw.SizedBox(height: 10),
               pw.Center(child: _dBloqueProforma()),
             ],
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+              pw.SizedBox(height: 12),
+              _dBloqueFirema(),
+            ],
             pw.SizedBox(height: 8),
-            pw.Text(_dFooterLegal(factura),
+            pw.Text(_dFooterLegal(factura, tipoDoc, pdfCfg),
                 style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
           ]),
         )),
@@ -2415,8 +2762,9 @@ class PdfService {
   // ── D5: Tarjetas por línea ────────────────────────────────────────────────
   static Future<Uint8List> _pdfD5Cards({
     required String primario, required String nombreEmpresa,
-    String? cifEmpresa, Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    String? cifEmpresa, String? direccionEmpresa, String? ibanEmpresa,
+    Uint8List? logoBytes, required int anio,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final green  = PdfColor.fromHex(primario.isNotEmpty ? primario : '#3E9C63');
     final (fontR, fontB) = await _FC.nB;
@@ -2432,7 +2780,7 @@ class PdfService {
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
             pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 17,
                 fontWeight: pw.FontWeight.bold)),
-            pw.Text(cifEmpresa != null ? 'CIF $cifEmpresa · Madrid' : 'Madrid',
+            pw.Text(_dCifDir(cifEmpresa, direccionEmpresa),
                 style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#999'))),
           ]),
           pw.Container(
@@ -2440,14 +2788,14 @@ class PdfService {
             decoration: pw.BoxDecoration(
               color: PdfColor(green.red, green.green, green.blue, 0.1),
               borderRadius: pw.BorderRadius.circular(20)),
-            child: pw.Text('${tipoDoc != null ? _capitalizar(tipoDoc) : 'Factura'} No ${_dNumFactura(factura, anio)}',
+            child: pw.Text('${_capitalizar(tipoDoc ?? _dTipoDoc(factura, null, pdfCfg))} Nº ${_dNumFactura(factura, anio, tipoDoc)}',
                 style: pw.TextStyle(color: green, fontSize: 10.5,
                     fontWeight: pw.FontWeight.bold))),
         ]),
         pw.SizedBox(height: 18),
         pw.Text(_fmtNum(_dTotal(factura)), style: pw.TextStyle(fontSize: 32,
             fontWeight: pw.FontWeight.bold)),
-        pw.Text('Total a pagar — ${_dFecha(factura, anio)}',
+        pw.Text('${_dTituloTotal(factura, tipoDoc, pdfCfg)} — ${_dFecha(factura, anio)}',
             style: pw.TextStyle(fontSize: 11, color: PdfColor.fromHex('#888'))),
         pw.SizedBox(height: 24),
         pw.Row(children: [
@@ -2459,11 +2807,17 @@ class PdfService {
           ])),
           pw.SizedBox(width: 40),
           pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text('CLIENTE', style: pw.TextStyle(fontSize: 9,
+            pw.Text(_dEtiquetaCliente(factura, tipoDoc, pdfCfg).toUpperCase(),
+                style: pw.TextStyle(fontSize: 9,
                 color: PdfColor.fromHex('#AAA'), fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 4),
             pw.Text(_dClienteNombre(factura), style: pw.TextStyle(
                 fontSize: 12, fontWeight: pw.FontWeight.bold)),
+            pw.Text(_dClienteNif(factura),
+                style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#888'))),
+            if (_dClienteDireccion(factura) != null)
+              pw.Text(_dClienteDireccion(factura)!,
+                  style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('#888'))),
           ])),
         ]),
         pw.Divider(height: 28, borderStyle: pw.BorderStyle.dashed,
@@ -2509,8 +2863,19 @@ class PdfService {
             color: PdfColor.fromHex('#EEE')),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
           pw.SizedBox(width: 260, child: pw.Column(children: [
-            _simpleTRow('Base imponible', _fmtNum(_dBase(factura))),
-            _simpleTRow('IVA', _fmtNum(_dIva(factura))),
+            _simpleTRow('Base imponible', _fmtNum(_dBaseImponible(factura))),
+            if ((factura?.descuentoGlobal ?? 0) > 0)
+              _simpleTRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.importeDescuentoGlobal)}'),
+            ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                  ..sort((a, b) => a.key.compareTo(b.key)))
+                .map((e) =>
+                    _simpleTRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value))),
+            if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+              _simpleTRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia)),
+            if ((factura?.porcentajeIrpf ?? 0) > 0)
+              _simpleTRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.retencionIrpf)}'),
             pw.SizedBox(height: 8),
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
               pw.Text('Total', style: pw.TextStyle(fontSize: 20,
@@ -2521,16 +2886,23 @@ class PdfService {
           ])),
         ]),
         pw.SizedBox(height: 24),
-        pw.Center(child: pw.Text(
-          'IBAN ES00 0000 0000 0000 0000 · Transferencia · Gracias por confiar en $nombreEmpresa',
-          style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#999')),
-          textAlign: pw.TextAlign.center)),
+        if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago)
+          pw.Center(child: pw.Text(
+            ibanEmpresa?.isNotEmpty == true
+                ? 'IBAN $ibanEmpresa · Transferencia · Gracias por confiar en $nombreEmpresa'
+                : 'Gracias por confiar en $nombreEmpresa',
+            style: pw.TextStyle(fontSize: 10, color: PdfColor.fromHex('#999')),
+            textAlign: pw.TextAlign.center)),
         if (factura?.esProforma == true) ...[
           pw.SizedBox(height: 12),
           pw.Center(child: _dBloqueProforma()),
         ],
+        if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+          pw.SizedBox(height: 12),
+          _dBloqueFirema(),
+        ],
         pw.SizedBox(height: 8),
-        pw.Text(_dFooterLegal(factura),
+        pw.Text(_dFooterLegal(factura, tipoDoc, pdfCfg),
             style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('#AAA'))),
       ],
     ));
@@ -2540,8 +2912,9 @@ class PdfService {
   // ── D6: Dark Mode ─────────────────────────────────────────────────────────
   static Future<Uint8List> _pdfD6Dark({
     required String primario, required String nombreEmpresa,
-    String? cifEmpresa, Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    String? cifEmpresa, String? ibanEmpresa,
+    Uint8List? logoBytes, required int anio,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final bgCol  = PdfColor.fromHex('#0F0F13');
     final surf   = PdfColor.fromHex('#17171D');
@@ -2577,10 +2950,10 @@ class PdfService {
                   decoration: pw.BoxDecoration(
                     color: PdfColor(accent.red, accent.green, accent.blue, 0.15),
                     borderRadius: pw.BorderRadius.circular(6)),
-                  child: pw.Text(_dTipoDoc(factura, tipoDoc), style: pw.TextStyle(
+                  child: pw.Text(_dTipoDoc(factura, tipoDoc, pdfCfg), style: pw.TextStyle(
                       color: accent, fontSize: 10, fontWeight: pw.FontWeight.bold, letterSpacing: 0.5))),
                 pw.SizedBox(height: 8),
-                pw.Text(_dNumFactura(factura, anio), style: pw.TextStyle(
+                pw.Text(_dNumFactura(factura, anio, tipoDoc), style: pw.TextStyle(
                     color: textW, fontSize: 18, fontWeight: pw.FontWeight.bold)),
                 pw.Text(_dFecha(factura, anio), style: pw.TextStyle(fontSize: 10, color: textS)),
               ]),
@@ -2590,8 +2963,12 @@ class PdfService {
               pw.Expanded(child: _d6Card('Emisor', nombreEmpresa,
                   cifEmpresa != null ? 'CIF $cifEmpresa' : '', surf, border, textW, textS)),
               pw.SizedBox(width: 20),
-              pw.Expanded(child: _d6Card('Cliente', _dClienteNombre(factura),
-                  _dClienteNif(factura), surf, border, textW, textS)),
+              pw.Expanded(child: _d6Card(
+                  _dEtiquetaCliente(factura, tipoDoc, pdfCfg),
+                  _dClienteNombre(factura),
+                  [_dClienteNif(factura), _dClienteDireccion(factura)]
+                      .where((s) => s != null && s.isNotEmpty).join('\n'),
+                  surf, border, textW, textS)),
             ]),
             // Bloque legal rectificativa (Art. 15 RD 1619/2012)
             if (factura?.esRectificativa == true) ...[
@@ -2602,10 +2979,11 @@ class PdfService {
             pw.Padding(padding: const pw.EdgeInsets.only(bottom: 8), child:
               pw.Row(children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IMPORTE'].asMap().entries.map((e) =>
                 e.key == 0
-                  ? pw.Expanded(child: pw.Text(e.value, style: pw.TextStyle(
-                      fontSize: 8.5, color: textS, letterSpacing: 0.5)))
-                  : pw.SizedBox(width: 55, child: pw.Text(e.value, textAlign: pw.TextAlign.right,
-                      style: pw.TextStyle(fontSize: 8.5, color: textS, letterSpacing: 0.5)))
+                  ? pw.Expanded(child: pw.Text(e.value, softWrap: false,
+                      style: pw.TextStyle(fontSize: 8.5, color: textS, fontWeight: pw.FontWeight.bold)))
+                  : pw.SizedBox(width: 55, child: pw.Text(e.value, softWrap: false,
+                      textAlign: pw.TextAlign.right,
+                      style: pw.TextStyle(fontSize: 8.5, color: textS, fontWeight: pw.FontWeight.bold)))
               ).toList())),
             pw.Divider(color: border, height: 1),
             ..._lineas.map((l) => pw.Column(children: [
@@ -2629,8 +3007,20 @@ class PdfService {
             pw.SizedBox(height: 16),
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
               pw.SizedBox(width: 260, child: pw.Column(children: [
-                _d6TRow('Base imponible', _fmtNum(_dBase(factura)), textS),
-                _d6TRow('IVA', _fmtNum(_dIva(factura)), textS),
+                _d6TRow('Base imponible', _fmtNum(_dBaseImponible(factura)), textS),
+                if ((factura?.descuentoGlobal ?? 0) > 0)
+                  _d6TRow('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.importeDescuentoGlobal)}',
+                      PdfColor.fromHex('#E65100')),
+                ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                      ..sort((a, b) => a.key.compareTo(b.key)))
+                    .map((e) =>
+                        _d6TRow('IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value), textS)),
+                if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+                  _d6TRow('Recargo equiv.', _fmtNum(factura!.totalRecargoEquivalencia), textS),
+                if ((factura?.porcentajeIrpf ?? 0) > 0)
+                  _d6TRow('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                      '-${_fmtNum(factura.retencionIrpf)}', textS),
                 pw.SizedBox(height: 6),
                 pw.Divider(color: border, height: 1),
                 pw.SizedBox(height: 8),
@@ -2646,14 +3036,21 @@ class PdfService {
             pw.Divider(color: border, height: 1),
             pw.SizedBox(height: 14),
             pw.Row(children: [
-              pw.Expanded(child: _d6FooterCol('PAGO',
-                  'IBAN ES00 0000 0000 0000 0000', textS, textW)),
+              if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago)
+                pw.Expanded(child: _d6FooterCol('PAGO',
+                    ibanEmpresa?.isNotEmpty == true
+                        ? 'IBAN $ibanEmpresa'
+                        : 'Transferencia bancaria', textS, textW)),
               pw.Expanded(child: _d6FooterCol('NOTAS',
-                  _dFooterLegal(factura), textS, textW)),
+                  _dFooterLegal(factura, tipoDoc, pdfCfg), textS, textW)),
             ]),
             if (factura?.esProforma == true) ...[
               pw.SizedBox(height: 10),
               pw.Center(child: _dBloqueProforma()),
+            ],
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+              pw.SizedBox(height: 12),
+              _dBloqueFirema(),
             ],
           ]),
         ),
@@ -2696,8 +3093,9 @@ class PdfService {
   // ── D7: Compacto Ejecutivo ────────────────────────────────────────────────
   static Future<Uint8List> _pdfD7Exec({
     required String nombreEmpresa, String? cifEmpresa,
+    String? direccionEmpresa, String? ibanEmpresa,
     Uint8List? logoBytes, required int anio,
-    Factura? factura, String? tipoDoc,
+    Factura? factura, String? tipoDoc, PdfConfiguracion? pdfCfg,
   }) async {
     final (fontR, fontB) = await _FC.nB;
     final pdf   = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
@@ -2719,7 +3117,7 @@ class PdfService {
             pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
               pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 15,
                   fontWeight: pw.FontWeight.bold)),
-              pw.Text(cifEmpresa != null ? 'CIF $cifEmpresa' : 'Madrid',
+              pw.Text(_dCifDir(cifEmpresa, direccionEmpresa),
                   style: pw.TextStyle(fontSize: 10, color: soft)),
             ]),
             // Stamp
@@ -2741,9 +3139,10 @@ class PdfService {
               2: pw.FlexColumnWidth(), 3: pw.FlexColumnWidth()},
           children: [
             pw.TableRow(children: [
-              _d7Cell('${tipoDoc ?? 'FACTURA'} Nº', _dNumFactura(factura, anio), light, soft, ink),
+              _d7Cell('${_dTipoDoc(factura, tipoDoc, pdfCfg)} Nº', _dNumFactura(factura, anio, tipoDoc), light, soft, ink),
               _d7Cell('EMISIÓN', _dFecha(factura, anio), light, soft, ink),
-              _d7Cell('CLIENTE', _dClienteNombre(factura), light, soft, ink),
+              _d7Cell(_dEtiquetaCliente(factura, tipoDoc, pdfCfg).toUpperCase(),
+                  '${_dClienteNombre(factura)}\n${_dClienteNif(factura)}', light, soft, ink),
               _d7Cell('TOTAL', _fmtNum(_dTotal(factura)), light, soft, ink, bold: true),
             ]),
           ],
@@ -2759,8 +3158,8 @@ class PdfService {
               decoration: pw.BoxDecoration(color: light),
               children: ['CONCEPTO', 'CANT.', 'PRECIO', 'IMPORTE'].map((h) =>
                 pw.Padding(padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(h, style: pw.TextStyle(fontSize: 8.5,
-                      fontWeight: pw.FontWeight.bold, letterSpacing: 0.3)))).toList()),
+                  child: pw.Text(h, softWrap: false, style: pw.TextStyle(
+                      fontSize: 8.5, fontWeight: pw.FontWeight.bold)))).toList()),
             ..._lineas.map((l) => pw.TableRow(
               decoration: pw.BoxDecoration(border: pw.Border(
                   bottom: pw.BorderSide(color: PdfColor.fromHex('#DDD')))),
@@ -2783,8 +3182,21 @@ class PdfService {
         pw.Table(
           border: pw.TableBorder.all(color: ink, width: 1),
           children: [
-            _d7TRow2('Base imponible', _fmtNum(_dBase(factura)), ink, PdfColors.white),
-            _d7TRow2('IVA', _fmtNum(_dIva(factura)), ink, PdfColors.white),
+            _d7TRow2('Base imponible', _fmtNum(_dBaseImponible(factura)), ink, PdfColors.white),
+            if ((factura?.descuentoGlobal ?? 0) > 0)
+              _d7TRow2('Dto. ${factura!.descuentoGlobal.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.importeDescuentoGlobal)}',
+                  PdfColor.fromHex('#E65100'), PdfColors.white),
+            ...(_dDesgloseIvaCuotas(factura).entries.toList()
+                  ..sort((a, b) => a.key.compareTo(b.key)))
+                .map((e) => _d7TRow2(
+                    'IVA ${e.key.toStringAsFixed(0)}%', _fmtNum(e.value), ink, PdfColors.white)),
+            if ((factura?.totalRecargoEquivalencia ?? 0) > 0)
+              _d7TRow2('Recargo equiv.',
+                  _fmtNum(factura!.totalRecargoEquivalencia), ink, PdfColors.white),
+            if ((factura?.porcentajeIrpf ?? 0) > 0)
+              _d7TRow2('IRPF ${factura!.porcentajeIrpf.toStringAsFixed(0)}%',
+                  '-${_fmtNum(factura.retencionIrpf)}', ink, PdfColors.white),
             _d7TRow2('TOTAL', _fmtNum(_dTotal(factura)), PdfColors.white, ink, bold: true),
           ],
         ),
@@ -2794,15 +3206,22 @@ class PdfService {
           decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(
               color: ink, style: pw.BorderStyle.dashed))),
           child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text(
-              'IBAN ES00 0000 0000 0000 0000 — Transferencia bancaria',
-              style: pw.TextStyle(fontSize: 9, color: soft, lineSpacing: 3)),
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarPago)
+              pw.Text(
+                ibanEmpresa?.isNotEmpty == true
+                    ? 'IBAN $ibanEmpresa — Transferencia bancaria'
+                    : 'Transferencia bancaria',
+                style: pw.TextStyle(fontSize: 9, color: soft, lineSpacing: 3)),
             pw.SizedBox(height: 3),
-            pw.Text(_dFooterLegal(factura),
+            pw.Text(_dFooterLegal(factura, tipoDoc, pdfCfg),
                 style: pw.TextStyle(fontSize: 8, color: soft)),
             if (factura?.esProforma == true) ...[
               pw.SizedBox(height: 8),
               _dBloqueProforma(),
+            ],
+            if (_cfg(factura, tipoDoc, pdfCfg).mostrarFirma) ...[
+              pw.SizedBox(height: 12),
+              _dBloqueFirema(),
             ],
           ]),
         ),
@@ -3788,7 +4207,7 @@ class PdfService {
     final pdf = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB, italic: fontI));
 
     final subtotal = factura.subtotal - factura.importeDescuentoGlobal;
-    final fmt = (double v) => '${v.toStringAsFixed(2)} €';
+    final fmt = (double v) => _fmtNum(v);
     final fmtDate = (DateTime d) =>
         '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}';
 
@@ -3966,7 +4385,7 @@ class PdfService {
     final pdf = pw.Document(theme: pw.ThemeData.withFont(base: fontR, bold: fontB));
 
     final subtotal = factura.subtotal - factura.importeDescuentoGlobal;
-    final fmt = (double v) => '${v.toStringAsFixed(2)} €';
+    final fmt = (double v) => _fmtNum(v);
     final fmtDate = (DateTime d) =>
         '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}';
 
@@ -4228,8 +4647,12 @@ class PdfService {
   }
 
   static Color _hexToColor(String hex) {
-    final h = hex.replaceAll('#', '');
-    return Color(int.parse('FF$h', radix: 16));
+    try {
+      final h = hex.replaceAll('#', '');
+      return Color(int.parse('FF$h', radix: 16));
+    } catch (_) {
+      return const Color(0xFF000000);
+    }
   }
 
   // ── GENERAR PDF DINÁMICO (con plantillas personalizadas) ─────────────────────
@@ -4354,5 +4777,33 @@ class PdfService {
       MetodoPagoFactura.transferencia => 'Transferencia bancaria',
     };
   }
+}
+
+// ── Configuración por tipo de documento — única fuente de verdad ─────────────
+// Todos los layouts d1-d7 y los helpers de PdfService leen de aquí.
+class _DocConfig {
+  final String titulo;         // "FACTURA", "PRESUPUESTO", "ALBARÁN"…
+  final String prefijo;        // "F", "P", "ALB"… para numeración demo
+  final String etiquetaCliente;// "Facturado a", "Presupuesto para", "Entregar a"
+  final String etiquetaNumero; // "Nº Factura", "Nº Presupuesto"…
+  final String tituloTotal;    // "Total a pagar", "Total presupuesto"…
+  final String? etiquetaFecha2;// "Vencimiento", "Válido hasta", null
+  final bool mostrarPago;      // false para albarán, informe, fichajes
+  final bool mostrarVto;       // false para albarán, informe
+  final bool mostrarFirma;     // true para albaranes (necesitan firma de recepción)
+  final String notaLegal;      // texto del footer
+
+  const _DocConfig({
+    required this.titulo,
+    required this.prefijo,
+    required this.etiquetaCliente,
+    required this.etiquetaNumero,
+    required this.tituloTotal,
+    required this.etiquetaFecha2,
+    required this.mostrarPago,
+    required this.mostrarVto,
+    this.mostrarFirma = false,
+    required this.notaLegal,
+  });
 }
 

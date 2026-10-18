@@ -25,7 +25,10 @@ class ConfiguracionPagos {
   // ── Métodos de cobro aceptados ───────────────────────────────────────────
   final bool aceptaTarjeta;
   final bool aceptaBizum;
+  final String? bizumNumero;
   final bool aceptaTransferencia;
+  final String? transferenciaIban;
+  final String? transferenciaTitular;
   final bool aceptaEfectivo;
   final bool aceptaPaypal;
 
@@ -46,7 +49,10 @@ class ConfiguracionPagos {
     this.bancoFechaExpiracion,
     this.aceptaTarjeta = true,
     this.aceptaBizum = false,
+    this.bizumNumero,
     this.aceptaTransferencia = false,
+    this.transferenciaIban,
+    this.transferenciaTitular,
     this.aceptaEfectivo = true,
     this.aceptaPaypal = false,
   });
@@ -69,7 +75,10 @@ class ConfiguracionPagos {
       bancoFechaExpiracion: (d['banco_fecha_expiracion'] as Timestamp?)?.toDate(),
       aceptaTarjeta: d['acepta_tarjeta'] as bool? ?? true,
       aceptaBizum: d['acepta_bizum'] as bool? ?? false,
+      bizumNumero: d['bizum_numero'] as String?,
       aceptaTransferencia: d['acepta_transferencia'] as bool? ?? false,
+      transferenciaIban: d['transferencia_iban'] as String?,
+      transferenciaTitular: d['transferencia_titular'] as String?,
       aceptaEfectivo: d['acepta_efectivo'] as bool? ?? true,
       aceptaPaypal: d['acepta_paypal'] as bool? ?? false,
     );
@@ -96,7 +105,10 @@ class ConfiguracionPagos {
       'banco_fecha_expiracion': Timestamp.fromDate(bancoFechaExpiracion!),
     'acepta_tarjeta': aceptaTarjeta,
     'acepta_bizum': aceptaBizum,
+    'bizum_numero': bizumNumero,
     'acepta_transferencia': aceptaTransferencia,
+    'transferencia_iban': transferenciaIban,
+    'transferencia_titular': transferenciaTitular,
     'acepta_efectivo': aceptaEfectivo,
     'acepta_paypal': aceptaPaypal,
   };
@@ -227,14 +239,20 @@ class ConfiguracionPagosService {
   Future<void> actualizarMetodosCobro(String empresaId, {
     bool? tarjeta,
     bool? bizum,
+    String? bizumNumero,
     bool? transferencia,
+    String? transferenciaIban,
+    String? transferenciaTitular,
     bool? efectivo,
     bool? paypal,
   }) async {
     final data = <String, dynamic>{};
     if (tarjeta != null) data['acepta_tarjeta'] = tarjeta;
     if (bizum != null) data['acepta_bizum'] = bizum;
+    if (bizumNumero != null) data['bizum_numero'] = bizumNumero;
     if (transferencia != null) data['acepta_transferencia'] = transferencia;
+    if (transferenciaIban != null) data['transferencia_iban'] = transferenciaIban;
+    if (transferenciaTitular != null) data['transferencia_titular'] = transferenciaTitular;
     if (efectivo != null) data['acepta_efectivo'] = efectivo;
     if (paypal != null) data['acepta_paypal'] = paypal;
     if (data.isNotEmpty) {

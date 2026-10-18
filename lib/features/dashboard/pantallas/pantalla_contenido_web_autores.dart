@@ -18,6 +18,8 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
   String? _filtroGenero;
   String? _filtroRol;
   final   _ctrl        = TextEditingController();
+  // Orden local para evitar snap-back durante la escritura async
+  List<Map<String, dynamic>>? _localOrder;
 
   @override
   bool get wantKeepAlive => true;
@@ -337,18 +339,77 @@ class _AutoresNazariTabState extends State<_AutoresNazariTab>
                                 backgroundColor: c),
                           ),
                         ]))
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                          itemCount: filtrados.length,
-                          itemBuilder: (_, i) => _AutorCard(
-                            autor: filtrados[i],
-                            color: c,
-                            empresaId: widget.empresaId,
-                            onEditar: () => _abrirDialog(filtrados[i]),
-                            onEliminar: () => _eliminar(filtrados[i]),
-                            onToggleActivo: () => _toggleActivo(filtrados[i]),
-                          ),
-                        ),
+                      : (_busqueda.isEmpty && _filtroGenero == null && _filtroRol == null)
+                          ? Builder(builder: (_) {
+                              final displayList = _localOrder ?? filtrados;
+                              return ReorderableListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                                itemCount: displayList.length,
+                                onReorder: (oldIdx, newIdx) async {
+                                  if (newIdx > oldIdx) newIdx--;
+                                  final lista = List<Map<String, dynamic>>.from(displayList);
+                                  final item = lista.removeAt(oldIdx);
+                                  lista.insert(newIdx, item);
+                                  setState(() => _localOrder = lista);
+                                  final batch = FirebaseFirestore.instance.batch();
+                                  for (var i = 0; i < lista.length; i++) {
+                                    final id = lista[i]['id'] as String?;
+                                    if (id == null || id.isEmpty) continue;
+                                    batch.update(
+                                      FirebaseFirestore.instance
+                                          .collection('empresas').doc(widget.empresaId)
+                                          .collection('autores').doc(id),
+                                      {'prioridad': i + 1},
+                                    );
+                                  }
+                                  try {
+                                    await batch.commit();
+                                    // 1 write → 1 CF invocation en lugar de N
+                                    await FirebaseFirestore.instance
+                                        .collection('empresas').doc(widget.empresaId)
+                                        .collection('configuracion').doc('orden_autores')
+                                        .set({
+                                          'ids': lista.map((a) => a['id'] as String? ?? '').toList(),
+                                          'ts': FieldValue.serverTimestamp(),
+                                        });
+                                    if (mounted) setState(() => _localOrder = null);
+                                  } catch (e) {
+                                    if (mounted) {
+                                      setState(() => _localOrder = null);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                        content: Text('Error al guardar orden: $e'),
+                                        backgroundColor: Colors.red,
+                                        behavior: SnackBarBehavior.floating,
+                                      ));
+                                    }
+                                  }
+                                },
+                                itemBuilder: (_, i) => _AutorCard(
+                                  key: ValueKey(displayList[i]['id'] ?? i),
+                                  autor: displayList[i],
+                                  color: c,
+                                  empresaId: widget.empresaId,
+                                  showDragHandle: true,
+                                  dragIndex: i,
+                                  onEditar: () => _abrirDialog(displayList[i]),
+                                  onEliminar: () => _eliminar(displayList[i]),
+                                  onToggleActivo: () => _toggleActivo(displayList[i]),
+                                ),
+                              );
+                            })
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                              itemCount: filtrados.length,
+                              itemBuilder: (_, i) => _AutorCard(
+                                key: ValueKey(filtrados[i]['id'] ?? i),
+                                autor: filtrados[i],
+                                color: c,
+                                empresaId: widget.empresaId,
+                                onEditar: () => _abrirDialog(filtrados[i]),
+                                onEliminar: () => _eliminar(filtrados[i]),
+                                onToggleActivo: () => _toggleActivo(filtrados[i]),
+                              ),
+                            ),
             ),
           ]),
         );
@@ -366,14 +427,19 @@ class _AutorCard extends StatelessWidget {
   final VoidCallback onEliminar;
   final VoidCallback onToggleActivo;
   final String empresaId;
+  final bool showDragHandle;
+  final int dragIndex;
 
   const _AutorCard({
+    super.key,
     required this.autor,
     required this.color,
     required this.onEditar,
     required this.onEliminar,
     required this.onToggleActivo,
     required this.empresaId,
+    this.showDragHandle = false,
+    this.dragIndex = 0,
   });
 
   Future<void> _cambiarRol(BuildContext context, String rolActual) async {
@@ -597,6 +663,15 @@ class _AutorCard extends StatelessWidget {
               onPressed: onEliminar,
               visualDensity: VisualDensity.compact,
             ),
+            if (showDragHandle)
+              ReorderableDragStartListener(
+                index: dragIndex,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Icon(Icons.drag_handle_rounded,
+                      color: Color(0xFFCBD5E1), size: 20),
+                ),
+              ),
           ]),
         ]),
       ),
@@ -840,8 +915,20 @@ class _AutorDialogState extends State<_AutorDialog> {
               ),
             ]),
             const SizedBox(height: 10),
-            _field(_descCtrl, 'Biografía / descripción',
-                Icons.article_rounded, maxLines: 6, multiline: true),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const SizedBox(width: 4),
+                const Expanded(
+                  child: Text('Biografía / descripción',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                ),
+                _BotonFormatoAutor(ctrl: _descCtrl, icono: Icons.format_italic,
+                    tooltip: 'Cursiva  (_texto_)', marcador: '_'),
+                _BotonFormatoAutor(ctrl: _descCtrl, icono: Icons.format_bold,
+                    tooltip: 'Negrita  (**texto**)', marcador: '**'),
+              ]),
+              _field(_descCtrl, '', Icons.article_rounded, maxLines: 6, multiline: true),
+            ]),
             const SizedBox(height: 10),
             const SizedBox(height: 4),
           ]),
@@ -1114,6 +1201,55 @@ class _BtnImportarAutoresNazari extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Botón formato inline para el editor de autores ────────────────────────────
+
+class _BotonFormatoAutor extends StatelessWidget {
+  final TextEditingController ctrl;
+  final IconData icono;
+  final String tooltip;
+  final String marcador;
+
+  const _BotonFormatoAutor({
+    required this.ctrl, required this.icono,
+    required this.tooltip, required this.marcador,
+  });
+
+  void _aplicar() {
+    final sel = ctrl.selection;
+    final txt = ctrl.text;
+    if (!sel.isValid) return;
+    final start = sel.start < 0 ? txt.length : sel.start;
+    final end   = sel.end   < 0 ? txt.length : sel.end;
+    final selected = txt.substring(start, end);
+    String nuevo;
+    int cursorPos;
+    if (selected.isEmpty) {
+      nuevo = '${txt.substring(0, start)}$marcador$marcador${txt.substring(end)}';
+      cursorPos = start + marcador.length;
+    } else {
+      nuevo = '${txt.substring(0, start)}$marcador$selected$marcador${txt.substring(end)}';
+      cursorPos = end + marcador.length * 2;
+    }
+    ctrl.value = ctrl.value.copyWith(
+      text: nuevo,
+      selection: TextSelection.collapsed(offset: cursorPos),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: _aplicar,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icono, size: 16, color: const Color(0xFF64748B)),
+      ),
+    ),
+  );
 }
 
 

@@ -3650,7 +3650,7 @@ class _DialogoNuevoProductoState extends State<_DialogoNuevoProducto> {
         Text('Nuevo producto'),
       ]),
       content: SizedBox(
-        width: 400,
+        width: double.infinity,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
@@ -3919,7 +3919,7 @@ class _DialogoEditarProductoState extends State<_DialogoEditarProducto> {
         Text('Editar producto'),
       ]),
       content: SizedBox(
-        width: 400,
+        width: double.infinity,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
@@ -4127,7 +4127,7 @@ class _TiendaDialogoPagoState extends State<_TiendaDialogoPago> {
     return AlertDialog(
       title: const Text('Método de pago'),
       content: SizedBox(
-        width: 360,
+        width: double.infinity,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             width: double.infinity,

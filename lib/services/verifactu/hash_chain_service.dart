@@ -44,8 +44,9 @@ class HashChainService {
       numeroSerie: data['numero_serie'] ?? '',
       numeroFactura: data['numero_factura'] ?? '',
       fechaExpedicion: _parseTs(data['fecha_expedicion']),
-      hash64Caracteres:
-          hash.length >= 64 ? hash.substring(0, 64) : hash.padRight(64, '0'),
+      hash64Caracteres: hash.length >= 64
+          ? hash.substring(0, 64)
+          : throw Exception('Hash anterior corrupto para $nifEmisor: longitud ${hash.length} (esperado >=64)'),
     );
   }
 

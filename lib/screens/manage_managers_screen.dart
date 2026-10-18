@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../models/user_model.dart';
 import '../models/company_model.dart';
 
@@ -44,11 +45,24 @@ class _ManageManagersScreenState extends State<ManageManagersScreen> {
     });
 
     try {
-      // 1. Crear usuario en Firebase Auth
-      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      // 1. Crear usuario en Firebase Auth usando una instancia secundaria
+      // para no cerrar la sesión del admin actual (createUserWithEmailAndPassword
+      // cambia el usuario activo en la instancia principal).
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'secondary_create_user',
+        options: Firebase.app().options,
       );
+      UserCredential credential;
+      try {
+        credential = await FirebaseAuth.instanceFor(app: secondaryApp)
+            .createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+        await FirebaseAuth.instanceFor(app: secondaryApp).signOut();
+      } finally {
+        await secondaryApp.delete();
+      }
 
       if (credential.user == null) {
         throw Exception('No se pudo crear el usuario');

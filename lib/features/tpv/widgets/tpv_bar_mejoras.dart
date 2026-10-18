@@ -104,7 +104,7 @@ class _DialogoResumenBarraState extends State<_DialogoResumenBarra> {
       content: _cargando
           ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
           : SizedBox(
-              width: 360,
+              width: double.infinity,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +263,7 @@ class _DialogoCrearMesaState extends State<_DialogoCrearMesa> {
         ],
       ),
       content: SizedBox(
-        width: 350,
+        width: double.infinity,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,7 +625,7 @@ class _DialogoProductoManualState extends State<_DialogoProductoManual> {
         ],
       ),
       content: SizedBox(
-        width: 320,
+        width: double.infinity,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -994,7 +994,7 @@ class _DialogoNotaState extends State<_DialogoNota> {
         ],
       ),
       content: SizedBox(
-        width: 350,
+        width: double.infinity,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

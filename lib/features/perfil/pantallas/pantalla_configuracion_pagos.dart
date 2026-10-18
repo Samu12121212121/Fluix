@@ -287,7 +287,35 @@ class _State extends State<PantallaConfiguracionPagos> {
       Column(children: [
         _sw('💳', 'Tarjeta', c.aceptaTarjeta, (v) => _updMetodo(tarjeta: v)),
         _sw('📱', 'Bizum', c.aceptaBizum, (v) => _updMetodo(bizum: v)),
-        _sw('🏦', 'Transferencia', c.aceptaTransferencia, (v) => _updMetodo(transferencia: v)),
+        if (c.aceptaBizum)
+          _inlineField(
+            icon: Icons.phone_android_rounded,
+            label: 'Número Bizum',
+            hint: '+34 6XX XXX XXX',
+            value: c.bizumNumero ?? '',
+            onSave: (v) => _svc.actualizarMetodosCobro(
+                widget.empresaId, bizumNumero: v.trim()),
+          ),
+        _sw('🏦', 'Transferencia bancaria', c.aceptaTransferencia,
+            (v) => _updMetodo(transferencia: v)),
+        if (c.aceptaTransferencia) ...[
+          _inlineField(
+            icon: Icons.account_balance_rounded,
+            label: 'IBAN',
+            hint: 'ES00 0000 0000 0000 0000 0000',
+            value: c.transferenciaIban ?? '',
+            onSave: (v) => _svc.actualizarMetodosCobro(
+                widget.empresaId, transferenciaIban: v.trim().toUpperCase()),
+          ),
+          _inlineField(
+            icon: Icons.person_rounded,
+            label: 'Titular de la cuenta',
+            hint: 'Nombre del titular',
+            value: c.transferenciaTitular ?? '',
+            onSave: (v) => _svc.actualizarMetodosCobro(
+                widget.empresaId, transferenciaTitular: v.trim()),
+          ),
+        ],
         _sw('💵', 'Efectivo', c.aceptaEfectivo, (v) => _updMetodo(efectivo: v)),
         _sw('🅿️', 'PayPal', c.aceptaPaypal, (v) => _updMetodo(paypal: v)),
       ]));
@@ -297,6 +325,37 @@ class _State extends State<PantallaConfiguracionPagos> {
     _svc.actualizarMetodosCobro(widget.empresaId,
       tarjeta: tarjeta, bizum: bizum, transferencia: transferencia, efectivo: efectivo, paypal: paypal);
     _cargar();
+  }
+
+  Widget _inlineField({
+    required IconData icon,
+    required String label,
+    required String hint,
+    required String value,
+    required void Function(String) onSave,
+  }) {
+    final ctrl = TextEditingController(text: value);
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 8, bottom: 8),
+      child: Row(children: [
+        Icon(icon, size: 16, color: const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextFormField(
+            controller: ctrl,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              isDense: true,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onEditingComplete: () => onSave(ctrl.text),
+            onTapOutside: (_) => onSave(ctrl.text),
+          ),
+        ),
+      ]),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -73,7 +73,7 @@ class _Modelo303ScreenState extends State<Modelo303Screen> {
           .collection('modelos_fiscales')
           .doc('303_${_anio}_${trimestre}T')
           .set({
-        ...datos..remove('facturas_emitidas')..remove('facturas_recibidas'),
+        ...(Map<String, dynamic>.from(datos)..remove('facturas_emitidas')..remove('facturas_recibidas')),
         'modelo': '303',
         'ejercicio': _anio,
         'trimestre': '${trimestre}T',
