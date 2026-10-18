@@ -108,6 +108,9 @@ dependencies:
     # CSV parsing
     csv: ^6.0.0
 
+    # Excel parsing (importación fichas negocios .xlsx)
+    excel: ^4.0.6
+
     # Google Sign In
     google_sign_in: ^6.2.1
 

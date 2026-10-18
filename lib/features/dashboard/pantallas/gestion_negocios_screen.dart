@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'web_modulos_config_screen.dart';
+import 'importar_negocio_excel_screen.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -53,6 +54,12 @@ class _GestionNegociosScreenState extends State<GestionNegociosScreen> {
         showLeading: true,
         extraActions: [
           IconButton(icon: const Icon(Icons.add_business), onPressed: _crearNegocio, tooltip: 'Nuevo negocio'),
+          IconButton(
+            icon: const Icon(Icons.table_chart_rounded),
+            tooltip: 'Importar desde Excel',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => const ImportarNegocioExcelScreen())),
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: () => setState(() {}), tooltip: 'Actualizar'),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
