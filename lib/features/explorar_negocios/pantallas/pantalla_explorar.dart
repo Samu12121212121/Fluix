@@ -484,11 +484,56 @@ class _TabExplorarState extends State<_TabExplorar> {
     super.dispose();
   }
 
-  // Filtrado por categoría y modo tendencias, sin consulta extra
+  // ── Temporalmente limitado a top 5 por categoría para ver el aspecto con pocos negocios ──
+  static const _kMaxPorCategoria = 5;
+
+  // Puntuación de completitud: cuántos campos relevantes tiene rellenos
+  static int _puntuacion(NegocioPublico n) {
+    int p = 0;
+    if (n.fotoUrl?.isNotEmpty == true)          p += 3;
+    if (n.fotoSecundariaUrl?.isNotEmpty == true) p += 1;
+    if (n.logoUrl?.isNotEmpty == true)           p += 2;
+    if (n.descripcion?.isNotEmpty == true)       p += 2;
+    if (n.descripcionCorta?.isNotEmpty == true)  p += 1;
+    if (n.tagline?.isNotEmpty == true)           p += 1;
+    if (n.telefono?.isNotEmpty == true)          p += 1;
+    if (n.whatsapp?.isNotEmpty == true)          p += 1;
+    if (n.email?.isNotEmpty == true)             p += 1;
+    if ((n.ratingFluix ?? 0) > 0)               p += 2;
+    if ((n.ratingGoogle ?? 0) > 0)              p += 2;
+    if (n.urlPublica?.isNotEmpty == true)        p += 1;
+    if (n.subcategorias?.isNotEmpty == true)     p += 1;
+    return p;
+  }
+
+  // Filtrado por categoría y modo tendencias, con límite top-5 por categoría
   List<NegocioPublico> get _filtrados {
     var items = _negocios;
-    if (_cat != null) items = items.where((n) => n.categoria == _cat).toList();
+    if (_cat != null) {
+      items = items.where((n) => n.categoria == _cat).toList();
+    }
     if (_modTendencias) items = items.where((n) => (n.ratingFluix ?? 0) >= 4.3).toList();
+
+    // Aplicar límite top-5 por categoría (temporal para previsualizar con pocos datos)
+    if (_cat != null) {
+      // Categoría seleccionada: ordenar por puntuación y tomar los mejores 5
+      items = [...items]..sort((a, b) => _puntuacion(b).compareTo(_puntuacion(a)));
+      if (items.length > _kMaxPorCategoria) items = items.sublist(0, _kMaxPorCategoria);
+    } else {
+      // Sin filtro: top 5 de cada categoría, luego ordenados por puntuación
+      final porCategoria = <CategoriaNegocio, List<NegocioPublico>>{};
+      for (final n in items) {
+        porCategoria.putIfAbsent(n.categoria, () => []).add(n);
+      }
+      final resultado = <NegocioPublico>[];
+      for (final lista in porCategoria.values) {
+        final sorted = [...lista]..sort((a, b) => _puntuacion(b).compareTo(_puntuacion(a)));
+        resultado.addAll(sorted.take(_kMaxPorCategoria));
+      }
+      resultado.sort((a, b) => _puntuacion(b).compareTo(_puntuacion(a)));
+      items = resultado;
+    }
+
     return items;
   }
 
