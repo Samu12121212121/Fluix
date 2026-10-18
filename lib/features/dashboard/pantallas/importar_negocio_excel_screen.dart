@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../core/widgets/flux_toast.dart';
@@ -16,7 +18,16 @@ import '../../../models/negocio_publico_model.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ImportarNegocioExcelScreen extends StatefulWidget {
-  const ImportarNegocioExcelScreen({super.key});
+  /// Si se proporciona [negocioId], el importador actualiza ese documento
+  /// en lugar de crear uno nuevo. Útil desde el panel de edición de un negocio.
+  final String? negocioId;
+  final String? nombreNegocio;
+
+  const ImportarNegocioExcelScreen({
+    super.key,
+    this.negocioId,
+    this.nombreNegocio,
+  });
 
   @override
   State<ImportarNegocioExcelScreen> createState() =>
@@ -42,11 +53,25 @@ class _ImportarNegocioExcelScreenState
         allowedExtensions: ['xlsx'],
         withData: true,
       );
-      if (result == null || result.files.isEmpty || result.files.first.bytes == null) {
+      if (result == null || result.files.isEmpty) {
         setState(() => _cargando = false);
         return;
       }
-      final bytes = result.files.first.bytes!;
+
+      final file = result.files.first;
+      List<int> bytes;
+
+      if (file.bytes != null) {
+        // Web y la mayoría de plataformas con withData:true
+        bytes = file.bytes!;
+      } else if (!kIsWeb && file.path != null) {
+        // iOS/macOS: a veces bytes es null aunque withData=true; leer desde path
+        bytes = await File(file.path!).readAsBytes();
+      } else {
+        setState(() { _error = 'No se pudo leer el fichero. Inténtalo de nuevo.'; _cargando = false; });
+        return;
+      }
+
       final parsed = _parsearExcel(bytes);
       setState(() { _parseado = parsed; _cargando = false; });
     } catch (e) {
@@ -54,9 +79,24 @@ class _ImportarNegocioExcelScreenState
     }
   }
 
+  // ── Extrae texto de una celda de forma segura (excel v4 usa CellValue) ──────
+  static String? _cellText(Data? cell) {
+    if (cell == null) return null;
+    final v = cell.value;
+    if (v == null) return null;
+    // CellValue subclases: TextCellValue, IntCellValue, DoubleCellValue, etc.
+    final s = v.toString().trim();
+    return s.isEmpty || s == 'null' ? null : s;
+  }
+
   // ── Parser del Excel ─────────────────────────────────────────────────────
   _NegocioParseado _parsearExcel(List<int> bytes) {
-    final excel = Excel.decodeBytes(bytes);
+    final Excel excel;
+    try {
+      excel = Excel.decodeBytes(bytes);
+    } catch (e) {
+      throw Exception('El fichero no es un .xlsx válido: $e');
+    }
 
     // Lee una hoja tipo CAMPO|VALOR (fila 1 cabecera)
     Map<String, String?> _leerHojaCampoValor(String nombre) {
@@ -66,8 +106,8 @@ class _ImportarNegocioExcelScreenState
       for (int i = 1; i < sheet.maxRows; i++) {
         final row = sheet.row(i);
         if (row.isEmpty) continue;
-        final campo = row[0]?.value?.toString().trim() ?? '';
-        final valor = row.length > 1 ? row[1]?.value?.toString().trim() : null;
+        final campo = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
+        final valor = row.length > 1 ? _cellText(row[1]) : null;
         if (campo.isNotEmpty && campo != 'CAMPO' && !campo.startsWith('NOTA') &&
             !campo.startsWith('IMPORTANTE') && !campo.startsWith('PENDIENTE')) {
           mapa[campo] = (valor == null || valor.isEmpty) ? null : valor;
@@ -88,15 +128,16 @@ class _ImportarNegocioExcelScreenState
       for (int i = 1; i < sheetHor.maxRows; i++) {
         final row = sheetHor.row(i);
         if (row.isEmpty) continue;
-        final dia = row[0]?.value?.toString().trim() ?? '';
-        if (dia.isEmpty || dia.startsWith('IMPORTANTE') || dia.startsWith('D')) continue;
+        final dia = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
+        if (dia.isEmpty || dia.startsWith('IMPORTANTE') || dia.startsWith('D') ||
+            dia == 'DÍA' || dia == 'DIA') continue;
         horariosRaw.add({
-          'dia': dia,
-          'abierto': row.length > 1 ? row[1]?.value?.toString().trim() : null,
-          'apertura1': row.length > 2 ? row[2]?.value?.toString().trim() : null,
-          'cierre1':   row.length > 3 ? row[3]?.value?.toString().trim() : null,
-          'apertura2': row.length > 4 ? row[4]?.value?.toString().trim() : null,
-          'cierre2':   row.length > 5 ? row[5]?.value?.toString().trim() : null,
+          'dia':      dia,
+          'abierto':  row.length > 1 ? _cellText(row[1]) : null,
+          'apertura1':row.length > 2 ? _cellText(row[2]) : null,
+          'cierre1':  row.length > 3 ? _cellText(row[3]) : null,
+          'apertura2':row.length > 4 ? _cellText(row[4]) : null,
+          'cierre2':  row.length > 5 ? _cellText(row[5]) : null,
         });
       }
     }
@@ -108,15 +149,15 @@ class _ImportarNegocioExcelScreenState
       for (int i = 1; i < sheetSvc.maxRows; i++) {
         final row = sheetSvc.row(i);
         if (row.isEmpty) continue;
-        final nombre = row[0]?.value?.toString().trim() ?? '';
+        final nombre = _cellText(row.isNotEmpty ? row[0] : null) ?? '';
         if (nombre.isEmpty || nombre == 'NOMBRE DEL SERVICIO' || nombre == 'NOTA') continue;
         servicios.add({
           'nombre':      nombre,
-          'descripcion': row.length > 1 ? row[1]?.value?.toString() : null,
-          'categoria':   row.length > 2 ? row[2]?.value?.toString() : null,
-          'precio':      row.length > 3 ? row[3]?.value?.toString() : null,
-          'duracion':    row.length > 5 ? row[5]?.value?.toString() : null,
-          'activo':      row.length > 7 ? row[7]?.value?.toString() : 'Sí',
+          'descripcion': row.length > 1 ? _cellText(row[1]) : null,
+          'categoria':   row.length > 2 ? _cellText(row[2]) : null,
+          'precio':      row.length > 3 ? _cellText(row[3]) : null,
+          'duracion':    row.length > 5 ? _cellText(row[5]) : null,
+          'activo':      row.length > 7 ? (_cellText(row[7]) ?? 'Sí') : 'Sí',
         });
       }
     }
@@ -146,8 +187,9 @@ class _ImportarNegocioExcelScreenState
     const dias = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     for (final h in horariosRaw) {
       final diaKey = h['dia'] ?? '';
-      final normalizado = dias.firstWhere(
-        (d) => d.toLowerCase().startsWith(diaKey.toLowerCase().substring(0, 2)),
+      final prefix = diaKey.length >= 2 ? diaKey.toLowerCase().substring(0, 2) : diaKey.toLowerCase();
+      final normalizado = prefix.isEmpty ? diaKey : dias.firstWhere(
+        (d) => d.toLowerCase().startsWith(prefix),
         orElse: () => diaKey,
       );
       final abierto = h['abierto']?.toLowerCase() == 'sí' ||
@@ -230,7 +272,10 @@ class _ImportarNegocioExcelScreenState
     setState(() => _importando = true);
     try {
       final db = FirebaseFirestore.instance;
-      final docRef = db.collection('negocios_publicos').doc();
+      final modoActualizar = widget.negocioId != null && widget.negocioId!.isNotEmpty;
+      final docRef = modoActualizar
+          ? db.collection('negocios_publicos').doc(widget.negocioId)
+          : db.collection('negocios_publicos').doc();
 
       // Construir el mapa para Firestore
       final data = <String, dynamic>{
@@ -265,11 +310,17 @@ class _ImportarNegocioExcelScreenState
         // Formulario
         if (p.formularioTitulo?.isNotEmpty == true) 'formularioTitulo': p.formularioTitulo,
         if (p.formularioBoton?.isNotEmpty == true) 'formularioBoton': p.formularioBoton,
-        'creadoEn': FieldValue.serverTimestamp(),
         'importadoDesdeExcel': true,
+        if (!modoActualizar) 'creadoEn': FieldValue.serverTimestamp(),
+        'actualizadoEnExcel': FieldValue.serverTimestamp(),
       };
 
-      await docRef.set(data);
+      if (modoActualizar) {
+        // Actualizar: merge para no sobreescribir campos que no trae el Excel
+        await docRef.set(data, SetOptions(merge: true));
+      } else {
+        await docRef.set(data);
+      }
 
       // Importar servicios como subcolección
       if (p.servicios.isNotEmpty) {
@@ -290,8 +341,9 @@ class _ImportarNegocioExcelScreenState
       }
 
       if (mounted) {
+        final accion = modoActualizar ? 'actualizado' : 'importado';
         FluxToast.exito(context,
-            '${p.nombre} importado — ${p.servicios.length} servicios');
+            '${p.nombre} $accion — ${p.servicios.length} servicios');
         Navigator.pop(context);
       }
     } catch (e) {
@@ -497,8 +549,11 @@ class _ImportarNegocioExcelScreenState
                   ? const SizedBox(width: 16, height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.cloud_upload_rounded, size: 18),
-              label: Text(_importando ? 'Importando…' : 'Importar negocio',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              label: Text(
+                _importando
+                    ? 'Importando…'
+                    : widget.negocioId != null ? 'Actualizar negocio' : 'Importar negocio',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               style: FilledButton.styleFrom(
                 backgroundColor: _kPurple,
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -508,11 +563,12 @@ class _ImportarNegocioExcelScreenState
           ),
         ]),
         const SizedBox(height: 8),
-        const Text(
-          'Se creará en negocios_publicos sin vincular a ninguna empresa. '
-          'Después podrás asignarla desde Gestión de Negocios.',
+        Text(
+          widget.negocioId != null
+              ? 'Los datos del Excel se fusionarán (merge) con el negocio. Los servicios se añaden sin borrar los existentes.'
+              : 'Se creará en negocios_publicos sin vincular a ninguna empresa. Después podrás asignarla desde Gestión de Negocios.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+          style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
         ),
       ],
     );

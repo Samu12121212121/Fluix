@@ -576,7 +576,19 @@ class _PanelEdicionNegocioState extends State<_PanelEdicionNegocio>
                 const SizedBox(width: 6),
                 Switch(value: _activo, onChanged: (v) => setState(() => _activo = v), activeColor: Colors.green),
               ]),
-              const SizedBox(width: 8),
+              if (!widget.esNuevo && widget.negocio.id.isNotEmpty) ...[
+                IconButton(
+                  icon: const Icon(Icons.table_chart_rounded, color: Color(0xFF7C3AED)),
+                  tooltip: 'Importar datos desde Excel',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ImportarNegocioExcelScreen(
+                      negocioId: widget.negocio.id,
+                      nombreNegocio: widget.negocio.nombre,
+                    ),
+                  )),
+                ),
+              ],
+              const SizedBox(width: 4),
               FilledButton(
                 onPressed: _guardando ? null : _guardar,
                 style: FilledButton.styleFrom(backgroundColor: _azul),

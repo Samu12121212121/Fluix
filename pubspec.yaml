@@ -109,7 +109,8 @@ dependencies:
     csv: ^6.0.0
 
     # Excel parsing (importación fichas negocios .xlsx)
-    excel: ^4.0.6
+    # v4.x tiene bugs de null-check en bordes de celda; v3.x es más estable
+    excel: ^3.0.0
 
     # Google Sign In
     google_sign_in: ^6.2.1
