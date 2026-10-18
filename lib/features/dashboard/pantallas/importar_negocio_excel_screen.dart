@@ -72,7 +72,19 @@ class _ImportarNegocioExcelScreenState
         return;
       }
 
-      final parsed = _parsearExcel(bytes);
+      _NegocioParseado? parsed;
+      // Envolver en try separado para distinguir errores de parsing del paquete excel
+      try {
+        parsed = _parsearExcel(bytes);
+      } catch (parseErr, st) {
+        debugPrint('[Excel import] Parse error: $parseErr\n$st');
+        setState(() {
+          _error = 'Error al interpretar el fichero Excel: $parseErr\n\n'
+              'Asegúrate de que es un .xlsx en formato "ficha Fluix".';
+          _cargando = false;
+        });
+        return;
+      }
       setState(() { _parseado = parsed; _cargando = false; });
     } catch (e) {
       setState(() { _error = 'Error leyendo el fichero: $e'; _cargando = false; });
