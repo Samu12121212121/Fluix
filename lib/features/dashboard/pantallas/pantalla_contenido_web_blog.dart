@@ -185,7 +185,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                 if (widget.filtroTipoFijo == null)
                   _buildFiltroTipo(porTipo, surf: kSurf, border: kBorder),
                 _buildFiltroEstado(porTipo, surf: kSurf, border: kBorder),
-                Expanded(child: _buildArticleGrid(context, articulos, categorias, dark: dark, isLoading: isLoading)),
+                Expanded(child: _buildArticleGrid(context, articulos, categorias, dark: dark, isLoading: isLoading, usarStream: usarStream)),
               ]),
             );
           },
@@ -499,7 +499,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
   }
 
   Widget _buildArticleGrid(BuildContext context, List<EntradaBlog> articulos,
-      List<CategoriaBlog> cats, {bool dark = false, bool isLoading = false}) {
+      List<CategoriaBlog> cats, {bool dark = false, bool isLoading = false, bool usarStream = false}) {
     var filtrados = _filtroTipo == null
         ? articulos
         : articulos.where((a) => _tipoNorm(a.tipo) == _filtroTipo).toList();
@@ -659,7 +659,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                     child: Text(
                       '${(p == 0 ? 0 : _primeraPagina + (p - 1) * _tamPagina) + 1}'
                       '–'
-                      '${(p == 0 ? _primeraPagina : _primeraPagina + p * _tamPagina).clamp(0, total)}',
+                      '${(p == 0 ? _primeraPagina : _primeraPagina + p * _tamPagina).clamp(0, filtrados.length)}',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -672,7 +672,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
                 ),
               ],
               const SizedBox(width: 10),
-              Text('$total entradas',
+              Text('${paginacionServer ? "..." : filtrados.length} entradas',
                   style: TextStyle(
                       fontSize: 11,
                       color: dark
