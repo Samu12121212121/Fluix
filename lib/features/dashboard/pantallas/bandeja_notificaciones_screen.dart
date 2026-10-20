@@ -432,7 +432,7 @@ void _navegarAModulo(BuildContext context, NotificacionInApp notif, String empre
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ModuloPedidosNuevoScreen(
           empresaId: empresaId,
-          initialTab: notif.tipo == TipoNotificacion.pedidoNuevo ? 3 : null,
+          initialTab: notif.tipo == TipoNotificacion.pedidoNuevo ? 2 : null,
         ),
       ));
     case 'empleados':

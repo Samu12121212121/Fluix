@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../fichajes/modelos/fichaje.dart';
 import '../../fichajes/servicios/fichaje_service.dart';
+import '../../fichajes/pantallas/historial_empleado_sheet.dart';
 import 'mis_horas_mes_section.dart';
 
 const Color _azulPrimario = Color(0xFF1565C0);
@@ -356,6 +357,25 @@ class _PantallaFichajeState extends State<PantallaFichaje> {
                               MisHorasMesSection(
                                 empresaId: empresaId,
                                 empleadoId: uid,
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: () => showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => HistorialEmpleadoSheet(
+                                    empresaId: empresaId,
+                                    empleadoId: uid,
+                                    empleadoNombre: _nombreEmpleado ?? '',
+                                  ),
+                                ),
+                                icon: const Icon(Icons.history, size: 16),
+                                label: const Text('Ver mi historial completo'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: _azulPrimario,
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
                               ),
                             ],
                           ),

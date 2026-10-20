@@ -26,14 +26,58 @@ class _BlogSplitView extends StatefulWidget {
 }
 
 class _BlogSplitViewState extends State<_BlogSplitView> {
-  String? _filtroTipo; // null = todos | 'articulo' | 'noticia'
-  EstadoBlog? _filtroEstado; // null = todos | borrador | publicado | programado
+  String? _filtroTipo;
+  EstadoBlog? _filtroEstado;
   String _busqueda = '';
   final _searchCtrl = TextEditingController();
 
   static const int _primeraPagina = 25;
   static const int _tamPagina     = 50;
   int _pagina = 0;
+
+  // Paginación server-side
+  List<EntradaBlog> _articulosPagina = [];
+  bool _cargandoPagina = false;
+  bool _hayMasPaginas  = true;
+  // Cursor por índice de página: null = inicio
+  final Map<int, DocumentSnapshot<Map<String,dynamic>>?> _cursors = {0: null};
+
+  @override
+  void initState() {
+    super.initState();
+    // Solo usar paginación server-side si NO es sección especial ni tiene búsqueda
+    if (widget.seccionId == null) _fetchPagina(0);
+  }
+
+  Future<void> _fetchPagina(int pagina) async {
+    if (_cargandoPagina) return;
+    setState(() => _cargandoPagina = true);
+    try {
+      final limit = pagina == 0 ? _primeraPagina : _tamPagina;
+      final cursor = _cursors[pagina];
+      final tipo = widget.filtroTipoFijo;
+      final result = await widget.svc.fetchBlogPaginado(
+        widget.empresaId, limit: limit, cursor: cursor, tipo: tipo,
+      );
+      if (!mounted) return;
+      if (result.nextCursor != null) {
+        _cursors[pagina + 1] = result.nextCursor;
+      }
+      setState(() {
+        _articulosPagina = result.items;
+        _pagina          = pagina;
+        _hayMasPaginas   = result.items.length >= limit;
+        _cargandoPagina  = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _cargandoPagina = false);
+    }
+  }
+
+  void _irAPagina(int pagina) {
+    if (!_cursors.containsKey(pagina)) return; // cursor no conocido aún
+    _fetchPagina(pagina);
+  }
 
   @override
   void dispose() {
@@ -74,30 +118,34 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
 
   @override
   Widget build(BuildContext context) {
+    // Con búsqueda activa: stream completo para buscar en todo el catálogo
+    // Sin búsqueda: paginación server-side (ya cargada en _articulosPagina)
+    final usarStream = _busqueda.isNotEmpty || widget.seccionId != null;
+
     return StreamBuilder<List<CategoriaBlog>>(
       stream: widget.svc.obtenerCategorias(widget.empresaId),
       builder: (_, catSnap) {
         final categorias = catSnap.data ?? [];
         return StreamBuilder<List<EntradaBlog>>(
-          // Siempre obtenerBlog para incluir entradas WP-importadas sin campo 'tipo'.
-          // Si hay filtroTipoFijo filtramos por tipo en cliente (igual que la web).
-          stream: widget.seccionId != null
-              ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
-              : widget.svc.obtenerBlog(widget.empresaId),
+          stream: usarStream
+              ? (widget.seccionId != null
+                  ? widget.svc.obtenerBlogSeccion(widget.empresaId, widget.seccionId!)
+                  : widget.svc.obtenerBlog(widget.empresaId))
+              : const Stream.empty(),
           builder: (_, snap) {
-            final isLoading = snap.connectionState == ConnectionState.waiting;
-            final todos     = snap.data ?? [];
-            // Cuando hay filtroTipoFijo (Noticias/Entrevistas) filtramos igual que la web:
-            //   solo publicadas (publicada==true || estado==publicado) y por tipo.
-            // En el blog general mostramos todo (incluidos borradores) para gestión.
+            final isLoading = usarStream
+                ? snap.connectionState == ConnectionState.waiting
+                : _cargandoPagina;
+            final streamTodos = snap.data ?? [];
+
+            // Sin búsqueda: usar datos de paginación server-side
+            final todos = usarStream ? streamTodos : _articulosPagina;
+
             final porFiltro = widget.filtroTipoFijo == null
                 ? todos
                 : todos.where((e) {
-                    // Solo publicadas (misma lógica que blog.html)
                     if (!e.publicada) return false;
-                    // Por tipo exacto
                     if (e.tipo == widget.filtroTipoFijo) return true;
-                    // Entradas WP sin tipo → si tienen url_externa son entrevistas
                     if (e.tipo.isEmpty && widget.filtroTipoFijo == 'entrevista') {
                       return e.urlExterna != null && e.urlExterna!.isNotEmpty;
                     }
@@ -548,22 +596,35 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
     }
 
     // ── Paginación ────────────────────────────────────────────────
-    final total  = filtrados.length;
-    final pages  = total <= _primeraPagina
-        ? 1
-        : 1 + ((total - _primeraPagina) / _tamPagina).ceil();
-    final pagina = _pagina.clamp(0, pages - 1);
-    final inicio = pagina == 0 ? 0 : _primeraPagina + (pagina - 1) * _tamPagina;
-    final fin    = (pagina == 0 ? _primeraPagina : _primeraPagina + pagina * _tamPagina)
-        .clamp(0, total);
-    final visible = filtrados.sublist(inicio, fin);
+    // Sin búsqueda: paginación server-side (los artículos ya son solo la página actual)
+    // Con búsqueda: paginación client-side sobre resultados filtrados
+    final List<EntradaBlog> visible;
+    final int pagina;
+    final bool paginacionServer = !usarStream;
+
+    if (paginacionServer) {
+      visible = filtrados; // Ya son los de la página actual
+      pagina  = _pagina;
+    } else {
+      final total = filtrados.length;
+      pagina = _pagina.clamp(0, total <= _primeraPagina
+          ? 0
+          : ((total - _primeraPagina) / _tamPagina).ceil());
+      final inicio = pagina == 0 ? 0 : _primeraPagina + (pagina - 1) * _tamPagina;
+      final fin    = (pagina == 0 ? _primeraPagina : _primeraPagina + pagina * _tamPagina)
+          .clamp(0, total);
+      visible = filtrados.sublist(inicio, fin);
+    }
 
     final kBgPag  = dark ? const Color(0xFF1E293B) : Colors.white;
     final kBorder = dark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
     return Column(children: [
       // ── Tabs de página ─────────────────────────────────────────
-      if (pages > 1)
+      // Botones de página: server-side usa cursores conocidos; client-side usa total
+      if (paginacionServer
+          ? (_pagina > 0 || _hayMasPaginas)
+          : filtrados.length > _primeraPagina)
         Container(
           padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
           decoration: BoxDecoration(
@@ -572,10 +633,14 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              for (int p = 0; p < pages; p++) ...[
+              for (int p = 0; p <= (paginacionServer ? _cursors.length - 1 : (filtrados.length <= _primeraPagina ? 0 : ((filtrados.length - _primeraPagina) / _tamPagina).ceil())); p++) ...[
                 if (p > 0) const SizedBox(width: 4),
+                // En paginación server-side, solo mostrar páginas cuyo cursor es conocido
+                if (!paginacionServer || _cursors.containsKey(p))
                 GestureDetector(
-                  onTap: () => setState(() => _pagina = p),
+                  onTap: () => paginacionServer
+                      ? _irAPagina(p)
+                      : setState(() => _pagina = p),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(

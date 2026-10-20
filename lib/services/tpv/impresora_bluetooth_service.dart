@@ -6,11 +6,14 @@ import '../../domain/modelos/cierre_caja.dart';
 import 'package:flutter/foundation.dart';
 
 // ── HELPER ─────────────────────────────────────────────────────────────────────
+// Bluetooth Classic (SPP) solo disponible en Android.
+// iOS no soporta BT Classic para apps de terceros sin certificación MFi.
 bool get _btNoDisponible =>
-    !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.linux ||
-            defaultTargetPlatform == TargetPlatform.macOS);
+    kIsWeb ||
+    defaultTargetPlatform == TargetPlatform.windows ||
+    defaultTargetPlatform == TargetPlatform.linux ||
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 // ── MODELOS LOCALES ────────────────────────────────────────────────────────────
 

@@ -11,6 +11,7 @@ import 'package:printing/printing.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
 import '../../fichaje/pantalla_fichaje/pantalla_fichaje.dart';
+import 'pantalla_fichaje_empleado.dart';
 import '../../pdf_templates/data/pdf_template_service.dart' as ptSvc;
 import '../../pdf_templates/domain/models/pdf_template.dart' as ptModel;
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
@@ -67,22 +68,25 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
   Future<void> _cargarMiFichaje() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    try {
-      final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      _fichajeHoySub?.cancel();
-      _fichajeHoySub = FirebaseFirestore.instance
-          .collection('empresas').doc(widget.empresaId)
-          .collection('fichajes')
-          .where('empleado_id', isEqualTo: uid)
-          .where('fecha', isEqualTo: hoy)
-          .limit(1)
-          .snapshots()
-          .listen((snap) {
-        if (mounted) setState(() {
-          _misFichaje = snap.docs.isNotEmpty ? Fichaje.fromFirestore(snap.docs.first) : null;
-        });
-      });
-    } catch (_) {}
+    final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _fichajeHoySub?.cancel();
+    _fichajeHoySub = FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('fichajes')
+        .where('empleado_id', isEqualTo: uid)
+        .where('fecha', isEqualTo: hoy)
+        .where('es_correccion', isEqualTo: false)
+        .orderBy('creado_at', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen(
+          (snap) {
+            if (mounted) setState(() {
+              _misFichaje = snap.docs.isNotEmpty ? Fichaje.fromFirestore(snap.docs.first) : null;
+            });
+          },
+          onError: (e) => debugPrint('[Fichajes] error stream propio: $e'),
+        );
   }
 
   Future<void> _fichar(BuildContext context) async {
@@ -140,7 +144,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         if (dia.isAfter(now)) { datos.add(0.0); continue; }
         final diaKey = DateFormat('yyyy-MM-dd').format(dia);
         final minsDia = fichajes
-            .where((f) => f.fecha == diaKey)
+            .where((f) => f.fecha == diaKey && !f.esCorreccion)
             .fold<int>(0, (s, f) => s + (f.tiempoNeto?.inMinutes ?? 0));
         datos.add((minsDia / targetMin * 100).clamp(0.0, 100.0));
       }
@@ -148,7 +152,8 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         _semanaData   = datos;
         _semanaLabels = List.from(labels);
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Fichajes] error cargando semana: $e');
       if (mounted) setState(() => _semanaData = []);
     } finally {
       if (mounted) setState(() => _cargandoSemana = false);
@@ -162,6 +167,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         .collection('empresas').doc(widget.empresaId)
         .collection('fichajes')
         .where('fecha', isEqualTo: hoy)
+        .where('es_correccion', isEqualTo: false)
         .snapshots()
         .map((s) => s.docs.map(Fichaje.fromFirestore).toList());
   }
@@ -315,6 +321,16 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
               fontSize: 16, letterSpacing: -0.2, color: _kText)),
           const Spacer(),
           IconButton(
+            icon: const Icon(Icons.tablet_android_outlined, color: _kSub, size: 20),
+            tooltip: 'Kiosk empleados',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PantallaFichajeEmpleado(
+                empresaId: widget.empresaId,
+                dispositivoId: 'kiosk_movil',
+              ),
+            )),
+          ),
+          IconButton(
             icon: const Icon(Icons.people_outline, color: _kSub, size: 20),
             tooltip: 'Empleados',
             onPressed: () => _openSheet(context, _TabEmpleados(empresaId: widget.empresaId)),
@@ -345,6 +361,14 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           ]),
         ),
         const SizedBox(width: 12),
+        _hBtn(Icons.tablet_android_outlined, 'Kiosk',
+            () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => PantallaFichajeEmpleado(
+                empresaId: widget.empresaId,
+                dispositivoId: 'kiosk_tablet',
+              ),
+            ))),
+        const SizedBox(width: 8),
         _hBtn(Icons.people_outline, 'Empleados',
             () => _openSheet(context, _TabEmpleados(empresaId: widget.empresaId))),
         const SizedBox(width: 8),
@@ -1813,7 +1837,10 @@ class _SelectorUsuarioAppState extends State<_SelectorUsuarioApp> {
       validator: (v) => v == null ? 'Selecciona un empleado' : null,
       onChanged: (uid) {
         if (uid == null) return;
-        final nombre = sinPIN.firstWhere((u) => u['uid'] == uid)['nombre'] ?? '';
+        final nombre = sinPIN.firstWhere(
+          (u) => u['uid'] == uid,
+          orElse: () => {'uid': uid, 'nombre': ''},
+        )['nombre'] ?? '';
         widget.onSeleccionado(uid, nombre);
       },
     );

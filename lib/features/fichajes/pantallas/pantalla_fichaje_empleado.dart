@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
+import 'historial_empleado_sheet.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA FICHAJE EMPLEADO
@@ -172,6 +173,19 @@ class _PantallaFichajeEmpleadoState extends State<PantallaFichajeEmpleado> {
     ),
     'Salida registrada: $_horaActual',
   );
+
+  void _abrirHistorial() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => HistorialEmpleadoSheet(
+        empresaId: widget.empresaId,
+        empleadoId: _empleado!.uid,
+        empleadoNombre: _empleado!.nombre,
+      ),
+    );
+  }
 
   void _cerrarSesion() {
     setState(() {
@@ -496,6 +510,12 @@ class _PantallaFichajeEmpleadoState extends State<PantallaFichajeEmpleado> {
           ),
 
         const SizedBox(height: 24),
+        TextButton.icon(
+          onPressed: _cargando ? null : _abrirHistorial,
+          icon: const Icon(Icons.history, size: 18),
+          label: const Text('Ver mi historial'),
+          style: TextButton.styleFrom(foregroundColor: Colors.blue[700]),
+        ),
         TextButton.icon(
           onPressed: _cerrarSesion,
           icon: const Icon(Icons.close),

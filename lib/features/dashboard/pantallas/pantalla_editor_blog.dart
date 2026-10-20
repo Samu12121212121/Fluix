@@ -1020,7 +1020,21 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         while (i < lines.length && !lines[i].startsWith('```')) { code.add(lines[i]); i++; }
         blocks.add({t: _bCode, 'v': code.join('\n'), 'lang': lang});
       } else if (line.trim().isNotEmpty) {
-        blocks.add({t: _bP, 'v': line});
+        // Acumular líneas consecutivas en un único párrafo (igual que la web usa <br>)
+        final parLines = <String>[line];
+        while (i + 1 < lines.length) {
+          final next = lines[i + 1];
+          // Parar si la siguiente línea es vacía o es un bloque especial
+          if (next.trim().isEmpty) break;
+          if (next.startsWith('# ') || next.startsWith('## ') ||
+              next.startsWith('### ') || next.startsWith('> ') ||
+              next.startsWith('- ') || next.startsWith('![') ||
+              next.trim() == '---' || next.startsWith('```') ||
+              RegExp(r'^\d+\. ').hasMatch(next)) break;
+          parLines.add(next);
+          i++;
+        }
+        blocks.add({t: _bP, 'v': parLines.join('\n')});
       }
       i++;
     }
@@ -1051,6 +1065,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         child: MarkdownBody(
           data: b['v'],
           selectable: false,
+          softLineBreak: true,
           styleSheet: MarkdownStyleSheet(
             p: const TextStyle(fontSize: 15, height: 1.85, color: Color(0xFF374151)),
             strong: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF111827)),
@@ -2733,6 +2748,18 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     final nav = Navigator.of(context);
     try {
       await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
+      if (!mounted) return;
+      // Refrescar estado local desde Firestore para que coincida con lo guardado
+      final entradaId = entrada.id.isNotEmpty ? entrada.id : null;
+      if (entradaId != null) {
+        final fresca = await widget.svc.obtenerEntradaBlogPorId(widget.empresaId, entradaId);
+        if (mounted && fresca != null) {
+          setState(() {
+            _imagenUrl = fresca.imagenUrl;
+            _imagenes  = List.from(fresca.imagenes);
+          });
+        }
+      }
       if (!mounted) return;
       if (_estado == EstadoBlog.publicado) {
         messenger.showSnackBar(SnackBar(

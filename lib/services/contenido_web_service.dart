@@ -923,6 +923,80 @@ class ContenidoWebService {
     } catch (_) {} // no bloquea si hay error de permisos o red
   }
 
+  // ── CACHÉ WEB ESTÁTICA ───────────────────────────────────────────────────────
+  // Genera catalogo-data.js, autores-data.js y eventos-data.js en Firebase Storage.
+  // La web los carga como <script> estático → 0 lecturas Firestore por visita.
+  // Se llama (unawaited) después de cada guardar/eliminar/toggle en las 3 colecciones.
+
+  Future<void> publicarCacheWeb(String empresaId) async {
+    try {
+      final results = await Future.wait([
+        _firestore.collection('empresas').doc(empresaId)
+            .collection('catalogo_web').where('activo', isEqualTo: true).get(),
+        _firestore.collection('empresas').doc(empresaId)
+            .collection('autores').get(),
+        _firestore.collection('empresas').doc(empresaId)
+            .collection('eventos').get(),
+      ]);
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+
+      final catalogo = results[0].docs
+          .map((d) => _toJsonMap({...d.data(), 'id': d.id}))
+          .toList();
+      final autores = results[1].docs
+          .where((d) => d.data()['eliminado'] != true && d.data()['activo'] != false)
+          .map((d) => _toJsonMap({...d.data(), 'id': d.id}))
+          .toList();
+      final eventos = results[2].docs
+          .where((d) => d.data()['eliminado'] != true)
+          .map((d) => _toJsonMap({...d.data(), 'id': d.id}))
+          .toList();
+
+      // Paths por empresa — evita contaminación entre clientes Fluix.
+      // catalogo-data.js exporta LIBROS (catalogo.html legacy) + _NAZ_CAT_CACHE (index.html)
+      final catalogoJson = jsonEncode(catalogo);
+      await Future.wait([
+        _subirJsCache('cache/$empresaId/catalogo-data.js',
+            'var LIBROS=$catalogoJson;window._NAZ_CAT_CACHE={docs:LIBROS,ts:$ts};'),
+        _subirJsCache('cache/$empresaId/autores-data.js',
+            'window._NAZ_AUT_CACHE=${jsonEncode({'docs': autores, 'ts': ts})};'),
+        _subirJsCache('cache/$empresaId/eventos-data.js',
+            'window._NAZ_EVT_CACHE=${jsonEncode({'docs': eventos, 'ts': ts})};'),
+      ]);
+      print('✅ publicarCacheWeb: cache estática actualizada');
+    } catch (e) {
+      print('⚠️ publicarCacheWeb: $e');
+    }
+  }
+
+  Future<void> _subirJsCache(String path, String contenido) async {
+    final ref = _storage.ref(path);
+    await ref.putData(
+      Uint8List.fromList(utf8.encode(contenido)),
+      SettableMetadata(
+        contentType: 'application/javascript',
+        cacheControl: 'public, max-age=300',
+      ),
+    );
+  }
+
+  /// Convierte un Map de Firestore a un Map JSON-serializable.
+  /// Timestamps → milliseconds, FieldValue y tipos no serializables → null.
+  static Map<String, dynamic> _toJsonMap(Map<String, dynamic> m) =>
+      m.map((k, v) => MapEntry(k, _toJsonValue(v)));
+
+  static dynamic _toJsonValue(dynamic v) {
+    if (v == null || v is String || v is num || v is bool) return v;
+    if (v is Timestamp) return v.millisecondsSinceEpoch;
+    if (v is DateTime) return v.millisecondsSinceEpoch;
+    if (v is Map) return (v as Map).map((k, val) => MapEntry(k.toString(), _toJsonValue(val)));
+    if (v is List) return v.map(_toJsonValue).toList();
+    return null; // FieldValue, GeoPoint y otros no serializables
+  }
+
+  // ── FIN CACHÉ WEB ESTÁTICA ───────────────────────────────────────────────────
+
   /// Contenido del service worker que el cliente debe subir a /firebase-messaging-sw.js
   static String generarServiceWorkerPush() => '''
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
@@ -1082,8 +1156,26 @@ messaging.onBackgroundMessage(function(payload) {
     var id=new URLSearchParams(window.location.search).get("evento");
     if(!id){el.style.display="none";return;}
     el.style.display="";
-    db.collection("empresas").doc(EMPRESA).collection("eventos").doc(id).get().then(function(doc){
+    var base=window.location.pathname;
+    var pEv=db.collection("empresas").doc(EMPRESA).collection("eventos").doc(id).get();
+    var pTodos=db.collection("empresas").doc(EMPRESA).collection("eventos").where("activo","==",true).orderBy("fecha").get();
+    Promise.all([pEv,pTodos]).then(function(res){
+      var doc=res[0],snap=res[1];
       if(!doc.exists){el.innerHTML="<p>Evento no encontrado.</p>";return;}
+      var todos=[];snap.forEach(function(d){if(!d.data().eliminado)todos.push({id:d.id,titulo:d.data().titulo});});
+      var idx=todos.findIndex(function(e){return e.id===id;});
+      var prev=idx>0?todos[idx-1]:null;
+      var next=idx>=0&&idx<todos.length-1?todos[idx+1]:null;
+      function setNav(attr,ev){
+        el.querySelectorAll("["+attr+"]").forEach(function(a){
+          if(ev){a.href=base+"?evento="+ev.id;a.removeAttribute("hidden");a.style.visibility="";}
+          else{a.setAttribute("hidden","");a.style.visibility="hidden";}
+        });
+      }
+      setNav("data-fluix-nav-anterior",prev);
+      setNav("data-fluix-nav-siguiente",next);
+      var navBar=el.querySelector("[data-fluix-nav]");
+      if(navBar){navBar.innerHTML=(prev?'<a class="fluix-nav-prev" href="'+base+"?evento="+prev.id+'">← '+(prev.titulo||"Anterior")+'</a>':'<span></span>')+(next?'<a class="fluix-nav-next" href="'+base+"?evento="+next.id+'">'+(next.titulo||"Siguiente")+' →</a>':'<span></span>');}
       var ev=doc.data();ev.id=doc.id;
       ev.fecha_fmt=fmtFecha(ev.fecha);
       var tpl=el.querySelector("template[data-fluix-item]");
@@ -1192,7 +1284,7 @@ messaging.onBackgroundMessage(function(payload) {
           } else {
             ce.src=b.imagen_url||"";ce.style.display=b.imagen_url?"":"none";
           }
-        } else if(c==="contenido"){var _bh=b.contenido_html||"";var _bc=b.contenido||"";if(_bh){ce.innerHTML=_bh;}else if(window.marked&&_bc&&!_bc.trim().startsWith("[")){ce.innerHTML=marked.parse(_bc);}else if(_bh||_bc){ce.innerHTML=_bh||"";/* Delta JSON sin html pre-renderizado */}}
+        } else if(c==="contenido"){var _bh=b.contenido_html||"";var _bc=b.contenido||"";if(_bh){ce.innerHTML=_bh;}else if(window.marked&&_bc&&!_bc.trim().startsWith("[")){ce.innerHTML=marked.parse(_bc,{breaks:true});}else if(_bh||_bc){ce.innerHTML=_bh||"";/* Delta JSON sin html pre-renderizado */}}
         else if(c==="fecha"){var ts=b.fecha_publicacion,d=ts&&ts.toDate?ts.toDate():new Date(ts);ce.textContent=d.toLocaleDateString("es-ES");}
         else ce.textContent=b[c]||"";
       });
@@ -1714,7 +1806,40 @@ messaging.onBackgroundMessage(function(payload) {
         });
   }
 
-  /// Stream filtrado por seccion_id (secciones dinámicas data-fluix)
+  /// Paginación server-side: devuelve una página de entradas.
+  /// [cursor] = último DocumentSnapshot de la página anterior (null = primera página).
+  Future<({List<EntradaBlog> items, DocumentSnapshot<Map<String,dynamic>>? nextCursor})>
+  fetchBlogPaginado(
+    String empresaId, {
+    required int limit,
+    DocumentSnapshot<Map<String,dynamic>>? cursor,
+    String? tipo,
+  }) async {
+    // Ordenar por ID de documento (cronológico, siempre presente en todos los docs)
+    var q = _blogCol(empresaId)
+        .where('publicada', isEqualTo: true)
+        .orderBy(FieldPath.documentId, descending: true)
+        .limit(limit);
+    if (tipo != null && tipo.isNotEmpty) {
+      q = _blogCol(empresaId)
+          .where('tipo', isEqualTo: tipo)
+          .where('publicada', isEqualTo: true)
+          .orderBy(FieldPath.documentId, descending: true)
+          .limit(limit);
+    }
+    if (cursor != null) q = q.startAfterDocument(cursor);
+    final snap = await q.get();
+    final items = snap.docs
+        .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
+        .where((e) => !e.eliminado)
+        .toList();
+    final nextCursor = snap.docs.isNotEmpty
+        ? snap.docs.last as DocumentSnapshot<Map<String,dynamic>>
+        : null;
+    return (items: items, nextCursor: nextCursor);
+  }
+
+/// Stream filtrado por seccion_id (secciones dinámicas data-fluix)
   Stream<List<EntradaBlog>> obtenerBlogSeccion(String empresaId, String seccionId) {
     return _blogCol(empresaId)
         .where('seccion_id', isEqualTo: seccionId)
@@ -1725,6 +1850,13 @@ messaging.onBackgroundMessage(function(payload) {
         .map((s) => s.docs
             .map((d) => EntradaBlog.fromMap({...d.data(), 'id': d.id}))
             .toList());
+  }
+
+  Future<EntradaBlog?> obtenerEntradaBlogPorId(String empresaId, String id) async {
+    if (id.isEmpty) return null;
+    final doc = await _blogCol(empresaId).doc(id).get();
+    if (!doc.exists) return null;
+    return EntradaBlog.fromMap({...doc.data()!, 'id': doc.id});
   }
 
   Future<void> guardarEntradaBlog(String empresaId, EntradaBlog entrada,
@@ -2019,6 +2151,7 @@ messaging.onBackgroundMessage(function(payload) {
         .doc(evento.id.isEmpty ? null : evento.id)
         .set(data, SetOptions(merge: true));
     unawaited(_bumpWebVersion(empresaId, 'eventos'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> duplicarEvento(String empresaId, EventoWeb evento) async {
@@ -2038,6 +2171,7 @@ messaging.onBackgroundMessage(function(payload) {
       'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
     unawaited(_bumpWebVersion(empresaId, 'eventos'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Stream<List<EventoWeb>> obtenerPapeleraEventos(String empresaId) {
@@ -2061,11 +2195,13 @@ messaging.onBackgroundMessage(function(payload) {
       'fecha_eliminacion': FieldValue.delete(),
     });
     unawaited(_bumpWebVersion(empresaId, 'eventos'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> eliminarPermanenteEvento(String empresaId, String eventoId) async {
     await _eventosCol(empresaId).doc(eventoId).delete();
     unawaited(_bumpWebVersion(empresaId, 'eventos'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> toggleActivoEvento(String empresaId, String eventoId, bool activo) async {
@@ -2074,6 +2210,7 @@ messaging.onBackgroundMessage(function(payload) {
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
     unawaited(_bumpWebVersion(empresaId, 'eventos'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> crearEventosEjemplo(String empresaId) async {
@@ -2562,6 +2699,7 @@ messaging.onBackgroundMessage(function(payload) {
       }, SetOptions(merge: true));
     }
     unawaited(_bumpWebVersion(empresaId, 'autores'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> eliminarAutor(String empresaId, String docId) async {
@@ -2570,6 +2708,7 @@ messaging.onBackgroundMessage(function(payload) {
         .collection('autores').doc(docId)
         .delete();
     unawaited(_bumpWebVersion(empresaId, 'autores'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   /// Elimina autores duplicados (mismo nombre normalizado) conservando
@@ -2842,6 +2981,7 @@ messaging.onBackgroundMessage(function(payload) {
           .add({...data, 'fecha_creacion': FieldValue.serverTimestamp()});
     }
     unawaited(_bumpWebVersion(empresaId, 'catalogo_web'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> _sincronizarEnSeleccion(
@@ -2904,11 +3044,13 @@ messaging.onBackgroundMessage(function(payload) {
       'activo': activo,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> eliminarItemCatalogo(String empresaId, String docId) async {
     await _catalogoCol(empresaId).doc(docId).delete();
     unawaited(_bumpWebVersion(empresaId, 'catalogo_web'));
+    unawaited(publicarCacheWeb(empresaId));
   }
 
   Future<void> toggleLibroDelMesCatalogo(

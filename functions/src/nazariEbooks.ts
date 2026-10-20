@@ -608,6 +608,16 @@ export const stripeWebhookNazari = onRequest(
           pais:    shipping.address.country || "",
         } : null;
 
+        // Extraer totales reales de Stripe (incluye envío elegido por el cliente)
+        const _s2 = session as any;
+        const amountTotalCents    = typeof _s2.amount_total    === "number" ? _s2.amount_total    : null;
+        const amountSubtotalCents = typeof _s2.amount_subtotal === "number" ? _s2.amount_subtotal : null;
+        const totalPagado    = amountTotalCents    != null ? Math.round(amountTotalCents    / 100 * 100) / 100 : undefined;
+        const subtotalPagado = amountSubtotalCents != null ? Math.round(amountSubtotalCents / 100 * 100) / 100 : undefined;
+        const envioPagado    = (totalPagado != null && subtotalPagado != null)
+          ? Math.round((totalPagado - subtotalPagado) * 100) / 100
+          : undefined;
+
         await ordenRef.update({
           estado: "pagado",
           estado_pago: "pagado",
@@ -616,6 +626,9 @@ export const stripeWebhookNazari = onRequest(
           nombre_comprador: nombre,
           ...(dir ? { direccion_envio: dir } : {}),
           fecha_pago: admin.firestore.FieldValue.serverTimestamp(),
+          ...(totalPagado    != null ? { total:    totalPagado    } : {}),
+          ...(subtotalPagado != null ? { subtotal: subtotalPagado } : {}),
+          ...(envioPagado    != null ? { envio:    envioPagado    } : {}),
         });
 
         const orden = ordenSnap.data()!;
@@ -628,7 +641,7 @@ export const stripeWebhookNazari = onRequest(
 
         // Notificar a Fluix — igual que Bizum/Transferencia en onNuevoPedidoWeb
         try {
-          const total = (orden.total as number | undefined) ?? 0;
+          const total = totalPagado ?? (orden.total as number | undefined) ?? 0;
           const items = (orden.items as { titulo?: string }[]) ?? [];
           const primerTitulo = items[0]?.titulo ?? "artículo web";
           const cuerpo = `${nombre || email} — ${total.toFixed(2)} € por tarjeta/Bizum · ${primerTitulo}`;

@@ -395,6 +395,7 @@ class _TimelineEventos extends StatefulWidget {
 
 class _TimelineEventosState extends State<_TimelineEventos> {
   bool _pasadosExpanded = false;
+  int  _pasadosLimit    = 50;
 
   @override
   Widget build(BuildContext context) {
@@ -468,8 +469,8 @@ class _TimelineEventosState extends State<_TimelineEventos> {
               ]),
             ),
           ),
-          if (_pasadosExpanded)
-            ...widget.pasados.take(20).map((e) => _FilaEvento(
+          if (_pasadosExpanded) ...[
+            ...widget.pasados.take(_pasadosLimit).map((e) => _FilaEvento(
               evento: e, color: const Color(0xFF94A3B8), pasado: true,
               onTap: () => widget.onTap(e),
               onToggle: (v) => widget.onToggle(e, v),
@@ -477,6 +478,28 @@ class _TimelineEventosState extends State<_TimelineEventos> {
               onEscribir: widget.onEscribir != null ? () => widget.onEscribir!(e) : null,
               onDuplicar: widget.onDuplicar != null ? () => widget.onDuplicar!(e) : null,
             )),
+            if (widget.pasados.length > _pasadosLimit)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _pasadosLimit += 50),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Ver más (${widget.pasados.length - _pasadosLimit} restantes)',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       ],
     );

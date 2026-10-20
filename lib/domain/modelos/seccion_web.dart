@@ -699,7 +699,7 @@ class EntradaBlog {
     'slug':               slug,
     'resumen':            resumen,
     'contenido':          contenido,
-    if (imagenUrl != null) 'imagen_url': imagenUrl,
+    'imagen_url':         imagenUrl,
     'imagenes':           imagenes,
     'estado':             estado.id,
     'publicada':          estado == EstadoBlog.publicado,

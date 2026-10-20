@@ -158,6 +158,8 @@ class _ConfiguracionFacturacionTpvScreenState
         _btConectada    = conectada;
         _nombreImpresora = ultima?['name'];
       });
+    } catch (_) {
+      // Plugin BT no disponible en esta plataforma — ignorar silenciosamente
     } finally {
       if (mounted) setState(() => _btVerificando = false);
     }

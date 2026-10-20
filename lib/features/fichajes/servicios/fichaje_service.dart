@@ -505,9 +505,13 @@ class FichajeService {
       final actual = porFecha[clave];
       if (actual == null) {
         porFecha[clave] = f;
-      } else {
-        // Preferir corrección o el más reciente
-        if (f.esCorreccion && !actual.esCorreccion) {
+      } else if (f.esCorreccion && !actual.esCorreccion) {
+        porFecha[clave] = f;
+      } else if (f.esCorreccion && actual.esCorreccion) {
+        // Múltiples correcciones — quedarse con la más reciente
+        final fAt = f.corregidoAt;
+        final aAt = actual.corregidoAt;
+        if (fAt != null && aAt != null && fAt.compareTo(aAt) > 0) {
           porFecha[clave] = f;
         }
       }
