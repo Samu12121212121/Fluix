@@ -268,7 +268,7 @@ class TabEventosWeb extends StatelessWidget {
       isDismissible: false,    // no cerrar tocando fuera
       enableDrag: false,       // no cerrar arrastrando el handle
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
+      builder: (sheetCtx) => DraggableScrollableSheet(
         initialChildSize: 0.92,
         maxChildSize: 0.98,
         minChildSize: 0.92,    // igual que initial: impide encoger el sheet con scroll
@@ -311,7 +311,7 @@ class TabEventosWeb extends StatelessWidget {
                             ],
                           ),
                         );
-                        if (cerrar == true && ctx.mounted) Navigator.pop(ctx);
+                        if (cerrar == true && sheetCtx.mounted) Navigator.pop(sheetCtx);
                       },
                       icon: const Icon(Icons.close, size: 20),
                     ),
@@ -326,7 +326,7 @@ class TabEventosWeb extends StatelessWidget {
               evento: evento,
               color: color,
               scrollController: scrollCtrl,
-              onGuardado: () => Navigator.pop(ctx),
+              onGuardado: () => Navigator.pop(sheetCtx),
             )),
           ]),
         ),

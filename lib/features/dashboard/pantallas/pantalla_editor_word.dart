@@ -103,8 +103,9 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   Timer?       _autoguardadoTimer;
   DateTime?    _ultimoAutoguardado;
   bool         _autoguardadoPendiente = false;
+  String       _guardadoId           = '';
 
-  bool get _esNuevo => widget.entrada == null || widget.entrada!.id.isEmpty;
+  bool get _esNuevo => _guardadoId.isEmpty;
   int  get _palabras {
     final txt = _quillCtrl.document.toPlainText().trim();
     return txt.isEmpty ? 0 : txt.split(RegExp(r'\s+')).length;
@@ -117,6 +118,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     super.initState();
     _quillCtrl = _inicializarQuill(widget.entrada?.contenido);
 
+    _guardadoId = widget.entrada?.id ?? '';
     if (widget.entrada != null) {
       final e = widget.entrada!;
       _tituloCtrl.text  = e.titulo;
@@ -296,7 +298,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     try {
       final deltaJson = jsonEncode(_quillCtrl.document.toDelta().toJson());
       final entrada = EntradaBlog(
-        id:               widget.entrada?.id ?? '',
+        id:               _guardadoId,
         titulo:           titulo,
         slug:             _slugCtrl.text.trim(),
         resumen:          _resumenCtrl.text.trim(),
@@ -315,11 +317,14 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         autorId:          _autorId,
         libroId:          _libroId,
       );
-      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
-      if (mounted) setState(() {
-        _autoguardadoPendiente = false;
-        _ultimoAutoguardado = DateTime.now();
-      });
+      final savedId = await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
+      if (mounted) {
+        if (_guardadoId.isEmpty && savedId.isNotEmpty) _guardadoId = savedId;
+        setState(() {
+          _autoguardadoPendiente = false;
+          _ultimoAutoguardado = DateTime.now();
+        });
+      }
     } catch (_) {} // silencioso
   }
 
@@ -343,7 +348,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
 
     try {
       final entrada = EntradaBlog(
-        id:               widget.entrada?.id ?? '',
+        id:               _guardadoId,
         titulo:           titulo,
         slug:             _slugCtrl.text.trim(),
         resumen:          _resumenCtrl.text.trim(),
@@ -362,8 +367,11 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         autorId:          _autorId,
         libroId:          _libroId,
       );
-      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada,
+      final savedId = await widget.svc.guardarEntradaBlog(widget.empresaId, entrada,
           htmlContent: html);
+      if (mounted && _guardadoId.isEmpty && savedId.isNotEmpty) {
+        setState(() => _guardadoId = savedId);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(_estado == EstadoBlog.publicado

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../domain/modelos/seccion_web.dart';
@@ -59,6 +60,8 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   List<String> _etiquetas        = [];
   bool         _slugManual       = false;
   bool         _slugOk           = true;
+  // ID del documento guardado (se rellena al guardar un post nuevo para evitar duplicados)
+  String       _entradaId        = '';
   bool         _guardando        = false;
   bool         _subiendoImg      = false;
   bool         _preview          = false;
@@ -74,7 +77,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   final _history   = <String>[];
   final _redoStack = <String>[];
 
-  bool get _esNuevo    => widget.entrada == null || widget.entrada!.id.isEmpty;
+  bool get _esNuevo    => _entradaId.isEmpty;
   int  get _palabras   => _contenidoCtrl.text.trim().isEmpty ? 0
       : _contenidoCtrl.text.trim().split(RegExp(r'\s+')).length;
   int  get _minLectura => (_palabras / 200).ceil().clamp(1, 99);
@@ -144,6 +147,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     super.initState();
     if (widget.entrada != null) {
       final e = widget.entrada!;
+      _entradaId          = e.id;
       _tituloCtrl.text    = e.titulo;
       _slugCtrl.text      = e.slug;
       _resumenCtrl.text   = e.resumen;
@@ -196,7 +200,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     _slugTimer = Timer(const Duration(milliseconds: 600), () async {
       if (_slugCtrl.text.isEmpty) return;
       final ok = await widget.svc.slugDisponible(
-          widget.empresaId, _slugCtrl.text, excludeId: widget.entrada?.id);
+          widget.empresaId, _slugCtrl.text, excludeId: _entradaId.isEmpty ? null : _entradaId);
       if (mounted) setState(() => _slugOk = ok);
     });
   }
@@ -2221,31 +2225,137 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     );
   }
 
-  Widget _compartirBody(Color color) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('La imagen de portada se usará al compartir en redes sociales.',
-          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280), height: 1.4)),
-      const SizedBox(height: 8),
-      Row(children: [
-        _socialCircle(const Color(0xFF1877F2), Icons.facebook),
-        const SizedBox(width: 8),
-        Text('Facebook', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+  Widget _compartirBody(Color color) {
+    final slug = _slugCtrl.text.trim();
+    final titulo = Uri.encodeComponent(_tituloCtrl.text.trim());
+
+    // URL del ogProxy — esta es la que hay que compartir en redes sociales
+    final proxyUrl = slug.isEmpty
+        ? null
+        : 'https://europe-west1-planeaapp-4bea4.cloudfunctions.net/ogProxy'
+          '?tipo=blog&slug=${Uri.encodeComponent(slug)}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Instrucción
+        const Text(
+          'Copia este enlace y úsalo al compartir en redes sociales. '
+          'Es el único que muestra la imagen y el resumen correctamente.',
+          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280), height: 1.4),
+        ),
+        const SizedBox(height: 10),
+
+        if (slug.isEmpty)
+          const Text(
+            'Guarda el artículo primero para generar el enlace.',
+            style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B)),
+          )
+        else ...[
+          // URL copiable
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(children: [
+              Expanded(
+                child: Text(
+                  proxyUrl!,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF374151),
+                    fontFamily: 'monospace',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: proxyUrl));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Enlace copiado'),
+                    duration: Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.copy_rounded, size: 12, color: color),
+                    const SizedBox(width: 4),
+                    Text('Copiar', style: TextStyle(fontSize: 11, color: color,
+                        fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+
+          // Botones directos a redes sociales
+          Row(children: [
+            _shareBtn(
+              label: 'Facebook',
+              color: const Color(0xFF1877F2),
+              icon: Icons.facebook,
+              url: 'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(proxyUrl)}',
+            ),
+            const SizedBox(width: 8),
+            _shareBtn(
+              label: 'X / Twitter',
+              color: Colors.black87,
+              icon: Icons.close,
+              url: 'https://twitter.com/intent/tweet?url=${Uri.encodeComponent(proxyUrl)}&text=$titulo',
+            ),
+            const SizedBox(width: 8),
+            _shareBtn(
+              label: 'LinkedIn',
+              color: const Color(0xFF0A66C2),
+              icon: Icons.business_center_outlined,
+              url: 'https://www.linkedin.com/shareArticle?mini=true&url=${Uri.encodeComponent(proxyUrl)}&title=$titulo',
+            ),
+          ]),
+        ],
       ]),
-      const SizedBox(height: 6),
-      Row(children: [
-        _socialCircle(Colors.black87, Icons.close),
-        const SizedBox(width: 8),
-        Text('X / Twitter', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ]),
-      const SizedBox(height: 6),
-      Row(children: [
-        _socialCircle(const Color(0xFF0A66C2), Icons.business_center_outlined),
-        const SizedBox(width: 8),
-        Text('LinkedIn', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ]),
-    ]),
-  );
+    );
+  }
+
+  Widget _shareBtn({
+    required String label,
+    required Color color,
+    required IconData icon,
+    required String url,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Column(children: [
+            _socialCircle(color, icon),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 9, color: color,
+                fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+    );
+  }
 
   Widget _socialCircle(Color c, IconData icon) => Container(
     width: 26, height: 26,
@@ -2722,7 +2832,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     }
     setState(() => _guardando = true);
     final entrada = EntradaBlog(
-      id: widget.entrada?.id ?? '',
+      id: _entradaId,
       titulo: _tituloCtrl.text.trim(),
       slug: _slugCtrl.text.trim(),
       resumen: _resumenCtrl.text.trim(),
@@ -2747,18 +2857,17 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     try {
-      await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
+      final savedId = await widget.svc.guardarEntradaBlog(widget.empresaId, entrada);
       if (!mounted) return;
+      // Guardar el ID para que sucesivos guardados actualicen el mismo documento
+      if (_entradaId.isEmpty) setState(() => _entradaId = savedId);
       // Refrescar estado local desde Firestore para que coincida con lo guardado
-      final entradaId = entrada.id.isNotEmpty ? entrada.id : null;
-      if (entradaId != null) {
-        final fresca = await widget.svc.obtenerEntradaBlogPorId(widget.empresaId, entradaId);
-        if (mounted && fresca != null) {
-          setState(() {
-            _imagenUrl = fresca.imagenUrl;
-            _imagenes  = List.from(fresca.imagenes);
-          });
-        }
+      final fresca = await widget.svc.obtenerEntradaBlogPorId(widget.empresaId, savedId);
+      if (mounted && fresca != null) {
+        setState(() {
+          _imagenUrl = fresca.imagenUrl;
+          _imagenes  = List.from(fresca.imagenes);
+        });
       }
       if (!mounted) return;
       if (_estado == EstadoBlog.publicado) {

@@ -63,17 +63,16 @@ class Mod390PosicionalService {
     }
 
     // 2. Verificar que existen los 4 trimestres de Mod.303
+    // Mod303Service guarda en modelos_fiscales con id "303_{anio}_{t}T"
     final alertas = <String>[];
     for (int t = 1; t <= 4; t++) {
       final snap = await _db
           .collection('empresas')
           .doc(empresaId)
-          .collection('modelos303')
-          .where('anio', isEqualTo: anio)
-          .where('trimestre', isEqualTo: t)
-          .limit(1)
+          .collection('modelos_fiscales')
+          .doc('303_${anio}_${t}T')
           .get();
-      if (snap.docs.isEmpty) {
+      if (!snap.exists) {
         alertas.add(
             '⚠️ Trimestre ${t}T $anio sin Mod.303 — algunos datos pueden ser 0');
       }

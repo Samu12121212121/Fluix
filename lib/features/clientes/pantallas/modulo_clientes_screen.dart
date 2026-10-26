@@ -1652,6 +1652,7 @@ class _PedidosClienteSheet extends StatelessWidget {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
+              if (snap.hasError) return _buildVacio(context);
               final docs = snap.data ?? [];
               if (docs.isEmpty) return _buildVacio(context);
               // KPIs rápidos
@@ -1679,6 +1680,7 @@ class _PedidosClienteSheet extends StatelessWidget {
       FirebaseFirestore db,
       Query? qEmail,
       Query qNombre) async {
+    try {
     final results = <QueryDocumentSnapshot>[];
     final ids     = <String>{};
 
@@ -1701,6 +1703,26 @@ class _PedidosClienteSheet extends StatelessWidget {
       if (!ids.contains(d.id)) results.add(d);
     }
 
+    // 4. Pedidos web Nazarí — solo para la empresa Nazarí
+    const _kNazariEId = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+    if (correo.isNotEmpty && empresaId == _kNazariEId) {
+      try {
+        final webSnap = await db
+            .collection('empresas').doc(empresaId)
+            .collection('pedidos_web_nazari')
+            .where('email', isEqualTo: correo)
+            .limit(20)
+            .get();
+        for (final d in webSnap.docs) {
+          final fluixId = (d.data()['pedido_fluix_id'] as String?) ?? '';
+          if (fluixId.isEmpty || !ids.contains(fluixId)) {
+            results.add(d);
+            ids.add(d.id);
+          }
+        }
+      } catch (_) {}
+    }
+
     results.sort((a, b) {
       final ta = (a.data() as Map)['fecha_creacion'];
       final tb = (b.data() as Map)['fecha_creacion'];
@@ -1708,6 +1730,7 @@ class _PedidosClienteSheet extends StatelessWidget {
       return 0;
     });
     return results;
+    } catch (_) { return []; }
   }
 
   Widget _kpiChip(IconData icon, String label, Color color) => Container(
@@ -1726,9 +1749,16 @@ class _PedidosClienteSheet extends StatelessWidget {
 
   Widget _pedidoTile(BuildContext context, QueryDocumentSnapshot doc) {
     final d      = doc.data() as Map<String, dynamic>;
-    final estado = d['estado'] as String?;
+    // Normalizar campos: pedidos_web_nazari usa 'estado_pago' e 'items'
+    final esWebNazari = d.containsKey('items') && !d.containsKey('lineas');
+    final estado = d['estado'] as String? ?? d['estado_pago'] as String?;
     final total  = ((d['total'] as num?) ?? 0).toDouble();
-    final lineas = (d['lineas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final lineas = esWebNazari
+        ? ((d['items'] as List?)?.cast<Map<String, dynamic>>() ?? [])
+            .map((i) => {'producto_nombre': i['titulo'] ?? i['catalogo_id'] ?? '—',
+                         'cantidad': i['cantidad'] ?? 1, 'precio_unitario': i['precio'] ?? 0})
+            .toList()
+        : (d['lineas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final ts     = d['fecha_creacion'];
     final fecha  = ts is Timestamp
         ? DateFormat('dd/MM/yy HH:mm').format(ts.toDate().toLocal())

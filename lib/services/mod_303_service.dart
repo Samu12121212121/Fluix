@@ -222,6 +222,9 @@ class Mod303Service {
       trimestre: trimestre,
     );
 
+    final empDoc = await _db.collection('empresas').doc(empresaId).get();
+    final nombreEmpresa = ((empDoc.data()?['nombre'] as String?) ?? nifEmpresa).trim();
+
     final periodo = _periodoTrimestral(trimestre);
     final casillas = _construirCasillas(datos);
     final porcentajes = _construirPorcentajes(datos);
@@ -229,7 +232,7 @@ class Mod303Service {
     return Dr303e26v101Exporter().exportar(
       DatosDr303e26v101(
         nifDeclarante: nifEmpresa,
-        nombreRazonSocial: nifEmpresa,
+        nombreRazonSocial: nombreEmpresa,
         ejercicio: anio,
         periodo: periodo,
         tipoDeclaracion: 1,
@@ -319,17 +322,21 @@ class Mod303Service {
   }
 
   Map<String, double> _construirCasillas(Map<String, dynamic> datos) {
+    // Casillas según DR303e26v101 oficial AEAT: 01=4%, 04=10%, 07=21%
+    final diferencia = ((datos['total_repercutido'] ?? 0.0) - (datos['iva_soportado'] ?? 0.0)) as double;
     return <String, double>{
-      '01': (datos['base_reducida'] ?? 0.0) as double,
-      '03': (datos['cuota_reducida'] ?? 0.0) as double,
-      '04': (datos['base_general'] ?? 0.0) as double,
-      '06': (datos['cuota_general'] ?? 0.0) as double,
+      '01': (datos['base_super_reducida'] ?? 0.0) as double,  // 4%
+      '02': (datos['cuota_super_reducida'] ?? 0.0) as double,
+      '04': (datos['base_reducida'] ?? 0.0) as double,        // 10%
+      '05': (datos['cuota_reducida'] ?? 0.0) as double,
+      '07': (datos['base_general'] ?? 0.0) as double,         // 21%
+      '08': (datos['cuota_general'] ?? 0.0) as double,
       '46': (datos['total_repercutido'] ?? 0.0) as double,
       '20': (datos['iva_soportado'] ?? 0.0) as double,
       '47': (datos['iva_soportado'] ?? 0.0) as double,
-      '48': ((datos['total_repercutido'] ?? 0.0) - (datos['iva_soportado'] ?? 0.0)) as double,
-      '69': ((datos['total_repercutido'] ?? 0.0) - (datos['iva_soportado'] ?? 0.0)) as double,
-      '71': ((datos['total_repercutido'] ?? 0.0) - (datos['iva_soportado'] ?? 0.0)) as double,
+      '48': diferencia,
+      '69': diferencia,
+      '71': diferencia,
     };
   }
 

@@ -30,8 +30,8 @@ class _TabBlogWebState extends State<TabBlogWeb> {
   String? _filtroCategoria;
   final _buscadorCtrl = TextEditingController();
 
-  static const int _primeraPagina = 25;
-  static const int _tamPagina     = 50;
+  static const int _primeraPagina = 100;
+  static const int _tamPagina     = 100;
   int _paginaActual = 0;
 
   // Selección múltiple
@@ -788,7 +788,11 @@ class _TabBlogWebState extends State<TabBlogWeb> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await widget.svc.eliminarEntradaBlog(widget.empresaId, entrada.id);
+              try {
+                await widget.svc.eliminarEntradaBlog(widget.empresaId, entrada.id);
+              } catch (e) {
+                debugPrint('[blog] Error eliminando entrada: $e');
+              }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),
@@ -1208,8 +1212,12 @@ class _PantallaCategoriasScreen extends StatelessWidget {
                     slug: slugCtrl.text.trim(),
                     orden: cat?.orden ?? 0,
                   );
-                  await svc.guardarCategoria(empresaId, nueva);
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  try {
+                    await svc.guardarCategoria(empresaId, nueva);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  } catch (e) {
+                    debugPrint('[blog] Error guardando categoría: $e');
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: color,

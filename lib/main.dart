@@ -44,9 +44,16 @@ Future<void> main() async {
     };
   }
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // Firebase falló (ej. DLL faltante, red no disponible).
+    // Mostrar pantalla de error en lugar de cerrar silenciosamente.
+    runApp(_AppError('Error al inicializar Firebase:\n$e'));
+    return;
+  }
 
   // ── Crashlytics — solo en móvil release (no en Web ni Desktop) ────────────
   if (!kIsWeb &&
@@ -127,11 +134,12 @@ Future<void> _configurarFirestore() async {
     );
     
     // Limpiar caché al iniciar app (previene acumulación)
+    // Timeout de 3s: en máquinas nuevas clearPersistence puede colgar
     try {
-      await FirebaseFirestore.instance.clearPersistence();
+      await FirebaseFirestore.instance.clearPersistence()
+          .timeout(const Duration(seconds: 3), onTimeout: () {});
       debugPrint('✅ Caché Firestore limpiada (Windows)');
     } catch (e) {
-      // Error esperado si app ya está usando Firestore
       debugPrint('ℹ️ No se pudo limpiar caché (app activa): $e');
     }
     
@@ -303,9 +311,14 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             '/login': (_) => const PantallaLogin(),
           },
           home: StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges().distinct(
-                  (a, b) => a?.uid == b?.uid,
-            ),
+            stream: FirebaseAuth.instance.authStateChanges()
+                // En Windows/nueva máquina auth puede colgar si no hay caché.
+                // Tras 10s sin respuesta, asumir sin sesión → pantalla de login.
+                .timeout(
+                  const Duration(seconds: 10),
+                  onTimeout: (sink) => sink.add(null),
+                )
+                .distinct((a, b) => a?.uid == b?.uid),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const PantallaCarga();
@@ -530,6 +543,49 @@ void _intentarInicializarAdmin() {
       print('ℹ️ AdminInitializer no ejecutado: $e');
     }
   });
+}
+
+/// Pantalla de error de arranque — muestra el mensaje en lugar de cerrar
+class _AppError extends StatelessWidget {
+  final String mensaje;
+  const _AppError(this.mensaje);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0D1117),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 56),
+                const SizedBox(height: 20),
+                const Text('No se pudo iniciar Fluix CRM',
+                    style: TextStyle(color: Colors.white, fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                SelectableText(mensaje,
+                    style: const TextStyle(color: Color(0xFF94A3B8),
+                        fontSize: 13, fontFamily: 'monospace'),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                const Text(
+                  'Posible causa: falta el instalador\n'
+                  'Visual C++ Redistributable (vc_redist.x64.exe)',
+                  style: TextStyle(color: Color(0xFFFBBF24), fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // Scroll behavior que elimina el glow de overscroll en Android (iOS ya usa bouncing)

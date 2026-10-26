@@ -31,8 +31,8 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
   String _busqueda = '';
   final _searchCtrl = TextEditingController();
 
-  static const int _primeraPagina = 25;
-  static const int _tamPagina     = 50;
+  static const int _primeraPagina = 200;
+  static const int _tamPagina     = 200;
   int _pagina = 0;
 
   // Paginación server-side
@@ -120,7 +120,9 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
   Widget build(BuildContext context) {
     // Con búsqueda activa: stream completo para buscar en todo el catálogo
     // Sin búsqueda: paginación server-side (ya cargada en _articulosPagina)
-    final usarStream = _busqueda.isNotEmpty || widget.seccionId != null;
+    // filtroTipoFijo (noticias/entrevistas) también usa stream para ordenar
+    // por fechaPublicacion desc (client-side) en lugar de por document ID
+    final usarStream = _busqueda.isNotEmpty || widget.seccionId != null || widget.filtroTipoFijo != null;
 
     return StreamBuilder<List<CategoriaBlog>>(
       stream: widget.svc.obtenerCategorias(widget.empresaId),
@@ -1078,17 +1080,21 @@ class _ArticleListItem extends StatelessWidget {
         ),
       ],
       onSelected: (action) async {
-        switch (action) {
-          case 'publicar':
-            await svc.togglePublicarBlog(empresaId, a.id, !a.publicada);
-          case 'duplicar':
-            await svc.duplicarEntradaBlog(empresaId, a);
-          case 'url':
-            final uri = Uri.tryParse(a.urlExterna!);
-            if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-          case 'eliminar':
-            await svc.eliminarEntradaBlog(empresaId, a.id);
-        }
+        try {
+          switch (action) {
+            case 'publicar':
+              await svc.togglePublicarBlog(empresaId, a.id, !a.publicada);
+            case 'duplicar':
+              await svc.duplicarEntradaBlog(empresaId, a);
+            case 'url':
+              final url = a.urlExterna ?? '';
+              if (url.isEmpty) return;
+              final uri = Uri.tryParse(url);
+              if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+            case 'eliminar':
+              await svc.eliminarEntradaBlog(empresaId, a.id);
+          }
+        } catch (_) {}
       },
     );
   }

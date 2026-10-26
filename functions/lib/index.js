@@ -38,9 +38,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onReservaCRM = exports.onReservaCreatedCRM = exports.onNuevoClienteCRM = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.onReservaEstadoCambiadoEmail = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.crearEmpleadoConCredenciales = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.generarThumbnailCatalogo = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
-exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.onJuanitaReservaEstadoCambiado = exports.onNuevoPedidoWeb = exports.simularCompraEbook = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = void 0;
-exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.regenerarCacheNazari = exports.onPagosConfigCambio = exports.onPackSeleccionCambio = exports.onSeleccionCambio = exports.onEventosCambio = exports.onBlogCambio = exports.onOrdenAutoresCambio = exports.onAutoresCambio = exports.onCatalogoWebCambio = exports.getBlogLista = exports.getBlogEntry = exports.desactivarPreventaPasada = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = void 0;
-exports.crearLinkPackNazari = exports.auditarStripeCatalogo = void 0;
+exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.enviarResumenNazari = exports.onNuevoPedidoWebNazariEmail = exports.onJuanitaReservaEstadoCambiado = exports.recuperarDireccionPedidoNazari = exports.onNuevoPedidoWeb = exports.simularCompraEbook = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = void 0;
+exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.regenerarCacheNazari = exports.onPagosConfigCambio = exports.onPackSeleccionCambio = exports.onSeleccionCambio = exports.onEventosCambio = exports.onBlogCambio = exports.onOrdenAutoresCambio = exports.onAutoresCambio = exports.onCatalogoWebCambio = exports.getBlogLista = exports.getBlogEntry = exports.desactivarPreventaPasada = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = void 0;
+exports.ogProxy = exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -152,8 +152,13 @@ Object.defineProperty(exports, "verificarDescargaEbook", { enumerable: true, get
 Object.defineProperty(exports, "onPedidoNazariPagado", { enumerable: true, get: function () { return nazariEbooks_1.onPedidoNazariPagado; } });
 Object.defineProperty(exports, "simularCompraEbook", { enumerable: true, get: function () { return nazariEbooks_1.simularCompraEbook; } });
 Object.defineProperty(exports, "onNuevoPedidoWeb", { enumerable: true, get: function () { return nazariEbooks_1.onNuevoPedidoWeb; } });
+Object.defineProperty(exports, "recuperarDireccionPedidoNazari", { enumerable: true, get: function () { return nazariEbooks_1.recuperarDireccionPedidoNazari; } });
 var juanitaReservasEmail_1 = require("./juanitaReservasEmail");
 Object.defineProperty(exports, "onJuanitaReservaEstadoCambiado", { enumerable: true, get: function () { return juanitaReservasEmail_1.onJuanitaReservaEstadoCambiado; } });
+var nazariPedidoEmail_1 = require("./nazariPedidoEmail");
+Object.defineProperty(exports, "onNuevoPedidoWebNazariEmail", { enumerable: true, get: function () { return nazariPedidoEmail_1.onNuevoPedidoWebNazariEmail; } });
+var nazariResumenEmail_1 = require("./nazariResumenEmail");
+Object.defineProperty(exports, "enviarResumenNazari", { enumerable: true, get: function () { return nazariResumenEmail_1.enviarResumenNazari; } });
 if (!admin.apps.length)
     admin.initializeApp();
 const db = admin.firestore();
@@ -629,6 +634,7 @@ exports.onMensajeContactoRespondido = (0, firestore_1.onDocumentUpdated)({ docum
     }
     const empresa = await _getDatosEmpresa(empresaId);
     try {
+        const esNazari = empresaId === "0PoomHYDUJf5w8tDFRLhFi9iURF3";
         await (0, resend_service_1.enviarRespuestaContactoWeb)({
             emailRemitente,
             nombreRemitente: despues.nombre || "Visitante",
@@ -636,6 +642,8 @@ exports.onMensajeContactoRespondido = (0, firestore_1.onDocumentUpdated)({ docum
             asunto: despues.asunto || "Tu consulta",
             mensajeOriginal: despues.mensaje || "",
             respuestaTexto: respuesta,
+            firmaNombre: esNazari ? "Alejandro Santiago" : undefined,
+            firmaCargo: esNazari ? "Director de Editorial Nazarí" : undefined,
         });
         console.log(`✅ Respuesta enviada a ${emailRemitente}`);
     }
@@ -5223,5 +5231,148 @@ exports.crearLinkPackNazari = (0, https_1.onRequest)({ region: REGION, timeoutSe
         console.error("❌ crearLinkPackNazari:", e.message);
         res.status(500).json({ error: e.message || "Error interno" });
     }
+});
+// ── OG Proxy — Open Graph para crawlers de redes sociales ────────────────────
+const NAZARI_EID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+const NAZARI_BASE = "https://www.editorialnazari.com";
+exports.ogProxy = (0, https_1.onRequest)({ region: REGION, cors: true }, async (req, res) => {
+    var _a;
+    const tipo = req.query.tipo || "blog";
+    const slug = req.query.slug || "";
+    const id = req.query.id || slug;
+    if (!id) {
+        res.redirect(302, NAZARI_BASE);
+        return;
+    }
+    const db2 = admin.firestore();
+    let titulo = "Editorial Nazarí";
+    let desc = "Editorial independiente de narrativa, poesía, relato y ensayo.";
+    let imagen = `${NAZARI_BASE}/img/logo-sito-1.webp`;
+    let url = NAZARI_BASE;
+    let ogImgW = 540;
+    let ogImgH = 200; // dimensiones del logo por defecto
+    const col = (c) => db2.collection("empresas").doc(NAZARI_EID).collection(c);
+    try {
+        if (tipo === "blog") {
+            url = `${NAZARI_BASE}/blog-post.html?slug=${encodeURIComponent(slug)}`;
+            const s = await col("blog").where("slug", "==", slug).limit(1).get();
+            if (!s.empty) {
+                const d = s.docs[0].data();
+                const seo = d.seo || {};
+                titulo = seo.meta_title || d.titulo || titulo;
+                desc = (seo.meta_description || d.resumen || "").slice(0, 160) || desc;
+                // Prioridad: seo.imagen_og > imagen_url > galeria[0] > imagenes[0] > logo
+                const galeriaArr = d.galeria || [];
+                const imagenesArr = d.imagenes || [];
+                const primeraFoto = galeriaArr[0] || imagenesArr[0] || "";
+                imagen = seo.imagen_og
+                    || d.imagen_url
+                    || d.thumbnail_url
+                    || primeraFoto
+                    || imagen;
+            }
+        }
+        else if (tipo === "evento") {
+            url = `${NAZARI_BASE}/evento.html?id=${encodeURIComponent(id)}`;
+            const d2 = (await col("eventos").doc(id).get()).data() || {};
+            titulo = d2.titulo || titulo;
+            desc = (d2.descripcion || d2.resumen || "").slice(0, 160);
+            imagen = d2.imagen_url || d2.imagen || imagen;
+        }
+        else if (tipo === "autor") {
+            // Acepta ?slug=, ?nombre= (web usa nombre=) o ?id= (por doc ID)
+            const nombreParam = req.query.nombre || slug;
+            const idParam = req.query.id || "";
+            url = `${NAZARI_BASE}/autor.html?nombre=${encodeURIComponent(nombreParam || idParam)}`;
+            if (idParam && !nombreParam) {
+                // Lookup por ID de documento
+                const docSnap = await col("autores").doc(idParam).get();
+                if (docSnap.exists) {
+                    const d3 = docSnap.data() || {};
+                    titulo = d3.nombre || titulo;
+                    desc = (d3.bio || "").slice(0, 160);
+                    imagen = d3.foto || d3.imagen || imagen;
+                }
+            }
+            else if (nombreParam) {
+                // Lookup por nombre
+                const s2 = await col("autores").where("nombre", "==", nombreParam).limit(1).get();
+                if (!s2.empty) {
+                    const d3 = s2.docs[0].data();
+                    titulo = d3.nombre || titulo;
+                    desc = (d3.bio || "").slice(0, 160);
+                    imagen = d3.foto || d3.imagen || imagen;
+                }
+            }
+        }
+        else if (tipo === "libro") {
+            const rawSlug = slug || id;
+            url = `${NAZARI_BASE}/libro/${encodeURIComponent(rawSlug)}/`;
+            let libroData;
+            const cwCol2 = col("catalogo_web");
+            // 1. Por doc ID exacto
+            const cw1 = await cwCol2.doc(rawSlug).get();
+            if (cw1.exists) {
+                libroData = cw1.data();
+            }
+            else {
+                // 2. Por campo slug exacto
+                const cw2 = await cwCol2.where("slug", "==", rawSlug).limit(1).get();
+                if (!cw2.empty) {
+                    libroData = cw2.docs[0].data();
+                }
+                else {
+                    // 3. Primer carácter mayúscula (URLs /libro/fe/ → slug "Fe")
+                    const slugCap = rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1);
+                    const cw3 = await cwCol2.where("slug", "==", slugCap).limit(1).get();
+                    if (!cw3.empty) {
+                        libroData = cw3.docs[0].data();
+                    }
+                    else {
+                        // 4. Fallback colección libros
+                        const lib1 = await col("libros").doc(rawSlug).get();
+                        if (lib1.exists)
+                            libroData = lib1.data();
+                    }
+                }
+            }
+            if (libroData) {
+                const autoresArr = Array.isArray(libroData.autores) ? libroData.autores : [];
+                const autor = libroData.campo_autor
+                    || ((_a = autoresArr[0]) === null || _a === void 0 ? void 0 : _a.nombre)
+                    || libroData.autor || "";
+                titulo = `${(libroData.titulo || libroData.nombre || "")}${autor ? ` de ${autor}` : ""} — Editorial Nazarí`;
+                desc = (libroData.descripcion || libroData.sinopsis || "").slice(0, 160) || desc;
+                let imgRaw = (libroData.imagen_url || libroData.imagen || libroData.thumbnail_url || "");
+                // Convertir rutas relativas en absolutas (los libros guardan "img/portada.webp")
+                if (imgRaw && !imgRaw.startsWith("http")) {
+                    imgRaw = NAZARI_BASE + "/" + imgRaw.replace(/^\//, "");
+                }
+                if (imgRaw) {
+                    imagen = imgRaw;
+                    ogImgW = 400;
+                    ogImgH = 600;
+                }
+            }
+        }
+    }
+    catch (_) { /* valores por defecto */ }
+    const x = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    res.set("Cache-Control", "public, max-age=3600");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(`<!DOCTYPE html><html><head>
+<meta charset="utf-8"><title>${x(titulo)}</title>
+<meta property="og:title" content="${x(titulo)}">
+<meta property="og:description" content="${x(desc)}">
+<meta property="og:image" content="${x(imagen)}">
+<meta property="og:image:width" content="${ogImgW}">
+<meta property="og:image:height" content="${ogImgH}">
+<meta property="og:url" content="${x(url)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Editorial Nazarí">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${x(imagen)}">
+<meta http-equiv="refresh" content="0;url=${x(url)}">
+</head><body></body></html>`);
 });
 //# sourceMappingURL=index.js.map

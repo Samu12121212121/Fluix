@@ -115,9 +115,12 @@ export {
   onPedidoNazariPagado,
   simularCompraEbook,
   onNuevoPedidoWeb,
+  recuperarDireccionPedidoNazari,
 } from "./nazariEbooks";
 
 export { onJuanitaReservaEstadoCambiado } from "./juanitaReservasEmail";
+export { onNuevoPedidoWebNazariEmail } from "./nazariPedidoEmail";
+export { enviarResumenNazari } from "./nazariResumenEmail";
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -677,6 +680,7 @@ export const onMensajeContactoRespondido = onDocumentUpdated(
     const empresa = await _getDatosEmpresa(empresaId);
 
     try {
+      const esNazari = empresaId === "0PoomHYDUJf5w8tDFRLhFi9iURF3";
       await enviarRespuestaContactoWeb({
         emailRemitente,
         nombreRemitente: despues.nombre || "Visitante",
@@ -684,6 +688,8 @@ export const onMensajeContactoRespondido = onDocumentUpdated(
         asunto: despues.asunto || "Tu consulta",
         mensajeOriginal: despues.mensaje || "",
         respuestaTexto: respuesta,
+        firmaNombre: esNazari ? "Alejandro Santiago" : undefined,
+        firmaCargo: esNazari ? "Director de Editorial Nazarí" : undefined,
       });
       console.log(`✅ Respuesta enviada a ${emailRemitente}`);
     } catch (e) {
@@ -5836,5 +5842,138 @@ export const crearLinkPackNazari = onRequest(
       console.error("❌ crearLinkPackNazari:", e.message);
       res.status(500).json({ error: e.message || "Error interno" });
     }
+  }
+);
+
+// ── OG Proxy — Open Graph para crawlers de redes sociales ────────────────────
+const NAZARI_EID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+const NAZARI_BASE = "https://www.editorialnazari.com";
+
+export const ogProxy = onRequest(
+  { region: REGION, cors: true },
+  async (req, res) => {
+    const tipo = (req.query.tipo as string) || "blog";
+    const slug = (req.query.slug as string) || "";
+    const id   = (req.query.id   as string) || slug;
+    if (!id) { res.redirect(302, NAZARI_BASE); return; }
+
+    const db2 = admin.firestore();
+    let titulo = "Editorial Nazarí";
+    let desc   = "Editorial independiente de narrativa, poesía, relato y ensayo.";
+    let imagen = `${NAZARI_BASE}/img/logo-sito-1.webp`;
+    let url    = NAZARI_BASE;
+    let ogImgW = 540; let ogImgH = 200; // dimensiones del logo por defecto
+    const col  = (c: string) => db2.collection("empresas").doc(NAZARI_EID).collection(c);
+
+    try {
+      if (tipo === "blog") {
+        url = `${NAZARI_BASE}/blog-post.html?slug=${encodeURIComponent(slug)}`;
+        const s = await col("blog").where("slug", "==", slug).limit(1).get();
+        if (!s.empty) {
+          const d = s.docs[0].data();
+          const seo = (d.seo as Record<string, string> | undefined) || {};
+          titulo = (seo.meta_title as string) || (d.titulo as string) || titulo;
+          desc   = ((seo.meta_description as string) || (d.resumen as string) || "").slice(0, 160) || desc;
+          // Prioridad: seo.imagen_og > imagen_url > galeria[0] > imagenes[0] > logo
+          const galeriaArr = (d.galeria as string[] | undefined) || [];
+          const imagenesArr = (d.imagenes as string[] | undefined) || [];
+          const primeraFoto = galeriaArr[0] || imagenesArr[0] || "";
+          imagen = (seo.imagen_og as string)
+            || (d.imagen_url as string)
+            || (d.thumbnail_url as string)
+            || primeraFoto
+            || imagen;
+        }
+      } else if (tipo === "evento") {
+        url = `${NAZARI_BASE}/evento.html?id=${encodeURIComponent(id)}`;
+        const d2 = (await col("eventos").doc(id).get()).data() || {};
+        titulo = (d2.titulo as string) || titulo;
+        desc   = ((d2.descripcion as string) || (d2.resumen as string) || "").slice(0, 160);
+        imagen = (d2.imagen_url as string) || (d2.imagen as string) || imagen;
+      } else if (tipo === "autor") {
+        // Acepta ?slug=, ?nombre= (web usa nombre=) o ?id= (por doc ID)
+        const nombreParam = (req.query.nombre as string) || slug;
+        const idParam     = (req.query.id as string) || "";
+        url = `${NAZARI_BASE}/autor.html?nombre=${encodeURIComponent(nombreParam || idParam)}`;
+        if (idParam && !nombreParam) {
+          // Lookup por ID de documento
+          const docSnap = await col("autores").doc(idParam).get();
+          if (docSnap.exists) {
+            const d3 = docSnap.data() || {};
+            titulo = (d3.nombre as string) || titulo;
+            desc   = ((d3.bio as string) || "").slice(0, 160);
+            imagen = (d3.foto as string) || (d3.imagen as string) || imagen;
+          }
+        } else if (nombreParam) {
+          // Lookup por nombre
+          const s2 = await col("autores").where("nombre", "==", nombreParam).limit(1).get();
+          if (!s2.empty) {
+            const d3 = s2.docs[0].data();
+            titulo = (d3.nombre as string) || titulo;
+            desc   = ((d3.bio as string) || "").slice(0, 160);
+            imagen = (d3.foto as string) || (d3.imagen as string) || imagen;
+          }
+        }
+      } else if (tipo === "libro") {
+        const rawSlug = slug || id;
+        url = `${NAZARI_BASE}/libro/${encodeURIComponent(rawSlug)}/`;
+        let libroData: admin.firestore.DocumentData | undefined;
+        const cwCol2 = col("catalogo_web");
+        // 1. Por doc ID exacto
+        const cw1 = await cwCol2.doc(rawSlug).get();
+        if (cw1.exists) {
+          libroData = cw1.data();
+        } else {
+          // 2. Por campo slug exacto
+          const cw2 = await cwCol2.where("slug", "==", rawSlug).limit(1).get();
+          if (!cw2.empty) {
+            libroData = cw2.docs[0].data();
+          } else {
+            // 3. Primer carácter mayúscula (URLs /libro/fe/ → slug "Fe")
+            const slugCap = rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1);
+            const cw3 = await cwCol2.where("slug", "==", slugCap).limit(1).get();
+            if (!cw3.empty) {
+              libroData = cw3.docs[0].data();
+            } else {
+              // 4. Fallback colección libros
+              const lib1 = await col("libros").doc(rawSlug).get();
+              if (lib1.exists) libroData = lib1.data();
+            }
+          }
+        }
+        if (libroData) {
+          const autoresArr = Array.isArray(libroData.autores) ? libroData.autores : [];
+          const autor = (libroData.campo_autor as string)
+            || (autoresArr[0]?.nombre as string)
+            || (libroData.autor as string) || "";
+          titulo = `${(libroData.titulo || libroData.nombre || "") as string}${autor ? ` de ${autor}` : ""} — Editorial Nazarí`;
+          desc   = ((libroData.descripcion || libroData.sinopsis || "") as string).slice(0, 160) || desc;
+          let imgRaw = ((libroData.imagen_url || libroData.imagen || libroData.thumbnail_url || "") as string);
+          // Convertir rutas relativas en absolutas (los libros guardan "img/portada.webp")
+          if (imgRaw && !imgRaw.startsWith("http")) {
+            imgRaw = NAZARI_BASE + "/" + imgRaw.replace(/^\//, "");
+          }
+          if (imgRaw) { imagen = imgRaw; ogImgW = 400; ogImgH = 600; }
+        }
+      }
+    } catch (_) { /* valores por defecto */ }
+
+    const x = (s: string) => s.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+    res.set("Cache-Control", "public, max-age=3600");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(`<!DOCTYPE html><html><head>
+<meta charset="utf-8"><title>${x(titulo)}</title>
+<meta property="og:title" content="${x(titulo)}">
+<meta property="og:description" content="${x(desc)}">
+<meta property="og:image" content="${x(imagen)}">
+<meta property="og:image:width" content="${ogImgW}">
+<meta property="og:image:height" content="${ogImgH}">
+<meta property="og:url" content="${x(url)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Editorial Nazarí">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${x(imagen)}">
+<meta http-equiv="refresh" content="0;url=${x(url)}">
+</head><body></body></html>`);
   }
 );

@@ -274,6 +274,17 @@ service firebase.storage {
         && request.resource.size < 2 * 1024 * 1024; // max 2MB
     }
 
+    // ── MANUSCRITOS (formulario público web Nazarí) ─────────────────────────
+    // Cualquier visitante puede subir PDF/DOCX hasta 20 MB.
+    // Solo usuarios autenticados (admin) pueden leer/descargar.
+    match /manuscritos/{filename} {
+      allow write: if request.resource.size < 20 * 1024 * 1024
+          && (request.resource.contentType == 'application/pdf'
+              || request.resource.contentType == 'application/msword'
+              || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      allow read: if request.auth != null;
+    }
+
     // ── REGLA POR DEFECTO: denegar todo lo demás ────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

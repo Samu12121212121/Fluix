@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/mixins/safe_stream_mixin.dart';
 import '../../../core/providers/app_config_provider.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/permisos_service.dart';
 import '../../../services/contenido_web_service.dart';
 import '../../../services/demo_cuenta_service.dart';
 import '../../../services/catalogo_web_sync_service.dart';
@@ -79,6 +80,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   // clave: id del módulo ('mensajes', 'analytics', 'campanas', 'config')
   Map<String, _WebModFijoCfg> _modsFijosConfig = {};
   StreamSubscription<DocumentSnapshot>? _modsCfgSub;
+
+  // Config de acceso staff: qué módulos fijos del hub web puede ver el rol staff
+  // null = sin restricción (muestra todos según _modsFijosAplicados)
+  List<String>? _staffWebModulos;
+  StreamSubscription<DocumentSnapshot>? _staffCfgSub;
 
   // Cache del blog compartido por todas las fichas del hub.
   List<EntradaBlog> _blogCache = [];
@@ -157,6 +163,17 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         }
       }
       setState(() => _modsFijosConfig = mapa);
+    }, onError: (_) {});
+    // Suscripción a config de acceso staff para el hub web
+    _staffCfgSub = FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('configuracion').doc('staff_config')
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      final data = snap.data() ?? {};
+      final raw = data['web_modulos_fijos'] as List<dynamic>?;
+      setState(() => _staffWebModulos = raw?.map((e) => e.toString()).toList());
     }, onError: (_) {});
     _blogSub = _svc.obtenerBlog(widget.empresaId).listen(
       (entries) { if (mounted) setState(() => _blogCache = entries); },
@@ -445,6 +462,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     _hubPageCtrl.dispose();
     _seccionesSub?.cancel();
     _modsCfgSub?.cancel();
+    _staffCfgSub?.cancel();
     _blogSub?.cancel();
     _noticiasSub?.cancel();
     _entrevistasSub?.cancel();
@@ -582,11 +600,26 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         }).toList();
   }
 
+  bool get _esStaff =>
+      PermisosService().sesion?.esStaff == true &&
+      PermisosService().sesion?.esAdmin != true;
+
   // Módulos leídos directamente de web_secciones + utilidades fijas al final
-  List<_WebMod> get _mods => [
-    ..._seccionesFiltradas.map((s) => s.toWebMod()),
-    ..._modsFijosAplicados,
-  ];
+  List<_WebMod> get _mods {
+    List<_WebMod> fijos;
+    if (_esStaff) {
+      // Filtrar por config de Firestore (staff_config.web_modulos_fijos)
+      // Si no hay config en Firestore, usar ['campanas'] como default seguro
+      final permitidos = _staffWebModulos ?? ['campanas'];
+      fijos = _modsFijosAplicados.where((m) => permitidos.contains(m.id)).toList();
+    } else {
+      fijos = _modsFijosAplicados;
+    }
+    return [
+      ..._seccionesFiltradas.map((s) => s.toWebMod()),
+      ...fijos,
+    ];
+  }
 
   String get _appBarTitulo {
     if (_subVista != null) return _subVistaTitulo(_subVista!);
@@ -652,11 +685,11 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
   Widget _buildHubListaMobile(List<_WebMod> mods) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-      itemCount: mods.length + 1,
+      itemCount: mods.length + (_esStaff ? 0 : 1),
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         if (i < mods.length) return _buildModuloTileMobile(mods[i]);
-        // Tarjeta "añadir sección"
+        // Tarjeta "añadir sección" (solo visible para admin/propietario)
         return GestureDetector(
           onTap: () => _mostrarDialogoSeccion(context),
           child: Container(
@@ -757,7 +790,7 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
 
   Widget _buildHubGrid() {
     final mods = _mods;
-    final totalItems = mods.length + 1; // +1 tarjeta "añadir"
+    final totalItems = mods.length + (_esStaff ? 0 : 1); // staff no ve "añadir sección"
 
     return LayoutBuilder(builder: (ctx, constraints) {
       // MÓVIL (<600px): lista vertical scrollable — sin overflows, sin área negra

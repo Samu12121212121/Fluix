@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/contacto_web_service.dart';
 
@@ -585,22 +588,9 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
                             overflow: TextOverflow.ellipsis,
                           )),
                           const SizedBox(width: 8),
-                          FilledButton.icon(
-                            onPressed: () async {
-                              final uri = Uri.parse(msg.archivoUrl!);
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri, mode: LaunchMode.externalApplication);
-                              }
-                            },
-                            icon: const Icon(Icons.download_rounded, size: 14),
-                            label: const Text('Abrir', style: TextStyle(fontSize: 12)),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF6B1E2A),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
+                          _BtnDescargarAdjunto(
+                            url: msg.archivoUrl!,
+                            nombre: msg.archivoNombre ?? 'manuscrito.pdf',
                           ),
                         ]),
                       ),
@@ -610,20 +600,23 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Mensaje',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey)),
+              Row(children: [
+                const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
+                const SizedBox(width: 5),
+                const Text('Mensaje del remitente',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B))),
+              ]),
               const SizedBox(height: 6),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FA),
+                  color: const Color(0xFFF0F4FF),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBFD0F0)),
                 ),
-                child: Text(
+                child: SelectableText(
                   msg.mensaje,
                   style: const TextStyle(fontSize: 15, height: 1.6),
                 ),
@@ -797,6 +790,80 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTÓN DESCARGAR ADJUNTO — descarga al disco en Desktop, abre en navegador en móvil
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BtnDescargarAdjunto extends StatefulWidget {
+  final String url;
+  final String nombre;
+  const _BtnDescargarAdjunto({required this.url, required this.nombre});
+
+  @override
+  State<_BtnDescargarAdjunto> createState() => _BtnDescargarAdjuntoState();
+}
+
+class _BtnDescargarAdjuntoState extends State<_BtnDescargarAdjunto> {
+  bool _descargando = false;
+
+  Future<void> _abrir() async {
+    final esDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    if (!esDesktop) {
+      final uri = Uri.parse(widget.url);
+      if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    setState(() => _descargando = true);
+    try {
+      final response = await http.get(Uri.parse(widget.url));
+      final dir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+      final nombre = widget.nombre.isNotEmpty ? widget.nombre : 'manuscrito.pdf';
+      final file = File('${dir.path}${Platform.pathSeparator}$nombre');
+      await file.writeAsBytes(response.bodyBytes);
+      final fileUri = file.uri;
+      if (await canLaunchUrl(fileUri)) {
+        await launchUrl(fileUri);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Guardado en ${file.path}'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al descargar: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _descargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: _descargando ? null : _abrir,
+      icon: _descargando
+          ? const SizedBox(width: 12, height: 12,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 1.5))
+          : const Icon(Icons.download_rounded, size: 14),
+      label: Text(_descargando ? 'Descargando…' : 'Descargar',
+          style: const TextStyle(fontSize: 12)),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF6B1E2A),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
 
 class _FilaDato extends StatelessWidget {
   final IconData icono;

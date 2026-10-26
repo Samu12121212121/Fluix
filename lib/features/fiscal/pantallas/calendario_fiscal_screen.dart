@@ -126,12 +126,6 @@ class CalendarioFiscalScreen extends StatelessWidget {
           obligacion: 'Pago fraccionado de IRPF (autónomos en estimación directa)',
           fecha: fecha,
         ),
-        VencimientoFiscal(
-          modelo: '202',
-          descripcion: 'Modelo 202 - Pago fraccionado IS $trimestre',
-          obligacion: 'Pago fraccionado del Impuesto sobre Sociedades',
-          fecha: fecha,
-        ),
       ]);
       
       // Modelo 349 solo en trimestres donde hay operaciones intracomunitarias
@@ -145,6 +139,28 @@ class CalendarioFiscalScreen extends StatelessWidget {
       );
     }
     
+    // Modelo 202 — 3 períodos (1P=20 abr, 2P=20 oct, 3P=20 dic); no en julio
+    vencimientos.addAll([
+      VencimientoFiscal(
+        modelo: '202',
+        descripcion: 'Modelo 202 - Pago fraccionado IS 1P/$anio',
+        obligacion: 'Pago fraccionado del Impuesto sobre Sociedades',
+        fecha: DateTime(anio, 4, 20),
+      ),
+      VencimientoFiscal(
+        modelo: '202',
+        descripcion: 'Modelo 202 - Pago fraccionado IS 2P/$anio',
+        obligacion: 'Pago fraccionado del Impuesto sobre Sociedades',
+        fecha: DateTime(anio, 10, 20),
+      ),
+      VencimientoFiscal(
+        modelo: '202',
+        descripcion: 'Modelo 202 - Pago fraccionado IS 3P/$anio',
+        obligacion: 'Pago fraccionado del Impuesto sobre Sociedades',
+        fecha: DateTime(anio, 12, 20),
+      ),
+    ]);
+
     // Anuales - enero del año siguiente
     final anioSiguiente = anio + 1;
     vencimientos.addAll([

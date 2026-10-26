@@ -596,11 +596,16 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         const SizedBox(height: 10),
         TextButton.icon(
           onPressed: () async {
-            await widget.svc.crearLibroEjemploNazari(widget.empresaId);
-            await widget.svc.migrarLibrosACatalogoWeb(widget.empresaId);
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✅ Ejemplo añadido al catálogo'),
-                  backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
+            try {
+              await widget.svc.crearLibroEjemploNazari(widget.empresaId);
+              await widget.svc.migrarLibrosACatalogoWeb(widget.empresaId);
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('✅ Ejemplo añadido al catálogo'),
+                    backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
+            } catch (e) {
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+            }
           },
           icon: Icon(Icons.auto_awesome_rounded, size: 14, color: color),
           label: Text('Generar ejemplo', style: TextStyle(color: color, fontSize: 12.5)),
@@ -1833,7 +1838,15 @@ class _PantallaEditorItemCatalogoState
       'descripcion':    _descCtrl.text.trim(),
       'activo':         _activo,
     };
-    void opt(String k, String v) { data[k] = v.isNotEmpty ? v : FieldValue.delete(); }
+    // FieldValue.delete() solo es válido en update/set-merge (docId != null)
+    // Para ítems nuevos omitir el campo en lugar de intentar borrarlo
+    void opt(String k, String v) {
+      if (v.isNotEmpty) {
+        data[k] = v;
+      } else if (docId != null) {
+        data[k] = FieldValue.delete();
+      }
+    }
 
     // Autores — guarda array + alias canónicos (primer autor = backward compat)
     final _autLista = _autoresEntries.map((e) => e.toMap()).where((m) => m.isNotEmpty).toList();
@@ -1864,12 +1877,13 @@ class _PantallaEditorItemCatalogoState
       final fg = first['genero'] as String? ?? '';
       if (fg.isNotEmpty) data['campo_traductor_genero'] = fg;
     } else {
-      // Si se quitaron todos los traductores, borrar campos legacy
-      data['traductores']           = [];
-      data['campo_traductor']       = FieldValue.delete();
-      data['traductor']             = FieldValue.delete();
-      data['campo_traductor_id']    = FieldValue.delete();
-      data['campo_traductor_genero'] = FieldValue.delete();
+      data['traductores'] = [];
+      if (docId != null) {
+        data['campo_traductor']        = FieldValue.delete();
+        data['traductor']              = FieldValue.delete();
+        data['campo_traductor_id']     = FieldValue.delete();
+        data['campo_traductor_genero'] = FieldValue.delete();
+      }
     }
 
     // Ilustradores
@@ -1884,12 +1898,13 @@ class _PantallaEditorItemCatalogoState
       final fg = first['genero'] as String? ?? '';
       if (fg.isNotEmpty) data['campo_ilustrador_genero'] = fg;
     } else {
-      // Si se quitaron todos los ilustradores, borrar campos legacy
-      data['ilustradores']           = [];
-      data['campo_ilustrador']       = FieldValue.delete();
-      data['ilustrador']             = FieldValue.delete();
-      data['campo_ilustrador_id']    = FieldValue.delete();
-      data['campo_ilustrador_genero'] = FieldValue.delete();
+      data['ilustradores'] = [];
+      if (docId != null) {
+        data['campo_ilustrador']        = FieldValue.delete();
+        data['ilustrador']              = FieldValue.delete();
+        data['campo_ilustrador_id']     = FieldValue.delete();
+        data['campo_ilustrador_genero'] = FieldValue.delete();
+      }
     }
     opt('campo_coleccion',   _coleccionCtrl.text.trim());
     opt('coleccion',         _coleccionCtrl.text.trim()); // alias canónico para web

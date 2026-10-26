@@ -218,7 +218,7 @@ class _PantallaFichajeEmpleadoState extends State<PantallaFichajeEmpleado> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: const FluixAppBar(titulo: 'Sistema de Fichaje'),
+      appBar: const FluixAppBar(titulo: 'Sistema de Fichaje', showLeading: true),
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500),

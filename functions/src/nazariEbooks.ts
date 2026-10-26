@@ -19,7 +19,7 @@
  */
 
 import * as admin from "firebase-admin";
-import { onRequest } from "firebase-functions/v2/https";
+import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import Stripe from "stripe";
 import { enviarDescargaEbook } from "./resend_service";
@@ -379,7 +379,11 @@ export const crearCheckoutNazari = onRequest(
 
       const totalBruto = resolvedItems.reduce((sum, i) => sum + i.precioEuros * i.cantidad, 0);
       const pesoTotal = resolvedItems.reduce((sum, i) => sum + i.pesoGramos * i.cantidad, 0);
-      const soloSinEnvio = resolvedItems.every(i => i.esEbook || i.esPreventa);
+      // soloSinEnvio: solo ebooks no necesitan dirección
+      const soloSinEnvio = resolvedItems.every(i => i.esEbook);
+      // todosPreventa: recogen dirección pero sin coste de envío (se cobra cuando salga el libro)
+      const todosPreventa = !soloSinEnvio && resolvedItems.every(i => i.esPreventa);
+      const sinCostoEnvio = soloSinEnvio || todosPreventa;
 
       // Descuento pack: si pack_mode=true, leer porcentaje desde Firestore
       let packDescuentoPct = 0;
@@ -416,8 +420,8 @@ export const crearCheckoutNazari = onRequest(
       const tieneEbook   = resolvedItems.some(i => i.esEbook);
       const tieneLibro   = resolvedItems.some(i => !i.esEbook);
 
-      // Calcular envío para métodos sin Stripe (Bizum y Transferencia)
-      const envioEuros = _calcEnvioEuros(zona || "ES", total, pesoTotal, soloSinEnvio);
+      // Calcular envío — preventa: 0€ (se cobrará cuando salga el libro)
+      const envioEuros = _calcEnvioEuros(zona || "ES", total, pesoTotal, sinCostoEnvio);
       const totalConEnvio = Math.round((total + envioEuros) * 100) / 100;
 
       // ── Rama: Bizum directo (pago al número de teléfono) ─────────────────
@@ -482,6 +486,11 @@ export const crearCheckoutNazari = onRequest(
       // ── Rama: Stripe (tarjeta + Bizum + métodos habilitados en dashboard) ──
       const stripe = new Stripe(stripeKey(), { apiVersion: "2024-06-20" as any });
 
+      // Envío estimado para Stripe — el webhook lo corregirá con el valor real
+      // elegido por el cliente en Stripe Checkout (puede ser ordinario o urgente).
+      const envioEstimadoStripe = envioEuros;
+      const totalEstimadoStripe = Math.round((total + envioEstimadoStripe) * 100) / 100;
+
       await ordenRef.set({
         email,
         nombre: nombre || "",
@@ -490,7 +499,9 @@ export const crearCheckoutNazari = onRequest(
         estado: "pendiente_pago",
         estado_pago: "pendiente",
         items: itemsGuardados,
-        total: Math.round(total * 100) / 100,
+        subtotal: Math.round(total * 100) / 100,
+        envio: envioEstimadoStripe,
+        total: totalEstimadoStripe,
         fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
         origen: "web_nazari",
         tiene_ebook: tieneEbook, tiene_libro: tieneLibro,
@@ -509,7 +520,8 @@ export const crearCheckoutNazari = onRequest(
       }));
 
       const zonaFinal = (zona || "ES").toUpperCase();
-      const shipping = soloSinEnvio ? [] : _shippingOptions(zonaFinal, total, pesoTotal);
+      const zonaFinal2 = zonaFinal; // alias para legibilidad
+      const shipping = soloSinEnvio || todosPreventa ? [] : _shippingOptions(zonaFinal2, total, pesoTotal);
 
       const sessionParams: Record<string, unknown> = {
         mode: "payment",
@@ -517,6 +529,7 @@ export const crearCheckoutNazari = onRequest(
         line_items: lineItems,
       };
       if (!soloSinEnvio) {
+        // Preventa: recoge dirección pero sin opciones de envío (se gestionará al publicarse)
         sessionParams.shipping_address_collection = {
           allowed_countries: zonaFinal === "ES"
             ? ["ES"]
@@ -524,7 +537,7 @@ export const crearCheckoutNazari = onRequest(
               ? ["AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE"]
               : undefined,
         };
-        sessionParams.shipping_options = shipping;
+        if (!todosPreventa) sessionParams.shipping_options = shipping;
       }
 
       const session = await (stripe.checkout.sessions.create as Function)({
@@ -598,14 +611,24 @@ export const stripeWebhookNazari = onRequest(
 
         // shipping_details (API ≥2022-08-01) o shipping (API legacy) — cast para compatibilidad de tipos
         const _s = session as any;
-        const shipping = _s.shipping_details || _s.shipping;
-        const dir = shipping?.address ? {
-          nombre:  shipping.name || nombre,
-          linea1:  shipping.address.line1  || "",
-          linea2:  shipping.address.line2  || "",
-          ciudad:  shipping.address.city   || "",
-          cp:      shipping.address.postal_code || "",
-          pais:    shipping.address.country || "",
+        let shippingRaw = _s.shipping_details || _s.shipping;
+        if (!shippingRaw?.address) {
+          // Fallback: recuperar sesión completa de Stripe API por si el webhook
+          // usa una versión antigua que no incluye shipping_details en el payload.
+          try {
+            const fullSess = await stripe.checkout.sessions.retrieve(session.id) as any;
+            shippingRaw = fullSess.shipping_details || fullSess.shipping;
+          } catch (_e) {
+            console.warn("No se pudo recuperar sesión completa:", _e);
+          }
+        }
+        const dir = shippingRaw?.address ? {
+          nombre:  shippingRaw.name || nombre,
+          linea1:  shippingRaw.address.line1  || "",
+          linea2:  shippingRaw.address.line2  || "",
+          ciudad:  shippingRaw.address.city   || "",
+          cp:      shippingRaw.address.postal_code || "",
+          pais:    shippingRaw.address.country || "",
         } : null;
 
         // Extraer totales reales de Stripe (incluye envío elegido por el cliente)
@@ -614,9 +637,22 @@ export const stripeWebhookNazari = onRequest(
         const amountSubtotalCents = typeof _s2.amount_subtotal === "number" ? _s2.amount_subtotal : null;
         const totalPagado    = amountTotalCents    != null ? Math.round(amountTotalCents    / 100 * 100) / 100 : undefined;
         const subtotalPagado = amountSubtotalCents != null ? Math.round(amountSubtotalCents / 100 * 100) / 100 : undefined;
-        const envioPagado    = (totalPagado != null && subtotalPagado != null)
-          ? Math.round((totalPagado - subtotalPagado) * 100) / 100
-          : undefined;
+
+        // Envío: leer shipping_cost.amount_total (campo dedicado de Stripe, más fiable
+        // que amount_total - amount_subtotal que puede incluir impuestos o descuentos).
+        // Fallback: diferencia total - subtotal si shipping_cost no está disponible.
+        const shippingCostCents: number | null =
+          typeof _s2.shipping_cost?.amount_total === "number"
+            ? _s2.shipping_cost.amount_total
+            : null;
+        const envioPagado: number | undefined =
+          shippingCostCents != null
+            ? Math.round(shippingCostCents / 100 * 100) / 100
+            : (totalPagado != null && subtotalPagado != null)
+              ? Math.round((totalPagado - subtotalPagado) * 100) / 100
+              : undefined;
+
+        console.log(`[Nazarí Webhook] total=${totalPagado} subtotal=${subtotalPagado} shipping_cost_cents=${shippingCostCents} envioPagado=${envioPagado}`);
 
         await ordenRef.update({
           estado: "pagado",
@@ -638,6 +674,50 @@ export const stripeWebhookNazari = onRequest(
           items: orden.items || [],
           referencia: session.id,
         });
+
+        // ── Mirror a `pedidos` para que aparezca en Fluix ─────────────────────
+        // Los pedidos web viven en pedidos_web_nazari; Fluix lee de pedidos.
+        // Evitar duplicado si ya fue migrado anteriormente.
+        try {
+          if (!orden.pedido_fluix_id) {
+            const total = totalPagado ?? (orden.total as number | undefined) ?? 0;
+            const subtotal = subtotalPagado ?? (orden.subtotal as number | undefined) ?? 0;
+            const envio = envioPagado ?? (orden.envio as number | undefined) ?? 0;
+            const lineas = ((orden.items || []) as Array<{ catalogo_id?: string; titulo?: string; cantidad?: number; precio?: number }>).map(i => ({
+              libro_id:        i.catalogo_id || "",
+              producto_nombre: i.titulo || "",
+              descripcion:     i.titulo || "",
+              cantidad:        i.cantidad || 1,
+              precio_unitario: i.precio || 0,
+              porcentaje_iva:  4,
+            }));
+            const pedidoFluixRef = await db.collection("empresas").doc(EID).collection("pedidos").add({
+              empresa_id:            EID,
+              cliente_nombre:        nombre || email,
+              cliente_correo:        email,
+              origen:                "web_nazari",
+              estado:                "pendiente",
+              estado_pago:           "pagado",
+              metodo_pago:           "tarjeta",
+              lineas,
+              total,
+              subtotal,
+              gastos_envio:          envio,
+              stripe_session_id:     session.id,
+              pedido_web_id:         ordenId,
+              ...(dir ? { direccion_envio: dir } : {}),
+              fecha_creacion:        admin.firestore.FieldValue.serverTimestamp(),
+              fecha_pedido:          admin.firestore.FieldValue.serverTimestamp(),
+              fecha_actualizacion:   admin.firestore.FieldValue.serverTimestamp(),
+              notas_internas:        `Compra online via Stripe. Web ID: ${ordenId}`,
+            });
+            // Guardar referencia cruzada para no duplicar
+            await ordenRef.update({ pedido_fluix_id: pedidoFluixRef.id });
+            console.log(`✅ Pedido web ${ordenId} → pedidos/${pedidoFluixRef.id}`);
+          }
+        } catch (mirrorErr) {
+          console.warn("Mirror a pedidos fallido (no crítico):", mirrorErr);
+        }
 
         // Notificar a Fluix — igual que Bizum/Transferencia en onNuevoPedidoWeb
         try {
@@ -786,6 +866,46 @@ export const onPedidoNazariPagado = onDocumentUpdated(
       referencia: `transferencia_${event.params.pedidoId}`,
     });
 
+    // Mirror a `pedidos` para que aparezca en Fluix (mismo patrón que Stripe)
+    if (!despues.pedido_fluix_id) {
+      try {
+        const total = (despues.total as number | undefined) ?? 0;
+        const subtotal = (despues.subtotal as number | undefined) ?? 0;
+        const envio = (despues.envio as number | undefined) ?? 0;
+        const lineas = (items as Array<{ catalogo_id?: string; titulo?: string; cantidad?: number; precio?: number }>).map(i => ({
+          libro_id:        i.catalogo_id || "",
+          producto_nombre: i.titulo || "",
+          descripcion:     i.titulo || "",
+          cantidad:        i.cantidad || 1,
+          precio_unitario: i.precio || 0,
+          porcentaje_iva:  4,
+        }));
+        const metodo = (despues.metodo_pago as string) ?? "transferencia";
+        const pedidoFluixRef = await db.collection("empresas").doc(EID).collection("pedidos").add({
+          empresa_id:          EID,
+          cliente_nombre:      nombre || email,
+          cliente_correo:      email,
+          origen:              "web_nazari",
+          estado:              "pendiente",
+          estado_pago:         "pagado",
+          metodo_pago:         metodo,
+          lineas,
+          total,
+          subtotal,
+          gastos_envio:        envio,
+          pedido_web_id:       event.params.pedidoId,
+          fecha_creacion:      admin.firestore.FieldValue.serverTimestamp(),
+          fecha_pedido:        admin.firestore.FieldValue.serverTimestamp(),
+          fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          notas_internas:      `Compra online via ${metodo}. Web ID: ${event.params.pedidoId}`,
+        });
+        await event.data?.after.ref.update({ pedido_fluix_id: pedidoFluixRef.id });
+        console.log(`✅ Pedido web ${event.params.pedidoId} → pedidos/${pedidoFluixRef.id}`);
+      } catch (mirrorErr) {
+        console.warn("Mirror a pedidos (transferencia) fallido:", mirrorErr);
+      }
+    }
+
     console.log(`✅ Ebooks entregados por transferencia — pedido ${event.params.pedidoId}`);
   }
 );
@@ -840,6 +960,23 @@ export const simularCompraEbook = onRequest(
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).send("POST only"); return; }
 
+    // Verificar que el llamador es plataforma_admin
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.status(401).json({ ok: false, error: "No autorizado" });
+      return;
+    }
+    try {
+      const decoded = await admin.auth().verifyIdToken(authHeader.split(" ")[1]);
+      if (!decoded.plataforma_admin) {
+        res.status(403).json({ ok: false, error: "Acceso denegado" });
+        return;
+      }
+    } catch {
+      res.status(401).json({ ok: false, error: "Token inválido" });
+      return;
+    }
+
     const { catalogo_id, email, nombre } = req.body as {
       catalogo_id?: string; email?: string; nombre?: string;
     };
@@ -885,5 +1022,79 @@ export const simularCompraEbook = onRequest(
       console.error("simularCompraEbook error:", err.message);
       res.status(500).json({ ok: false, error: err.message });
     }
+  }
+);
+
+/** Recupera la dirección de envío de Stripe para un pedido web de Nazarí sin dirección.
+ *  Acepta pedidoWebId (ID en pedidos_web_nazari) o pedidoId (ID en pedidos). */
+export const recuperarDireccionPedidoNazari = onCall(
+  { region: REGION, secrets: ["STRIPE_SECRET_KEY_NAZARI"] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "No autenticado");
+    const { pedidoId, pedidoWebId, empresaId } = request.data as {
+      pedidoId?: string; pedidoWebId?: string; empresaId: string;
+    };
+    if (!empresaId || (!pedidoId && !pedidoWebId))
+      throw new HttpsError("invalid-argument", "Faltan parámetros");
+
+    const db2 = admin.firestore();
+    let stripeSessionId = "";
+    let fluixPedidoRef: admin.firestore.DocumentReference | null = null;
+    let webPedidoRef: admin.firestore.DocumentReference | null = null;
+
+    // Rama 1: viene de pedidos_web_nazari
+    if (pedidoWebId) {
+      webPedidoRef = db2.collection("empresas").doc(EID)
+        .collection("pedidos_web_nazari").doc(pedidoWebId);
+      const webSnap = await webPedidoRef.get();
+      if (!webSnap.exists) throw new HttpsError("not-found", "Pedido web no encontrado");
+      const wData = webSnap.data()!;
+      stripeSessionId = (wData.stripe_session_id as string) || "";
+      const fluixId = (wData.pedido_fluix_id as string) || "";
+      if (fluixId) {
+        fluixPedidoRef = db2.collection("empresas").doc(EID).collection("pedidos").doc(fluixId);
+      }
+    }
+
+    // Rama 2: viene de pedidos (Fluix)
+    if (pedidoId && !stripeSessionId) {
+      fluixPedidoRef = db2.collection("empresas").doc(empresaId).collection("pedidos").doc(pedidoId);
+      const fluixSnap = await fluixPedidoRef.get();
+      if (!fluixSnap.exists) throw new HttpsError("not-found", "Pedido no encontrado");
+      const fData = fluixSnap.data()!;
+      stripeSessionId = (fData.stripe_session_id as string) || "";
+      const webId = (fData.pedido_web_id as string) || "";
+      if (!stripeSessionId && webId) {
+        const wSnap = await db2.collection("empresas").doc(EID)
+          .collection("pedidos_web_nazari").doc(webId).get();
+        if (wSnap.exists) stripeSessionId = (wSnap.data()!.stripe_session_id as string) || "";
+        webPedidoRef = db2.collection("empresas").doc(EID)
+          .collection("pedidos_web_nazari").doc(webId);
+      }
+    }
+
+    if (!stripeSessionId) throw new HttpsError("not-found", "No se encontró el ID de sesión de Stripe");
+
+    const stripe = new Stripe(stripeKey());
+    const session = await stripe.checkout.sessions.retrieve(stripeSessionId) as any;
+    const nombre = session.customer_details?.name || "";
+    const shippingRaw = session.shipping_details || session.shipping;
+    if (!shippingRaw?.address) throw new HttpsError("not-found", "Este pedido no tiene dirección en Stripe");
+
+    // Guardar como Map (para pedidos_web_nazari) y como String (para pedidos Fluix)
+    const dirMap = {
+      nombre: shippingRaw.name || nombre,
+      linea1: shippingRaw.address.line1 || "",
+      linea2: shippingRaw.address.line2 || "",
+      ciudad: shippingRaw.address.city || "",
+      cp:     shippingRaw.address.postal_code || "",
+      pais:   shippingRaw.address.country || "",
+    };
+    const dirStr = [dirMap.nombre, dirMap.linea1, dirMap.linea2,
+      `${dirMap.cp} ${dirMap.ciudad}`.trim(), dirMap.pais].filter(Boolean).join(", ");
+
+    if (webPedidoRef) await webPedidoRef.update({ direccion_envio: dirMap });
+    if (fluixPedidoRef) await fluixPedidoRef.update({ direccion_envio: dirStr });
+    return { direccion: dirStr, dir: dirMap };
   }
 );

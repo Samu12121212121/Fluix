@@ -206,13 +206,13 @@ class RegistroFacturacionAlta {
     final fechaHoraStr =
         '${fechaHoraGeneracion.year}${fechaHoraGeneracion.month.toString().padLeft(2, '0')}${fechaHoraGeneracion.day.toString().padLeft(2, '0')}${fechaHoraGeneracion.hour.toString().padLeft(2, '0')}${fechaHoraGeneracion.minute.toString().padLeft(2, '0')}${fechaHoraGeneracion.second.toString().padLeft(2, '0')}$zonaHoraria';
 
+    // Campos del Bloque 6 Orden HAC/1177/2024 — descripcion NO forma parte de la huella
     final concatenado = '$nifEmisor'
         '$numeroFacturaCompleto'
         '$fechaExpStr'
         '${tipoFactura.codigo}'
         '$cuotaStr'
         '$importeStr'
-        '$descripcion'
         '$fechaHoraStr';
 
     return sha256.convert(utf8.encode(concatenado)).toString();

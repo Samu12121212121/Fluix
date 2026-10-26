@@ -171,8 +171,9 @@ service cloud.firestore {
     allow read: if isAuth()
       && resource.data.get('activo', false) == true
       && resource.data.empresa_id is string;
-    allow list: if isAuth()
-      && !esAnonimo();
+    allow list: if (esUsuarioReal() && existeUsuarioDoc()
+        && (getRol() == 'admin' || getRol() == 'propietario'))
+      || esPlataformaAdmin();
 
     // Admin de plataforma puede crear cualquier usuario (alta de nuevas cuentas)
     allow create: if esPlataformaAdmin();
@@ -708,9 +709,11 @@ service cloud.firestore {
       allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
 
       // Empleado puede actualizar su propio fichaje (fichar salida, iniciar/finalizar pausa)
+      // salida solo se puede escribir si aún no tiene valor (no se puede reabrir una jornada cerrada)
       allow update: if perteneceAEmpresa(empresaId)
         && resource.data.empleado_id == request.auth.uid
         && resource.data.get('es_correccion', false) == false
+        && resource.data.get('salida', null) == null
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['salida', 'pausas']);
 
@@ -723,6 +726,13 @@ service cloud.firestore {
         allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
         allow update, delete: if false;
+      }
+
+      // audit_log — trazabilidad de correcciones (RDL 8/2019)
+      // Solo lectura para admin/propietario; escritura exclusiva de Cloud Functions via Admin SDK
+      match /audit_log/{entradaId} {
+        allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow create, update, delete: if false;
       }
     }
 
@@ -746,7 +756,7 @@ service cloud.firestore {
 
     match /contenido_web/{docId} {
       allow read: if true;
-      allow write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
     // Script SDK de Fluix: el ping de estado se escribe una vez por sesión (auth anónima).
@@ -760,8 +770,14 @@ service cloud.firestore {
     // Blog público — lectura libre para la web del cliente
     match /blog/{postId} {
       allow read: if true;
-      // Staff puede crear y editar entradas (borradores incluidos); solo admin/propietario puede borrar
-      allow create, update: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      // Admin, propietario, plataforma
+      allow create, update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Staff de la empresa (inline — evita cadena de funciones auxiliares)
+      allow create, update: if isAuth()
+          && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['staff', 'admin', 'propietario'];
       allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
       // Herramienta de importación masiva (usuario anónimo — solo empresa Nazarí)
       allow create: if esAnonimo()
@@ -775,7 +791,12 @@ service cloud.firestore {
 
       // Historial de versiones del editor
       match /versiones/{versionId} {
-        allow read, write: if esAdminOPropietario(empresaId) || esStaffOSuperior(empresaId) || esPlataformaAdmin();
+        allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+        allow read, write: if isAuth()
+            && request.auth.token.firebase.sign_in_provider != 'anonymous'
+            && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+            && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
+            && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['staff', 'admin', 'propietario'];
       }
     }
 
@@ -794,6 +815,11 @@ service cloud.firestore {
     match /libros/{libroId} {
       allow read: if true;
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if isAuth()
+          && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'propietario'];
     }
 
     match /autores/{autorId} {
@@ -801,12 +827,16 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
-    // Catálogo web genérico — lectura pública (web script onSnapshot) + write admin
+    // Catálogo web genérico — lectura pública (web script onSnapshot) + write admin/staff
     match /catalogo_web/{itemId} {
       allow read: if true;
-      allow write: if esAdminOPropietario(empresaId)
-        || esPlataformaAdmin()
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin()
         || staffTieneModulo(empresaId, 'catalogo');
+      allow write: if isAuth()
+          && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresa_id == empresaId
+          && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['staff', 'admin', 'propietario'];
     }
 
     // Categorías y colecciones del catálogo editorial (Nazarí)
@@ -821,8 +851,8 @@ service cloud.firestore {
 
     // Pedidos web y ebooks (Nazarí)
     match /pedidos_web_nazari/{pedidoId} {
-      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
-      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow read: if puedeVerModulo(empresaId, 'pedidos') || esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow write: if puedeVerModulo(empresaId, 'pedidos') || esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
     match /descargas_ebook/{tokenId} {
       allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin();

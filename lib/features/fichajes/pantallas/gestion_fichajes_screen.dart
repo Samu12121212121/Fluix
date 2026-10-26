@@ -111,7 +111,34 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         );
         if (mounted) FluxToast.exito(context, 'Entrada registrada');
       }
-      await _cargarMiFichaje();
+      // El stream se actualiza automáticamente — no necesita recargar
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _fichando = false);
+    }
+  }
+
+  Future<void> _ficharPausa(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _fichando = true);
+    try {
+      final enPausa = _misFichaje != null &&
+          _misFichaje!.pausas.any((p) => p.fin == null);
+      if (enPausa) {
+        await _svc.finalizarPausa(
+          empresaId: widget.empresaId,
+          empleadoId: user.uid,
+        );
+        if (mounted) FluxToast.exito(context, 'Pausa finalizada');
+      } else {
+        await _svc.iniciarPausa(
+          empresaId: widget.empresaId,
+          empleadoId: user.uid,
+        );
+        if (mounted) FluxToast.exito(context, 'Pausa iniciada');
+      }
     } catch (e) {
       if (mounted) FluxToast.error(context, 'Error: $e');
     } finally {
@@ -271,11 +298,9 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           Text(f.empleadoNombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 3),
-          Row(children: [
+          Wrap(spacing: 6, runSpacing: 2, children: [
             _tag(Icons.login_rounded, entH, _kGreen),
-            const SizedBox(width: 6),
             _tag(Icons.logout_rounded, salH, _kGray),
-            const SizedBox(width: 6),
             _tag(Icons.timer_outlined, netoTxt, _kSub),
           ]),
         ])),
@@ -314,8 +339,11 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         child: Row(children: [
           const FluixLogo(size: 22),
           const SizedBox(width: 8),
-          const Text('Inicio', style: TextStyle(fontWeight: FontWeight.w600,
-              fontSize: 15, letterSpacing: -0.3, color: _kSub)),
+          GestureDetector(
+            onTap: () => Navigator.maybePop(context),
+            child: const Text('Inicio', style: TextStyle(fontWeight: FontWeight.w600,
+                fontSize: 15, letterSpacing: -0.3, color: _kSub)),
+          ),
           const Icon(Icons.chevron_right_rounded, size: 16, color: _kSub),
           const Text('Fichajes', style: TextStyle(fontWeight: FontWeight.w700,
               fontSize: 16, letterSpacing: -0.2, color: _kText)),
@@ -338,6 +366,11 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded, color: _kSub, size: 20),
             tooltip: 'Informes',
+            onPressed: () => _openSheet(context, _TabInformes(empresaId: widget.empresaId)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined, color: _kSub, size: 20),
+            tooltip: 'Descargar PDF de horas',
             onPressed: () => _openSheet(context, _TabInformes(empresaId: widget.empresaId)),
           ),
         ]),
@@ -373,6 +406,9 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
             () => _openSheet(context, _TabEmpleados(empresaId: widget.empresaId))),
         const SizedBox(width: 8),
         _hBtn(Icons.bar_chart_rounded, 'Informes',
+            () => _openSheet(context, _TabInformes(empresaId: widget.empresaId))),
+        const SizedBox(width: 8),
+        _hBtn(Icons.picture_as_pdf_outlined, 'Informe PDF',
             () => _openSheet(context, _TabInformes(empresaId: widget.empresaId))),
       ]),
     );
@@ -497,6 +533,11 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     final trabajando = _misFichaje != null && _misFichaje!.salida == null;
     final enPausa = trabajando && _misFichaje!.pausas.isNotEmpty &&
         _misFichaje!.pausas.any((p) => p.fin == null);
+    final pausaDesdeStr = enPausa
+        ? DateFormat('HH:mm').format(
+            _misFichaje!.pausas.lastWhere((p) => p.fin == null)
+                .inicio.toDate().toLocal())
+        : null;
 
     return _card(
       child: Column(children: [
@@ -515,31 +556,35 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         const SizedBox(height: 10),
         // Estado badge
         if (entradaStr != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: enPausa
-                  ? _kOrange.withValues(alpha: 0.12)
-                  : _kGreen.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 7, height: 7,
-                decoration: BoxDecoration(
-                  color: enPausa ? _kOrange : _kGreen,
-                  shape: BoxShape.circle,
-                )),
-              const SizedBox(width: 6),
-              Text(
-                enPausa
-                    ? 'En pausa desde $entradaStr'
-                    : 'Trabajando desde $entradaStr',
-                style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500,
-                  color: enPausa ? _kOrange : _kGreen,
-                ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: enPausa
+                    ? _kOrange.withValues(alpha: 0.12)
+                    : _kGreen.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
               ),
-            ]),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(width: 7, height: 7,
+                  decoration: BoxDecoration(
+                    color: enPausa ? _kOrange : _kGreen,
+                    shape: BoxShape.circle,
+                  )),
+                const SizedBox(width: 6),
+                Text(
+                  enPausa
+                      ? 'En pausa desde ${pausaDesdeStr ?? entradaStr}'
+                      : 'Trabajando desde $entradaStr',
+                  style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500,
+                    color: enPausa ? _kOrange : _kGreen,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ]),
+            ),
           )
         else
           Container(
@@ -580,9 +625,44 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
             ),
           ),
         ),
+        if (trabajando || enPausa) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _fichando ? null : () => _ficharPausa(context),
+              icon: Icon(
+                enPausa ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                size: 18,
+              ),
+              label: Text(
+                enPausa ? 'Reanudar jornada' : 'Iniciar pausa',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _kOrange,
+                side: const BorderSide(color: _kOrange),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         TextButton(
-          onPressed: () {},
+          onPressed: () {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user == null) return;
+            showDialog(context: context, builder: (_) => _DialogFichajesEmpleado(
+              empresaId: widget.empresaId,
+              empleadoId: user.uid,
+              empleadoNombre: user.displayName ?? 'Administrador',
+              mes: DateTime.now(),
+              svc: _svc,
+              onCorregido: _cargarMiFichaje,
+            ));
+          },
           child: const Text('¿Olvidaste fichar entrada?',
               style: TextStyle(fontSize: 12, color: _kGreen,
                   decoration: TextDecoration.underline)),
@@ -598,11 +678,18 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     final entrada  = _misFichaje?.entrada?.toDate().toLocal();
     final salida   = _misFichaje?.salida?.toDate().toLocal();
     final pausas   = _misFichaje?.pausas ?? [];
-    final pausaStr = pausas.isNotEmpty
-        ? DateFormat('HH:mm').format(pausas.first.inicio.toDate().toLocal())
+    final ultimaPausa = pausas.isNotEmpty ? pausas.last : null;
+    final pausaStr = ultimaPausa != null
+        ? DateFormat('HH:mm').format(ultimaPausa.inicio.toDate().toLocal())
         : null;
-    final reanuStr = pausas.isNotEmpty && pausas.first.fin != null
-        ? DateFormat('HH:mm').format(pausas.first.fin!.toDate().toLocal())
+    final reanuStr = ultimaPausa?.fin != null
+        ? DateFormat('HH:mm').format(ultimaPausa!.fin!.toDate().toLocal())
+        : null;
+    final pausaDurStr = ultimaPausa?.duracion != null
+        ? '${ultimaPausa!.duracion!.inMinutes}m'
+        : null;
+    final salidaEstimada = entrada != null
+        ? DateFormat('HH:mm').format(entrada.add(const Duration(hours: 8)))
         : null;
 
     return Column(children: [
@@ -612,7 +699,18 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _kText)),
         const Spacer(),
         TextButton(
-          onPressed: () {},
+          onPressed: () {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user == null) return;
+            showDialog(context: context, builder: (_) => _DialogFichajesEmpleado(
+              empresaId: widget.empresaId,
+              empleadoId: user.uid,
+              empleadoNombre: user.displayName ?? 'Administrador',
+              mes: DateTime.now(),
+              svc: _svc,
+              onCorregido: _cargarMiFichaje,
+            ));
+          },
           style: TextButton.styleFrom(foregroundColor: _kSub,
               padding: EdgeInsets.zero,
               textStyle: const TextStyle(fontSize: 12)),
@@ -632,7 +730,9 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
               'Entrada', true),
           _timelineLine(_kGreen),
           _timelineItem(Icons.coffee_rounded, _kOrange,
-              pausaStr ?? '--:--', 'Descanso\n30m', pausaStr != null),
+              pausaStr ?? '--:--',
+              pausaDurStr != null ? 'Descanso\n$pausaDurStr' : 'Descanso',
+              pausaStr != null),
           _timelineLine(reanuStr != null ? _kGreen : _kBorder),
           _timelineItem(Icons.play_arrow_rounded, _kGreen,
               reanuStr ?? '--:--', 'Reanudación', reanuStr != null),
@@ -640,8 +740,8 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           _timelineItem(Icons.logout_rounded, _kGray,
               salida != null
                   ? DateFormat('HH:mm').format(salida)
-                  : '17:30',
-              salida != null ? 'Salida' : 'Salida estimada', false),
+                  : salidaEstimada ?? '—',
+              salida != null ? 'Salida' : 'Salida prev.', false),
         ]),
       ),
       const SizedBox(height: 8),
@@ -734,7 +834,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
               child: Column(children: [
                 // Cabeceras de columna
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: const BoxDecoration(
                       border: Border(bottom: BorderSide(color: _kBorder))),
                   child: Row(children: const [
@@ -775,7 +875,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
             : ('Finalizada', _kGray);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6)))),
       child: Row(children: [
@@ -808,12 +908,8 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
               color: badgeColor, fontWeight: FontWeight.w600)),
         )),
         const SizedBox(width: 130,
-            child: Text('Madrid, España', style: TextStyle(fontSize: 12, color: _kSub))),
-        SizedBox(width: 100, child: Row(children: const [
-          Icon(Icons.computer_rounded, size: 14, color: _kSub),
-          SizedBox(width: 4),
-          Text('Web', style: TextStyle(fontSize: 12, color: _kSub)),
-        ])),
+            child: Text('—', style: TextStyle(fontSize: 12, color: _kSub))),
+        SizedBox(width: 100, child: _dispositivoWidget(f.dispositivoId)),
         InkWell(
           onTap: () => _verFichajeDetalleDialog(context, f),
           child: const SizedBox(width: 30,
@@ -854,9 +950,13 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
   Widget _estadoActual() {
     final entrada = _misFichaje?.entrada?.toDate().toLocal();
     final trabajando = _misFichaje != null && _misFichaje!.salida == null;
+    final finalizado = _misFichaje?.salida != null;
     final horasMin = _misFichaje?.tiempoNeto?.inMinutes ?? 0;
     final horasTxt = '${horasMin ~/ 60}h ${(horasMin % 60).toString().padLeft(2,'0')}m';
     final entradaTxt = entrada != null ? DateFormat('HH:mm').format(entrada) : '—';
+    final salidaPrevTxt = entrada != null
+        ? DateFormat('HH:mm').format(entrada.add(const Duration(hours: 8)))
+        : '—';
     final uid = FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
 
     return _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -886,12 +986,20 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: trabajando ? _kGreen.withValues(alpha: 0.1) : const Color(0xFFF3F4F6),
+            color: trabajando
+                ? _kGreen.withValues(alpha: 0.1)
+                : finalizado
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text(trabajando ? 'Trabajando' : 'Sin fichar',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                  color: trabajando ? _kGreen : _kGray)),
+          child: Text(
+            trabajando ? 'Trabajando' : finalizado ? 'Finalizada' : 'Sin fichar',
+            style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600,
+              color: trabajando ? _kGreen : finalizado ? const Color(0xFF3B82F6) : _kGray,
+            ),
+          ),
         ),
       ]),
       const SizedBox(height: 14),
@@ -899,29 +1007,10 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
       const SizedBox(height: 12),
       Row(children: [
         Expanded(child: _infoRow(Icons.access_time_outlined, 'Entrada hoy', entradaTxt)),
-        Expanded(child: _infoRow(Icons.timer_outlined, 'Próxima pausa', '17:00')),
+        Expanded(child: _infoRow(Icons.timer_outlined, 'Salida prev.', salidaPrevTxt)),
       ]),
       const SizedBox(height: 10),
-      Row(children: [
-        Expanded(child: _infoRow(Icons.schedule_outlined, 'Horas trabajadas', horasTxt)),
-        Expanded(child: _infoRow(Icons.place_outlined, 'Ubicación', 'Madrid, España')),
-      ]),
-      const SizedBox(height: 12),
-      // Mini mapa placeholder
-      ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 80,
-          width: double.infinity,
-          color: const Color(0xFFE8F5E9),
-          child: Stack(children: [
-            Center(child: Icon(Icons.map_outlined, size: 40, color: Colors.green[200])),
-            const Positioned(bottom: 8, right: 8,
-              child: _MapButton(),
-            ),
-          ]),
-        ),
-      ),
+      _infoRow(Icons.schedule_outlined, 'Horas trabajadas', horasTxt),
     ]));
   }
 
@@ -930,11 +1019,12 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     children: [
       Icon(icon, size: 14, color: _kSub),
       const SizedBox(width: 6),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: _kSub)),
+      Flexible(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: _kSub),
+            overflow: TextOverflow.ellipsis),
         Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-            color: _kText)),
-      ]),
+            color: _kText), overflow: TextOverflow.ellipsis),
+      ])),
     ],
   );
 
@@ -1066,6 +1156,26 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     final meses  = ['enero','febrero','marzo','abril','mayo','junio',
         'julio','agosto','septiembre','octubre','noviembre','diciembre'];
     return '${dias[d.weekday - 1]}, ${d.day} de ${meses[d.month - 1]} de ${d.year}';
+  }
+
+  Widget _dispositivoWidget(String dispositivoId) {
+    final isKiosk = dispositivoId.startsWith('kiosk_') ||
+        dispositivoId.startsWith('tablet_');
+    final label = isKiosk
+        ? 'Kiosk'
+        : dispositivoId == 'app' || dispositivoId.startsWith('personal_')
+            ? 'App'
+            : dispositivoId;
+    return Row(children: [
+      Icon(
+        isKiosk ? Icons.tablet_android_outlined : Icons.phone_android_outlined,
+        size: 14, color: _kSub,
+      ),
+      const SizedBox(width: 4),
+      Flexible(child: Text(label,
+          style: const TextStyle(fontSize: 12, color: _kSub),
+          overflow: TextOverflow.ellipsis)),
+    ]);
   }
 }
 

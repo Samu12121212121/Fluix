@@ -672,7 +672,7 @@ class EntradaBlog {
       imagenUrl:           _nonEmpty(m['imagen_url'] as String?),
       imagenes:            (m['imagenes'] as List<dynamic>?)?.cast<String>() ?? [],
       estado:              estado,
-      fechaPublicacion:    _parseFecha(m['fecha_publicacion']),
+      fechaPublicacion:    _parseFecha(m['fecha_publicacion'] ?? m['fecha_creacion']),
       etiquetas:           (m['etiquetas'] as List<dynamic>?)?.cast<String>() ?? [],
       autor:               m['autor'] as String? ?? '',
       categoriaId:         m['categoria_id'] as String? ?? '',

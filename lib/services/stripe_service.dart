@@ -6,14 +6,20 @@ class StripeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String redirectUri = 'https://tudominio.com/stripe/callback';
-
   /// Carga el client_id de Stripe Connect desde Firestore (config/stripe)
   Future<String> _obtenerClientId() async {
     final doc = await _firestore.collection('config').doc('stripe').get();
     final id = doc.data()?['connect_client_id'] as String?;
     if (id == null || id.isEmpty) throw Exception('Stripe client_id no configurado en config/stripe');
     return id;
+  }
+
+  /// Carga la redirect_uri de Stripe Connect desde Firestore (config/stripe)
+  Future<String> _obtenerRedirectUri() async {
+    final doc = await _firestore.collection('config').doc('stripe').get();
+    final uri = doc.data()?['redirect_uri'] as String?;
+    if (uri == null || uri.isEmpty) throw Exception('Stripe redirect_uri no configurado en config/stripe');
+    return uri;
   }
 
   /// Verificar si la empresa tiene Stripe conectado
@@ -56,6 +62,7 @@ class StripeService {
   /// Construir URL de OAuth para conectar Stripe
   Future<String> construirUrlOAuth(String empresaId) async {
     final clientId = await _obtenerClientId();
+    final redirectUri = await _obtenerRedirectUri();
     final nonce = DateTime.now().millisecondsSinceEpoch.toString();
     final state = '${empresaId}__$nonce';
 

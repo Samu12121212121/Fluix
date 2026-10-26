@@ -442,7 +442,7 @@ class _PedidosWebWidgetState extends State<PedidosWebWidget>
 
 // ── Tarjeta pedido de ebook (pedidos_web_nazari) ──────────────────────────────
 
-class TarjetaEbookWeb extends StatelessWidget {
+class TarjetaEbookWeb extends StatefulWidget {
   final String id;
   final String empresaId;
   final Map<String, dynamic> data;
@@ -461,6 +461,14 @@ class TarjetaEbookWeb extends StatelessWidget {
     required this.onExpand,
     required this.onConfirmarPago,
   });
+
+  @override
+  State<TarjetaEbookWeb> createState() => _TarjetaEbookWebState();
+}
+
+class _TarjetaEbookWebState extends State<TarjetaEbookWeb> {
+  Map<String, dynamic>? _dirRecuperada;
+  bool _recuperando = false;
 
   // ── Helpers de color/label según estado ─────────────────────────────────
   static Color _colorEstado(String estadoPago, String metodoPago) {
@@ -592,30 +600,55 @@ class TarjetaEbookWeb extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(
-                    estadoPago == 'pagado'
-                        ? Icons.warning_amber_rounded
-                        : Icons.schedule_rounded,
-                    size: 14,
-                    color: estadoPago == 'pagado'
-                        ? const Color(0xFFD97706)
-                        : const Color(0xFF94A3B8),
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(child: Text(
-                    estadoPago == 'pagado'
-                        ? 'Dirección no recibida — revisa el webhook de Stripe'
-                        : metodoPago == 'stripe'
-                            ? 'Se recibirá cuando el cliente complete el pago en Stripe'
-                            : 'Sin dirección registrada',
-                    style: TextStyle(
-                      fontSize: 11,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(
+                      estadoPago == 'pagado'
+                          ? Icons.warning_amber_rounded
+                          : Icons.schedule_rounded,
+                      size: 14,
                       color: estadoPago == 'pagado'
                           ? const Color(0xFFD97706)
                           : const Color(0xFF94A3B8),
                     ),
-                  )),
+                    const SizedBox(width: 7),
+                    Expanded(child: Text(
+                      estadoPago == 'pagado'
+                          ? 'Dirección no recibida de Stripe'
+                          : metodoPago == 'stripe'
+                              ? 'Se recibirá cuando el cliente complete el pago en Stripe'
+                              : 'Sin dirección registrada',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: estadoPago == 'pagado'
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF94A3B8),
+                      ),
+                    )),
+                  ]),
+                  if (estadoPago == 'pagado') ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _recuperando ? null : () async {
+                          Navigator.pop(context);
+                          await _recuperarDireccion();
+                        },
+                        icon: _recuperando
+                            ? const SizedBox(width: 12, height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.5))
+                            : const Icon(Icons.refresh_rounded, size: 14),
+                        label: Text(_recuperando ? 'Buscando…' : 'Recuperar dirección de Stripe',
+                            style: const TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD97706),
+                          side: const BorderSide(color: Color(0xFFD97706)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
                 ]),
               ),
             ],
@@ -623,7 +656,7 @@ class TarjetaEbookWeb extends StatelessWidget {
             // Acción confirmar transferencia
             if (estadoPago == 'pendiente' && metodoPago == 'transferencia')
               FilledButton.icon(
-                onPressed: () { Navigator.pop(context); onConfirmarPago(); },
+                onPressed: () { Navigator.pop(context); widget.onConfirmarPago(); },
                 icon: const Icon(Icons.check_circle_outline, size: 16),
                 label: const Text('Confirmar pago recibido', style: TextStyle(fontSize: 13)),
                 style: FilledButton.styleFrom(
@@ -677,10 +710,44 @@ class TarjetaEbookWeb extends StatelessWidget {
     child: const Icon(Icons.menu_book_rounded, size: 20, color: Color(0xFFCBD5E1)),
   );
 
+  Future<void> _recuperarDireccion() async {
+    setState(() => _recuperando = true);
+    try {
+      final result = await FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('recuperarDireccionPedidoNazari')
+          .call({'pedidoWebId': widget.id, 'empresaId': widget.empresaId});
+      final rData = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : null;
+      final dirRaw = rData?['dir'];
+      final dirMap = dirRaw is Map ? Map<String, dynamic>.from(dirRaw) : null;
+      final dirStr = rData?['direccion'] as String? ?? '';
+      if (mounted) {
+        if (dirMap != null || dirStr.isNotEmpty) {
+          setState(() => _dirRecuperada = dirMap ?? {'linea1': dirStr});
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('✅ Dirección: $dirStr'),
+            backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No se encontró dirección en Stripe para este pedido'),
+            backgroundColor: Colors.orange, behavior: SnackBarBehavior.floating,
+          ));
+        }
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: ${e.message}'),
+        backgroundColor: Colors.red, behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _recuperando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '€', decimalDigits: 2);
-    final fechaTs = data['fecha_creacion'];
+    final fechaTs = widget.data['fecha_creacion'];
     final fecha = fechaTs is Timestamp
         ? DateFormat('dd/MM HH:mm').format(fechaTs.toDate())
         : '—';
@@ -688,26 +755,26 @@ class TarjetaEbookWeb extends StatelessWidget {
         ? DateFormat('dd/MM/yyyy HH:mm').format(fechaTs.toDate())
         : '—';
 
-    final estadoPago = data['estado_pago'] as String? ?? 'pendiente';
-    final metodoPago = data['metodo_pago'] as String? ?? 'stripe';
-    final nombre     = data['nombre'] as String? ?? data['cliente_nombre'] as String? ?? '—';
-    final email      = data['email']  as String? ?? data['cliente_email']  as String? ?? '';
-    final total      = (data['total'] as num?)?.toDouble() ?? 0.0;
-    final subtotal   = (data['subtotal'] as num?)?.toDouble();
-    final envio      = (data['envio'] as num?)?.toDouble();
-    final items      = (data['items'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final dir        = data['direccion_envio'] as Map<String, dynamic>?;
+    final estadoPago = widget.data['estado_pago'] as String? ?? 'pendiente';
+    final metodoPago = widget.data['metodo_pago'] as String? ?? 'stripe';
+    final nombre     = widget.data['nombre'] as String? ?? widget.data['cliente_nombre'] as String? ?? '—';
+    final email      = widget.data['email']  as String? ?? widget.data['cliente_email']  as String? ?? '';
+    final total      = (widget.data['total'] as num?)?.toDouble() ?? 0.0;
+    final subtotal   = (widget.data['subtotal'] as num?)?.toDouble();
+    final envio      = (widget.data['envio'] as num?)?.toDouble();
+    final items      = (widget.data['items'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final dir        = _dirRecuperada ?? widget.data['direccion_envio'] as Map<String, dynamic>?;
 
     final colorEstado  = _colorEstado(estadoPago, metodoPago);
     final labelEstado  = _labelEstado(estadoPago, metodoPago);
-    final numPedido    = '#${id.substring(0, 6).toUpperCase()}';
+    final numPedido    = '#${widget.id.substring(0, 6).toUpperCase()}';
 
     // Primer item para mostrar portada
     final primerItem   = items.isNotEmpty ? items.first : <String, dynamic>{};
     final _primerCatId = primerItem['catalogo_id'] as String? ?? '';
     final primerImagen = (primerItem['imagen_url'] as String? ?? '').isNotEmpty
         ? primerItem['imagen_url'] as String
-        : catalogoImgs[_primerCatId] ?? '';
+        : widget.catalogoImgs[_primerCatId] ?? '';
     final primerTitulo = primerItem['titulo'] as String? ?? '—';
     final primerCant   = (primerItem['cantidad'] as num?)?.toInt() ?? 1;
     final primerPrecio = (primerItem['precio'] as num?)?.toDouble() ?? 0.0;
@@ -863,7 +930,7 @@ class TarjetaEbookWeb extends StatelessWidget {
                             nombre: nombre, email: email, dir: dir, items: items,
                             total: total, subtotal: subtotal, envio: envio,
                             estadoPago: estadoPago, metodoPago: metodoPago,
-                            fecha: fechaLarga, fmt: fmt, imgs: catalogoImgs),
+                            fecha: fechaLarga, fmt: fmt, imgs: widget.catalogoImgs),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: estadoPago == 'pagado'
                               ? const Color(0xFF1B5E20) : const Color(0xFF3B82F6),
@@ -884,7 +951,7 @@ class TarjetaEbookWeb extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: onConfirmarPago,
+                          onPressed: widget.onConfirmarPago,
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF1B5E20),
                             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -897,6 +964,29 @@ class TarjetaEbookWeb extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (dir == null && estadoPago == 'pagado') ...[
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _recuperando ? null : _recuperarDireccion,
+                          icon: _recuperando
+                              ? const SizedBox(width: 11, height: 11,
+                                  child: CircularProgressIndicator(strokeWidth: 1.5))
+                              : const Icon(Icons.location_on_outlined, size: 13),
+                          label: Text(_recuperando ? 'Buscando…' : 'Recuperar dirección',
+                              style: const TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFD97706),
+                            side: const BorderSide(color: Color(0xFFD97706)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -904,49 +994,70 @@ class TarjetaEbookWeb extends StatelessWidget {
           ]);
         }
         // ── Móvil: compacto ─────────────────────────────────────────────
-        return InkWell(
-          onTap: () => _mostrarDetalles(context,
-              nombre: nombre, email: email, dir: dir, items: items,
-              total: total, subtotal: subtotal, envio: envio,
-              estadoPago: estadoPago, metodoPago: metodoPago,
-              fecha: fechaLarga, fmt: fmt, imgs: catalogoImgs),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            child: Row(children: [
-              // Portada
-              if (primerImagen.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.network(primerImagen, width: 40, height: 58,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _coverPlaceholder()),
-                )
-              else _coverPlaceholder(),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Text(numPedido,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-                          color: Color(0xFF64748B))),
-                  const SizedBox(width: 6),
-                  _badge(labelEstado, colorEstado),
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          InkWell(
+            onTap: () => _mostrarDetalles(context,
+                nombre: nombre, email: email, dir: dir, items: items,
+                total: total, subtotal: subtotal, envio: envio,
+                estadoPago: estadoPago, metodoPago: metodoPago,
+                fecha: fechaLarga, fmt: fmt, imgs: widget.catalogoImgs),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(children: [
+                if (primerImagen.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(primerImagen, width: 40, height: 58,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _coverPlaceholder()),
+                  )
+                else _coverPlaceholder(),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(numPedido,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+                            color: Color(0xFF64748B))),
+                    const SizedBox(width: 6),
+                    _badge(labelEstado, colorEstado),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(primerTitulo, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+                const SizedBox(width: 8),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(fmt.format(total),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(fecha, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                 ]),
-                const SizedBox(height: 3),
-                Text(nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(primerTitulo, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ])),
-              const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(fmt.format(total),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(fecha, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
               ]),
-            ]),
+            ),
           ),
-        );
+          if (dir == null && estadoPago == 'pagado') ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+              child: OutlinedButton.icon(
+                onPressed: _recuperando ? null : _recuperarDireccion,
+                icon: _recuperando
+                    ? const SizedBox(width: 12, height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5))
+                    : const Icon(Icons.location_on_outlined, size: 14),
+                label: Text(_recuperando ? 'Buscando dirección…' : 'Recuperar dirección de Stripe',
+                    style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFD97706),
+                  side: const BorderSide(color: Color(0xFFD97706)),
+                  minimumSize: const Size(double.infinity, 36),
+                ),
+              ),
+            ),
+          ],
+        ]);
       }),
     );
   }

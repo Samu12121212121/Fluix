@@ -236,11 +236,30 @@ class PermisosService {
         } catch (_) {}
       }
 
-      final modulosPersonalizados = (data['modulos_permitidos'] as List<dynamic>?)
+      var modulosPersonalizados = (data['modulos_permitidos'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList();
 
       final rolParsed = _parsearRol(rolStr);
+
+      // Para staff sin configuración individual, usar los defaults globales del rol
+      if (rolParsed == RolApp.staff &&
+          (modulosPersonalizados == null || modulosPersonalizados.isEmpty) &&
+          empresaId.isNotEmpty) {
+        try {
+          final cfgDoc = await FirebaseFirestore.instance
+              .collection('empresas').doc(empresaId)
+              .collection('configuracion').doc('staff_config')
+              .get();
+          if (cfgDoc.exists) {
+            final modulos = (cfgDoc.data()?['modulos_sidebar'] as List<dynamic>?)
+                ?.map((e) => e.toString()).toList();
+            if (modulos != null && modulos.isNotEmpty) {
+              modulosPersonalizados = modulos;
+            }
+          }
+        } catch (_) {}
+      }
 
       _sesionActual = SesionUsuario(
         uid: uid,

@@ -191,6 +191,8 @@ class Pedido {
   final String? opcionEnvio;   // "ordinario" | "urgente" | "gratuito" | "europa" | "latam" | "mundo"
   final String? zonaEnvio;     // "es" | "europa" | "latam" | "mundo"
   final double? totalProductos;
+  final String? stripeSessionId;
+  final String? pedidoWebId;
 
   const Pedido({
     required this.numeroTicket,
@@ -233,6 +235,8 @@ class Pedido {
     this.opcionEnvio,
     this.zonaEnvio,
     this.totalProductos,
+    this.stripeSessionId,
+    this.pedidoWebId,
   });
 
   bool get estaAtrasado =>
@@ -309,12 +313,29 @@ class Pedido {
       bonoId: d['bono_id'] as String?,
       bonoImporte: (d['bono_importe'] as num?)?.toDouble(),
       numPagadores: (d['num_pagadores'] as num?)?.toInt(),
-      direccionEnvio: d['direccion_envio'] as String?,
+      direccionEnvio: _parseDireccion(d['direccion_envio']),
       gastosEnvio: (d['gastos_envio'] as num?)?.toDouble(),
       opcionEnvio: d['opcion_envio'] as String?,
       zonaEnvio: d['zona_envio'] as String?,
       totalProductos: (d['total_productos'] as num?)?.toDouble(),
+      stripeSessionId: d['stripe_session_id'] as String?,
+      pedidoWebId: d['pedido_web_id'] as String?,
     );
+  }
+
+  static String? _parseDireccion(dynamic v) {
+    if (v == null) return null;
+    if (v is String) return v.isEmpty ? null : v;
+    if (v is Map) {
+      final m = Map<String, dynamic>.from(v);
+      return [
+        m['nombre'], m['linea1'],
+        if ((m['linea2'] as String? ?? '').isNotEmpty) m['linea2'],
+        '${m['cp'] ?? ''} ${m['ciudad'] ?? ''}'.trim(),
+        m['pais'],
+      ].where((e) => e != null && e.toString().isNotEmpty).join(', ');
+    }
+    return null;
   }
 
   Map<String, dynamic> toFirestore() => {
@@ -442,5 +463,7 @@ class Pedido {
     opcionEnvio: opcionEnvio ?? this.opcionEnvio,
     zonaEnvio: zonaEnvio ?? this.zonaEnvio,
     totalProductos: totalProductos ?? this.totalProductos,
+    stripeSessionId: stripeSessionId ?? this.stripeSessionId,
+    pedidoWebId: pedidoWebId ?? this.pedidoWebId,
   );
 }

@@ -113,7 +113,7 @@ class HistorialPresentacionesScreen extends StatelessWidget {
   }
 
   String _extraerPeriodo(String docId) {
-    // "303_2026_Q1" -> "2026-Q1"
+    // "303_2026_1T" -> "2026-1T"
     // "390_2026" -> "2026"
     final parts = docId.split('_');
     if (parts.length >= 2) {
@@ -131,32 +131,33 @@ class HistorialPresentacionesScreen extends StatelessWidget {
   }
 
   int _compararPeriodos(String a, String b) {
-    // "2026-Q4" vs "2026-Q1" vs "2025"
-    final aEsAnual = !a.contains('Q');
-    final bEsAnual = !b.contains('Q');
-    
+    // "2026-1T" vs "2026-4T" vs "2025"
+    final aEsAnual = !a.contains('T');
+    final bEsAnual = !b.contains('T');
+
     if (aEsAnual && bEsAnual) {
       return int.parse(a).compareTo(int.parse(b));
     }
-    
+
     if (aEsAnual) return -1; // Anuales van después de trimestrales del mismo año
     if (bEsAnual) return 1;
-    
+
     final aParts = a.split('-');
     final bParts = b.split('-');
     final aAnio = int.parse(aParts[0]);
     final bAnio = int.parse(bParts[0]);
-    
+
     if (aAnio != bAnio) return aAnio.compareTo(bAnio);
-    
-    final aTrim = int.parse(aParts[1].substring(1));
-    final bTrim = int.parse(bParts[1].substring(1));
+
+    // "1T" -> 1, "4T" -> 4
+    final aTrim = int.parse(aParts[1].replaceAll('T', ''));
+    final bTrim = int.parse(bParts[1].replaceAll('T', ''));
     return aTrim.compareTo(bTrim);
   }
 
   Widget _buildPeriodoCard(PeriodoHistorial periodo) {
-    final esAnual = !periodo.periodo.contains('Q');
-    final label = esAnual 
+    final esAnual = !periodo.periodo.contains('T');
+    final label = esAnual
         ? 'Año ${periodo.periodo}'
         : '${periodo.periodo.split('-')[1]} ${periodo.periodo.split('-')[0]}';
     

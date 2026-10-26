@@ -17,6 +17,7 @@ import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/convenio_firestore_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../../services/auth/invitaciones_service.dart';
+import 'configurar_acceso_staff_screen.dart';
 import '../widgets/canal_comunicacion_widget.dart';
 import '../widgets/selector_foto_widget.dart';
 import '../widgets/seccion_embargos_widget.dart';
@@ -446,8 +447,15 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           onSelected: (v) {
             if (v == 'csv_dl') _descargarCSV(context);
             if (v == 'csv_share') _compartirCSV(context);
+            if (v == 'acceso_staff') {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ConfigurarAccesoStaffScreen(
+                    empresaId: widget.empresaId),
+              ));
+            }
           },
           itemBuilder: (_) => const [
+            PopupMenuItem(value: 'acceso_staff', child: ListTile(leading: Icon(Icons.shield_outlined, color: Color(0xFF3B82F6)), title: Text('Acceso del equipo (Staff)'), dense: true, contentPadding: EdgeInsets.zero)),
             PopupMenuItem(value: 'csv_dl',    child: ListTile(leading: Icon(Icons.download_outlined), title: Text('Descargar CSV'), dense: true, contentPadding: EdgeInsets.zero)),
             PopupMenuItem(value: 'csv_share', child: ListTile(leading: Icon(Icons.share_outlined),   title: Text('Compartir CSV'), dense: true, contentPadding: EdgeInsets.zero)),
           ],

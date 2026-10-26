@@ -684,6 +684,8 @@ export async function enviarRespuestaContactoWeb(opts: {
   asunto: string;
   mensajeOriginal: string;
   respuestaTexto: string;
+  firmaNombre?: string;
+  firmaCargo?: string;
 }): Promise<EmailResult> {
   const html = buildTemplate("contacto_respuesta", {
     nombreRemitente: opts.nombreRemitente,
@@ -691,6 +693,8 @@ export async function enviarRespuestaContactoWeb(opts: {
     asunto: opts.asunto,
     mensajeOriginal: opts.mensajeOriginal,
     respuestaTexto: opts.respuestaTexto,
+    firmaNombre: opts.firmaNombre || opts.empresaNombre,
+    firmaCargo: opts.firmaCargo || "",
   });
 
   return enviar({

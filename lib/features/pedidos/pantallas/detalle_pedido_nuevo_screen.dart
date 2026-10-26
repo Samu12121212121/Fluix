@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
 import 'package:planeag_flutter/services/pedidos_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:planeag_flutter/services/facturacion_service.dart';
 import 'package:planeag_flutter/domain/modelos/factura.dart';
 import 'package:planeag_flutter/features/facturacion/pantallas/detalle_factura_screen.dart';
@@ -97,6 +99,7 @@ class _PedidoPopupContentState extends State<_PedidoPopupContent> {
   bool _cambiandoEstado = false;
   bool _mostrarNotas = false;
   bool _mostrarHistorial = false;
+  bool _recuperandoDireccion = false;
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
   String get _nombre => FirebaseAuth.instance.currentUser?.displayName ?? 'Usuario';
@@ -330,9 +333,65 @@ class _PedidoPopupContentState extends State<_PedidoPopupContent> {
             textAlign: TextAlign.right,
           )),
         ]),
+      ] else if (_pedido.stripeSessionId != null || _pedido.pedidoWebId != null) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          const Icon(Icons.location_off_outlined, size: 14, color: Color(0xFFEF4444)),
+          const SizedBox(width: 6),
+          const Expanded(child: Text('Sin dirección de envío',
+              style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)))),
+          TextButton.icon(
+            onPressed: _recuperandoDireccion ? null : _recuperarDireccionStripe,
+            icon: _recuperandoDireccion
+                ? const SizedBox(width: 12, height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.5))
+                : const Icon(Icons.refresh_rounded, size: 14),
+            label: Text(_recuperandoDireccion ? 'Buscando…' : 'Recuperar de Stripe',
+                style: const TextStyle(fontSize: 11)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF3B82F6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ]),
+        if (_pedido.stripeSessionId != null) ...[
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () => Clipboard.setData(ClipboardData(text: _pedido.stripeSessionId!)),
+            child: Text('Session: ${_pedido.stripeSessionId!}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8),
+                    decoration: TextDecoration.underline)),
+          ),
+        ],
       ],
     ]),
   );
+
+  Future<void> _recuperarDireccionStripe() async {
+    setState(() => _recuperandoDireccion = true);
+    try {
+      final result = await FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('recuperarDireccionPedidoNazari')
+          .call({'pedidoId': _pedido.id, 'empresaId': widget.empresaId});
+      final rData = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : null;
+      final dir = rData?['direccion'] as String? ?? '';
+      if (dir.isNotEmpty && mounted) {
+        setState(() => _pedido = _pedido.copyWith(direccionEnvio: dir));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Dirección recuperada: $dir'),
+          backgroundColor: Colors.green, behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: ${e.message}'),
+        backgroundColor: Colors.red, behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _recuperandoDireccion = false);
+    }
+  }
 
   // ── Notas del cliente ─────────────────────────────────────────────────────
   Widget _notasClienteCard() => _card(

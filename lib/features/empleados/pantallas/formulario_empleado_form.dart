@@ -60,7 +60,8 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     _puestoCtrl       = TextEditingController(text: widget.data?['puesto']       ?? '');
     _departamentoCtrl = TextEditingController(text: widget.data?['departamento'] ?? '');
     _direccionCtrl    = TextEditingController(text: widget.data?['direccion']    ?? '');
-    _rolSeleccionado  = widget.data?['rol'] ?? 'staff';
+    final _rolRaw = widget.data?['rol'] as String? ?? 'staff';
+    _rolSeleccionado  = (_rolRaw == 'admin' || _rolRaw == 'staff') ? _rolRaw : 'admin';
     // Fecha de alta
     final rawFecha = widget.data?['fecha_alta'];
     if (rawFecha is Timestamp) _fechaAlta = rawFecha.toDate();

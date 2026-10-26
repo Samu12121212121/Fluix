@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
@@ -415,7 +416,7 @@ class ContenidoWebService {
       final cache = await cacheRef.get();
       if (cache.exists) {
         final ts = cache.data()!['ts'] as Timestamp?;
-        if (false) { // sin caché — detectar siempre al abrir el módulo web
+        if (ts != null && DateTime.now().difference(ts.toDate()).inHours < 24) {
           return Set<String>.from(
               List<String>.from(cache.data()!['modulos'] ?? []));
         }
@@ -900,7 +901,7 @@ class ContenidoWebService {
   Future<void> desplegarScript(String empresaId) async {
     try {
       final contenido = _fluixWebSdk.replaceAll('__EMPRESA__', empresaId);
-      final hash = contenido.length.toString();
+      final hash = sha256.convert(utf8.encode(contenido)).toString();
 
       final versionRef = _firestore
           .collection('empresas').doc(empresaId)
@@ -1769,9 +1770,9 @@ messaging.onBackgroundMessage(function(payload) {
   /// Sin orderBy en Firestore para incluir documentos importados de WP que
   /// no tienen campo fecha_publicacion (Firestore excluye esos docs con orderBy).
   /// Ordenamos y filtramos client-side, igual que hace el blog.html de la web.
-  Stream<List<EntradaBlog>> obtenerBlog(String empresaId) {
+  Stream<List<EntradaBlog>> obtenerBlog(String empresaId, {int limite = 2000}) {
     return _blogCol(empresaId)
-        .limit(5000)
+        .limit(limite)
         .snapshots()
         .map((s) {
           final lista = s.docs
@@ -1788,10 +1789,8 @@ messaging.onBackgroundMessage(function(payload) {
         });
   }
 
-  /// Stream paginado filtrado por tipo — requiere índice compuesto tipo+fecha_publicacion
-  Stream<List<EntradaBlog>> obtenerBlogPorTipo(String empresaId, String tipo, {int limite = 50}) {
-    // Sin orderBy en Firestore: documentos sin fecha_publicacion serían excluidos
-    // por Firestore al ordenar. Ordenamos client-side.
+  /// Stream filtrado por tipo — 300 más recientes, sort client-side
+  Stream<List<EntradaBlog>> obtenerBlogPorTipo(String empresaId, String tipo, {int limite = 300}) {
     return _blogCol(empresaId)
         .where('tipo', isEqualTo: tipo)
         .limit(limite)
@@ -1859,25 +1858,32 @@ messaging.onBackgroundMessage(function(payload) {
     return EntradaBlog.fromMap({...doc.data()!, 'id': doc.id});
   }
 
-  Future<void> guardarEntradaBlog(String empresaId, EntradaBlog entrada,
+  Future<String> guardarEntradaBlog(String empresaId, EntradaBlog entrada,
       {String? htmlContent}) async {
     final data = entrada.toMap();
     data.remove('id');
     if (htmlContent != null && htmlContent.isNotEmpty) {
       data['contenido_html'] = htmlContent;
+    } else {
+      data['contenido_html'] = '';
     }
     if (entrada.id.isEmpty) {
       data['fecha_creacion'] = FieldValue.serverTimestamp();
     } else {
-      // Antes de sobrescribir, guardar la versión anterior (máximo 10 versiones)
-      await _guardarVersionAnterior(empresaId, entrada.id);
+      final existing = await _guardarVersionAnterior(empresaId, entrada.id);
+      // Preservar fecha_publicacion original para no alterar el orden al editar
+      if (existing?['fecha_publicacion'] != null) {
+        data['fecha_publicacion'] = existing!['fecha_publicacion'];
+      }
     }
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
-    data['fecha_publicacion'] = Timestamp.fromDate(entrada.fechaPublicacion);
-    await _blogCol(empresaId)
-        .doc(entrada.id.isEmpty ? null : entrada.id)
-        .set(data, SetOptions(merge: true));
+    if (data['fecha_publicacion'] == null) {
+      data['fecha_publicacion'] = Timestamp.fromDate(entrada.fechaPublicacion);
+    }
+    final ref = _blogCol(empresaId).doc(entrada.id.isEmpty ? null : entrada.id);
+    await ref.set(data, SetOptions(merge: true));
     unawaited(_bumpWebVersion(empresaId, 'blog'));
+    return ref.id;
   }
 
   /// Actualiza campos adicionales de una entrada de blog (ej: contenido_html pre-renderizado).
@@ -1891,23 +1897,23 @@ messaging.onBackgroundMessage(function(payload) {
   }
 
   /// Guarda una snapshot de la versión actual antes de sobrescribir.
-  Future<void> _guardarVersionAnterior(String empresaId, String entradaId) async {
+  Future<Map<String, dynamic>?> _guardarVersionAnterior(String empresaId, String entradaId) async {
     try {
       final doc = await _blogCol(empresaId).doc(entradaId).get();
-      if (!doc.exists) return;
+      if (!doc.exists) return null;
+      final existingData = doc.data()!;
       final versionesCol = _blogCol(empresaId).doc(entradaId).collection('versiones');
-      // Guardar version snapshot
       await versionesCol.add({
-        ...doc.data()!,
+        ...existingData,
         'guardada_en': FieldValue.serverTimestamp(),
       });
-      // Mantener solo las últimas 10 versiones (borrar excedente)
       final allVers = await versionesCol.orderBy('guardada_en', descending: true).get();
       if (allVers.docs.length > 10) {
         for (final d in allVers.docs.skip(10)) await d.reference.delete();
       }
+      return existingData;
     } catch (_) {
-      // No bloquear el guardado si falla el historial
+      return null;
     }
   }
 
