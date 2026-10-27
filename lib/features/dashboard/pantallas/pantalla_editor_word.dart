@@ -280,7 +280,9 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   Future<void> _salirConBorrador(BuildContext context) async {
     final titulo = _tituloCtrl.text.trim();
     if (titulo.isNotEmpty && (_autoguardadoPendiente || _esNuevo)) {
-      await _autoguardar(); // silencioso — no muestra snackbar
+      final ok = await _autoguardar(); // solo avisa si falla
+      // Si no se pudo guardar, no cerrar: así no se pierde el texto
+      if (!ok) return;
     }
     if (widget.onCancelar != null) {
       widget.onCancelar!();
@@ -289,10 +291,11 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     }
   }
 
-  Future<void> _autoguardar() async {
-    if (_guardando) return;
+  /// Devuelve true si guardó (o no había nada que guardar), false si falló.
+  Future<bool> _autoguardar() async {
+    if (_guardando) return true;
     final titulo = _tituloCtrl.text.trim();
-    if (titulo.isEmpty) return;
+    if (titulo.isEmpty) return true;
     try {
       final deltaJson = jsonEncode(_quillCtrl.document.toDelta().toJson());
       final entrada = EntradaBlog(
@@ -320,7 +323,18 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         _autoguardadoPendiente = false;
         _ultimoAutoguardado = DateTime.now();
       });
-    } catch (_) {} // silencioso
+      return true;
+    } catch (e, st) {
+      debugPrint('❌ Autoguardado blog falló: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('No se pudo guardar el borrador: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 8),
+        ));
+      }
+      return false;
+    }
   }
 
   Future<void> _guardar(BuildContext context, {bool publicar = false}) async {
