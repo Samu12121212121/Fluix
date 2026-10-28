@@ -44,10 +44,6 @@ jobs:
         with:
           appId: 1:1085482191658:android:e514126ea27731a3d62c53
           token: ${{ secrets.FIREBASE_TOKEN }}
-          testers: |
-            editorialnazari@gmail.com
-            Eventos@editorialnazari.com
-            Editorialacentuarte@gmail.com
-            Aliorte.lope@gmail.com
+          testers: aliorte.lope@gmail.com
           releaseNotes: ${{ github.event.inputs.release_notes }}
           file: build/app/outputs/flutter-apk/app-release.apk
