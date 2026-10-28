@@ -1,0 +1,51 @@
+name: Android — Firebase Testers Granada
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Notas de la versión (qué hay de nuevo)'
+        required: false
+        default: 'Nueva versión de prueba'
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Set up Android keystore
+        run: |
+          echo "${{ secrets.CM_KEYSTORE }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
+          cat >> android/key.properties <<EOF
+          storePassword=${{ secrets.CM_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.CM_KEY_PASSWORD }}
+          keyAlias=${{ secrets.CM_KEY_ALIAS }}
+          storeFile=$RUNNER_TEMP/keystore.jks
+          EOF
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: 1:1085482191658:android:c2de28caf383e9e4d62c53
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          testers: |
+            editorialnazari@gmail.com
+            Eventos@editorialnazari.com
+            Editorialacentuarte@gmail.com
+            Aliorte.lope@gmail.com
+          releaseNotes: ${{ github.event.inputs.release_notes }}
+          file: build/app/outputs/flutter-apk/app-release.apk
