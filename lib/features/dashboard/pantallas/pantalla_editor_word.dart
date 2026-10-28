@@ -839,7 +839,9 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                 blurRadius: 18, offset: const Offset(0, 2))],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(48, 36, 48, 48),
+            padding: MediaQuery.sizeOf(context).width < 600
+                ? const EdgeInsets.fromLTRB(16, 20, 16, 24)
+                : const EdgeInsets.fromLTRB(48, 36, 48, 48),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // 1. Meta row (tipo · autor · fecha)
               _metaRow(color),

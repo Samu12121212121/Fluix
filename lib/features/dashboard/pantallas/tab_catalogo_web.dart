@@ -986,7 +986,7 @@ class _StripeAuditDialogState extends State<_StripeAuditDialog> {
       ]),
       contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
       content: SizedBox(
-        width: 480,
+        width: MediaQuery.sizeOf(context).width > 528 ? 480 : MediaQuery.sizeOf(context).width - 48,
         child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           // Selector de modo
           Container(
