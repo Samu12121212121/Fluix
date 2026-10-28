@@ -167,6 +167,11 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
 
+  // En desktop, esperamos hasta 4 s a que authStateChanges() confirme la sesión
+  // antes de mostrar la pantalla de login. Pasado ese tiempo, _authSettled = true
+  // y si el stream sigue en null se muestra login igualmente.
+  bool _authSettled = true;
+
   @override
   void initState() {
     super.initState();
@@ -176,6 +181,16 @@ class _FluixCrmAppState extends State<FluixCrmApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _intentarInicializarAdmin();
     });
+    // En desktop: dar 4 s para que Firebase Auth valide el token almacenado
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+         defaultTargetPlatform == TargetPlatform.macOS ||
+         defaultTargetPlatform == TargetPlatform.linux)) {
+      _authSettled = false;
+      Future.delayed(const Duration(seconds: 8), () {
+        if (mounted) setState(() => _authSettled = true);
+      });
+    }
   }
 
   // ── Deep Links ──────────────────────────────────────────────────────────────
@@ -312,10 +327,10 @@ class _FluixCrmAppState extends State<FluixCrmApp>
           },
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges()
-                // En Windows/nueva máquina auth puede colgar si no hay caché.
-                // Tras 10s sin respuesta, asumir sin sesión → pantalla de login.
+                // En Windows con conexión lenta auth puede tardar >10s en validar.
+                // Usamos 30s para dar margen suficiente antes de mostrar login.
                 .timeout(
-                  const Duration(seconds: 10),
+                  const Duration(seconds: 30),
                   onTimeout: (sink) => sink.add(null),
                 )
                 .distinct((a, b) => a?.uid == b?.uid),
@@ -328,6 +343,13 @@ class _FluixCrmAppState extends State<FluixCrmApp>
                   onSesionExpirada: _onSesionExpirada,
                 );
                 return const _PantallaRuta();
+              }
+              // En desktop, authStateChanges() puede emitir null brevemente
+              // mientras el SDK valida el token almacenado contra el servidor.
+              // Esperamos hasta que _authSettled sea true (máx. 4 s) antes de
+              // mostrar la pantalla de login, para evitar el doble inicio de sesión.
+              if (!_authSettled && FirebaseAuth.instance.currentUser != null) {
+                return const PantallaCarga();
               }
               // Sin sesión → detener el servicio
               TokenRefreshService().detener();

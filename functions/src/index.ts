@@ -759,7 +759,7 @@ export const enviarCampanaEmail = onDocumentUpdated(
     const contenidoHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${asunto}</title>
 </head>
@@ -3789,7 +3789,7 @@ export const enviarDocumentacionFiniquito = onCall(
     const htmlEmail = `
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:20px;">
   <div style="max-width:600px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
     <div style="background:#1a237e; padding:24px; text-align:center;">
@@ -5975,5 +5975,199 @@ export const ogProxy = onRequest(
 <meta name="twitter:image" content="${x(imagen)}">
 <meta http-equiv="refresh" content="0;url=${x(url)}">
 </head><body></body></html>`);
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARCAR PEDIDO WEB NAZARÍ COMO ENVIADO + email al comprador
+// ─────────────────────────────────────────────────────────────────────────────
+export const marcarPedidoWebNazariEnviado = onCall(
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
+  async (request) => {
+    const { pedidoId, empresaId } = request.data as { pedidoId: string; empresaId: string };
+    if (!pedidoId || !empresaId) throw new HttpsError("invalid-argument", "Faltan parámetros");
+
+    const pedidoRef = db
+      .collection("empresas").doc(empresaId)
+      .collection("pedidos_web_nazari").doc(pedidoId);
+
+    const snap = await pedidoRef.get();
+    if (!snap.exists) throw new HttpsError("not-found", "Pedido no encontrado");
+    const pedido = snap.data()!;
+
+    // Actualizar estado
+    await pedidoRef.update({
+      estado: "enviado",
+      fecha_envio: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Enviar email al comprador
+    const correo = pedido["email"] as string | null;
+    if (!correo) return { ok: true, emailEnviado: false };
+
+    const empresa = await _getDatosEmpresa(empresaId);
+    const ref     = (pedido["ref"] as string | null) ?? pedidoId.substring(0, 8).toUpperCase();
+    const items   = ((pedido["items"] || []) as Array<Record<string, unknown>>).map((it) => ({
+      nombre:   String(it["titulo"] || it["nombre"] || "Producto"),
+      cantidad: Number(it["cantidad"] || 1),
+      precio:   Number(it["precio"]  || 0),
+    }));
+
+    // Formatear dirección de envío
+    let direccionStr: string | null = null;
+    const dir = pedido["direccion_envio"];
+    if (typeof dir === "string") {
+      direccionStr = dir;
+    } else if (dir && typeof dir === "object") {
+      const d = dir as Record<string, string>;
+      direccionStr = [d["nombre"], d["linea1"], d["linea2"], d["ciudad"], d["provincia"], d["cp"], d["pais"]]
+        .filter(Boolean).join(", ");
+    }
+
+    await enviarNotificacionPedidoEnviado({
+      to:            correo,
+      clienteNombre: String(pedido["nombre"] || "Cliente"),
+      empresaNombre: empresa.nombre,
+      fromEmail:     empresa.email || undefined,
+      numeroTicket:  0,
+      lineas:        items,
+      total:         Number(pedido["total"] || 0),
+      direccionEnvio: direccionStr,
+      notasEnvio:    `Referencia: #${ref}`,
+    });
+
+    await pedidoRef.update({ emailEnvioEnviado: true, emailEnvioAt: admin.firestore.FieldValue.serverTimestamp() });
+
+    return { ok: true, emailEnviado: true };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENVIAR MENSAJE PERSONALIZADO AL COMPRADOR DE UN PEDIDO WEB NAZARÍ
+// ─────────────────────────────────────────────────────────────────────────────
+export const enviarMensajePedidoWebNazari = onCall(
+  { region: REGION, secrets: ["RESEND_API_KEY"] },
+  async (request) => {
+    const { pedidoId, empresaId, mensaje } = request.data as {
+      pedidoId: string; empresaId: string; mensaje: string;
+    };
+    if (!pedidoId || !empresaId || !mensaje?.trim()) {
+      throw new HttpsError("invalid-argument", "Faltan parámetros");
+    }
+
+    const snap = await db
+      .collection("empresas").doc(empresaId)
+      .collection("pedidos_web_nazari").doc(pedidoId)
+      .get();
+    if (!snap.exists) throw new HttpsError("not-found", "Pedido no encontrado");
+    const pedido = snap.data()!;
+
+    const correo = pedido["email"] as string | null;
+    if (!correo) throw new HttpsError("failed-precondition", "El pedido no tiene email de contacto");
+
+    const empresa = await _getDatosEmpresa(empresaId);
+    const ref     = (pedido["ref"] as string | null) ?? pedidoId.substring(0, 8).toUpperCase();
+    const nombre  = String(pedido["nombre"] || "Cliente");
+    const total   = Number(pedido["total"] || 0);
+    const items   = ((pedido["items"] || []) as Array<Record<string, unknown>>).map((it) => ({
+      titulo:   String(it["titulo"] || it["nombre"] || "Producto"),
+      cantidad: Number(it["cantidad"] || 1),
+      precio:   Number(it["precio"]  || 0),
+    }));
+
+    const itemsHtml = items.map((it) =>
+      `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;">${it.titulo}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">${it.cantidad}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;">${(it.precio * it.cantidad).toFixed(2)} €</td>
+      </tr>`
+    ).join("");
+
+    const mensajeHtml = mensaje.replace(/\n/g, "<br>");
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mensaje sobre tu pedido — ${empresa.nombre}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0"
+       style="background:#ffffff;border-radius:12px;overflow:hidden;max-width:600px;box-shadow:0 2px 16px rgba(0,0,0,.08);">
+  <tr>
+    <td style="background:#6b21a8;padding:28px 40px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:10px;">✉️</div>
+      <h1 style="color:#ffffff;font-size:20px;margin:0;font-weight:700;">
+        Mensaje sobre tu pedido
+      </h1>
+      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:13px;">
+        Pedido #${ref} — ${empresa.nombre}
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:28px 40px 0;">
+      <p style="margin:0;font-size:15px;color:#1a1a1a;">
+        Hola <strong>${nombre}</strong>,
+      </p>
+      <div style="margin:16px 0;padding:16px 20px;background:#faf5ff;border-left:4px solid #6b21a8;border-radius:6px;">
+        <p style="margin:0;font-size:15px;color:#374151;line-height:1.7;">${mensajeHtml}</p>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:20px 40px 0;">
+      <h2 style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7280;">
+        Tu pedido
+      </h2>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;">Producto</th>
+            <th style="padding:7px 12px;text-align:center;font-size:11px;color:#6b7280;font-weight:600;">Cant.</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#6b7280;font-weight:600;">Importe</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+        <tfoot>
+          <tr style="background:#f9fafb;">
+            <td colspan="2" style="padding:9px 12px;font-weight:700;font-size:13px;">Total</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:700;font-size:15px;color:#6b21a8;">${total.toFixed(2)} €</td>
+          </tr>
+        </tfoot>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:24px 40px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;">
+        ${empresa.nombre}${empresa.email ? ` · <a href="mailto:${empresa.email}" style="color:#6b21a8;">${empresa.email}</a>` : ""}
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+
+    const { Resend } = await import("resend");
+    const apiKey = process.env.RESEND_API_KEY || "";
+    if (!apiKey) throw new HttpsError("failed-precondition", "RESEND_API_KEY no configurada");
+
+    const resend = new Resend(apiKey);
+    const from = empresa.email
+      ? `${empresa.nombre} <${empresa.email}>`
+      : `${empresa.nombre} <noreply@editorialnazari.com>`;
+
+    await resend.emails.send({
+      from,
+      to: correo,
+      subject: `Mensaje sobre tu pedido #${ref} — ${empresa.nombre}`,
+      html,
+    });
+
+    return { ok: true };
   }
 );

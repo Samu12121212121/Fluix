@@ -11,6 +11,7 @@ import '../../../services/catalogo_web_sync_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../../widgets/tpv/pedidos_web_widget.dart';
 import 'detalle_pedido_nuevo_screen.dart';
+import 'tab_pedidos_web_nazari.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MÓDULO PEDIDOS — Catálogo · Inventario · Pedidos
@@ -730,71 +731,9 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     );
   }
 
-  // ── Tab Pedidos para Nazarí: todos los pedidos_web_nazari ────────────────
-  Widget _buildTabPedidosWebNazari() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas').doc(widget.empresaId)
-          .collection('pedidos_web_nazari')
-          .orderBy('fecha_creacion', descending: true)
-          .limit(200)
-          .snapshots(),
-      builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final docs = snap.data?.docs ?? [];
-        final pendTrans = docs.where((d) {
-          final m = d.data() as Map<String, dynamic>;
-          return m['estado_pago'] == 'pendiente' && m['metodo_pago'] == 'transferencia';
-        }).length;
-        final pagados = docs.where((d) =>
-            (d.data() as Map<String, dynamic>)['estado_pago'] == 'pagado').length;
-        final pendBizum = docs.where((d) {
-          final m = d.data() as Map<String, dynamic>;
-          return m['estado_pago'] == 'pendiente' && m['metodo_pago'] == 'bizum';
-        }).length;
-
-        return Column(children: [
-          Container(
-            color: _bg,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-            child: Row(children: [
-              _kpi('${docs.length}', 'Total', _kAzul), const SizedBox(width: 8),
-              _kpi('$pendTrans', 'Transf.', _kAmbar), const SizedBox(width: 8),
-              _kpi('$pendBizum', 'Bizum', const Color(0xFF0099df)), const SizedBox(width: 8),
-              _kpi('$pagados', 'Pagados', _kVerde),
-            ]),
-          ),
-          Expanded(
-            child: docs.isEmpty
-                ? _empty('Sin pedidos web')
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-                    itemCount: docs.length,
-                    itemBuilder: (_, i) {
-                      final data = docs[i].data() as Map<String, dynamic>;
-                      final docId = docs[i].id;
-                      return TarjetaEbookWeb(
-                        id: docId,
-                        empresaId: widget.empresaId,
-                        data: data,
-                        catalogoImgs: _catalogoImgs,
-                        expandido: _expandidosEbook.contains(docId),
-                        onExpand: () => setState(() {
-                          _expandidosEbook.contains(docId)
-                              ? _expandidosEbook.remove(docId)
-                              : _expandidosEbook.add(docId);
-                        }),
-                        onConfirmarPago: () => _confirmarTransferenciaEbook(docId),
-                      );
-                    },
-                  ),
-          ),
-        ]);
-      },
-    );
-  }
+  // ── Tab Pedidos para Nazarí: 4 sub-tabs con búsqueda ─────────────────────
+  Widget _buildTabPedidosWebNazari() =>
+      TabPedidosWebNazari(empresaId: widget.empresaId);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TAB 3 — EBOOKS WEB (solo Nazarí) — pedidos_web_nazari con tiene_ebook=true

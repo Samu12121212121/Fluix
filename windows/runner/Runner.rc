@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "planeag_flutter" "\0"
+            VALUE "CompanyName", "Fluix Tech SL" "\0"
+            VALUE "FileDescription", "Fluix CRM" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "planeag_flutter" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "planeag_flutter.exe" "\0"
-            VALUE "ProductName", "planeag_flutter" "\0"
+            VALUE "InternalName", "Fluix" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Fluix Tech SL. Todos los derechos reservados." "\0"
+            VALUE "OriginalFilename", "Fluix.exe" "\0"
+            VALUE "ProductName", "Fluix CRM" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
