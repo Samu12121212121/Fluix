@@ -535,8 +535,15 @@ class _TabCatalogoWebState extends State<TabCatalogoWeb> {
         item: displayItems[i], color: color,
         index: i,
         onEdit: () => _abrirEditor(displayItems[i]),
-        onToggle: (v) => widget.svc.toggleActivoItemCatalogo(
-            widget.empresaId, displayItems[i]['id'] as String, v),
+        onToggle: (v) async {
+          try {
+            await widget.svc.toggleActivoItemCatalogo(
+                widget.empresaId, displayItems[i]['id'] as String, v);
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          }
+        },
         onDelete: () => _confirmarEliminar(displayItems[i]),
         onLibroDelMes: () async {
           try {
@@ -1578,6 +1585,7 @@ class _PantallaEditorItemCatalogoState
               itemId: widget.item?['id'] as String? ?? widget.item?['slug'] as String?,
               subiendoEbook: _subiendoEbook,
               onSubiendo: (v) => setState(() => _subiendoEbook = v),
+              onBorrar: () { _ebookPathCtrl.clear(); setState(() {}); },
               color: color,
             ),
           ])),
@@ -1919,7 +1927,11 @@ class _PantallaEditorItemCatalogoState
     data['campo_anio'] = _anio.toString();
     data['preventa']   = _preventa;
     final _ebookPath = _ebookPathCtrl.text.trim();
-    if (_ebookPath.isNotEmpty) data['ebook_storage_path'] = _ebookPath;
+    if (_ebookPath.isNotEmpty) {
+      data['ebook_storage_path'] = _ebookPath;
+    } else if (docId != null) {
+      data['ebook_storage_path'] = FieldValue.delete();
+    }
     if (_preventa) {
       final envioLejano = _preventaEnvioCtrl.text.trim();
       if (envioLejano.isNotEmpty) {
@@ -1956,6 +1968,7 @@ class CampoEbookStorage extends StatelessWidget {
   final String? itemId;
   final bool subiendoEbook;
   final ValueChanged<bool> onSubiendo;
+  final VoidCallback? onBorrar;
   final Color color;
 
   const CampoEbookStorage({
@@ -1965,6 +1978,7 @@ class CampoEbookStorage extends StatelessWidget {
     required this.itemId,
     required this.subiendoEbook,
     required this.onSubiendo,
+    this.onBorrar,
     this.color = const Color(0xFF6366F1),
   });
 
@@ -2037,7 +2051,15 @@ class CampoEbookStorage extends StatelessWidget {
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        else
+        else ...[
+          if (path.isNotEmpty && onBorrar != null)
+            IconButton(
+              tooltip: 'Eliminar ebook',
+              icon: const Icon(Icons.delete_outline,
+                  color: Color(0xFFEF4444), size: 18),
+              visualDensity: VisualDensity.compact,
+              onPressed: onBorrar,
+            ),
           TextButton.icon(
             onPressed: () => _subir(context),
             icon: Icon(path.isEmpty ? Icons.upload_file_rounded : Icons.refresh_rounded,
@@ -2050,6 +2072,7 @@ class CampoEbookStorage extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
+        ],
       ]),
     );
   }

@@ -58,7 +58,7 @@ class _GestionNegociosPublicosScreenState
     } finally {
       if (mounted) setState(() => _seedCargando = false);
     }
-  }n
+  }
 
   @override
   Widget build(BuildContext context) {

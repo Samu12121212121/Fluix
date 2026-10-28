@@ -380,7 +380,8 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
-        widget.onGuardado?.call();
+        // Solo cerrar el editor al publicar; borrador permite seguir editando
+        if (publicar) widget.onGuardado?.call();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -1176,7 +1177,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                     expands: false,
                     padding: EdgeInsets.zero,
                     showCursor: false,
-                    enableInteractiveSelection: false,
+                    enableInteractiveSelection: true,
                     embedBuilders: [_ImageEmbedBuilder()],
                   ),
                 ),

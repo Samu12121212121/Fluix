@@ -4,6 +4,7 @@ import 'package:asn1lib/asn1lib.dart';
 import 'package:crypto/crypto.dart';
 // Pointycastle — únicamente para operaciones crypto (RSA firma, SHA, 3DES, RC2)
 import 'package:pointycastle/export.dart';
+import 'package:xml/xml.dart' as xmlpkg;
 import 'firma_xades_service.dart';
 
 /// Implementación de [FirmaXadesService] usando un certificado PKCS#12 (.p12/.pfx).
@@ -779,20 +780,103 @@ class FirmaXadesPkcs12Service implements FirmaXadesService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CANONICALIZACIÓN C14N (simplificada)
+  // CANONICALIZACIÓN C14N — RFC 3076 / REC-xml-c14n-20010315
   // ═══════════════════════════════════════════════════════════════════════
+  // Reglas implementadas:
+  //  1. Eliminar declaración XML
+  //  2. Normalizar saltos de línea a LF
+  //  3. Expandir elementos vacíos <foo/> → <foo></foo>
+  //  4. Ordenar atributos: xmlns primero (alfabético), luego resto (alfabético)
+  //  5. Codificar entidades en texto y atributos — NO desescapar
+  // Suficiente para el XML Verifactu de estructura controlada.
 
   static String _canonicalizarXml(String xml) {
-    return xml
-        .replaceFirst(RegExp(r'<\?xml[^?]*\?>\s*'), '')
+    // Normalizar saltos antes de parsear
+    final normalizado = xml
         .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll("&apos;", "'");
+        .replaceAll('\r', '\n');
+
+    xmlpkg.XmlDocument doc;
+    try {
+      doc = xmlpkg.XmlDocument.parse(normalizado);
+    } catch (_) {
+      // Si es un fragmento sin raíz única, envolverlo con namespaces habituales de Verifactu
+      final wrapped = '<_root_ xmlns:ds="http://www.w3.org/2000/09/xmldsig#"'
+          ' xmlns:xades="http://uri.etsi.org/01903/v1.3.2#">$normalizado</_root_>';
+      final wrappedDoc = xmlpkg.XmlDocument.parse(wrapped);
+      final buf = StringBuffer();
+      for (final child in wrappedDoc.rootElement.children) {
+        _c14nSerializar(child, buf);
+      }
+      return buf.toString();
+    }
+
+    final buf = StringBuffer();
+    for (final child in doc.children) {
+      if (child is xmlpkg.XmlElement ||
+          child is xmlpkg.XmlText ||
+          child is xmlpkg.XmlCDATA) {
+        _c14nSerializar(child, buf);
+      }
+    }
+    return buf.toString();
   }
+
+  static void _c14nSerializar(xmlpkg.XmlNode node, StringBuffer buf) {
+    if (node is xmlpkg.XmlElement) {
+      buf.write('<');
+      buf.write(node.name.qualified);
+
+      // Separar xmlns vs atributos normales y ordenar cada grupo
+      final nsAttrs    = <xmlpkg.XmlAttribute>[];
+      final otherAttrs = <xmlpkg.XmlAttribute>[];
+      for (final a in node.attributes) {
+        if (a.name.prefix == 'xmlns' ||
+            (a.name.prefix == null && a.name.local == 'xmlns')) {
+          nsAttrs.add(a);
+        } else {
+          otherAttrs.add(a);
+        }
+      }
+      nsAttrs   .sort((a, b) => a.name.qualified.compareTo(b.name.qualified));
+      otherAttrs.sort((a, b) => a.name.qualified.compareTo(b.name.qualified));
+
+      for (final a in [...nsAttrs, ...otherAttrs]) {
+        buf.write(' ');
+        buf.write(a.name.qualified);
+        buf.write('="');
+        buf.write(_c14nEscapeAttr(a.value));
+        buf.write('"');
+      }
+
+      // Siempre cerrar con etiqueta explícita (nunca <foo/>)
+      buf.write('>');
+      for (final child in node.children) {
+        _c14nSerializar(child, buf);
+      }
+      buf.write('</');
+      buf.write(node.name.qualified);
+      buf.write('>');
+    } else if (node is xmlpkg.XmlText) {
+      buf.write(_c14nEscapeText(node.value));
+    } else if (node is xmlpkg.XmlCDATA) {
+      buf.write(_c14nEscapeText(node.value));
+    }
+  }
+
+  static String _c14nEscapeAttr(String v) => v
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('\t', '&#x9;')
+      .replaceAll('\n', '&#xA;')
+      .replaceAll('\r', '&#xD;');
+
+  static String _c14nEscapeText(String v) => v
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('\r', '&#xD;');
 
   static String _extraerXmlSinFirma(String xml) {
     return xml.replaceAll(

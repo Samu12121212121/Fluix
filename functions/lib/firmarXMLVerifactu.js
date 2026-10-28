@@ -129,6 +129,23 @@ exports.firmarXMLVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSecond
     }
 });
 // ═══════════════════════════════════════════════════════════════════════════════
+// C14N — Canonicalización XML 1.0 (RFC 3076 / REC-xml-c14n-20010315)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Implementación mínima correcta para el XML Verifactu de estructura controlada:
+//  1. Eliminar declaración XML
+//  2. Normalizar saltos de línea a LF
+//  3. Expandir elementos vacíos: <foo attr="v"/> → <foo attr="v"></foo>
+// No modifica entidades en atributos/texto (el XML Verifactu no tiene chars especiales).
+// Suficiente para validación XAdES-BES por la AEAT.
+function c14nXml(xml) {
+    return xml
+        .replace(/^<\?xml[^?]*\?>\s*/m, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        // Expandir elementos vacíos — maneja valores de atributo con cualquier char excepto >
+        .replace(/<([a-zA-Z][a-zA-Z0-9:._-]*)(\s(?:[^"'>]|"[^"]*"|'[^']*')*?)?\s*\/>/g, (_, name, attrs) => `<${name}${attrs !== null && attrs !== void 0 ? attrs : ""}></${name}>`);
+}
+// ═══════════════════════════════════════════════════════════════════════════════
 // FIRMA XAdES-BES
 // ═══════════════════════════════════════════════════════════════════════════════
 function firmarXAdESBES(xmlSinFirmar, privateKey, certificate) {
@@ -157,13 +174,13 @@ function firmarXAdESBES(xmlSinFirmar, privateKey, certificate) {
         `</xades:SigningCertificateV2>` +
         `</xades:SignedSignatureProperties>` +
         `</xades:SignedProperties>`;
-    // Digest del documento XML
+    // Digest del documento XML — aplicar C14N antes (RFC 3076)
     const docMd = forge.md.sha256.create();
-    docMd.update(Buffer.from(xmlSinFirmar, "utf8").toString("binary"));
+    docMd.update(Buffer.from(c14nXml(xmlSinFirmar), "utf8").toString("binary"));
     const docDigest = forge.util.encode64(docMd.digest().data);
-    // Digest de SignedProperties
+    // Digest de SignedProperties — aplicar C14N antes
     const spMd = forge.md.sha256.create();
-    spMd.update(Buffer.from(signedProperties, "utf8").toString("binary"));
+    spMd.update(Buffer.from(c14nXml(signedProperties), "utf8").toString("binary"));
     const spDigest = forge.util.encode64(spMd.digest().data);
     // SignedInfo
     const signedInfo = `<ds:SignedInfo>` +
@@ -182,9 +199,9 @@ function firmarXAdESBES(xmlSinFirmar, privateKey, certificate) {
         `<ds:DigestValue>${spDigest}</ds:DigestValue>` +
         `</ds:Reference>` +
         `</ds:SignedInfo>`;
-    // Firmar SignedInfo con RSA-SHA256
+    // Firmar SignedInfo con RSA-SHA256 — aplicar C14N antes (RFC 3076)
     const md = forge.md.sha256.create();
-    md.update(Buffer.from(signedInfo, "utf8").toString("binary"));
+    md.update(Buffer.from(c14nXml(signedInfo), "utf8").toString("binary"));
     const signature = privateKey.sign(md);
     const signatureB64 = forge.util.encode64(signature);
     // Bloque Signature completo

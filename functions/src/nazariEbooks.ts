@@ -910,7 +910,11 @@ export const onPedidoNazariPagado = onDocumentUpdated(
   }
 );
 
-// ── Notificación a Fluix para TODOS los pedidos web al crearse ───────────────
+// ── Notificación a Fluix para pedidos web manuales (Bizum / Transferencia) ────
+// Los pedidos Stripe NO se notifican aquí: el webhook stripeWebhookNazari ya
+// envía "✅ Pedido pagado" cuando Stripe confirma el cobro. Si notificásemos
+// también al crear el pedido pendiente, el equipo recibiría avisos de pedidos
+// que pueden quedar sin pagar (usuario abandonó el checkout de Stripe).
 export const onNuevoPedidoWeb = onDocumentCreated(
   { document: `empresas/${EID}/pedidos_web_nazari/{pedidoId}`, region: REGION },
   async (event) => {
@@ -918,7 +922,7 @@ export const onNuevoPedidoWeb = onDocumentCreated(
     if (!pedido) return;
 
     const metodo = (pedido.metodo_pago as string) ?? "";
-    if (metodo === "") return;
+    if (metodo === "" || metodo === "stripe" || metodo === "simulacion") return;
 
     const total  = (pedido.total as number | undefined) ?? 0;
     const email  = (pedido.email as string)  || "cliente";
@@ -926,15 +930,12 @@ export const onNuevoPedidoWeb = onDocumentCreated(
     const items  = (pedido.items as { titulo?: string }[]) ?? [];
     const primerTitulo = items[0]?.titulo ?? "artículo web";
 
-    const metodoLabel = metodo === "stripe" ? "tarjeta/Bizum"
-      : metodo === "bizum" ? "Bizum directo"
-      : "Transferencia";
-    const estadoLabel = metodo === "stripe" ? " · pendiente de pago" : "";
-    const cuerpo = `${nombre} — ${total.toFixed(2)} € por ${metodoLabel}${estadoLabel} · ${primerTitulo}`;
+    const metodoLabel = metodo === "bizum" ? "Bizum directo" : "Transferencia";
+    const cuerpo = `${nombre} — ${total.toFixed(2)} € por ${metodoLabel} · ${primerTitulo} · PENDIENTE de confirmación`;
 
     // Notificación in-app
     await db.collection("notificaciones").doc(EID).collection("items").add({
-      titulo:          `🛒 Nuevo pedido (${metodoLabel})`,
+      titulo:          `⏳ Pedido pendiente (${metodoLabel})`,
       cuerpo,
       tipo:            "pedidoNuevo",
       timestamp:       admin.firestore.FieldValue.serverTimestamp(),
@@ -947,7 +948,7 @@ export const onNuevoPedidoWeb = onDocumentCreated(
     // Push a todos los dispositivos de la empresa
     await enviarNotificacionEmpresa(
       EID,
-      `🛒 Nuevo pedido (${metodoLabel})`,
+      `⏳ Pedido pendiente (${metodoLabel})`,
       cuerpo,
       { tipo: "nuevo_pedido", pedido_id: event.params.pedidoId, origen: "web_nazari" }
     );

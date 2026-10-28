@@ -234,7 +234,11 @@ class TabEventosWeb extends StatelessWidget {
       pasados: pasados,
       color: color,
       onTap: (e) => _abrirEditor(context, e, color),
-      onToggle: (e, v) => svc.toggleActivoEvento(empresaId, e.id, v),
+      onToggle: (e, v) async {
+        try {
+          await svc.toggleActivoEvento(empresaId, e.id, v);
+        } catch (_) {}
+      },
       onEliminar: (e) => _confirmarEliminar(context, e),
       onDuplicar: (e) async {
         await svc.duplicarEvento(empresaId, e);

@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1810,7 +1810,11 @@ class _TiendaCatalogoPanelState extends State<_TiendaCatalogoPanel> {
                       child: Icon(Icons.qr_code_scanner,
                           size: 18, color: Colors.grey),
                     ),
-                    // NUEVO: botón cámara
+                    // NUEVO: botón cámara — no disponible en desktop (mobile_scanner no soporta Windows)
+                    if (!kIsWeb &&
+                        defaultTargetPlatform != TargetPlatform.windows &&
+                        defaultTargetPlatform != TargetPlatform.macOS &&
+                        defaultTargetPlatform != TargetPlatform.linux)
                     IconButton(
                       icon: const Icon(Icons.camera_alt_outlined,
                           size: 20, color: Colors.grey),
@@ -5771,11 +5775,35 @@ class _EscanerCamaraModal extends StatefulWidget {
 }
 
 class _EscanerCamaraModalState extends State<_EscanerCamaraModal> {
-  MobileScannerController controller = MobileScannerController();
-  bool _yaEscaneado = false; // Evitar doble disparo
+  MobileScannerController? _controller;
+  bool _yaEscaneado = false;
+
+  static bool get _camaraDisponible =>
+      !kIsWeb &&
+      defaultTargetPlatform != TargetPlatform.windows &&
+      defaultTargetPlatform != TargetPlatform.macOS &&
+      defaultTargetPlatform != TargetPlatform.linux;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_camaraDisponible) _controller = MobileScannerController();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Seguridad: si se abre en desktop, cerrar inmediatamente
+    if (!_camaraDisponible || _controller == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => Navigator.of(context, rootNavigator: true).pop());
+      return const SizedBox.shrink();
+    }
     return Dialog(
       backgroundColor: Colors.black,
       insetPadding: const EdgeInsets.all(20),
@@ -5785,7 +5813,7 @@ class _EscanerCamaraModalState extends State<_EscanerCamaraModal> {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: MobileScanner(
-              controller: controller,
+              controller: _controller!,
               onDetect: (capture) {
                 if (_yaEscaneado) return;
                 final barcode = capture.barcodes.firstOrNull;
@@ -5859,11 +5887,6 @@ class _EscanerCamaraModalState extends State<_EscanerCamaraModal> {
     );
   }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

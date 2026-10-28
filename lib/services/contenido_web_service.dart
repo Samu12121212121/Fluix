@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
@@ -899,6 +900,11 @@ class ContenidoWebService {
   /// Sube el JS a Firebase Storage. Solo re-sube si el contenido cambió (hash distinto).
   /// Llamar al abrir el módulo web — se ejecuta en ~500ms y no bloquea la UI.
   Future<void> desplegarScript(String empresaId) async {
+    // Saltar en desktop: el SDK JS es solo para la web pública, no para la app
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+         defaultTargetPlatform == TargetPlatform.macOS ||
+         defaultTargetPlatform == TargetPlatform.linux)) return;
     try {
       final contenido = _fluixWebSdk.replaceAll('__EMPRESA__', empresaId);
       final hash = sha256.convert(utf8.encode(contenido)).toString();
@@ -930,6 +936,14 @@ class ContenidoWebService {
   // Se llama (unawaited) después de cada guardar/eliminar/toggle en las 3 colecciones.
 
   Future<void> publicarCacheWeb(String empresaId) async {
+    // En Windows/macOS/Linux los uploads de Storage pueden crashear el proceso
+    // nativo. El caché JS se regenera igualmente desde los triggers de Cloud
+    // Functions (nazariCache.ts) al cambiar Firestore. No es necesario aquí.
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+         defaultTargetPlatform == TargetPlatform.macOS ||
+         defaultTargetPlatform == TargetPlatform.linux)) return;
+
     try {
       final results = await Future.wait([
         _firestore.collection('empresas').doc(empresaId)

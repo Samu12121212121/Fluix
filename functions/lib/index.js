@@ -40,7 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.onReservaCRM = exports.onReservaCreatedCRM = exports.onNuevoClienteCRM = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.onReservaEstadoCambiadoEmail = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.crearEmpleadoConCredenciales = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.generarThumbnailCatalogo = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
 exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.enviarResumenNazari = exports.onNuevoPedidoWebNazariEmail = exports.onJuanitaReservaEstadoCambiado = exports.recuperarDireccionPedidoNazari = exports.onNuevoPedidoWeb = exports.simularCompraEbook = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = void 0;
 exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.regenerarCacheNazari = exports.onPagosConfigCambio = exports.onPackSeleccionCambio = exports.onSeleccionCambio = exports.onEventosCambio = exports.onBlogCambio = exports.onOrdenAutoresCambio = exports.onAutoresCambio = exports.onCatalogoWebCambio = exports.getBlogLista = exports.getBlogEntry = exports.desactivarPreventaPasada = exports.publicarPostsProgramados = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = void 0;
-exports.ogProxy = exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = void 0;
+exports.enviarMensajePedidoWebNazari = exports.marcarPedidoWebNazariEnviado = exports.ogProxy = exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -712,7 +712,7 @@ exports.enviarCampanaEmail = (0, firestore_1.onDocumentUpdated)({ document: "emp
     const contenidoHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${asunto}</title>
 </head>
@@ -3403,7 +3403,7 @@ exports.enviarDocumentacionFiniquito = (0, https_1.onCall)({ region: REGION }, a
     const htmlEmail = `
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:20px;">
   <div style="max-width:600px; margin:0 auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
     <div style="background:#1a237e; padding:24px; text-align:center;">
@@ -5374,5 +5374,177 @@ exports.ogProxy = (0, https_1.onRequest)({ region: REGION, cors: true }, async (
 <meta name="twitter:image" content="${x(imagen)}">
 <meta http-equiv="refresh" content="0;url=${x(url)}">
 </head><body></body></html>`);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// MARCAR PEDIDO WEB NAZARÍ COMO ENVIADO + email al comprador
+// ─────────────────────────────────────────────────────────────────────────────
+exports.marcarPedidoWebNazariEnviado = (0, https_1.onCall)({ region: REGION, secrets: ["RESEND_API_KEY"] }, async (request) => {
+    var _a;
+    const { pedidoId, empresaId } = request.data;
+    if (!pedidoId || !empresaId)
+        throw new https_1.HttpsError("invalid-argument", "Faltan parámetros");
+    const pedidoRef = db
+        .collection("empresas").doc(empresaId)
+        .collection("pedidos_web_nazari").doc(pedidoId);
+    const snap = await pedidoRef.get();
+    if (!snap.exists)
+        throw new https_1.HttpsError("not-found", "Pedido no encontrado");
+    const pedido = snap.data();
+    // Actualizar estado
+    await pedidoRef.update({
+        estado: "enviado",
+        fecha_envio: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // Enviar email al comprador
+    const correo = pedido["email"];
+    if (!correo)
+        return { ok: true, emailEnviado: false };
+    const empresa = await _getDatosEmpresa(empresaId);
+    const ref = (_a = pedido["ref"]) !== null && _a !== void 0 ? _a : pedidoId.substring(0, 8).toUpperCase();
+    const items = (pedido["items"] || []).map((it) => ({
+        nombre: String(it["titulo"] || it["nombre"] || "Producto"),
+        cantidad: Number(it["cantidad"] || 1),
+        precio: Number(it["precio"] || 0),
+    }));
+    // Formatear dirección de envío
+    let direccionStr = null;
+    const dir = pedido["direccion_envio"];
+    if (typeof dir === "string") {
+        direccionStr = dir;
+    }
+    else if (dir && typeof dir === "object") {
+        const d = dir;
+        direccionStr = [d["nombre"], d["linea1"], d["linea2"], d["ciudad"], d["provincia"], d["cp"], d["pais"]]
+            .filter(Boolean).join(", ");
+    }
+    await (0, resend_service_1.enviarNotificacionPedidoEnviado)({
+        to: correo,
+        clienteNombre: String(pedido["nombre"] || "Cliente"),
+        empresaNombre: empresa.nombre,
+        fromEmail: empresa.email || undefined,
+        numeroTicket: 0,
+        lineas: items,
+        total: Number(pedido["total"] || 0),
+        direccionEnvio: direccionStr,
+        notasEnvio: `Referencia: #${ref}`,
+    });
+    await pedidoRef.update({ emailEnvioEnviado: true, emailEnvioAt: admin.firestore.FieldValue.serverTimestamp() });
+    return { ok: true, emailEnviado: true };
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// ENVIAR MENSAJE PERSONALIZADO AL COMPRADOR DE UN PEDIDO WEB NAZARÍ
+// ─────────────────────────────────────────────────────────────────────────────
+exports.enviarMensajePedidoWebNazari = (0, https_1.onCall)({ region: REGION, secrets: ["RESEND_API_KEY"] }, async (request) => {
+    var _a;
+    const { pedidoId, empresaId, mensaje } = request.data;
+    if (!pedidoId || !empresaId || !(mensaje === null || mensaje === void 0 ? void 0 : mensaje.trim())) {
+        throw new https_1.HttpsError("invalid-argument", "Faltan parámetros");
+    }
+    const snap = await db
+        .collection("empresas").doc(empresaId)
+        .collection("pedidos_web_nazari").doc(pedidoId)
+        .get();
+    if (!snap.exists)
+        throw new https_1.HttpsError("not-found", "Pedido no encontrado");
+    const pedido = snap.data();
+    const correo = pedido["email"];
+    if (!correo)
+        throw new https_1.HttpsError("failed-precondition", "El pedido no tiene email de contacto");
+    const empresa = await _getDatosEmpresa(empresaId);
+    const ref = (_a = pedido["ref"]) !== null && _a !== void 0 ? _a : pedidoId.substring(0, 8).toUpperCase();
+    const nombre = String(pedido["nombre"] || "Cliente");
+    const total = Number(pedido["total"] || 0);
+    const items = (pedido["items"] || []).map((it) => ({
+        titulo: String(it["titulo"] || it["nombre"] || "Producto"),
+        cantidad: Number(it["cantidad"] || 1),
+        precio: Number(it["precio"] || 0),
+    }));
+    const itemsHtml = items.map((it) => `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;">${it.titulo}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">${it.cantidad}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;">${(it.precio * it.cantidad).toFixed(2)} €</td>
+      </tr>`).join("");
+    const mensajeHtml = mensaje.replace(/\n/g, "<br>");
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mensaje sobre tu pedido — ${empresa.nombre}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0"
+       style="background:#ffffff;border-radius:12px;overflow:hidden;max-width:600px;box-shadow:0 2px 16px rgba(0,0,0,.08);">
+  <tr>
+    <td style="background:#6b21a8;padding:28px 40px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:10px;">✉️</div>
+      <h1 style="color:#ffffff;font-size:20px;margin:0;font-weight:700;">
+        Mensaje sobre tu pedido
+      </h1>
+      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:13px;">
+        Pedido #${ref} — ${empresa.nombre}
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:28px 40px 0;">
+      <p style="margin:0;font-size:15px;color:#1a1a1a;">
+        Hola <strong>${nombre}</strong>,
+      </p>
+      <div style="margin:16px 0;padding:16px 20px;background:#faf5ff;border-left:4px solid #6b21a8;border-radius:6px;">
+        <p style="margin:0;font-size:15px;color:#374151;line-height:1.7;">${mensajeHtml}</p>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:20px 40px 0;">
+      <h2 style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7280;">
+        Tu pedido
+      </h2>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;">Producto</th>
+            <th style="padding:7px 12px;text-align:center;font-size:11px;color:#6b7280;font-weight:600;">Cant.</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#6b7280;font-weight:600;">Importe</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+        <tfoot>
+          <tr style="background:#f9fafb;">
+            <td colspan="2" style="padding:9px 12px;font-weight:700;font-size:13px;">Total</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:700;font-size:15px;color:#6b21a8;">${total.toFixed(2)} €</td>
+          </tr>
+        </tfoot>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:24px 40px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;">
+        ${empresa.nombre}${empresa.email ? ` · <a href="mailto:${empresa.email}" style="color:#6b21a8;">${empresa.email}</a>` : ""}
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+    const { Resend } = await Promise.resolve().then(() => __importStar(require("resend")));
+    const apiKey = process.env.RESEND_API_KEY || "";
+    if (!apiKey)
+        throw new https_1.HttpsError("failed-precondition", "RESEND_API_KEY no configurada");
+    const resend = new Resend(apiKey);
+    const from = empresa.email
+        ? `${empresa.nombre} <${empresa.email}>`
+        : `${empresa.nombre} <noreply@editorialnazari.com>`;
+    await resend.emails.send({
+        from,
+        to: correo,
+        subject: `Mensaje sobre tu pedido #${ref} — ${empresa.nombre}`,
+        html,
+    });
+    return { ok: true };
 });
 //# sourceMappingURL=index.js.map

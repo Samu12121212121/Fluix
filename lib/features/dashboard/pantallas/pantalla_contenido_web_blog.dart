@@ -146,7 +146,7 @@ class _BlogSplitViewState extends State<_BlogSplitView> {
             final porFiltro = widget.filtroTipoFijo == null
                 ? todos
                 : todos.where((e) {
-                    if (!e.publicada) return false;
+                    // Mostrar todos los estados (borrador, publicado, programado) en el panel admin
                     if (e.tipo == widget.filtroTipoFijo) return true;
                     if (e.tipo.isEmpty && widget.filtroTipoFijo == 'entrevista') {
                       return e.urlExterna != null && e.urlExterna!.isNotEmpty;
