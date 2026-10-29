@@ -723,7 +723,14 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         : rol == 'admin' ? _kBlue : const Color(0xFF059669);
 
     return GestureDetector(
-      onTap: () => setState(() => _seleccionado = selec ? null : doc),
+      onTap: () {
+        final narrow = MediaQuery.sizeOf(context).width < 860;
+        if (narrow) {
+          _abrirDetalleEmpleadoSheet(context, doc);
+        } else {
+          setState(() => _seleccionado = selec ? null : doc);
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
@@ -1160,6 +1167,214 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           ),
         ),
       ]),
+    );
+  }
+
+  // ── Detalle empleado como bottom sheet (mobile) ───────────────────────────
+  void _abrirDetalleEmpleadoSheet(BuildContext context, QueryDocumentSnapshot doc) {
+    setState(() => _seleccionado = doc);
+    final d       = doc.data() as Map<String, dynamic>;
+    final id      = doc.id;
+    final activo  = d['activo'] as bool? ?? true;
+    final nombre  = d['nombre'] as String? ?? 'Sin nombre';
+    final correo  = d['correo'] as String? ?? '';
+    final puesto  = d['puesto'] as String? ?? '';
+    final rol     = d['rol'] as String? ?? 'staff';
+    final fotoUrl = d['foto_url'] as String?;
+    final estado  = d['estado'] as String?;
+    final dept    = d['departamento'] as String? ?? '';
+    final ini     = _iniciales(nombre);
+    final rawFechaC = d['fecha_creacion'];
+    final fechaC = rawFechaC is Timestamp
+        ? rawFechaC.toDate().toIso8601String()
+        : (rawFechaC as String? ?? '');
+    DateTime? fechaDt;
+    if (fechaC.isNotEmpty) fechaDt = DateTime.tryParse(fechaC);
+
+    final rolColor = rol == 'propietario' ? const Color(0xFF7B1FA2)
+        : rol == 'admin' ? _kBlue : const Color(0xFF00796B);
+    final (badgeLabel, badgeColor) = estado == 'vacaciones'
+        ? ('En vacaciones', _kOrange)
+        : activo ? ('Activo', _kGreen) : ('De baja', _kRed);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.88,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (ctx, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Container(width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: _kBorder, borderRadius: BorderRadius.circular(2))),
+            ),
+            Expanded(child: SingleChildScrollView(
+              controller: scrollCtrl,
+              child: Column(children: [
+                // ── Avatar + nombre + badge ──────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                  child: Column(children: [
+                    Stack(alignment: Alignment.bottomRight, children: [
+                      CircleAvatar(
+                        radius: 36,
+                        backgroundColor: rolColor.withValues(alpha: 0.12),
+                        backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
+                        child: fotoUrl == null
+                            ? Text(ini, style: TextStyle(fontSize: 20,
+                                fontWeight: FontWeight.bold, color: rolColor))
+                            : null,
+                      ),
+                      Container(width: 13, height: 13,
+                        decoration: BoxDecoration(
+                          color: activo && estado != 'vacaciones' ? _kGreen : _kOrange,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        )),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(nombre, style: const TextStyle(fontSize: 16,
+                        fontWeight: FontWeight.bold, color: _kText),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 2),
+                    Text(puesto.isNotEmpty ? puesto : _rolLabel(rol),
+                        style: const TextStyle(fontSize: 12, color: _kSub)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(badgeLabel, style: TextStyle(fontSize: 11,
+                          fontWeight: FontWeight.w600, color: badgeColor)),
+                    ),
+                  ]),
+                ),
+
+                // ── Portal del empleado ──────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _abrirPortalEmpleado(context, id, nombre);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.person_pin_outlined, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text('Portal del empleado',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                                  color: Colors.white)),
+                          Text('Ver horario, nóminas, IT y vacaciones',
+                              style: TextStyle(fontSize: 11, color: Colors.white70)),
+                        ])),
+                        Icon(Icons.arrow_forward_ios_rounded,
+                            color: Colors.white70, size: 14),
+                      ]),
+                    ),
+                  ),
+                ),
+
+                // ── Botones de acción ────────────────────────────────────
+                if (_esPropietario) Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Column(children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                      _actionBtn(Icons.edit_outlined, 'Editar', _kBlue,
+                          () { Navigator.pop(ctx); _abrirFormulario(id: id, data: d); }),
+                      _actionBtn(Icons.photo_camera_outlined, 'Foto', _kSub,
+                          () { Navigator.pop(ctx); _abrirFoto(id, nombre); }),
+                      _actionBtn(Icons.receipt_long_outlined, 'Nóminas', _kGreen,
+                          () { Navigator.pop(ctx); _abrirNominas(id, nombre); }),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                      _actionBtn(Icons.chat_bubble_outline_rounded, 'Mensaje',
+                          const Color(0xFF3B82F6),
+                          () { Navigator.pop(ctx); _abrirCanalComunicacion(id, nombre); }),
+                      _actionBtn(Icons.gavel_outlined, 'Embargos', _kOrange,
+                          () { Navigator.pop(ctx); _abrirEmbargos(id, nombre); }),
+                      _actionBtn(
+                        activo ? Icons.person_off_outlined : Icons.person_add_outlined,
+                        activo ? 'Desactivar' : 'Activar',
+                        activo ? _kRed : _kGreen,
+                        () { Navigator.pop(ctx); _toggleActivo(id, activo); },
+                      ),
+                    ]),
+                  ]),
+                ),
+
+                const Divider(height: 1, color: _kBorder),
+
+                // ── Info rows ────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(children: [
+                    _infoRow(Icons.badge_outlined, 'Rol', _rolLabel(rol)),
+                    if (correo.isNotEmpty)
+                      _infoRow(Icons.email_outlined, 'Email', correo),
+                    if (dept.isNotEmpty)
+                      _infoRow(Icons.business_outlined, 'Departamento', dept),
+                    if (fechaDt != null)
+                      _infoRow(Icons.calendar_today_outlined, 'Fecha ingreso',
+                          '${fechaDt.day.toString().padLeft(2,'0')}/'
+                          '${fechaDt.month.toString().padLeft(2,'0')}/'
+                          '${fechaDt.year}'),
+                    _infoRow(Icons.lock_outline, 'Acceso',
+                        activo ? 'Activo' : 'Sin acceso'),
+                  ]),
+                ),
+
+                const Divider(height: 1, color: _kBorder),
+
+                // ── Navegación a módulos ─────────────────────────────────
+                ..._navItems(context, id, d),
+
+                // ── Eliminar ─────────────────────────────────────────────
+                if (_esPropietario) Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () { Navigator.pop(ctx); _eliminarEmpleado(id, nombre); },
+                      icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                      label: const Text('Eliminar empleado',
+                          style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _kRed,
+                        side: const BorderSide(color: _kRed),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            )),
+          ]),
+        ),
+      ),
     );
   }
 

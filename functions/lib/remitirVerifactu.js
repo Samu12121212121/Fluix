@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.remitirVerifactu = void 0;
+exports.enviarSOAPInterno = enviarSOAPInterno;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const forge = __importStar(require("node-forge"));
@@ -83,7 +84,7 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
     }
     catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        await guardarEstadoFirestore(db, facturaId, empresaId, "error_cert", null, msg);
+        await guardarEstadoFirestore(db, facturaId, empresaId, "error", null, msg);
         throw new https_1.HttpsError("not-found", `Certificado: ${msg}`);
     }
     // 3. Extraer clave y cert del PKCS12 para mTLS
@@ -102,7 +103,7 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
     }
     catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        await guardarEstadoFirestore(db, facturaId, empresaId, "error_cert", null, msg);
+        await guardarEstadoFirestore(db, facturaId, empresaId, "error", null, msg);
         throw new https_1.HttpsError("internal", `Error parseando PKCS12: ${msg}`);
     }
     // 4. Construir SOAP envelope
@@ -124,7 +125,7 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
     }
     catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        await guardarEstadoFirestore(db, facturaId, empresaId, "error_red", null, msg);
+        await guardarEstadoFirestore(db, facturaId, empresaId, "error", null, msg);
         throw new https_1.HttpsError("unavailable", `Error conectando con AEAT: ${msg}`);
     }
     // 6. Parsear respuesta AEAT
@@ -137,6 +138,41 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
         descripcionError: estadoAEAT.descripcionError,
     };
 });
+// ═══════════════════════════════════════════════════════════════════════════════
+// FUNCIÓN REUTILIZABLE — usada también por procesarColaVerifactu
+// ═══════════════════════════════════════════════════════════════════════════════
+/** Envía un XML firmado a AEAT para una empresa/factura concretas y persiste el resultado. */
+async function enviarSOAPInterno(empresaId, facturaId, xmlFirmado) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const db = admin.firestore();
+    const configDoc = await db.collection("config").doc("verifactu").get();
+    const entorno = ((_b = (_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.entorno) !== null && _b !== void 0 ? _b : "pruebas");
+    const endpoint = (_c = ENDPOINTS[entorno]) !== null && _c !== void 0 ? _c : ENDPOINTS.pruebas;
+    let certDoc = await db
+        .collection("empresas").doc(empresaId)
+        .collection("configuracion").doc("certificado_verifactu")
+        .get();
+    if (!certDoc.exists)
+        certDoc = await db.collection("config").doc("verifactu_cert").get();
+    if (!certDoc.exists)
+        throw new Error("Certificado no configurado");
+    const certData = certDoc.data();
+    const p12Buffer = Buffer.from(certData.p12Base64, "base64");
+    const p12Der = forge.util.createBuffer(p12Buffer.toString("binary"));
+    const p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(p12Der), certData.password);
+    const cert = (_e = (_d = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.cert;
+    const key = (_g = (_f = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag]) === null || _f === void 0 ? void 0 : _f[0]) === null || _g === void 0 ? void 0 : _g.key;
+    const certPem = forge.pki.certificateToPem(cert);
+    const keyPem = forge.pki.privateKeyToPem(key);
+    const soapBody = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sum="https://www2.aeat.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.wsdl">
+  <soapenv:Header/><soapenv:Body><sum:SuministroLRFacturasEmitidas>${xmlFirmado}</sum:SuministroLRFacturasEmitidas></soapenv:Body>
+</soapenv:Envelope>`;
+    const respuestaXML = await enviarSOAP(endpoint, soapBody, certPem, keyPem);
+    const resultado = parsearRespuestaAEAT(respuestaXML);
+    await guardarEstadoFirestore(db, facturaId, empresaId, resultado.estado, resultado.csv, resultado.descripcionError);
+    return resultado;
+}
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -184,7 +220,13 @@ function parsearRespuestaAEAT(xml) {
     const estadoMatch = xml.match(/<EstadoEnvio[^>]*>([^<]+)<\/EstadoEnvio>/);
     const csvMatch = xml.match(/<CSV[^>]*>([^<]+)<\/CSV>/);
     const errorMatch = xml.match(/<DescripcionErrorRegistro[^>]*>([^<]+)<\/DescripcionErrorRegistro>/);
-    const estado = ((_a = estadoMatch === null || estadoMatch === void 0 ? void 0 : estadoMatch[1]) === null || _a === void 0 ? void 0 : _a.trim()) === "Correcto" ? "enviado" : "rechazado";
+    const estadoAEAT = (_a = estadoMatch === null || estadoMatch === void 0 ? void 0 : estadoMatch[1]) === null || _a === void 0 ? void 0 : _a.trim();
+    // "Correcto" = AEAT aceptó, "AceptadoConErrores" = parcial, resto = rechazado
+    const estado = estadoAEAT === "Correcto"
+        ? "enviada"
+        : estadoAEAT === "AceptadoConErrores"
+            ? "aceptada"
+            : "rechazada";
     return {
         estado,
         csv: (_c = (_b = csvMatch === null || csvMatch === void 0 ? void 0 : csvMatch[1]) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c !== void 0 ? _c : null,

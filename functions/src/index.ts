@@ -2750,9 +2750,10 @@ export const registrarVisita = onRequest(
 
 export { enviarRecordatoriosCitas };
 
-// ── VERIFACTU: Firma XAdES + Remisión AEAT ──────────────────────────────────
+// ── VERIFACTU: Firma XAdES + Remisión AEAT + Procesador de cola ─────────────
 export { firmarXMLVerifactu } from "./firmarXMLVerifactu";
 export { remitirVerifactu } from "./remitirVerifactu";
+export { procesarColaVerifactu } from "./procesarColaVerifactu";
 
 // ── BLOG: Publicar posts programados (cada 15 min) ────────────────────────────
 export { publicarPostsProgramados, desactivarPreventaPasada } from "./schedulerBlog";

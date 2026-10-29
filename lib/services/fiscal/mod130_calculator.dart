@@ -53,7 +53,10 @@ class Mod130Calculator {
     final recibidas = await _obtenerFacturasRecibidas(
       empresaId, ytd.inicio, ytd.fin,
     );
-    final c02 = recibidas.fold(0.0, (sum, f) => sum + f.baseImponible);
+    // Solo facturas con IVA deducible (Art. 92-114 LIVA)
+    final c02 = recibidas
+        .where((f) => f.ivaDeducible)
+        .fold(0.0, (sum, f) => sum + f.baseImponible);
 
     // [05] Pagos fraccionados anteriores del mismo ejercicio
     final c05 = await _sumarPagosAnteriores(empresaId, ejercicio, trimestre);

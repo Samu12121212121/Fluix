@@ -1,11 +1,10 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import '../verifactu_service.dart' show EstadoVerifactu;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VERIFACTU FLOW SERVICE — Orquesta el flujo completo:
 // XML sin firmar → Firma XAdES (CF) → Remisión AEAT (CF)
 // ═══════════════════════════════════════════════════════════════════════════════
-
-enum EstadoVerifactu { enviado, rechazado, errorRed, errorCert, pendiente }
 
 class VerifactuRemisionResult {
   final EstadoVerifactu estado;
@@ -90,28 +89,21 @@ class VerifactuFlowService {
       final data = result.data as Map<String, dynamic>;
       final estado = data['estado'] as String;
 
+      EstadoVerifactu estadoEnum;
+      switch (estado) {
+        case 'enviada': estadoEnum = EstadoVerifactu.enviada; break;
+        case 'aceptada': estadoEnum = EstadoVerifactu.aceptada; break;
+        case 'rechazada': estadoEnum = EstadoVerifactu.rechazada; break;
+        default: estadoEnum = EstadoVerifactu.error;
+      }
       return VerifactuRemisionResult(
-        estado: estado == 'enviado'
-            ? EstadoVerifactu.enviado
-            : EstadoVerifactu.rechazado,
+        estado: estadoEnum,
         csv: data['csv'] as String?,
         descripcionError: data['descripcionError'] as String?,
       );
     } on FirebaseFunctionsException catch (e) {
-      if (e.code == 'unavailable') {
-        return VerifactuRemisionResult(
-          estado: EstadoVerifactu.errorRed,
-          descripcionError: e.message,
-        );
-      }
-      if (e.code == 'not-found') {
-        return VerifactuRemisionResult(
-          estado: EstadoVerifactu.errorCert,
-          descripcionError: e.message,
-        );
-      }
       return VerifactuRemisionResult(
-        estado: EstadoVerifactu.rechazado,
+        estado: EstadoVerifactu.error,
         descripcionError: '${e.code}: ${e.message}',
       );
     }

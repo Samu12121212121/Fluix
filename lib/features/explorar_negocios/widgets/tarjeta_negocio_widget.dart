@@ -29,8 +29,8 @@ class TarjetaNegocioWidget extends StatelessWidget {
           );
         },
         child: Container(
-          height: 140,
-          decoration: BoxDecoration(
+          height: 160,
+          decoration: const BoxDecoration(
             color: Colors.white,
           ),
           child: Row(
@@ -51,7 +51,7 @@ class TarjetaNegocioWidget extends StatelessWidget {
       borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
       child: SizedBox(
         width: 140,
-        height: 140,
+        height: 160,
         child: negocio.fotoUrl != null && negocio.fotoUrl!.isNotEmpty
             ? CachedNetworkImage(
                 imageUrl: negocio.fotoUrl!,
@@ -101,6 +101,18 @@ class TarjetaNegocioWidget extends StatelessWidget {
               ),
             ),
           ),
+          if ((negocio.descripcionCorta?.isNotEmpty == true ||
+              negocio.descripcion?.isNotEmpty == true)) ...[
+            const SizedBox(height: 5),
+            Text(
+              (negocio.descripcionCorta?.isNotEmpty == true
+                  ? negocio.descripcionCorta!
+                  : negocio.descripcion!) ,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.3),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           const Spacer(),
           if (negocio.ratingGoogle != null) _buildRating(),
           if (negocio.direccion != null) ...[

@@ -310,14 +310,65 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
           child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
         ),
-        IconButton(
-          onPressed: () => _verFichajeDetalleDialog(context, f),
-          icon: const Icon(Icons.chevron_right_rounded, size: 18, color: _kSub),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
+        if (widget.esAdmin)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, size: 18, color: _kSub),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onSelected: (v) {
+              if (v == 'detalle') _verFichajeDetalleDialog(context, f);
+              if (v == 'jornada') _abrirConfigJornada(context, f.empleadoId, f.empleadoNombre);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'detalle', child: ListTile(
+                leading: Icon(Icons.edit_note_rounded, size: 18),
+                title: Text('Ver / corregir fichaje', style: TextStyle(fontSize: 13)),
+                dense: true, contentPadding: EdgeInsets.zero,
+              )),
+              PopupMenuItem(value: 'jornada', child: ListTile(
+                leading: Icon(Icons.schedule_outlined, size: 18, color: _kGreen),
+                title: Text('Editar jornada laboral',
+                    style: TextStyle(fontSize: 13, color: _kGreen)),
+                dense: true, contentPadding: EdgeInsets.zero,
+              )),
+            ],
+          )
+        else
+          IconButton(
+            onPressed: () => _verFichajeDetalleDialog(context, f),
+            icon: const Icon(Icons.chevron_right_rounded, size: 18, color: _kSub),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
       ]),
     );
+  }
+
+  Future<void> _abrirConfigJornada(
+      BuildContext context, String uid, String nombre) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('empresas').doc(widget.empresaId)
+          .collection('empleados_fichaje').doc(uid).get();
+      final fichaje = snap.exists ? EmpleadoFichaje.fromFirestore(snap) : null;
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => _DialogConfigurarPIN(
+          uid: uid,
+          nombre: nombre,
+          pinActual: fichaje?.pin,
+          jornadaActual: fichaje?.jornadaDiaria ?? 480,
+          horarioEntrada: fichaje?.horarioEntrada,
+          horarioSalida: fichaje?.horarioSalida,
+          diasLaborables: fichaje?.diasLaborables,
+          empresaId: widget.empresaId,
+          svc: _svc,
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) FluxToast.error(context, 'Error cargando datos: $e');
+    }
   }
 
   Widget _tag(IconData icon, String text, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [

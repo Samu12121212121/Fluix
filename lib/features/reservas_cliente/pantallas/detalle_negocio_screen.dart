@@ -288,7 +288,7 @@ class _DetalleNegocioScreenState extends State<DetalleNegocioScreen>
             child: Row(children: [
               _circleBtn(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
               const Spacer(),
-              _circleBtn(Icons.share_rounded, () {}),
+              _circleBtn(Icons.share_rounded, () => _compartirWhatsApp(n)),
             ]),
           )),
           // Abierto / Cerrado badge
@@ -520,6 +520,19 @@ class _DetalleNegocioScreenState extends State<DetalleNegocioScreen>
     if (n.telefono == null) return;
     final uri = Uri.parse('tel:${n.telefono}');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _compartirWhatsApp(NegocioPublico n) async {
+    final sb = StringBuffer();
+    sb.write('*${n.nombre}*');
+    final desc = n.descripcionCorta ?? n.descripcion;
+    if (desc != null && desc.isNotEmpty) sb.write('\n\n$desc');
+    if (n.direccion != null) sb.write('\n\n📍 ${n.direccion}');
+    if (n.telefono != null)  sb.write('\n📞 ${n.telefono}');
+    final w = n.website ?? n.web;
+    if (w != null && w.isNotEmpty) sb.write('\n🌐 $w');
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeQueryComponent(sb.toString())}');
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _abrirWhatsapp(NegocioPublico n) async {
@@ -1141,7 +1154,29 @@ class _ListaResenasGoogle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (negocio.empresaIdVinculada.isEmpty) {
-      return _vacio('Sin reseñas de Google', Icons.g_mobiledata_rounded);
+      return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
+        if (negocio.ratingGoogle != null) ...[
+          _resumenRating(negocio.ratingGoogle!, 'Google Reviews',
+              negocio.numResenas, const Color(0xFF4285F4)),
+          const SizedBox(height: 16),
+        ],
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(children: [
+            Icon(Icons.rate_review_outlined, size: 36, color: _C.textoHint),
+            const SizedBox(height: 8),
+            Text(negocio.ratingGoogle != null
+                ? '${negocio.ratingGoogle!.toStringAsFixed(1)}★ en Google · ${negocio.numResenas ?? 0} reseñas'
+                : 'Sin reseñas de Google todavía',
+                style: TextStyle(color: _C.textoMuted, fontSize: 13),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text('Las reseñas detalladas se sincronizan con Google My Business',
+                style: TextStyle(color: _C.textoHint, fontSize: 11),
+                textAlign: TextAlign.center),
+          ]),
+        ),
+      ]);
     }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -2343,21 +2378,37 @@ class _TabProductos extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════
 // TAB — PROFESIONALES / EQUIPO
 // ═══════════════════════════════════════════════════════════════════
-class _TabProfesionales extends StatelessWidget {
+class _TabProfesionales extends StatefulWidget {
   final NegocioPublico negocio;
   const _TabProfesionales({required this.negocio});
 
   @override
+  State<_TabProfesionales> createState() => _TabProfesionalesState();
+}
+
+class _TabProfesionalesState extends State<_TabProfesionales> {
+  late final Stream<QuerySnapshot> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Query calculada una sola vez — evita re-suscripción al cambiar de tab
+    final col = widget.negocio.empresaIdVinculada.isNotEmpty
+        ? FirebaseFirestore.instance
+            .collection('empresas').doc(widget.negocio.empresaIdVinculada)
+            .collection('empleados')
+            .where('visible_publico', isEqualTo: true)
+        : FirebaseFirestore.instance
+            .collection('negocios_publicos').doc(widget.negocio.id)
+            .collection('equipo')
+            .where('visible_publico', isEqualTo: true);
+    _stream = col.snapshots();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (negocio.empresaIdVinculada.isEmpty) {
-      return _vacio('Sin información del equipo', Icons.people_outline);
-    }
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas').doc(negocio.empresaIdVinculada)
-          .collection('empleados')
-          .where('visible_publico', isEqualTo: true)
-          .snapshots(),
+      stream: _stream,
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _C.accent));

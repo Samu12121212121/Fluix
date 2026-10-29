@@ -155,7 +155,7 @@ class _TabReservasScreenState extends State<TabReservasScreen> {
 // ═══════════════════════════════════════════════════════════════════
 // CUERPO — LISTA DE SERVICIOS CON FILTROS POR CATEGORÍA
 // ═══════════════════════════════════════════════════════════════════
-class _CuerpoServicios extends StatelessWidget {
+class _CuerpoServicios extends StatefulWidget {
   final NegocioPublico negocio;
   final String? categoriaActiva;
   final ValueChanged<String?> onCategoriaChanged;
@@ -171,16 +171,38 @@ class _CuerpoServicios extends StatelessWidget {
   });
 
   @override
+  State<_CuerpoServicios> createState() => _CuerpoServiciosState();
+}
+
+class _CuerpoServiciosState extends State<_CuerpoServicios> {
+  late final Stream<QuerySnapshot> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Query calculada una sola vez — evita re-suscripción en cada rebuild
+    final col = widget.negocio.empresaIdVinculada.isNotEmpty
+        ? FirebaseFirestore.instance
+            .collection('empresas')
+            .doc(widget.negocio.empresaIdVinculada)
+            .collection('servicios')
+        : FirebaseFirestore.instance
+            .collection('negocios_publicos')
+            .doc(widget.negocio.id)
+            .collection('servicios');
+    _stream = col.orderBy('nombre').snapshots();
+  }
+
+  NegocioPublico get negocio => widget.negocio;
+  String? get categoriaActiva => widget.categoriaActiva;
+  ValueChanged<String?> get onCategoriaChanged => widget.onCategoriaChanged;
+  ValueChanged<_ServicioUI> get onServicioTap => widget.onServicioTap;
+  bool get bloqueado => widget.bloqueado;
+
+  @override
   Widget build(BuildContext context) {
-    if (negocio.empresaIdVinculada.isEmpty) return _EmptyServicios();
-    // Fuente única: empresas/{empresaIdVinculada}/servicios (mismo módulo de Mi App)
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('empresas')
-          .doc(negocio.empresaIdVinculada)
-          .collection('servicios')
-          .orderBy('nombre')
-          .snapshots(),
+      stream: _stream,
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _C.accent));
