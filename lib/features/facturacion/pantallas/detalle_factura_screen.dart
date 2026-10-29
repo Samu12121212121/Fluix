@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
@@ -14,10 +15,11 @@ import 'package:planeag_flutter/services/pdf_service.dart';
 import 'package:planeag_flutter/services/email_service.dart';
 import 'package:planeag_flutter/services/verifactu_service.dart';
 import 'package:planeag_flutter/services/verifactu/qr_service.dart';
-import 'package:planeag_flutter/services/verifactu/verifactu_flow_service.dart' hide EstadoVerifactu;
+import 'package:planeag_flutter/services/verifactu/verifactu_flow_service.dart';
 import 'package:planeag_flutter/core/utils/permisos_service.dart';
 import 'formulario_factura_screen.dart';
 import 'formulario_rectificativa_screen.dart';
+import '../../fiscal/pantallas/subir_certificado_verifactu_screen.dart';
 
 class DetalleFacturaScreen extends StatefulWidget {
   final Factura factura;
@@ -997,11 +999,20 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
   }
 
   Future<void> _enviarAeat(Factura f, DatosVerifactu vf) async {
-    // Obtener config y generar XML antes de enviar
     final config = await VerifactuService.obtenerConfig(empresaId);
     if (config == null || !config.habilitado) {
       if (!mounted) return;
       FluxToast.aviso(context, 'Verifactu no está configurado o habilitado');
+      return;
+    }
+
+    // Verificar que la empresa tiene certificado antes de intentar
+    final certDoc = await FirebaseFirestore.instance
+        .collection('empresas').doc(empresaId)
+        .collection('configuracion').doc('certificado_verifactu').get();
+    if (!certDoc.exists) {
+      if (!mounted) return;
+      _mostrarPopupSinCertificado();
       return;
     }
 
@@ -1017,9 +1028,17 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       );
 
       if (!mounted) return;
-      final ok = result.estado.name == 'enviado';
+      final ok = result.estado == EstadoVerifactu.enviada ||
+                 result.estado == EstadoVerifactu.aceptada;
       if (ok) {
         FluxToast.exito(context, 'Enviado a AEAT${result.csv != null ? ' — CSV: ${result.csv}' : ''}');
+      } else if (result.estado == EstadoVerifactu.error) {
+        final msg = result.descripcionError ?? '';
+        if (msg.toLowerCase().contains('certificado')) {
+          _mostrarPopupSinCertificado();
+        } else {
+          FluxToast.error(context, 'Error de envío: $msg');
+        }
       } else {
         FluxToast.error(context, 'Rechazado por AEAT: ${result.descripcionError ?? 'Error desconocido'}');
       }
@@ -1027,6 +1046,23 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       if (!mounted) return;
       FluxToast.error(context, 'Error al enviar: $e');
     }
+  }
+
+  void _mostrarPopupSinCertificado() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.92,
+        maxChildSize: 0.96,
+        minChildSize: 0.5,
+        builder: (ctx, ctrl) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          child: SubirCertificadoVerifactuScreen(empresaId: empresaId),
+        ),
+      ),
+    );
   }
 
   Color _colorVerifactu(EstadoVerifactu estado) {

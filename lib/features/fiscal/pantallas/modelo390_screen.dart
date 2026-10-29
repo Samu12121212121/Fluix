@@ -59,6 +59,25 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
         );
       });
     }
+    await _autoCalcularSiNecesario();
+  }
+
+  /// Calcula el 390 automáticamente si el año ya cerró y no hay datos.
+  Future<void> _autoCalcularSiNecesario() async {
+    final ahora = DateTime.now();
+    // El 390 es anual — solo autocalcular si el año ya terminó (plazo: 30 enero sig.)
+    if (_anio >= ahora.year) return;
+
+    // Verificar si ya existe
+    final snap = await FirebaseFirestore.instance
+        .collection('empresas').doc(widget.empresaId)
+        .collection('modelos390')
+        .where('ejercicio', isEqualTo: _anio)
+        .limit(1)
+        .get();
+    if (snap.docs.isNotEmpty) return; // ya calculado
+
+    await _calcular();
   }
 
   Future<void> _calcular() async {
@@ -160,12 +179,18 @@ class _Modelo390ScreenState extends State<Modelo390Screen> {
         extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() => _anio--),
+            onPressed: () {
+              setState(() => _anio--);
+              _autoCalcularSiNecesario();
+            },
           ),
           Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() => _anio++),
+            onPressed: () {
+              setState(() => _anio++);
+              _autoCalcularSiNecesario();
+            },
           ),
         ],
       ),

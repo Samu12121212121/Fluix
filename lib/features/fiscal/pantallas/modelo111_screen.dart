@@ -57,6 +57,42 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
         );
       });
     }
+    await _autoCalcularTrimestresPasados();
+  }
+
+  /// Calcula y guarda automáticamente los trimestres vencidos sin datos.
+  Future<void> _autoCalcularTrimestresPasados() async {
+    final ahora = DateTime.now();
+    // Solo autocompletar el año seleccionado si es <= año actual
+    if (_anio > ahora.year) return;
+
+    // Trimestres ya terminados para el año seleccionado
+    final trimestresFin = {
+      '1T': DateTime(_anio, 4, 1),
+      '2T': DateTime(_anio, 7, 1),
+      '3T': DateTime(_anio, 10, 1),
+      '4T': DateTime(_anio + 1, 1, 1),
+    };
+
+    for (final entry in trimestresFin.entries) {
+      final t = entry.key;
+      final fin = entry.value;
+      if (ahora.isBefore(fin)) continue; // trimestre no terminado aún
+
+      final existente = await _svc.obtener(widget.empresaId, _anio, t);
+      if (existente != null) continue; // ya calculado
+
+      try {
+        final modelo = await _svc.calcularDesdeNominas(
+          empresaId: widget.empresaId,
+          ejercicio: _anio,
+          trimestre: t,
+        );
+        await _svc.guardar(widget.empresaId, modelo);
+      } catch (_) {
+        // Silencioso — el usuario puede calcular manualmente si falla
+      }
+    }
   }
 
   Future<void> _calcularTrimestre(String trimestre) async {
@@ -156,12 +192,18 @@ class _Modelo111ScreenState extends State<Modelo111Screen> {
         extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() => _anio--),
+            onPressed: () {
+              setState(() => _anio--);
+              _autoCalcularTrimestresPasados();
+            },
           ),
           Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() => _anio++),
+            onPressed: () {
+              setState(() => _anio++);
+              _autoCalcularTrimestresPasados();
+            },
           ),
         ],
       ),

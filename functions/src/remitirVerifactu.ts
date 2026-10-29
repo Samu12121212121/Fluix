@@ -57,11 +57,10 @@ export const remitirVerifactu = onCall(
         .get();
 
       if (!certDoc.exists) {
-        certDoc = await db.collection("config").doc("verifactu_cert").get();
-      }
-
-      if (!certDoc.exists) {
-        throw new Error("Certificado no configurado");
+        throw new Error(
+          "Esta empresa no tiene certificado digital configurado para Verifactu. " +
+          "Ve a Configuración → Verifactu → Certificado para subir tu archivo .p12."
+        );
       }
 
       const certData = certDoc.data()!;
@@ -158,8 +157,9 @@ export async function enviarSOAPInterno(
     .collection("empresas").doc(empresaId)
     .collection("configuracion").doc("certificado_verifactu")
     .get();
-  if (!certDoc.exists) certDoc = await db.collection("config").doc("verifactu_cert").get();
-  if (!certDoc.exists) throw new Error("Certificado no configurado");
+  if (!certDoc.exists) throw new Error(
+    "Esta empresa no tiene certificado digital configurado. Ve a Configuración → Verifactu → Certificado."
+  );
 
   const certData = certDoc.data()!;
   const p12Buffer = Buffer.from(certData.p12Base64, "base64");

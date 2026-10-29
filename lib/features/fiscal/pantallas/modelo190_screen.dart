@@ -57,6 +57,19 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
         );
       });
     }
+    await _autoCalcularSiNecesario();
+  }
+
+  /// Calcula el 190 automáticamente si el año ya cerró y no hay datos.
+  Future<void> _autoCalcularSiNecesario() async {
+    final ahora = DateTime.now();
+    // El 190 es anual — solo autocalcular si el año ya terminó (plazo: 31 enero sig.)
+    if (_anio >= ahora.year) return;
+
+    final existente = await _svc.obtener(widget.empresaId, _anio);
+    if (existente != null) return; // ya calculado
+
+    await _calcularEjercicio();
   }
 
   Future<void> _calcularEjercicio() async {
@@ -215,12 +228,12 @@ class _Modelo190ScreenState extends State<Modelo190Screen> {
         extraActions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() { _anio--; _futureModelo = _svc.obtener(widget.empresaId, _anio); }),
+            onPressed: () { setState(() { _anio--; _futureModelo = _svc.obtener(widget.empresaId, _anio); }); _autoCalcularSiNecesario(); },
           ),
           Text('$_anio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() { _anio++; _futureModelo = _svc.obtener(widget.empresaId, _anio); }),
+            onPressed: () { setState(() { _anio++; _futureModelo = _svc.obtener(widget.empresaId, _anio); }); _autoCalcularSiNecesario(); },
           ),
         ],
       ),
