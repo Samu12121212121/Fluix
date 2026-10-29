@@ -84,3 +84,7 @@ functions/serviceAccountKey.json
 
 # Bootstrap scripts (eliminar tras uso)
 bootstrap_admin.js
+
+# Claude Code worktrees (repos anidados)
+.claude/worktrees/
+.claude/scheduled_tasks.lock
