@@ -5,7 +5,7 @@ import '../../domain/modelos/factura_recibida.dart';
 import '../../domain/modelos/empresa.dart';
 import 'empresa_config_service.dart';
 import 'pdf_config_service.dart';
-import 'verifactu_service.dart' hide EstadoVerifactu;
+import 'verifactu_service.dart';
 import 'verifactu/verifactu_flow_service.dart';
 import 'validador_fiscal_integral.dart';
 
@@ -245,7 +245,7 @@ class FacturacionService {
           empresaId: empresaId,
           facturaId: factura.id,
         );
-        if (resultado.estado == EstadoVerifactu.enviado) {
+        if (resultado.estado == EstadoVerifactu.enviada) {
           verifactuOk = true;
           mensajeVerifactu =
               '✅ Factura enviada a la AEAT (CSV: ${resultado.csv ?? "pendiente"})';
