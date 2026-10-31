@@ -95,12 +95,12 @@ class ConfigReservas {
     'campos_extra': camposExtra.map((c) => c.toMap()).toList(),
   };
 
-  /// Carga desde Firestore
-  static Future<ConfigReservas> cargar(String empresaId) async {
+  /// Carga desde Firestore. Devuelve null si no hay config guardada.
+  static Future<ConfigReservas?> cargar(String empresaId) async {
     final doc = await FirebaseFirestore.instance
         .collection('empresas').doc(empresaId)
         .collection('config_reservas').doc('config').get();
-    if (!doc.exists || doc.data() == null) return const ConfigReservas();
+    if (!doc.exists || doc.data() == null) return null;
     return ConfigReservas.fromMap(doc.data()!);
   }
 

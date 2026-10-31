@@ -83,118 +83,55 @@ class _VacacionesScreenState extends State<VacacionesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<SolicitudVacaciones>>(
-      stream: _svc.obtenerSolicitudes(widget.empresaId),
-      builder: (ctx, snap) {
-        if (snap.hasError) {
-          return Center(child: Text('Error al cargar ausencias: ${snap.error}',
-              style: const TextStyle(color: Colors.red)));
-        }
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final todas    = snap.data ?? [];
-        final filtradas = _filtrar(todas);
-        final hoy      = DateTime.now();
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: FluixAppBar(
+        titulo: 'Vacaciones y ausencias',
+        showLeading: true,
+        extraActions: _esAdmin
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.add_rounded),
+                  tooltip: 'Nueva solicitud',
+                  onPressed: _nuevaSolicitud,
+                )
+              ]
+            : const [],
+      ),
+      body: StreamBuilder<List<SolicitudVacaciones>>(
+        stream: _svc.obtenerSolicitudes(widget.empresaId),
+        builder: (ctx, snap) {
+          if (snap.hasError) {
+            return Center(child: Text('Error al cargar ausencias: ${snap.error}',
+                style: const TextStyle(color: Colors.red)));
+          }
+          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final todas     = snap.data ?? [];
+          final filtradas = _filtrar(todas);
+          final pendientes = todas.where((s) => s.estado == EstadoSolicitud.solicitado).length;
 
-        // KPIs
-        final mes      = hoy.month; final anio = hoy.year;
-        final vacMes   = todas.where((s) => s.tipo == TipoAusencia.vacaciones &&
-            (s.fechaInicio.month == mes || s.fechaFin.month == mes) &&
-            s.fechaInicio.year == anio).length;
-        final permMes  = todas.where((s) => s.tipo == TipoAusencia.permisoRetribuido &&
-            (s.fechaInicio.month == mes || s.fechaFin.month == mes) &&
-            s.fechaInicio.year == anio).length;
-        final ausentesHoy = todas.where((s) =>
-            s.estado == EstadoSolicitud.aprobado &&
-            !hoy.isBefore(s.fechaInicio) && !hoy.isAfter(s.fechaFin)).length;
-        final pendientes  = todas.where((s) => s.estado == EstadoSolicitud.solicitado).length;
-
-        final contenido = ColoredBox(
-          color: _bg,
-          child: Column(children: [
-            // Header verde solo en modo embedded (el dashboard no lo necesita, pero
-            // cuando se usa en la web/sidebar sí aporta identidad visual)
-            if (widget.embedded) _buildHeader(),
-            // ── TabBar ──────────────────────────────────────────────────────
-            _buildTabBar(pendientes),
-            // ── Contenido ───────────────────────────────────────────────────
-            Expanded(child: TabBarView(
-              controller: _tabs,
-              children: [
-                _buildCalendarioTab(filtradas, vacMes, permMes, ausentesHoy, pendientes),
-                _buildSolicitudesTab(filtradas, todas),
-                _buildCoberturaTab(todas),
-              ],
-            )),
-          ]),
-        );
-
-        // Standalone (ruta push): Scaffold propio con AppBar y back button
-        if (!widget.embedded) {
-          return Scaffold(
-            backgroundColor: _bg,
-            appBar: FluixAppBar(
-              titulo: 'Vacaciones y ausencias',
-              showLeading: true,
-              extraActions: _esAdmin
-                  ? [
-                      IconButton(
-                        icon: const Icon(Icons.add_rounded),
-                        tooltip: 'Nueva solicitud',
-                        onPressed: _nuevaSolicitud,
-                      )
-                    ]
-                  : const [],
-            ),
-            body: contenido,
+          return ColoredBox(
+            color: _bg,
+            child: Column(children: [
+              _buildTabBar(pendientes),
+              Expanded(child: TabBarView(
+                controller: _tabs,
+                children: [
+                  _buildCalendarioTab(filtradas),
+                  _buildSolicitudesTab(filtradas, todas),
+                  _buildCoberturaTab(todas),
+                ],
+              )),
+            ]),
           );
-        }
-        return contenido;
-      },
+        },
+      ),
     );
   }
-
-  // ── Header (estilo D1 informe.html) ────────────────────────────────────────
 
   static const _docBand = Color(0xFF16A34A);
-
-  Widget _buildHeader() {
-    final hoy = DateFormat("MMMM yyyy", 'es_ES').format(DateTime.now());
-    final hoyLabel = '${hoy[0].toUpperCase()}${hoy.substring(1)}';
-    return Container(
-      color: _docBand,
-      padding: const EdgeInsets.fromLTRB(24, 20, 20, 20),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('VACACIONES Y AUSENCIAS',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                  color: Colors.white, letterSpacing: 0.8)),
-          const SizedBox(height: 4),
-          Text('Gestión de vacaciones, permisos y ausencias · $hoyLabel',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFBBF7D0))),
-        ])),
-        IconButton(
-          icon: const Icon(Icons.download_outlined, color: Colors.white70, size: 20),
-          tooltip: 'Exportar',
-          onPressed: () => FluxToast.info(context, 'Exportar — próximamente'),
-        ),
-        if (_esAdmin)
-          FilledButton.icon(
-            onPressed: _nuevaSolicitud,
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: const Text('Nueva solicitud',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: _docBand,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-      ]),
-    );
-  }
 
   // ── TabBar ─────────────────────────────────────────────────────────────────
 
@@ -241,211 +178,244 @@ class _VacacionesScreenState extends State<VacacionesScreen>
   // PESTAÑA CALENDARIO
   // ══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildCalendarioTab(List<SolicitudVacaciones> filtradas,
-      int vacMes, int permMes, int ausentesHoy, int pendientes) {
+  Widget _buildCalendarioTab(List<SolicitudVacaciones> filtradas) {
     return Column(children: [
-      // Filtros
       _buildFiltros(),
-      // KPIs
-      _buildKpis(vacMes, permMes, ausentesHoy, pendientes),
-      // Nav
       _buildNavCalendario(),
-      // Calendario
       Expanded(child: _vistaCalendario == 'lista'
           ? _buildListaView(filtradas)
           : _buildMesView(filtradas)),
-      // FAB area
-      const SizedBox(height: 8),
     ]);
   }
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
 
+  // Nombre del empleado seleccionado para mostrar en el filtro
+  String _empleadoNombreFiltro = 'Todos';
+
+  void _abrirSelectorEmpleado() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .where('empresa_id', isEqualTo: widget.empresaId)
+        .get();
+    if (!mounted) return;
+    final empleados = snap.docs.map((d) {
+      final data = d.data();
+      return (id: d.id, nombre: data['nombre'] as String? ?? data['email'] as String? ?? d.id);
+    }).toList()
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _surf,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          margin: const EdgeInsets.only(top: 10, bottom: 6),
+          width: 32, height: 3,
+          decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: Text('Filtrar por empleado',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _text)),
+        ),
+        ListTile(
+          leading: Icon(Icons.people_outline, color: _sub, size: 18),
+          title: Text('Todos los empleados', style: TextStyle(fontSize: 13, color: _text)),
+          selected: _empleadoIdFiltro == null,
+          selectedTileColor: _kGreen.withValues(alpha: 0.07),
+          onTap: () {
+            setState(() { _empleadoIdFiltro = null; _empleadoNombreFiltro = 'Todos'; });
+            Navigator.pop(context);
+          },
+        ),
+        ...empleados.map((e) => ListTile(
+          leading: CircleAvatar(
+            radius: 14,
+            backgroundColor: _kGreen.withValues(alpha: 0.12),
+            child: Text(e.nombre.isNotEmpty ? e.nombre[0].toUpperCase() : '?',
+                style: TextStyle(fontSize: 11, color: _kGreen, fontWeight: FontWeight.w700)),
+          ),
+          title: Text(e.nombre, style: TextStyle(fontSize: 13, color: _text)),
+          selected: _empleadoIdFiltro == e.id,
+          selectedTileColor: _kGreen.withValues(alpha: 0.07),
+          onTap: () {
+            setState(() { _empleadoIdFiltro = e.id; _empleadoNombreFiltro = e.nombre; });
+            Navigator.pop(context);
+          },
+        )),
+        const SizedBox(height: 16),
+      ]),
+    );
+  }
+
   Widget _buildFiltros() {
     const tipos = [
       (null,                             'Todos',      Colors.white),
-      (TipoAusencia.vacaciones,          'Vacaciones', _kGreen),
+      (TipoAusencia.vacaciones,          'Vac.',       _kGreen),
       (TipoAusencia.permisoRetribuido,   'Permisos',   _kAmber),
-      (TipoAusencia.bajaMedica,          'Baja médica',_kBlue),
+      (TipoAusencia.bajaMedica,          'Baja',       _kBlue),
       (TipoAusencia.ausenciaJustificada, 'Ausencias',  _kRed),
     ];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       decoration: BoxDecoration(
         color: _surf,
         border: Border(bottom: BorderSide(color: _border)),
       ),
-      child: Row(children: [
-        // Employee filter (admin only)
-        if (_esAdmin) ...[
-          GestureDetector(
-            onTap: () => FluxToast.info(context, 'Filtrar por empleado'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Fila 1: selector empleado (admin) + búsqueda
+        if (_esAdmin) Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(children: [
+            GestureDetector(
+              onTap: _abrirSelectorEmpleado,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _empleadoIdFiltro != null ? _kGreen : _border),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.people_outline, size: 13, color: _empleadoIdFiltro != null ? _kGreen : _sub),
+                  const SizedBox(width: 5),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(_empleadoNombreFiltro,
+                        style: TextStyle(fontSize: 11.5,
+                            color: _empleadoIdFiltro != null ? _kGreen : _text),
+                        overflow: TextOverflow.ellipsis, maxLines: 1),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 13,
+                      color: _empleadoIdFiltro != null ? _kGreen : _sub),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Container(
+              height: 32,
               decoration: BoxDecoration(
-                color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _border),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.people_outline, size: 14, color: _sub),
-                const SizedBox(width: 5),
-                Text('Todos los empleados',
-                    style: TextStyle(fontSize: 11.5, color: _text)),
-                const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: _sub),
+              child: Row(children: [
+                const SizedBox(width: 8),
+                Icon(Icons.search, size: 13, color: _sub),
+                const SizedBox(width: 6),
+                Expanded(child: TextField(
+                  onChanged: (v) => setState(() => _busqueda = v.trim()),
+                  style: TextStyle(fontSize: 12, color: _text),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar...',
+                    hintStyle: TextStyle(fontSize: 12, color: _sub),
+                    border: InputBorder.none, isDense: true,
+                  ),
+                )),
               ]),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        // Search
-        if (_esAdmin) Expanded(child: Container(
-          height: 34,
-          decoration: BoxDecoration(
-            color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _border),
-          ),
-          child: Row(children: [
-            const SizedBox(width: 8),
-            Icon(Icons.search, size: 14, color: _sub),
-            const SizedBox(width: 6),
-            Expanded(child: TextField(
-              onChanged: (v) => setState(() => _busqueda = v.trim()),
-              style: TextStyle(fontSize: 12, color: _text),
-              decoration: InputDecoration(
-                hintText: 'Buscar empleado...',
-                hintStyle: TextStyle(fontSize: 12, color: _sub),
-                border: InputBorder.none, isDense: true,
-              ),
             )),
           ]),
-        )) else const Spacer(),
-        const SizedBox(width: 12),
-        // Type chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: tipos.map((t) {
-            final sel = _tipoFiltro == t.$1;
-            final c   = t.$3 == Colors.white ? _border : t.$3 as Color;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: GestureDetector(
-                onTap: () => setState(() => _tipoFiltro = _tipoFiltro == t.$1 ? null : t.$1),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: sel ? c.withValues(alpha: 0.12) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: sel ? c : _border),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (t.$1 != null) Container(
-                      width: 7, height: 7, margin: const EdgeInsets.only(right: 5),
-                      decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+        ),
+        // Fila 2: chips de tipo
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: tipos.map((t) {
+              final sel = _tipoFiltro == t.$1;
+              final c   = t.$3 == Colors.white ? _border : t.$3 as Color;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6, top: 4, bottom: 4),
+                child: GestureDetector(
+                  onTap: () => setState(() => _tipoFiltro = _tipoFiltro == t.$1 ? null : t.$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: sel ? c.withValues(alpha: 0.12) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: sel ? c : _border),
                     ),
-                    Text(t.$2, style: TextStyle(
-                        fontSize: 11.5,
-                        color: sel ? c : _sub,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
-                  ]),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (t.$1 != null) Container(
+                        width: 6, height: 6, margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                      ),
+                      Text(t.$2, style: TextStyle(
+                          fontSize: 11.5,
+                          color: sel ? c : _sub,
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.normal)),
+                    ]),
+                  ),
                 ),
-              ),
-            );
-          }).toList()),
+              );
+            }).toList(),
+          ),
         ),
       ]),
     );
   }
-
-  // ── KPIs (estilo D1 informe.html) ───────────────────────────────────────────
-
-  Widget _buildKpis(int vacMes, int permMes, int ausentesHoy, int pendientes) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      color: _isDark ? const Color(0xFF0F172A) : const Color(0xFFF5F7FA),
-      child: Row(children: [
-        _kpiDoc('$vacMes', 'Vacaciones\neste mes', _kGreen),
-        const SizedBox(width: 10),
-        _kpiDoc('$permMes', 'Permisos\neste mes', _kAmber),
-        const SizedBox(width: 10),
-        _kpiDoc('$ausentesHoy', 'Ausentes\nhoy', _kRed),
-        const SizedBox(width: 10),
-        _kpiDoc('$pendientes', 'Solicitudes\npendientes', _kPurple),
-      ]),
-    );
-  }
-
-  Widget _kpiDoc(String val, String lbl, Color c) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _surf,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _isDark ? 0.15 : 0.04),
-            blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(val, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c,
-            height: 1.1)),
-        const SizedBox(height: 3),
-        Text(lbl, style: TextStyle(fontSize: 10, color: _sub, height: 1.3)),
-      ]),
-    ),
-  );
 
   // ── Navegación calendario ───────────────────────────────────────────────────
 
   Widget _buildNavCalendario() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: _surf,
         border: Border(bottom: BorderSide(color: _border)),
       ),
       child: Row(children: [
-        // < Hoy >
-        IconButton(
-          icon: Icon(Icons.chevron_left, color: _text, size: 20),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed: () => setState(() => _mesActual =
-              DateTime(_mesActual.year, _mesActual.month - 1)),
-        ),
-        OutlinedButton(
-          onPressed: () => setState(() => _mesActual =
-              DateTime(DateTime.now().year, DateTime.now().month)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _text,
-            side: BorderSide(color: _border),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        // ◀ mes anterior
+        GestureDetector(
+          onTap: () => setState(() =>
+              _mesActual = DateTime(_mesActual.year, _mesActual.month - 1)),
+          child: Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              border: Border.all(color: _border),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(Icons.chevron_left, color: _text, size: 18),
           ),
-          child: const Text('Hoy', style: TextStyle(fontSize: 12.5)),
         ),
-        IconButton(
-          icon: Icon(Icons.chevron_right, color: _text, size: 20),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed: () => setState(() => _mesActual =
-              DateTime(_mesActual.year, _mesActual.month + 1)),
+        const SizedBox(width: 6),
+        // Mes actual — flexible para no desbordar
+        Flexible(
+          child: GestureDetector(
+            onTap: () => setState(() => _mesActual =
+                DateTime(DateTime.now().year, DateTime.now().month)),
+            child: Text(
+              _mesActual.month == DateTime.now().month &&
+                      _mesActual.year == DateTime.now().year
+                  ? 'Hoy · ${DateFormat('MMM yyyy', 'es_ES').format(_mesActual)}'
+                  : DateFormat('MMMM yyyy', 'es_ES').format(_mesActual),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                  color: _text),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        // mes siguiente ▶
+        GestureDetector(
+          onTap: () => setState(() =>
+              _mesActual = DateTime(_mesActual.year, _mesActual.month + 1)),
+          child: Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              border: Border.all(color: _border),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(Icons.chevron_right, color: _text, size: 18),
+          ),
         ),
         const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () {},
-          child: Row(children: [
-            Text(DateFormat('MMMM yyyy', 'es_ES').format(_mesActual),
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _text)),
-            Icon(Icons.keyboard_arrow_down_rounded, color: _sub, size: 18),
-          ]),
-        ),
-        const Spacer(),
-        // Mes / Semana / Lista
+        // Mes / Lista
         Container(
           decoration: BoxDecoration(
             color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
@@ -453,11 +423,11 @@ class _VacacionesScreenState extends State<VacacionesScreen>
             border: Border.all(color: _border),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            for (final v in [('mes','Mes'), ('semana','Semana'), ('lista','Lista')])
+            for (final v in [('mes', 'Mes'), ('lista', 'Lista')])
               GestureDetector(
                 onTap: () => setState(() => _vistaCalendario = v.$1),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: _vistaCalendario == v.$1 ? _surf : Colors.transparent,
                     borderRadius: BorderRadius.circular(7),
@@ -500,102 +470,108 @@ class _VacacionesScreenState extends State<VacacionesScreen>
       }
     }
 
-    return Column(children: [
-      // Cabecera días semana
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(children: ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) =>
-          Expanded(child: Center(child: Text(d, style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: _sub,
-              letterSpacing: 0.3))))).toList(),
-        ),
-      ),
-      Expanded(child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: _surf,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
-          ),
-          child: Column(children: [
-            for (int fila = 0; fila < filas; fila++)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                for (int col = 0; col < 7; col++) ...[
-                  Builder(builder: (_) {
-                    final idx = fila * 7 + col;
-                    final dia = idx - offsetLunes + 1;
-                    final esEsteMes = dia >= 1 && dia <= diasMes;
-                    final esHoy     = esEsteMes && dia == hoy.day &&
-                        _mesActual.month == hoy.month && _mesActual.year == hoy.year;
-                    final esFin     = col >= 5;
-                    final eventos   = esEsteMes ? (porDia['$dia'] ?? []) : <SolicitudVacaciones>[];
+    return LayoutBuilder(builder: (_, bc) {
+      // Distribuir la altura disponible entre las filas sin scroll
+      // Cabecera días = 28px; el resto se reparte entre las filas
+      const headerH = 28.0;
+      final rowH = ((bc.maxHeight - headerH) / filas).clamp(44.0, 80.0);
 
-                    return Expanded(child: Container(
-                      constraints: const BoxConstraints(minHeight: 80),
-                      decoration: BoxDecoration(
-                        color: esHoy
-                            ? _kGreen.withValues(alpha: _isDark ? 0.12 : 0.04)
-                            : Colors.transparent,
-                        border: Border(
-                          right: col < 6 ? BorderSide(color: _border, width: 0.5) : BorderSide.none,
-                          bottom: fila < filas - 1 ? BorderSide(color: _border, width: 0.5) : BorderSide.none,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(6, 6, 4, 4),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          // Número del día
-                          Center(child: Container(
-                            width: 26, height: 26,
-                            decoration: BoxDecoration(
-                              color: esHoy ? _kGreen : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(child: Text(
-                              esEsteMes ? '$dia' : '',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: esHoy ? Colors.white
-                                    : esFin ? _kRed
-                                    : esEsteMes ? _text : _sub,
-                              ),
-                            )),
-                          )),
-                          const SizedBox(height: 3),
-                          // Eventos (máx 2 + "+N más")
-                          ...eventos.take(2).map((s) {
-                            final c = _colorTipo(s.tipo);
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              child: Row(children: [
-                                Container(width: 6, height: 6,
-                                    decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
-                                const SizedBox(width: 3),
-                                Flexible(child: Text(
-                                  s.empleadoNombre ?? 'Empleado',
-                                  style: TextStyle(fontSize: 9.5, color: _text,
-                                      fontWeight: FontWeight.w500),
-                                  overflow: TextOverflow.ellipsis, maxLines: 1,
-                                )),
-                              ]),
-                            );
-                          }),
-                          if (eventos.length > 2)
-                            Text('+${eventos.length - 2} más',
-                                style: TextStyle(fontSize: 9, color: _sub)),
-                        ]),
-                      ),
-                    ));
-                  }),
-                ],
-              ]),
-          ]),
+      return Column(children: [
+        // Cabecera días semana
+        SizedBox(
+          height: headerH,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: ['L','M','X','J','V','S','D'].map((d) =>
+              Expanded(child: Center(child: Text(d, style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: _sub))))).toList(),
+            ),
+          ),
         ),
-      )),
-    ]);
+        Expanded(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _surf,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            child: Column(children: [
+              for (int fila = 0; fila < filas; fila++)
+                Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  for (int col = 0; col < 7; col++) ...[
+                    Builder(builder: (_) {
+                      final idx = fila * 7 + col;
+                      final dia = idx - offsetLunes + 1;
+                      final esEsteMes = dia >= 1 && dia <= diasMes;
+                      final esHoy     = esEsteMes && dia == hoy.day &&
+                          _mesActual.month == hoy.month && _mesActual.year == hoy.year;
+                      final esFin     = col >= 5;
+                      final eventos   = esEsteMes ? (porDia['$dia'] ?? []) : <SolicitudVacaciones>[];
+
+                      return Expanded(child: Container(
+                        decoration: BoxDecoration(
+                          color: esHoy
+                              ? _kGreen.withValues(alpha: _isDark ? 0.12 : 0.04)
+                              : Colors.transparent,
+                          border: Border(
+                            right: col < 6 ? BorderSide(color: _border, width: 0.5) : BorderSide.none,
+                            bottom: fila < filas - 1 ? BorderSide(color: _border, width: 0.5) : BorderSide.none,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(3, 4, 2, 2),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Center(child: Container(
+                              width: 22, height: 22,
+                              decoration: BoxDecoration(
+                                color: esHoy ? _kGreen : Colors.transparent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(child: Text(
+                                esEsteMes ? '$dia' : '',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: esHoy ? Colors.white
+                                      : esFin ? _kRed
+                                      : esEsteMes ? _text : _sub,
+                                ),
+                              )),
+                            )),
+                            if (rowH > 46) ...[
+                              const SizedBox(height: 2),
+                              ...eventos.take(1).map((s) {
+                                final c = _colorTipo(s.tipo);
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 1),
+                                  child: Row(children: [
+                                    Container(width: 5, height: 5,
+                                        decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+                                    const SizedBox(width: 2),
+                                    Flexible(child: Text(
+                                      s.empleadoNombre?.split(' ').first ?? '·',
+                                      style: TextStyle(fontSize: 8.5, color: _text),
+                                      overflow: TextOverflow.ellipsis, maxLines: 1,
+                                    )),
+                                  ]),
+                                );
+                              }),
+                              if (eventos.length > 1)
+                                Text('+${eventos.length - 1}',
+                                    style: TextStyle(fontSize: 8, color: _sub)),
+                            ],
+                          ]),
+                        ),
+                      ));
+                    }),
+                  ],
+                ])),
+            ]),
+          ),
+        )),
+      ]);
+    });
   }
 
   // ── Vista lista ─────────────────────────────────────────────────────────────
@@ -679,8 +655,8 @@ class _VacacionesScreenState extends State<VacacionesScreen>
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _isDark ? 0.18 : 0.04),
             blurRadius: 6, offset: const Offset(0, 2))],
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        // Barra lateral de color (estilo d-line-icon del HTML)
+      child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Barra lateral de color
         Container(
           width: 5,
           decoration: BoxDecoration(
@@ -721,21 +697,33 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                     fontWeight: FontWeight.w700)),
               ),
             ]),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
+            // tipo
             Row(children: [
-              Container(width: 7, height: 7, margin: const EdgeInsets.only(right: 5),
+              Container(width: 6, height: 6, margin: const EdgeInsets.only(right: 5),
                   decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
-              Text(s.tipo.etiqueta,
-                  style: TextStyle(fontSize: 11.5, color: c,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(width: 12),
-              Icon(Icons.date_range_outlined, size: 12, color: _sub),
-              const SizedBox(width: 3),
-              Text(fechaStr, style: TextStyle(fontSize: 11.5, color: _sub)),
+              Flexible(child: Text(s.tipo.etiqueta,
+                  style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis)),
               const SizedBox(width: 8),
-              Text('${s.diasNaturales}d',
-                  style: TextStyle(fontSize: 11, color: _sub,
-                      fontStyle: FontStyle.italic)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _sub.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('${s.diasNaturales}d',
+                    style: TextStyle(fontSize: 10, color: _sub)),
+              ),
+            ]),
+            const SizedBox(height: 2),
+            // fecha
+            Row(children: [
+              Icon(Icons.date_range_outlined, size: 11, color: _sub),
+              const SizedBox(width: 3),
+              Flexible(child: Text(fechaStr,
+                  style: TextStyle(fontSize: 11, color: _sub),
+                  overflow: TextOverflow.ellipsis)),
             ]),
           ]),
         )),
@@ -750,7 +738,7 @@ class _VacacionesScreenState extends State<VacacionesScreen>
           )
         else
           const SizedBox(width: 14),
-      ]),
+      ])),
     );
   }
 

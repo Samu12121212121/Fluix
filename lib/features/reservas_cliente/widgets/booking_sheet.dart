@@ -100,14 +100,14 @@ class _BookingSheetState extends State<_BookingSheet> {
 
   Future<void> _cargarConfig() async {
     final empresaId = widget.negocio.empresaIdVinculada;
+    final tipoCategoria = _tipoDeCategoria(widget.negocio.categoria.name);
     ConfigReservas config;
     if (empresaId.isNotEmpty) {
-      config = await ConfigReservas.cargar(empresaId);
+      final saved = await ConfigReservas.cargar(empresaId);
+      // Si no hay config guardada, usar tipo inferido por categoría (bares → mesa, etc.)
+      config = saved ?? ConfigReservas(tipo: tipoCategoria);
     } else {
-      // Sin empresa vinculada: inferir tipo por categoría
-      config = ConfigReservas(
-        tipo: _tipoDeCategoria(widget.negocio.categoria.name),
-      );
+      config = ConfigReservas(tipo: tipoCategoria);
     }
     // Crear controllers para campos extra
     for (final c in config.camposExtra) {

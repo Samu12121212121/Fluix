@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/utils/app_settings.dart';
 import '../negocio_theme.dart';
 
 Widget _card({required bool d, required IconData icon, required Color c, required String title, String? sub, required Widget child}) {
@@ -49,14 +50,17 @@ Widget buildSeccionProfesionales(BuildContext ctx, {
     ])),
     _card(d: dark, icon: Icons.person_outline_rounded, c: kAzul, title: 'Miembros del Equipo', sub: 'Gestiona los profesionales desde el módulo Empleados',
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('empresas').doc(empresaId).collection('empleados').snapshots(),
+        stream: FirebaseFirestore.instance.collection('usuarios').where('empresa_id', isEqualTo: empresaId).snapshots(),
         builder: (_, snap) {
-          final docs = snap.data?.docs ?? [];
-          if (docs.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Center(child: Text('Sin profesionales configurados', style: TextStyle(color: kMuted(dark), fontSize: 13))));
+          final docs = (snap.data?.docs ?? []).where((d) {
+            final rol = (d.data() as Map<String, dynamic>)['rol'] as String? ?? '';
+            return rol == 'staff' || rol == 'admin';
+          }).toList();
+          if (docs.isEmpty) return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Center(child: Text('Sin miembros de equipo configurados', style: TextStyle(color: kMuted(dark), fontSize: 13))));
           return Column(children: docs.map((d) {
             final data = d.data() as Map<String, dynamic>;
             final nombre = data['nombre'] as String? ?? '';
-            final cargo  = data['cargo'] as String? ?? '';
+            final cargo  = data['cargo'] as String? ?? data['puesto'] as String? ?? '';
             return ListTile(dense: true, contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(radius: 16, backgroundColor: kAzul.withValues(alpha: 0.15), child: Text(nombre.isNotEmpty ? nombre[0].toUpperCase() : '?', style: const TextStyle(color: kAzul, fontWeight: FontWeight.bold, fontSize: 13))),
               title: Text(nombre, style: TextStyle(color: kTexto(dark), fontSize: 12)),
@@ -227,12 +231,22 @@ Widget buildSeccionDiseno(BuildContext ctx, {
     const SizedBox(height: 10),
     _lbl(dark, 'MENSAJE PROMOCIONAL'),
     TextField(controller: msgPromoCtrl, style: TextStyle(color: kTexto(dark), fontSize: 13), decoration: kDec(dark, 'Ej: Esta semana: 20% en coloraciones')),
-    const SizedBox(height: 10),
-    Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF9B59B6).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(9), border: Border.all(color: const Color(0xFF9B59B6).withValues(alpha: 0.3))),
-      child: Row(children: [
-        const Icon(Icons.info_outline_rounded, color: Color(0xFF9B59B6), size: 14),
-        const SizedBox(width: 8),
-        Expanded(child: Text('Personalización de colores disponible próximamente', style: TextStyle(color: kMuted(dark), fontSize: 11))),
+    const SizedBox(height: 14),
+    _lbl(dark, 'TEMA DE LA APP'),
+    ValueListenableBuilder<bool>(
+      valueListenable: AppSettings.darkMode,
+      builder: (_, isDark, __) => Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Modo oscuro', style: TextStyle(color: kTexto(dark), fontSize: 13)),
+          Text('Cambia el aspecto de toda la app', style: TextStyle(color: kMuted(dark), fontSize: 11)),
+        ])),
+        Switch(
+          value: isDark,
+          onChanged: AppSettings.setDark,
+          activeColor: kAccent,
+          activeTrackColor: kAccent.withValues(alpha: 0.25),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ]),
     ),
   ]));

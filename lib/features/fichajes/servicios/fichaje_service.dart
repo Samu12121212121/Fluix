@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
 import '../modelos/fichaje.dart';
+import '../../../services/bandeja_notificaciones_service.dart' show TipoNotificacion;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FICHAJE SERVICE — Normativa Real Decreto 2026
@@ -355,6 +356,43 @@ class FichajeService {
       'timestamp': FieldValue.serverTimestamp(),
       'dispositivo_id': original['dispositivo_id'] ?? 'desconocido',
     });
+
+    // ── Notificación al empleado ──────────────────────────────────────────
+    // Se escribe en usuarios/{empleadoId}/notificaciones para que la vea
+    // en el Portal Empleado. Cumple el deber de transparencia RDL 8/2019.
+    final empleadoId = original['empleado_id'] as String?;
+    final fecha      = original['fecha'] as String? ?? '';
+    if (empleadoId != null && empleadoId.isNotEmpty) {
+      final fechaFmt = _formatearFechaFichaje(fecha);
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(empleadoId)
+          .collection('notificaciones')
+          .add({
+        'titulo':          'Corrección de fichaje',
+        'cuerpo':          'Tu fichaje del $fechaFmt ha sido corregido. Motivo: ${motivo.trim()}',
+        'tipo':            TipoNotificacion.fichajeCorregido.name,
+        'timestamp':       FieldValue.serverTimestamp(),
+        'leida':           false,
+        'modulo_destino':  'fichajes',
+        'entidad_id':      fichajeOriginalId,
+        'empresa_id':      empresaId,
+        'corregido_por_uid': corregidoPorUid,
+        'motivo':          motivo.trim(),
+      });
+    }
+  }
+
+  /// Formatea "yyyy-MM-dd" como "d de MMMM" (ej: "3 de octubre")
+  static String _formatearFechaFichaje(String fechaStr) {
+    try {
+      final dt = DateTime.parse(fechaStr);
+      const meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+      return '${dt.day} de ${meses[dt.month]}';
+    } catch (_) {
+      return fechaStr;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

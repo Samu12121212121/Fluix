@@ -8,18 +8,18 @@ import '../../../core/widgets/fluix_app_bar.dart';
 // PALETA
 // ─────────────────────────────────────────────────────────────────────────────
 class _C {
-  static const fondo      = Color(0xFF0A0F23);
-  static const superficie = Color(0xFF151932);
-  static const tarjeta    = Color(0xFF1E2139);
-  static const borde      = Color(0xFF2A2E45);
+  static const fondo      = Color(0xFFF4F6FB);
+  static const superficie = Color(0xFFFFFFFF);
+  static const tarjeta    = Color(0xFFF1F5F9);
+  static const borde      = Color(0xFFE2E8F0);
   static const flash      = Color(0xFFFFBB00);
-  static const flashBg    = Color(0xFF3D2E00);
-  static const accent     = Color(0xFF00FFC8);
+  static const flashBg    = Color(0xFFFFF8E1);
+  static const accent     = Color(0xFF00BFA5);
   static const rosa       = Color(0xFFFF3296);
   static const rojo       = Color(0xFFFF2850);
-  static const texto      = Color(0xFFFFFFFF);
-  static const textoMuted = Color(0xFFB0B3C1);
-  static const textoHint  = Color(0xFF6B6E82);
+  static const texto      = Color(0xFF1E293B);
+  static const textoMuted = Color(0xFF64748B);
+  static const textoHint  = Color(0xFF94A3B8);
 
   static InputDecoration inp(String label, {IconData? icon}) => InputDecoration(
     labelText: label,
@@ -32,7 +32,7 @@ class _C {
         borderSide: const BorderSide(color: _C.borde)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _C.flash, width: 1.5)),
-    filled: true, fillColor: _C.superficie,
+    filled: true, fillColor: _C.tarjeta,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   );
 }
@@ -185,7 +185,7 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
                 child: _publicando
                     ? const SizedBox(width: 22, height: 22,
                         child: CircularProgressIndicator(
-                            color: Color(0xFF0A0F23), strokeWidth: 2.5))
+                            color: _C.fondo, strokeWidth: 2.5))
                     : const Row(mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text('⚡', style: TextStyle(fontSize: 18)),
@@ -228,7 +228,7 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
           );
         }
         return Theme(
-          data: ThemeData.dark().copyWith(canvasColor: _C.superficie),
+          data: ThemeData.light().copyWith(canvasColor: _C.superficie),
           child: DropdownButtonFormField<String>(
             value: _servicioId,
             dropdownColor: _C.superficie,
@@ -369,9 +369,9 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
           firstDate: DateTime.now(),
           lastDate: DateTime.now().add(const Duration(days: 30)),
           builder: (ctx, child) => Theme(
-            data: ThemeData.dark().copyWith(colorScheme: ColorScheme.dark(
+            data: ThemeData.light().copyWith(colorScheme: ColorScheme.light(
               primary: _C.flash, onPrimary: _C.fondo,
-              surface: _C.tarjeta, onSurface: _C.texto,
+              surface: _C.superficie, onSurface: _C.texto,
             )), child: child!,
           ),
         );
@@ -379,9 +379,9 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
         final hora = await showTimePicker(
           context: context, initialTime: TimeOfDay.now(),
           builder: (ctx, child) => Theme(
-            data: ThemeData.dark().copyWith(colorScheme: ColorScheme.dark(
+            data: ThemeData.light().copyWith(colorScheme: ColorScheme.light(
               primary: _C.flash, onPrimary: _C.fondo,
-              surface: _C.tarjeta, onSurface: _C.texto,
+              surface: _C.superficie, onSurface: _C.texto,
             )), child: child!,
           ),
         );
@@ -501,7 +501,7 @@ class _PantallaCrearFlashSlotState extends State<PantallaCrearFlashSlot> {
         }
         final docs = snap.data!.docs;
         return Theme(
-          data: ThemeData.dark().copyWith(canvasColor: _C.superficie),
+          data: ThemeData.light().copyWith(canvasColor: _C.superficie),
           child: DropdownButtonFormField<String>(
             value: _profesionalId,
             dropdownColor: _C.superficie,

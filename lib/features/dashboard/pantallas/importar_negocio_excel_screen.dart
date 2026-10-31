@@ -51,10 +51,12 @@ class _ImportarNegocioExcelScreenState
     try {
       // withData:true en Windows/iOS causa deadlock en el isolate de FilePicker.
       // Solo activarlo en web (donde no hay acceso a path).
+      // withData:true en Windows/macOS/Linux puede causar problemas; en Android y web es la única vía fiable
+      final esDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
-        withData: kIsWeb, // solo en web; en nativo leemos desde path
+        withData: kIsWeb || !esDesktop, // web + móvil usan bytes; desktop usa path
       );
       if (result == null || result.files.isEmpty) {
         setState(() => _cargando = false);
@@ -62,13 +64,16 @@ class _ImportarNegocioExcelScreenState
       }
 
       final file = result.files.first;
-      List<int> bytes;
+      List<int>? bytes;
 
-      if (kIsWeb && file.bytes != null) {
+      // Prioridad: bytes en memoria; fallback: leer desde path
+      if (file.bytes != null) {
         bytes = file.bytes!;
-      } else if (!kIsWeb && file.path != null) {
+      } else if (file.path != null) {
         bytes = await File(file.path!).readAsBytes();
-      } else {
+      }
+
+      if (bytes == null) {
         setState(() { _error = 'No se pudo leer el fichero. Inténtalo de nuevo.'; _cargando = false; });
         return;
       }

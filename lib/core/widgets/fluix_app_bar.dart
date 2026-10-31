@@ -228,7 +228,7 @@ class _FluixTitle extends StatelessWidget {
     // Breadcrumb multi-nivel (tiene prioridad sobre titulo)
     final items = breadcrumbItems;
     if (items != null && items.isNotEmpty) {
-      return Row(mainAxisSize: MainAxisSize.min, children: [
+      return Row(mainAxisSize: MainAxisSize.max, children: [
         if (onBack != null) ...[
           GestureDetector(onTap: onBack,
               child: Icon(Icons.arrow_back_ios_rounded, size: 18, color: ic)),
@@ -243,7 +243,7 @@ class _FluixTitle extends StatelessWidget {
     }
 
     // Modo legacy: solo titulo (backward compat)
-    final row = Row(mainAxisSize: MainAxisSize.min, children: [
+    final row = Row(mainAxisSize: MainAxisSize.max, children: [
       if (onBack != null) ...[
         GestureDetector(
           onTap: onBack,

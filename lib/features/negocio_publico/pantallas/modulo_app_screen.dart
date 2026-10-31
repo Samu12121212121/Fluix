@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -165,6 +165,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
   void initState() {
     super.initState();
     _isDark = AppSettings.darkMode.value;
+    _secciones = List.from(_seccionesDefault);
     AppSettings.darkMode.addListener(_onDark);
     _initHorarios();
     _cargar();
@@ -558,7 +559,7 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
     'resenas', 'galeria', 'promociones', 'politicas',
   };
 
-  static const _secciones = [
+  static const _seccionesDefault = [
     ('identidad',     Icons.storefront_outlined,     'Identidad',         Color(0xFF00BFA5)),
     ('contacto',      Icons.phone_outlined,           'Contacto',          Color(0xFF3B82F6)),
     ('ubicacion',     Icons.location_on_outlined,     'Ubicación',         Color(0xFFFF9800)),
@@ -578,111 +579,131 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
     ('estadisticas',  Icons.bar_chart_rounded,        'Estadísticas',      Color(0xFFFFB830)),
   ];
 
+  late List<(String, IconData, String, Color)> _secciones;
+
   Widget _buildSectionGrid() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Cabecera explicativa
+      // Cabecera
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Row(children: [
           Expanded(child: Text(
-            '${_secciones.length} secciones · toca para editar',
+            '${_secciones.length} secciones · mantén pulsado para reordenar',
             style: TextStyle(color: _kMuted, fontSize: 12),
           )),
-          Icon(Icons.visibility_outlined, size: 14, color: _kMuted),
-          const SizedBox(width: 4),
-          Text('= visible en perfil público',
-              style: TextStyle(color: _kMuted, fontSize: 11)),
+          Icon(Icons.drag_indicator_rounded, size: 14, color: _kMuted),
         ]),
       ),
 
-      ..._secciones.map((s) {
-        final tieneToggle = _seccionesConToggle.contains(s.$1);
-        final visible = _seccionesVisibles[s.$1] ?? true;
-        final oculto  = tieneToggle && !visible;
+      ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _secciones.length,
+        onReorder: (oldIndex, newIndex) {
+          setState(() {
+            if (newIndex > oldIndex) newIndex--;
+            final item = _secciones.removeAt(oldIndex);
+            _secciones.insert(newIndex, item);
+          });
+        },
+        proxyDecorator: (child, index, animation) => Material(
+          color: Colors.transparent,
+          child: child,
+        ),
+        itemBuilder: (context, index) {
+          final s = _secciones[index];
+          final tieneToggle = _seccionesConToggle.contains(s.$1);
+          final visible = _seccionesVisibles[s.$1] ?? true;
+          final oculto  = tieneToggle && !visible;
 
-        return GestureDetector(
-          onTap: () => setState(() => _seccionActual = s.$1),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.only(bottom: 7),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: oculto ? _kBg : _kCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: oculto ? _kBorde.withValues(alpha: 0.5) : _kBorde,
-                width: 0.5,
-              ),
-            ),
-            child: Row(children: [
-              // Icono de sección
-              Opacity(
-                opacity: oculto ? 0.45 : 1.0,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: s.$4.withValues(alpha: oculto ? 0.06 : 0.12),
-                    borderRadius: BorderRadius.circular(8),
+          return Padding(
+            key: ValueKey(s.$1),
+            padding: const EdgeInsets.only(bottom: 7),
+            child: GestureDetector(
+              onTap: () => setState(() => _seccionActual = s.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: oculto ? _kBg : _kCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: oculto ? _kBorde.withValues(alpha: 0.5) : _kBorde,
+                    width: 0.5,
                   ),
-                  child: Icon(s.$2, color: oculto ? _kMuted : s.$4, size: 17),
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // Nombre
-              Expanded(child: Opacity(
-                opacity: oculto ? 0.5 : 1.0,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(s.$3, style: TextStyle(
-                      color: _kTexto, fontSize: 14, fontWeight: FontWeight.w600)),
-                  if (oculto)
-                    Text('Oculto en perfil público',
-                        style: TextStyle(color: _kMuted, fontSize: 10)),
-                ]),
-              )),
-
-              // Toggle ojo (solo secciones con impacto en B2C)
-              if (tieneToggle) ...[
-                GestureDetector(
-                  onTap: () {
-                    final nuevo = Map<String, bool>.from(_seccionesVisibles);
-                    nuevo[s.$1] = !visible;
-                    setState(() { _seccionesVisibles = nuevo; });
-                    // Guardar inmediatamente en Firestore
-                    if (_negocioId != null) {
-                      FirebaseFirestore.instance
-                          .collection('negocios_publicos')
-                          .doc(_negocioId)
-                          .update({'seccionesVisibles': nuevo})
-                          .catchError((_) {});
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 6, left: 4),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.all(6),
+                child: Row(children: [
+                  // Handle drag
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Icon(Icons.drag_indicator_rounded, color: _kBorde, size: 18),
+                  ),
+                  // Icono
+                  Opacity(
+                    opacity: oculto ? 0.45 : 1.0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: visible
-                            ? _kAccent.withValues(alpha: 0.10)
-                            : _kBorde.withValues(alpha: 0.3),
+                        color: s.$4.withValues(alpha: oculto ? 0.06 : 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        visible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                        size: 16,
-                        color: visible ? _kAccent : _kMuted,
-                      ),
+                      child: Icon(s.$2, color: oculto ? _kMuted : s.$4, size: 17),
                     ),
                   ),
-                ),
-              ],
-
-              Icon(Icons.chevron_right_rounded, color: _kMuted, size: 16),
-            ]),
-          ),
-        );
-      }),
+                  const SizedBox(width: 12),
+                  // Nombre
+                  Expanded(child: Opacity(
+                    opacity: oculto ? 0.5 : 1.0,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(s.$3, style: TextStyle(
+                          color: _kTexto, fontSize: 14, fontWeight: FontWeight.w600)),
+                      if (oculto)
+                        Text('Oculto en perfil público',
+                            style: TextStyle(color: _kMuted, fontSize: 10)),
+                    ]),
+                  )),
+                  // Toggle ojo
+                  if (tieneToggle) ...[
+                    GestureDetector(
+                      onTap: () {
+                        final nuevo = Map<String, bool>.from(_seccionesVisibles);
+                        nuevo[s.$1] = !visible;
+                        setState(() { _seccionesVisibles = nuevo; });
+                        if (_negocioId != null) {
+                          FirebaseFirestore.instance
+                              .collection('negocios_publicos')
+                              .doc(_negocioId)
+                              .update({'seccionesVisibles': nuevo})
+                              .catchError((_) {});
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 6, left: 4),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: visible
+                                ? _kAccent.withValues(alpha: 0.10)
+                                : _kBorde.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            visible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                            size: 16,
+                            color: visible ? _kAccent : _kMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  Icon(Icons.chevron_right_rounded, color: _kMuted, size: 16),
+                ]),
+              ),
+            ),
+          );
+        },
+      ),
     ]);
   }
 

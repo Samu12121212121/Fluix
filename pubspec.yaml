@@ -2,7 +2,7 @@ name: planeag_flutter
 description: PlaneaGuada CRM para pymes
 publish_to: 'none'
 
-version: 1.0.18
+version: 1.0.19+19
 
 environment:
     sdk: ^3.11.1
@@ -193,6 +193,7 @@ flutter:
 
     assets:
         - assets/sounds/
+        - assets/icons/
         - assets/palacio_infantado.webp
         - assets/cloud_rosa.png
 
@@ -205,6 +206,8 @@ flutter_launcher_icons:
     web:
         generate: false
     windows:
-        generate: false
+        generate: true
+        image_path: "assets/icons/app_icon_nobg.png"
+        icon_size: 48
     macos:
         generate: false

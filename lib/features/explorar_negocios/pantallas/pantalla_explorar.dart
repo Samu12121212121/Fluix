@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -331,7 +331,8 @@ class PantallaExplorar extends StatefulWidget {
 class _PantallaExplorarState extends State<PantallaExplorar> {
   int _tab = 0;
 
-  void _irABuscar() => setState(() => _tab = 1);
+  // Tab Buscar comentado de momento — la búsqueda va inline en el hero
+  void _irABuscar() {}
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +351,7 @@ class _PantallaExplorarState extends State<PantallaExplorar> {
         index: _tab,
         children: [
           _TabExplorar(onBuscar: _irABuscar),
-          const _TabBuscar(),
+          // const _TabBuscar(), // comentado — búsqueda inline en el hero
           const _TabFavoritos(),
           const PantallaPerfilCliente(),
         ],
@@ -371,7 +372,7 @@ class _BottomBar extends StatelessWidget {
 
   static const _kItems = [
     (Icons.grid_view_rounded,     Icons.grid_view_outlined,     'Explorar'),
-    (Icons.search_rounded,        Icons.search_outlined,        'Buscar'),
+    // (Icons.search_rounded, Icons.search_outlined, 'Buscar'), // comentado — búsqueda inline
     (Icons.favorite_rounded,      Icons.favorite_border_rounded,'Favoritos'),
     (Icons.person_rounded,        Icons.person_outline_rounded, 'Perfil'),
   ];
@@ -450,6 +451,10 @@ class _TabExplorarState extends State<_TabExplorar> {
   FiltrosExplorar _filtros = const FiltrosExplorar();
   Position? _posicion;
 
+  // Búsqueda inline
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
   // Stream único — un solo listener para toda la pantalla
   List<NegocioPublico> _negocios = [];
   bool _cargandoNegocios = true;
@@ -480,6 +485,7 @@ class _TabExplorarState extends State<_TabExplorar> {
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _negociosSub?.cancel();
     super.dispose();
   }
@@ -506,13 +512,23 @@ class _TabExplorarState extends State<_TabExplorar> {
     return p;
   }
 
-  // Filtrado por categoría y modo tendencias, con límite top-5 por categoría
+  // Filtrado por categoría, modo tendencias y búsqueda inline
   List<NegocioPublico> get _filtrados {
     var items = _negocios;
     if (_cat != null) {
       items = items.where((n) => n.categoria == _cat).toList();
     }
     if (_modTendencias) items = items.where((n) => (n.ratingFluix ?? 0) >= 4.3).toList();
+
+    // Búsqueda letra a letra — devuelve todos los coincidentes sin límite por categoría
+    if (_query.isNotEmpty) {
+      items = items.where((n) =>
+        n.nombre.toLowerCase().contains(_query) ||
+        (n.descripcionCorta?.toLowerCase().contains(_query) ?? false) ||
+        n.categoria.label.toLowerCase().contains(_query)
+      ).toList();
+      return items;
+    }
 
     // Aplicar límite top-5 por categoría (temporal para previsualizar con pocos datos)
     if (_cat != null) {
@@ -555,32 +571,39 @@ class _TabExplorarState extends State<_TabExplorar> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(child: _heroSection(context)),
-          SliverToBoxAdapter(child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: _chips(),
-          )),
-          const SliverToBoxAdapter(child: CarruselFlashSlots()),
-          SliverToBoxAdapter(child: _seccion(
-            titulo: 'Ofertas especiales', sub: 'Solo por tiempo limitado',
-            filtro: 'ofertas',
-            child: _CarruselOfertas(negocios: negocios, cargando: _cargandoNegocios, filtros: _filtros),
-          )),
-          SliverToBoxAdapter(child: _seccion(
-            titulo: 'Recomendados', sub: 'Los mejor valorados',
-            filtro: 'recomendados',
-            child: _CarruselCompacto(negocios: negocios, cargando: _cargandoNegocios, filtroRating: 4.0, filtros: _filtros),
-          )),
-          if (_posicion != null)
+          SliverToBoxAdapter(child: _heroSectionNew(context)),
+          // Carruseles y chips solo cuando NO hay búsqueda activa
+          if (_query.isEmpty) ...[
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _chips(),
+            )),
+            const SliverToBoxAdapter(child: CarruselFlashSlots()),
+            if (_cargandoNegocios || negocios.any((n) => n.mensajePromocional?.trim().isNotEmpty == true))
+              SliverToBoxAdapter(child: _seccion(
+                titulo: 'Ofertas especiales', sub: 'Negocios con promociones activas',
+                filtro: 'ofertas',
+                child: _CarruselOfertas(negocios: negocios, cargando: _cargandoNegocios, filtros: _filtros),
+              )),
             SliverToBoxAdapter(child: _seccion(
-              titulo: 'Cerca de ti', sub: 'Negocios en tu zona',
-              filtro: 'cercanos',
-              child: _CarruselCompacto(negocios: negocios, cargando: _cargandoNegocios, filtros: _filtros, posicion: _posicion),
-            ))
-          else
-            SliverToBoxAdapter(child: _invitacionUbicacion()),
+              titulo: 'Recomendados', sub: 'Los mejor valorados',
+              filtro: 'recomendados',
+              child: _CarruselCompacto(negocios: negocios, cargando: _cargandoNegocios, filtroRating: 4.0, filtros: _filtros),
+            )),
+            if (_posicion != null)
+              SliverToBoxAdapter(child: _seccion(
+                titulo: 'Cerca de ti', sub: 'Negocios en tu zona',
+                filtro: 'cercanos',
+                child: _CarruselCompacto(negocios: negocios, cargando: _cargandoNegocios, filtros: _filtros, posicion: _posicion),
+              ))
+            else
+              SliverToBoxAdapter(child: _invitacionUbicacion()),
+          ],
           SliverToBoxAdapter(child: _tituloSeccion(
-            titulo: 'Todos los negocios', sub: 'Encuentra tu favorito',
+            titulo: _query.isEmpty ? 'Todos los negocios' : 'Resultados para "$_query"',
+            sub: _query.isEmpty
+                ? 'Encuentra tu favorito'
+                : '${negocios.length} negocio${negocios.length == 1 ? '' : 's'} encontrado${negocios.length == 1 ? '' : 's'}',
           )),
           _gridNegocios(negocios),
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -659,7 +682,8 @@ class _TabExplorarState extends State<_TabExplorar> {
     );
   }
 
-  // ── Hero: nube orgánica asimétrica en la zona superior-derecha ──
+  // ── Hero: nube orgánica asimétrica en la zona superior-derecha ── (comentado)
+  /*
   Widget _heroSection(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
     final h = DateTime.now().hour;
@@ -675,9 +699,7 @@ class _TabExplorarState extends State<_TabExplorar> {
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
-            // ── Fondo base claro
             const Positioned.fill(child: ColoredBox(color: _C.fondo)),
-            // ── Nube recortada: imagen (o fallback azul) + overlay degradado ──
             Positioned.fill(
               child: ClipPath(
                 clipper: _CloudClipper(),
@@ -692,7 +714,6 @@ class _TabExplorarState extends State<_TabExplorar> {
                       errorBuilder: (_, __, ___) =>
                           const ColoredBox(color: Color(0xFF1565C0)),
                     ),
-                    // Overlay de gradiente para mantener el tono azul Fluix
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -709,9 +730,6 @@ class _TabExplorarState extends State<_TabExplorar> {
                 ),
               ),
             ),
-            // ── Nube rosa: forma real extraída de la foto (cloud_rosa.png)
-            // Valores elegidos en el preview HTML:
-            //   ancho=59%, alto=38%, X=179/390·w, Y=211/310·heroH, op=83%
             Positioned(
               left:  w * (179.0 / 390.0),
               top:   heroH * (211.0 / 310.0),
@@ -723,7 +741,6 @@ class _TabExplorarState extends State<_TabExplorar> {
                 opacity: const AlwaysStoppedAnimation(0.83),
               ),
             ),
-            // ── Círculo verde (semiluna, abajo-izquierda, detrás del texto)
             Positioned(
               left: -(w * 0.09),
               bottom: -(w * 0.07),
@@ -736,7 +753,6 @@ class _TabExplorarState extends State<_TabExplorar> {
                 ),
               ),
             ),
-            // ── Texto izquierda
             Positioned(
               left: 20, top: topPad + 10, bottom: 14,
               right: textRight,
@@ -773,7 +789,6 @@ class _TabExplorarState extends State<_TabExplorar> {
                 ],
               ),
             ),
-            // ── Botones filtro + notificaciones
             Positioned(
               top: topPad + 10,
               right: 14,
@@ -787,6 +802,138 @@ class _TabExplorarState extends State<_TabExplorar> {
         ),
       );
     });
+  }
+  */
+
+  // ── Hero nuevo: imagen full-bleed de Guadalajara + gradiente + buscador ──
+  Widget _heroSectionNew(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    final heroH = topPad + 370.0;
+
+    return SizedBox(
+      height: heroH,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Foto de Guadalajara al fondo
+            Image.asset(
+              'assets/palacio_infantado.webp',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF23374D)),
+            ),
+            // Gradiente oscuro: transparente en el centro, opaco arriba y abajo
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: [0.0, 0.35, 1.0],
+                  colors: [
+                    Color(0x6E0A1426), // 43%
+                    Color(0x400A1426), // 25%
+                    Color(0xD40A1426), // 83%
+                  ],
+                ),
+              ),
+            ),
+            // Contenido
+            Padding(
+              padding: EdgeInsets.fromLTRB(22, topPad + 28, 22, 30),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Topbar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Fluix', style: TextStyle(
+                        color: Color(0xFF16C4A9),
+                        fontSize: 35,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.8,
+                      )),
+                      Row(children: [
+                        _filtrosBtn(),
+                        const SizedBox(width: 2),
+                        _notificacionesBtn(),
+                      ]),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Etiqueta ciudad
+                  const Text('GUADALAJARA', style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                    color: Color(0xFF70E5D1),
+                  )),
+                  const SizedBox(height: 9),
+                  // Título
+                  const Text('Descubre algo nuevo.', style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.0,
+                    color: Colors.white,
+                    height: 1.12,
+                  )),
+                  const SizedBox(height: 9),
+                  // Subtítulo
+                  Text(
+                    'Negocios, experiencias y lugares para ti.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Buscador inline
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 20, offset: const Offset(0, 5),
+                      )],
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.search_rounded, color: Color(0xFF13BFA5), size: 21),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                          style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                          decoration: InputDecoration(
+                            hintText: '¿Qué te apetece descubrir?',
+                            hintStyle: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      if (_query.isNotEmpty)
+                        GestureDetector(
+                          onTap: () { _searchCtrl.clear(); setState(() => _query = ''); },
+                          child: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                        )
+                      else
+                        const Icon(Icons.arrow_forward_rounded,
+                            color: Color(0xFF13BFA5), size: 20),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _chips() {
@@ -936,7 +1083,7 @@ class _TabExplorarState extends State<_TabExplorar> {
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12,
-          childAspectRatio: 0.82,
+          childAspectRatio: 0.60,
         ),
         delegate: SliverChildBuilderDelegate(
           (ctx, i) => _TarjetaGrid(negocio: items[i]),
@@ -1186,6 +1333,8 @@ class _CarruselOfertas extends StatelessWidget {
     }
     var items = [...negocios];
     if (filtros.tieneAlgunFiltro) items = items.where(filtros.pasaFiltro).toList();
+    // Solo negocios con mensaje promocional activo
+    items = items.where((n) => n.mensajePromocional?.trim().isNotEmpty == true).toList();
     if (items.isEmpty) return const SizedBox.shrink();
     items.sort((a, b) =>
         (b.ratingGoogle ?? b.ratingFluix ?? 0).compareTo(a.ratingGoogle ?? a.ratingFluix ?? 0));
@@ -1490,7 +1639,7 @@ class _TarjetaGrid extends StatelessWidget {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: AspectRatio(
-                aspectRatio: 2.0,
+                aspectRatio: 1.05,
                 child: _esUrlImagenValida(negocio.fotoUrl)
                     ? CachedNetworkImage(
                         imageUrl: negocio.fotoUrl!,
@@ -1502,50 +1651,51 @@ class _TarjetaGrid extends StatelessWidget {
             ),
             // Info
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+              padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Nombre
                   Text(negocio.nombre,
-                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600,
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700,
                           color: _C.texto, height: 1.2),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
-                  // Rating + reseñas
-                  if (negocio.ratingGoogle != null)
-                    Row(children: [
+                  // Rating + categoría en la misma fila
+                  Row(children: [
+                    if (negocio.ratingGoogle != null) ...[
                       const Icon(Icons.star_rounded, size: 10, color: Color(0xFFD97706)),
                       const SizedBox(width: 2),
                       Text(negocio.ratingGoogle!.toStringAsFixed(1),
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
                               color: Color(0xFFD97706))),
                       if (negocio.numResenas != null) ...[
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 2),
                         Text('(${negocio.numResenas})',
                             style: const TextStyle(fontSize: 9, color: _C.textoHint)),
                       ],
-                    ]),
-                  const SizedBox(height: 2),
-                  // Tipo de negocio
-                  Text(negocio.categoria.label,
-                      style: const TextStyle(fontSize: 9.5, color: _C.textoMuted)),
-                  // Servicios destacados
-                  if (negocio.serviciosDestacados != null &&
-                      negocio.serviciosDestacados!.isNotEmpty) ...[
-                    const SizedBox(height: 1),
-                    Text(negocio.serviciosDestacados!.take(2).join(' · '),
-                        style: const TextStyle(fontSize: 9, color: _C.textoHint),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
-                  // Precio medio
-                  if (negocio.precioMedio != null && negocio.precioMedio!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text('~ ${negocio.precioMedio}',
-                        style: const TextStyle(fontSize: 9.5, color: _C.textoMuted,
-                            fontWeight: FontWeight.w600)),
-                  ],
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(child: Text(negocio.categoria.label,
+                        style: const TextStyle(fontSize: 9.5, color: _C.textoMuted),
+                        overflow: TextOverflow.ellipsis)),
+                  ]),
+                  // Bio
+                  Builder(builder: (_) {
+                    final bio = (negocio.descripcionCorta?.trim().isNotEmpty == true)
+                        ? negocio.descripcionCorta
+                        : (negocio.descripcion?.trim().isNotEmpty == true)
+                            ? negocio.descripcion
+                            : null;
+                    if (bio == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(bio,
+                          style: const TextStyle(fontSize: 10.5, color: _C.textoMuted, height: 1.35),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                    );
+                  }),
                 ],
               ),
             ),

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVICIO — Bandeja de notificaciones in-app
@@ -38,6 +38,7 @@ enum TipoNotificacion {
   alertaCobertura,
   trofeo,
   fidelizacion,
+  fichajeCorregido,
 }
 
 extension TipoNotificacionX on TipoNotificacion {
@@ -68,6 +69,7 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.alertaCobertura:       return 'empleados';
       case TipoNotificacion.trofeo:                return '';
       case TipoNotificacion.fidelizacion:          return '';
+      case TipoNotificacion.fichajeCorregido:      return 'fichajes';
     }
   }
 
@@ -96,6 +98,7 @@ extension TipoNotificacionX on TipoNotificacion {
       case TipoNotificacion.alertaCobertura:       return '👥';
       case TipoNotificacion.trofeo:                return '🏆';
       case TipoNotificacion.fidelizacion:          return '🎟️';
+      case TipoNotificacion.fichajeCorregido:      return '📋';
     }
   }
 }
@@ -206,6 +209,8 @@ class NotificacionInApp {
         return TipoNotificacion.trofeo;
       case 'fidelizacion':
         return TipoNotificacion.fidelizacion;
+      case 'fichajeCorregido': case 'fichaje_corregido':
+        return TipoNotificacion.fichajeCorregido;
       default:
         return TipoNotificacion.generica;
     }
