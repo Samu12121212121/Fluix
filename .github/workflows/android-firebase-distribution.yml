@@ -1,12 +1,14 @@
 name: Android — Firebase Testers Granada
 
 on:
+  schedule:
+    - cron: '30 7 4 11 *'
   workflow_dispatch:
     inputs:
       release_notes:
         description: 'Notas de la versión (qué hay de nuevo)'
         required: false
-        default: 'Nueva versión de prueba'
+        default: ''
 
 jobs:
   distribute:
@@ -49,6 +51,21 @@ jobs:
         with:
           appId: 1:1085482191658:android:e514126ea27731a3d62c53
           token: ${{ secrets.FIREBASE_TOKEN }}
-          testers: aliorte.lope@gmail.com
-          releaseNotes: ${{ github.event.inputs.release_notes }}
+          testers: sacoor80@gmail.com,editorialnazari@gmail.com,eventos@editorialnazari.com,editorialacentuarte@gmail.com
+          releaseNotes: |
+            ─── NOVEDADES EN FLUIX v1.0.20 ─────────────
+            • Portal del empleado: consulta turnos, fichajes y mensajes desde el móvil
+            • Módulo de fichajes rediseñado con entrada/salida y control de jornada
+            • Pedidos conectados a facturación (generación directa desde el pedido)
+            • Logo Nazarí en documentos PDF
+            • Mejoras de estabilidad y rendimiento
+
+            ─── CÓMO INSTALAR EN ANDROID ─────────────
+            1. Abre este correo desde el móvil y pulsa el botón "Download"
+            2. Si es la primera vez, te pedirá instalar "Firebase App Tester" — acéptalo
+            3. Dentro de Firebase App Tester pulsa "Download" de nuevo sobre Fluix
+            4. Si el móvil pregunta por "instalar apps de fuentes desconocidas", acepta
+            5. Abre Fluix e inicia sesión con tu usuario habitual
+
+            Si ya tenías una versión anterior instalada, se actualizará automáticamente.
           file: build/app/outputs/flutter-apk/app-release.apk
