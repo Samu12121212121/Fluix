@@ -278,7 +278,38 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
     return Scaffold(
       backgroundColor: kFBg,
       appBar: canPop
-          ? FluixAppBar(titulo: 'Fichajes', showLeading: true)
+          ? FluixAppBar(
+              titulo: 'Fichajes',
+              showLeading: true,
+              extraActions: [
+                IconButton(
+                  icon: const Icon(Icons.tablet_android_outlined, size: 20),
+                  tooltip: 'Kiosk empleados',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PantallaFichajeEmpleado(
+                          empresaId: widget.empresaId,
+                          dispositivoId: 'kiosk_movil'))),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.people_outline, size: 20),
+                  tooltip: 'Empleados',
+                  onPressed: () => _openSheet(context,
+                      TabEmpleadosFichaje(empresaId: widget.empresaId)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.bar_chart_rounded, size: 20),
+                  tooltip: 'Informes',
+                  onPressed: () => _openSheet(context,
+                      TabInformesFichaje(empresaId: widget.empresaId)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                  tooltip: 'Informe PDF',
+                  onPressed: () => _openSheet(context,
+                      TabInformesFichaje(empresaId: widget.empresaId)),
+                ),
+              ],
+            )
           : null,
       body: StreamBuilder<List<Fichaje>>(
         stream: _fichajesHoyStream,
