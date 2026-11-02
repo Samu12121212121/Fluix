@@ -5,9 +5,8 @@ import '../../../models/user_model.dart';
 import '../../autenticacion/pantallas/pantalla_login.dart';
 import '../../dashboard/pantallas/pantalla_dashboard.dart';
 import 'pantalla_trofeos.dart';
-import 'pantalla_monedero.dart';
+// import 'pantalla_monedero.dart'; // oculto temporalmente
 import '../../../services/trofeos_service.dart';
-import '../../tienda_monedas/pantalla_tienda_monedas.dart';
 import '../../tienda_monedas/widgets/avatar_con_marco.dart';
 import '../widgets/avatar_picker_sheet.dart';
 const _kBg      = Color(0xFFF4F6FB);
@@ -35,9 +34,15 @@ class PantallaPerfilCliente extends StatelessWidget {
         scrolledUnderElevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.08),
         automaticallyImplyLeading: false,
-        title: const Text('Fluix',
-            style: TextStyle(color: _kAccent, fontSize: 24,
-                fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        title: const Text('Mi Perfil',
+            style: TextStyle(color: _kTexto, fontSize: 18, fontWeight: FontWeight.w700)),
+        centerTitle: false,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(Icons.settings_outlined, color: _kMuted, size: 22),
+          ),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('usuarios').doc(fbUser.uid).snapshots(),
@@ -137,39 +142,101 @@ class _HeroHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _kBorde),
         boxShadow: [BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 16, offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 20, offset: const Offset(0, 4),
         )],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(children: [
-          // Avatar + edit
-          Stack(alignment: Alignment.bottomRight, children: [
-            GestureDetector(
-              onTap: () => _editarAvatar(context),
-              child: AvatarConMarco(size: 90, marco: marco, pulsante: pulsante, temaMidnight: midnight, child: avatarInner),
-            ),
-            GestureDetector(
-              onTap: () => _editarAvatar(context),
+      child: Column(children: [
+        // ── Banner degradado con avatar superpuesto ──
+        Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               child: Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(color: _kAccent, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                height: 72,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF00BFA5), Color(0xFF00796B)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(children: [
+                  Positioned(right: -20, top: -20,
+                    child: Container(
+                      width: 100, height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  Positioned(right: 40, bottom: -10,
+                    child: Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ]),
               ),
             ),
-          ]),
-          const SizedBox(height: 14),
-          Text(user.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: nombreColor)),
-          if (titulo != null && titulo.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(titulo, style: const TextStyle(fontSize: 12, color: _kAccent, fontStyle: FontStyle.italic)),
+            // Avatar superpuesto al borde inferior del banner
+            Positioned(
+              bottom: -45,
+              child: GestureDetector(
+                onTap: () => _editarAvatar(context),
+                child: Stack(alignment: Alignment.bottomRight, children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Colors.white, shape: BoxShape.circle),
+                    child: AvatarConMarco(size: 84, marco: marco,
+                      pulsante: pulsante, temaMidnight: midnight, child: avatarInner),
+                  ),
+                  Container(
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(
+                      color: _kAccent, shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2)),
+                    child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
+                  ),
+                ]),
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 57), // 45 overflow avatar + 12 gap
+        // ── Nombre, título, email ──
+        Text(user.name,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: nombreColor)),
+        if (titulo != null && titulo.isNotEmpty) ...[
           const SizedBox(height: 3),
-          Text(user.email, style: const TextStyle(fontSize: 13, color: _kMuted)),
-          const SizedBox(height: 16),
-          // Stats row
-          StreamBuilder<Map<String, Map<String, dynamic>>>(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: _kAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(titulo, style: const TextStyle(
+              fontSize: 11, color: _kAccent, fontWeight: FontWeight.w600)),
+          ),
+        ],
+        const SizedBox(height: 4),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.email_outlined, size: 13, color: _kMuted),
+          const SizedBox(width: 4),
+          Text(user.email, style: const TextStyle(fontSize: 12, color: _kMuted)),
+        ]),
+        const SizedBox(height: 18),
+        // ── Stats ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          child: StreamBuilder<Map<String, Map<String, dynamic>>>(
             stream: TrofeosService.streamTrofeos(uid),
             builder: (_, snapT) {
               final trofeos = snapT.data ?? {};
@@ -182,14 +249,14 @@ class _HeroHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(child: _StatChip(label: 'Monedas', value: '${snapM.data ?? 0}', emoji: '🪙', color: _kOro)),
                     const SizedBox(width: 8),
-                    Expanded(child: _StatChip(label: 'Miembro', value: _since(user.createdAt), emoji: '⭐', color: _kAccent)),
+                    Expanded(child: _StatChip(label: 'Desde', value: _since(user.createdAt), emoji: '⭐', color: _kAccent)),
                   ]);
                 },
               );
             },
           ),
-        ]),
-      ),
+        ),
+      ]),
     );
   }
 
@@ -232,10 +299,10 @@ class _QuickActions extends StatelessWidget {
       child: Row(children: [
         _QBtn(icon: '🏆', label: 'Trofeos', color: _kOro,   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTrofeos()))),
         const SizedBox(width: 8),
-        _QBtn(icon: '🪙', label: 'Monedero', color: _kOro,  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMonedero()))),
-        const SizedBox(width: 8),
-        _QBtn(icon: '🛍️', label: 'Tienda',  color: _kAccent, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTiendaMonedas()))),
-        const SizedBox(width: 8),
+        // _QBtn(icon: '🪙', label: 'Monedero', color: _kOro,  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaMonedero()))),
+        // const SizedBox(width: 8),
+        // _QBtn(icon: '🛍️', label: 'Tienda', color: _kAccent, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTiendaMonedas()))),
+        // const SizedBox(width: 8),
         _QBtn(icon: '✏️', label: 'Editar', color: _kRosa, onTap: () => _editarPerfil(context)),
       ]),
     );
@@ -260,16 +327,28 @@ class _QBtn extends StatelessWidget {
     child: GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kBorde),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8, offset: const Offset(0, 2),
+          )],
         ),
         child: Column(children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(child: Text(icon, style: const TextStyle(fontSize: 18))),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(
+            color: _kTexto, fontSize: 11, fontWeight: FontWeight.w600)),
         ]),
       ),
     ),
@@ -436,6 +515,12 @@ class _InfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bio = data['bio'] as String?;
+    final telf = user.telefono;
+    final rows = <_InfoRowData>[
+      _InfoRowData(Icons.email_outlined, 'Correo', user.email),
+      if (telf != null && telf.isNotEmpty) _InfoRowData(Icons.phone_outlined, 'Teléfono', telf),
+      _InfoRowData(Icons.calendar_today_outlined, 'Miembro desde', _fmtDate(user.createdAt)),
+    ];
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       decoration: BoxDecoration(
@@ -444,19 +529,48 @@ class _InfoSection extends StatelessWidget {
         border: Border.all(color: _kBorde, width: 0.5),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Información', style: TextStyle(color: _kTexto, fontSize: 15, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        if (bio != null && bio.isNotEmpty) ...[
-          Text(bio, style: const TextStyle(color: _kMuted, fontSize: 13, height: 1.4)),
-          const SizedBox(height: 10),
-          const Divider(color: _kBorde, height: 1),
-          const SizedBox(height: 10),
-        ],
-        _InfoRow(Icons.email_outlined, user.email),
-        if (user.telefono != null && user.telefono!.isNotEmpty) _InfoRow(Icons.phone_outlined, user.telefono!),
-        _InfoRow(Icons.calendar_today_outlined, 'Desde ${_fmtDate(user.createdAt)}'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: _kAccent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.person_outline_rounded, size: 15, color: _kAccent),
+            ),
+            const SizedBox(width: 10),
+            const Text('Información', style: TextStyle(
+              color: _kTexto, fontSize: 14, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        if (bio != null && bio.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Text(bio, style: const TextStyle(
+              color: _kMuted, fontSize: 13, height: 1.4)),
+          ),
+        ...List.generate(rows.length, (i) {
+          final r = rows[i];
+          return Column(children: [
+            if (i > 0 || (bio != null && bio.isNotEmpty))
+              const Divider(color: _kBorde, height: 1, indent: 16, endIndent: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(children: [
+                Icon(r.icon, size: 16, color: _kAccent),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.label, style: const TextStyle(fontSize: 10, color: _kMuted, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 1),
+                  Text(r.value, style: const TextStyle(fontSize: 13, color: _kTexto, fontWeight: FontWeight.w500)),
+                ])),
+              ]),
+            ),
+          ]);
+        }),
+        const SizedBox(height: 4),
       ]),
     );
   }
@@ -467,19 +581,10 @@ class _InfoSection extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
+class _InfoRowData {
   final IconData icon;
-  final String value;
-  const _InfoRow(this.icon, this.value);
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Row(children: [
-      Icon(icon, size: 16, color: _kAccent),
-      const SizedBox(width: 10),
-      Expanded(child: Text(value, style: const TextStyle(color: _kTexto, fontSize: 13))),
-    ]),
-  );
+  final String label, value;
+  const _InfoRowData(this.icon, this.label, this.value);
 }
 
 // ── Empresa button ────────────────────────────────────────────────────────────

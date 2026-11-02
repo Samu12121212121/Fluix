@@ -33,6 +33,8 @@ import '../../../domain/modelos/tarea.dart';
 import '../../pedidos/pantallas/modulo_pedidos_nuevo_screen.dart';
 import '../../pedidos/pantallas/modulo_whatsapp_screen.dart';
 import '../../empleados/pantallas/modulo_empleados_screen.dart';
+import '../../empleados/pantallas/portal_empleado_screen.dart';
+import '../../empleados/widgets/documentos_empleado_widget.dart';
 import '../../facturacion/pantallas/modulo_facturacion_screen.dart';
 import '../../facturacion/pantallas/pantalla_contabilidad.dart';
 import '../../reservas/pantallas/modulo_reservas_screen.dart';
@@ -172,8 +174,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     _AppTile('vacaciones',    Icons.beach_access_rounded,        'Vacaciones',   Color(0xFF0EA5E9)),
     _AppTile('plantillas_pdf',Icons.picture_as_pdf_rounded,      'Plantillas',   Color(0xFFEF4444)),
     _AppTile('propietario',   Icons.admin_panel_settings_rounded,'Admin',        Color(0xFFDC2626)),
-    _AppTile('perfil',        Icons.account_circle_rounded,      'Mi Perfil',    Color(0xFF6366F1)),
-    _AppTile('carpeta',       Icons.folder_special_rounded,      'Más',          Color(0xFF6366F1)),
+    _AppTile('perfil',              Icons.account_circle_rounded,   'Mi Perfil',    Color(0xFF6366F1)),
+    _AppTile('carpeta',             Icons.folder_special_rounded,   'Más',          Color(0xFF6366F1)),
+    _AppTile('documentos_empleado', Icons.folder_open_rounded,      'Documentos',   Color(0xFF8B5CF6)),
   ];
 
   // Lista mutable que permite reordenar y persistir el orden
@@ -197,6 +200,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       const aliases = <String, String>{'personal': 'empleados', 'web': 'contenido_web'};
       base = _kAllTiles.where((t) {
         if (t.id == 'perfil' || t.id == 'carpeta') return true;
+        // Personal: en móvil staff lo accede desde Perfil tab, no como tile
+        if (t.id == 'personal' && sesion.esStaff) return false;
+        // Documentos del empleado: solo para staff
+        if (t.id == 'documentos_empleado') return sesion.esStaff;
         final moduloId = aliases[t.id] ?? t.id;
         final enRol = sesion.modulosVisibles.contains(t.id) ||
                       sesion.modulosVisibles.contains(moduloId);
@@ -237,8 +244,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     'fichaje':       'Control de jornadas y horas trabajadas',
     'vacaciones':    'Gestiona vacaciones y ausencias del personal',
     'servicios':     'Catálogo de servicios ofrecidos',
-    'plantillas_pdf':'Personaliza el diseño de tus documentos PDF',
-    'propietario':   'Configuración avanzada del sistema',
+    'plantillas_pdf':     'Personaliza el diseño de tus documentos PDF',
+    'propietario':        'Configuración avanzada del sistema',
+    'documentos_empleado':'Consulta tus documentos y archivos de empresa',
   };
 
   // Texto de acción / stat para list/card view (color accent)
@@ -648,7 +656,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     Future.microtask(() => controller?.dispose());
   }
 
-  Future<void> _cargarDatosUsuario() async {
+  Future<void> _cargarDatosUsuario({bool esReintento = false}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -663,16 +671,25 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (userDoc.exists) {
         final data = userDoc.data()!;
         debugPrint('✅ Documento usuario encontrado: $data');
-        final empresaId = data['empresa_id'] as String?;
+        final empresaIdPrincipal = data['empresa_id'] as String?;
+        // Para usuarios multi-sede, usar la empresa seleccionada (SharedPreferences),
+        // no siempre la principal del documento de usuario.
+        final empresaId =
+            await MultisedeService().obtenerEmpresaActiva() ?? empresaIdPrincipal;
 
-        // Asegurar que el dueño de fluixtech siempre sea propietario
+        // Asegurar que el dueño de fluixtech siempre sea propietario.
+        // Solo aplica a cuentas sin rol explícito de staff/admin en esa empresa.
         if (empresaId == ConstantesApp.empresaPropietariaId &&
             data['rol'] != 'propietario' &&
+            data['rol'] != 'admin' &&
+            data['rol'] != 'staff' &&
             !uid.startsWith('emp_fluix_')) {
-          await FirebaseFirestore.instance
-              .collection('usuarios').doc(uid)
-              .update({'rol': 'propietario'});
-           debugPrint(' Rol forzado a propietario en _cargarDatosUsuario');
+          try {
+            await FirebaseFirestore.instance
+                .collection('usuarios').doc(uid)
+                .update({'rol': 'propietario'});
+            debugPrint(' Rol forzado a propietario en _cargarDatosUsuario');
+          } catch (_) {}
         }
 
         // Si no hay admin/propietario en la empresa, promover al usuario actual.
@@ -710,7 +727,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         final sesion = await PermisosService().cargarSesion();
         debugPrint(' ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
         // Comprobar si el usuario gestiona varias sedes
-        final sedes = await MultisedeService().obtenerSedes();
+        List<SedeInfo> sedes = [];
+        try {
+          sedes = await MultisedeService().obtenerSedes();
+        } catch (_) {}
 
         if (!mounted) return;
         setState(() {
@@ -723,6 +743,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           _cargando = false;
           _esMultiSede = sedes.length > 1;
         });
+        AppSettings.setNumEmpresas(sedes.length);
         // Suscribir a notificaciones de la empresa
         if (empresaId != null) {
           NotificacionesService().suscribirseATopic(empresaId);
@@ -805,15 +826,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       }
     } catch (e) {
       debugPrint('❌ Error cargando datos usuario: $e');
-      // Manejo de permission-denied: renovar token y reintentar UNA vez
+      // Manejo de permission-denied: renovar token y reintentar UNA sola vez.
+      // El flag esReintento evita bucles infinitos cuando el error persiste
+      // tras la renovación (p.ej. reglas de Firestore que el rol staff no pasa).
       final esPermissionDenied = e.toString().contains('permission-denied') ||
           e.toString().contains('PERMISSION_DENIED');
-      if (esPermissionDenied) {
+      if (esPermissionDenied && !esReintento) {
         debugPrint('⚠️ permission-denied — renovando token y reintentando...');
         final renovado = await TokenRefreshService().manejarPermissionDenied();
         if (renovado && mounted) {
-          // Reintento tras renovación del token
-          return _cargarDatosUsuario();
+          return _cargarDatosUsuario(esReintento: true);
         }
       }
       if (mounted) {
@@ -1356,7 +1378,15 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                   ? IndexedStack(
                       index: _paginaHome,
                       children: [
-                        _buildDashboardHome(dark),      // Inicio = dashboard completo
+                        // Staff: ve su portal directamente en la pantalla de inicio
+                        (_sesion?.esStaff == true && _empresaId != null)
+                            ? PortalEmpleadoScreen(
+                                empresaId: _empresaId!,
+                                empleadoUid: _sesion?.uid,
+                                modoAdmin: false,
+                                isDark: dark,
+                              )
+                            : _buildDashboardHome(dark),
                         _buildModuleList(_tilesPermitidos, dark),
                       ],
                     )
@@ -1435,10 +1465,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           )
         : null;
 
+    final esProp = _sesion?.esPropietarioPlatforma == true || _sesion?.esPropietario == true;
     return FluixAppBar(
-      esPropietarioPlatforma: _sesion?.esPropietarioPlatforma == true,
+      esPropietarioPlatforma: esProp,
       empresaActiva:          _empresaId != _empresaIdPropia,
-      onCambiarEmpresa:       () => _abrirSelectorEmpresa(dark),
+      onCambiarEmpresa:       esProp ? () => _abrirSelectorEmpresa(dark) : null,
       onManejarMenu:          _manejarMenu,
       extraActions:           extraActions,
       notifWidget:            notifWidget,
@@ -1454,19 +1485,43 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         : _buildModuleCards(_tilesPermitidos, dark, size.width);
   }
 
-  // Lista vertical — móvil portrait
+  // Grid 2 columnas — móvil portrait
   Widget _buildModuleList(List<_AppTile> tiles, bool dark) {
-    final bg   = dark ? const Color(0xFF0B0E18) : Colors.white;
-    final text = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
-    final sub  = dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final bg     = dark ? const Color(0xFF0B0E18) : const Color(0xFFF4F6FB);
+    final cardBg = dark ? const Color(0xFF1E2139) : Colors.white;
+    final border = dark ? Colors.white.withValues(alpha: 0.07) : Colors.grey.shade200;
+    final text   = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
+    final sub    = dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
 
-    final cardBg  = dark ? const Color(0xFF1E2139) : Colors.white;
-    final border  = dark ? Colors.white.withValues(alpha: 0.07) : Colors.grey.shade200;
+    const _kOcultarEnMovil = {'carpeta', 'dashboard'};
+    // En móvil: expandir grupos (personal, carpeta) en fichas individuales
+    final modulosActivos = _suscripcionService.getModulosActivos();
+    const _kSubPersonal = [
+      _AppTile('empleados',  Icons.badge_rounded,        'Empleados',  Color(0xFF8B5CF6)),
+      _AppTile('fichaje',    Icons.schedule_rounded,     'Fichaje',    Color(0xFF14B8A6)),
+      _AppTile('vacaciones', Icons.beach_access_rounded, 'Vacaciones', Color(0xFF0EA5E9)),
+    ];
+    const _kAppTile = _AppTile('app', Icons.storefront_rounded, 'Mi App', Color(0xFF00ACC1));
 
-    // Ocultar carpeta en móvil (el folder dialog lo reemplaza; plantillas_pdf se muestra para que el usuario sepa que existe)
-    const _kOcultarEnMovil = {'carpeta'};
-    final sinDashboard = tiles
-        .where((t) => t.id != 'dashboard' && !_kOcultarEnMovil.contains(t.id))
+    final expanded = tiles.expand<_AppTile>((t) {
+      if (t.id == 'personal') {
+        return _kSubPersonal.where((s) => !tiles.any((x) => x.id == s.id));
+      }
+      if (t.id == 'carpeta') {
+        return _kFolderTiles.where((ft) =>
+          !tiles.any((x) => x.id == ft.id) &&
+          modulosActivos.contains(ft.id),
+        );
+      }
+      return [t];
+    });
+    // Garantizar que 'Mi App' aparezca en móvil aunque no esté en el plan activo
+    final tilesMovil = [
+      ...expanded,
+      if (!tiles.any((t) => t.id == 'app')) _kAppTile,
+    ];
+    final sinDashboard = tilesMovil
+        .where((t) => !_kOcultarEnMovil.contains(t.id))
         .toList();
 
     // Si la cantidad de módulos disponibles cambia (suscripción cargó tarde), reinicializar
@@ -1489,67 +1544,73 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         _modulosListaOrdenada = nuevoOrden;
       }
     }
-    final visibles = _modulosListaOrdenada!;
+    final lista = _modulosListaOrdenada ?? sinDashboard;
 
-    Widget buildCard(int i, _AppTile t) {
+    void onReorder(int oldIndex, int newIndex) {
+      if (newIndex > oldIndex) newIndex--;
+      setState(() {
+        final item = lista.removeAt(oldIndex);
+        lista.insert(newIndex, item);
+        _modulosListaOrdenada = lista;
+      });
+      _guardarOrdenModulos(lista);
+    }
+
+    Widget buildCard(_AppTile t) {
+      final desc   = _kDesc[t.id] ?? '';
       final action = _kAction[t.id] ?? '';
       return Padding(
         key: ValueKey(t.id),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        padding: const EdgeInsets.only(bottom: 10),
         child: Material(
           color: cardBg,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
             splashColor: t.accent.withValues(alpha: 0.06),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: border),
-                boxShadow: dark ? [] : [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8, offset: const Offset(0, 2)),
-                ],
+                boxShadow: dark ? [] : [BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8, offset: const Offset(0, 2),
+                )],
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(children: [
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 Container(
-                  width: 46, height: 46,
+                  width: 48, height: 48,
                   decoration: BoxDecoration(
                     color: t.accent.withValues(alpha: dark ? 0.18 : 0.10),
                     borderRadius: BorderRadius.circular(13),
                   ),
                   child: Icon(t.icon, color: t.accent, size: 22),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 13),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(t.label, style: TextStyle(fontWeight: FontWeight.w600,
-                        fontSize: 15, color: text, letterSpacing: -0.1)),
-                    if ((_kDesc[t.id] ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(_kDesc[t.id]!, style: TextStyle(fontSize: 12, color: sub, height: 1.3),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(t.label, style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 15,
+                      color: text, letterSpacing: -0.2,
+                    ), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (desc.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(desc, style: TextStyle(fontSize: 11.5, color: sub),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                     if (action.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(action, style: TextStyle(fontSize: 11,
-                          fontWeight: FontWeight.w600, color: t.accent)),
+                      const SizedBox(height: 3),
+                      Text(action, style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: t.accent,
+                      ), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ]),
                 ),
-                const SizedBox(width: 6),
-                ReorderableDragStartListener(
-                  index: i,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.drag_handle_rounded,
-                        color: sub.withValues(alpha: 0.45), size: 20),
-                  ),
-                ),
+                const SizedBox(width: 4),
                 Icon(Icons.chevron_right_rounded,
-                    color: t.accent.withValues(alpha: 0.6), size: 18),
+                    color: t.accent.withValues(alpha: 0.55), size: 18),
               ]),
             ),
           ),
@@ -1560,30 +1621,22 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     return Container(
       color: bg,
       child: ReorderableListView.builder(
-        // Key ensures full teardown when company changes, preventing parentDataDirty assertion
-        key: ValueKey(_empresaId),
-        padding: const EdgeInsets.only(top: 10, bottom: 24),
-        itemCount: visibles.length,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        itemCount: lista.length,
+        onReorder: onReorder,
         buildDefaultDragHandles: false,
-        proxyDecorator: (child, index, animation) => Material(
+        proxyDecorator: (child, _, __) => Material(
           color: Colors.transparent,
-          elevation: 8,
+          elevation: 6,
           shadowColor: Colors.black26,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: child,
         ),
-        onReorder: (oldIndex, newIndex) {
-          if (newIndex > oldIndex) newIndex--;
-          setState(() {
-            final item = _modulosListaOrdenada!.removeAt(oldIndex);
-            _modulosListaOrdenada!.insert(newIndex, item);
-            final dashboard = _kAllTiles.firstWhere((t) => t.id == 'dashboard',
-                orElse: () => _kDefaultTiles.first);
-            _kAllTiles = [dashboard, ..._modulosListaOrdenada!];
-          });
-          _guardarOrdenModulos(_kAllTiles);
-        },
-        itemBuilder: (_, i) => buildCard(i, visibles[i]),
+        itemBuilder: (_, i) => ReorderableDragStartListener(
+          key: ValueKey(lista[i].id),
+          index: i,
+          child: buildCard(lista[i]),
+        ),
       ),
     );
   }
@@ -1958,6 +2011,17 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final sub  = dark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
     final div  = dark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100;
     final bg   = dark ? const Color(0xFF1E2139) : Colors.white;
+    // Expandir 'personal' → 'Empleados' individual (fichaje/vacaciones ya aparecen por separado)
+    final allTiles = _tilesPermitidos;
+    final tiles = allTiles.expand<_AppTile>((t) {
+      if (t.id == 'personal') {
+        return allTiles.any((x) => x.id == 'empleados')
+            ? const <_AppTile>[]
+            : const [_AppTile('empleados', Icons.badge_rounded, 'Empleados', Color(0xFF8B5CF6))];
+      }
+      if (t.id == 'dashboard') return const <_AppTile>[];
+      return [t];
+    }).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Módulos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: text)),
       const SizedBox(height: 10),
@@ -1971,16 +2035,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         child: ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _tilesPermitidos.length,
+          itemCount: tiles.length,
           separatorBuilder: (_, __) => Divider(height: 1, color: div, indent: 62, endIndent: 0),
           itemBuilder: (_, i) {
-            final t = _tilesPermitidos[i];
+            final t = tiles[i];
             final action = _kAction[t.id] ?? '';
             return Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(i == 0
-                    ? 14 : i == _tilesPermitidos.length - 1 ? 14 : 0),
+                    ? 14 : i == tiles.length - 1 ? 14 : 0),
                 onTap: () => t.id == 'carpeta' ? _mostrarCarpeta(dark) : _abrirModulo(t.id),
                 splashColor: t.accent.withValues(alpha: 0.06),
                 child: Padding(
@@ -3045,6 +3109,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (!_esNazari)                                _SidebarItem(Icons.apps_rounded,            'Más módulos',   'carpeta'),
     ];
     final bottomItems = [
+      if (_sesion?.esPropietarioPlatforma == true || _sesion?.esPropietario == true || _esMultiSede)
+        _SidebarItem(Icons.swap_horiz_rounded, 'Cambiar empresa', 'cambiar_empresa'),
       _SidebarItem(Icons.person_rounded, 'Mi perfil', 'perfil'),
       _SidebarItem(Icons.support_agent_rounded, 'Soporte', 'soporte'),
       _SidebarItem(Icons.settings_rounded, 'Configuración', null),
@@ -3205,6 +3271,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     void onTap() {
       if (item.moduloId == null) {
         setState(() => _moduloDesktopActivo = null);
+      } else if (item.moduloId == 'cambiar_empresa') {
+        _mostrarSelectorEmpresa();
       } else if (item.moduloId == 'carpeta') {
         setState(() => _moduloDesktopActivo = 'mas');
       } else if (item.moduloId == 'perfil') {
@@ -3304,18 +3372,28 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final border  = dark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200;
     final text    = dark ? const Color(0xFFE2E8F0) : const Color(0xFF1F2937);
     final sub     = dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
-    return switch (_moduloDesktopActivo) {
-      // Home: misma pantalla Fintech que en móvil (KPIs, pills, módulos)
-      null         => _buildHomeScreen(dark),
-      'dashboard'  => _buildDashboardHome(dark),
-      'personal'   => _buildPersonalSection(dark),
-      'perfil'     => PantallaPerfil(sesion: _sesion, embedded: true, dark: dark,
-                        onAbrirCuentas: () => setState(() => _moduloDesktopActivo = 'cuentas')),
-      'mas'        => _buildMasModulosSection(dark),
-      _            => _empresaId != null
-                        ? _buildContenidoModulo(_moduloDesktopActivo!)
-                        : const Center(child: Text('Sin empresa')),
-    };
+    return KeyedSubtree(
+      key: ValueKey(_empresaId),
+      child: switch (_moduloDesktopActivo) {
+        // Home: staff ve su portal; admins ven el dashboard de KPIs
+        null         => (_sesion?.esStaff == true && _empresaId != null)
+                          ? PortalEmpleadoScreen(
+                              empresaId: _empresaId!,
+                              empleadoUid: _sesion?.uid,
+                              modoAdmin: false,
+                              isDark: dark,
+                            )
+                          : _buildHomeScreen(dark),
+        'dashboard'  => _buildDashboardHome(dark),
+        'personal'   => _buildPersonalSection(dark),
+        'perfil'     => PantallaPerfil(sesion: _sesion, embedded: true, dark: dark,
+                          onAbrirCuentas: () => setState(() => _moduloDesktopActivo = 'cuentas')),
+        'mas'        => _buildMasModulosSection(dark),
+        _            => _empresaId != null
+                          ? _buildContenidoModulo(_moduloDesktopActivo!)
+                          : const Center(child: Text('Sin empresa')),
+      },
+    );
   }
 
   Widget _buildDesktopModuloHeader(String moduloId, bool dark) {
@@ -3660,8 +3738,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   }
 
   void _mostrarSelectorEmpresa() {
-    // Propietario de plataforma → selector completo con todas las empresas
-    if (_sesion?.esPropietarioPlatforma == true) {
+    // Propietario o usuario multi-sede → selector completo
+    if (_sesion?.esPropietarioPlatforma == true || _sesion?.esPropietario == true || _esMultiSede) {
       _abrirSelectorEmpresa(_darkMode);
       return;
     }
@@ -3722,7 +3800,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       'vacaciones': 'Vacaciones', 'servicios': 'Servicios',
       'plantillas_pdf': 'Plantillas PDF', 'valoraciones': 'Valoraciones',
       'dashboard': 'Dashboard', 'propietario': 'Admin',
-      'perfil': 'Perfil', 'cuentas': 'Cuentas',
+      'perfil': 'Perfil', 'cuentas': 'Cuentas', 'cambiar_empresa': 'Empresas',
     };
     return nombres[id] ?? id;
   }
@@ -7016,20 +7094,18 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'dashboard':
         screen = Scaffold(
           backgroundColor: _darkMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-          appBar: AppBar(
-            title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.w700)),
-            backgroundColor: _darkMode ? const Color(0xFF111827) : Colors.white,
-            foregroundColor: _darkMode ? Colors.white : const Color(0xFF0F172A),
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-          ),
+          appBar: const FluixAppBar(titulo: 'Dashboard', showLeading: true),
           body: _buildDashboardHome(_darkMode),
         );
         break;
       case 'facturacion':    screen = ModuloFacturacionScreen(empresaId: eid); break;
       case 'contabilidad':   screen = PantallaContabilidad(empresaId: eid); break;
       case 'clientes':       screen = ModuloClientesScreen(empresaId: eid, sesion: ses); break;
-      case 'web':            screen = PantallaContenidoWeb(empresaId: eid); break;
+      case 'web':            screen = PantallaContenidoWeb(
+                               empresaId: eid,
+                               esPropietarioPlatforma: ses?.esPropietarioPlatforma ?? false,
+                               onCambiarEmpresa: ses?.esPropietarioPlatforma == true ? () => _abrirSelectorEmpresa(_darkMode) : null,
+                             ); break;
       case 'tpv':            screen = _LanzadorTpv(
                                empresaId: eid,
                                esAdmin: ses?.esAdmin ?? false,
@@ -7065,7 +7141,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                                    body: const ModuloPropietario(),
                                  )
                                : null; break;
-      case 'grafo_app':      screen = _sesion?.esPropietarioPlatforma == true ? const PantallaGrafoApp() : null; break;
+      case 'grafo_app':            screen = _sesion?.esPropietarioPlatforma == true ? const PantallaGrafoApp() : null; break;
+      case 'documentos_empleado':  _mostrarDocumentosEmpleado(); return;
       default: return;
     }
     if (screen == null) return;
@@ -8053,14 +8130,39 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
   Future<void> _abrirSelectorEmpresa(bool dark) async {
     final TextEditingController busqCtrl = TextEditingController();
-    List<QueryDocumentSnapshot> todas = [];
-    List<QueryDocumentSnapshot> filtradas = [];
+    List<DocumentSnapshot> todas = [];
+    List<DocumentSnapshot> filtradas = [];
 
     try {
-      final snap = await FirebaseFirestore.instance.collection('empresas').get();
-      todas = snap.docs;
+      final esPropietario = _sesion?.esPropietarioPlatforma == true ||
+          _sesion?.esPropietario == true;
+      final idsPermitidos = _sesion?.empresasIds ?? [];
+
+      if (esPropietario) {
+        // Propietario: ve todas las empresas
+        final snap = await FirebaseFirestore.instance.collection('empresas').get();
+        todas = snap.docs;
+      } else if (idsPermitidos.isNotEmpty) {
+        // Admin con array de empresas: carga solo las de su lista
+        final snaps = await Future.wait(
+          idsPermitidos.map((id) =>
+              FirebaseFirestore.instance.collection('empresas').doc(id).get()),
+        );
+        todas = snaps.where((d) => d.exists).toList();
+      } else if (_esMultiSede) {
+        // Fallback: _sesion.empresasIds puede estar en caché vacío; leer directo
+        final sedes = await MultisedeService().obtenerSedes();
+        final snaps = await Future.wait(
+          sedes.map((s) => FirebaseFirestore.instance.collection('empresas').doc(s.empresaId).get()),
+        );
+        todas = snaps.where((d) => d.exists).toList();
+      } else {
+        // Admin sin array: solo su empresa principal
+        final propiaDoc = await FirebaseFirestore.instance
+            .collection('empresas').doc(_sesion?.empresaId ?? '').get();
+        if (propiaDoc.exists) todas = [propiaDoc];
+      }
       filtradas = todas;
-      // Guardar el recuento para que FluixAppBar pueda mostrar/ocultar el botón
       AppSettings.setNumEmpresas(todas.length);
     } catch (_) {
       if (!mounted) return;
@@ -8069,6 +8171,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }
 
     if (!mounted) return;
+
+    final dialogHeight = (todas.length * 64.0 + 80.0).clamp(120.0, 450.0);
 
     // Returns (id, nombre) or null if cancelled.
     // We apply setState AFTER the dialog is fully dismissed to avoid concurrent
@@ -8099,7 +8203,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             // double.maxFinite (not infinity) prevents AlertDialog's IntrinsicWidth
             // from traversing into ListView, which would throw "RenderViewport does
             // not support returning intrinsic dimensions".
-            width: double.maxFinite, height: 450,
+            width: double.maxFinite,
+            height: dialogHeight,
             child: Column(children: [
               TextField(
                 controller: busqCtrl,
@@ -8157,15 +8262,70 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     // after showDialog returns can trigger parentDataDirty / _debugDuringDeviceUpdate
     // assertions because the dialog route's animation is still in progress.
     if (seleccion != null && mounted) {
+      MultisedeService().guardarEmpresaActiva(seleccion.$1);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
           _empresaId = seleccion.$1;
           _nombreEmpresa = seleccion.$2;
           _modulosListaOrdenada = null;
+          _moduloDesktopActivo = null; // volver al inicio para la nueva empresa
+          _webSubModulo = null;
         });
+        // Recargar suscripción del plan para la nueva empresa
+        _suscripcionService.cargarSuscripcion(seleccion.$1);
+        _escucharMensajesSinLeer();
       });
     }
+  }
+
+  void _mostrarDocumentosEmpleado() {
+    if (_empresaId == null || _sesion == null) return;
+    final dark   = _darkMode;
+    final uid    = _sesion!.uid;
+    final nombre = _sesion!.nombre;
+    final eid    = _empresaId!;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: dark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(children: [
+          const SizedBox(height: 12),
+          Center(child: Container(width: 36, height: 4,
+              decoration: BoxDecoration(
+                  color: dark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(children: [
+              const Icon(Icons.folder_open_rounded, color: Color(0xFF8B5CF6), size: 20),
+              const SizedBox(width: 10),
+              Text('Mis documentos', style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold,
+                  color: dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A))),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.close, size: 18,
+                    color: dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ]),
+          ),
+          Expanded(child: DocumentosEmpleadoWidget(
+            empleadoId: uid,
+            empresaId: eid,
+            nombreEmpleado: nombre,
+          )),
+        ]),
+      ),
+    );
   }
 
   void _manejarMenu(String accion) {

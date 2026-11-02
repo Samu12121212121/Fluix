@@ -13,8 +13,8 @@ import '../../../services/bandeja_notificaciones_service.dart';
 
 class NuevaSolicitudForm extends StatefulWidget {
   final String empresaId;
-  final String? empleadoIdFijo; // si viene preseleccionado
-  final DateTime? fechaInicioFija; // prefill desde el calendario
+  final String? empleadoIdFijo;
+  final DateTime? fechaInicioFija;
   const NuevaSolicitudForm({
     super.key,
     required this.empresaId,
@@ -47,6 +47,17 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
 
   SaldoVacaciones? _saldoActual;
 
+  // Paleta
+  static const _primary = Color(0xFF10B981);
+  static const _primaryLight = Color(0xFFD1FAE5);
+  static const _bg = Color(0xFFF8FAFC);
+  static const _surface = Colors.white;
+  static const _textMain = Color(0xFF0F172A);
+  static const _textSub = Color(0xFF64748B);
+  static const _border = Color(0xFFE2E8F0);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
+
   @override
   void initState() {
     super.initState();
@@ -75,212 +86,215 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         DateTime.now().year,
       );
       if (mounted) setState(() => _saldoActual = saldo);
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _saldoActual = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: _buildContent(context),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Material(
+        color: Colors.transparent,
+        child: _buildContent(context),
+      ),
     );
   }
 
   Widget _buildContent(BuildContext context) {
+    final maxH = MediaQuery.of(context).size.height * 0.92;
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
+      constraints: BoxConstraints(maxHeight: maxH),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: _bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-            if (widget.empleadoIdFijo == null) ...[
-              _buildSelectorEmpleado(),
-              const SizedBox(height: 12),
-            ],
-
-            // Saldo actual
-            if (_saldoActual != null && _tipo == TipoAusencia.vacaciones) ...[
-              _buildSaldoInfo(),
-              const SizedBox(height: 12),
-            ],
-
-            // Tipo
-            DropdownButtonFormField<TipoAusencia>(
-              // ignore: deprecated_member_use
-              value: _tipo,
-              decoration: const InputDecoration(
-                labelText: 'Tipo de ausencia',
-                border: OutlineInputBorder(),
-              ),
-              items: TipoAusencia.values
-                  .map((t) => DropdownMenuItem(
-                        value: t,
-                        child: Text(t.etiqueta),
-                      ))
-                  .toList(),
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() {
-                  _tipo = v;
-                  if (v == TipoAusencia.permisoRetribuido) {
-                    _subtipo = SubtipoPermiso.matrimonio;
-                    _actualizarFechasPorPermiso();
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Subtipo permiso
-            if (_tipo == TipoAusencia.permisoRetribuido) ...[
-              DropdownButtonFormField<SubtipoPermiso>(
-                // ignore: deprecated_member_use
-                value: _subtipo,
-                decoration: const InputDecoration(
-                  labelText: 'Tipo de permiso (art. 37 ET)',
-                  border: OutlineInputBorder(),
-                ),
-                items: SubtipoPermiso.values
-                    .map((s) => DropdownMenuItem(
-                          value: s,
-                          child: Text(s.etiqueta),
-                        ))
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _subtipo = v;
-                    _actualizarFechasPorPermiso();
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Fechas
-            Row(
-              children: [
-                Expanded(child: _buildFechaField('Desde', _fechaInicio, true)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildFechaField('Hasta', _fechaFin, false)),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Resumen días
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildHandle(),
+          _buildHeader(),
+          Flexible(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
-                  _infoChip('Días naturales', '$_diasNaturales'),
-                  _infoChip('Días laborables', '$_diasLaborables'),
-                  if (_tipo.descuentaSalario)
-                    _infoChip('Descuenta', 'Sí',
-                        color: Colors.red),
+                  if (widget.empleadoIdFijo == null) ...[
+                    _buildSectionLabel('Empleado', Icons.person_outline_rounded),
+                    _buildSelectorEmpleado(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_saldoActual != null && _tipo == TipoAusencia.vacaciones) ...[
+                    _buildSaldoInfo(),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildSectionLabel('Tipo de ausencia', Icons.category_outlined),
+                  _buildTipoSelector(),
+                  const SizedBox(height: 16),
+                  if (_tipo == TipoAusencia.permisoRetribuido) ...[
+                    _buildSectionLabel('Permiso (art. 37 ET)', Icons.gavel_outlined),
+                    _buildSubtipoSelector(),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildSectionLabel('Período', Icons.date_range_outlined),
+                  _buildFechasRow(),
+                  const SizedBox(height: 16),
+                  _buildResumen(),
+                  if (_tipo == TipoAusencia.vacaciones &&
+                      _saldoActual != null &&
+                      _diasNaturales > _saldoActual!.totalDisponible)
+                    _buildAvisoSaldo(),
+                  const SizedBox(height: 16),
+                  _buildSectionLabel('Notas', Icons.notes_rounded),
+                  _buildNotasField(),
+                  const SizedBox(height: 24),
+                  _buildBotonGuardar(),
                 ],
               ),
             ),
-
-            // Aviso saldo insuficiente
-            if (_tipo == TipoAusencia.vacaciones &&
-                _saldoActual != null &&
-                _diasNaturales > _saldoActual!.totalDisponible)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber,
-                        color: Colors.amber, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Saldo insuficiente: disponibles ${_saldoActual!.totalDisponible.toStringAsFixed(1)} días, solicitados $_diasNaturales días',
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.amber),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 12),
-
-            // Notas
-            TextFormField(
-              controller: _notasCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Notas (opcional)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 20),
-
-            // Botón guardar
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _guardando ? null : _guardar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00796B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: _guardando
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send),
-                label: Text(_guardando ? 'Enviando...' : 'Enviar solicitud'),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // WIDGETS AUXILIARES
-  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildHandle() => Container(
+        margin: const EdgeInsets.only(top: 12, bottom: 4),
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: _border,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      );
+
+  Widget _buildHeader() => Container(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: _primaryLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.beach_access_rounded,
+                color: _primary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Nueva solicitud',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _textMain)),
+            const Text('Ausencia o permiso',
+                style: TextStyle(fontSize: 12, color: _textSub)),
+          ]),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: _border,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.close_rounded,
+                  size: 16, color: _textSub),
+            ),
+          ),
+        ]),
+      );
+
+  Widget _buildSectionLabel(String label, IconData icon) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Icon(icon, size: 14, color: _textSub),
+          const SizedBox(width: 6),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _textSub,
+                  letterSpacing: 0.5)),
+        ]),
+      );
+
+  Widget _buildTipoSelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: TipoAusencia.values.map((t) {
+        final sel = _tipo == t;
+        return GestureDetector(
+          onTap: () => setState(() {
+            _tipo = t;
+            if (t == TipoAusencia.permisoRetribuido) {
+              _subtipo = SubtipoPermiso.matrimonio;
+              _actualizarFechasPorPermiso();
+            }
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: sel ? _primary : _surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: sel ? _primary : _border, width: sel ? 1.5 : 1),
+              boxShadow: sel
+                  ? [
+                      BoxShadow(
+                          color: _primary.withValues(alpha: 0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ]
+                  : [],
+            ),
+            child: Text(t.etiqueta,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        sel ? FontWeight.w600 : FontWeight.normal,
+                    color: sel ? Colors.white : _textMain)),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSubtipoSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonFormField<SubtipoPermiso>(
+        value: _subtipo,
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: InputBorder.none,
+        ),
+        items: SubtipoPermiso.values
+            .map((s) => DropdownMenuItem(value: s, child: Text(s.etiqueta)))
+            .toList(),
+        onChanged: (v) {
+          if (v == null) return;
+          setState(() {
+            _subtipo = v;
+            _actualizarFechasPorPermiso();
+          });
+        },
+      ),
+    );
+  }
 
   Widget _buildSelectorEmpleado() {
     return FutureBuilder<QuerySnapshot>(
@@ -291,40 +305,191 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
           .get(),
       builder: (context, snap) {
         if (!snap.hasData) {
-          return const LinearProgressIndicator();
+          return const LinearProgressIndicator(color: _primary);
         }
         final empleados = snap.data!.docs;
-        return DropdownButtonFormField<String>(
-          // ignore: deprecated_member_use
-          value: _empleadoId,
-          decoration: const InputDecoration(
-            labelText: 'Empleado',
-            border: OutlineInputBorder(),
+        return Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
           ),
-          validator: (v) => v == null ? 'Selecciona un empleado' : null,
-          items: empleados
-              .map((e) {
-                final d = e.data() as Map<String, dynamic>;
-                return DropdownMenuItem(
-                  value: e.id,
-                  child: Text(d['nombre'] as String? ?? 'Sin nombre'),
-                );
-              })
-              .toList(),
-          onChanged: (v) {
-            if (v == null) return;
-            final doc = empleados.firstWhere((e) => e.id == v);
-            final d = doc.data() as Map<String, dynamic>;
-            setState(() {
-              _empleadoId = v;
-              _empleadoNombre = d['nombre'] as String? ?? 'Empleado';
-            });
-            _cargarSaldo();
-          },
+          child: DropdownButtonFormField<String>(
+            value: _empleadoId,
+            decoration: const InputDecoration(
+              hintText: 'Selecciona empleado',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: InputBorder.none,
+            ),
+            validator: (v) =>
+                v == null ? 'Selecciona un empleado' : null,
+            items: empleados.map((e) {
+              final d = e.data() as Map<String, dynamic>;
+              return DropdownMenuItem(
+                value: e.id,
+                child: Text(d['nombre'] as String? ?? 'Sin nombre'),
+              );
+            }).toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              final doc = empleados.firstWhere((e) => e.id == v);
+              final d = doc.data() as Map<String, dynamic>;
+              setState(() {
+                _empleadoId = v;
+                _empleadoNombre =
+                    d['nombre'] as String? ?? 'Empleado';
+              });
+              _cargarSaldo();
+            },
+          ),
         );
       },
     );
   }
+
+  Widget _buildFechasRow() {
+    return Row(children: [
+      Expanded(child: _buildFechaCard('Inicio', _fechaInicio, true)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Icon(Icons.arrow_forward_rounded,
+            size: 16, color: _textSub),
+      ),
+      Expanded(child: _buildFechaCard('Fin', _fechaFin, false)),
+    ]);
+  }
+
+  Widget _buildFechaCard(String label, DateTime value, bool esInicio) {
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030),
+          builder: (ctx, child) => Theme(
+            data: Theme.of(ctx).copyWith(
+              colorScheme: const ColorScheme.light(primary: _primary),
+            ),
+            child: child!,
+          ),
+        );
+        if (picked == null) return;
+        setState(() {
+          if (esInicio) {
+            _fechaInicio = picked;
+            if (_fechaFin.isBefore(_fechaInicio)) _fechaFin = _fechaInicio;
+          } else {
+            _fechaFin = picked;
+            if (_fechaFin.isBefore(_fechaInicio)) _fechaInicio = _fechaFin;
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10, color: _textSub, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.calendar_today_outlined,
+                size: 13, color: _primary),
+            const SizedBox(width: 6),
+            Text(
+              '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}',
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _textMain),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildResumen() {
+    final saldoOk = _saldoActual == null ||
+        _diasNaturales <= _saldoActual!.totalDisponible;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: saldoOk ? _primaryLight : _amber.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: saldoOk
+                ? _primary.withValues(alpha: 0.3)
+                : _amber.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _resumenChip(
+              '$_diasNaturales', 'Días naturales', Icons.sunny_snowing),
+          _divider(),
+          _resumenChip(
+              '$_diasLaborables', 'Días laborables', Icons.work_outline_rounded),
+          if (_tipo.descuentaSalario) ...[
+            _divider(),
+            _resumenChip('Sí', 'Descuenta salario',
+                Icons.money_off_rounded,
+                color: _red),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _resumenChip(String val, String label, IconData icon,
+      {Color? color}) {
+    final c = color ?? _primary;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 18, color: c),
+      const SizedBox(height: 4),
+      Text(val,
+          style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: c)),
+      Text(label,
+          style: const TextStyle(fontSize: 10, color: _textSub),
+          textAlign: TextAlign.center),
+    ]);
+  }
+
+  Widget _divider() => Container(
+      width: 1, height: 40, color: _border);
+
+  Widget _buildAvisoSaldo() => Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _amber.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _amber.withValues(alpha: 0.4)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: _amber, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Saldo insuficiente: disponibles '
+              '${_saldoActual!.totalDisponible.toStringAsFixed(1)} días, '
+              'solicitados $_diasNaturales días',
+              style: const TextStyle(
+                  fontSize: 12, color: _amber),
+            ),
+          ),
+        ]),
+      );
 
   Widget _buildSaldoInfo() {
     final s = _saldoActual!;
@@ -332,104 +497,111 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         ? (s.diasDisfrutados / s.diasDevengados).clamp(0.0, 1.0)
         : 0.0;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF00796B).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _primary.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.account_balance_wallet_outlined,
+              size: 14, color: _primary),
+          const SizedBox(width: 6),
           Text(
-            'Vacaciones ${s.anio}: ${s.diasDisfrutados.toStringAsFixed(1)}/${s.diasDevengados.toStringAsFixed(1)} días',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+            'Saldo ${s.anio}: ${s.diasDisfrutados.toStringAsFixed(1)} / ${s.diasDevengados.toStringAsFixed(1)} días',
+            style: const TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 12),
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct,
-              backgroundColor: Colors.grey.withValues(alpha: 0.2),
-              color: pct > 0.8 ? Colors.orange : const Color(0xFF00796B),
-              minHeight: 8,
-            ),
+        ]),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            backgroundColor: _border,
+            color: pct > 0.8 ? _amber : _primary,
+            minHeight: 6,
           ),
-          Text(
-            'Disponibles: ${s.totalDisponible.toStringAsFixed(1)} días'
-            '${s.diasPendientesAnoAnterior > 0 ? ' (incl. ${s.diasPendientesAnoAnterior.toStringAsFixed(1)} del año anterior)' : ''}',
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 2,
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Disponibles: ${s.totalDisponible.toStringAsFixed(1)} días'
+          '${s.diasPendientesAnoAnterior > 0 ? '  ·  ${s.diasPendientesAnoAnterior.toStringAsFixed(1)} del año anterior' : ''}',
+          style: const TextStyle(fontSize: 11, color: _textSub),
+        ),
+      ]),
     );
   }
 
-  Widget _buildFechaField(String label, DateTime value, bool esInicio) {
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-        );
-        if (picked == null) return;
-        setState(() {
-          if (esInicio) {
-            _fechaInicio = picked;
-            if (_fechaFin.isBefore(_fechaInicio)) {
-              _fechaFin = _fechaInicio;
-            }
-          } else {
-            _fechaFin = picked;
-            if (_fechaFin.isBefore(_fechaInicio)) {
-              _fechaInicio = _fechaFin;
-            }
-          }
-        });
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.calendar_today, size: 18),
+  Widget _buildNotasField() => Container(
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
         ),
-        child: Text(
-          '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}',
-          style: const TextStyle(fontSize: 14),
+        child: TextFormField(
+          controller: _notasCtrl,
+          maxLines: 2,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            hintText: 'Opcional — motivo, observaciones…',
+            hintStyle: TextStyle(fontSize: 13, color: _textSub),
+            contentPadding: EdgeInsets.all(14),
+            border: InputBorder.none,
+          ),
+          onFieldSubmitted: (_) =>
+              FocusManager.instance.primaryFocus?.unfocus(),
         ),
-      ),
-    );
-  }
+      );
 
-  Widget _infoChip(String label, String value, {Color? color}) {
-    return Column(
-      children: [
-        Text(value,
-            style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: color ?? const Color(0xFF00796B))),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      ],
-    );
-  }
+  Widget _buildBotonGuardar() => SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton.icon(
+          onPressed: _guardando ? null : _guardar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          icon: _guardando
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: Colors.white))
+              : const Icon(Icons.send_rounded, size: 18),
+          label: Text(
+            _guardando ? 'Enviando…' : 'Enviar solicitud',
+            style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+
+  Widget _buildFechaField(String label, DateTime value, bool esInicio) =>
+      _buildFechaCard(label, value, esInicio);
 
   void _actualizarFechasPorPermiso() {
     if (_tipo != TipoAusencia.permisoRetribuido) return;
     setState(() {
-      _fechaFin = _fechaInicio
-          .add(Duration(days: _subtipo.diasMaxDefecto - 1));
+      _fechaFin =
+          _fechaInicio.add(Duration(days: _subtipo.diasMaxDefecto - 1));
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // GUARDAR
-  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _infoChip(String label, String value, {Color? color}) =>
+      Column(children: [
+        Text(value,
+            style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: color ?? _primary)),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: _textSub)),
+      ]);
 
   Future<void> _guardar() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -441,7 +613,6 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
     setState(() => _guardando = true);
 
     try {
-      // Calcular descuento si es ausencia injustificada
       double descuento = 0;
       if (_tipo == TipoAusencia.ausenciaInjustificada) {
         final empDoc =
@@ -450,8 +621,8 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
             empDoc.data()?['datos_nomina'] as Map<String, dynamic>?;
         if (datosNomina != null) {
           final salarioBruto =
-              (datosNomina['salario_bruto_anual'] as num?)?.toDouble() ??
-                  0;
+              (datosNomina['salario_bruto_anual'] as num?)
+                  ?.toDouble() ?? 0;
           final salarioMensual = salarioBruto / 12;
           descuento = VacacionesService.calcularDescuentoAusencia(
             salarioBrutoMensual: salarioMensual,
@@ -461,7 +632,6 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
         }
       }
 
-      // Si no tenemos nombre, intentar obtenerlo
       if (_empleadoNombre == null) {
         final empDoc =
             await _db.collection('usuarios').doc(_empleadoId).get();
@@ -487,21 +657,21 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
 
       final creada = await _svc.crearSolicitud(widget.empresaId, solicitud);
 
-      // Notificación en bandeja para el propietario/admin
       try {
         final tipoLabel = _tipo == TipoAusencia.vacaciones
             ? 'vacaciones'
             : _tipo.name.replaceAllMapped(
-                RegExp(r'([A-Z])'), (m) => ' ${m[1]!.toLowerCase()}');
+                RegExp(r'([A-Z])'),
+                (m) => ' ${m[1]!.toLowerCase()}');
         await BandejaNotificacionesService().crear(
-          empresaId:      widget.empresaId,
-          titulo:         '🏖️ Nueva solicitud de ${tipoLabel}',
-          cuerpo:         '${_empleadoNombre ?? 'Un empleado'} ha solicitado '
-                          '$_diasNaturales días (${_fechaInicio.day}/'
-                          '${_fechaInicio.month} → ${_fechaFin.day}/'
-                          '${_fechaFin.month})',
-          tipo:           TipoNotificacion.vacacionesSolicitadas,
-          entidadId:      creada.id,
+          empresaId: widget.empresaId,
+          titulo: '🏖️ Nueva solicitud de $tipoLabel',
+          cuerpo:
+              '${_empleadoNombre ?? 'Un empleado'} ha solicitado '
+              '$_diasNaturales días (${_fechaInicio.day}/'
+              '${_fechaInicio.month} → ${_fechaFin.day}/${_fechaFin.month})',
+          tipo: TipoNotificacion.vacacionesSolicitadas,
+          entidadId: creada.id,
           remitenteNombre: _empleadoNombre,
         );
       } catch (eNotif) {
@@ -509,23 +679,14 @@ class _NuevaSolicitudFormState extends State<NuevaSolicitudForm> {
       }
 
       if (mounted) {
-        // FluxToast ANTES del pop — el overlay raíz lo muestra igualmente
         FluxToast.exito(context,
             'Solicitud enviada correctamente. Pendiente de aprobación.');
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) {
-        FluxToast.error(context, 'Error al crear la solicitud: $e');
-      }
+      if (mounted) FluxToast.error(context, 'Error al crear la solicitud: $e');
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
   }
 }
-
-
-
-
-
-

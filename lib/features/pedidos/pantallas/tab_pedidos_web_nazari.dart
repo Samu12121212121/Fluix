@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import '../../../domain/modelos/factura.dart';
+import '../../../services/facturacion_service.dart';
 
 // ignore_for_file: prefer_const_constructors
 
@@ -51,9 +53,10 @@ class _TabPedidosWebNazariState extends State<TabPedidosWebNazari>
     final metodo     = (d['metodo_pago'] as String? ?? '').toLowerCase();
 
     if (estado == 'cancelado') return 'cancelado';
-    if (estadoPago == 'pagado') return 'pagado';
+    // Completado = pagado Y enviado
+    if (estadoPago == 'pagado' && estado == 'enviado') return 'completado';
     if (metodo == 'stripe' && estadoPago != 'pagado') return 'incompleto';
-    // transferencia, bizum pendiente o cualquier otro en curso
+    // En curso = pagados no enviados + impagados
     return 'en_curso';
   }
 
@@ -94,10 +97,10 @@ class _TabPedidosWebNazariState extends State<TabPedidosWebNazari>
         }
         final docs = snap.data?.docs ?? [];
 
-        final enCurso    = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'en_curso').length;
-        final pagados    = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'pagado').length;
-        final incompleto = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'incompleto').length;
-        final cancelados = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'cancelado').length;
+        final enCurso     = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'en_curso').length;
+        final completados = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'completado').length;
+        final incompleto  = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'incompleto').length;
+        final cancelados  = docs.where((d) => _tabDe(d.data() as Map<String,dynamic>) == 'cancelado').length;
 
         return Column(children: [
           // ── Buscador ────────────────────────────────────────────────────
@@ -143,7 +146,7 @@ class _TabPedidosWebNazariState extends State<TabPedidosWebNazari>
               unselectedLabelColor: const Color(0xFF64748B),
               tabs: [
                 _tabLabel('En curso', enCurso, const Color(0xFFF59E0B)),
-                _tabLabel('Pagados', pagados, const Color(0xFF10B981)),
+                _tabLabel('Completados', completados, const Color(0xFF10B981)),
                 _tabLabel('Incompleto', incompleto, const Color(0xFFEF4444)),
                 _tabLabel('Cancelados', cancelados, const Color(0xFF94A3B8)),
               ],
@@ -155,7 +158,7 @@ class _TabPedidosWebNazariState extends State<TabPedidosWebNazari>
               controller: _tab,
               children: [
                 _lista(_filtrar(docs, 'en_curso'),    'Sin pedidos en curso'),
-                _lista(_filtrar(docs, 'pagado'),      'Sin pedidos pagados'),
+                _lista(_filtrar(docs, 'completado'),  'Sin pedidos completados'),
                 _lista(_filtrar(docs, 'incompleto'),  'Sin pedidos incompletos'),
                 _lista(_filtrar(docs, 'cancelado'),   'Sin pedidos cancelados'),
               ],
@@ -510,12 +513,110 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
     }
   }
 
+  Future<void> _eliminarFactura() async {
+    final num = _data['factura_numero'] as String? ?? 'esta factura';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar factura'),
+        content: Text('¿Eliminar $num? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _enviandoAccion = true);
+    try {
+      final facturaId = _data['factura_id'] as String?;
+      if (facturaId != null) {
+        await FirebaseFirestore.instance
+            .collection('empresas').doc(widget.empresaId)
+            .collection('facturas').doc(facturaId)
+            .delete();
+      }
+      await _ref.update({
+        'factura_id':     FieldValue.delete(),
+        'factura_numero': FieldValue.delete(),
+      });
+      await _actualizarLocal();
+      if (mounted) _snack('Factura eliminada', Colors.orange);
+    } catch (e) {
+      if (mounted) _snack('Error al eliminar: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _enviandoAccion = false);
+    }
+  }
+
+  Future<void> _generarFactura() async {
+    setState(() => _enviandoAccion = true);
+    try {
+      final nombre = _data['nombre'] as String? ?? 'Cliente';
+      final email  = _data['email']  as String? ?? '';
+      final ref    = _data['ref']    as String? ?? widget.docId.substring(0, 8).toUpperCase();
+      final items  = (_data['items'] as List?) ?? [];
+
+      final lineas = items.map((item) {
+        final it       = Map<String, dynamic>.from(item as Map);
+        final titulo   = it['titulo']   as String? ?? 'Artículo';
+        final cantidad = (it['cantidad'] as num?)?.toInt() ?? 1;
+        final precioConIva = (it['precio'] as num?)?.toDouble() ?? 0.0;
+        // Libros en España: IVA 4% (precio publicado incluye IVA)
+        final ivaPorc  = (it['iva_porcentaje'] as num?)?.toDouble() ?? 4.0;
+        final base     = precioConIva / (1 + ivaPorc / 100);
+        return LineaFactura(
+          descripcion:    titulo,
+          precioUnitario: base,
+          cantidad:       cantidad,
+          porcentajeIva:  ivaPorc,
+        );
+      }).toList();
+
+      if (lineas.isEmpty) {
+        _snack('El pedido no tiene líneas de producto', Colors.orange);
+        return;
+      }
+
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final result = await FacturacionService().crearFactura(
+        empresaId:     widget.empresaId,
+        clienteNombre: nombre,
+        clienteCorreo: email.isNotEmpty ? email : null,
+        lineas:        lineas,
+        metodoPago:    MetodoPagoFactura.tarjeta,
+        pedidoId:      widget.docId,
+        tipo:          TipoFactura.pedido,
+        estadoInicial: EstadoFactura.pagada,
+        usuarioId:     uid,
+        usuarioNombre: 'Pedido web',
+        notasCliente:  'Pedido Nº $ref',
+      );
+
+      await _ref.update({
+        'factura_id':     result.factura.id,
+        'factura_numero': result.factura.numeroFactura,
+      });
+      await _actualizarLocal();
+
+      if (mounted) _snack('✅ Factura ${result.factura.numeroFactura} generada', const Color(0xFF10B981));
+    } catch (e) {
+      if (mounted) _snack('Error al generar factura: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _enviandoAccion = false);
+    }
+  }
+
   Future<void> _moverA(BuildContext context) async {
     final tabActual = _tabActual();
     final opciones = <String, String>{
-      if (tabActual != 'en_curso')    'en_curso':   'En curso',
-      if (tabActual != 'pagado')      'pagado':     'Pagados',
-      if (tabActual != 'cancelado')   'cancelado':  'Cancelados',
+      if (tabActual != 'en_curso')    'en_curso':    'En curso',
+      if (tabActual != 'completado')  'completado':  'Completado',
+      if (tabActual != 'cancelado')   'cancelado':   'Cancelados',
     };
     final sel = await showDialog<String>(
       context: context,
@@ -538,9 +639,9 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
       case 'en_curso':
         update['estado'] = 'pendiente';
         update['estado_pago'] = 'pendiente';
-      case 'pagado':
+      case 'completado':
         update['estado_pago'] = 'pagado';
-        update['estado'] = 'pendiente';
+        update['estado'] = 'enviado';
         update['fecha_pago'] = FieldValue.serverTimestamp();
       case 'cancelado':
         update['estado'] = 'cancelado';
@@ -590,7 +691,7 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
     final estadoPago = (_data['estado_pago'] as String? ?? '').toLowerCase();
     final metodo     = (_data['metodo_pago'] as String? ?? '').toLowerCase();
     if (estado == 'cancelado') return 'cancelado';
-    if (estadoPago == 'pagado') return 'pagado';
+    if (estadoPago == 'pagado' && estado == 'enviado') return 'completado';
     if (metodo == 'stripe' && estadoPago != 'pagado') return 'incompleto';
     return 'en_curso';
   }
@@ -730,17 +831,9 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
                   ),
                 if (telefono.isNotEmpty)
                   _fila('Teléfono', telefono, Icons.phone_outlined),
-                if (dir.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.local_shipping_outlined, size: 13, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 8),
-                    const Text('Dirección', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(dir,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                        textAlign: TextAlign.right)),
-                  ]),
+                if (dirRaw != null) ...[
+                  const SizedBox(height: 6),
+                  _dirEnvioWidget(dirRaw),
                 ],
               ]),
             ),
@@ -776,6 +869,17 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
                 loading: false,
                 outlined: true,
               ),
+              // Registrar como ingreso solo si está pagado y no tiene factura aún
+              if (estadoPago == 'pagado' && _data['factura_id'] == null) ...[
+                const SizedBox(height: 8),
+                _accionBtn(
+                  label: 'Registrar ingreso (generar factura)',
+                  icon: Icons.receipt_long_rounded,
+                  color: const Color(0xFF10B981),
+                  onTap: _enviandoAccion ? null : _generarFactura,
+                  loading: _enviandoAccion,
+                ),
+              ],
             ] else
               _accionBtn(
                 label: 'Restaurar a En curso',
@@ -785,6 +889,33 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
                 loading: false,
                 outlined: true,
               ),
+
+            // Badge + eliminar cuando ya hay factura registrada
+            if (_data['factura_id'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    'Factura ${_data['factura_numero'] ?? ''} registrada',
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF10B981),
+                        fontWeight: FontWeight.w600),
+                  )),
+                  GestureDetector(
+                    onTap: _enviandoAccion ? null : _eliminarFactura,
+                    child: const Icon(Icons.delete_outline_rounded,
+                        color: Color(0xFFEF4444), size: 18),
+                  ),
+                ]),
+              ),
+            ],
 
             const SizedBox(height: 14),
 
@@ -956,6 +1087,49 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
     return partes.join(', ');
   }
 
+  static Widget _dirEnvioWidget(dynamic dirRaw) {
+    final List<String> lineas;
+    if (dirRaw is Map) {
+      String _v(String k) => (dirRaw[k] as String? ?? '').trim();
+      lineas = [
+        if (_v('nombre').isNotEmpty) _v('nombre'),
+        if (_v('linea1').isNotEmpty) _v('linea1'),
+        if (_v('linea2').isNotEmpty) _v('linea2'),
+        if (_v('cp').isNotEmpty || _v('ciudad').isNotEmpty)
+          '${_v('cp')} ${_v('ciudad')}'.trim(),
+        if (_v('provincia').isNotEmpty) _v('provincia'),
+        if (_v('pais').isNotEmpty) _v('pais'),
+      ];
+    } else {
+      lineas = dirRaw.toString().split(', ');
+    }
+
+    return GestureDetector(
+      onTap: () => Clipboard.setData(ClipboardData(text: lineas.join(', '))),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.local_shipping_outlined, size: 14, color: Color(0xFF6B7280)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: lineas.map((l) => Text(l,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), height: 1.5),
+              )).toList(),
+            ),
+          ),
+          const Icon(Icons.copy_outlined, size: 12, color: Color(0xFF94A3B8)),
+        ]),
+      ),
+    );
+  }
+
   static String _labelMetodo(String m) => switch (m) {
     'stripe'        => 'Tarjeta (Stripe)',
     'transferencia' => 'Transferencia bancaria',
@@ -967,7 +1141,7 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
 
   static Color _colorTab(String tab) => switch (tab) {
     'en_curso'   => const Color(0xFFF59E0B),
-    'pagado'     => const Color(0xFF10B981),
+    'completado' => const Color(0xFF10B981),
     'incompleto' => const Color(0xFFEF4444),
     'cancelado'  => const Color(0xFF94A3B8),
     _            => const Color(0xFF6B7280),
@@ -975,7 +1149,7 @@ class _DetallePedidoNazariSheetState extends State<DetallePedidoNazariSheet> {
 
   static IconData _iconoTab(String tab) => switch (tab) {
     'en_curso'   => Icons.hourglass_top_rounded,
-    'pagado'     => Icons.check_circle_outline_rounded,
+    'completado' => Icons.check_circle_outline_rounded,
     'incompleto' => Icons.warning_amber_rounded,
     'cancelado'  => Icons.cancel_outlined,
     _            => Icons.circle_outlined,

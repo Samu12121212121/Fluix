@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,12 +36,15 @@ class DocumentosEmpleadoWidget extends StatefulWidget {
   final String empleadoId;
   final String empresaId;
   final String nombreEmpleado;
+  /// true = embedded en un ScrollView (no usa Expanded, shrinkWrap en lista)
+  final bool embedded;
 
   const DocumentosEmpleadoWidget({
     super.key,
     required this.empleadoId,
     required this.empresaId,
     required this.nombreEmpleado,
+    this.embedded = false,
   });
 
   @override
@@ -106,15 +110,19 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
       final url  = await snap.ref.getDownloadURL();
 
       // 4. Guardar metadatos en Firestore
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final esEmpleado = uid == widget.empleadoId;
       await _col.add({
-        'nombre':       nombreDoc.trim().isEmpty ? file.name : nombreDoc.trim(),
-        'categoria':    categoria,
-        'url':          url,
-        'storage_path': storagePath,
-        'extension':    ext,
-        'tamano_bytes': file.size,
-        'subido_en':    Timestamp.now(),
-        'subido_por':   widget.empresaId,
+        'nombre':           nombreDoc.trim().isEmpty ? file.name : nombreDoc.trim(),
+        'categoria':        categoria,
+        'url':              url,
+        'storage_path':     storagePath,
+        'extension':        ext,
+        'tamano_bytes':     file.size,
+        'subido_en':        Timestamp.now(),
+        'subido_por_uid':   uid,
+        'subido_por':       widget.empresaId,
+        'es_de_empresa':    !esEmpleado, // true = lo subió admin/empresa
       });
 
       if (mounted) {
@@ -249,6 +257,8 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) return _buildEmbedded(context);
+
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -257,7 +267,7 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(children: [
-          // Header
+          // Header (solo en modal, no en embedded)
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
             decoration: const BoxDecoration(
@@ -365,21 +375,93 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
     );
   }
 
+  // ── Versión inline (portal del empleado) ─────────────────────────────────
+  Widget _buildEmbedded(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _col.orderBy('subido_en', descending: true).snapshots(),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator(color: _kBlue)),
+          );
+        }
+        final docs = snap.data?.docs ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Barra upload + contador
+            Row(children: [
+              Text('${docs.length} documento${docs.length == 1 ? '' : 's'}',
+                  style: const TextStyle(fontSize: 12, color: _kSub)),
+              const Spacer(),
+              if (_subiendo)
+                const SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _kBlue))
+              else
+                GestureDetector(
+                  onTap: _subirDocumento,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _kBlue.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _kBlue.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.upload_rounded, size: 13, color: _kBlue),
+                      SizedBox(width: 4),
+                      Text('Subir', style: TextStyle(fontSize: 11, color: _kBlue,
+                          fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 10),
+            if (docs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.folder_open_outlined, size: 36,
+                      color: _kBorder.withValues(alpha: 2.0)),
+                  const SizedBox(height: 6),
+                  const Text('Sin documentos', style: TextStyle(fontSize: 12, color: _kSub)),
+                ])),
+              )
+            else
+              // shrinkWrap: la lista toma su altura natural dentro del scroll
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _docCard(docs[i]),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _docCard(QueryDocumentSnapshot doc) {
-    final d        = doc.data() as Map<String, dynamic>;
-    final nombre   = d['nombre']    as String? ?? 'Sin nombre';
-    final cat      = d['categoria'] as String? ?? 'Otro';
-    final ext      = d['extension'] as String? ?? '';
-    final url      = d['url']       as String? ?? '';
-    final bytes    = (d['tamano_bytes'] as num?)?.toInt() ?? 0;
-    final ts       = d['subido_en'] as Timestamp?;
-    final fecha    = ts != null ? _formatFecha(ts.toDate()) : '';
+    final d          = doc.data() as Map<String, dynamic>;
+    final nombre     = d['nombre']       as String? ?? 'Sin nombre';
+    final cat        = d['categoria']    as String? ?? 'Otro';
+    final ext        = d['extension']    as String? ?? '';
+    final url        = d['url']          as String? ?? '';
+    final bytes      = (d['tamano_bytes'] as num?)?.toInt() ?? 0;
+    final ts         = d['subido_en']    as Timestamp?;
+    final fecha      = ts != null ? _formatFecha(ts.toDate()) : '';
+    final esDeEmpresa = d['es_de_empresa'] as bool? ?? false;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
+        border: Border.all(
+          color: esDeEmpresa ? _kGreen.withValues(alpha: 0.4) : _kBorder),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 4, offset: const Offset(0, 1))],
       ),
@@ -399,6 +481,17 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
             fontWeight: FontWeight.w600, color: _kText),
             maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Row(children: [
+          if (esDeEmpresa)
+            Container(
+              margin: const EdgeInsets.only(top: 3, right: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: _kGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('Empresa', style: TextStyle(
+                  fontSize: 9, color: _kGreen, fontWeight: FontWeight.w700)),
+            ),
           Container(
             margin: const EdgeInsets.only(top: 3),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -406,7 +499,8 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
               color: _kBlue.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(cat, style: const TextStyle(fontSize: 9, color: _kBlue, fontWeight: FontWeight.w600)),
+            child: Text(cat, style: const TextStyle(
+                fontSize: 9, color: _kBlue, fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 6),
           Text('${_formatBytes(bytes)} • $fecha',
@@ -419,11 +513,13 @@ class _DocumentosEmpleadoWidgetState extends State<DocumentosEmpleadoWidget> {
               tooltip: 'Ver / Descargar',
               onPressed: () => _abrirDocumento(url),
             ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 17, color: _kRed),
-            tooltip: 'Eliminar',
-            onPressed: () => _eliminarDocumento(doc),
-          ),
+          // Empleado no puede eliminar docs de la empresa
+          if (!esDeEmpresa)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 17, color: _kRed),
+              tooltip: 'Eliminar',
+              onPressed: () => _eliminarDocumento(doc),
+            ),
         ]),
       ),
     );

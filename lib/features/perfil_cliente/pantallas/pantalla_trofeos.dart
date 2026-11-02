@@ -3,18 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trofeo_def.dart';
 import '../../../services/trofeos_service.dart';
-import '../../tienda_monedas/pantalla_tienda_monedas.dart';
 import 'pantalla_monedero.dart';
 import '../widgets/trofeo_desbloqueado_overlay.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 
-const _kBg     = Color(0xFF0A0F23);
-const _kCard   = Color(0xFF1E2139);
-const _kCard2  = Color(0xFF252A45);
-const _kBorde  = Color(0xFF2A2E45);
-const _kTexto  = Colors.white;
-const _kMuted  = Color(0xFFB0B3C1);
-const _kOro    = Color(0xFFFFB830);
+const _kBg     = Color(0xFFF4F6FB);
+const _kCard   = Color(0xFFFFFFFF);
+const _kCard2  = Color(0xFFEEF2F7);
+const _kBorde  = Color(0xFFDDE3ED);
+const _kTexto  = Color(0xFF1E293B);
+const _kMuted  = Color(0xFF64748B);
+const _kOro    = Color(0xFFE59B00);
 
 class PantallaTrofeos extends StatefulWidget {
   const PantallaTrofeos({super.key});
@@ -27,6 +26,37 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
   String? _ultimoTrofeoMostrado;
   final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
+  void _mostrarProximamente(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🏪', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            const Text('¡Próximamente!', style: TextStyle(
+              color: _kTexto, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'La tienda está en camino.\n¡Mejor que ahorres tus monedas!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _kMuted, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('¡Entendido!',
+                style: TextStyle(color: _kOro, fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<String?>(
@@ -37,6 +67,7 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
         return Stack(children: [
           Scaffold(
             backgroundColor: _kBg,
+            bottomNavigationBar: const _BottomNavTrofeos(),
             appBar: FluixAppBar(
         titulo: 'Mis Trofeos',
         showLeading: true,
@@ -52,7 +83,7 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaTiendaMonedas())),
+                  onTap: () => _mostrarProximamente(context),
                   child: Container(
                     margin: const EdgeInsets.only(right: 16),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -79,7 +110,7 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
                   SliverToBoxAdapter(child: _FiltrosCategorias(seleccionada: _catFiltro, onTap: (c) => setState(() => _catFiltro = _catFiltro == c ? null : c), progCat: progCat)),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    sliver: SliverGrid(
+                    sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) {
                           final def = lista[i];
@@ -89,10 +120,6 @@ class _PantallaTrofeosState extends State<PantallaTrofeos> {
                           return _TarjetaTrofeo(def: def, completado: completado, progreso: progreso);
                         },
                         childCount: lista.length,
-                      ),
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 80.0, childAspectRatio: 1.0,
-                        crossAxisSpacing: 6, mainAxisSpacing: 6,
                       ),
                     ),
                   ),
@@ -128,7 +155,7 @@ class _HeaderProgreso extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E2139), Color(0xFF252A45)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(colors: [Color(0xFFFFFFFF), Color(0xFFF0F7FF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _kOro.withValues(alpha: 0.3)),
       ),
@@ -200,10 +227,10 @@ class _FiltrosCategorias extends StatelessWidget {
                 border: Border.all(color: sel ? c.color : _kBorde),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(c.label, style: TextStyle(color: sel ? _kBg : _kMuted, fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+                Text(c.label, style: TextStyle(color: sel ? Colors.white : _kMuted, fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
                 if (p != null) ...[
                   const SizedBox(width: 5),
-                  Text('${p.completados}', style: TextStyle(color: sel ? _kBg.withValues(alpha: 0.7) : _kMuted.withValues(alpha: 0.7), fontSize: 10)),
+                  Text('${p.completados}', style: TextStyle(color: sel ? Colors.white70 : _kMuted.withValues(alpha: 0.7), fontSize: 10)),
                 ],
               ]),
             ),
@@ -250,48 +277,52 @@ class _TarjetaTrofeoState extends State<_TarjetaTrofeo> with SingleTickerProvide
   @override
   Widget build(BuildContext context) {
     final def = widget.def;
-    final tierColor = def.tier.color;
-    final catColor  = def.categoria.color;
-
+    final catColor = def.categoria.color;
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (ctx, _) => Transform.scale(
-        scale: widget.completado ? _scale.value : 1.0,
-        child: GestureDetector(
-          onTap: () => showModalBottomSheet(
-            context: context, backgroundColor: Colors.transparent,
-            builder: (_) => _DetalleSheet(def: def, completado: widget.completado, progreso: widget.progreso),
-          ),
+      builder: (ctx, _) => GestureDetector(
+        onTap: () => showModalBottomSheet(
+          context: context, backgroundColor: Colors.transparent,
+          builder: (_) => _DetalleSheet(def: def, completado: widget.completado, progreso: widget.progreso),
+        ),
+        child: Transform.scale(
+          scale: widget.completado ? _scale.value : 1.0,
           child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _kCard,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: widget.completado ? catColor.withValues(alpha: 0.6) : _kBorde,
-                width: widget.completado ? 1.5 : 0.5,
+                color: widget.completado ? catColor.withValues(alpha: 0.5) : _kBorde,
+                width: widget.completado ? 1.2 : 0.6,
               ),
-              boxShadow: widget.completado ? [BoxShadow(color: catColor.withValues(alpha: 0.2 * _glow.value), blurRadius: 12, spreadRadius: 1)] : null,
+              boxShadow: widget.completado ? [BoxShadow(
+                color: catColor.withValues(alpha: 0.18 * _glow.value),
+                blurRadius: 10,
+              )] : null,
             ),
-            child: Stack(children: [
-              if (widget.completado)
-                Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(13),
-                  child: CustomPaint(painter: _ShimmerPainter(color: catColor, progress: _glow.value)))),
-              // Tier dot (top-left)
-              Positioned(top: 5, left: 5,
-                child: Container(width: 6, height: 6,
-                  decoration: BoxDecoration(color: tierColor, shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: tierColor.withValues(alpha: 0.6), blurRadius: 4)]),
-                ),
+            child: Row(children: [
+              _HexBadge(
+                emoji: def.emoji,
+                color: catColor,
+                completado: widget.completado,
+                glowValue: _glow.value,
               ),
-              // Lock icon (top-right) if not completed
-              if (!widget.completado)
-                Positioned(top: 5, right: 5,
-                  child: Icon(Icons.lock_outline_rounded, size: 10, color: _kMuted.withValues(alpha: 0.5)),
-                ),
-              Center(child: Text(def.emoji, style: const TextStyle(fontSize: 20), textAlign: TextAlign.center)),
-              if (!widget.completado)
-                Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(13),
-                  child: Container(color: const Color(0xFF0A0F23).withValues(alpha: 0.45)))),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(def.titulo, style: const TextStyle(
+                    color: _kTexto, fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(def.descripcion, style: const TextStyle(
+                    color: _kMuted, fontSize: 11, height: 1.35),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                ]),
+              ),
+              const SizedBox(width: 10),
+              _EstadoTrofeo(completado: widget.completado, color: catColor),
             ]),
           ),
         ),
@@ -316,7 +347,7 @@ class _DetalleSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
       decoration: BoxDecoration(
-        color: const Color(0xFF151932),
+        color: const Color(0xFFF8FAFC),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: catColor.withValues(alpha: 0.4), width: 1.5)),
       ),
@@ -410,31 +441,200 @@ class _ChipMonedas extends StatelessWidget {
   );
 }
 
-// ── Shimmer painter ───────────────────────────────────────────────────────────
+// ── Hex badge ─────────────────────────────────────────────────────────────────
 
-class _ShimmerPainter extends CustomPainter {
+class _HexBadge extends StatelessWidget {
+  final String emoji;
   final Color color;
-  final double progress;
-  const _ShimmerPainter({required this.color, required this.progress});
+  final bool completado;
+  final double glowValue;
+  const _HexBadge({required this.emoji, required this.color,
+    required this.completado, this.glowValue = 0.0});
+
+  @override
+  Widget build(BuildContext context) {
+    final fill   = completado ? color.withValues(alpha: 0.22) : _kCard2;
+    final border = completado ? color.withValues(alpha: 0.65) : _kBorde;
+    Widget badge = SizedBox(
+      width: 54, height: 60,
+      child: Stack(alignment: Alignment.center, children: [
+        CustomPaint(
+          size: const Size(54, 60),
+          painter: _HexPainter(fill: fill, border: border,
+            shimmerColor: completado ? color : Colors.transparent,
+            shimmerProgress: glowValue),
+        ),
+        Text(emoji, style: const TextStyle(fontSize: 22), textAlign: TextAlign.center),
+      ]),
+    );
+    if (!completado) {
+      badge = ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0.2126, 0.7152, 0.0722, 0, 0,
+          0,      0,      0,      1, 0,
+        ]),
+        child: badge,
+      );
+    }
+    return badge;
+  }
+}
+
+// ── Estado de trofeo ───────────────────────────────────────────────────────────
+
+class _EstadoTrofeo extends StatelessWidget {
+  final bool completado;
+  final Color color;
+  const _EstadoTrofeo({required this.completado, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    if (completado) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+        ),
+        const SizedBox(height: 4),
+        Text('Obtenido', style: TextStyle(
+          color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+      ]);
+    }
+    return const Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.lock_rounded, size: 28, color: _kMuted),
+      SizedBox(height: 2),
+      Text('Bloqueado', style: TextStyle(
+        color: _kMuted, fontSize: 10, fontWeight: FontWeight.w500)),
+    ]);
+  }
+}
+
+// ── Hex painter ────────────────────────────────────────────────────────────────
+
+class _HexPainter extends CustomPainter {
+  final Color fill;
+  final Color border;
+  final Color shimmerColor;
+  final double shimmerProgress;
+  const _HexPainter({required this.fill, required this.border,
+    this.shimmerColor = Colors.transparent, this.shimmerProgress = 0.0});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..shader = LinearGradient(
-        colors: [Colors.transparent, color.withValues(alpha: 0.06 * progress), Colors.transparent],
-        stops: const [0.0, 0.5, 1.0],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-        transform: GradientRotation(progress * pi / 2),
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(13)), paint);
+    final path = _hexPath(size);
+    canvas.drawPath(path, Paint()..color = fill);
+    if (shimmerProgress > 0 && shimmerColor != Colors.transparent) {
+      canvas.drawPath(path, Paint()
+        ..shader = LinearGradient(
+          colors: [Colors.transparent,
+            shimmerColor.withValues(alpha: 0.14 * shimmerProgress),
+            Colors.transparent],
+          stops: const [0.0, 0.5, 1.0],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
+    }
+    canvas.drawPath(path, Paint()
+      ..color = border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeJoin = StrokeJoin.round);
+  }
+
+  static Path _hexPath(Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r  = min(size.width, size.height) / 2 * 0.9;
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = (-90 + i * 60) * pi / 180;
+      final x = cx + r * cos(angle);
+      final y = cy + r * sin(angle);
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    path.close();
+    return path;
   }
 
   @override
-  bool shouldRepaint(_ShimmerPainter old) => old.progress != progress;
+  bool shouldRepaint(_HexPainter old) =>
+    old.fill != fill || old.border != border || old.shimmerProgress != shimmerProgress;
 }
 
 // Alias de compatibilidad
 class TrofeoService {
   static Stream<Map<String, Map<String, dynamic>>> streamTrofeos(String uid) => TrofeosService.streamTrofeos(uid);
   static Stream<int> streamMonedas(String uid) => TrofeosService.streamMonedas(uid);
+}
+
+// ── Bottom nav (replica del explorar, Perfil seleccionado) ────────────────────
+
+class _BottomNavTrofeos extends StatelessWidget {
+  const _BottomNavTrofeos();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 20, offset: const Offset(0, -4),
+        )],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(children: [
+            _BotNavItem(icon: Icons.grid_view_rounded, label: 'Explorar', selected: false,
+              onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+            _BotNavItem(icon: Icons.favorite_rounded, label: 'Favoritos', selected: false,
+              onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+            _BotNavItem(icon: Icons.person_rounded, label: 'Perfil', selected: true,
+              onTap: () => Navigator.pop(context)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _BotNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _BotNavItem({required this.icon, required this.label,
+    required this.selected, required this.onTap});
+
+  static const _accent = Color(0xFF00BFA5);
+  static const _muted  = Color(0xFF64748B);
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF0D47A1).withValues(alpha: 0.07) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 22, color: selected ? _accent : _muted),
+          const SizedBox(height: 3),
+          Text(label, style: TextStyle(
+            fontSize: 10,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: selected ? _accent : _muted,
+          )),
+        ]),
+      ),
+    ),
+  );
 }

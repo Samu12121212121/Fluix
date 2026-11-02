@@ -82,10 +82,8 @@ class TokenRefreshService {
       debugPrint('⚠️ Error renovando token: ${e.code}');
       _evaluarErrorSesion(e);
     } catch (e) {
-      debugPrint('⚠️ Error inesperado renovando token: $e — forzando signOut');
-      try {
-        await FirebaseAuth.instance.signOut();
-      } catch (_) {}
+      // Error transitorio (red, timeout…) — Firebase renovará el token en el próximo ciclo
+      debugPrint('⚠️ Error renovando token: $e — se reintentará automáticamente');
     }
   }
 

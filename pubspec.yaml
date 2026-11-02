@@ -2,7 +2,7 @@ name: planeag_flutter
 description: PlaneaGuada CRM para pymes
 publish_to: 'none'
 
-version: 1.0.19+19
+version: 1.0.20+20
 
 environment:
     sdk: ^3.11.1

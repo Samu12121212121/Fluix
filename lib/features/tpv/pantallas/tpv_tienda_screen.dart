@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import '../../../core/widgets/fluix_app_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
@@ -456,6 +457,68 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgTPV,
+      appBar: widget.embedded ? null : FluixAppBar(
+        titulo: 'Venta',
+        showLeading: true,
+        extraActions: [
+          OutlinedButton.icon(
+            onPressed: _cajaAbiertaHoy ? _abrirCajonFisico : _mostrarAperturaCaja,
+            icon: Icon(
+              _cajaAbiertaHoy ? Icons.point_of_sale_outlined : Icons.lock_open_outlined,
+              size: 14,
+            ),
+            label: Text(
+              _cajaAbiertaHoy ? 'Abrir cajón' : 'Abrir caja',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _cajaAbiertaHoy ? const Color(0xFF374151) : const Color(0xFF16A34A),
+              side: BorderSide(
+                color: _cajaAbiertaHoy ? const Color(0xFFD1D5DB) : const Color(0xFF16A34A),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          FilledButton.icon(
+            onPressed: _limpiarTicket,
+            icon: const Icon(Icons.add_rounded, size: 14),
+            label: const Text('Nueva venta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            style: FilledButton.styleFrom(
+              backgroundColor: _kBlu,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          if (_esAdmin)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              tooltip: 'Configuración TPV',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ConfiguracionFacturacionTpvScreen(
+                      empresaId: widget.empresaId,
+                      esPropietario: widget.esPropietario))),
+            ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              if (v == 'historial') HistorialTicketsWidget.mostrar(context, widget.empresaId);
+              if (v == 'arqueo') _mostrarArqueoIntermedio();
+              if (v == 'cierre') setState(() => _mostrandoCierre = true);
+              if (v == 'devoluciones') showDialog(context: context,
+                  builder: (_) => DialogoDevoluciones(empresaId: widget.empresaId, colorPrimario: _kBlu));
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'historial', child: ListTile(leading: Icon(Icons.receipt_long_outlined), title: Text('Historial de tickets'), contentPadding: EdgeInsets.zero)),
+              PopupMenuItem(value: 'arqueo', child: ListTile(leading: Icon(Icons.calculate_outlined), title: Text('Arqueo de caja'), contentPadding: EdgeInsets.zero)),
+              PopupMenuItem(value: 'devoluciones', child: ListTile(leading: Icon(Icons.keyboard_return_outlined), title: Text('Devoluciones'), contentPadding: EdgeInsets.zero)),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'cierre', child: ListTile(leading: Icon(Icons.summarize_outlined), title: Text('Cierre de caja'), contentPadding: EdgeInsets.zero)),
+            ],
+          ),
+        ],
+      ),
       body: _mostrandoCierre
           ? Column(children: [
               Container(
@@ -482,8 +545,20 @@ class _TpvTiendaState extends State<TpvTiendaScreen> {
               )),
             ])
           : Column(children: [
-              // Header propio solo cuando NO está embebido en el dashboard
-              if (!widget.embedded) _buildHeaderBlanco(),
+              // Banner de caja cerrada (solo en modo standalone)
+              if (!widget.embedded && _cajaCerradaHoy)
+                Container(
+                  color: Colors.orange.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+                  child: Row(children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 15),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      'Caja cerrada hoy. Las ventas que hagas se contarán en el siguiente turno.',
+                      style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+                    )),
+                  ]),
+                ),
               // ── Layout principal ───────────────────────────────────────────
               Expanded(child: Row(children: [
                 // Catálogo 65%

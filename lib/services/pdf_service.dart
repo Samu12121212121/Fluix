@@ -1010,7 +1010,10 @@ class PdfService {
     final telefonoEmpresa = empresa['telefono'];
     final correoEmpresa = empresa['correo'];
     final ibanEmpresa = empresa['iban'];
-    final logoUrl = empresa['logo_url'];
+    // Logo: prefiere el subido en configuración PDF, cae a empresa si no hay
+    final logoUrl = (pdfCfg?.logoUrl?.isNotEmpty == true)
+        ? pdfCfg!.logoUrl
+        : empresa['logo_url'];
 
     // Descargar logo (solo en plataformas no web, para evitar problemas CORS)
     final Uint8List? logoBytes = kIsWeb ? null : await _descargarLogo(logoUrl);
@@ -1244,7 +1247,8 @@ class PdfService {
     ]);
     final empresa = results[0] as Map<String, String>;
     final pdfCfg  = results[1] as PdfConfiguracion?;
-    final logoBytes = kIsWeb ? null : await _descargarLogo(empresa['logo_url']);
+    final presLogoUrl = (pdfCfg?.logoUrl?.isNotEmpty == true) ? pdfCfg!.logoUrl : empresa['logo_url'];
+    final logoBytes = kIsWeb ? null : await _descargarLogo(presLogoUrl);
 
     uiTpl.PdfTemplate? tpl;
     String? colorPrimario;

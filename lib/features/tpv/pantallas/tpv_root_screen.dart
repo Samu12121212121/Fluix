@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' show Random;
 import 'dart:io' show Platform;
+import '../../../core/widgets/fluix_app_bar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -451,274 +452,145 @@ class _TpvRootScreenState extends State<TpvRootScreen> {
       tema: tema,
       child: Scaffold(
       backgroundColor: bgColor,
-      appBar: widget.embedded ? null : AppBar(
-        backgroundColor: tema.isDark ? const Color(0xFF0A0F23) : Colors.white,
-        foregroundColor: tema.texto,
-        elevation: 0,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: tema.borde),
-        ),
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        toolbarHeight: 48,
-        title: Row(
-          children: [
-            // ── Izquierda: nav + modo ──────────────────────────────────
-            if (!widget.embedded)
+      appBar: widget.embedded ? null : FluixAppBar(
+        titulo: 'TPV',
+        showLeading: true,
+        extraActions: [
+          // Hold — con badge
+          ListenableBuilder(
+            listenable: _holdNotifier,
+            builder: (_, __) => Stack(clipBehavior: Clip.none, children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                onPressed: () => Navigator.of(context).pop(),
-                tooltip: 'Salir del TPV',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: const Icon(Icons.pause_circle_outline, size: 20),
+                onPressed: () async {
+                  final pedido = await HoldPedidosWidget.mostrar(context, _holdNotifier);
+                  if (pedido != null && mounted) {
+                    final lineas = pedido.lineas.map((l) => LineaComanda(
+                      productoId: l['productoId'] as String? ?? '',
+                      nombre: l['nombre'] as String? ?? '',
+                      precioUnitario: (l['precioUnitario'] as num?)?.toDouble() ?? 0,
+                      cantidad: (l['cantidad'] as num?)?.toInt() ?? 1,
+                      ivaPorcentaje: (l['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
+                      notas: l['notas'] as String?,
+                    )).toList();
+                    final comandaBase = _comandaActiva ?? Comanda(
+                      id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
+                      camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+                      lineas: [],
+                      estado: 'abierta',
+                      apertura: Timestamp.now(),
+                      importeTotal: 0,
+                    );
+                    setState(() {
+                      _comandaActiva = comandaBase.copyWith(
+                        lineas: [...comandaBase.lineas, ...lineas],
+                      );
+                    });
+                    _sincronizarComanda();
+                  }
+                },
+                tooltip: 'Pedidos en espera',
               ),
-            const Icon(Icons.point_of_sale, size: 16),
-            const SizedBox(width: 4),
-            const Text('TPV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: tema.primario.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: tema.primario.withValues(alpha: 0.4)),
-              ),
-              child: Text(_modoActual, style: TextStyle(fontSize: 10, color: tema.isDark ? Colors.white : tema.texto)),
-            ),
-            const Spacer(),
-            // ── Derecha: acciones críticas siempre visibles ───────────
-            // Hold — con badge
-            ListenableBuilder(
-              listenable: _holdNotifier,
-              builder: (_, __) => Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.pause_circle_outline, size: 18),
-                    onPressed: () async {
-                      final pedido = await HoldPedidosWidget.mostrar(context, _holdNotifier);
-                      if (pedido != null && mounted) {
-                        final lineas = pedido.lineas.map((l) => LineaComanda(
-                          productoId: l['productoId'] as String? ?? '',
-                          nombre: l['nombre'] as String? ?? '',
-                          precioUnitario: (l['precioUnitario'] as num?)?.toDouble() ?? 0,
-                          cantidad: (l['cantidad'] as num?)?.toInt() ?? 1,
-                          ivaPorcentaje: (l['ivaPorcentaje'] as num?)?.toDouble() ?? 21,
-                          notas: l['notas'] as String?,
-                        )).toList();
-                        final comandaBase = _comandaActiva ?? Comanda(
-                          id: _db.collection('empresas').doc(widget.empresaId).collection('comandas').doc().id,
-                          camareroUid: FirebaseAuth.instance.currentUser?.uid ?? '',
-                          lineas: [],
-                          estado: 'abierta',
-                          apertura: Timestamp.now(),
-                          importeTotal: 0,
-                        );
-                        setState(() {
-                          _comandaActiva = comandaBase.copyWith(
-                            lineas: [...comandaBase.lineas, ...lineas],
-                          );
-                        });
-                        _sincronizarComanda();
-                      }
-                    },
-                    tooltip: 'Pedidos en espera',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              if (_holdNotifier.pedidos.isNotEmpty)
+                Positioned(right: 4, top: 4,
+                  child: Container(
+                    width: 14, height: 14,
+                    decoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                    child: Center(child: Text('${_holdNotifier.pedidos.length}',
+                        style: const TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.w700))),
                   ),
-                  if (_holdNotifier.pedidos.isNotEmpty)
-                    Positioned(
-                      right: 0, top: 0,
-                      child: Container(
-                        width: 14, height: 14,
-                        decoration: const BoxDecoration(
-                          color: Colors.orangeAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${_holdNotifier.pedidos.length}',
-                            style: const TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Cajón registradora
+                ),
+            ]),
+          ),
+          // Cajón
+          IconButton(
+            icon: const Icon(Icons.inventory_2_outlined, size: 20),
+            onPressed: _abrirCajon,
+            tooltip: 'Abrir cajón',
+          ),
+          // Caja
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet, size: 20),
+            onPressed: () => mostrarDialogoAperturaCaja(context, widget.empresaId),
+            tooltip: 'Apertura de caja',
+          ),
+          // Cierre
+          IconButton(
+            icon: const Icon(Icons.summarize_outlined, size: 20),
+            onPressed: () => setState(() => _mostrandoCierre = true),
+            tooltip: 'Cierre de caja',
+          ),
+          // Configuración (admin)
+          if (widget.esAdmin)
             IconButton(
-              icon: const Icon(Icons.inventory_2_outlined, size: 18),
-              onPressed: _abrirCajon,
-              tooltip: 'Abrir cajón',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(Icons.settings_outlined, size: 20),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => ConfiguracionFacturacionTpvScreen(
+                      empresaId: widget.empresaId,
+                      esPropietario: widget.esPropietario))),
+              tooltip: 'Configuración TPV',
             ),
-            // Caja
-            GestureDetector(
-              onTap: () => mostrarDialogoAperturaCaja(context, widget.empresaId),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: tema.primario.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: tema.primario.withValues(alpha: 0.4)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.account_balance_wallet, size: 13, color: tema.primario),
-                  const SizedBox(width: 3),
-                  Text('Caja', style: TextStyle(fontSize: 11, color: tema.primario, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
-            // Cierre
-            GestureDetector(
-              onTap: () => setState(() => _mostrandoCierre = true),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: tema.superficie,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: tema.borde),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.summarize_outlined, size: 13, color: tema.textoMuted),
-                  const SizedBox(width: 3),
-                  Text('Cierre', style: TextStyle(fontSize: 11, color: tema.textoMuted, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
-            // Reloj + wifi
-            const SizedBox(width: 6),
-            Text(_horaActual, style: TextStyle(fontSize: 11, color: tema.textoMuted)),
-            const SizedBox(width: 4),
-            Icon(
-              _estaOnline ? Icons.wifi : Icons.wifi_off,
-              size: 14,
-              color: _estaOnline ? tema.textoMuted : Colors.orangeAccent,
-            ),
-            if (_pendientesOffline > 0) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: _sincronizarOffline,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.orangeAccent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$_pendientesOffline offline',
-                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black),
-                  ),
-                ),
-              ),
-            ],
-            // ── Toggle claro/oscuro ────────────────────────────────────
-            _TemaToggleBtn(
-              oscuro: _oscuro,
-              onToggle: _toggleTema,
-              tema: tema,
-            ),
-            // ── Configuración TPV — acceso directo (admin) ────────────
-            if (widget.esAdmin) ...[
-              const SizedBox(width: 4),
-              Tooltip(
-                message: 'Configuración TPV',
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => ConfiguracionFacturacionTpvScreen(
-                            empresaId: widget.empresaId,
-                            esPropietario: widget.esPropietario))),
-                    child: Padding(
-                      padding: const EdgeInsets.all(7),
-                      child: Icon(Icons.settings_outlined, size: 16, color: tema.textoMuted),
+          // Menú secundario
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onSelected: (v) {
+              switch (v) {
+                case 'historial':
+                  _mostrarHistorialVentas(context);
+                case 'tickets':
+                  HistorialTicketsWidget.mostrar(context, widget.empresaId);
+                case 'stats':
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: const Color(0xFF0A0F23),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                     ),
-                  ),
-                ),
-              ),
+                    builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId),
+                  );
+                case 'tema':
+                  mostrarMesaThemeSelector(context);
+                case 'cocina':
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId),
+                  ));
+                case 'fiados':
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId),
+                  ));
+                case 'devoluciones':
+                  showDialog(context: context,
+                    builder: (_) => DialogoDevoluciones(
+                      empresaId: widget.empresaId,
+                      colorPrimario: _tpvAppBarColor,
+                    ),
+                  );
+                case 'impresora':
+                  _mostrarConfigImpresora();
+                case 'config':
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ConfiguracionFacturacionTpvScreen(
+                      empresaId: widget.empresaId,
+                      esPropietario: widget.esPropietario,
+                    ),
+                  ));
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'historial', child: ListTile(leading: Icon(Icons.history), title: Text('Historial de ventas'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'tickets', child: ListTile(leading: Icon(Icons.receipt_long), title: Text('Tickets del turno'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'stats', child: ListTile(leading: Icon(Icons.bar_chart), title: Text('Estadísticas'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'cocina', child: ListTile(leading: Icon(Icons.restaurant_menu), title: Text('Pantalla de cocina'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'fiados', child: ListTile(leading: Icon(Icons.schedule_rounded, color: Color(0xFFFFCC00)), title: Text('Fiados pendientes'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'devoluciones', child: ListTile(leading: Icon(Icons.keyboard_return), title: Text('Devoluciones'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'tema', child: ListTile(leading: Icon(Icons.palette_outlined), title: Text('Tema del plano'), contentPadding: EdgeInsets.zero)),
+              const PopupMenuItem(value: 'impresora', child: ListTile(leading: Icon(Icons.print), title: Text('Impresora'), contentPadding: EdgeInsets.zero)),
+              if (widget.esAdmin)
+                const PopupMenuItem(value: 'config', child: ListTile(leading: Icon(Icons.settings), title: Text('Configuración TPV'), contentPadding: EdgeInsets.zero)),
             ],
-            // ── Menú desbordamiento para acciones secundarias ─────────
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 18, color: tema.textoMuted),
-              color: tema.superficie,
-              onSelected: (v) {
-                switch (v) {
-                  case 'historial':
-                    _mostrarHistorialVentas(context);
-                  case 'tickets':
-                    HistorialTicketsWidget.mostrar(context, widget.empresaId);
-                  case 'stats':
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: const Color(0xFF0A0F23),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                      ),
-                      builder: (_) => EstadisticasTurnoWidget(empresaId: widget.empresaId),
-                    );
-                  case 'tema':
-                    mostrarMesaThemeSelector(context);
-                  case 'cocina':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => PantallaCocinaScreen(empresaId: widget.empresaId),
-                    ));
-                  case 'fiados':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => PantallaFiadosScreen(empresaId: widget.empresaId),
-                    ));
-                  case 'devoluciones':
-                    showDialog(
-                      context: context,
-                      builder: (_) => DialogoDevoluciones(
-                        empresaId: widget.empresaId,
-                        colorPrimario: _tpvAppBarColor,
-                      ),
-                    );
-                  case 'impresora':
-                    _mostrarConfigImpresora();
-                  case 'config':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ConfiguracionFacturacionTpvScreen(
-                        empresaId: widget.empresaId,
-                        esPropietario: widget.esPropietario,
-                      ),
-                    ));
-                }
-              },
-              itemBuilder: (ctx) {
-                final t = _TpvRootTemaScope.of(ctx);
-                PopupMenuEntry<String> item(String val, IconData ic, String lbl, {Color? iconColor}) =>
-                  PopupMenuItem<String>(value: val, child: Row(children: [
-                    Icon(ic, size: 16, color: iconColor ?? t.textoMuted), const SizedBox(width: 10),
-                    Text(lbl, style: TextStyle(color: t.texto)),
-                  ]));
-                return [
-                  item('historial', Icons.history, 'Historial de ventas'),
-                  item('tickets', Icons.receipt_long, 'Tickets del turno'),
-                  item('stats', Icons.bar_chart, 'Estadísticas'),
-                  item('cocina', Icons.restaurant_menu, 'Pantalla de cocina'),
-                  item('fiados', Icons.schedule_rounded, 'Fiados pendientes', iconColor: const Color(0xFFFFCC00)),
-                  item('devoluciones', Icons.keyboard_return, 'Devoluciones'),
-                  item('tema', Icons.palette_outlined, 'Tema del plano'),
-                  item('impresora', Icons.print, 'Impresora'),
-                  if (widget.esAdmin)
-                    item('config', Icons.settings, 'Configuración TPV'),
-                ];
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       body: Stack(
         children: [

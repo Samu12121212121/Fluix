@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/permisos_service.dart';
@@ -83,20 +84,21 @@ class _VacacionesScreenState extends State<VacacionesScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Staff: vista simplificada con sus propias solicitudes únicamente
+    if (!_esAdmin) return _buildVistaStaff(context);
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: FluixAppBar(
         titulo: 'Vacaciones y ausencias',
         showLeading: true,
-        extraActions: _esAdmin
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.add_rounded),
-                  tooltip: 'Nueva solicitud',
-                  onPressed: _nuevaSolicitud,
-                )
-              ]
-            : const [],
+        extraActions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Nueva solicitud',
+            onPressed: _nuevaSolicitud,
+          )
+        ],
       ),
       body: StreamBuilder<List<SolicitudVacaciones>>(
         stream: _svc.obtenerSolicitudes(widget.empresaId),
@@ -125,6 +127,134 @@ class _VacacionesScreenState extends State<VacacionesScreen>
                 ],
               )),
             ]),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Vista simplificada para staff (solo sus propias solicitudes) ───────────
+  Widget _buildVistaStaff(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: FluixAppBar(
+        titulo: 'Mis vacaciones',
+        showLeading: true,
+        extraActions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            tooltip: 'Nueva solicitud',
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => NuevaSolicitudForm(
+                empresaId: widget.empresaId,
+                empleadoIdFijo: uid,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('vacaciones').doc(widget.empresaId)
+            .collection('solicitudes')
+            .where('empleado_id', isEqualTo: uid)
+            .snapshots(),
+        builder: (ctx, snap) {
+          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snap.data?.docs ?? [];
+          docs.sort((a, b) {
+            final fa = (a.data() as Map)['fecha_inicio'] as String? ?? '';
+            final fb = (b.data() as Map)['fecha_inicio'] as String? ?? '';
+            return fb.compareTo(fa);
+          });
+          final solicitudes = docs
+              .map((d) => SolicitudVacaciones.fromMap({
+                    ...d.data() as Map<String, dynamic>,
+                    'id': d.id,
+                  }))
+              .toList();
+
+          if (solicitudes.isEmpty) {
+            return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.beach_access_outlined, size: 56,
+                  color: _sub.withValues(alpha: 0.4)),
+              const SizedBox(height: 12),
+              Text('Sin solicitudes', style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: _sub)),
+              const SizedBox(height: 6),
+              Text('Pulsa + para solicitar vacaciones o un permiso',
+                  style: TextStyle(fontSize: 13, color: _sub)),
+            ]));
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: solicitudes.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (ctx, i) {
+              final s = solicitudes[i];
+              Color estadoColor;
+              IconData estadoIcon;
+              String estadoLabel;
+              switch (s.estado) {
+                case EstadoSolicitud.aprobado:
+                  estadoColor = _kGreen; estadoIcon = Icons.check_circle_outline_rounded;
+                  estadoLabel = 'Aprobada'; break;
+                case EstadoSolicitud.rechazado:
+                  estadoColor = _kRed; estadoIcon = Icons.cancel_outlined;
+                  estadoLabel = 'Rechazada'; break;
+                default:
+                  estadoColor = _kAmber; estadoIcon = Icons.schedule_rounded;
+                  estadoLabel = 'Pendiente';
+              }
+              final fmt = DateFormat('dd/MM/yyyy');
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _surf,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: estadoColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(estadoIcon, size: 20, color: estadoColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(s.tipo.etiqueta, style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600, color: _text)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${fmt.format(s.fechaInicio)} → ${fmt.format(s.fechaFin)}  ·  ${s.diasNaturales} días',
+                        style: TextStyle(fontSize: 11.5, color: _sub),
+                      ),
+                    ],
+                  )),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: estadoColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(estadoLabel, style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: estadoColor)),
+                  ),
+                ]),
+              );
+            },
           );
         },
       ),

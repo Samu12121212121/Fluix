@@ -303,8 +303,10 @@ class _TarjetaFacturaIngreso extends StatelessWidget {
                         color: Colors.deepOrange.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('TPV',
-                          style: TextStyle(fontSize: 9, color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        factura.terminalId != null ? 'TPV' : 'Pedido',
+                        style: const TextStyle(fontSize: 9, color: Colors.deepOrange, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                   const SizedBox(width: 6),

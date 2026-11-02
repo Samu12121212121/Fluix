@@ -30,7 +30,7 @@ class SesionService {
   SesionService._();
 
   // ── Configuración ─────────────────────────────────────────────────────────
-  static const Duration _tiempoInactividad = Duration(minutes: 30);
+  static const Duration _tiempoInactividad = Duration(hours: 12);
 
   // ── Estado interno ────────────────────────────────────────────────────────
   Timer? _timerInactividad;
@@ -98,10 +98,10 @@ class SesionService {
       final tiempoEnBackground = DateTime.now().difference(_momentoPausa!);
       _momentoPausa = null;
 
-      if (tiempoEnBackground >= _tiempoInactividad) {
+      if (tiempoEnBackground >= const Duration(hours: 24)) {
         debugPrint(
-          '⏰ SesionService: más de ${_tiempoInactividad.inMinutes} min en background '
-          '(${tiempoEnBackground.inMinutes} min) → cerrando sesión',
+          '⏰ SesionService: más de 24h en background '
+          '(${tiempoEnBackground.inHours}h) → cerrando sesión',
         );
         await _cerrarSesion();
         return;
@@ -110,25 +110,18 @@ class SesionService {
 
     // ── 2. Forzar refresh del token ───────────────────────────────────────
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // Sin usuario → notificar (el StreamBuilder debería haberlo manejado ya)
-      onSesionExpirada?.call();
-      return;
-    }
-
-    try {
-      await user.getIdToken(true); // force = true → ignora caché
-      debugPrint('🔑 SesionService: token refrescado al volver de background');
-    } catch (e, stack) {
-      debugPrint('❌ SesionService: error al refrescar token: $e');
-      debugPrint('   Stack: $stack');
-      
-      final callback = onSesionExpirada;
-      detener();
-      callback?.call();
-      
-      // NO hacemos signOut aquí - lo manejará el callback
-      return;
+    // Si no hay usuario, el StreamBuilder de authStateChanges() en main.dart
+    // ya redirigirá al login cuando Firebase confirme el estado de sesión.
+    // No forzamos logout aquí para evitar falsos positivos en iOS, donde
+    // currentUser puede ser null brevemente mientras se rehidrata el Keychain.
+    if (user != null) {
+      try {
+        await user.getIdToken(true); // force = true → ignora caché
+        debugPrint('🔑 SesionService: token refrescado al volver de background');
+      } catch (e) {
+        // Error transitorio de red — Firebase renovará el token cuando recupere conexión
+        debugPrint('⚠️ SesionService: error al refrescar token (transitorio): $e');
+      }
     }
 
     // ── 3. Reiniciar timer de inactividad ─────────────────────────────────

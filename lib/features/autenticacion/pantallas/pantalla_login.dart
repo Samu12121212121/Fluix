@@ -42,28 +42,24 @@ class _PantallaLoginState extends State<PantallaLogin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F23), // Mismo fondo que pantalla explorar
+      backgroundColor: const Color(0xFF0A0F23),
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return SingleChildScrollView(
+            return Padding(
               padding: const EdgeInsets.all(24.0),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(flex: 1),
-                      _buildLogo(),
-                      const SizedBox(height: 48),
-                      _buildLoginForm(),
-                      const SizedBox(height: 32),
-                      _buildFooterLinks(),
-                      const Spacer(flex: 1),
-                    ],
-                  ),
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 1),
+                  _buildLogo(),
+                  const SizedBox(height: 48),
+                  _buildLoginForm(),
+                  const SizedBox(height: 32),
+                  _buildFooterLinks(),
+                  const Spacer(flex: 1),
+                ],
               ),
             );
           },

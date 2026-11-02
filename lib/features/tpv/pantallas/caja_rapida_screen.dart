@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import '../../../domain/modelos/pedido.dart';
@@ -335,15 +336,10 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
     fmt: _fmt,
   );
 
-  PreferredSizeWidget _buildAppBar() => AppBar(
-    title: const Row(children: [
-      Icon(Icons.point_of_sale, size: 22), SizedBox(width: 8),
-      Text('Caja Rápida', style: TextStyle(fontWeight: FontWeight.w700)),
-    ]),
-    backgroundColor: const Color(0xFF1565C0),
-    foregroundColor: Colors.white,
-    elevation: 0,
-    actions: [
+  PreferredSizeWidget _buildAppBar() => FluixAppBar(
+    titulo: 'Caja Rápida',
+    showLeading: true,
+    extraActions: [
       IconButton(
         icon: const Icon(Icons.receipt_long),
         tooltip: 'Historial del día',
@@ -388,8 +384,8 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
               ],
             ),
           ),
-          icon: const Icon(Icons.delete_sweep, color: Colors.white70),
-          label: const Text('Limpiar', style: TextStyle(color: Colors.white70)),
+          icon: const Icon(Icons.delete_sweep),
+          label: const Text('Limpiar'),
         ),
       ],
     ],
@@ -399,8 +395,6 @@ class _CajaRapidaScreenState extends State<CajaRapidaScreen>
         if (c.maxWidth >= 600) return const SizedBox.shrink();
         return TabBar(
           controller: _tabCtrl,
-          labelColor: Colors.white, unselectedLabelColor: Colors.white54,
-          indicatorColor: Colors.white,
           tabs: [
             const Tab(text: 'Catálogo'),
             Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [

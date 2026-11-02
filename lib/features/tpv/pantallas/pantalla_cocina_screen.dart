@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/fluix_app_bar.dart';
 
 // ─── Paleta TPV ───────────────────────────────────────────────────────────────
 class _C {
@@ -154,8 +155,12 @@ class _PantallaCocinaScreenState extends State<PantallaCocinaScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.bg,
+      appBar: const FluixAppBar(
+        titulo: 'Cocina',
+        showLeading: true,
+        extraActions: [_RelojWidget()],
+      ),
       body: Column(children: [
-        _AppBarCocina(),
         _BarraFiltroDestino(
           filtro: _filtroDestino,
           onChanged: (v) => setState(() => _filtroDestino = v),

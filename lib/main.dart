@@ -248,8 +248,12 @@ class _FluixCrmAppState extends State<FluixCrmApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
         SesionService().registrarPausa();
+        break;
+      case AppLifecycleState.inactive:
+        // No registrar pausa en inactive: en iOS se dispara con gestos del sistema
+        // (centro de control, bandeja de notificaciones, llamadas…) y provocaría
+        // falsos positivos al volver de background.
         break;
       case AppLifecycleState.resumed:
         SesionService().manejarResumen();
@@ -312,27 +316,26 @@ class _FluixCrmAppState extends State<FluixCrmApp>
             Locale('es', 'ES'),
             Locale('en', 'US'),
           ],
-          // Dismiss teclado al hacer scroll en cualquier parte de la app
-          builder: (context, child) => NotificationListener<ScrollUpdateNotification>(
-            onNotification: (n) {
-              if (n.dragDetails != null) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              }
-              return false;
-            },
-            child: child!,
+          // Dismiss teclado al tocar fuera de campos (cubre dialogs y bottom sheets)
+          // y al hacer scroll en cualquier parte de la app.
+          builder: (context, child) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: NotificationListener<ScrollUpdateNotification>(
+              onNotification: (n) {
+                if (n.dragDetails != null) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                }
+                return false;
+              },
+              child: child!,
+            ),
           ),
           routes: {
             '/login': (_) => const PantallaLogin(),
           },
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges()
-                // En Windows con conexión lenta auth puede tardar >10s en validar.
-                // Usamos 30s para dar margen suficiente antes de mostrar login.
-                .timeout(
-                  const Duration(seconds: 30),
-                  onTimeout: (sink) => sink.add(null),
-                )
                 .distinct((a, b) => a?.uid == b?.uid),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {

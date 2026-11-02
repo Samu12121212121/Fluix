@@ -24,6 +24,7 @@ import '../widgets/seccion_embargos_widget.dart';
 import '../widgets/documentos_empleado_widget.dart';
 import '../../../services/suscripcion_service.dart';
 import '../../fichajes/pantallas/gestion_fichajes_screen.dart';
+import '../../multisede/servicios/multisede_service.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import 'formulario_empleado_form.dart';
 import 'formulario_datos_nomina_form.dart';
@@ -155,15 +156,30 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           ? const GetOptions(source: Source.server)
           : const GetOptions(source: Source.serverAndCache);
 
-      final snap = await _firestore
+      // Query 1: usuarios cuya empresa principal es esta
+      final snap1 = await _firestore
           .collection('usuarios')
           .where('empresa_id', isEqualTo: widget.empresaId)
           .get(options)
           .timeout(const Duration(seconds: 10));
 
+      // Query 2: usuarios de otras empresas con acceso a esta (empresa_ids)
+      final snap2 = await _firestore
+          .collection('usuarios')
+          .where('empresa_ids', arrayContains: widget.empresaId)
+          .get(options)
+          .timeout(const Duration(seconds: 10));
+
+      // Merge deduplicando por doc.id
+      final seen = <String>{};
+      final merged = <QueryDocumentSnapshot>[];
+      for (final doc in [...snap1.docs, ...snap2.docs]) {
+        if (seen.add(doc.id)) merged.add(doc);
+      }
+
       if (!mounted) return;
       setState(() {
-        _empleados   = snap.docs;
+        _empleados   = merged;
         _cargando    = false;
         _ultimaCarga = DateTime.now();
         _errorCarga  = null;
@@ -286,7 +302,18 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     final esStaff = widget.sesion?.esStaff == true;
     if (esStaff) {
       final esPush = ModalRoute.of(context)?.isFirst == false;
-      final portal = ColoredBox(
+      if (esPush) {
+        // Mobile push: portal standalone con su propio AppBar + BottomNav
+        return PortalEmpleadoScreen(
+          empresaId: widget.empresaId,
+          empleadoUid: widget.sesion?.uid,
+          modoAdmin: false,
+          isDark: _isDark,
+          standalone: true,
+        );
+      }
+      // Desktop embebido: el dashboard pone el marco
+      return ColoredBox(
         color: _bg,
         child: PortalEmpleadoScreen(
           empresaId: widget.empresaId,
@@ -294,15 +321,6 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           modoAdmin: false,
           isDark: _isDark,
         ),
-      );
-      if (!esPush) return portal; // embebido: el dashboard pone el marco
-      return Scaffold(
-        backgroundColor: _bg,
-        appBar: FluixAppBar(
-          titulo: 'Mi portal',
-          titleNavigatesBack: true,
-        ),
-        body: portal,
       );
     }
 
@@ -1063,7 +1081,8 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                 ]),
               ),
 
-              // ── Portal del empleado (admin) ──────────────────────────────
+              // ── Portal del empleado (solo el propio empleado) ────────────
+              if (id == widget.sesion?.uid)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 child: GestureDetector(
@@ -1262,7 +1281,8 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                   ]),
                 ),
 
-                // ── Portal del empleado ──────────────────────────────────
+                // ── Portal del empleado (solo el propio empleado) ────────
+                if (id == widget.sesion?.uid)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: GestureDetector(
@@ -1322,6 +1342,12 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                         activo ? _kRed : _kGreen,
                         () { Navigator.pop(ctx); _toggleActivo(id, activo); },
                       ),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      _actionBtn(Icons.business_outlined, 'Empresas',
+                          const Color(0xFF7C3AED),
+                          () { Navigator.pop(ctx); _gestionarEmpresasEmpleado(id, nombre, d); }),
                     ]),
                   ]),
                 ),
@@ -1437,6 +1463,10 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       if (_esPropietario)
         (Icons.tune_rounded, 'Configurar módulos', const Color(0xFF7C3AED),
             () => _abrirModulos(id, d['nombre'] as String? ?? '')),
+      // Portal: solo admin puede ver el portal de otros empleados
+      if (_esPropietario)
+        (Icons.person_pin_outlined, 'Portal del empleado (admin)', _kBlue,
+            () => _abrirPortalEmpleado(context, id, d['nombre'] as String? ?? '')),
     ];
 
     return items.map((item) => InkWell(
@@ -1652,6 +1682,87 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     } catch (e) {
       if (mounted) FluxToast.error(context, 'Error: $e');
     }
+  }
+
+  /// Muestra un diálogo para gestionar a qué empresas tiene acceso el empleado.
+  /// Solo disponible para admins. Carga todas las empresas que el admin gestiona
+  /// y permite activar/desactivar el acceso del empleado a cada una.
+  Future<void> _gestionarEmpresasEmpleado(
+      String uid, String nombre, Map<String, dynamic> data) async {
+    // Empresas que gestiona el admin actual
+    final sedes = await MultisedeService().obtenerSedes();
+    if (sedes.isEmpty || !mounted) return;
+
+    // empresa_ids actuales del empleado
+    final empresasActuales = List<String>.from(
+        data['empresa_ids'] as List? ?? []);
+    // Siempre incluir empresa_id principal
+    final principal = data['empresa_id'] as String? ?? '';
+
+    final seleccion = Map<String, bool>.fromEntries(
+      sedes.map((s) => MapEntry(s.empresaId, empresasActuales.contains(s.empresaId))),
+    );
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx2, setDlg) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.business_outlined, size: 18, color: Color(0xFF7C3AED)),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Acceso de $nombre',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Activa las empresas a las que puede acceder este empleado.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+          const SizedBox(height: 12),
+          ...sedes.map((s) {
+            final esPrincipal = s.empresaId == principal;
+            return CheckboxListTile(
+              dense: true,
+              value: esPrincipal ? true : (seleccion[s.empresaId] ?? false),
+              onChanged: esPrincipal ? null : (v) {
+                setDlg(() => seleccion[s.empresaId] = v ?? false);
+              },
+              title: Text(s.nombre,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: esPrincipal
+                  ? const Text('Empresa principal (no se puede quitar)',
+                      style: TextStyle(fontSize: 11))
+                  : null,
+              activeColor: const Color(0xFF7C3AED),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            );
+          }),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              // Construir nueva lista: solo las activas (excluir principal, ya está en empresa_id)
+              final nuevasIds = sedes
+                  .where((s) => s.empresaId != principal && (seleccion[s.empresaId] ?? false))
+                  .map((s) => s.empresaId)
+                  .toList();
+              try {
+                await _firestore.collection('usuarios').doc(uid).update({
+                  'empresa_ids': nuevasIds,
+                });
+                if (mounted) FluxToast.exito(context, 'Acceso actualizado');
+                _cargarTodo(silencioso: true);
+              } catch (e) {
+                if (mounted) FluxToast.error(context, 'Error: $e');
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      )),
+    );
   }
 
   Future<void> _abrirFormulario({String? id, Map<String, dynamic>? data}) async {

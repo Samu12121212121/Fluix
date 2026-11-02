@@ -333,8 +333,10 @@ class _ConfiguracionDashboardScreenState
           }
 
           const modulosOcultos = {'propietario', 'citas_del_dia', 'explorar'};
-          final modulosVisibles =
-          modulos.where((m) => !modulosOcultos.contains(m.id)).toList();
+          // Mostrar solo los módulos que la empresa tiene contratados
+          final modulosVisibles = modulos
+              .where((m) => !modulosOcultos.contains(m.id) && _moduloPermitido(m))
+              .toList();
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -484,6 +486,7 @@ class _ConfiguracionDashboardScreenState
     required PlanModulo plan,
     required List<ModuloConfig> modulos,
   }) {
+    if (modulos.isEmpty) return const SizedBox.shrink();
     // Contar activos usando estado local
     final activosCount =
         modulos.where((m) => _estaActivo(m)).length;

@@ -48,6 +48,8 @@ class PantallaContenidoWeb extends StatefulWidget {
   final ValueChanged<String?>? onSubModuloChanged;
   final ValueNotifier<int>? volverAlHub;
   final bool noScaffold;
+  final bool esPropietarioPlatforma;
+  final VoidCallback? onCambiarEmpresa;
 
   const PantallaContenidoWeb({
     super.key,
@@ -55,6 +57,8 @@ class PantallaContenidoWeb extends StatefulWidget {
     this.onSubModuloChanged,
     this.volverAlHub,
     this.noScaffold = false,
+    this.esPropietarioPlatforma = false,
+    this.onCambiarEmpresa,
   });
 
   @override
@@ -287,6 +291,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
         await _migrarSeccionesNazari(col);
         return;
       }
+      if (widget.empresaId == _kAcentuarteId) {
+        await _migrarSeccionesAcentuarte(col);
+        return;
+      }
       if (widget.empresaId == _kJuanitaId) {
         await _migrarSeccionesJuanita(col);
         return;
@@ -364,6 +372,56 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     }
 
     // 2. Eliminar secciones no permitidas (ej: "Blog" que no existe en Nazarí)
+    for (final d in snap.docs) {
+      final nombre = _normNombre(d.data()['nombre'] as String? ?? '');
+      if (!permitidos.contains(nombre)) {
+        batch.delete(d.reference);
+        cambios = true;
+      }
+    }
+
+    if (cambios) await batch.commit();
+  }
+
+  /// Para Acentuarte: catálogo, autores, noticias, entrevistas (editorial hermana de Nazarí)
+  Future<void> _migrarSeccionesAcentuarte(
+      CollectionReference<Map<String, dynamic>> col) async {
+    const esperadas = [
+      {'nombre': 'Catálogo',     'tipo': 'catalogo',     'orden': 0},
+      {'nombre': 'Autores',      'tipo': 'autores',       'orden': 1},
+      {'nombre': 'Noticias',     'tipo': 'noticias',      'orden': 2},
+      {'nombre': 'Entrevistas',  'tipo': 'entrevistas',   'orden': 3},
+    ];
+
+    final snap  = await col.get();
+    final batch = FirebaseFirestore.instance.batch();
+    bool cambios = false;
+
+    final permitidos = esperadas
+        .map((e) => _normNombre(e['nombre'] as String))
+        .toSet();
+
+    for (final exp in esperadas) {
+      final nombreEsp = _normNombre(exp['nombre'] as String);
+      final tipoEsp   = (exp['tipo'] as String).toLowerCase();
+      QueryDocumentSnapshot<Map<String, dynamic>>? existente;
+      for (final d in snap.docs) {
+        if (_normNombre(d.data()['nombre'] as String? ?? '') == nombreEsp) {
+          existente = d; break;
+        }
+      }
+      if (existente == null) {
+        batch.set(col.doc(), {...exp, 'activa': true});
+        cambios = true;
+      } else {
+        final tipoActual = (existente.data()['tipo'] as String? ?? '').toLowerCase();
+        if (tipoActual != tipoEsp) {
+          batch.update(existente.reference, {'tipo': tipoEsp});
+          cambios = true;
+        }
+      }
+    }
+
     for (final d in snap.docs) {
       final nombre = _normNombre(d.data()['nombre'] as String? ?? '');
       if (!permitidos.contains(nombre)) {
@@ -573,8 +631,9 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     widget.onSubModuloChanged?.call(_moduloActivoNombre ?? _moduloActivo);
   }
 
-  static const _kNazariId   = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
-  static const _kJuanitaId  = 'AP6JV9bxONgibrjaKzvrrk4xvWM2';
+  static const _kNazariId      = '0PoomHYDUJf5w8tDFRLhFi9iURF3';
+  static const _kAcentuarteId  = 'pU4wGaElcyoDR5dA0YNO';
+  static const _kJuanitaId     = 'AP6JV9bxONgibrjaKzvrrk4xvWM2';
 
   // Módulos fijos (siempre presentes, sin importar el HTML de la empresa)
   static const _modsFixed = [
@@ -665,6 +724,8 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
       appBar: FluixAppBar(
         titulo: _appBarTitulo,
         showLeading: true,
+        esPropietarioPlatforma: widget.esPropietarioPlatforma,
+        onCambiarEmpresa: widget.onCambiarEmpresa,
         onLeadingPressed: () {
           if (_subVista != null) {
             _cerrarSubVista();

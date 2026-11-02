@@ -139,45 +139,30 @@ class _PantallaCarga extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1976D2),
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: const Icon(
-                Icons.business_center_rounded,
-                size: 60,
-                color: Colors.white,
-              ),
+            Image.asset(
+              'assets/icons/app_icon.png',
+              width: 160,
+              height: 160,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             const Text(
-              'Fluix CRM',
+              'Fluix',
               style: TextStyle(
-                fontSize: 32,
-                color: Colors.white,
+                fontSize: 38,
+                color: Color(0xFF1565C0),
                 fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.8),
+                letterSpacing: -1.5,
               ),
             ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 3,
+              color: Color(0xFF1565C0),
+              strokeWidth: 2.5,
             ),
           ],
         ),
@@ -185,3 +170,4 @@ class _PantallaCarga extends StatelessWidget {
     );
   }
 }
+

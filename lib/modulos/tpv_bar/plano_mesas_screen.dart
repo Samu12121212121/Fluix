@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/widgets/fluix_app_bar.dart';
 
 import '../../domain/modelos/mesa.dart';
 import '../../features/tpv/pantallas/tpv_root_screen.dart';
@@ -324,58 +325,35 @@ class _PlanoDeMesasScreenState extends State<PlanoDeMesasScreen> {
   // ── AppBar ────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFF0D0D1A),
-      foregroundColor: Colors.white,
-      elevation: 0,
-      titleSpacing: 0,
-      toolbarHeight: 48,
-      title: Row(
-        children: [
-          const SizedBox(width: 4),
-          const Icon(Icons.table_restaurant, size: 18, color: _cian),
-          const SizedBox(width: 8),
-          const Text(
-            'Plano del restaurante',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+    return FluixAppBar(
+      titulo: 'Plano del restaurante',
+      showLeading: true,
+      extraActions: [
+        _ModoToggle(modo: _modo, onChanged: _cambiarModo),
+        if (_modo == ModoPlano.edicion && _localPos.isNotEmpty)
+          FilledButton.icon(
+            onPressed: _guardando ? null : _guardarPlano,
+            icon: _guardando
+                ? const SizedBox(
+                    width: 12, height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.save, size: 14),
+            label: const Text('Guardar', style: TextStyle(fontSize: 12)),
+            style: FilledButton.styleFrom(
+              backgroundColor: _cian,
+              foregroundColor: Colors.black,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
-          const SizedBox(width: 16),
-          // ── Toggle modo ──────────────────────────────────────────────
-          _ModoToggle(
-            modo: _modo,
-            onChanged: _cambiarModo,
-          ),
-          const Spacer(),
-          if (_modo == ModoPlano.edicion) ...[
-            if (_localPos.isNotEmpty)
-              FilledButton.icon(
-                onPressed: _guardando ? null : _guardarPlano,
-                icon: _guardando
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.save, size: 14),
-                label: const Text('Guardar', style: TextStyle(fontSize: 12)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _cian,
-                  foregroundColor: Colors.black,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
-          IconButton(
-            icon: const Icon(Icons.settings, size: 18),
-            onPressed: _mostrarAjustes,
-            tooltip: 'Ajustes del plano',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+        IconButton(
+          icon: const Icon(Icons.settings, size: 18),
+          onPressed: _mostrarAjustes,
+          tooltip: 'Ajustes del plano',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+      ],
     );
   }
 

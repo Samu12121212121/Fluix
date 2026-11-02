@@ -22,6 +22,9 @@ class SesionUsuario {
   final bool activo;
   final List<String>? modulosPersonalizados;
   final bool esPropietarioPlatforma;
+  /// IDs de empresas a las que este usuario (admin) puede cambiar.
+  /// null o vacío = solo su empresa principal. Ignorado para propietarios (ven todas).
+  final List<String> empresasIds;
 
   const SesionUsuario({
     required this.uid,
@@ -32,6 +35,7 @@ class SesionUsuario {
     required this.activo,
     this.modulosPersonalizados,
     this.esPropietarioPlatforma = false,
+    this.empresasIds = const [],
   });
 
   bool get esPropietario => rol == RolApp.propietario;
@@ -157,25 +161,33 @@ class PermisosService {
       }
 
       // ── PROTECCIÓN 1: empresa propietaria de la plataforma ──
+      // Solo aplica a cuentas sin rol explícito (staff/admin son roles legítimos
+      // en la empresa propietaria para testers y empleados internos).
       final esDocDePrueba = uid.startsWith('emp_fluix_');
       if (empresaId == ConstantesApp.empresaPropietariaId &&
           rolStr != 'propietario' &&
+          rolStr != 'admin' &&
+          rolStr != 'staff' &&
           !esDocDePrueba) {
         rolStr = 'propietario';
-        await FirebaseFirestore.instance
-            .collection('usuarios')
-            .doc(uid)
-            .update({'rol': 'propietario', 'es_plataforma_admin': true});
-        debugPrint('👑 Rol corregido a propietario para $uid');
+        try {
+          await FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(uid)
+              .update({'rol': 'propietario', 'es_plataforma_admin': true});
+          debugPrint('👑 Rol corregido a propietario para $uid');
+        } catch (_) {}
       }
 
       if (empresaId == ConstantesApp.empresaPropietariaId &&
           rolStr == 'propietario' &&
           data['es_plataforma_admin'] != true) {
-        await FirebaseFirestore.instance
-            .collection('usuarios')
-            .doc(uid)
-            .update({'es_plataforma_admin': true});
+        try {
+          await FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(uid)
+              .update({'es_plataforma_admin': true});
+        } catch (_) {}
       }
 
       // ── PROTECCIÓN 2: sin admin en la empresa ──
@@ -261,6 +273,10 @@ class PermisosService {
         } catch (_) {}
       }
 
+      final empresasIds = (data['empresa_ids'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ?? [];
+
       _sesionActual = SesionUsuario(
         uid: uid,
         nombre: data['nombre'] ?? '',
@@ -271,6 +287,7 @@ class PermisosService {
         modulosPersonalizados: modulosPersonalizados,
         esPropietarioPlatforma: rolParsed == RolApp.propietario ||
             (data['es_plataforma_admin'] as bool? ?? false),
+        empresasIds: empresasIds,
       );
 
       if (empresaId.isNotEmpty) {
