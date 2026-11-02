@@ -98,6 +98,12 @@ export {
   purgeCatalogoCdn,
 } from "./cdnPurge";
 export {
+  onAcentuarteCatalogoCambio,
+  onAcentuarteAutoresCambio,
+  onAcentuarteBlogCambio,
+  regenerarCacheAcentuarte,
+} from "./acentuarteCache";
+export {
   pushNuevoEvento,
   pushNuevoPost,
   pushNuevoCatalogo,
@@ -116,6 +122,7 @@ export {
   simularCompraEbook,
   onNuevoPedidoWeb,
   recuperarDireccionPedidoNazari,
+  sincronizarPedidosNazari,
 } from "./nazariEbooks";
 
 export { onJuanitaReservaEstadoCambiado } from "./juanitaReservasEmail";
@@ -6167,6 +6174,56 @@ export const enviarMensajePedidoWebNazari = onCall(
       to: correo,
       subject: `Mensaje sobre tu pedido #${ref} — ${empresa.nombre}`,
       html,
+    });
+
+    return { ok: true };
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// enviarInformeFichajes — envía el PDF de horas mensual por email (Resend)
+// ─────────────────────────────────────────────────────────────────────────────
+export const enviarInformeFichajes = onCall(
+  { region: REGION },
+  async (request) => {
+    const { empresaId, email, asunto, mes, año, pdfBase64, nombreArchivo } =
+      request.data as {
+        empresaId: string;
+        email: string;
+        asunto: string;
+        mes: number;
+        año: number;
+        pdfBase64: string;
+        nombreArchivo: string;
+      };
+
+    if (!empresaId || !email || !pdfBase64) {
+      throw new HttpsError("invalid-argument", "Faltan parámetros obligatorios");
+    }
+
+    // Obtener nombre de la empresa
+    const empSnap = await admin.firestore().collection("empresas").doc(empresaId).get();
+    const nombreEmpresa = (empSnap.data()?.nombre as string) || "Fluix";
+
+    const pdfBuffer = Buffer.from(pdfBase64, "base64");
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#22C55E;margin-bottom:8px">${asunto}</h2>
+        <p style="color:#374151">Adjunto encontrarás el informe de horas del equipo de <strong>${nombreEmpresa}</strong> 
+        correspondiente a ${new Date(año, mes - 1).toLocaleString('es-ES', {month:'long', year:'numeric'})}.</p>
+        <p style="color:#6B7280;font-size:13px;margin-top:32px">
+          Generado automáticamente por <strong>Fluix</strong> — software de gestión para negocios.
+        </p>
+      </div>`;
+
+    await enviarPdfGenerico({
+      from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+      to: email,
+      subject: asunto,
+      html,
+      pdf: pdfBuffer,
+      nombreArchivo,
     });
 
     return { ok: true };

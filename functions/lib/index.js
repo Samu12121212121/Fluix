@@ -38,9 +38,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onReservaCRM = exports.onReservaCreatedCRM = exports.onNuevoClienteCRM = exports.onBienvenidaClienteNuevo = exports.onSelloFidelizacionInApp = exports.procesarSolicitudesValoracion = exports.onReservaCompletadaValoracion = exports.onPromocionClienteNotif = exports.onFlashSlotClienteNotif = exports.recordatorioReservaCliente = exports.onReservaCanceladaCliente = exports.onReservaConfirmadaCliente = exports.verificarCaducidadSellos = exports.marcarQRsExpirados = exports.onCanjeRecompensa = exports.onCheckinFidelizacion = exports.eliminarValoracion = exports.onValoracionBaja = exports.onValoracionWrite = exports.onReservaCompletada = exports.expirarReservasPublicas = exports.gestionarReservaPublica = exports.onReservaPublicaCreada = exports.onReservaEstadoCambiadoEmail = exports.rechazarReserva = exports.confirmarReserva = exports.onNuevaNotificacionReserva = exports.onNuevaReservaEmail = exports.asignarAdminPlataforma = exports.crearEmpleadoConCredenciales = exports.sendResetPasswordEmail = exports.onInvitacionCreada = exports.fanNumero1Job = exports.evaluarTrofeosFidelidad = exports.onPerfilActualizadoTrofeos = exports.onResenaCreadaTrofeos = exports.onCitaCompletadaTrofeos = exports.verificarLoginIntento = exports.onNuevoFlashSlot = exports.expirarFlashSlots = exports.scheduledAlertaCertificado = exports.scheduledAlertaPreciosAntiguos = exports.generarThumbnailCatalogo = exports.cambiarEstadoChatBot = exports.enviarMensajeAdminWhatsApp = exports.enviarPlantillaWhatsApp = exports.whatsappWebhook = exports.calculateFiscalModel = exports.processInvoice = exports.cerrarCaja = void 0;
-exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.enviarResumenNazari = exports.onNuevoPedidoWebNazariEmail = exports.onJuanitaReservaEstadoCambiado = exports.recuperarDireccionPedidoNazari = exports.onNuevoPedidoWeb = exports.simularCompraEbook = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = void 0;
-exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.regenerarCacheNazari = exports.onPagosConfigCambio = exports.onPackSeleccionCambio = exports.onSeleccionCambio = exports.onEventosCambio = exports.onBlogCambio = exports.onOrdenAutoresCambio = exports.onAutoresCambio = exports.onCatalogoWebCambio = exports.getBlogLista = exports.getBlogEntry = exports.desactivarPreventaPasada = exports.publicarPostsProgramados = exports.procesarColaVerifactu = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = void 0;
-exports.enviarMensajePedidoWebNazari = exports.marcarPedidoWebNazariEnviado = exports.ogProxy = exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = void 0;
+exports.publicarBlogsProgramados = exports.generarSitemap = exports.onNuevoContactoSoporte = exports.onNuevaSugerencia = exports.scheduledTareasVencenHoy = exports.scheduledRecordatoriosTareas = exports.scheduledGenerarTareasRecurrentes = exports.onTareaAsignada = exports.resumenSemanalResenas = exports.alertaResenasNegativasAcumuladas = exports.scheduledSincronizarResenas = exports.procesarRespuestasPendientes = exports.publicarRespuestaGoogle = exports.desconectarGoogleBusiness = exports.guardarFichaSeleccionada = exports.obtenerFichasNegocio = exports.storeGmbToken = exports.actualizarModulosSegunPlan = exports.actualizarPlanEmpresaV2 = exports.migracionPlanesV2 = exports.generarFacturasResumenTpv = exports.enviarResumenNazari = exports.onNuevoPedidoWebNazariEmail = exports.onJuanitaReservaEstadoCambiado = exports.sincronizarPedidosNazari = exports.recuperarDireccionPedidoNazari = exports.onNuevoPedidoWeb = exports.simularCompraEbook = exports.onPedidoNazariPagado = exports.verificarDescargaEbook = exports.stripeWebhookNazari = exports.crearCheckoutNazari = exports.migrarDatosNazariDesdeWeb = exports.importarContenidoNazari = exports.buscarArchivoNazari = exports.pushNuevoCatalogo = exports.pushNuevoPost = exports.pushNuevoEvento = exports.regenerarCacheAcentuarte = exports.onAcentuarteBlogCambio = exports.onAcentuarteAutoresCambio = exports.onAcentuarteCatalogoCambio = exports.purgeCatalogoCdn = exports.purgeBlogCdn = exports.purgeEventoCdn = exports.recalcularStatsCliente = exports.onFacturaAnuladaCRM = exports.onFacturaCRM = exports.onPedidoWhatsAppCRM = exports.onPedidoCRM = void 0;
+exports.enviarDocumentacionFiniquito = exports.scheduledAlertaCobertura = exports.scheduledExpiracionCarryover = exports.scheduledCierreAnualVacaciones = exports.onVacacionEstadoCambiado = exports.importarFestivosEspana = exports.stripeWebhookTienda = exports.alertaStockBajo = exports.catalogoPublico = exports.vincularPropietarioAEmpresaExistente = exports.webhookPagoWeb = exports.listarCuentasClientes = exports.actualizarPlanEmpresa = exports.crearCuentaConPlan = exports.regenerarCacheNazari = exports.onPagosConfigCambio = exports.onPackSeleccionCambio = exports.onSeleccionCambio = exports.onEventosCambio = exports.onBlogCambio = exports.onOrdenAutoresCambio = exports.onAutoresCambio = exports.onCatalogoWebCambio = exports.getBlogLista = exports.getBlogEntry = exports.desactivarPreventaPasada = exports.publicarPostsProgramados = exports.procesarColaVerifactu = exports.remitirVerifactu = exports.firmarXMLVerifactu = exports.enviarRecordatoriosCitas = exports.registrarVisita = exports.enviarEmailConPdf = exports.stripeWebhook = exports.crearEmpresaHTTP = exports.inicializarEmpresa = exports.onNuevoPedidoWhatsApp = exports.verificarSuscripciones = exports.onNuevoPedidoGenerarFactura = exports.onPedidoEstadoCambiado = exports.onNuevoPedido = exports.onNuevaValoracion = exports.reenviarConfirmacionReserva = exports.onReservaCancelada = exports.onReservaConfirmada = exports.enviarCampanaEmail = exports.testEmail = exports.onMensajeContactoRespondido = exports.onNuevoMensajeContacto = exports.onNuevaReserva = void 0;
+exports.enviarInformeFichajes = exports.enviarMensajePedidoWebNazari = exports.marcarPedidoWebNazariEnviado = exports.ogProxy = exports.crearLinkPackNazari = exports.auditarStripeCatalogo = exports.migrarLibrosStripe = exports.crearPedidoPruebaTest = exports.sincronizarLibroStripeTest = exports.sincronizarLibroStripe = exports.crearCheckoutTienda = exports.recomendacionesNazari = exports.enviarEmailsContactoInteres = exports.backupDatosFiscalesNocturno = exports.alertasVencimientosFiscales = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -137,6 +137,11 @@ var cdnPurge_1 = require("./cdnPurge");
 Object.defineProperty(exports, "purgeEventoCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeEventoCdn; } });
 Object.defineProperty(exports, "purgeBlogCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeBlogCdn; } });
 Object.defineProperty(exports, "purgeCatalogoCdn", { enumerable: true, get: function () { return cdnPurge_1.purgeCatalogoCdn; } });
+var acentuarteCache_1 = require("./acentuarteCache");
+Object.defineProperty(exports, "onAcentuarteCatalogoCambio", { enumerable: true, get: function () { return acentuarteCache_1.onAcentuarteCatalogoCambio; } });
+Object.defineProperty(exports, "onAcentuarteAutoresCambio", { enumerable: true, get: function () { return acentuarteCache_1.onAcentuarteAutoresCambio; } });
+Object.defineProperty(exports, "onAcentuarteBlogCambio", { enumerable: true, get: function () { return acentuarteCache_1.onAcentuarteBlogCambio; } });
+Object.defineProperty(exports, "regenerarCacheAcentuarte", { enumerable: true, get: function () { return acentuarteCache_1.regenerarCacheAcentuarte; } });
 var webPush_1 = require("./webPush");
 Object.defineProperty(exports, "pushNuevoEvento", { enumerable: true, get: function () { return webPush_1.pushNuevoEvento; } });
 Object.defineProperty(exports, "pushNuevoPost", { enumerable: true, get: function () { return webPush_1.pushNuevoPost; } });
@@ -153,6 +158,7 @@ Object.defineProperty(exports, "onPedidoNazariPagado", { enumerable: true, get: 
 Object.defineProperty(exports, "simularCompraEbook", { enumerable: true, get: function () { return nazariEbooks_1.simularCompraEbook; } });
 Object.defineProperty(exports, "onNuevoPedidoWeb", { enumerable: true, get: function () { return nazariEbooks_1.onNuevoPedidoWeb; } });
 Object.defineProperty(exports, "recuperarDireccionPedidoNazari", { enumerable: true, get: function () { return nazariEbooks_1.recuperarDireccionPedidoNazari; } });
+Object.defineProperty(exports, "sincronizarPedidosNazari", { enumerable: true, get: function () { return nazariEbooks_1.sincronizarPedidosNazari; } });
 var juanitaReservasEmail_1 = require("./juanitaReservasEmail");
 Object.defineProperty(exports, "onJuanitaReservaEstadoCambiado", { enumerable: true, get: function () { return juanitaReservasEmail_1.onJuanitaReservaEstadoCambiado; } });
 var nazariPedidoEmail_1 = require("./nazariPedidoEmail");
@@ -5546,6 +5552,38 @@ exports.enviarMensajePedidoWebNazari = (0, https_1.onCall)({ region: REGION, sec
         to: correo,
         subject: `Mensaje sobre tu pedido #${ref} — ${empresa.nombre}`,
         html,
+    });
+    return { ok: true };
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// enviarInformeFichajes — envía el PDF de horas mensual por email (Resend)
+// ─────────────────────────────────────────────────────────────────────────────
+exports.enviarInformeFichajes = (0, https_1.onCall)({ region: REGION }, async (request) => {
+    var _a;
+    const { empresaId, email, asunto, mes, año, pdfBase64, nombreArchivo } = request.data;
+    if (!empresaId || !email || !pdfBase64) {
+        throw new https_1.HttpsError("invalid-argument", "Faltan parámetros obligatorios");
+    }
+    // Obtener nombre de la empresa
+    const empSnap = await admin.firestore().collection("empresas").doc(empresaId).get();
+    const nombreEmpresa = ((_a = empSnap.data()) === null || _a === void 0 ? void 0 : _a.nombre) || "Fluix";
+    const pdfBuffer = Buffer.from(pdfBase64, "base64");
+    const html = `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#22C55E;margin-bottom:8px">${asunto}</h2>
+        <p style="color:#374151">Adjunto encontrarás el informe de horas del equipo de <strong>${nombreEmpresa}</strong> 
+        correspondiente a ${new Date(año, mes - 1).toLocaleString('es-ES', { month: 'long', year: 'numeric' })}.</p>
+        <p style="color:#6B7280;font-size:13px;margin-top:32px">
+          Generado automáticamente por <strong>Fluix</strong> — software de gestión para negocios.
+        </p>
+      </div>`;
+    await (0, resend_service_1.enviarPdfGenerico)({
+        from: `${nombreEmpresa} <noreply@fluixtech.com>`,
+        to: email,
+        subject: asunto,
+        html,
+        pdf: pdfBuffer,
+        nombreArchivo,
     });
     return { ok: true };
 });

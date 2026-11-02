@@ -21,6 +21,7 @@
 import * as admin from "firebase-admin";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
 import { enviarDescargaEbook } from "./resend_service";
 import { enviarNotificacionEmpresa } from "./utils/notificaciones";
@@ -1097,5 +1098,107 @@ export const recuperarDireccionPedidoNazari = onCall(
     if (webPedidoRef) await webPedidoRef.update({ direccion_envio: dirMap });
     if (fluixPedidoRef) await fluixPedidoRef.update({ direccion_envio: dirStr });
     return { direccion: dirStr, dir: dirMap };
+  }
+);
+
+// ── Vigilante nocturno: sincroniza pedidos Stripe pagados que el webhook se perdió ──
+export const sincronizarPedidosNazari = onSchedule(
+  { schedule: "every day 02:00", region: REGION, timeZone: "Europe/Madrid", secrets: ["STRIPE_SECRET_KEY_NAZARI"] },
+  async () => {
+    const stripe = new Stripe(stripeKey(), { apiVersion: "2024-06-20" as any });
+
+    const snap = await db.collection("empresas").doc(EID)
+      .collection("pedidos_web_nazari").get();
+
+    const candidatos = snap.docs.filter(d => {
+      const v = d.data();
+      // Solo Stripe pendientes con sesión, creados hace más de 10 min
+      if (v.metodo_pago !== "stripe" || v.estado_pago === "pagado" || !v.stripe_session_id) return false;
+      const ts = (v.fecha_creacion as admin.firestore.Timestamp)?.toDate();
+      return ts && (Date.now() - ts.getTime()) > 10 * 60 * 1000;
+    });
+
+    let reparados = 0;
+    for (const doc of candidatos) {
+      const d = doc.data();
+      try {
+        const session = await (stripe.checkout.sessions.retrieve as Function)(d.stripe_session_id);
+        if (session.payment_status !== "paid") continue;
+
+        const nombre = session.customer_details?.name || d.nombre || "";
+        const email  = session.customer_email || session.customer_details?.email || d.email || "";
+        const _s     = session as any;
+        const shippingRaw = _s.shipping_details || _s.shipping;
+        const dir = shippingRaw?.address ? {
+          nombre:  shippingRaw.name || nombre,
+          linea1:  shippingRaw.address.line1          || "",
+          linea2:  shippingRaw.address.line2          || "",
+          ciudad:  shippingRaw.address.city           || "",
+          cp:      shippingRaw.address.postal_code    || "",
+          pais:    shippingRaw.address.country        || "",
+        } : null;
+
+        const totalPagado    = typeof _s.amount_total    === "number" ? _s.amount_total    / 100 : d.total;
+        const subtotalPagado = typeof _s.amount_subtotal === "number" ? _s.amount_subtotal / 100 : d.subtotal;
+        const envioCents     = typeof _s.shipping_cost?.amount_total === "number" ? _s.shipping_cost.amount_total : null;
+        const envioPagado    = envioCents != null ? envioCents / 100 : (totalPagado - subtotalPagado) || 0;
+
+        await doc.ref.update({
+          estado:           "pendiente",
+          estado_pago:      "pagado",
+          nombre_comprador: nombre,
+          email,
+          total:            totalPagado,
+          subtotal:         subtotalPagado,
+          envio:            envioPagado,
+          fecha_pago:       admin.firestore.FieldValue.serverTimestamp(),
+          ...(dir ? { direccion_envio: dir } : {}),
+        });
+
+        // Mirror en pedidos si no existe
+        if (!d.pedido_fluix_id) {
+          const dirStr = dir
+            ? [dir.nombre, dir.linea1, dir.linea2, `${dir.cp} ${dir.ciudad}`.trim(), dir.pais].filter(Boolean).join(", ")
+            : undefined;
+          const lineas = ((d.items || []) as Array<{ catalogo_id?: string; titulo?: string; cantidad?: number; precio?: number }>).map(i => ({
+            libro_id:        i.catalogo_id || "",
+            producto_nombre: i.titulo || "",
+            cantidad:        i.cantidad || 1,
+            precio_unitario: i.precio || 0,
+            porcentaje_iva:  4,
+          }));
+          const fluixRef = await db.collection("empresas").doc(EID).collection("pedidos").add({
+            empresa_id:          EID,
+            cliente_nombre:      nombre || email,
+            cliente_correo:      email,
+            origen:              "web_nazari",
+            estado:              "pendiente",
+            estado_pago:         "pagado",
+            metodo_pago:         "tarjeta",
+            lineas,
+            total:               totalPagado,
+            subtotal:            subtotalPagado,
+            gastos_envio:        envioPagado,
+            stripe_session_id:   d.stripe_session_id,
+            pedido_web_id:       doc.id,
+            ...(dirStr ? { direccion_envio: dirStr } : {}),
+            fecha_creacion:      admin.firestore.FieldValue.serverTimestamp(),
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+            notas_internas:      `Recuperado automáticamente (webhook perdido). Web ID: ${doc.id}`,
+          });
+          await doc.ref.update({ pedido_fluix_id: fluixRef.id });
+        }
+
+        // Entregar ebooks si los hay
+        const orden = doc.data();
+        await _entregarEbooks({ email, nombre, items: orden.items || [], referencia: d.stripe_session_id });
+
+        reparados++;
+        console.log(`[sincronizarPedidosNazari] Reparado: ${doc.id} — ${email} — ${totalPagado} €`);
+      } catch (e) {
+        console.warn(`[sincronizarPedidosNazari] Error en ${doc.id}:`, e);
+      }
+    }
+    console.log(`[sincronizarPedidosNazari] ${reparados} pedidos reparados de ${candidatos.length} revisados`);
   }
 );

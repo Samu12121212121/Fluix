@@ -283,7 +283,7 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
               showLeading: true,
               extraActions: [
                 IconButton(
-                  icon: const Icon(Icons.tablet_android_outlined, size: 20),
+                  icon: const Icon(Icons.tablet_android_outlined, size: 20, color: kFSub),
                   tooltip: 'Kiosk empleados',
                   onPressed: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => PantallaFichajeEmpleado(
@@ -291,19 +291,19 @@ class _GestionFichajesScreenState extends State<GestionFichajesScreen> {
                           dispositivoId: 'kiosk_movil'))),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.people_outline, size: 20),
+                  icon: const Icon(Icons.people_outline, size: 20, color: kFSub),
                   tooltip: 'Empleados',
                   onPressed: () => _openSheet(context,
                       TabEmpleadosFichaje(empresaId: widget.empresaId)),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.bar_chart_rounded, size: 20),
+                  icon: const Icon(Icons.bar_chart_rounded, size: 20, color: kFSub),
                   tooltip: 'Informes',
                   onPressed: () => _openSheet(context,
                       TabInformesFichaje(empresaId: widget.empresaId)),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20, color: kFSub),
                   tooltip: 'Informe PDF',
                   onPressed: () => _openSheet(context,
                       TabInformesFichaje(empresaId: widget.empresaId)),

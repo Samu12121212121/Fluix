@@ -393,6 +393,18 @@ service cloud.firestore {
       || esPlataformaAdmin();
   }
 
+  // Lectura de saldos y solicitudes propios para el empleado (portal)
+  match /vacaciones/{empresaId}/saldos/{docId} {
+    allow read: if perteneceAEmpresa(empresaId)
+      && resource.data.get('empleado_id', '') == request.auth.uid;
+  }
+  match /vacaciones/{empresaId}/solicitudes/{docId} {
+    allow read: if perteneceAEmpresa(empresaId)
+      && resource.data.get('empleado_id', '') == request.auth.uid;
+    allow create: if perteneceAEmpresa(empresaId)
+      && request.resource.data.get('empleado_id', '') == request.auth.uid;
+  }
+
   // ════════════════════════════════════════════════════════════════════
   // LOGIN INTENTOS
   // ════════════════════════════════════════════════════════════════════
@@ -1406,6 +1418,13 @@ service cloud.firestore {
     // ── TPV PERSONALIZADO (multi-sector) ─────────────────────────────────────
     match /tpvs_personalizados/{tpvId} {
       allow read: if esStaffOSuperior(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── HORARIOS EMPLEADO — cada empleado lee/escribe su propio horario ───────
+    match /horarios_empleados/{empleadoId} {
+      allow read: if esAdminOPropietario(empresaId) || esPlataformaAdmin()
+        || (perteneceAEmpresa(empresaId) && empleadoId == request.auth.uid);
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 

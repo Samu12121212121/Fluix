@@ -81,11 +81,8 @@ exports.firmarXMLVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSecond
             .doc("certificado_verifactu")
             .get();
         if (!certDoc.exists) {
-            // Fallback a certificado global
-            certDoc = await db.collection("config").doc("verifactu_cert").get();
-        }
-        if (!certDoc.exists) {
-            throw new Error("No se encontró certificado");
+            throw new Error("Esta empresa no tiene certificado digital configurado para Verifactu. " +
+                "Ve a Configuración → Verifactu → Certificado para subir tu archivo .p12.");
         }
         const certData = certDoc.data();
         p12Buffer = Buffer.from(certData.p12Base64, "base64");
