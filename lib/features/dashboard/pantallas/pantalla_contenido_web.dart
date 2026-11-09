@@ -669,7 +669,10 @@ class _PantallaContenidoWebState extends State<PantallaContenidoWeb>
     if (_esStaff) {
       // Filtrar por config de Firestore (staff_config.web_modulos_fijos)
       // Si no hay config en Firestore, usar ['campanas'] como default seguro
-      final permitidos = _staffWebModulos ?? ['campanas'];
+      // 'mensajes' siempre excluido para staff — solo visible para propietario/admin
+      final permitidos = (_staffWebModulos ?? ['campanas'])
+          .where((id) => id != 'mensajes')
+          .toList();
       fijos = _modsFijosAplicados.where((m) => permitidos.contains(m.id)).toList();
     } else {
       fijos = _modsFijosAplicados;

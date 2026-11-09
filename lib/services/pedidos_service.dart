@@ -177,6 +177,7 @@ class PedidosService {
     Timestamp? fechaHora,
     Map<String, double>? importesPorMetodo,
     String? clienteId,       // ID del documento de cliente en Firestore
+    String? direccionEnvio,
   }) async {
     final ref = _pedidos(empresaId).doc();
     final total = importeTotal ?? lineas.fold<double>(0, (sum, l) => sum + l.subtotal);
@@ -210,6 +211,7 @@ class PedidosService {
       historial: [entrada],
       fechaCreacion: ahora,
       fechaEntrega: fechaEntrega,
+      direccionEnvio: direccionEnvio,
     );
     
     // Convertir a mapa extendido con campos TPV

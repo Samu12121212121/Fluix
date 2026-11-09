@@ -64,6 +64,7 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
   String       _entradaId        = '';
   bool         _guardando        = false;
   bool         _subiendoImg      = false;
+  bool         _subiendoAudio    = false;
   bool         _preview          = false;
   bool         _seoExpanded      = true;
   bool         _opcionesExpanded = false;
@@ -2002,6 +2003,121 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
         ),
         _rDivider(),
 
+        // ── Audio ─────────────────────────────────────────────────────────
+        _rSection(
+          'Audio',
+          children: [
+            if (_audioUrlCtrl.text.trim().isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.audiotrack_rounded, size: 14, color: Color(0xFF16A34A)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _audioUrlCtrl.text.trim().split('/').last.split('?').first,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _audioUrlCtrl.clear()),
+                    child: const Icon(Icons.close, size: 14, color: Color(0xFF9CA3AF)),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Row(children: [
+              Expanded(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _subiendoAudio ? null : () async {
+                      setState(() => _subiendoAudio = true);
+                      final url = await widget.svc.subirArchivo(
+                        widget.empresaId,
+                        'blog/audios',
+                        ['mp3', 'm4a', 'ogg', 'wav', 'aac'],
+                      );
+                      if (mounted) setState(() {
+                        if (url != null) _audioUrlCtrl.text = url;
+                        _subiendoAudio = false;
+                      });
+                    },
+                    icon: _subiendoAudio
+                        ? const SizedBox(width: 13, height: 13,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.upload_file_rounded, size: 15),
+                    label: Text(_subiendoAudio ? 'Subiendo…' : 'Subir audio'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: color,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            const Text(
+              'O pega una URL de Ivoox, SoundCloud, etc.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _audioUrlCtrl,
+              style: const TextStyle(fontSize: 12),
+              decoration: _rDeco('https://... .mp3'),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (_audioUrlCtrl.text.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              if (_audioUrlCtrl.text.contains('ivoox.com'))
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.headphones_rounded, size: 14, color: Color(0xFF2563EB)),
+                    SizedBox(width: 6),
+                    Expanded(child: Text(
+                      'URL de Ivoox detectada — se mostrará como reproductor embebido en la web.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
+                    )),
+                  ]),
+                )
+              else if (_audioUrlCtrl.text.toLowerCase().split('?').first.endsWith('.ogg'))
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFD97706)),
+                    SizedBox(width: 6),
+                    Expanded(child: Text(
+                      'El formato OGG no funciona en Safari ni iOS. Sube el audio en MP3 para máxima compatibilidad.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                    )),
+                  ]),
+                ),
+            ],
+          ],
+        ),
+        _rDivider(),
+
         // ── SEO (colapsable) ──────────────────────────────────────────────
         _collapseHeader('SEO', _seoExpanded,
             () => setState(() => _seoExpanded = !_seoExpanded)),
@@ -2021,20 +2137,19 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
               decoration: _rDeco('Breve resumen del artículo'),
             ),
             const SizedBox(height: 12),
-            // ── Media embebida ──────────────────────────────────────
             Row(children: [
               const Icon(Icons.videocam_outlined, size: 14, color: Color(0xFF6B7280)),
               const SizedBox(width: 6),
-              Text('Media embebida', style: const TextStyle(
+              const Text('Vídeo embebido', style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF374151),
                 letterSpacing: .3)),
             ]),
             const SizedBox(height: 6),
-            _rLabel('Vídeo (YouTube, Vimeo o URL directa de vídeo)'),
+            _rLabel('YouTube, Vimeo o URL directa de vídeo'),
             TextField(
               controller: _videoUrlCtrl,
               style: const TextStyle(fontSize: 12),
-              decoration: _rDeco('https://www.youtube.com/watch?v=... o URL .mp4'),
+              decoration: _rDeco('https://www.youtube.com/watch?v=...'),
               onChanged: (_) => setState(() {}),
             ),
             if (_videoUrlCtrl.text.trim().isNotEmpty) ...[
@@ -2047,19 +2162,6 @@ class _PantallaEditorBlogState extends State<PantallaEditorBlog> {
                         : '✓ Vídeo directo',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A)),
               ),
-            ],
-            const SizedBox(height: 8),
-            _rLabel('Audio (URL directa .mp3, .m4a, .ogg…)'),
-            TextField(
-              controller: _audioUrlCtrl,
-              style: const TextStyle(fontSize: 12),
-              decoration: _rDeco('https://... .mp3'),
-              onChanged: (_) => setState(() {}),
-            ),
-            if (_audioUrlCtrl.text.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text('✓ Audio añadido',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A))),
             ],
           ]),
         ),

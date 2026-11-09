@@ -48,9 +48,14 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
           return const Center(child: CircularProgressIndicator());
         }
         final todos = snapshot.data ?? [];
-        final contacto    = todos.where((m) => !m.esManuscrito).toList();
-        final manuscritos = todos.where((m) => m.esManuscrito).toList();
-        var lista = _filtro == 'manuscritos' ? manuscritos : contacto;
+        final contacto    = todos.where((m) => !m.esManuscrito && !m.respondido).toList();
+        final manuscritos = todos.where((m) => m.esManuscrito && !m.respondido).toList();
+        final respondidos = todos.where((m) => m.respondido).toList();
+        var lista = switch (_filtro) {
+          'manuscritos' => manuscritos,
+          'respondidos' => respondidos,
+          _ => contacto,
+        };
         // Filtro de búsqueda
         if (_busqueda.isNotEmpty) {
           final q = _busqueda.toLowerCase();
@@ -63,7 +68,7 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
         final sinLeer = lista.where((m) => !m.leido).length;
 
         return Column(children: [
-          _buildHeader(sinLeer, contacto.length, manuscritos.length),
+          _buildHeader(sinLeer, contacto.length, manuscritos.length, respondidos.length),
           _buildBuscador(),
           if (lista.isEmpty)
             Expanded(child: _buildVacio())
@@ -124,7 +129,7 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
         'prioridad', esUrgente ? null : 'urgente');
   }
 
-  Widget _buildHeader(int sinLeer, int nContacto, int nManus) {
+  Widget _buildHeader(int sinLeer, int nContacto, int nManus, int nRespondidos) {
     return Container(
       color: Colors.white,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -132,6 +137,7 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
         Row(children: [
           _SubTab('Contacto', 'contacto', nContacto),
           _SubTab('Manuscritos', 'manuscritos', nManus),
+          _SubTab('Respondidos', 'respondidos', nRespondidos, iconColor: const Color(0xFF059669)),
           const Spacer(),
           if (sinLeer > 0)
             Padding(
@@ -158,29 +164,30 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
     );
   }
 
-  Widget _SubTab(String label, String id, int count) {
+  Widget _SubTab(String label, String id, int count, {Color? iconColor}) {
     final activo = _filtro == id;
+    final activeColor = iconColor ?? widget.color;
     return GestureDetector(
       onTap: () => setState(() => _filtro = id),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(
-            color: activo ? widget.color : Colors.transparent,
+            color: activo ? activeColor : Colors.transparent,
             width: 2,
           )),
         ),
         child: Row(children: [
           Text(label, style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w600,
-            color: activo ? widget.color : const Color(0xFF64748B),
+            fontSize: 12, fontWeight: FontWeight.w600,
+            color: activo ? activeColor : const Color(0xFF64748B),
           )),
           if (count > 0) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: activo ? widget.color : const Color(0xFFE2E8F0),
+                color: activo ? activeColor : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text('$count', style: TextStyle(
@@ -204,31 +211,36 @@ class _TabMensajesContactoState extends State<TabMensajesContacto> {
         empresaId: widget.empresaId,
         mensaje: msg,
         color: widget.color,
+        onRespondido: () {
+          if (mounted) setState(() => _filtro = 'respondidos');
+        },
       ),
     );
   }
 
   Widget _buildVacio() {
-    final esManuscrito = _filtro == 'manuscritos';
+    final (IconData icono, String titulo, String subtitulo) = switch (_filtro) {
+      'manuscritos' => (Icons.description_outlined,
+          'Sin manuscritos pendientes',
+          'Los manuscritos sin responder aparecerán aquí'),
+      'respondidos' => (Icons.mark_email_read_outlined,
+          'Sin mensajes respondidos',
+          'Los mensajes respondidos aparecerán aquí automáticamente'),
+      _ => (Icons.mark_email_unread_outlined,
+          'Sin mensajes de contacto',
+          'Los mensajes del formulario web aparecerán aquí'),
+    };
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(
-          esManuscrito ? Icons.description_outlined : Icons.mark_email_unread_outlined,
-          size: 72, color: Colors.grey[300],
-        ),
+        Icon(icono, size: 72, color: Colors.grey[300]),
         const SizedBox(height: 16),
-        Text(
-          esManuscrito ? 'Sin manuscritos recibidos' : 'Sin mensajes de contacto',
-          style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w600),
-        ),
+        Text(titulo,
+            style: TextStyle(fontSize: 18, color: Colors.grey[600],
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        Text(
-          esManuscrito
-              ? 'Los envíos del formulario de manuscritos aparecerán aquí'
-              : 'Los mensajes del formulario web aparecerán aquí',
-          style: TextStyle(color: Colors.grey[500], fontSize: 13),
-          textAlign: TextAlign.center,
-        ),
+        Text(subtitulo,
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            textAlign: TextAlign.center),
       ]),
     );
   }
@@ -380,11 +392,13 @@ class _SheetDetalleMensaje extends StatefulWidget {
   final String empresaId;
   final MensajeContactoWeb mensaje;
   final Color color;
+  final VoidCallback? onRespondido;
 
   const _SheetDetalleMensaje({
     required this.empresaId,
     required this.mensaje,
     required this.color,
+    this.onRespondido,
   });
 
   @override
@@ -431,6 +445,7 @@ class _SheetDetalleMensajeState extends State<_SheetDetalleMensaje> {
         _respondido = true;
         _enviando = false;
       });
+      widget.onRespondido?.call();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

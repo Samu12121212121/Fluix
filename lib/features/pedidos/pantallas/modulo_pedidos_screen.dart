@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:planeag_flutter/domain/modelos/pedido.dart';
@@ -281,6 +282,23 @@ class _ModuloPedidosScreenState extends State<ModuloPedidosScreen>
                           Text(pedido.clienteTelefono!,
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 12)),
+                        GestureDetector(
+                          onTap: () {
+                            final ref = pedido.id.substring(0, 8).toUpperCase();
+                            Clipboard.setData(ClipboardData(text: ref));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('Referencia copiada'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 1),
+                            ));
+                          },
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text('#${pedido.id.substring(0, 8).toUpperCase()}',
+                                style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                            const SizedBox(width: 3),
+                            Icon(Icons.copy_outlined, size: 10, color: Colors.grey[400]),
+                          ]),
+                        ),
                       ],
                     ),
                   ),

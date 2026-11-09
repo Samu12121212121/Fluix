@@ -138,6 +138,8 @@ class _PedidoPopupContentState extends State<_PedidoPopupContent> {
               const SizedBox(height: 14),
               _productosCard(),
               const SizedBox(height: 12),
+              _pagoDetallesCard(),
+              const SizedBox(height: 12),
               _clienteCard(),
               if (_pedido.notasCliente != null && _pedido.notasCliente!.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -182,9 +184,24 @@ class _PedidoPopupContentState extends State<_PedidoPopupContent> {
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Pedido #${_pedido.id.substring(0, 8).toUpperCase()}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A))),
+          GestureDetector(
+            onTap: () {
+              final ref = _pedido.id.substring(0, 8).toUpperCase();
+              Clipboard.setData(ClipboardData(text: ref));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Referencia copiada'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 1),
+              ));
+            },
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('Pedido #${_pedido.id.substring(0, 8).toUpperCase()}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(width: 4),
+              const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF94A3B8)),
+            ]),
+          ),
           const SizedBox(height: 2),
           Text(_pedido.clienteNombre,
               style: const TextStyle(fontSize: 13, color: Color(0xFF475569))),
@@ -303,6 +320,23 @@ class _PedidoPopupContentState extends State<_PedidoPopupContent> {
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16,
                 color: Color(0xFF3B82F6))),
       ]),
+    ]),
+  );
+
+  // ── Pago y detalles ──────────────────────────────────────────────────────
+  Widget _pagoDetallesCard() => _card(
+    icon: Icons.payments_rounded,
+    color: const Color(0xFF0EA5E9),
+    titulo: 'Pago y detalles',
+    child: Column(children: [
+      _fila('Origen', _nombreOrigenPedido(_pedido.origen), Icons.storefront_outlined),
+      _fila('Método de pago', _nombreMetodoPagoPedido(_pedido.metodoPago), Icons.payment_rounded),
+      if (_pedido.numeroTicket > 0)
+        _fila('Nº ticket', '#${_pedido.numeroTicket}', Icons.confirmation_number_outlined),
+      if (_pedido.fechaEntrega != null)
+        _fila('Fecha entrega',
+            DateFormat('dd/MM/yyyy · HH:mm', 'es').format(_pedido.fechaEntrega!),
+            Icons.schedule_rounded),
     ]),
   );
 
@@ -722,4 +756,21 @@ String _nombreEstado(EstadoPedido e) => switch (e) {
   EstadoPedido.listo         => 'Listo',
   EstadoPedido.entregado     => 'Entregado',
   EstadoPedido.cancelado     => 'Cancelado',
+};
+
+String _nombreOrigenPedido(OrigenPedido o) => switch (o) {
+  OrigenPedido.web        => 'Web',
+  OrigenPedido.app        => 'App',
+  OrigenPedido.whatsapp   => 'WhatsApp',
+  OrigenPedido.presencial => 'Presencial',
+  OrigenPedido.tpvExterno => 'TPV Externo',
+  OrigenPedido.webNazari  => 'Web Nazarí',
+};
+
+String _nombreMetodoPagoPedido(MetodoPago m) => switch (m) {
+  MetodoPago.tarjeta  => 'Tarjeta',
+  MetodoPago.paypal   => 'PayPal',
+  MetodoPago.bizum    => 'Bizum',
+  MetodoPago.efectivo => 'Efectivo',
+  MetodoPago.mixto    => 'Mixto',
 };

@@ -137,10 +137,12 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: FluixAppBar(
+      appBar: canPop ? FluixAppBar(
         titulo: 'Pedidos y Almacén',
+        showLeading: true,
         extraActions: [
           if (kDebugMode)
             IconButton(
@@ -149,7 +151,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
               onPressed: _enviarPedidoPrueba,
             ),
         ],
-      ),
+      ) : null,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
@@ -861,8 +863,8 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
     }
     final cobrado = p.estadoPago == EstadoPago.pagado;
     final fecha   = DateFormat('dd/MM HH:mm').format(p.fechaCreacion);
-    final resumen = p.lineas.map((l) => '${l.productoNombre} ×${l.cantidad}').join(', ');
 
+    final ref = p.id.substring(0, 8).toUpperCase();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -874,6 +876,7 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // ── Cabecera: cliente + total ──────────────────────────────────
             Row(children: [
               Expanded(child: Text(p.clienteNombre,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _text),
@@ -883,9 +886,68 @@ class _ModuloPedidosNuevoScreenState extends State<ModuloPedidosNuevoScreen>
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
                   color: cobrado ? _kVerde : _text)),
             ]),
-            const SizedBox(height: 6),
-            Text(resumen, style: TextStyle(fontSize: 12, color: _soft),
-              overflow: TextOverflow.ellipsis, maxLines: 2),
+            const SizedBox(height: 2),
+            // ── Referencia copiable ────────────────────────────────────────
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: ref));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Ref. $ref copiada'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 1),
+                ));
+              },
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text('#$ref',
+                  style: TextStyle(fontSize: 10, color: _soft, fontFamily: 'monospace')),
+                const SizedBox(width: 3),
+                Icon(Icons.copy_outlined, size: 10, color: _soft),
+              ]),
+            ),
+            if (p.lineas.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              // ── Líneas del pedido ──────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _inputBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border)),
+                child: Column(children: [
+                  ...p.lineas.take(4).map((l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(children: [
+                      Container(
+                        width: 20, height: 20,
+                        decoration: BoxDecoration(
+                          color: _kAzul.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4)),
+                        child: Center(child: Text('${l.cantidad}',
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _kAzul)))),
+                      const SizedBox(width: 7),
+                      Expanded(child: Text(l.productoNombre,
+                        style: TextStyle(fontSize: 12, color: _text),
+                        overflow: TextOverflow.ellipsis)),
+                      Text('${l.subtotal.toStringAsFixed(2)} €',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _soft)),
+                    ]),
+                  )),
+                  if (p.lineas.length > 4)
+                    Align(alignment: Alignment.centerLeft,
+                      child: Text('+${p.lineas.length - 4} más',
+                        style: TextStyle(fontSize: 10, color: _soft))),
+                ]),
+              ),
+            ],
+            if (p.fechaEntrega != null) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                Icon(Icons.schedule_rounded, size: 12, color: _kAmbar),
+                const SizedBox(width: 4),
+                Text('Entrega: ${DateFormat('dd/MM/yyyy · HH:mm').format(p.fechaEntrega!)}',
+                  style: TextStyle(fontSize: 11, color: _kAmbar, fontWeight: FontWeight.w600)),
+              ]),
+            ],
             const SizedBox(height: 8),
             Row(children: [
               Container(

@@ -21,6 +21,9 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
   final _correoCtrl = TextEditingController();
   final _notasClienteCtrl = TextEditingController();
   final _notasInternasCtrl = TextEditingController();
+  final _cpCtrl = TextEditingController();
+  final _ciudadCtrl = TextEditingController();
+  final _provinciaCtrl = TextEditingController();
   final PedidosService _svc = PedidosService();
 
   OrigenPedido _origen = OrigenPedido.app;
@@ -38,8 +41,44 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
   String get _usuarioNombre => FirebaseAuth.instance.currentUser?.displayName ?? 'Admin';
 
   @override
+  void initState() {
+    super.initState();
+    _cpCtrl.addListener(_actualizarProvincia);
+  }
+
+  void _actualizarProvincia() {
+    final cp = _cpCtrl.text.trim();
+    if (cp.length == 5) {
+      final prov = _provinciaDesdeCP(cp);
+      if (prov != null && _provinciaCtrl.text != prov) {
+        setState(() => _provinciaCtrl.text = prov);
+      }
+    }
+  }
+
+  static String? _provinciaDesdeCP(String cp) {
+    if (cp.length < 2) return null;
+    final pref = int.tryParse(cp.substring(0, 2));
+    if (pref == null) return null;
+    const map = {
+      1: 'Álava', 2: 'Albacete', 3: 'Alicante', 4: 'Almería', 5: 'Ávila',
+      6: 'Badajoz', 7: 'Baleares', 8: 'Barcelona', 9: 'Burgos', 10: 'Cáceres',
+      11: 'Cádiz', 12: 'Castellón', 13: 'Ciudad Real', 14: 'Córdoba', 15: 'A Coruña',
+      16: 'Cuenca', 17: 'Girona', 18: 'Granada', 19: 'Guadalajara', 20: 'Guipúzcoa',
+      21: 'Huelva', 22: 'Huesca', 23: 'Jaén', 24: 'León', 25: 'Lleida',
+      26: 'La Rioja', 27: 'Lugo', 28: 'Madrid', 29: 'Málaga', 30: 'Murcia',
+      31: 'Navarra', 32: 'Ourense', 33: 'Asturias', 34: 'Palencia', 35: 'Las Palmas',
+      36: 'Pontevedra', 37: 'Salamanca', 38: 'S.C. de Tenerife', 39: 'Cantabria',
+      40: 'Segovia', 41: 'Sevilla', 42: 'Soria', 43: 'Tarragona', 44: 'Teruel',
+      45: 'Toledo', 46: 'Valencia', 47: 'Valladolid', 48: 'Vizcaya', 49: 'Zamora',
+      50: 'Zaragoza', 51: 'Ceuta', 52: 'Melilla',
+    };
+    return map[pref];
+  }
+
+  @override
   void dispose() {
-    for (final c in [_nombreCtrl, _telCtrl, _correoCtrl, _notasClienteCtrl, _notasInternasCtrl]) {
+    for (final c in [_nombreCtrl, _telCtrl, _correoCtrl, _notasClienteCtrl, _notasInternasCtrl, _cpCtrl, _ciudadCtrl, _provinciaCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -317,6 +356,55 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
             ]),
             const SizedBox(height: 12),
 
+            // Dirección de envío
+            _card('Dirección de envío (opcional)', [
+              Row(children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _cpCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'C.P.',
+                      prefixIcon: Icon(Icons.pin_drop_outlined),
+                      counterText: '',
+                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _ciudadCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Ciudad',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _provinciaCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Provincia',
+                  prefixIcon: const Icon(Icons.map_outlined),
+                  suffixIcon: _provinciaCtrl.text.isNotEmpty
+                      ? const Icon(Icons.check_circle_outline, color: Color(0xFF10B981))
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Row(children: [
+                Icon(Icons.info_outline, size: 13, color: Color(0xFF94A3B8)),
+                SizedBox(width: 6),
+                Text('País: España · La provincia se rellena automáticamente',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              ]),
+            ]),
+            const SizedBox(height: 12),
+
             // Notas
             _card('Notas', [
               TextFormField(
@@ -382,6 +470,13 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
     }
     setState(() => _guardando = true);
     try {
+      final cp = _cpCtrl.text.trim();
+      final ciudad = _ciudadCtrl.text.trim();
+      final provincia = _provinciaCtrl.text.trim();
+      final String? direccionEnvio = (cp.isNotEmpty || ciudad.isNotEmpty)
+          ? '${cp.isNotEmpty ? "$cp " : ""}$ciudad${provincia.isNotEmpty ? ", $provincia" : ""}, España'.trim()
+          : null;
+
       await _svc.crearPedido(
         empresaId: widget.empresaId,
         clienteNombre: _nombreCtrl.text.trim().isNotEmpty ? _nombreCtrl.text.trim() : 'Sin nombre',
@@ -395,6 +490,7 @@ class _FormularioNuevoPedidoScreenState extends State<FormularioNuevoPedidoScree
         usuarioId: _usuarioId,
         usuarioNombre: _usuarioNombre,
         fechaEntrega: _fechaEntregaFinal,
+        direccionEnvio: direccionEnvio,
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {

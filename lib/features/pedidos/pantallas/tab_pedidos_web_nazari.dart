@@ -240,7 +240,7 @@ class _PedidoNazariCard extends StatelessWidget {
     final estado     = data['estado']      as String? ?? '';
     final ref        = data['ref']         as String? ?? docId.substring(0, 8).toUpperCase();
     final ts         = (data['fecha_creacion'] as Timestamp?)?.toDate();
-    final items      = (data['items'] as List?)?.length ?? 0;
+    final itemsList  = (data['items'] as List?) ?? [];
 
     final (badgeColor, badgeLabel) = _metodoBadge(metodo);
     final (pagoColor,  pagoLabel)  = estadoPago == 'pagado'
@@ -267,7 +267,23 @@ class _PedidoNazariCard extends StatelessWidget {
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
-                  _badge('#$ref', const Color(0xFF6B21A8), monospace: true),
+                  // Ref copiable al hacer tap
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: ref));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Ref. $ref copiada'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 1),
+                      ));
+                    },
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      _badge('#$ref', const Color(0xFF6B21A8), monospace: true),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.copy_outlined, size: 10,
+                          color: Color(0xFF6B21A8)),
+                    ]),
+                  ),
                   _badge(badgeLabel, badgeColor),
                   _badge(pagoLabel, pagoColor),
                   if (enviado) _badge('Enviado', const Color(0xFF0EA5E9)),
@@ -282,20 +298,63 @@ class _PedidoNazariCard extends StatelessWidget {
             Text(nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             if (email.isNotEmpty)
               Text(email, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            // Productos detallados
+            if (itemsList.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(children: [
+                  ...itemsList.take(3).map((item) {
+                    final it       = (item is Map) ? Map<String, dynamic>.from(item as Map) : <String, dynamic>{};
+                    final titulo   = it['titulo']   as String? ?? 'Producto';
+                    final cantRaw  = it['cantidad'];
+                    final cantidad = cantRaw is num ? cantRaw.toInt() : int.tryParse(cantRaw?.toString() ?? '') ?? 1;
+                    final pRaw     = it['precio_unitario'] ?? it['precio'];
+                    final precio   = pRaw is num ? pRaw.toDouble() : double.tryParse(pRaw?.toString() ?? '') ?? 0.0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(children: [
+                        Container(
+                          width: 18, height: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6B21A8).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4)),
+                          child: Center(child: Text('$cantidad',
+                            style: const TextStyle(fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF6B21A8))))),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(titulo,
+                          style: const TextStyle(fontSize: 11,
+                              color: Color(0xFF334155)),
+                          overflow: TextOverflow.ellipsis)),
+                        Text('${(precio * cantidad).toStringAsFixed(2)} €',
+                          style: const TextStyle(fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B))),
+                      ]),
+                    );
+                  }),
+                  if (itemsList.length > 3)
+                    Align(alignment: Alignment.centerLeft,
+                      child: Text('+${itemsList.length - 3} más',
+                        style: const TextStyle(fontSize: 10,
+                            color: Color(0xFF94A3B8)))),
+                ]),
+              ),
+            ],
             const SizedBox(height: 4),
-            Row(children: [
-              Icon(Icons.shopping_bag_outlined, size: 12, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text('$items producto${items == 1 ? "" : "s"}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              if (ts != null) ...[
-                const SizedBox(width: 10),
+            if (ts != null)
+              Row(children: [
                 Icon(Icons.access_time, size: 12, color: Colors.grey[400]),
                 const SizedBox(width: 4),
                 Text(_formatFecha(ts),
                     style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              ],
-            ]),
+              ]),
           ]),
         ),
       ),
