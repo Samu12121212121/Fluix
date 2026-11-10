@@ -29,10 +29,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-
     defaultConfig {
         applicationId = "com.fluixcrm.app"
         minSdk = 24
